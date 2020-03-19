@@ -37,15 +37,21 @@ pub trait PublicTransit {
 
     fn next_on_route(&self, route_stop : & Self::RouteStop) -> Option<Self::RouteStop>;
 
-    fn ride(trip : & Self::Trip, 
+    // panics if route_stop does not belongs to the same route as trip
+    //        of if route_stop is the last stop of this route
+    fn ride(&self,
+            trip : & Self::Trip, 
             route_stop : & Self::RouteStop,
             criteria : & Self::Criteria
-            ) -> Option<Self::Criteria>;
+            ) -> Self::Criteria;
 
     fn route_of(&self, route_stop : & Self::RouteStop) -> Self::Route;
 
     type Transfers : Iterator<Item = (Self::RouteStop, Self::Criteria)>;
-    fn transfers(departure : Self::RouteStop, start : Self::Criteria) -> Self::Transfers;
+    fn transfers(&self ,
+                  departure : & Self::RouteStop, 
+                  start : & Self::Criteria
+                ) -> Self::Transfers;
 
 
 
