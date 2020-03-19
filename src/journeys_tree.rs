@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 
 use crate::public_transit::{PublicTransit};
 
@@ -8,128 +7,143 @@ const MAX_ID : Id = std::usize::MAX;
 
 
 #[derive(Clone, Copy, Debug)]
-struct Board {
+pub struct Onboard {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Alight {
+pub struct Debarked {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Transfer {
+pub struct Waiting {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Arrival {
+pub struct Arrived {
     id : Id
 }
 
 
 
-/// A complete journey is a sequence of the form
-///  Transfer, (Board, Aligth, Transfer)* , Board, Aligth, Arrival
-/// i.e. it always starts with a Transfer, followed by zero or more (Board, Aligth, Transfer)
-///      and then finished by a Board, Aligth, Arrival
+/// A complete journey is a sequence of moments the form
+///  Waiting, (Onboard, Debarked, Waiting)* , Onboard, Debarked, Arrived
+/// i.e. it always starts with a Waiting, followed by zero or more (Onboard, Debarked, Waiting)
+///      and then finished by a Onboard, Debarked, Arrived
 /// 
-/// We associate the minimum amount of data to each leg type so as to be able to reconstruct
+/// We associate the minimum amount of data to each moment so as to be able to reconstruct
 /// the whole journey :
-///  - Board     -> a Trip  
+///  - Onboard     -> a Trip  
 ///      the specific RouteStop at which this Trip is boarded is given by the RouteStop
-///      associated to the leg before the Board : either a Departure or a Transfer
-///  - Alight    -> a RouteStop
+///      associated to the Waiting before the Onboard 
+///  - Debarked    -> a RouteStop
 ///      the specific RouteStop where we alight. The specific Trip that is alighted is
-///      given by the Trip associated to the Board leg that comes before this Alight
-///  - Transfer  -> a RouteStop
-///      the specific RouteStop where the Transfer ends. 
-///      If this Transfer is not the beginning of the journey (i.e. the Departure leg), 
-///      the specific RouteStop at which
-///      this Transfer ends is given by the RouteStop associated to the Aligth leg
-///      that comes before this Transfer
-///  - Arrival -> nothing
+///      given by the Trip associated to the Onboard moment that comes before this Debarked
+///  - Waiting  -> a RouteStop
+///      the specific RouteStop where we are waiting. 
+///      A Waiting can occurs either :
+///         - at the beginning of the journey, 
+///         - or between a Debarked and a Onboard, which means we are making a transfer
+///           between two vehicles. 
+///      In the second case, the the specific RouteStop at which
+///      this transfer begins is given by the RouteStop associated to the Debarked moment
+///      that comes before this Waiting
+///  - Arrived -> nothing
 ///      the specific RouteStop where this Arrival occurs is given by the RouteStop
-///      associated to the Alight leg that comes before this Arrival
+///      associated to the Debarked leg that comes before this Arrived
 
-struct JourneysTree<PT : PublicTransit> {
+pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each leg
-    boards     : Vec<PT::Trip>,
-    alights    : Vec<PT::RouteStop>,
-    transfers  : Vec<PT::RouteStop>,
+    onboards  : Vec<PT::Trip>,
+    debarkeds  : Vec<PT::RouteStop>,
+    waitings   : Vec<PT::RouteStop>,
 
     // parents 
-    board_parents   : Vec<Transfer>,
-    alight_parents  : Vec<Board>,
-    transfer_parents : Vec<Option<Alight>>,
-    arrival_parents : Vec<Alight>,
+    onboard_parents   : Vec<Waiting>,
+    debarked_parents  : Vec<Onboard>,
+    waiting_parents : Vec<Option<Debarked>>,
+    arrived_parents : Vec<Debarked>,
 
 
 }
 
 impl<PT : PublicTransit> JourneysTree<PT> {
 
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            boards : Vec::new(),
-            alights : Vec::new(),
-            transfers : Vec::new(),
+            onboards : Vec::new(),
+            debarkeds : Vec::new(),
+            waitings : Vec::new(),
 
-            board_parents    : Vec::new()
-            alight_parents   : Vec::new(),
-            transfer_parents : Vec::new(),
-            arrival_parents  : Vec::new(),
+            onboard_parents    : Vec::new(),
+            debarked_parents   : Vec::new(),
+            waiting_parents : Vec::new(),
+            arrived_parents  : Vec::new(),
 
         }
     }
 
-    fn depart(& mut self, route_stop : & PT::RouteStop) -> Transfer {
-        debug_assert!(self.transfers.len() < MAX_ID);
-        debug_assert!(self.transfers.len() == self.transfer_parents.len());
-        let id = self.transfers.len();
-        self.transfers.push(route_stop.clone());
-        self.transfer_parents.push(None);
+    pub fn depart(& mut self, route_stop : & PT::RouteStop) -> Waiting {
+        debug_assert!(self.waitings.len() < MAX_ID);
+        debug_assert!(self.waitings.len() == self.waiting_parents.len());
+        let id = self.waitings.len();
+        self.waitings.push(route_stop.clone());
+        self.waiting_parents.push(None);
 
-        Transfer{ id }
+        Waiting{ id }
     }
 
 
-    fn board(& mut self, transfer : & Transfer, trip : & PT::Trip) -> Board {
-        debug_assert!(self.boards.len() < MAX_ID);
-        debug_assert!(self.boards.len() == self.board_parents.len());
-        let id = self.boards.len();
-        self.boards.push(trip.clone());
-        self.board_parents.push(transfer.clone());
+    pub fn board(& mut self, waiting : & Waiting, trip : & PT::Trip) -> Onboard {
+        debug_assert!(self.onboards.len() < MAX_ID);
+        debug_assert!(self.onboards.len() == self.onboard_parents.len());
+        let id = self.onboards.len();
+        self.onboards.push(trip.clone());
+        self.onboard_parents.push(waiting.clone());
 
-        Board{ id }
+        Onboard{ id }
     }
 
-    fn alight(& mut self, board : & Board, route_stop : & PT::RouteStop) -> Alight {
-        debug_assert!(self.aligths.len() < MAX_ID);
-        debug_assert!(self.alights.len() == self.alight_parents.len());
-        let id = self.alights.len();
-        self.alights.push(route_stop.clone());
-        self.alight_parents.push(board.clone());
+    pub fn debark(& mut self, onboard : & Onboard, route_stop : & PT::RouteStop) -> Debarked {
+        debug_assert!(self.debarkeds.len() < MAX_ID);
+        debug_assert!(self.debarkeds.len() == self.debarked_parents.len());
+        let id = self.debarkeds.len();
+        self.debarkeds.push(route_stop.clone());
+        self.debarked_parents.push(onboard.clone());
 
-        Alight{ id }
+        Debarked{ id }
     }
 
-    fn transfer(& mut self, alight : & Alight, route_stop : & PT::RouteStop) -> Transfer {
-        debug_assert!(self.transfers.len() < MAX_ID);
-        debug_assert!(self.transfers.len() == self.transfer_parents.len());
-        let id = self.transfers.len();
-        self.transfers.push(route_stop.clone());
-        self.transfer_parents.push(alight.clone());
+    pub fn transfer(& mut self, debarked : & Debarked, route_stop : & PT::RouteStop) -> Waiting {
+        debug_assert!(self.waitings.len() < MAX_ID);
+        debug_assert!(self.waitings.len() == self.waiting_parents.len());
+        let id = self.waitings.len();
+        self.waitings.push(route_stop.clone());
+        self.waiting_parents.push(Some(debarked.clone()));
 
-        Transfer{ id }
+        Waiting{ id }
     }
 
-    fn arrive(& mut self, alight : & Alight) -> Arrival {
-        debug_assert!(self.arrival_parents.len() < MAX_ID);
-        let id = self.arrival_parents.len();
-        self.arrival_parents.push(alight.clone());
+    pub fn arrive(& mut self, debarked : & Debarked) -> Arrived {
+        debug_assert!(self.arrived_parents.len() < MAX_ID);
+        let id = self.arrived_parents.len();
+        self.arrived_parents.push(debarked.clone());
 
-        Arrival{ id }
+        Arrived{ id }
+    }
+
+    pub fn onboard_trip(&self, onboard : & Onboard) -> & PT::Trip {
+        &self.onboards[onboard.id]
+    }
+
+    pub fn debarked_stop(&self, debarked : & Debarked) -> & PT::RouteStop {
+        &self.debarkeds[debarked.id]
+    }
+
+    pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::RouteStop {
+        &self.waitings[waiting.id]
     }
 }
 

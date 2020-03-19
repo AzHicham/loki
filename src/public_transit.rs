@@ -1,7 +1,5 @@
-#[allow(dead_code)]
 
-
-trait PublicTransit {
+pub trait PublicTransit {
 
 
     // A route is a sequence of stop points
@@ -29,11 +27,12 @@ trait PublicTransit {
              criteria : & Self::Criteria
             ) -> (Self::Trip, Self::Criteria);
 
-    fn alight(&self,
+    //panics if route_stop does not belong to the same route as trip
+    fn debark(&self,
               trip : & Self::Trip,
               route_stop : & Self::RouteStop, 
               criteria : & Self::Criteria
-             ) -> (Self::Trip, Self::Criteria);
+             ) ->  Self::Criteria;
 
 
     fn next_on_route(&self, route_stop : & Self::RouteStop) -> Option<Self::RouteStop>;
