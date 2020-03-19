@@ -58,6 +58,9 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
     let mut onboard_front = OnboardFront::new(); 
     let mut new_onboard_front = OnboardFront::<PT>::new();
+
+    let mut stops_with_a_new_waiting : Vec::<PT::RouteStop> = Vec::new();
+
     while ! routes_with_new_waiting_path.is_empty() {
 
         // let's ride the routes which have an new waiting path
@@ -85,9 +88,11 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
                         if debarked_front.dominates(&new_debarked_criteria, pt) {
                             continue;
                         }
+                        if new_debarked_front.dominates(&new_debarked_criteria, pt) {
+                            continue;
+                        }
                         let new_debarked = journeys_tree.debark(onboard, &stop);
-                        debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria.clone(), pt);
-                        // TODO : can we do better and not remove dominated elements from both pareto fronts ?                      
+                        debarked_front.remove_elements_dominated_by( &new_debarked_criteria, pt);                         
                         new_debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria, pt);
                         if  ! stop_has_a_new_debarked[stop_id]{
                             stop_has_a_new_debarked[stop_id] = true;
@@ -136,11 +141,25 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
         }
 
+        // let's store all new_debarked_fronts in debarked_fronts
+        for stop in & stops_with_a_new_debarked {
+            let stop_id = pt.route_stop_id(&stop);
+            let debarked_front = & mut debarked_fronts[stop_id];
+            let new_debarked_front = & new_debarked_fronts[stop_id];
+            for (debarked, criteria) in new_debarked_front.iter() {
+                // we do not need to check, because 
+                //  - new_debarked_front is a pareto front 
+                //  - we added an element to new_debarked_front only if it was not dominated by debarked_front
+                //  - we removed from debarked_front all elements that were dominated by an element of new_debarked_front
+                debarked_front.add_unchecked(debarked.clone(), criteria.clone());
+            }
+        }
+
         // let's perform transfers from newly debarked pathes
         debug_assert!(routes_with_new_waiting_path.is_empty());
         debug_assert!(route_has_a_new_waiting_path.iter().all(|has| has.is_none()));
         debug_assert!(new_waiting_fronts.iter().all(|front| front.is_empty()));
-
+        debug_assert!(stops_with_a_new_waiting.is_empty());
         for stop in stops_with_a_new_debarked.drain(..) {
             let stop_id = pt.route_stop_id(&stop);
             let new_debarked_front = & mut new_debarked_fronts[stop_id];
@@ -152,13 +171,21 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
                     if waiting_front.dominates(&arrival_criteria, pt) {
                         continue;
                     }
+                    if new_waiting_front.dominates(&arrival_criteria, pt) {
+                        continue;
+                    }
+                    let stop_has_a_new_waiting = ! new_waiting_front.is_empty();
+
                     let waiting = journeys_tree.transfer(&debarked, &arrival_stop);
-                    // TODO : can we do better and not remove dominated elements from both pareto fronts ?                      
-                    waiting_front.add_and_remove_elements_dominated(waiting, arrival_criteria.clone(), pt);
+                    waiting_front.remove_elements_dominated_by( &arrival_criteria, pt);
                     new_waiting_front.add_and_remove_elements_dominated(waiting, arrival_criteria, pt);
 
-                    let route = pt.route_of(&arrival_stop);
 
+                    if ! stop_has_a_new_waiting {
+                        stops_with_a_new_waiting.push(arrival_stop.clone());
+                    }
+
+                    let route = pt.route_of(&arrival_stop);
                     let route_id = pt.route_id(&route);
                     if let Some(old_waiting_stop) = &route_has_a_new_waiting_path[route_id] {
                         if pt.is_upstream(&arrival_stop, old_waiting_stop) {
@@ -173,12 +200,20 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
                 }
             }
         }
+
+        // let's store all new_waiting_fronts in waiting_fronts
+        for stop in stops_with_a_new_waiting.drain(..) {
+            let stop_id = pt.route_stop_id(&stop);
+            let waiting_front = & mut waiting_fronts[stop_id];
+            let new_waiting_front = & new_waiting_fronts[stop_id];
+            for (waiting, criteria) in new_waiting_front.iter() {
+                waiting_front.add_unchecked(waiting.clone(), criteria.clone());
+            }
+        }
+
+        // TODO : what about arrivals ?
     }
 
-    //while (continue algorithm)
-    //   explore routes with a new board path
-    //   explore transfers from stop_points with a new alighting path
-    
 
 }
 

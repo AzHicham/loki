@@ -56,7 +56,7 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
         self.elements.push((id, criteria));
     }
 
-    fn remove_elements_dominated_by(& mut self, criteria :  & PT::Criteria, pt : & PT)  {
+    pub fn remove_elements_dominated_by(& mut self, criteria :  & PT::Criteria, pt : & PT)  {
 
         self.elements.retain(|(_, old_criteria)| {
             ! PublicTransit::is_lower(pt, &criteria, old_criteria)

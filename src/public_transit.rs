@@ -1,7 +1,6 @@
 
 pub trait PublicTransit {
 
-
     // A route is a sequence of stop points
     type Route : Clone;
     // A stop point in a route, along with its position in this route
