@@ -145,5 +145,28 @@ impl<PT : PublicTransit> JourneysTree<PT> {
     pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::Stop {
         &self.waitings[waiting.id]
     }
+
+    pub fn clear(&mut self) {
+        self.onboards.clear();
+        self.debarkeds.clear();
+        self.waitings.clear();
+
+
+        self.onboard_parents.clear();
+        self.debarked_parents.clear();
+        self.waiting_parents.clear();
+        self.arrived_parents.clear();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.onboards.is_empty()
+        && self.debarkeds.is_empty()
+        && self.waitings.is_empty()
+
+        && self.onboard_parents.is_empty()
+        && self.debarked_parents.is_empty()
+        && self.waiting_parents.is_empty()
+        && self.arrived_parents.is_empty()
+    }
 }
 

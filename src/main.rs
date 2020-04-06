@@ -3,6 +3,8 @@
 mod public_transit;
 mod journeys_tree;
 mod pareto_front;
+#[allow(dead_code)]
+mod multicriteria_raptor;
 
 use public_transit::PublicTransit;
 use journeys_tree::{ JourneysTree};
@@ -155,6 +157,7 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
                     }
                     onboard_front.replace_with(& mut new_onboard_front);
+                    new_onboard_front.clear();
                 }
             }
 

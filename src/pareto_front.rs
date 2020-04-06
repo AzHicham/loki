@@ -31,7 +31,6 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
 
     pub fn replace_with(& mut self, other : & mut Self) {
         std::mem::swap(& mut self.elements, & mut other.elements);
-        other.elements.clear();
     }
 
     pub fn clear(&mut self) {

@@ -64,11 +64,16 @@ pub trait PublicTransit {
                         criteria : & Self::Criteria
                       ) -> Option<Self::Criteria>; //Returns None if destination is not reachable from `stop`
 
+    // an upper bound on the number of stops
     fn nb_of_stops(&self) -> usize;
-    //returns an usize between 0 and nb_of_stops()
+    // returns an usize between 0 and nb_of_stops()
+    // returns a different value for two different `stop`s
     fn stop_id(&self, stop : & Self::Stop) -> usize;
 
+    // an upper bound on the number of routes
     fn nb_of_routes(&self) -> usize;
+    // returns an usize between 0 and nb_of_routes()
+    // return a different value for two different `route`s
     fn route_id(&self, route : & Self::Route) -> usize;
     
 }
