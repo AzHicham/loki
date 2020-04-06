@@ -1,12 +1,12 @@
 
 pub trait PublicTransit {
 
-    // A route is a sequence of stop points
+    // A `Route` is a sequence of `Stop`s
     type Route : Clone;
-    // A stop point in a route, along with its position in this route
-    type RouteStop : Clone;
+    // A stop in a route, along with its position in this Route
+    type Stop : Clone;
 
-    // A trip of a vehicle along a route
+    // A trip of a vehicle along a `Route`
     type Trip : Clone;
 
 
@@ -16,53 +16,55 @@ pub trait PublicTransit {
 
 
 
-    // returns true if upstream is positionned strictly before downstream in their common Route
-    // panics if upstream and downstream are not in the same Route
-    fn is_upstream(&self,  upstream : & Self::RouteStop, downstream : & Self::RouteStop) -> bool;
+    // Returns `true` if `upstream` is positionned strictly before `downstream` 
+    //    in their common `Route`
+    // Panics if `upstream` and `downstream` are not in the same `Route`
+    fn is_upstream(&self,  upstream : & Self::Stop, downstream : & Self::Stop) -> bool;
 
 
     fn board(&self,
-             route_stop : & Self::RouteStop, 
+             stop : & Self::Stop, 
              criteria : & Self::Criteria
             ) -> (Self::Trip, Self::Criteria);
 
-    //panics if route_stop does not belong to the same route as trip
+    //Panics if `stop` does not belong to the same `Route` as `trip`
     fn debark(&self,
               trip : & Self::Trip,
-              route_stop : & Self::RouteStop, 
+              stop : & Self::Stop, 
               criteria : & Self::Criteria
              ) ->  Self::Criteria;
 
 
-    fn next_on_route(&self, route_stop : & Self::RouteStop) -> Option<Self::RouteStop>;
+    //Returns `None` if `stop` is the last on its `Route`
+    fn next_on_route(&self, stop : & Self::Stop) -> Option<Self::Stop>;
 
-    // panics if route_stop does not belongs to the same route as trip
-    //        of if route_stop is the last stop of this route
+    // Panics if `stop` does not belongs to the same `Route` as `trip`
+    //        of if `stop` is the last of its `Route`
     fn ride(&self,
             trip : & Self::Trip, 
-            route_stop : & Self::RouteStop,
+            stop : & Self::Stop,
             criteria : & Self::Criteria
             ) -> Self::Criteria;
 
-    fn route_of(&self, route_stop : & Self::RouteStop) -> Self::Route;
+    fn route_of(&self, route_stop : & Self::Stop) -> Self::Route;
 
-    type Transfers : Iterator<Item = (Self::RouteStop, Self::Criteria)>;
+    type Transfers : Iterator<Item = (Self::Stop, Self::Criteria)>;
     fn transfers(&self ,
-                  departure : & Self::RouteStop, 
+                  departure : & Self::Stop, 
                   start : & Self::Criteria
                 ) -> Self::Transfers;
 
 
 
-    type JourneyDepartures : Iterator<Item = (Self::RouteStop, Self::Criteria)>;
+    type JourneyDepartures : Iterator<Item = (Self::Stop, Self::Criteria)>;
     fn journey_departures(&self) -> Self::JourneyDepartures;
-    fn journey_arrival(route_stop : & Self::RouteStop, 
+    fn journey_arrival(route_stop : & Self::Stop, 
                         criteria : & Self::Criteria
                       ) -> Option<Self::Criteria>; //Returns None if destination is not reachable from route_stop
 
-    fn nb_of_route_stops(&self) -> usize;
-    //returns an usize between 0 and nb_of_route_stops()
-    fn route_stop_id(&self, route_stop : & Self::RouteStop) -> usize;
+    fn nb_of_stops(&self) -> usize;
+    //returns an usize between 0 and nb_of_stops()
+    fn stop_id(&self, route_stop : & Self::Stop) -> usize;
 
     fn nb_of_routes(&self) -> usize;
     fn route_id(&self, route : & Self::Route) -> usize;

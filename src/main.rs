@@ -12,34 +12,33 @@ use pareto_front::{OnboardFront, DebarkedFront, WaitingFront};
 fn compute<PT : PublicTransit>(pt : & PT) -> () {
     let mut journeys_tree = JourneysTree::<PT>::new();
 
-    let nb_of_route_stops = pt.nb_of_route_stops();
+    let nb_of_stops = pt.nb_of_stops();
 
-    // map a route_stop to the pareto front of Pathes which
-    // ends at route_stop with a Transfer or a Departure 
-    let mut waiting_fronts = vec![WaitingFront::<PT>::new(); nb_of_route_stops];
+    // map a `stop` to the pareto front of Pathes which
+    // ends at `stop` with a Transfer or a Departure 
+    let mut waiting_fronts = vec![WaitingFront::<PT>::new(); nb_of_stops];
 
 
     let nb_of_routes = pt.nb_of_routes();
  
-    let mut route_has_a_new_waiting_path : Vec::<Option<PT::RouteStop>> = vec![None; nb_of_routes];
+    let mut route_has_a_new_waiting_path : Vec::<Option<PT::Stop>> = vec![None; nb_of_routes];
     let mut routes_with_new_waiting_path : Vec::<PT::Route> = Vec::new();
 
-    for (route_stop, criteria) in pt.journey_departures() {
-
-        let journey = journeys_tree.depart(&route_stop);
-        let route_stop_id = pt.route_stop_id(&route_stop);
-        waiting_fronts[route_stop_id].add(journey, criteria, pt);
+    for (stop, criteria) in pt.journey_departures() {
+        let journey = journeys_tree.depart(&stop);
+        let stop_id = pt.stop_id(&stop);
+        waiting_fronts[stop_id].add(journey, criteria, pt);
         
-        let route = pt.route_of(&route_stop);
+        let route = pt.route_of(&stop);
 
         let route_id = pt.route_id(&route);
         if let Some(old_waiting_stop) = &route_has_a_new_waiting_path[route_id] {
-            if pt.is_upstream(&route_stop, old_waiting_stop) {
-                route_has_a_new_waiting_path[route_id] = Some(route_stop.clone());
+            if pt.is_upstream(&stop, old_waiting_stop) {
+                route_has_a_new_waiting_path[route_id] = Some(stop.clone());
             }
         }
         else {
-            route_has_a_new_waiting_path[route_id] = Some(route_stop.clone());
+            route_has_a_new_waiting_path[route_id] = Some(stop.clone());
             routes_with_new_waiting_path.push(route);
         }
 
@@ -47,19 +46,19 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
     let mut new_waiting_fronts = waiting_fronts.clone();
 
-    // map a route_stop to the pareto front of Pathes which
-    // ends at route_stop with a Transit 
-    let mut debarked_fronts = vec![DebarkedFront::<PT>::new(); nb_of_route_stops];
-    let mut new_debarked_fronts = vec![DebarkedFront::<PT>::new(); nb_of_route_stops];
+    // map a `stop` to the pareto front of Pathes which
+    // ends at `stop` with a Transit 
+    let mut debarked_fronts = vec![DebarkedFront::<PT>::new(); nb_of_stops];
+    let mut new_debarked_fronts = vec![DebarkedFront::<PT>::new(); nb_of_stops];
 
-    let mut stops_with_a_new_debarked : Vec::<PT::RouteStop> = Vec::new();
+    let mut stops_with_a_new_debarked : Vec::<PT::Stop> = Vec::new();
     //TODO : can be replaced with new_debarked_fronts[stop].is_empty()
-    let mut stop_has_a_new_debarked = vec![false; nb_of_route_stops];
+    let mut stop_has_a_new_debarked = vec![false; nb_of_stops];
 
     let mut onboard_front = OnboardFront::new(); 
     let mut new_onboard_front = OnboardFront::<PT>::new();
 
-    let mut stops_with_a_new_waiting : Vec::<PT::RouteStop> = Vec::new();
+    let mut stops_with_a_new_waiting : Vec::<PT::Stop> = Vec::new();
 
     while ! routes_with_new_waiting_path.is_empty() {
 
@@ -75,7 +74,7 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
             let mut has_stop = route_has_a_new_waiting_path[route_id].take();
             
             while let Some(stop) = has_stop {
-                let stop_id = pt.route_stop_id(&stop);
+                let stop_id = pt.stop_id(&stop);
                 // update debarked front at this stop with elements from
                 //   onboard front
                 { 
@@ -143,7 +142,7 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
         // let's store all new_debarked_fronts in debarked_fronts
         for stop in & stops_with_a_new_debarked {
-            let stop_id = pt.route_stop_id(&stop);
+            let stop_id = pt.stop_id(&stop);
             let debarked_front = & mut debarked_fronts[stop_id];
             let new_debarked_front = & new_debarked_fronts[stop_id];
             for (debarked, criteria) in new_debarked_front.iter() {
@@ -161,11 +160,11 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
         debug_assert!(new_waiting_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(stops_with_a_new_waiting.is_empty());
         for stop in stops_with_a_new_debarked.drain(..) {
-            let stop_id = pt.route_stop_id(&stop);
+            let stop_id = pt.stop_id(&stop);
             let new_debarked_front = & mut new_debarked_fronts[stop_id];
             for (debarked, criteria) in new_debarked_front.drain() {
                 for (arrival_stop, arrival_criteria) in pt.transfers(&stop, &criteria) {
-                    let arrival_id = pt.route_stop_id(&arrival_stop);
+                    let arrival_id = pt.stop_id(&arrival_stop);
                     let waiting_front = & mut waiting_fronts[arrival_id];
                     let new_waiting_front = & mut new_waiting_fronts[arrival_id];
                     if waiting_front.dominates(&arrival_criteria, pt) {
@@ -203,7 +202,7 @@ fn compute<PT : PublicTransit>(pt : & PT) -> () {
 
         // let's store all new_waiting_fronts in waiting_fronts
         for stop in stops_with_a_new_waiting.drain(..) {
-            let stop_id = pt.route_stop_id(&stop);
+            let stop_id = pt.stop_id(&stop);
             let waiting_front = & mut waiting_fronts[stop_id];
             let new_waiting_front = & new_waiting_fronts[stop_id];
             for (waiting, criteria) in new_waiting_front.iter() {

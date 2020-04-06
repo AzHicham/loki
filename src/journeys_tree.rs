@@ -57,8 +57,8 @@ pub struct Arrived {
 pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each leg
     onboards  : Vec<PT::Trip>,
-    debarkeds  : Vec<PT::RouteStop>,
-    waitings   : Vec<PT::RouteStop>,
+    debarkeds  : Vec<PT::Stop>,
+    waitings   : Vec<PT::Stop>,
 
     // parents 
     onboard_parents   : Vec<Waiting>,
@@ -85,7 +85,7 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         }
     }
 
-    pub fn depart(& mut self, route_stop : & PT::RouteStop) -> Waiting {
+    pub fn depart(& mut self, route_stop : & PT::Stop) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
         debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
@@ -106,7 +106,7 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Onboard{ id }
     }
 
-    pub fn debark(& mut self, onboard : & Onboard, route_stop : & PT::RouteStop) -> Debarked {
+    pub fn debark(& mut self, onboard : & Onboard, route_stop : & PT::Stop) -> Debarked {
         debug_assert!(self.debarkeds.len() < MAX_ID);
         debug_assert!(self.debarkeds.len() == self.debarked_parents.len());
         let id = self.debarkeds.len();
@@ -116,7 +116,7 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Debarked{ id }
     }
 
-    pub fn transfer(& mut self, debarked : & Debarked, route_stop : & PT::RouteStop) -> Waiting {
+    pub fn transfer(& mut self, debarked : & Debarked, route_stop : & PT::Stop) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
         debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
@@ -138,11 +138,11 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         &self.onboards[onboard.id]
     }
 
-    pub fn debarked_stop(&self, debarked : & Debarked) -> & PT::RouteStop {
+    pub fn debarked_stop(&self, debarked : & Debarked) -> & PT::Stop {
         &self.debarkeds[debarked.id]
     }
 
-    pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::RouteStop {
+    pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::Stop {
         &self.waitings[waiting.id]
     }
 }
