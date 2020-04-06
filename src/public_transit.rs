@@ -46,7 +46,7 @@ pub trait PublicTransit {
             criteria : & Self::Criteria
             ) -> Self::Criteria;
 
-    fn route_of(&self, route_stop : & Self::Stop) -> Self::Route;
+    fn route_of(&self, stop : & Self::Stop) -> Self::Route;
 
     type Transfers : Iterator<Item = (Self::Stop, Self::Criteria)>;
     fn transfers(&self ,
@@ -58,13 +58,15 @@ pub trait PublicTransit {
 
     type JourneyDepartures : Iterator<Item = (Self::Stop, Self::Criteria)>;
     fn journey_departures(&self) -> Self::JourneyDepartures;
-    fn journey_arrival(route_stop : & Self::Stop, 
+
+    fn journey_arrival(&self, 
+                        stop : & Self::Stop, 
                         criteria : & Self::Criteria
-                      ) -> Option<Self::Criteria>; //Returns None if destination is not reachable from route_stop
+                      ) -> Option<Self::Criteria>; //Returns None if destination is not reachable from `stop`
 
     fn nb_of_stops(&self) -> usize;
     //returns an usize between 0 and nb_of_stops()
-    fn stop_id(&self, route_stop : & Self::Stop) -> usize;
+    fn stop_id(&self, stop : & Self::Stop) -> usize;
 
     fn nb_of_routes(&self) -> usize;
     fn route_id(&self, route : & Self::Route) -> usize;

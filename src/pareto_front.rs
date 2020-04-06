@@ -1,5 +1,5 @@
 use crate::public_transit::PublicTransit;
-use crate::journeys_tree::{Onboard, Debarked, Waiting};
+use crate::journeys_tree::{Onboard, Debarked, Waiting, Arrived};
 
 use std::slice::Iter as SliceIter;
 use std::vec::Drain as DrainIter;
@@ -8,9 +8,10 @@ pub struct ParetoFront<Id, PT : PublicTransit> {
     elements : Vec<(Id, PT::Criteria)>
 }
 
-pub type OnboardFront<PT : PublicTransit> = ParetoFront<(Onboard, PT::Trip), PT>;
+pub type OnboardFront<PT> = ParetoFront<(Onboard, <PT as PublicTransit>::Trip), PT>;
 pub type DebarkedFront<PT> = ParetoFront<Debarked, PT>;
 pub type WaitingFront<PT> = ParetoFront<Waiting, PT>;
+pub type ArrivedFront<PT> = ParetoFront<Arrived, PT>;
 
 impl<Id : Clone, PT : PublicTransit> Clone for ParetoFront<Id, PT> {
 
@@ -28,7 +29,7 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
         }
     }
 
-    pub fn pilfer(& mut self, other : & mut Self) {
+    pub fn replace_with(& mut self, other : & mut Self) {
         std::mem::swap(& mut self.elements, & mut other.elements);
         other.elements.clear();
     }
