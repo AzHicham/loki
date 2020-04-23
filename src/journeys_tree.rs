@@ -29,9 +29,10 @@ pub struct Arrived {
 
 
 /// A complete journey is a sequence of moments the form
-///  Waiting, (Onboard, Debarked, Waiting)* , Onboard, Debarked, Arrived
-/// i.e. it always starts with a Waiting, followed by zero or more (Onboard, Debarked, Waiting)
-///      and then finished by a Onboard, Debarked, Arrived
+///  Waiting, Onboard, Debarked, (Waiting, Onboard, Debarked)*, Arrived
+/// i.e. it always starts with a Waiting, Onboard, Debarked, 
+///      followed by zero or more (Waiting, Onboard, Debarked)
+///      and then finished by an Arrived
 /// 
 /// We associate the minimum amount of data to each moment so as to be able to reconstruct
 /// the whole journey :
@@ -52,10 +53,10 @@ pub struct Arrived {
 ///      that comes before this Waiting
 ///  - Arrived -> nothing
 ///      the specific RouteStop where this Arrival occurs is given by the RouteStop
-///      associated to the Debarked leg that comes before this Arrived
+///      associated to the Debarked that comes before this Arrived
 
 pub struct JourneysTree<PT : PublicTransit> {
-    // data associated to each leg
+    // data associated to each moment
     onboards  : Vec<PT::Trip>,
     debarkeds  : Vec<PT::Stop>,
     waitings   : Vec<PT::Stop>,
@@ -63,7 +64,8 @@ pub struct JourneysTree<PT : PublicTransit> {
     // parents 
     onboard_parents   : Vec<Waiting>,
     debarked_parents  : Vec<Onboard>,
-    waiting_parents : Vec<Option<Debarked>>,
+    // a Waiting has no parent when it is the beginning fo the journey
+    waiting_parents : Vec<Option<Debarked>>, 
     arrived_parents : Vec<Debarked>,
 
 
