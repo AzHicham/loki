@@ -68,7 +68,7 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         while ! self.missions_with_new_waiting.is_empty() {
             self.save_and_clear_new_debarked();
 
-            self.ride_routes();
+            self.ride();
 
             self.save_and_clear_new_waitings();
 
@@ -112,6 +112,7 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
 
     }
 
+    // fill new_waiting_fronts with journeys departures
     fn init_with_departures(&mut self) {
         debug_assert!(self.journeys_tree.is_empty());
         debug_assert!(self.new_waiting_fronts.iter().all(|front| { front.is_empty()}));
@@ -134,6 +135,9 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         }   
     }
 
+    // copy `new_waiting_fronts` in `waiting_fronts`
+    // - update `waiting_fronts`
+    // - reads `stops_with_new_waiting` and `new_waiting_fronts`
     fn save_new_waiting_fronts(&mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
         // TODO : check that new_waiting_fronts[stop] is empty for all
@@ -157,6 +161,9 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         }
     }
 
+    // identify missions that can be boarded from the new waiting pathes
+    // - fill `mission_has_new_waiting` and `missions_with_new_waiting`
+    // - reads `stops_with_new_waiting`
     fn identify_missions_with_new_waitings(& mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
         debug_assert!(self.mission_has_new_waiting.iter().all(|has| has.is_none()));
@@ -180,7 +187,13 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         }
     }
 
-    fn ride_routes(& mut self) {
+    // ride all `missions_with_new_waiting`, boarding all new waiting pathes,
+    // propagating theses new pathes, and perform debarkments along the way
+    // - update `new_debarked_fronts` and `stops_with_new_debarked`
+    // - uses `onboard_front` and `new_onboard_front` as local buffers
+    // - reads `missions_with_new_waiting`, `mission_has_new_waiting`, 
+    //         `new_waiting_fronts`, `debarked_fronts` 
+    fn ride(& mut self) {
         debug_assert!( ! self.missions_with_new_waiting.is_empty() );
         debug_assert!(self.stops_with_new_debarked.is_empty());
         debug_assert!(self.new_debarked_fronts.iter().all(|front| { front.is_empty() } ));
@@ -261,6 +274,9 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
 
     }
 
+    // tranfer `new_debarked_fronts` into `debarked_fronts`
+    // - update `debarked_fronts` and clear `new_debarked_fronts`
+    // - reads `stops_with_new_debarked` and `new_debarked_fronts`
     fn save_and_clear_new_debarked(&mut self) {
         debug_assert!(!self.stops_with_new_debarked.is_empty());
         // TODO : check that new_debarked_front[stop] is empty for all
@@ -284,6 +300,10 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         self.stops_with_new_debarked.clear();
     }
 
+    // perform transfers and arrivals from newly debarked path 
+    // - update `new_waiting_fronts` and `arrived_front`
+    // - reads `stops_with_new_debarked`, `new_debarked_fronts`
+    //         `waiting_fronts`, `new_waiting_fronts`
     fn perform_transfers_and_arrivals(&mut self) {
         debug_assert!(self.new_waiting_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_waiting.is_empty());
@@ -322,7 +342,9 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
         }
     }
 
-
+    // tranfer `new_waiting_fronts` into `waiting_fronts`
+    // - update `waiting_fronts` and clear `new_waiting_fronts`
+    // - reads `stops_with_new_waiting` and `new_waiting_fronts`
     fn save_and_clear_new_waitings(&mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
         // TODO : check that new_waiting_fronts[stop] is empty for all
