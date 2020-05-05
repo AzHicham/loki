@@ -2,7 +2,7 @@ pub trait PublicTransit {
     // A point where a vehicle can be boarded into or debarked from
     type Stop : Clone;
 
-    // A `Mission` is an ordered sequence of `Stop`s
+    // A `Mission` is an ordered sequence of pairwise distinct `Stop`s
     type Mission : Clone;
 
     // A trip of a vehicle along a `Mission`
