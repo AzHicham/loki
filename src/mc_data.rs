@@ -24,47 +24,95 @@ struct Duration {
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-struct Mission {
+struct StopPattern {
     id : usize,
 }
 
-struct Trip {
-    mission : Mission,
-    id : usize
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+struct Position {
+    id : usize,
 }
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+struct Chain {
+    stop_pattern : StopPattern,
+    id : usize,
+}
+
+
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+struct DailyTrip {
+    chain : Chain,
+    id : usize
+    
+}
+
+struct Trip {
+    daily_trip : DailyTrip,
+    day : u32,
+}
+
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 struct Stop {
     id : usize
 }
 
+// Trip :
+//   DailyTrip (aka VehicleJourney)
+//   Day
 
+// in each Mission, sort all DailyTrip by increasing departure data
+// for each stop in a mission, compute the minimum duration from the first stop of the mission
+//    among all DailyTrips
 
-struct MissionData {
+// In order to find the earliest trip leaving after a given DateTime :
+//  - find the 
+
+// In Mission : 
+// store, for each position, a BTreeMap : departure_time -> DailyTrip
+//  -> earliest departure after some time is a search in the map
+//  -> lastest arrival before some time is also a search in the map
+
+struct StopPatternData {
     stops : Vec<Stop>,
-    trips : Vec<TripData>,
+    forward_chains : Vec<ChainData>,
+
 }
 
-struct TripData {
+struct ChainData {
+    // daily_trips, ordered by increasing times
+    daily_trips : Vec<DailyTripData>,
+
+    // times_by_position[position][daily_trip]
+    // is equal to daily_trips[daily_trip].times[position]
+    times_by_position : Vec<Vec<Time>>  
+}
+
+struct DailyTripData {
     vehicle_journey_idx : Idx<VehicleJourney>,
+    // times at each position
+    times : Vec<Time>,
 }
 
 struct StopData {
     stop_point_idx : Idx<StopPoint>,
-    position_in_missions : Vec<(Mission, usize)>,
+    position_in_stop_patterns : Vec<(StopPattern, Position)>,
     transfers : Vec<(Stop, Duration, Idx<Transfer>)>
 }
 
-type StopPointSequence = Vec< Idx<StopPoint> >;
+type StopPointArray = Vec< Idx<StopPoint> >;
 
 struct TransitData {
-    stop_point_sequence_to_mission : BTreeMap< StopPointSequence, Mission>,
+    stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPattern>,
     stop_point_idx_to_main_stop : BTreeMap< Idx<StopPoint>, Stop >,
     // when a stop_point appears more than once in a mission, we create
     // another stop associated with the same stop_point for each extra occurence
     stop_point_idx_to_extra_stops : BTreeMap< Idx<StopPoint>, Vec<Stop> >,
 
     stops_data : Vec<StopData>,
-    missions_data : Vec<MissionData>
+    stop_patterns_data : Vec<StopPatternData>
 }
 
 
@@ -79,11 +127,11 @@ impl TransitData {
 
 
         let mut transit_data = TransitData {
-            stop_point_sequence_to_mission : BTreeMap::new(),
+            stop_point_array_to_stop_pattern : BTreeMap::new(),
             stop_point_idx_to_main_stop : BTreeMap::new(),
             stop_point_idx_to_extra_stops : BTreeMap::new(),
             stops_data : Vec::with_capacity(transit_model.stop_points.len()),
-            missions_data : Vec::new(),
+            stop_patterns_data : Vec::new(),
         };
 
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
@@ -130,32 +178,43 @@ impl TransitData {
 
     fn insert_vehicle_journey(& mut self, vehicle_journey_idx : Idx<VehicleJourney>
                                         , vehicle_journey : & VehicleJourney) {
-        let stop_point_sequence : StopPointSequence = vehicle_journey.stop_times
+        let stop_point_array : StopPointArray = vehicle_journey.stop_times
                                                 .iter()
                                                 .map(|stop_time| stop_time.stop_point_idx)
                                                 .collect(); 
 
-        let has_mission = self.stop_point_sequence_to_mission.get(&stop_point_sequence);
-        let mission = if let Some(mission) = has_mission {
-            *mission
+        let has_stop_pattern = self.stop_point_array_to_stop_pattern.get(&stop_point_array);
+        let stop_pattern = if let Some(stop_pattern) = has_stop_pattern {
+            *stop_pattern
         }
         else {
-            self.create_new_mission(stop_point_sequence)
+            self.create_new_stop_pattern(stop_point_array)
         };
-        let mission_data = & mut self.missions_data[mission.id];
-        let trip_data = TripData{
+        let stop_pattern_data = & mut self.stop_patterns_data[stop_pattern.id];
+
+        // TODO : insert the vehicle_journey stop_times in stop_pattern_data
+        //       make a function that computes the right chain based on times,
+        //       and insert the vehicle_journey in the right chain
+
+        let daily_trip_data = DailyTripData{
             vehicle_journey_idx : vehicle_journey_idx
         };
-        mission_data.trips.push(trip_data);
+        mission_data.daily_trips.push(daily_trip_data);
+
+        for (position, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
+            mission_data.departure_times_by_position[position].insert(key, value)
+        }
+ 
 
     }
 
-    fn create_new_mission(& mut self, stop_point_sequence : StopPointSequence) -> Mission {
-        debug_assert!( ! self.stop_point_sequence_to_mission.contains_key(&stop_point_sequence));
-        let mission = Mission { id : self.missions_data.len() };
 
-        let mut stops : Vec<Stop> = Vec::with_capacity(stop_point_sequence.len());
-        for (position, stop_point_idx) in stop_point_sequence.iter().enumerate() {
+    fn create_new_stop_pattern(& mut self, stop_point_array : StopPointArray) -> StopPattern {
+        debug_assert!( ! self.stop_point_array_to_stop_pattern.contains_key(&stop_point_array));
+        let stop_pattern = StopPattern { id : self.stop_patterns_data.len() };
+
+        let mut stops : Vec<Stop> = Vec::with_capacity(stop_point_array.len());
+        for (position_id, stop_point_idx) in stop_point_array.iter().enumerate() {
             let has_main_stop = self.stop_point_idx_to_main_stop.get(stop_point_idx);
             let stop = match has_main_stop {
                 None => {
@@ -164,14 +223,14 @@ impl TransitData {
                 },
                 Some(main_stop) => {
                     let main_stop_data = & self.stops_data[main_stop.id];
-                    let has_last_mission = main_stop_data.position_in_missions.last();
-                    match has_last_mission {
-                        // if this `stop_point_idx` already appeared in `stop_point_sequence`,
+                    let has_last_pattern = main_stop_data.position_in_stop_patterns.last();
+                    match has_last_pattern {
+                        // if this `stop_point_idx` already appeared in `stop_point_array`,
                         // then `(mission, _)` is the last element of 
-                        //   main_stop_data.position_in_mission
+                        //   main_stop_data.position_in_stop_patterns
                         // in this case, we create a new extra stop to ensure that each `Stop`
-                        // appears only once in a `Mission`
-                        Some((last_mission, _)) if *last_mission == mission => {
+                        // appears only once in a `StopPattern`
+                        Some((last_pattern, _)) if *last_pattern == stop_pattern => {
                             let new_extra_stop = self.add_new_extra_stop(*stop_point_idx);
                             new_extra_stop
                         },
@@ -185,19 +244,20 @@ impl TransitData {
                 }
             };
             let stop_data = & mut self.stops_data[stop.id];
-            stop_data.position_in_missions.push((mission, position));
+            let position = Position { id : position_id};
+            stop_data.position_in_stop_patterns.push((stop_pattern, position));
             stops.push(stop);
         }
 
-        let mission_data = MissionData {
+        let stop_pattern_data = StopPatternData {
             stops,
-            trips : Vec::new()
+            forward_chains : Vec::new()
         };
-        self.missions_data.push(mission_data);
+        self.stop_patterns_data.push(stop_pattern_data);
 
-        self.stop_point_sequence_to_mission.insert(stop_point_sequence, mission);
+        self.stop_point_array_to_stop_pattern.insert(stop_point_array, stop_pattern);
 
-        mission
+        stop_pattern
     }
 
     fn add_new_main_stop(&mut self, stop_point_idx : Idx<StopPoint>) -> Stop {
@@ -205,7 +265,7 @@ impl TransitData {
         let stop = Stop{ id : self.stops_data.len()};
         let stop_data = StopData {
             stop_point_idx,
-            position_in_missions : Vec::new(),
+            position_in_stop_patterns : Vec::new(),
             transfers : Vec::new()
         };
         self.stops_data.push(stop_data);
@@ -218,7 +278,7 @@ impl TransitData {
         let stop = Stop{ id : self.stops_data.len()};
         let stop_data = StopData {
             stop_point_idx,
-            position_in_missions : Vec::new(),
+            position_in_stop_patterns : Vec::new(),
             transfers : Vec::new()
         };
         self.stops_data.push(stop_data);

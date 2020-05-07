@@ -49,7 +49,7 @@ pub trait PublicTransit {
 
     // Returns a pareto front of `Trip`s belonging to `mission` that can be boarded at `stop`
     //   when waiting with `waiting_criteria`.
-    //  More precisely, if returns [(trip_1, crit_1), ..., (trip_n, crit_n)] such that :
+    //  More precisely, it returns [(trip_1, crit_1), ..., (trip_n, crit_n)] such that :
     //   - trip_i and trip_j are distinct for all distinct i,j in [1, ..., n]
     //   - crit_i is the criteria obtained from boarding trip_i when waiting with `waiting_criteria`
     //   - crit_i and crit_j are not comparable for all distinct i,j in [1, ..., n], i.e.
