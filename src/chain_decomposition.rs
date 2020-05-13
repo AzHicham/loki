@@ -1,6 +1,6 @@
 
 
-struct ChainDecomposition<Id, Value> {
+pub struct ChainDecomposition<Id, Value> {
     nb_of_positions : usize,
     chains : Vec<Chain<Id, Value>>
 }
@@ -18,7 +18,7 @@ where Value : Ord + Clone
 
     pub fn insert(& mut self, values : & [Value], id : Id) {
         debug_assert!( values.len() == self.nb_of_positions );
-        for chain in self.chains.iter() {
+        for chain in self.chains.iter_mut() {
             if chain.accept(values) {
                 chain.insert(values, id);
                 return;
@@ -80,14 +80,14 @@ where Value : Ord + Clone
         for id_idx in 0..self.ids.len() {
             let id_values = self.id_values(id_idx);
             let zip_iter = values.iter().zip(id_values);
-            let first_not_equal_iter = zip_iter.skip_while(|&(left, right)| *left == right);
+            let mut first_not_equal_iter = zip_iter.skip_while(|(left, right)| **left == right.clone());
             let has_first_not_equal = first_not_equal_iter.next();
             if let Some(first_not_equal) = has_first_not_equal {
                 let ordering = first_not_equal.0.cmp(&first_not_equal.1);
                 assert!( ordering != Ordering::Equal);
                 // let's see if there is a position where the ordering is not the same
                 // as first_ordering
-                let found = first_not_equal_iter.find(|&(left, right)| {
+                let found = first_not_equal_iter.find(|(left, right)| {
                     let cmp = left.cmp(&right);
                     cmp != ordering && cmp != Ordering::Equal
                 });
@@ -109,8 +109,7 @@ where Value : Ord + Clone
     {
         debug_assert!(self.accept(values));
         //let's find where to insert our new times vector
-        let first_value = values[0];
-        let values_at_first_pos = self.values_by_position[0];
+        let first_value = values[0].clone();
         debug_assert!(self.is_sorted());
         let search_insert_idx = self.values_by_position[0].binary_search(&first_value);
         let insert_idx = match search_insert_idx {
@@ -118,14 +117,14 @@ where Value : Ord + Clone
             Result::Err(idx) => idx 
         };
         for pos in 0..self.nb_of_positions() {
-            self.values_by_position[pos].insert(insert_idx, values[pos]);
+            self.values_by_position[pos].insert(insert_idx, values[pos].clone());
         }
         self.ids.insert(insert_idx, id);
     }
 
     fn is_sorted(&self) -> bool {
         for pos in 0..self.nb_of_positions() {
-            let pos_values = self.values_by_position[pos];
+            let pos_values = &self.values_by_position[pos];
             let pos_sorted = (0..self.ids.len() - 1).all(|i| pos_values[i] <= pos_values[i + 1]);
             if ! pos_sorted {
                 return false;
@@ -141,7 +140,9 @@ struct IdValuesIter<'a, Id, Value> {
     position : usize,
 }
 
-impl<'a, Id, Value>  Iterator for IdValuesIter<'a, Id, Value> {
+impl<'a, Id, Value>  Iterator for IdValuesIter<'a, Id, Value>
+where Value : Clone
+{
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -149,7 +150,7 @@ impl<'a, Id, Value>  Iterator for IdValuesIter<'a, Id, Value> {
             None
         }
         else {
-            let result = self.chain.values_by_position[self.position][self.id_idx];
+            let result = self.chain.values_by_position[self.position][self.id_idx].clone();
             self.position = self.position + 1;
             Some(result)
             

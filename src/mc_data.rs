@@ -6,6 +6,7 @@ use transit_model::{
 }; 
 use std::path::PathBuf;
 use std::collections::{HashMap, BTreeMap};
+use crate::chain_decomposition::ChainDecomposition;
 
 fn run() {
     let input_dir = PathBuf::from("tests/fixtures/small_ntfs/");
@@ -77,21 +78,12 @@ struct Stop {
 
 struct StopPatternData {
     stops : Vec<Stop>,
-    departure_chains : Vec<ChainData>,
+    departure_chains : ChainDecomposition<DailyTripData, Time>,
+    arrival_chains : ChainDecomposition<DailyTripData, Time>
 
 }
 
-struct ChainData {
-    // daily_trips, ordered by increasing times
-    daily_trips : Vec<DailyTripData>,
-
-    // times_by_position[position][daily_trip]
-    // is the time at which `daily_trip` is present at `position`
-    // so for each `position`, `times_by_position[position]`
-    // is a vector of size `daily_trips.len()`
-    times_by_position : Vec<Vec<Time>>  
-}
-
+#[derive(Debug, Clone)]
 struct DailyTripData {
     vehicle_journey_idx : Idx<VehicleJourney>,
 
@@ -106,7 +98,6 @@ struct StopData {
 type StopPointArray = Vec< Idx<StopPoint> >;
 
 struct TransitData {
-    transit_model : Model,
     stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPattern>,
     stop_point_idx_to_main_stop : BTreeMap< Idx<StopPoint>, Stop >,
     // when a stop_point appears more than once in a mission, we create
@@ -120,25 +111,25 @@ struct TransitData {
 
 
 impl TransitData {
-    pub fn new(transit_model :  Model, default_transfer_duration : Duration) -> TransitData {
+    pub fn new(transit_model : & Model, default_transfer_duration : Duration) -> TransitData {
 
+        let nb_of_stop_points = transit_model.stop_points.len();
 
         let mut transit_data = TransitData {
-            transit_model,
             stop_point_array_to_stop_pattern : BTreeMap::new(),
             stop_point_idx_to_main_stop : BTreeMap::new(),
             stop_point_idx_to_extra_stops : BTreeMap::new(),
-            stops_data : Vec::with_capacity(transit_model.stop_points.len()),
+            stops_data : Vec::with_capacity(nb_of_stop_points),
             stop_patterns_data : Vec::new(),
         };
 
-        for (vehicle_journey_idx, vehicle_journey) in transit_data.transit_model.vehicle_journeys.iter() {
+        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
             transit_data.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey);
         }
 
-        for (transfer_idx, transfer) in transit_data.transit_model.transfers.iter() {
-            let has_from_stop_point_idx = transit_data.transit_model.stop_points.get_idx(&transfer.from_stop_id);
-            let has_to_stop_point_idx = transit_data.transit_model.stop_points.get_idx(&transfer.to_stop_id);
+        for (transfer_idx, transfer) in transit_model.transfers.iter() {
+            let has_from_stop_point_idx = transit_model.stop_points.get_idx(&transfer.from_stop_id);
+            let has_to_stop_point_idx = transit_model.stop_points.get_idx(&transfer.to_stop_id);
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
                     let duration = transfer.real_min_transfer_time.map_or(default_transfer_duration, |seconds| { Duration{seconds} });
@@ -173,6 +164,7 @@ impl TransitData {
             }
         }                              
     }
+    
 
     fn insert_vehicle_journey(& mut self, vehicle_journey_idx : Idx<VehicleJourney>
                                         , vehicle_journey : & VehicleJourney) {
@@ -194,29 +186,21 @@ impl TransitData {
         //       make a function that computes the right chain based on times,
         //       and insert the vehicle_journey in the right chain
 
-        let departure_times : Vec<Time> = self.transit_model.vehicle_journeys[vehicle_journey_idx]
+        let departure_times : Vec<Time> = vehicle_journey
                                                         .stop_times.iter()
                                                         .map(|stop_time| stop_time.departure_time)
                                                         .collect();
-        let arrival_times : Vec<Time> = self.transit_model.vehicle_journeys[vehicle_journey_idx]
+        let arrival_times : Vec<Time> = vehicle_journey
                                             .stop_times.iter()
                                             .map(|stop_time| stop_time.arrival_time)
                                             .collect();
-        let departure_daily_trip_data = DailyTripData{
+        let daily_trip_data = DailyTripData{
             vehicle_journey_idx : vehicle_journey_idx,
         };
 
-        for departure_chain_data in stop_pattern_data.departure_chains.iter() {
-            if departure_chain_data.accept(&departure_times) {
-                departure_chain_data.insert(&departure_times, departure_daily_trip_data);
-            }
-        }
-        mission_data.daily_trips.push(daily_trip_data);
+        stop_pattern_data.departure_chains.insert(&departure_times, daily_trip_data.clone());
+        stop_pattern_data.arrival_chains.insert(&arrival_times, daily_trip_data);
 
-        for (position, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-            mission_data.departure_times_by_position[position].insert(key, value)
-        }
- 
 
     }
 
@@ -261,9 +245,11 @@ impl TransitData {
             stops.push(stop);
         }
 
+        let nb_of_stops = stops.len();
         let stop_pattern_data = StopPatternData {
             stops,
-            departure_chains : Vec::new()
+            departure_chains : ChainDecomposition::new(nb_of_stops),
+            arrival_chains : ChainDecomposition::new(nb_of_stops),
         };
         self.stop_patterns_data.push(stop_pattern_data);
 
@@ -299,122 +285,3 @@ impl TransitData {
         stop
     }
 }
-
-
-impl ChainData {
-
-    fn new(nb_of_positions : usize) -> Self {
-        assert!( nb_of_positions >= 1);
-        ChainData{
-            daily_trips : Vec::new(),
-            times_by_position : vec![Vec::new(); nb_of_positions]
-        }
-    }
-
-    fn nb_of_positions(&self) -> usize {
-        self.times_by_position.len()
-    }
-
-    fn daily_trip_times<'a>(& 'a self, daily_trip_idx : usize) -> DailyTripTimesIter<'a> {
-        debug_assert!( daily_trip_idx < self.daily_trips.len() );
-        DailyTripTimesIter {
-            chain_data : & self,
-            daily_trip_idx,
-            position : 0
-        }
-    }
-
-    //
-    // test whether, for all daily_trip_times vector 
-    // we have either 
-    //    - times[pos] <= daily_trip_times[pos] for all pos
-    //    - times[pos] >= daily_trip_times[pos] for all pos
-    // if this happens, we say that the two vectors are "comparable"
-    fn accept(& self, times :&[Time]) -> bool {
-        use std::cmp::Ordering;
-        debug_assert!( times.len() == self.nb_of_positions() );
-        for daily_trip_idx in 0..self.daily_trips.len() {
-            let daily_trip_times = self.daily_trip_times(daily_trip_idx);
-            let zip_iter = times.iter().zip(daily_trip_times);
-            let first_not_equal_iter = zip_iter.skip_while(|&(left, right)| *left == right);
-            let has_first_not_equal = first_not_equal_iter.next();
-            if let Some(first_not_equal) = has_first_not_equal {
-                let ordering = first_not_equal.0.cmp(&first_not_equal.1);
-                assert!( ordering != Ordering::Equal);
-                // let's see if there is a position where the ordering is not the same
-                // as first_ordering
-                let found = first_not_equal_iter.find(|&(left, right)| {
-                    let cmp = left.cmp(&right);
-                    cmp != ordering && cmp != Ordering::Equal
-                });
-                if found.is_some() {
-                    return false;
-                }
-                // if found.is_none(), it means that 
-                // all elements are ordered the same, so the two times vectors are comparable
-
-            }
-            // if has_first_not_equal == None
-            // then times == daily_trip_times
-            // the two  vector are comparable
-        }
-        true
-    }
-
-    fn insert(& mut self,  times :&[Time],  daily_trip_data : DailyTripData)
-    {
-        debug_assert!(self.accept(times));
-        //let's find where to insert our new times vector
-        let first_time = times[0];
-        let times_at_first_pos = self.times_by_position[0];
-        debug_assert!(self.is_sorted());
-        let search_insert_idx = self.times_by_position[0].binary_search(&first_time);
-        let insert_idx = match search_insert_idx {
-            Result::Ok(idx) => idx,
-            Result::Err(idx) => idx 
-        };
-        for pos in 0..self.nb_of_positions() {
-            self.times_by_position[pos].insert(insert_idx, times[pos]);
-        }
-        self.daily_trips.insert(insert_idx, daily_trip_data);
-    }
-
-    fn is_sorted(&self) -> bool {
-        for pos in 0..self.nb_of_positions() {
-            let pos_times = self.times_by_position[pos];
-            let pos_sorted = (0..self.daily_trips.len() - 1).all(|i| pos_times[i] <= pos_times[i + 1]);
-            if ! pos_sorted {
-                return false;
-            }
-        }
-        true
-    }
-}
-
-struct DailyTripTimesIter<'a> {
-    chain_data : & 'a ChainData,
-    daily_trip_idx : usize,
-    position : usize,
-}
-
-impl<'a> Iterator for DailyTripTimesIter<'a> {
-    type Item = Time;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.position >= self.chain_data.times_by_position.len() {
-            None
-        }
-        else {
-            let result = self.chain_data.times_by_position[self.position][self.daily_trip_idx];
-            self.position = self.position + 1;
-            Some(result)
-            
-        }
-    }
-}
-// read all stops and put them in MCData.stops
-// read all transfers, and fill MCData.stops.transfers 
-
-// read all vehicle_journeys to identify mission patterns 
-//   based on sequence of stop_point_idx in vj.stop_times
-// read again all vehicle_journeys and fill MCData.missions with a new tripdata for each vj
