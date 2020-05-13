@@ -7,6 +7,8 @@ mod multicriteria_raptor;
 #[allow(dead_code)]
 mod mc_data;
 
+mod chain_decomposition;
+
 
 use transit_model;
 use std::path::PathBuf;
