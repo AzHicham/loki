@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 transit_model = { path = "../transit_model"}
+typed_index_collection = { path = "../typed_index_collection"}
