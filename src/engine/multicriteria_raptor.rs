@@ -1,6 +1,6 @@
-use crate::public_transit::PublicTransit;
-use crate::journeys_tree::{JourneysTree};
-use crate::pareto_front::{OnboardFront, DebarkedFront, WaitingFront, ArrivedFront};
+use crate::engine::public_transit::PublicTransit;
+use crate::engine::journeys_tree::{JourneysTree};
+use crate::engine::pareto_front::{OnboardFront, DebarkedFront, WaitingFront, ArrivedFront};
 
 
 

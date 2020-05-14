@@ -1,5 +1,5 @@
-use crate::public_transit::PublicTransit;
-use crate::journeys_tree::{Onboard, Debarked, Waiting, Arrived};
+use crate::engine::public_transit::PublicTransit;
+use crate::engine::journeys_tree::{Onboard, Debarked, Waiting, Arrived};
 
 use std::slice::Iter as SliceIter;
 use std::vec::Drain as DrainIter;
