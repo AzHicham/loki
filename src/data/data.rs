@@ -30,23 +30,6 @@ pub struct Position {
 }
 
 
-
-// Trip :
-//   DailyTrip (aka VehicleJourney)
-//   Day
-
-// in each Mission, sort all DailyTrip by increasing departure data
-// for each stop in a mission, compute the minimum duration from the first stop of the mission
-//    among all DailyTrips
-
-// In order to find the earliest trip leaving after a given DateTime :
-//  - find the 
-
-// In Mission : 
-// store, for each position, a BTreeMap : departure_time -> DailyTrip
-//  -> earliest departure after some time is a search in the map
-//  -> lastest arrival before some time is also a search in the map
-
 pub struct StopPattern {
     pub (super) stops : Vec<StopIdx>,
     pub (super) departure_chains : ChainDecomposition<DailyTripData, Time>,

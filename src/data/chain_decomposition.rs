@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-
+use super::data::Position;
 
 
 pub struct ChainDecomposition<ItemData, Value> {
@@ -7,27 +7,15 @@ pub struct ChainDecomposition<ItemData, Value> {
     chains : Vec<Chain<ItemData, Value>>
 }
 
-// Position of a Chain in a ChainDecomposition
-pub struct ChainIdx {
-    idx : usize
-}
 
-struct Chain<ItemData, Value> {
-    // items data, ordered by increasing value in the first position
-    items_data : Vec<ItemData>,
-
-    // values_by_position[position][id]
-    // is the value of the item identified by `id` 
-    // at `position`
-    // so for each `position`, `values_by_position[position]`
-    // is a vector of size `items_data.len()`
-    values_by_position : Vec<Vec<Value>>  
-}
-
-// Position of an item in a Chain
 pub struct ItemIdx {
-    idx : usize
+    chain_idx : usize, // idx of the chain in its ChainDecomposition
+    item_idx : usize,  // idx of the item in its Chain
 }
+
+
+
+
 
 impl<ItemData, Value> ChainDecomposition<ItemData, Value> 
 where Value : Ord + Clone 
@@ -52,9 +40,41 @@ where Value : Ord + Clone
         new_chain.insert(values, item_data);
         self.chains.push(new_chain);
     }
+
+    pub fn get_value(&self, item_idx : & ItemIdx, position : & Position) -> &Value {
+        self.chains[item_idx.chain_idx].value_at(item_idx.item_idx, position.idx)
+    }
+
+    pub fn get_data(&self, item_idx : & ItemIdx) -> & ItemData {
+        & self.chains[item_idx.chain_idx].items_data[item_idx.item_idx]
+    }
+
+    pub fn get_items_greater_or_equal(&self, value : Value, position :  Position) -> impl Iterator<Item=ItemIdx> + '_{ 
+        debug_assert!(position.idx < self.nb_of_positions);
+        self.chains.iter().enumerate()
+        .filter_map( move |(chain_idx, chain)| {
+            chain.get_idx_of_first_item_greater_or_equal(&value, position.idx)
+                    .map(|item_idx|{
+                        ItemIdx {
+                            chain_idx,
+                            item_idx
+                        }
+                    })
+        })
+    }
 }
 
+struct Chain<ItemData, Value> {
+    // items data, ordered by increasing value in the first position
+    items_data : Vec<ItemData>,
 
+    // values_by_position[position][id]
+    // is the value of the item identified by `id` 
+    // at `position`
+    // so for each `position`, `values_by_position[position]`
+    // is a vector of size `items_data.len()`
+    values_by_position : Vec<Vec<Value>>  
+}
 
 impl<ItemData, Value> Chain<ItemData, Value>
 where Value : Ord + Clone 
@@ -74,6 +94,10 @@ where Value : Ord + Clone
 
     fn nb_of_items(&self) -> usize {
         self.items_data.len()
+    }
+
+    fn value_at(&self, item_idx : usize, pos_idx : usize) -> & Value {
+        &self.values_by_position[pos_idx][item_idx]
     }
 
     fn item_values<'a>(& 'a self, item_idx : usize) -> ItemValuesIter<'a, ItemData, Value> {
@@ -155,7 +179,14 @@ where Value : Ord + Clone
         let idx = self.values_by_position[position].iter().enumerate().find(|&(_, idx_val)| {
             value >= idx_val
         })
-        .map(|(idx, _)| std::cmp::max(idx - 1, 0));
+        .map(|(idx, idx_val)| {
+            if *idx_val == *value {
+                idx
+            }
+            else {
+                std::cmp::max(idx - 1, 0)
+            }
+        });
         idx
     }
 
