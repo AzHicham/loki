@@ -4,8 +4,8 @@ use crate::engine::journeys_tree::{Onboard, Debarked, Waiting, Arrived};
 use std::slice::Iter as SliceIter;
 use std::vec::Drain as DrainIter;
 
-pub struct ParetoFront<Id, PT : PublicTransit> {
-    elements : Vec<(Id, PT::Criteria)>
+pub struct ParetoFront<ItemData, PT : PublicTransit> {
+    elements : Vec<(ItemData, PT::Criteria)>
 }
 
 pub type OnboardFront<PT> = ParetoFront<(Onboard, <PT as PublicTransit>::Trip), PT>;
@@ -13,7 +13,7 @@ pub type DebarkedFront<PT> = ParetoFront<Debarked, PT>;
 pub type WaitingFront<PT> = ParetoFront<Waiting, PT>;
 pub type ArrivedFront<PT> = ParetoFront<Arrived, PT>;
 
-impl<Id : Clone, PT : PublicTransit> Clone for ParetoFront<Id, PT> {
+impl<ItemData : Clone, PT : PublicTransit> Clone for ParetoFront<ItemData, PT> {
 
     fn clone(& self) -> Self {
         ParetoFront{
@@ -22,7 +22,7 @@ impl<Id : Clone, PT : PublicTransit> Clone for ParetoFront<Id, PT> {
     }
 }
 
-impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
+impl<ItemData : Clone, PT : PublicTransit> ParetoFront<ItemData, PT> {
     pub fn new() -> Self {
         Self {
             elements : Vec::new()
@@ -51,9 +51,9 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
     }
 
 
-    pub fn add_unchecked(& mut self, id :  Id, criteria :  PT::Criteria)
+    pub fn add_unchecked(& mut self, item_data :  ItemData, criteria :  PT::Criteria)
     {
-        self.elements.push((id, criteria));
+        self.elements.push((item_data, criteria));
     }
 
     pub fn remove_elements_dominated_by(& mut self, criteria :  & PT::Criteria, pt : & PT)  {
@@ -64,19 +64,19 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
 
     }
 
-    pub fn add_and_remove_elements_dominated(& mut self, id :  Id, criteria :  PT::Criteria, pt : & PT) {
+    pub fn add_and_remove_elements_dominated(& mut self, item_data :  ItemData, criteria :  PT::Criteria, pt : & PT) {
         self.remove_elements_dominated_by(&criteria, pt);
-        self.add_unchecked(id, criteria);
+        self.add_unchecked(item_data, criteria);
     }
 
-    pub fn add(& mut self, id :  Id, criteria :  PT::Criteria, pt : & PT)
+    pub fn add(& mut self, item_data :  ItemData, criteria :  PT::Criteria, pt : & PT)
     {
         if self.dominates(&criteria, pt) {
             return;
         }
 
         self.remove_elements_dominated_by(&criteria, pt);
-        self.add_unchecked(id, criteria);
+        self.add_unchecked(item_data, criteria);
  
     }
 
@@ -88,11 +88,11 @@ impl<Id : Clone, PT : PublicTransit> ParetoFront<Id, PT> {
         }
     }
 
-    pub fn iter(&self) -> SliceIter<'_, (Id, PT::Criteria)> {
+    pub fn iter(&self) -> SliceIter<'_, (ItemData, PT::Criteria)> {
         self.elements.iter()
     }
 
-    pub fn drain(& mut self) -> DrainIter<'_, (Id, PT::Criteria)> {
+    pub fn drain(& mut self) -> DrainIter<'_, (ItemData, PT::Criteria)> {
         self.elements.drain(..)
     }
 
