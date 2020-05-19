@@ -66,4 +66,21 @@ impl TransitData {
         stop_pattern.stops.get(position.idx + 1).copied()
     }
 
+
+    pub fn nb_of_departure_chains(&self) -> usize {
+        self.stop_patterns.iter()
+            .map(|stop_pattern| 
+                stop_pattern.departure_chains.nb_of_items()
+            )
+            .sum()
+    }
+
+    pub fn nb_of_arrival_chains(&self) -> usize {
+        self.stop_patterns.iter()
+            .map(|stop_pattern| 
+                stop_pattern.arrival_chains.nb_of_items()
+            )
+            .sum()
+    }
+
 }

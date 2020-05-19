@@ -44,6 +44,10 @@ where Value : Ord + Clone
         }
     }
 
+    pub fn nb_of_items(&self) -> usize {
+        self.chains.iter().map(|chain| chain.nb_of_items()).sum()
+    }
+
     pub fn insert(& mut self, values : & [Value], item_data : ItemData) {
         debug_assert!( values.len() == self.nb_of_positions );
         for chain in self.chains.iter_mut() {
