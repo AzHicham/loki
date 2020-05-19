@@ -7,6 +7,22 @@ pub struct ChainDecomposition<ItemData, Value> {
     chains : Vec<Chain<ItemData, Value>>
 }
 
+struct Chain<ItemData, Value> {
+    // items data, ordered by increasing value in the first position
+    items_data : Vec<ItemData>,
+
+    // values_by_position[position][id]
+    // is the value of the item identified by `id` 
+    // at `position`
+    // so for each `position`, `values_by_position[position]`
+    // is a vector of size `items_data.len()`
+    values_by_position : Vec<Vec<Value>>  
+}
+
+
+pub struct ChainIdx {
+    idx : usize  
+}
 
 pub struct ItemIdx {
     chain_idx : usize, // idx of the chain in its ChainDecomposition
@@ -64,17 +80,7 @@ where Value : Ord + Clone
     }
 }
 
-struct Chain<ItemData, Value> {
-    // items data, ordered by increasing value in the first position
-    items_data : Vec<ItemData>,
 
-    // values_by_position[position][id]
-    // is the value of the item identified by `id` 
-    // at `position`
-    // so for each `position`, `values_by_position[position]`
-    // is a vector of size `items_data.len()`
-    values_by_position : Vec<Vec<Value>>  
-}
 
 impl<ItemData, Value> Chain<ItemData, Value>
 where Value : Ord + Clone 

@@ -4,3 +4,5 @@ mod data;
 mod init;
 #[allow(dead_code)]
 mod chain_decomposition;
+#[allow(dead_code)]
+mod queries;
