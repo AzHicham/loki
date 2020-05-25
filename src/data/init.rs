@@ -5,9 +5,9 @@ use transit_model::{
     objects::{StopPoint, VehicleJourney, Transfer, Time},
 }; 
 use std::collections::{BTreeMap};
-use crate::data::chain_decomposition::ChainDecomposition;
 use typed_index_collection::{Idx};
-use crate::data::data::{ TransitData, Duration, StopIdx, StopPattern, StopPatternIdx, StopPointArray, DailyTripData, Position, Stop};
+use super::data::{ TransitData, Duration, StopIdx,  StopPatternIdx, StopPointArray, DailyTripData, Position, Stop};
+use super::ordered_timetable::StopPatternTimetables;
 
 impl TransitData {
     pub fn new(transit_model : & Model, default_transfer_duration : Duration) -> TransitData {
@@ -15,10 +15,10 @@ impl TransitData {
         let nb_of_stop_points = transit_model.stop_points.len();
 
         let mut transit_data = TransitData {
-            stop_point_array_to_stop_pattern : BTreeMap::new(),
+            arrival_stop_point_array_to_stop_pattern : BTreeMap::new(),
             stop_point_idx_to_stops_idx : BTreeMap::new(),
             stops : Vec::with_capacity(nb_of_stop_points),
-            stop_patterns : Vec::new(),
+            arrival_stop_patterns : Vec::new(),
         };
 
         transit_data.init(transit_model, default_transfer_duration);
@@ -83,50 +83,58 @@ impl TransitData {
 
     fn insert_vehicle_journey(& mut self, vehicle_journey_idx : Idx<VehicleJourney>
                                         , vehicle_journey : & VehicleJourney) {
-        let stop_point_array : StopPointArray = vehicle_journey.stop_times
-                                                .iter()
-                                                .map(|stop_time| stop_time.stop_point_idx)
-                                                .collect(); 
+        
+        let arrival_stop_times_iter = vehicle_journey.stop_times
+                                            .iter()
+                                            .filter(|stop_time| {
+                                                stop_time.drop_off_type == 0
+                                                // == 1 means the drop off is not permitter
+                                                // TODO == 2 means an On Demand Transport 
+                                                //         see what should be done here
+                                            });
+        let arrival_stop_point_array : StopPointArray = arrival_stop_times_iter.clone()
+                                                        .map(|stop_time| stop_time.stop_point_idx)
+                                                        .collect();
 
-        let has_stop_pattern = self.stop_point_array_to_stop_pattern.get(&stop_point_array);
-        let stop_pattern_idx = if let Some(stop_pattern_idx) = has_stop_pattern {
+
+        let has_arrival_pattern = self.arrival_stop_point_array_to_stop_pattern.get(&arrival_stop_point_array);
+        let arrival_stop_pattern_idx = if let Some(stop_pattern_idx) = has_arrival_pattern {
             *stop_pattern_idx
         }
         else {
-            self.create_new_stop_pattern(stop_point_array)
+            self.create_new_arrival_stop_pattern(arrival_stop_point_array)
         };
-        let stop_pattern = & mut self.stop_patterns[stop_pattern_idx.idx];
+        let arrival_stop_pattern = & mut self.arrival_stop_patterns[arrival_stop_pattern_idx.idx];
 
-        let departure_times : Vec<Time> = vehicle_journey
-                                                        .stop_times.iter()
-                                                        .map(|stop_time| stop_time.departure_time)
-                                                        .collect();
-        let arrival_times : Vec<Time> = vehicle_journey
-                                            .stop_times.iter()
-                                            .map(|stop_time| stop_time.arrival_time)
-                                            .collect();
+        let arrival_times_iter  = arrival_stop_times_iter.clone()
+                                .map(|stop_time| {
+                                    stop_time.arrival_time + Time::new(0, 0, stop_time.alighting_duration.into())
+                                });
+        let departure_times_iter = arrival_stop_times_iter.clone()
+                                    .map(|stop_time|
+                                        stop_time.departure_time - Time::new(0,0, stop_time.boarding_duration.into())
+                                    );
+
         let daily_trip_data = DailyTripData{
             vehicle_journey_idx : vehicle_journey_idx,
         };
 
-        stop_pattern.departure_chains.insert(&departure_times, daily_trip_data.clone());
-        stop_pattern.arrival_chains.insert(&arrival_times, daily_trip_data);
-
+        arrival_stop_pattern.insert(arrival_times_iter, departure_times_iter, daily_trip_data);
 
     }
 
 
-    fn create_new_stop_pattern(& mut self, stop_point_array : StopPointArray) -> StopPatternIdx {
-        debug_assert!( ! self.stop_point_array_to_stop_pattern.contains_key(&stop_point_array));
+    fn create_new_arrival_stop_pattern(& mut self, arrival_stop_point_array : StopPointArray) -> StopPatternIdx {
+        debug_assert!( ! self.arrival_stop_point_array_to_stop_pattern.contains_key(&arrival_stop_point_array));
 
-        let nb_of_positions = stop_point_array.len();
+        let nb_of_positions = arrival_stop_point_array.len();
         let stop_pattern_idx = StopPatternIdx {
-            idx : self.stop_patterns.len()
+            idx : self.arrival_stop_patterns.len()
         };
 
 
         let mut stops = Vec::with_capacity(nb_of_positions);
-        for (position_id, stop_point_idx) in stop_point_array.iter().enumerate() {
+        for (position_id, stop_point_idx) in arrival_stop_point_array.iter().enumerate() {
             let has_stops_idx = self.stop_point_idx_to_stops_idx.get(stop_point_idx);
             let stop_idx = match has_stops_idx {
                 None => {
@@ -137,11 +145,11 @@ impl TransitData {
                     debug_assert!(stops_idx.len() >=1 );
                     let has_suitable_stop_idx = stops_idx.iter().find(|&&stop_idx| {
                         let stop = & self.stops[stop_idx.idx];
-                        debug_assert!(stop.position_in_stop_patterns.len() >= 1);
+                        debug_assert!(stop.position_in_arrival_patterns.len() >= 1);
                         // if stop_point_idx already appeared in this stop_pattern
                         // then stop_pattern will be the last element 
                         // in stop.position_in_stop_patterns
-                        let last_pattern = stop.position_in_stop_patterns.last().unwrap().0;
+                        let last_pattern = stop.position_in_arrival_patterns.last().unwrap().0;
                         last_pattern != stop_pattern_idx
                     });
                     if let Some(&stop_idx) = has_suitable_stop_idx {
@@ -157,22 +165,17 @@ impl TransitData {
             };
             let position = Position { idx : position_id};
             let stop = & mut self.stops[stop_idx.idx];
-            stop.position_in_stop_patterns.push((stop_pattern_idx, position));
+            stop.position_in_arrival_patterns.push((stop_pattern_idx, position));
 
             stops.push(stop_idx);
         }
 
 
+        let stop_pattern = StopPatternTimetables::new(stops);
 
-        let stop_pattern = StopPattern {
-            stops ,
-            departure_chains : ChainDecomposition::new(nb_of_positions),
-            arrival_chains : ChainDecomposition::new(nb_of_positions)
-        };
+        self.arrival_stop_patterns.push(stop_pattern);
 
-        self.stop_patterns.push(stop_pattern);
-
-        self.stop_point_array_to_stop_pattern.insert(stop_point_array, stop_pattern_idx);
+        self.arrival_stop_point_array_to_stop_pattern.insert(arrival_stop_point_array, stop_pattern_idx);
 
         stop_pattern_idx
     }
@@ -181,7 +184,7 @@ impl TransitData {
         debug_assert!( ! self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
         let stop = Stop{ 
             stop_point_idx,
-            position_in_stop_patterns : Vec::new(),
+            position_in_arrival_patterns : Vec::new(),
             transfers : Vec::new() 
         };
         let stop_idx = StopIdx {
@@ -197,7 +200,7 @@ impl TransitData {
         debug_assert!( self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
         let stop = Stop{ 
             stop_point_idx,
-            position_in_stop_patterns : Vec::new(),
+            position_in_arrival_patterns : Vec::new(),
             transfers : Vec::new()
         };
         let stop_idx = StopIdx {

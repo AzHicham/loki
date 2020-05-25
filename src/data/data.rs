@@ -5,7 +5,7 @@ use transit_model::{
 }; 
 use std::path::PathBuf;
 use std::collections::{BTreeMap};
-use crate::data::chain_decomposition::ChainDecomposition;
+use super::ordered_timetable::StopPatternTimetables;
 use typed_index_collection::{Idx};
 
 
@@ -30,12 +30,6 @@ pub struct Position {
 }
 
 
-pub struct StopPattern {
-    pub (super) stops : Vec<StopIdx>,
-    pub (super) departure_chains : ChainDecomposition<DailyTripData, Time>,
-    pub (super) arrival_chains : ChainDecomposition<DailyTripData, Time>
-
-}
 
 #[derive(Debug, Clone)]
 pub struct DailyTripData {
@@ -45,7 +39,7 @@ pub struct DailyTripData {
 
 pub struct Stop {
     pub (super) stop_point_idx : Idx<StopPoint>,
-    pub (super) position_in_stop_patterns : Vec<(StopPatternIdx, Position)>,
+    pub (super) position_in_arrival_patterns : Vec<(StopPatternIdx, Position)>,
     pub (super) transfers : Vec<(StopIdx, Duration, Option<Idx<Transfer>>)>
 }
 
@@ -64,11 +58,11 @@ pub struct StopIdx {
 
 
 pub struct TransitData {
-    pub (super) stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPatternIdx>,
+    pub (super) arrival_stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPatternIdx>,
     pub (super) stop_point_idx_to_stops_idx : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
 
     pub (super) stops : Vec<Stop>,
-    pub (super) stop_patterns : Vec<StopPattern>
+    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<DailyTripData, Time>>
 }
 
 
