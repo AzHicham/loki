@@ -6,3 +6,5 @@ mod init;
 mod chain_decomposition;
 #[allow(dead_code)]
 mod queries;
+#[allow(dead_code)]
+mod ordered_timetable;

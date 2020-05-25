@@ -63,16 +63,15 @@ pub trait PublicTransit {
         waiting_criteria : & Self::Criteria
     ) -> Self::BoardFront;
 
-    // Returns Some(debarked_criteria) if the `Mission` of `trip` allows debarkment at `stop`,
+    // Returns `debarked_criteria`,
     //   where `derbarked_criteria` is the criteria obtained by debarking from `trip` at `stop`
     //   when being onboard with `onboard_criteria`
-    // Returns None if the `Mission` of `trip` does not allows debarkment at `stop`
     // Panics if `stop` does not belong to the `Mission` of `trip`
     fn debark(&self,
         trip : & Self::Trip,
         stop : & Self::Stop, 
         onboard_criteria : & Self::Criteria
-    ) ->  Option<Self::Criteria>;
+    ) ->  Self::Criteria;
 
 
     // Returns the `new_criteria` obtained when riding along `trip`
