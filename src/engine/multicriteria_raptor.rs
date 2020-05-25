@@ -215,21 +215,21 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
 
                     for ((ref onboard, ref trip), ref onboard_criteria) in self.onboard_front.iter() {
 
-                        let has_new_debarked_criteria = self.pt.debark(trip, &stop, onboard_criteria);
-                        if let Some(new_debarked_criteria) = has_new_debarked_criteria {
-                            if debarked_front.dominates(&new_debarked_criteria, self.pt) {
-                                continue;
-                            }
-                            if new_debarked_front.dominates(&new_debarked_criteria, self.pt) {
-                                continue;
-                            }
-                            let new_debarked = self.journeys_tree.debark(onboard, &stop);
-                            debarked_front.remove_elements_dominated_by( &new_debarked_criteria, self.pt);                         
-                            new_debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria, self.pt);
-                            if  ! current_stop_has_new_debarked {
-                                self.stops_with_new_debarked.push(stop.clone());
-                            }
+                        let new_debarked_criteria = self.pt.debark(trip, &stop, onboard_criteria);
+
+                        if debarked_front.dominates(&new_debarked_criteria, self.pt) {
+                            continue;
                         }
+                        if new_debarked_front.dominates(&new_debarked_criteria, self.pt) {
+                            continue;
+                        }
+                        let new_debarked = self.journeys_tree.debark(onboard, &stop);
+                        debarked_front.remove_elements_dominated_by( &new_debarked_criteria, self.pt);                         
+                        new_debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria, self.pt);
+                        if  ! current_stop_has_new_debarked {
+                            self.stops_with_new_debarked.push(stop.clone());
+                        }
+                        
 
                     }
                 }

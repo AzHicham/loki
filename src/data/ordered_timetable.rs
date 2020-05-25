@@ -125,12 +125,12 @@ where Time : Ord + Clone
     {
         debug_assert!(debark_times.len() == self.nb_of_positions());
         debug_assert!(board_times.len() == self.nb_of_positions());
-        debug_assert!(self.accept(debark_times));
+        debug_assert!(self.accept(debark_times.clone()));
         let nb_of_vehicles = self.nb_of_vehicles();
         // TODO : maybe start testing from the end ?
         // TODO : can be simplified if we know that self.accept(&debark_times) ??
         let insert_idx = (0..nb_of_vehicles).find(|&idx| {
-            let partial_cmp = self.partial_cmp(idx, debark_times); 
+            let partial_cmp = self.partial_cmp(idx, debark_times.clone()); 
             partial_cmp ==  Some(Ordering::Equal)
             || partial_cmp == Some(Ordering::Greater)
         })
@@ -138,10 +138,10 @@ where Time : Ord + Clone
         .unwrap_or(nb_of_vehicles);
 
         for (pos, board_time) in board_times.enumerate() {
-            self.board_times_by_position[pos].insert(insert_idx, *board_time);
+            self.board_times_by_position[pos].insert(insert_idx, board_time.clone());
         }
 
-        self.debark_times_by_vehicle.insert(insert_idx, debark_times.map(|&time| time).collect());
+        self.debark_times_by_vehicle.insert(insert_idx, debark_times.map(|time| time.clone()).collect());
         self.vehicles_data.insert(insert_idx, vehicle_data);
 
     }
