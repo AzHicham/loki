@@ -29,9 +29,13 @@ pub struct OrderedTimetable<VehicleData, Time> {
 
 }
 
+pub struct TimtetableIdx {
+    idx : usize,
+}
 
 pub struct VehicleIdx {
-    idx : usize
+    timetable_idx : usize,
+    vehicle_idx : usize
 }
 
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
@@ -72,6 +76,7 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
         new_timetable.insert(debark_times, board_times, vehicle_data);
         self.timetables.push(new_timetable);
     }
+
 }
 
 
@@ -108,26 +113,30 @@ where Time : Ord + Clone
 
     // If we denote `vehicle_debark_times` the debark times of the vehicle present at `vehicle_idx`, 
     //   then this function returns :
-    //    - Some(Equal) if vehicle_debark_times[pos] == debark_times[pos] for all pos
-    //    - Some(Lower) if vehicle_debark_times[pos] <= debark_times[pos] for all pos
-    //    - Some(Upper) if vehicle_debark_times[pos] >= debark_times[pos] for all pos
+    //    - Some(Equal)   if debark_times[pos] == vehicle_debark_times[pos] for all pos
+    //    - Some(Less)    if debark_times[pos] <= vehicle_debark_times[pos] for all pos
+    //    - Some(Greater) if debark_times[pos] >= vehicle_debark_times[pos] for all pos
     //    - None otherwise (the two times vector are not comparable)
     fn partial_cmp<DebarkTimes> (&self, vehicle_idx : usize, debark_times : DebarkTimes) -> Option<Ordering> 
     where 
     DebarkTimes : Iterator<Item = Time> + Clone,
     {
         debug_assert!( debark_times.clone().count() == self.nb_of_positions() );
-        let item_values = self.vehicle_debark_times(vehicle_idx);
-        let zip_iter = debark_times.zip(item_values);
-        let mut first_not_equal_iter = zip_iter.skip_while(|(left, right) : &(Time, &Time)| left == *right);
+        let vehicle_times = self.vehicle_debark_times(vehicle_idx);
+        let zip_iter = debark_times.zip(vehicle_times);
+        let mut first_not_equal_iter = zip_iter.skip_while(|(candidate, vehicle) : &(Time, &Time)| candidate == *vehicle);
         let has_first_not_equal = first_not_equal_iter.next();
         if let Some(first_not_equal) = has_first_not_equal {
-            let ordering = first_not_equal.0.cmp(&first_not_equal.1);
-            assert!( ordering != Ordering::Equal);
+            let ordering = {
+                let candidate = first_not_equal.0;
+                let vehicle = first_not_equal.1;
+                candidate.cmp(vehicle)
+            };
+            debug_assert!( ordering != Ordering::Equal);
             // let's see if there is a position where the ordering is not the same
             // as first_ordering
-            let found = first_not_equal_iter.find(|(left, right)| {
-                let cmp = left.cmp(&right);
+            let found = first_not_equal_iter.find(|(candidate, vehicle)| {
+                let cmp = candidate.cmp(&vehicle);
                 cmp != ordering && cmp != Ordering::Equal
             });
             if found.is_some() {
@@ -174,10 +183,8 @@ where Time : Ord + Clone
         // TODO : can be simplified if we know that self.accept(&debark_times) ??
         let insert_idx = (0..nb_of_vehicles).find(|&idx| {
             let partial_cmp = self.partial_cmp(idx, debark_times.clone()); 
-            partial_cmp ==  Some(Ordering::Equal)
-            || partial_cmp == Some(Ordering::Greater)
+            partial_cmp == Some(Ordering::Less)
         })
-        .map(|idx| std::cmp::max(idx-1, 0) )
         .unwrap_or(nb_of_vehicles);
 
         for (pos, board_time) in board_times.enumerate() {
@@ -208,9 +215,5 @@ where Time : Ord + Clone
         idx
     }
 
-    pub fn get_best_vehicle_to_board_at(&self, waiting_time : & Time, position : Position) -> Option<VehicleIdx> {
-        let vehicle_idx = self.get_idx_of_best_vehicle_to_board_at(waiting_time, position.idx);
-        vehicle_idx.map(|idx| VehicleIdx{idx})
-    }
 
 }
