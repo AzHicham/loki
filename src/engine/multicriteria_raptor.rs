@@ -244,16 +244,17 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
                     continue;
                 }
 
-                // update onboard front with boardings from new waitings
+                // board and ride new waitings and put them into new_onboard_front
                 {
+                    self.new_onboard_front.clear();
                     let new_waiting_front = & self.new_waiting_fronts[stop_id];
                     for (ref waiting, ref waiting_criteria) in new_waiting_front.iter() {
-                        for (trip, new_onboard_criteria) in self.pt.board(&stop, &mission, &waiting_criteria) {
-                            if self.onboard_front.dominates(&new_onboard_criteria, self.pt) {
+                        for (trip, new_onboard_criteria) in self.pt.board_and_ride_front(&stop, &mission, &waiting_criteria) {
+                            if self.new_onboard_front.dominates(&new_onboard_criteria, self.pt) {
                                 continue;
                             }
                             let new_onboard = self.journeys_tree.board(&waiting, &trip);
-                            self.onboard_front.add_and_remove_elements_dominated((new_onboard, trip), new_onboard_criteria, self.pt);
+                            self.new_onboard_front.add_and_remove_elements_dominated((new_onboard, trip), new_onboard_criteria, self.pt);
                         }
                     }
                 }
@@ -261,14 +262,17 @@ impl<'pt, PT : PublicTransit> MultiCriteriaRaptor<'pt, PT> {
                 // ride to the next stop point and update onboard
                 //   pareto front along the way
                 {
-                    self.new_onboard_front.clear();
                     for ((onboard, trip), criteria) in self.onboard_front.iter() {
                         let new_criteria = self.pt.ride(&trip, &stop, &criteria);
+                        if self.new_onboard_front.dominates(&new_criteria, self.pt) {
+                            continue;
+                        }
                         self.new_onboard_front.add((onboard.clone(), trip.clone()), new_criteria, self.pt);
 
                     }
-                    self.onboard_front.replace_with(& mut self.new_onboard_front);
+                    
                 }
+                self.onboard_front.replace_with(& mut self.new_onboard_front);
             }
         }
 
