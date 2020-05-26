@@ -24,7 +24,8 @@ pub struct OrderedTimetable<VehicleData, Time> {
     // board_times_by_position[position][vehicle]
     // is the time at which a traveler waiting
     // at `position` can board `vehicle`
-    board_times_by_position : Vec<Vec<Time>>, 
+    // None if `vehicle` cannot be boarded at `position` 
+    board_times_by_position : Vec<Vec<Option<Time>>>, 
 
 }
 
@@ -56,7 +57,7 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
         vehicle_data : VehicleData)
     where 
     DebarkTimes : Iterator<Item = Time> +  Clone,
-    BoardTimes : Iterator<Item = Time> +  Clone,
+    BoardTimes : Iterator<Item = Option<Time>> +  Clone,
     Time : Ord + Clone
     {
         debug_assert!(self.nb_of_positions() == debark_times.clone().count());
@@ -163,7 +164,7 @@ where Time : Ord + Clone
             vehicle_data : VehicleData)
     where 
     DebarkTimes : Iterator<Item =  Time> +  Clone,
-    BoardTimes : Iterator<Item =  Time> +  Clone,
+    BoardTimes : Iterator<Item =  Option<Time> > +  Clone,
     {
         debug_assert!(debark_times.clone().count() == self.nb_of_positions());
         debug_assert!(board_times.clone().count() == self.nb_of_positions());
@@ -194,17 +195,16 @@ where Time : Ord + Clone
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
     fn get_idx_of_best_vehicle_to_board_at(&self, waiting_time : & Time, position : usize) -> Option<usize> {
-        let idx = self.board_times_by_position[position].iter().enumerate().find(|&(_, board_time)| {
-            waiting_time >= board_time
-        })
-        .map(|(vehicle_idx, board_time)| {
-            if *board_time == *waiting_time {
-                vehicle_idx
-            }
-            else {
-                std::cmp::max(vehicle_idx - 1, 0)
-            }
-        });
+        let idx = self.board_times_by_position[position].iter()
+                        .enumerate()
+                        .find_map(|(idx, has_board_time)| {
+                            match has_board_time {
+                                Some(board_time) if waiting_time <= board_time => {
+                                    Some(idx)
+                                },
+                                _ => None
+                            }
+                        });
         idx
     }
 

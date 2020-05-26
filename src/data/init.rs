@@ -112,7 +112,18 @@ impl TransitData {
                                 });
         let departure_times_iter = arrival_stop_times_iter.clone()
                                     .map(|stop_time|
-                                        stop_time.departure_time - Time::new(0,0, stop_time.boarding_duration.into())
+                                        if stop_time.pickup_type == 0 {
+                                            let departure_time = stop_time.departure_time - Time::new(0,0, stop_time.boarding_duration.into());
+                                            Some(departure_time)
+                                        }
+                                        //  == 1 it means that boarding is not allowed
+                                        //   at this stop_point
+                                        // TODO : == 2 means an On Demand Transport 
+                                        //        see what should be done here
+                                        else {
+                                            None
+                                        }
+                                        
                                     );
 
         let daily_trip_data = DailyTripData{
