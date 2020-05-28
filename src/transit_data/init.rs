@@ -2,33 +2,37 @@
 use transit_model;
 use transit_model::{
     model::{Model},
-    objects::{StopPoint, VehicleJourney, Transfer, Time},
+    objects::{StopPoint, VehicleJourney, Transfer},
 }; 
 use std::collections::{BTreeMap};
 use typed_index_collection::{Idx};
-use super::data::{ TransitData, Duration, StopIdx,  StopPatternIdx, StopPointArray, DailyTripData, Position, Stop};
+use super::data::{ EngineData, Duration, StopIdx,  StopPatternIdx, StopPointArray, VehicleData, Position, Stop, TimeInDay};
 use super::ordered_timetable::StopPatternTimetables;
+use super::calendars::Calendars;
 
-impl TransitData {
-    pub fn new(transit_model : & Model, default_transfer_duration : Duration) -> TransitData {
+impl EngineData {
+    pub fn new(transit_model : & Model, default_transfer_duration : Duration) -> Self {
 
         let nb_of_stop_points = transit_model.stop_points.len();
 
-        let mut transit_data = TransitData {
+        let (start_date, end_date) = transit_model.calculate_validity_period().expect("Unable to calculate a validity period.");
+
+        let mut engine_data = Self {
             arrival_stop_point_array_to_stop_pattern : BTreeMap::new(),
             stop_point_idx_to_stops_idx : BTreeMap::new(),
             stops : Vec::with_capacity(nb_of_stop_points),
             arrival_stop_patterns : Vec::new(),
+            calendars : Calendars::new(start_date, end_date),
         };
 
-        transit_data.init(transit_model, default_transfer_duration);
+        engine_data.init(transit_model, default_transfer_duration);
  
-        transit_data
+        engine_data
     }
 
     fn init(&mut self, transit_model : & Model, default_transfer_duration : Duration) {
        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey);
+            self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
 
         for (transfer_idx, transfer) in transit_model.transfers.iter() {
@@ -82,7 +86,9 @@ impl TransitData {
     
 
     fn insert_vehicle_journey(& mut self, vehicle_journey_idx : Idx<VehicleJourney>
-                                        , vehicle_journey : & VehicleJourney) {
+                                        , vehicle_journey : & VehicleJourney
+                                        , transit_model : & Model
+                                    ) {
         
         let arrival_stop_times_iter = vehicle_journey.stop_times
                                             .iter()
@@ -108,12 +114,12 @@ impl TransitData {
 
         let arrival_times_iter  = arrival_stop_times_iter.clone()
                                 .map(|stop_time| {
-                                    stop_time.arrival_time + Time::new(0, 0, stop_time.alighting_duration.into())
+                                    stop_time.arrival_time + TimeInDay::new(0, 0, stop_time.alighting_duration.into())
                                 });
         let departure_times_iter = arrival_stop_times_iter.clone()
                                     .map(|stop_time|
                                         if stop_time.pickup_type == 0 {
-                                            let departure_time = stop_time.departure_time - Time::new(0,0, stop_time.boarding_duration.into());
+                                            let departure_time = stop_time.departure_time - TimeInDay::new(0,0, stop_time.boarding_duration.into());
                                             Some(departure_time)
                                         }
                                         //  == 1 it means that boarding is not allowed
@@ -126,8 +132,21 @@ impl TransitData {
                                         
                                     );
 
-        let daily_trip_data = DailyTripData{
-            vehicle_journey_idx : vehicle_journey_idx,
+
+        let transit_model_calendar = transit_model.calendars
+                                .get(&vehicle_journey.service_id)
+                                .unwrap_or_else(|| 
+                                    panic!(format!("Calendar {} needed for vehicle journey {} not found", 
+                                                    vehicle_journey.service_id, 
+                                                    vehicle_journey.id)
+                                                )
+                                            );
+
+        let calendar_idx = self.calendars.get_or_insert(transit_model_calendar.dates.iter());
+        
+        let daily_trip_data = VehicleData{
+            vehicle_journey_idx ,
+            calendar_idx  
         };
 
         arrival_stop_pattern.insert(arrival_times_iter, departure_times_iter, daily_trip_data);

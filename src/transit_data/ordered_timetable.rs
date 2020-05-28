@@ -29,12 +29,11 @@ pub struct OrderedTimetable<VehicleData, Time> {
 
 }
 
-pub struct TimtetableIdx {
+pub struct TimeTableIdx {
     idx : usize,
 }
 
 pub struct VehicleIdx {
-    timetable_idx : usize,
     vehicle_idx : usize
 }
 
@@ -202,17 +201,45 @@ where Time : Ord + Clone
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
     fn get_idx_of_best_vehicle_to_board_at(&self, waiting_time : & Time, position : usize) -> Option<usize> {
-        let idx = self.board_times_by_position[position].iter()
-                        .enumerate()
-                        .find_map(|(idx, has_board_time)| {
-                            match has_board_time {
-                                Some(board_time) if waiting_time <= board_time => {
-                                    Some(idx)
-                                },
-                                _ => None
-                            }
-                        });
-        idx
+        self.board_times_by_position[position]
+            .iter()
+            .enumerate()
+            .find_map(|(idx, has_board_time)| {
+                match has_board_time {
+                    Some(board_time) if waiting_time <= board_time => {
+                        Some(idx)
+                    },
+                    _ => None
+                }
+            })
+        
+    }
+
+
+    // If we are waiting to board a vehicle at `position` at time `waiting_time`
+    // will return the index of the vehicle, among those vehicle on which `filter` returns true,
+    //  to board that allows to debark at the subsequent positions at the earliest time.
+    // Note : this may NOT be the vehicle with the earliest boarding time
+    // Returns None if no vehicle can be boarded after `waiting_time`
+    fn get_idx_of_best_filtered_vehicle_to_board_at<Filter>(&self, 
+        waiting_time : & Time, 
+        position : usize,
+        filter : Filter
+    ) -> Option<usize> 
+    where Filter : Fn(&VehicleData) -> bool
+    {
+        self.board_times_by_position[position].iter()
+            .zip(self.vehicles_data.iter())
+            .enumerate()
+            .filter(|(_, (_, vehicle_data)) | filter(vehicle_data))
+            .find_map(|(idx, (has_board_time, _)) | {
+                match has_board_time {
+                    Some(board_time) if waiting_time <= board_time => {
+                        Some(idx)
+                    },
+                    _ => None
+                }
+            })
     }
 
 

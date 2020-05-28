@@ -1,11 +1,15 @@
 
 use transit_model;
 use transit_model::{
-    objects::{StopPoint, VehicleJourney, Transfer, Time},
+    objects::{StopPoint, VehicleJourney, Transfer},
 }; 
+pub use transit_model::objects::Time  as TimeInDay;
+pub use transit_model::objects::Date;
+
 use std::path::PathBuf;
 use std::collections::{BTreeMap};
 use super::ordered_timetable::StopPatternTimetables;
+use super::calendars::{Calendars, CalendarIdx};
 use typed_index_collection::{Idx};
 
 
@@ -32,8 +36,9 @@ pub struct Position {
 
 
 #[derive(Debug, Clone)]
-pub struct DailyTripData {
+pub struct VehicleData {
     pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
+    pub (super) calendar_idx : CalendarIdx,
 
 }
 
@@ -57,13 +62,21 @@ pub struct StopIdx {
 }
 
 
-pub struct TransitData {
+pub struct EngineData {
     pub (super) arrival_stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPatternIdx>,
     pub (super) stop_point_idx_to_stops_idx : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
 
     pub (super) stops : Vec<Stop>,
-    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<DailyTripData, Time>>
+    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, TimeInDay>>,
+
+    pub (super) calendars : Calendars,
+
+
 }
+
+
+
+
 
 
 

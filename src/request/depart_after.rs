@@ -1,11 +1,35 @@
+use crate::engine::public_transit::PublicTransit;
+use chrone::NaiveDateTime as DateTime;
 
-use super::data::{
+use crate::transit_data::{
     TransitData,
     Stop,
     StopIdx,
     StopPatternIdx,
     Position,
 };
+
+pub struct Request<'a> {
+    transit_data : & 'a TransitData,
+    departure_datetime : DateTime,
+
+}
+
+impl<'a> Request<'a> {
+
+
+
+    pub fn new(transit_data : & 'a TransitData, departure_date : Date, departure_time : TimeInDay) -> Self {
+        if ! transit_data.is_valid_date(departure_date) {
+            panic!("Departure date is not in validity period.");
+        }
+        Self {
+            transit_data,
+            departure_date,
+            departure_time,
+        }
+    }
+}
 
 impl Stop {
 
@@ -53,7 +77,8 @@ impl TransitData {
     pub fn next_stop_in_arrival_pattern(&self, 
         stop_idx : & StopIdx,
         stop_pattern_idx : & StopPatternIdx,
-    ) -> Option<StopIdx> {
+    ) -> Option<StopIdx> 
+    {
         let stop = &self.stops[stop_idx.idx];
         let position = stop.get_position_in_arrival_pattern(stop_pattern_idx)
             .unwrap_or_else(|| panic!(format!("The stop {:?} is expected to belongs to the stop_pattern {:?}", 
@@ -61,7 +86,7 @@ impl TransitData {
                                                 *stop_pattern_idx))
                             );
         let arrival_pattern = &self.arrival_stop_patterns[stop_pattern_idx.idx];
-        if position.idx +1 == arrival_pattern.nb_of_positions() {
+        if position.idx + 1 == arrival_pattern.nb_of_positions() {
             return None;
         }
         debug_assert!(position.idx < arrival_pattern.nb_of_positions() );
