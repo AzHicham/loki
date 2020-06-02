@@ -54,10 +54,15 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
         return self.stops.len()
     }
 
+    pub fn get_timetable<'a>(& 'a self, timetable_idx : & TimeTableIdx) -> & 'a OrderedTimetable<VehicleData, Time> {
+        & self.timetables[timetable_idx.idx]
+    }
+
     pub fn insert<'a, 'b, DebarkTimes, BoardTimes >(& mut self,  
         debark_times : DebarkTimes, 
         board_times : BoardTimes, 
-        vehicle_data : VehicleData)
+        vehicle_data : VehicleData
+    ) -> Result<(), VehicleTimesError>
     where 
     DebarkTimes : Iterator<Item = Time> +  Clone,
     BoardTimes : Iterator<Item = Option<Time>> +  Clone,
@@ -65,16 +70,22 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
     {
         debug_assert!(self.nb_of_positions() == debark_times.clone().count());
         debug_assert!(self.nb_of_positions() == board_times.clone().count());
+        if let Err(err) =  is_intertwined(debark_times, board_times, self.nb_of_positions()) {
+            return Err(err);
+        }
+
         for timetable in & mut self.timetables {
             if timetable.accept(debark_times.clone()) {
                 timetable.insert(debark_times, board_times, vehicle_data);
-                return;
+                return Ok(());
             }
         }
         let mut new_timetable = OrderedTimetable::new(self.nb_of_positions());
         new_timetable.insert(debark_times, board_times, vehicle_data);
         self.timetables.push(new_timetable);
+        Ok(())
     }
+
 
 }
 
@@ -200,7 +211,7 @@ where Time : Ord + Clone
     // at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    fn get_idx_of_best_vehicle_to_board_at(&self, waiting_time : & Time, position : usize) -> Option<usize> {
+    pub (super) fn get_idx_of_best_vehicle_to_board_at(&self, waiting_time : & Time, position : usize) -> Option<usize> {
         self.board_times_by_position[position]
             .iter()
             .enumerate()
@@ -221,7 +232,7 @@ where Time : Ord + Clone
     //  to board that allows to debark at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    fn get_idx_of_best_filtered_vehicle_to_board_at<Filter>(&self, 
+    pub (super) fn get_idx_of_best_filtered_vehicle_to_board_at<Filter>(&self, 
         waiting_time : & Time, 
         position : usize,
         filter : Filter
@@ -241,6 +252,64 @@ where Time : Ord + Clone
                 }
             })
     }
+}
 
+
+
+enum VehicleTimesError {
+    BoardBeforeDebark(usize),            // board_time[idx] < debark_time[idx]
+    NextDebarkIsBeforeBoard(usize),      // board_time[idx] > debark_time[idx+1]
+    NextDebarkIsBeforePrevDebark(usize)  // debark_time[idx] > debark_time[idx + 1]
+}
+
+// check that 
+//  - debark_times[i] <= debark_times[i+1] for all i >= 1 (as debark_time[0] has no meaning)
+//  - debark_times[i] <= board_times[i] for all i >= 1 such that board_times[i] is not None
+//  - board_times[i] <= debark_times[i+1] for all i < len - 2 such that board_times[i] is not None
+fn is_intertwined<DebarkTimes, BoardTimes, Time>(
+    debark_times : DebarkTimes, 
+    board_times : BoardTimes,
+    len : usize,
+) ->  Result<(), VehicleTimesError>
+where 
+DebarkTimes : Iterator<Item = Time> +  Clone,
+BoardTimes : Iterator<Item = Option<Time>> +  Clone,
+Time : Ord + Clone
+{
+    debug_assert!(board_times.clone().count() == debark_times.clone().count());
+    debug_assert!(board_times.clone().count() == len);
+    debug_assert!(len >= 2);
+    let iter = board_times.zip(debark_times).enumerate();
+    let (mut prev_idx, (mut has_prev_board, mut prev_debark) ) = iter.next().unwrap();
+
+    while let Some((curr_idx, (has_curr_board, curr_debark))) = iter.next() {
+        if let Some(prev_board) = has_prev_board {
+            if prev_board > curr_debark {
+                return Err(VehicleTimesError::NextDebarkIsBeforeBoard(prev_idx));
+            }
+
+        }
+        // the last board time has no meaning
+        // so we do not check if
+        // last_debark_time <= last_board_time
+        if curr_idx < len - 1 {
+            if let Some(curr_board) = has_curr_board {
+                if curr_board < curr_debark {
+                    return Err(VehicleTimesError::BoardBeforeDebark(curr_idx));
+                }
+            }
+        }
+
+        // the first debark time has no meaning, so we do not check
+        // if debark_time[0] <= debark_time[1]
+        if prev_idx >= 1 {
+            if prev_debark > curr_debark {
+                return Err(VehicleTimesError::NextDebarkIsBeforePrevDebark(prev_idx));
+            }
+        }
+
+    }
+
+    Ok(())
 
 }

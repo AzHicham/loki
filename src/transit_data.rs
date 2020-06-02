@@ -12,3 +12,6 @@ pub mod ordered_timetable;
 pub mod calendars;
 #[allow(dead_code)]
 pub mod depart_after_queries;
+
+#[allow(dead_code)]
+pub mod time;

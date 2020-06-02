@@ -1,10 +1,13 @@
 use transit_model::objects::Date;
 use std::convert::TryFrom;
 
+use super::time::DaysSinceDatasetStart;
+
 pub struct Calendars{
     first_date : Date, //first date which may be allowed
     last_date : Date,  //last date (included) which may be allowed
-    nb_of_days : usize, // == (last_date - first_date).num_of_days()
+    nb_of_days : u16,  // == (last_date - first_date).num_of_days()
+                       // we allow at most u16::MAX = 65_535 days
     calendars : Vec<Calendar>,
 
     buffer : Vec<bool>
@@ -19,10 +22,7 @@ pub struct CalendarIdx {
     idx : usize
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Day {
-    offset : usize
-}
+
 
 impl Calendars {
 
@@ -30,8 +30,8 @@ impl Calendars {
         assert!(first_date <= last_date);
         let nb_of_days_i64 : i64 = (last_date - first_date).num_days();
 
-        let nb_of_days : usize = TryFrom::try_from(nb_of_days_i64)
-                .expect("Trying to construct a calendar with more days than usize::MAX.");
+        let nb_of_days : u16 = TryFrom::try_from(nb_of_days_i64)
+                .expect("Trying to construct a calendar with more days than u16::MAX.");
 
         Self {
             first_date,
@@ -39,7 +39,7 @@ impl Calendars {
             nb_of_days,
             calendars : Vec::new(),
 
-            buffer : vec![false; nb_of_days]
+            buffer : vec![false; nb_of_days.into()]
         }
     }
 
@@ -82,6 +82,8 @@ impl Calendars {
         }
     }
 
+
+
     fn contains(&self, date : & Date) -> bool {
         self.first_date <= *date && *date <= self.last_date
     }
@@ -105,8 +107,4 @@ impl Calendars {
 
 
 
-
-    // fn dates_to_vec(&self, dates : impl Iterator<Item = Date>) -> Vec<bool> {
-
-    // }
 }

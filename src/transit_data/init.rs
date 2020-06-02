@@ -6,12 +6,13 @@ use transit_model::{
 }; 
 use std::collections::{BTreeMap};
 use typed_index_collection::{Idx};
-use super::data::{ EngineData, Duration, StopIdx,  StopPatternIdx, StopPointArray, VehicleData, Position, Stop, TimeInDay};
+use super::data::{ EngineData, StopIdx,  StopPatternIdx, StopPointArray, VehicleData, Position, Stop, TransitModelTime};
 use super::ordered_timetable::StopPatternTimetables;
 use super::calendars::Calendars;
+use super::time::{SecondsSinceDayStart, PositiveDuration};
 
 impl EngineData {
-    pub fn new(transit_model : & Model, default_transfer_duration : Duration) -> Self {
+    pub fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
 
         let nb_of_stop_points = transit_model.stop_points.len();
 
@@ -30,7 +31,7 @@ impl EngineData {
         engine_data
     }
 
-    fn init(&mut self, transit_model : & Model, default_transfer_duration : Duration) {
+    fn init(&mut self, transit_model : & Model, default_transfer_duration : PositiveDuration) {
        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
             self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
@@ -40,7 +41,7 @@ impl EngineData {
             let has_to_stop_point_idx = transit_model.stop_points.get_idx(&transfer.to_stop_id);
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
-                    let duration = transfer.real_min_transfer_time.map_or(default_transfer_duration, |seconds| { Duration{seconds} });
+                    let duration = transfer.real_min_transfer_time.map_or(default_transfer_duration, |seconds| { PositiveDuration{seconds} });
                     self.insert_transfer(from_stop_point_idx, to_stop_point_idx, transfer_idx, duration)
                 }
                 _ => {
@@ -68,7 +69,7 @@ impl EngineData {
     fn insert_transfer(& mut self, from_stop_point_idx : Idx<StopPoint>
                                 , to_stop_point_idx : Idx<StopPoint>
                                 , transfer_idx : Idx<Transfer>
-                                , duration : Duration ) 
+                                , duration : PositiveDuration ) 
     { 
 
         let empty_vec : Vec<StopIdx> = Vec::new();
@@ -114,13 +115,19 @@ impl EngineData {
 
         let arrival_times_iter  = arrival_stop_times_iter.clone()
                                 .map(|stop_time| {
-                                    stop_time.arrival_time + TimeInDay::new(0, 0, stop_time.alighting_duration.into())
+                                    let arrival_time = stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
+                                    SecondsSinceDayStart {
+                                        seconds : arrival_time.total_seconds()
+                                    }
                                 });
         let departure_times_iter = arrival_stop_times_iter.clone()
                                     .map(|stop_time|
                                         if stop_time.pickup_type == 0 {
-                                            let departure_time = stop_time.departure_time - TimeInDay::new(0,0, stop_time.boarding_duration.into());
-                                            Some(departure_time)
+                                            let departure_time = stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into());
+                                            let result = SecondsSinceDayStart {
+                                                seconds : departure_time.total_seconds()
+                                            };
+                                            Some(result)
                                         }
                                         //  == 1 it means that boarding is not allowed
                                         //   at this stop_point

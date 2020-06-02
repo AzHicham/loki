@@ -3,13 +3,14 @@ use transit_model;
 use transit_model::{
     objects::{StopPoint, VehicleJourney, Transfer},
 }; 
-pub use transit_model::objects::Time  as TimeInDay;
-pub use transit_model::objects::Date;
+pub(super) use transit_model::objects::Time as TransitModelTime;
+
 
 use std::path::PathBuf;
 use std::collections::{BTreeMap};
 use super::ordered_timetable::StopPatternTimetables;
 use super::calendars::{Calendars, CalendarIdx};
+use super::time::{SecondsSinceDayStart, PositiveDuration};
 use typed_index_collection::{Idx};
 
 
@@ -34,7 +35,6 @@ pub struct Position {
 }
 
 
-
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
@@ -45,7 +45,7 @@ pub struct VehicleData {
 pub struct Stop {
     pub (super) stop_point_idx : Idx<StopPoint>,
     pub (super) position_in_arrival_patterns : Vec<(StopPatternIdx, Position)>,
-    pub (super) transfers : Vec<(StopIdx, Duration, Option<Idx<Transfer>>)>
+    pub (super) transfers : Vec<(StopIdx, PositiveDuration, Option<Idx<Transfer>>)>
 }
 
 pub type StopPointArray = Vec< Idx<StopPoint> >;
@@ -67,7 +67,7 @@ pub struct EngineData {
     pub (super) stop_point_idx_to_stops_idx : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
 
     pub (super) stops : Vec<Stop>,
-    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, TimeInDay>>,
+    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, SecondsSinceDayStart>>,
 
     pub (super) calendars : Calendars,
 
