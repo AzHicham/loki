@@ -27,6 +27,8 @@ pub struct OrderedTimetable<VehicleData, Time> {
     // None if `vehicle` cannot be boarded at `position` 
     board_times_by_position : Vec<Vec<Option<Time>>>, 
 
+    latest_board_time_by_position : Vec<Option<Time>>, 
+
 }
 
 pub struct TimeTableIdx {
@@ -34,7 +36,7 @@ pub struct TimeTableIdx {
 }
 
 pub struct VehicleIdx {
-    vehicle_idx : usize
+    idx : usize
 }
 
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
@@ -104,6 +106,7 @@ where Time : Ord + Clone
             vehicles_data : Vec::new(),
             debark_times_by_vehicle : Vec::new(),
             board_times_by_position : vec![Vec::new(); nb_of_positions],
+            latest_board_time_by_position : vec![None; nb_of_positions],
         }
     }
 
@@ -115,8 +118,17 @@ where Time : Ord + Clone
         self.vehicles_data.len()
     }
 
-    fn debark_time_at(&self, vehicle_idx : usize, pos_idx : usize) -> & Time {
+    fn debark_time_at_(&self, vehicle_idx : usize, pos_idx : usize) -> & Time {
         &self.debark_times_by_vehicle[vehicle_idx][pos_idx]
+    }
+
+    pub fn debark_time_at(&self, vehicle_idx : & VehicleIdx, position : & Position) -> & Time {
+        self.debark_time_at_(vehicle_idx.idx, position.idx)
+    }
+
+    pub fn last_board_time_at(&self, position : & Position) -> & Option<Time> {
+        let pos_idx = position.idx;
+        & self.latest_board_time_by_position[pos_idx]
     }
 
     fn vehicle_debark_times<'a>(& 'a self, vehicle_idx : usize) -> & 'a [Time] {
@@ -200,8 +212,20 @@ where Time : Ord + Clone
         })
         .unwrap_or(nb_of_vehicles);
 
-        for (pos, board_time) in board_times.enumerate() {
-            self.board_times_by_position[pos].insert(insert_idx, board_time.clone());
+        for (pos, has_board_time) in board_times.enumerate() {
+            self.board_times_by_position[pos].insert(insert_idx, has_board_time.clone());
+            
+            if let Some(board_time) = has_board_time {
+                let has_latest_board_time = & mut self.latest_board_time_by_position[pos];
+                match has_latest_board_time {
+                    None => { *has_latest_board_time = Some(board_time); }
+                    Some(lastest_board_time) if *lastest_board_time < board_time => {
+                        * has_latest_board_time = Some(board_time);
+                    }
+                    _ => ()
+                }
+            }
+
         }
 
         self.debark_times_by_vehicle.insert(insert_idx, debark_times.map(|time| time.clone()).collect());
@@ -214,14 +238,17 @@ where Time : Ord + Clone
     // at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    pub (super) fn get_idx_of_best_vehicle_to_board_at(&self, waiting_time : & Time, position : usize) -> Option<usize> {
-        self.board_times_by_position[position]
+    pub  fn best_vehicle_to_board_at(&self, waiting_time : & Time, position : & Position) -> Option<VehicleIdx> {
+        self.board_times_by_position[position.idx]
             .iter()
             .enumerate()
             .find_map(|(idx, has_board_time)| {
                 match has_board_time {
                     Some(board_time) if waiting_time <= board_time => {
-                        Some(idx)
+                        let vehicle = VehicleIdx {
+                            idx
+                        };
+                        Some(vehicle)
                     },
                     _ => None
                 }
@@ -235,21 +262,22 @@ where Time : Ord + Clone
     //  to board that allows to debark at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    pub (super) fn get_idx_of_best_filtered_vehicle_to_board_at<Filter>(&self, 
+    pub  fn best_filtered_vehicle_to_board_at<Filter>(&self, 
         waiting_time : & Time, 
-        position : usize,
+        position : & Position,
         filter : Filter
-    ) -> Option<usize> 
+    ) -> Option<VehicleIdx> 
     where Filter : Fn(&VehicleData) -> bool
     {
-        self.board_times_by_position[position].iter()
+        self.board_times_by_position[position.idx].iter()
             .zip(self.vehicles_data.iter())
             .enumerate()
             .filter(|(_, (_, vehicle_data)) | filter(vehicle_data))
             .find_map(|(idx, (has_board_time, _)) | {
                 match has_board_time {
                     Some(board_time) if waiting_time <= board_time => {
-                        Some(idx)
+                        let vehicle = VehicleIdx { idx };
+                        Some(vehicle)
                     },
                     _ => None
                 }

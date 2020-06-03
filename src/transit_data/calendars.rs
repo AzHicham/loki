@@ -43,6 +43,13 @@ impl Calendars {
         }
     }
 
+    pub fn is_allowed(&self, calendar_idx : & CalendarIdx, day : & DaysSinceDatasetStart) -> bool {
+        debug_assert!(day.days < self.nb_of_days);
+        debug_assert!(calendar_idx.idx < self.calendars.len());
+        let day_idx : usize = day.days.into();
+        self.calendars[calendar_idx.idx].allowed_dates[day_idx]
+    }
+
     pub fn get_or_insert<'a, Dates>(&mut self, dates : Dates) -> CalendarIdx 
     where Dates : Iterator<Item = & 'a Date>
     {
