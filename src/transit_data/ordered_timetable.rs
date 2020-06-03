@@ -58,6 +58,9 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
         & self.timetables[timetable_idx.idx]
     }
 
+    // Insert in the vehicle in a timetable if 
+    // the given debark_times and board_times are coherent.
+    // Returns a VehicleTimesError otherwise.
     pub fn insert<'a, 'b, DebarkTimes, BoardTimes >(& mut self,  
         debark_times : DebarkTimes, 
         board_times : BoardTimes, 
@@ -70,7 +73,7 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
     {
         debug_assert!(self.nb_of_positions() == debark_times.clone().count());
         debug_assert!(self.nb_of_positions() == board_times.clone().count());
-        if let Err(err) =  is_intertwined(debark_times, board_times, self.nb_of_positions()) {
+        if let Err(err) =  is_intertwined(debark_times.clone(), board_times.clone(), self.nb_of_positions()) {
             return Err(err);
         }
 
@@ -256,7 +259,7 @@ where Time : Ord + Clone
 
 
 
-enum VehicleTimesError {
+pub enum VehicleTimesError {
     BoardBeforeDebark(usize),            // board_time[idx] < debark_time[idx]
     NextDebarkIsBeforeBoard(usize),      // board_time[idx] > debark_time[idx+1]
     NextDebarkIsBeforePrevDebark(usize)  // debark_time[idx] > debark_time[idx + 1]
@@ -279,7 +282,7 @@ Time : Ord + Clone
     debug_assert!(board_times.clone().count() == debark_times.clone().count());
     debug_assert!(board_times.clone().count() == len);
     debug_assert!(len >= 2);
-    let iter = board_times.zip(debark_times).enumerate();
+    let mut iter = board_times.zip(debark_times).enumerate();
     let (mut prev_idx, (mut has_prev_board, mut prev_debark) ) = iter.next().unwrap();
 
     while let Some((curr_idx, (has_curr_board, curr_debark))) = iter.next() {
@@ -293,7 +296,7 @@ Time : Ord + Clone
         // so we do not check if
         // last_debark_time <= last_board_time
         if curr_idx < len - 1 {
-            if let Some(curr_board) = has_curr_board {
+            if let Some(curr_board) = has_curr_board.clone() {
                 if curr_board < curr_debark {
                     return Err(VehicleTimesError::BoardBeforeDebark(curr_idx));
                 }
@@ -307,6 +310,10 @@ Time : Ord + Clone
                 return Err(VehicleTimesError::NextDebarkIsBeforePrevDebark(prev_idx));
             }
         }
+
+        prev_idx = curr_idx;
+        has_prev_board = has_curr_board;
+        prev_debark = curr_debark;
 
     }
 

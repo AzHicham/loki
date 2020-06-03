@@ -2,14 +2,23 @@
 use transit_model;
 use transit_model::{
     model::{Model},
-    objects::{StopPoint, VehicleJourney, Transfer},
+    objects::{StopPoint, VehicleJourney, Transfer, StopTime},
 }; 
 use std::collections::{BTreeMap};
 use typed_index_collection::{Idx};
 use super::data::{ EngineData, StopIdx,  StopPatternIdx, StopPointArray, VehicleData, Position, Stop, TransitModelTime};
-use super::ordered_timetable::StopPatternTimetables;
+use super::ordered_timetable::{
+    StopPatternTimetables,
+    VehicleTimesError
+};
 use super::calendars::Calendars;
 use super::time::{SecondsSinceDayStart, PositiveDuration};
+
+use log::warn;
+
+
+
+
 
 impl EngineData {
     pub fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
@@ -115,7 +124,7 @@ impl EngineData {
 
         let arrival_times_iter  = arrival_stop_times_iter.clone()
                                 .map(|stop_time| {
-                                    let arrival_time = stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
+                                    let arrival_time  = arrival_time(stop_time);
                                     SecondsSinceDayStart {
                                         seconds : arrival_time.total_seconds()
                                     }
@@ -123,7 +132,7 @@ impl EngineData {
         let departure_times_iter = arrival_stop_times_iter.clone()
                                     .map(|stop_time|
                                         if stop_time.pickup_type == 0 {
-                                            let departure_time = stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into());
+                                            let departure_time = departure_time(stop_time);
                                             let result = SecondsSinceDayStart {
                                                 seconds : departure_time.total_seconds()
                                             };
@@ -156,9 +165,55 @@ impl EngineData {
             calendar_idx  
         };
 
-        arrival_stop_pattern.insert(arrival_times_iter, departure_times_iter, daily_trip_data);
+        let insert_error = arrival_stop_pattern.insert(arrival_times_iter, departure_times_iter, daily_trip_data);
+        if let Err(err) = insert_error {
+            match err {
+                VehicleTimesError::BoardBeforeDebark(idx) => {
+                    let stop_time = &vehicle_journey.stop_times[idx];
+                    let arrival_time = arrival_time(stop_time);
+                    let departure_time = departure_time(stop_time);
+                    warn!("Skipping vehicle journey {} in arrival pattern because at position {} its 
+                            departure time {} is earlier than its arrival time {} ", 
+                            vehicle_journey.id,
+                            idx,
+                            departure_time,
+                            arrival_time
+                        );
+                },
+                VehicleTimesError::NextDebarkIsBeforeBoard(idx) => {
+                    let stop_time = &vehicle_journey.stop_times[idx];
+                    let departure_time = departure_time(stop_time);
+                    let next_stop_time = &vehicle_journey.stop_times[idx+1];
+                    let next_arrival_time = arrival_time(next_stop_time);
+                    warn!("Skipping vehicle journey {} in arrival pattern because its 
+                            departure time {} at position {} is after its arrival time {} 
+                            at the next position",
+                            vehicle_journey.id,
+                            departure_time,
+                            idx,
+                            next_arrival_time
+                        );
+                },
+                VehicleTimesError::NextDebarkIsBeforePrevDebark(idx) => {
+                    let stop_time = &vehicle_journey.stop_times[idx];
+                    let arrival_time_ = arrival_time(stop_time);
+                    let next_stop_time = &vehicle_journey.stop_times[idx+1];
+                    let next_arrival_time = arrival_time(next_stop_time);
+                    warn!("Skipping vehicle journey {} in arrival pattern because its 
+                            arrival time {} at position {} is after its arrival time {} 
+                            at the next position",
+                            vehicle_journey.id,
+                            arrival_time_,
+                            idx,
+                            next_arrival_time
+                        );
+                }
+            }
+        }
 
     }
+
+
 
 
     fn create_new_arrival_stop_pattern(& mut self, arrival_stop_point_array : StopPointArray) -> StopPatternIdx {
@@ -251,4 +306,12 @@ impl EngineData {
 
     }
 
+}
+
+fn departure_time(stop_time : & StopTime) -> TransitModelTime {
+    stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into())
+}
+
+fn arrival_time(stop_time : & StopTime) -> TransitModelTime {
+    stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into())
 }
