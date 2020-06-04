@@ -1,98 +1,93 @@
-use crate::engine::public_transit::PublicTransit;
-use chrone::NaiveDateTime as DateTime;
 
 use crate::transit_data::{
-    TransitData,
-    Stop,
-    StopIdx,
-    StopPatternIdx,
-    Position,
+    data::{
+        EngineData,
+        TransitData,
+        Stop,
+        StopIdx,
+        StopPatternIdx,
+        Position,
+    },
+    depart_after_queries::{
+        ForwardMission,
+        ForwardTrip,
+        ForwardMissionsIter
+    },
+    time::{
+        SecondsSinceDatasetStart, 
+        PositiveDuration,
+        DaysSinceDatasetStart,
+    }
 };
+
+use crate::engine::public_transit::PublicTransit;
+
+use typed_index_collection::{Idx};
+use transit_model::{
+    objects::{StopPoint,},
+}; 
 
 pub struct Request<'a> {
     transit_data : & 'a TransitData,
-    departure_datetime : DateTime,
+    departure_datetime : SecondsSinceDatasetStart,
+    departures_stop_point_and_fallback_duration : Vec<(Idx<StopPoint>, PositiveDuration)>,
+    arrivals_stop_point_and_fallbrack_duration : Vec<(Idx<StopPoint>, PositiveDuration)>
 
 }
 
 impl<'a> Request<'a> {
 
-
-
-    pub fn new(transit_data : & 'a TransitData, departure_date : Date, departure_time : TimeInDay) -> Self {
-        if ! transit_data.is_valid_date(departure_date) {
-            panic!("Departure date is not in validity period.");
-        }
+    pub fn new(transit_data : & 'a TransitData,
+        departure_datetime : SecondsSinceDatasetStart,
+        departures_stop_point_and_fallback_duration : Vec<(Idx<StopPoint>, PositiveDuration)>,
+        arrivals_stop_point_and_fallbrack_duration : Vec<(Idx<StopPoint>, PositiveDuration)>
+    ) -> Self
+    {
         Self {
             transit_data,
-            departure_date,
-            departure_time,
+            departure_datetime,
+            departures_stop_point_and_fallback_duration,
+            arrivals_stop_point_and_fallbrack_duration,
         }
     }
+
 }
 
-impl Stop {
 
-    // Returns 
-    // - None if this Stop does not appears in `stop_pattern_idx`
-    // - Some(position) otherwise, where `position` is the position of this Stop in the StopPattern
-    fn get_position_in_arrival_pattern(&self, stop_pattern_idx: & StopPatternIdx) -> Option<Position> {
-        self.position_in_arrival_patterns.iter()
-            .find(|&(candidate_stop_pattern_idx, _)| {
-                candidate_stop_pattern_idx == stop_pattern_idx
-            })
-            .map(|&(_, position)| position)
-    }
+
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct Criteria {
+    arrival_time : SecondsSinceDatasetStart,
+    nb_of_transfers : usize,
+    fallback_duration : PositiveDuration,
+    transfers_duration : PositiveDuration,
 }
 
-impl TransitData {
 
-    pub fn is_upstream_in_arrival_pattern(&self,
-            upstream_idx : & StopIdx, 
-            downstream_idx : & StopIdx,
-            arrival_pattern_idx : & StopPatternIdx 
-    ) -> bool {
-        let upstream = &self.stops[upstream_idx.idx];
-        let dowstream = &self.stops[downstream_idx.idx];
+impl<'a> PublicTransit for Request<'a> {
+    type Stop = StopIdx;
+    type Mission = ForwardMission;
+    type Trip = ForwardTrip;
+    type Criteria = Criteria;
 
-        format!("The stop {:?} is expected to belongs to the stop_pattern {:?}", *upstream_idx, *arrival_pattern_idx);
-
-        let upstream_position = upstream
-            .get_position_in_arrival_pattern(arrival_pattern_idx)
-            .unwrap_or_else( || panic!(format!("The stop {:?} is expected to belongs to the stop_pattern {:?}", 
-                                                    *upstream_idx, 
-                                                    *arrival_pattern_idx))
-                            );
-
-        let downstream_position = dowstream
-            .get_position_in_arrival_pattern(arrival_pattern_idx)
-            .unwrap_or_else( || panic!(format!("The stop {:?} is expected to belongs to the stop_pattern {:?}", 
-                                                    *upstream_idx, 
-                                                    *arrival_pattern_idx))
-                            );
-        upstream_position.idx < downstream_position.idx
-
+    fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
+        self.transit_data.engine_data.is_upstream_in_forward_mission(upstream, downstream, mission)
     }
 
-    pub fn next_stop_in_arrival_pattern(&self, 
-        stop_idx : & StopIdx,
-        stop_pattern_idx : & StopPatternIdx,
-    ) -> Option<StopIdx> 
-    {
-        let stop = &self.stops[stop_idx.idx];
-        let position = stop.get_position_in_arrival_pattern(stop_pattern_idx)
-            .unwrap_or_else(|| panic!(format!("The stop {:?} is expected to belongs to the stop_pattern {:?}", 
-                                                *stop_idx, 
-                                                *stop_pattern_idx))
-                            );
-        let arrival_pattern = &self.arrival_stop_patterns[stop_pattern_idx.idx];
-        if position.idx + 1 == arrival_pattern.nb_of_positions() {
-            return None;
-        }
-        debug_assert!(position.idx < arrival_pattern.nb_of_positions() );
-        let next_position = Position{ idx : position.idx + 1};
-        Some(arrival_pattern.get_stop_at(&next_position))
+    fn next_on_mission(&self, stop : & Self::Stop, mission : & Self::Mission) -> Option<Self::Stop> {
+        self.transit_data.engine_data.next_stop_in_forward_mission(stop, mission)
     }
 
+    type Missions = ForwardMissionsIter;
+    fn boardable_missions_of(&self, stop : & Self::Stop) -> Self::Missions {
+        self.transit_data.engine_data
+            .boardable_forward_missions(stop)
+            
+    }
+
+    fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
+        self.transit_data.engine_data.forward_mission_of(trip)
+    }
 
 }
