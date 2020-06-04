@@ -1,14 +1,15 @@
 use std::cmp::Ordering;
 use super::data::{Position, StopIdx};
+use std::ops::Range;
+use std::iter::Map;
 
-
-pub struct StopPatternTimetables<VehicleData, Time> {
+pub(super) struct StopPatternTimetables<VehicleData, Time> {
     pub (super) stops : Vec<StopIdx>,
     pub (super) timetables : Vec<OrderedTimetable<VehicleData, Time>>,
 }
 
 // TODO : document more explicitely !
-pub struct OrderedTimetable<VehicleData, Time> {
+pub(super) struct OrderedTimetable<VehicleData, Time> {
     // vehicle data, ordered by increasing debark times
     // meaning that is v1 is before v2 in this vector,
     // then for all `position` we have 
@@ -30,12 +31,12 @@ pub struct OrderedTimetable<VehicleData, Time> {
     latest_board_time_by_position : Vec<Option<Time>>, 
 
 }
-
-pub struct TimeTableIdx {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(super) struct TimeTableIdx {
     idx : usize,
 }
-
-pub struct VehicleIdx {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(super) struct VehicleIdx {
     idx : usize
 }
 
@@ -94,7 +95,7 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
 
 }
 
-
+pub type VehiclesIter = Map<Range<usize>, fn(usize)->VehicleIdx>;
 
 impl<VehicleData, Time> OrderedTimetable<VehicleData, Time>
 where Time : Ord + Clone 
@@ -129,6 +130,14 @@ where Time : Ord + Clone
     pub fn last_board_time_at(&self, position : & Position) -> & Option<Time> {
         let pos_idx = position.idx;
         & self.latest_board_time_by_position[pos_idx]
+    }
+
+    pub fn vehicles(&self) -> VehiclesIter {
+        (0..self.nb_of_vehicles()).map(|idx| {
+            VehicleIdx{
+                idx
+            }
+        })
     }
 
     fn vehicle_debark_times<'a>(& 'a self, vehicle_idx : usize) -> & 'a [Time] {
@@ -238,7 +247,7 @@ where Time : Ord + Clone
     // at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    pub  fn best_vehicle_to_board_at(&self, waiting_time : & Time, position : & Position) -> Option<VehicleIdx> {
+    pub fn best_vehicle_to_board_at(&self, waiting_time : & Time, position : & Position) -> Option<VehicleIdx> {
         self.board_times_by_position[position.idx]
             .iter()
             .enumerate()
@@ -262,7 +271,7 @@ where Time : Ord + Clone
     //  to board that allows to debark at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    pub  fn best_filtered_vehicle_to_board_at<Filter>(&self, 
+    pub fn best_filtered_vehicle_to_board_at<Filter>(&self, 
         waiting_time : & Time, 
         position : & Position,
         filter : Filter
@@ -348,3 +357,5 @@ Time : Ord + Clone
     Ok(())
 
 }
+
+

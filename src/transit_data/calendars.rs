@@ -1,11 +1,20 @@
-use transit_model::objects::Date;
-use std::convert::TryFrom;
 
-use super::time::DaysSinceDatasetStart;
+use std::convert::{TryFrom};
+
+use super::time::{
+    DaysSinceDatasetStart,
+    SecondsSinceDatasetStart,
+};
+
+use chrono::{
+    NaiveDateTime,
+    NaiveDate,
+    NaiveTime,
+};
 
 pub struct Calendars{
-    first_date : Date, //first date which may be allowed
-    last_date : Date,  //last date (included) which may be allowed
+    first_date : NaiveDate, //first date which may be allowed
+    last_date : NaiveDate,  //last date (included) which may be allowed
     nb_of_days : u16,  // == (last_date - first_date).num_of_days()
                        // we allow at most u16::MAX = 65_535 days
     calendars : Vec<Calendar>,
@@ -26,7 +35,7 @@ pub struct CalendarIdx {
 
 impl Calendars {
 
-    pub fn new(first_date : Date, last_date : Date) -> Self {
+    pub fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self {
         assert!(first_date <= last_date);
         let nb_of_days_i64 : i64 = (last_date - first_date).num_days();
 
@@ -43,6 +52,53 @@ impl Calendars {
         }
     }
 
+    // try to convert a unix timestamp (nb of seconds since midnight UTC on January 1, 1970)
+    // to the number of seconds since the beginning of this calendar
+    // returns None if the timestamp is out of bounds of this calendar
+    // see https://docs.rs/chrono/0.4.11/chrono/naive/struct.NaiveDateTime.html#method.from_timestamp_opt
+    pub fn timestamp_to_seconds_since_start(&self, timestamp : i64) -> Option<SecondsSinceDatasetStart> {
+        let has_datetime = NaiveDateTime::from_timestamp_opt(timestamp, 0);
+        if let Some(datetime) = has_datetime {
+            self.to_seconds_since_start(&datetime)
+        }
+        else {
+            None
+        }
+    }
+
+    // try to parse a string datetime (formatted like '20200316T123560')
+    // and convert it to the number of seconds since the beginning of this calendar
+    // returns None if the parsing failed, or if the date is out of bounds of this calendar
+    pub fn string_datetime_to_seconds_since_start(&self, string_datetime : &str) -> Option<SecondsSinceDatasetStart> {
+ 
+        let try_datetime = NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
+        match try_datetime {
+            Ok(datetime) => {
+                self.to_seconds_since_start(&datetime)
+            },
+            Err(_) => {
+                None
+            }
+        }
+    }
+
+    pub fn to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
+        let date = datetime.date();
+        if ! self.contains(&date) {
+            return None;
+        }
+        let seconds_i64 = (*datetime - self.first_date.and_hms(0, 0, 0)).num_seconds();
+        debug_assert!(seconds_i64 >= 0);
+        debug_assert!(seconds_i64 <= u32::MAX as i64);
+        let try_seconds_u32 = u32::try_from(seconds_i64);
+        try_seconds_u32.map_or(None, |seconds_u32| {
+            let result = SecondsSinceDatasetStart {
+                seconds : seconds_u32
+            };
+            Some(result)
+        })
+    }
+
     pub fn is_allowed(&self, calendar_idx : & CalendarIdx, day : & DaysSinceDatasetStart) -> bool {
         debug_assert!(day.days < self.nb_of_days);
         debug_assert!(calendar_idx.idx < self.calendars.len());
@@ -51,7 +107,7 @@ impl Calendars {
     }
 
     pub fn get_or_insert<'a, Dates>(&mut self, dates : Dates) -> CalendarIdx 
-    where Dates : Iterator<Item = & 'a Date>
+    where Dates : Iterator<Item = & 'a NaiveDate>
     {
         // set all elements of the buffer to false
         for  val in self.buffer.iter_mut() {
@@ -91,11 +147,11 @@ impl Calendars {
 
 
 
-    fn contains(&self, date : & Date) -> bool {
+    fn contains(&self, date : & NaiveDate) -> bool {
         self.first_date <= *date && *date <= self.last_date
     }
 
-    fn date_to_offset(&self, date : & Date) ->  Option<usize> 
+    fn date_to_offset(&self, date : & NaiveDate) ->  Option<usize> 
     {
         if *date < self.first_date || *date > self.last_date {
             None

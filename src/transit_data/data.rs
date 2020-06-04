@@ -1,6 +1,7 @@
 
 use transit_model;
 use transit_model::{
+    model::Model as TransitModel,
     objects::{StopPoint, VehicleJourney, Transfer},
 }; 
 pub(super) use transit_model::objects::Time as TransitModelTime;
@@ -44,6 +45,7 @@ pub struct VehicleData {
 
 pub struct Stop {
     pub (super) stop_point_idx : Idx<StopPoint>,
+    // TODO ? : replace Vec by HashMap/BTreeMap StopPatternIdx -> Position 
     pub (super) position_in_arrival_patterns : Vec<(StopPatternIdx, Position)>,
     pub (super) transfers : Vec<(StopIdx, PositiveDuration, Option<Idx<Transfer>>)>
 }
@@ -72,6 +74,11 @@ pub struct EngineData {
     pub (super) calendars : Calendars,
 
 
+}
+
+pub struct TransitData {
+    pub engine_data : EngineData,
+    pub transit_model : TransitModel,
 }
 
 

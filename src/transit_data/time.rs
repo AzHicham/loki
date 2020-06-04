@@ -9,12 +9,12 @@ pub struct SecondsSinceDayStart {
 pub struct SecondsSinceDatasetStart {
     pub (super) seconds : u32
 }
-
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DaysSinceDatasetStart {
     pub (super) days : u16
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct PositiveDuration {
     pub(super) seconds : u32
 }

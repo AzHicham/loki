@@ -13,6 +13,18 @@ use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSince
 
 use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable};
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ForwardMission {
+    stop_pattern : StopPatternIdx,
+    timetable : TimeTableIdx,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ForwardTrip {
+    mission : ForwardMission,
+    vehicle : VehicleIdx,
+    day : DaysSinceDatasetStart,
+}
 
 impl Stop {
 
@@ -30,7 +42,16 @@ impl Stop {
 
 impl EngineData {
 
-    pub fn is_upstream_in_arrival_pattern(&self,
+
+    pub fn is_upstream_in_forward_mission(&self,
+        upstream_idx : & StopIdx,
+        downstream_idx : & StopIdx,
+        mission : & ForwardMission,
+    ) -> bool {
+        self.is_upstream_in_arrival_pattern(upstream_idx, downstream_idx, &mission.stop_pattern)
+    }
+
+    fn is_upstream_in_arrival_pattern(&self,
             upstream_idx : & StopIdx, 
             downstream_idx : & StopIdx,
             arrival_pattern_idx : & StopPatternIdx 
@@ -57,7 +78,15 @@ impl EngineData {
 
     }
 
-    pub fn next_stop_in_arrival_pattern(&self, 
+    pub fn next_stop_in_forward_mission(&self,
+        stop_idx : & StopIdx,
+        mission : & ForwardMission,
+    ) -> Option<StopIdx> 
+    {
+        self.next_stop_in_arrival_pattern(stop_idx, &mission.stop_pattern)
+    }
+
+    fn next_stop_in_arrival_pattern(&self, 
         stop_idx : & StopIdx,
         stop_pattern_idx : & StopPatternIdx,
     ) -> Option<StopIdx> 
@@ -78,7 +107,27 @@ impl EngineData {
     }
 
 
-    fn best_vehicle_to_board(&self, 
+    pub fn boardable_forward_missions<'a>(& 'a self, stop_idx : & StopIdx) -> impl Iterator<Item = ForwardMission> + 'a {
+        let stop = &self.stops[stop_idx.idx];
+        stop.position_in_arrival_patterns.iter()
+            .flat_map(move |(stop_pattern_idx, _)| {
+                let stop_pattern = & self.arrival_stop_patterns[stop_pattern_idx.idx];
+                let timetables = stop_pattern.timetables();
+                timetables.map(move |timetable_idx| {
+                    ForwardMission {
+                        stop_pattern : stop_pattern_idx.clone(),
+                        timetable : timetable_idx.clone()
+                    }
+                })
+            })
+ 
+    }
+
+    pub fn forward_mission_of(&self, forward_trip : & ForwardTrip) -> ForwardMission {
+        forward_trip.mission.clone()
+    }
+
+    pub fn best_vehicle_to_board(&self, 
         waiting_time : & SecondsSinceDatasetStart,
         stop_pattern_idx : & StopPatternIdx,
         timetable_idx : & TimeTableIdx,
@@ -144,12 +193,7 @@ impl EngineData {
         }
 
         best_vehicle_day_and_its_debark_time_at_next_stop.map(|(vehicle, day, _)| (day, vehicle))
-
-            
-        // get best vehicle at (day, seconds in day)
-        // if timetable goes overmidnight, get best vehicle at (day - 1, seconds in day -1 )
-        // compare the two ? the best one is the one which arrives the earliest at the next stop
-
+       
     }
 
     fn best_vehicle_to_board_in_day(&self, 
@@ -167,4 +211,69 @@ impl EngineData {
     }
 
 
+}
+
+pub struct ForwardMissionsIter<'a> {
+    engine_data : & 'a EngineData,
+    current_pattern_idx : usize, // set to engine_data.arrival_stop_patterns.len() when the iterator is exhausted
+    next_timetable_idx : usize, // set to be >= pattern.timetables.len() when the current pattern is exhausted
+}
+
+impl<'a> ForwardMissionsIter<'a> {
+    pub fn new(engine_data : &'a EngineData) -> Self {
+        Self {
+            engine_data,
+            current_pattern_idx : 0,  
+            next_timetable_idx : 0,
+        }
+    }
+}
+
+impl<'a> Iterator for ForwardMissionsIter<'a> {
+    type Item = ForwardMission;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let has_current_pattern = self.engine_data.arrival_stop_patterns.get(self.current_pattern_idx);
+        if let Some(pattern) = has_current_pattern {
+            if self.next_timetable_idx < pattern.timetables.len()  {
+                let timetable =  TimeTableIdx {
+                    idx : self.next_timetable_idx
+                };
+                self.next_timetable_idx += 1;
+                let stop_pattern = StopPatternIdx {
+                    idx : self.current_pattern_idx
+                };
+                let result = ForwardMission {
+                    stop_pattern,
+                    timetable,
+                };
+                return Some(result);
+            }
+            else {
+                while self.current_pattern_idx  < self.engine_data.arrival_stop_patterns.len() {
+                    self.current_pattern_idx += 1;
+                    let pattern = &self.engine_data.arrival_stop_patterns[self.current_pattern_idx];
+                    if pattern.timetables.len() > 0 {
+                        self.next_timetable_idx = 1;
+                        let timetable = TimeTableIdx {
+                            idx : 0
+                        };
+                        let stop_pattern = StopPatternIdx {
+                            idx : self.current_pattern_idx,
+                        };
+                        let result = ForwardMission {
+                            stop_pattern,
+                            timetable,
+                        };
+                        return Some(result);
+                    }
+
+                }
+                return None;
+            }
+        }
+        else {
+            return None;
+        }
+    }
 }

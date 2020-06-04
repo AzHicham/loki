@@ -1,15 +1,13 @@
 
 
 #[allow(dead_code)]
-mod chain_decomposition;
+pub mod data;
 #[allow(dead_code)]
-mod data;
+pub mod init;
 #[allow(dead_code)]
-mod init;
+pub(super) mod ordered_timetable;
 #[allow(dead_code)]
-pub mod ordered_timetable;
-#[allow(dead_code)]
-pub mod calendars;
+mod calendars;
 #[allow(dead_code)]
 pub mod depart_after_queries;
 
