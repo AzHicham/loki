@@ -8,6 +8,8 @@ use super::data::{
     VehicleData,
 };
 
+use super::iters::{ArrivalTimetablesOfStop};
+
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
 
@@ -31,12 +33,8 @@ impl Stop {
     // Returns 
     // - None if this Stop does not appears in `stop_pattern_idx`
     // - Some(position) otherwise, where `position` is the position of this Stop in the StopPattern
-    fn position_in_arrival_pattern(&self, stop_pattern_idx: & StopPatternIdx) -> Option<Position> {
-        self.position_in_arrival_patterns.iter()
-            .find(|&(candidate_stop_pattern_idx, _)| {
-                candidate_stop_pattern_idx == stop_pattern_idx
-            })
-            .map(|&(_, position)| position)
+    fn position_in_arrival_pattern(&self, stop_pattern_idx: & StopPatternIdx) -> Option<&Position> {
+        self.position_in_arrival_patterns.get(stop_pattern_idx)
     }
 }
 
@@ -107,24 +105,46 @@ impl EngineData {
     }
 
 
-    // pub fn boardable_forward_missions<'a>(& 'a self, stop_idx : & StopIdx) -> impl Iterator<Item = ForwardMission> + 'a {
-    //     let stop = &self.stops[stop_idx.idx];
-    //     stop.position_in_arrival_patterns.iter()
-    //         .flat_map(move |(stop_pattern_idx, _)| {
-    //             let stop_pattern = & self.arrival_stop_patterns[stop_pattern_idx.idx];
-    //             let timetables = stop_pattern.timetables();
-    //             timetables.map(move |timetable_idx| {
-    //                 ForwardMission {
-    //                     stop_pattern : stop_pattern_idx.clone(),
-    //                     timetable : timetable_idx.clone()
-    //                 }
-    //             })
-    //         })
- 
-    // }
+    pub fn boardable_forward_missions<'a>(& 'a self, 
+        stop_idx : & StopIdx
+    ) -> ForwardMissionsOfStop
+    {
+        let inner = self.arrival_pattern_and_timetables_of(stop_idx);
+        ForwardMissionsOfStop {
+            inner
+        }
+    }
 
     pub fn forward_mission_of(&self, forward_trip : & ForwardTrip) -> ForwardMission {
         forward_trip.mission.clone()
+    }
+
+    // Panics if `trip` does not go through `stop_idx` 
+    pub fn arrival_time_of(&self, trip : & ForwardTrip, stop_idx : & StopIdx) -> SecondsSinceDatasetStart {
+        let pattern_idx = &trip.mission.stop_pattern;
+        let timetable_idx = &trip.mission.timetable;
+        let timetable = self.arrival_pattern(pattern_idx).get_timetable(timetable_idx);
+        let position = self.stop(stop_idx).position_in_arrival_pattern(pattern_idx).unwrap();
+        let vehicle_idx = & trip.vehicle;
+        let seconds_in_day = timetable.debark_time_at(vehicle_idx, position);
+        let days = &trip.day;
+        SecondsSinceDatasetStart::compose(days, seconds_in_day)
+    }
+
+    // Panics if `trip` does not go through `stop_idx` 
+    // None if `trip` does not allows boarding at `stop_idx`
+    pub fn departure_time_of(&self, trip : & ForwardTrip, stop_idx : & StopIdx) -> Option<SecondsSinceDatasetStart> {
+        let pattern_idx = &trip.mission.stop_pattern;
+        let timetable_idx = &trip.mission.timetable;
+        let timetable = self.arrival_pattern(pattern_idx).get_timetable(timetable_idx);
+        let position = self.stop(stop_idx).position_in_arrival_pattern(pattern_idx).unwrap();
+        let vehicle_idx = & trip.vehicle;
+        let has_seconds_in_day = timetable.board_time_at(vehicle_idx, position);
+        has_seconds_in_day.map(|seconds_in_day| {
+            let days = &trip.day;
+            SecondsSinceDatasetStart::compose(days, &seconds_in_day)
+        })
+        
     }
 
     pub fn best_vehicle_to_board(&self, 
@@ -213,67 +233,20 @@ impl EngineData {
 
 }
 
-// pub struct ForwardMissionsIter<'a> {
-//     engine_data : & 'a EngineData,
-//     current_pattern_idx : usize, // set to engine_data.arrival_stop_patterns.len() when the iterator is exhausted
-//     next_timetable_idx : usize, // set to be >= pattern.timetables.len() when the current pattern is exhausted
-// }
 
-// impl<'a> ForwardMissionsIter<'a> {
-//     pub fn new(engine_data : &'a EngineData) -> Self {
-//         Self {
-//             engine_data,
-//             current_pattern_idx : 0,  
-//             next_timetable_idx : 0,
-//         }
-//     }
-// }
+pub struct ForwardMissionsOfStop<'a> {
+    inner : ArrivalTimetablesOfStop<'a>
+}
 
-// impl<'a> Iterator for ForwardMissionsIter<'a> {
-//     type Item = ForwardMission;
+impl<'a> Iterator for ForwardMissionsOfStop<'a> {
+    type Item = ForwardMission;
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let has_current_pattern = self.engine_data.arrival_stop_patterns.get(self.current_pattern_idx);
-//         if let Some(pattern) = has_current_pattern {
-//             if self.next_timetable_idx < pattern.timetables.len()  {
-//                 let timetable =  TimeTableIdx {
-//                     idx : self.next_timetable_idx
-//                 };
-//                 self.next_timetable_idx += 1;
-//                 let stop_pattern = StopPatternIdx {
-//                     idx : self.current_pattern_idx
-//                 };
-//                 let result = ForwardMission {
-//                     stop_pattern,
-//                     timetable,
-//                 };
-//                 return Some(result);
-//             }
-//             else {
-//                 while self.current_pattern_idx  < self.engine_data.arrival_stop_patterns.len() {
-//                     self.current_pattern_idx += 1;
-//                     let pattern = &self.engine_data.arrival_stop_patterns[self.current_pattern_idx];
-//                     if pattern.timetables.len() > 0 {
-//                         self.next_timetable_idx = 1;
-//                         let timetable = TimeTableIdx {
-//                             idx : 0
-//                         };
-//                         let stop_pattern = StopPatternIdx {
-//                             idx : self.current_pattern_idx,
-//                         };
-//                         let result = ForwardMission {
-//                             stop_pattern,
-//                             timetable,
-//                         };
-//                         return Some(result);
-//                     }
-
-//                 }
-//                 return None;
-//             }
-//         }
-//         else {
-//             return None;
-//         }
-//     }
-// }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|(pattern, timetable)| {
+            ForwardMission{
+                stop_pattern : pattern,
+                timetable
+            }
+        })
+    }
+}

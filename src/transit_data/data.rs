@@ -46,14 +46,13 @@ pub struct VehicleData {
 pub struct Stop {
     pub (super) stop_point_idx : Idx<StopPoint>,
     // TODO ? : replace Vec by HashMap/BTreeMap StopPatternIdx -> Position 
-    pub (super) position_in_arrival_patterns : Vec<(StopPatternIdx, Position)>,
+    pub (super) position_in_arrival_patterns : BTreeMap<StopPatternIdx, Position>,
     pub (super) transfers : Vec<(StopIdx, PositiveDuration, Option<Idx<Transfer>>)>
 }
 
 pub type StopPointArray = Vec< Idx<StopPoint> >;
 
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
 pub struct StopPatternIdx {
     pub (super) idx : usize
 }
@@ -61,6 +60,11 @@ pub struct StopPatternIdx {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct StopIdx {
     pub (super) idx : usize
+}
+
+pub struct TransferIdx {
+    pub (super) stop_idx : StopIdx,
+    pub (super) idx_in_stop_transfers : usize,
 }
 
 
@@ -82,6 +86,15 @@ pub struct TransitData {
 }
 
 
+impl EngineData {
+    pub fn stop<'a>(& 'a self, stop_idx : & StopIdx) -> & 'a Stop {
+        & self.stops[stop_idx.idx]
+    }
+
+    pub fn arrival_pattern<'a>(& 'a self, arrival_pattern_idx : & StopPatternIdx) -> & 'a StopPatternTimetables<VehicleData, SecondsSinceDayStart> {
+        & self.arrival_stop_patterns[arrival_pattern_idx.idx]
+    }
+}
 
 
 

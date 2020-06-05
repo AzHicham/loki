@@ -11,6 +11,7 @@ use crate::transit_data::{
     depart_after_queries::{
         ForwardMission,
         ForwardTrip,
+        ForwardMissionsOfStop
         
     },
     time::{
@@ -20,7 +21,10 @@ use crate::transit_data::{
     }
 };
 
-use crate::engine::public_transit::PublicTransit;
+use crate::engine::public_transit::{
+    PublicTransit,
+    PublicTransitIters
+};
 
 use typed_index_collection::{Idx};
 use transit_model::{
@@ -65,29 +69,50 @@ struct Criteria {
 }
 
 
-// impl<'a> PublicTransit for Request<'a> {
-//     type Stop = StopIdx;
-//     type Mission = ForwardMission;
-//     type Trip = ForwardTrip;
-//     type Criteria = Criteria;
+impl<'a> PublicTransit for Request<'a> {
+    type Stop = StopIdx;
+    type Mission = ForwardMission;
+    type Trip = ForwardTrip;
+    type Criteria = Criteria;
 
-//     fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
-//         self.transit_data.engine_data.is_upstream_in_forward_mission(upstream, downstream, mission)
-//     }
+    fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
+        self.transit_data.engine_data.is_upstream_in_forward_mission(upstream, downstream, mission)
+    }
 
-//     fn next_on_mission(&self, stop : & Self::Stop, mission : & Self::Mission) -> Option<Self::Stop> {
-//         self.transit_data.engine_data.next_stop_in_forward_mission(stop, mission)
-//     }
+    fn next_on_mission(&self, stop : & Self::Stop, mission : & Self::Mission) -> Option<Self::Stop> {
+        self.transit_data.engine_data.next_stop_in_forward_mission(stop, mission)
+    }
 
-//     type Missions = ForwardMissionsIter;
-//     fn boardable_missions_of(&self, stop : & Self::Stop) -> Self::Missions {
-//         self.transit_data.engine_data
-//             .boardable_forward_missions(stop)
-            
-//     }
+    fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
+        self.transit_data.engine_data.forward_mission_of(trip)
+    }
 
-//     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
-//         self.transit_data.engine_data.forward_mission_of(trip)
-//     }
+    fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
+        lower.arrival_time <= upper.arrival_time
+        && lower.nb_of_transfers <= upper.nb_of_transfers
+        && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
+    }
 
-// }
+    fn board_and_ride(&self, stop_idx : & StopIdx, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {
+
+        let engine_data = self.transit_data.engine_data;
+        let has_departure_time = engine_data.departure_time_of(trip, stop_idx);
+        if has_departure_time.is_none() {
+            return None;
+        }
+        if let Some(departure_time) = has_departure_time {
+            if waiting_criteria.arrival_time > departure_time {
+                return None;
+            }
+        }
+        let next_stop = 
+        let arrival_time_at_next_stop = engine_data.arrival_time_of(trip, );
+        
+        
+    }
+
+}
+
+impl<'inner, 'outer> PublicTransitIters<'outer> for Request<'inner> {
+    type MissionsAtStop = ForwardMissionsOfStop< 'outer >;
+}

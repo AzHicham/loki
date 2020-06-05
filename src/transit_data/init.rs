@@ -256,12 +256,7 @@ impl EngineData {
                     debug_assert!(stops_idx.len() >=1 );
                     let has_suitable_stop_idx = stops_idx.iter().find(|&&stop_idx| {
                         let stop = & self.stops[stop_idx.idx];
-                        debug_assert!(stop.position_in_arrival_patterns.len() >= 1);
-                        // if stop_point_idx already appeared in this stop_pattern
-                        // then stop_pattern will be the last element 
-                        // in stop.position_in_stop_patterns
-                        let last_pattern = stop.position_in_arrival_patterns.last().unwrap().0;
-                        last_pattern != stop_pattern_idx
+                        ! stop.position_in_arrival_patterns.contains_key(&stop_pattern_idx)
                     });
                     if let Some(&stop_idx) = has_suitable_stop_idx {
                         stop_idx
@@ -276,7 +271,7 @@ impl EngineData {
             };
             let position = Position { idx : position_id};
             let stop = & mut self.stops[stop_idx.idx];
-            stop.position_in_arrival_patterns.push((stop_pattern_idx, position));
+            stop.position_in_arrival_patterns.insert(stop_pattern_idx, position);
 
             stops.push(stop_idx);
         }
@@ -295,7 +290,7 @@ impl EngineData {
         debug_assert!( ! self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
         let stop = Stop{ 
             stop_point_idx,
-            position_in_arrival_patterns : Vec::new(),
+            position_in_arrival_patterns : BTreeMap::new(),
             transfers : Vec::new() 
         };
         let stop_idx = StopIdx {
@@ -311,7 +306,7 @@ impl EngineData {
         debug_assert!( self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
         let stop = Stop{ 
             stop_point_idx,
-            position_in_arrival_patterns : Vec::new(),
+            position_in_arrival_patterns : BTreeMap::new(),
             transfers : Vec::new()
         };
         let stop_idx = StopIdx {

@@ -14,7 +14,7 @@ pub struct DaysSinceDatasetStart {
     pub (super) days : u16
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
     pub(super) seconds : u32
 }
@@ -75,5 +75,16 @@ impl SecondsSinceDatasetStart {
         let seconds = self.seconds % SECONDS_IN_A_DAY;
 
         (days_u16, seconds)
+    }
+}
+
+
+impl std::ops::Add for PositiveDuration {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            seconds : self.seconds + rhs.seconds
+        }
     }
 }

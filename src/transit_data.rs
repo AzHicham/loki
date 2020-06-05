@@ -13,3 +13,6 @@ pub mod depart_after_queries;
 
 #[allow(dead_code)]
 pub mod time;
+
+#[allow(dead_code)]
+pub mod iters;

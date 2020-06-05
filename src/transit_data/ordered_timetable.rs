@@ -3,13 +3,13 @@ use super::data::{Position, StopIdx};
 use std::ops::Range;
 use std::iter::Map;
 
-pub(super) struct StopPatternTimetables<VehicleData, Time> {
-    pub (super) stops : Vec<StopIdx>,
-    pub (super) timetables : Vec<OrderedTimetable<VehicleData, Time>>,
+pub struct StopPatternTimetables<VehicleData, Time> {
+    pub stops : Vec<StopIdx>,
+    pub timetables : Vec<OrderedTimetable<VehicleData, Time>>,
 }
 
 // TODO : document more explicitely !
-pub(super) struct OrderedTimetable<VehicleData, Time> {
+pub struct OrderedTimetable<VehicleData, Time> {
     // vehicle data, ordered by increasing debark times
     // meaning that is v1 is before v2 in this vector,
     // then for all `position` we have 
@@ -40,6 +40,8 @@ pub struct VehicleIdx {
     idx : usize
 }
 
+pub type TimeTablesIter = Map<Range<usize>, fn(usize) -> TimeTableIdx >;
+
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
     pub fn new(stops : Vec<StopIdx>) -> Self {
         assert!( stops.len() >= 2);
@@ -59,6 +61,18 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
 
     pub fn get_timetable<'a>(& 'a self, timetable_idx : & TimeTableIdx) -> & 'a OrderedTimetable<VehicleData, Time> {
         & self.timetables[timetable_idx.idx]
+    }
+
+    pub fn timetables(&self) -> TimeTablesIter {
+        (0..self.timetables.len()).map(|idx| {
+            TimeTableIdx {
+                idx
+            }
+        })
+    }
+
+    pub fn nb_of_timetables(&self) -> usize {
+        self.timetables.len()
     }
 
     // Insert in the vehicle in a timetable if 
@@ -92,7 +106,6 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
         Ok(())
     }
 
-
 }
 
 pub type VehiclesIter = Map<Range<usize>, fn(usize)->VehicleIdx>;
@@ -123,8 +136,16 @@ where Time : Ord + Clone
         &self.debark_times_by_vehicle[vehicle_idx][pos_idx]
     }
 
+    fn board_time_at_(&self, vehicle_idx : usize, pos_idx : usize) -> & Option<Time >{
+        &self.board_times_by_position[pos_idx][vehicle_idx]
+    }
+
     pub fn debark_time_at(&self, vehicle_idx : & VehicleIdx, position : & Position) -> & Time {
         self.debark_time_at_(vehicle_idx.idx, position.idx)
+    }
+
+    pub fn board_time_at(&self, vehicle_idx : & VehicleIdx, position : & Position) -> & Option<Time> {
+        self.board_time_at_(vehicle_idx.idx, position.idx)
     }
 
     pub fn last_board_time_at(&self, position : & Position) -> & Option<Time> {
@@ -359,3 +380,6 @@ Time : Ord + Clone
 }
 
 
+pub struct TimetablesIter {
+    
+}

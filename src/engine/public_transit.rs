@@ -38,11 +38,6 @@ pub trait PublicTransit {
     ) -> Self::Mission;
 
 
-    type TripsOfMission : Iterator<Item = Self::Trip>;
-    // Returns all `Trip`s belonging to `mission`
-    fn trips_of(&self,
-        mission : & Self::Mission
-    ) -> Self::TripsOfMission;
 
     // Returns `true` if `lower` is lower or equal to `upper`
     fn is_lower(&self, 
@@ -157,5 +152,13 @@ pub trait PublicTransitIters<'a> : PublicTransit {
     // Should not return twice the same `Transfer`.
     type TransfersAtStop : Iterator<Item = Self::Transfer>;
     fn transfers_at(& 'a self, from_stop : & Self::Stop) -> Self::TransfersAtStop;
+
+
+
+    // Returns all `Trip`s belonging to `mission`
+    type TripsOfMission : Iterator<Item = Self::Trip>;
+    fn trips_of(&'a self,
+        mission : & Self::Mission
+    ) -> Self::TripsOfMission;
 
 }
