@@ -158,7 +158,7 @@ impl EngineData {
         let timetable_idx = &mission.timetable;
         let position = self.stop(stop_idx).position_in_arrival_pattern(stop_pattern_idx).unwrap();
         self.best_vehicle_to_board(waiting_time, stop_pattern_idx, timetable_idx, position)
-            .map(|(day, vehicle, arrival_time)| {
+            .map(|(vehicle, day, arrival_time)| {
                 let trip = ForwardTrip {
                     mission : * mission,
                     day,
@@ -174,7 +174,7 @@ impl EngineData {
         stop_pattern_idx : & StopPatternIdx,
         timetable_idx : & TimeTableIdx,
         position : & Position
-     ) -> Option<(DaysSinceDatasetStart, VehicleIdx, SecondsSinceDatasetStart)> 
+     ) -> Option<(VehicleIdx, DaysSinceDatasetStart,SecondsSinceDatasetStart)> 
      {
 
 

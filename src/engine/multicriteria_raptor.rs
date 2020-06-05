@@ -250,14 +250,13 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
                     self.new_onboard_front.clear();
                     let new_waiting_front = & self.new_waiting_fronts[stop_id];
                     for (ref waiting, ref waiting_criteria) in new_waiting_front.iter() {
-                        if let Some(trip) = self.pt.best_trip_to_board(&stop, &mission, &waiting_criteria) {
-                            if let Some(new_onboard_criteria) = self.pt.board_and_ride(&stop, &trip, &waiting_criteria) {                        
-                                if self.new_onboard_front.dominates(&new_onboard_criteria, self.pt) {
-                                    continue;
-                                }
-                                let new_onboard = self.journeys_tree.board(&waiting, &trip);
-                                self.new_onboard_front.add_and_remove_elements_dominated((new_onboard, trip), new_onboard_criteria, self.pt);
+                        if let Some((trip, new_onboard_criteria)) = self.pt.best_trip_to_board(&stop, &mission, &waiting_criteria) {                      
+                            if self.new_onboard_front.dominates(&new_onboard_criteria, self.pt) {
+                                continue;
                             }
+                            let new_onboard = self.journeys_tree.board(&waiting, &trip);
+                            self.new_onboard_front.add_and_remove_elements_dominated((new_onboard, trip), new_onboard_criteria, self.pt);
+                        
                         }
                     }
                 }
