@@ -19,6 +19,14 @@ pub struct PositiveDuration {
     pub(super) seconds : u32
 }
 
+impl PositiveDuration {
+    pub fn zero() -> Self {
+        Self {
+            seconds : 0
+        }
+    }
+}
+
 impl SecondsSinceDatasetStart {
        // TODO : add doc and doctest
     pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceDayStart) {
@@ -83,6 +91,16 @@ impl std::ops::Add for PositiveDuration {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            seconds : self.seconds + rhs.seconds
+        }
+    }
+}
+
+impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetStart {
+    type Output = Self;
+
+    fn add(self, rhs : PositiveDuration) -> Self::Output {
         Self {
             seconds : self.seconds + rhs.seconds
         }

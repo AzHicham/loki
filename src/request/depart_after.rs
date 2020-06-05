@@ -7,6 +7,7 @@ use crate::transit_data::{
         StopIdx,
         StopPatternIdx,
         Position,
+        TransferIdx,
     },
     depart_after_queries::{
         ForwardMission,
@@ -34,27 +35,13 @@ use transit_model::{
 pub struct Request<'a> {
     transit_data : & 'a TransitData,
     departure_datetime : SecondsSinceDatasetStart,
-    departures_stop_point_and_fallback_duration : Vec<(Idx<StopPoint>, PositiveDuration)>,
-    arrivals_stop_point_and_fallbrack_duration : Vec<(Idx<StopPoint>, PositiveDuration)>
+    departures_stop_point_and_fallback_duration : Vec<(StopIdx, PositiveDuration)>,
+    arrivals_stop_point_and_fallbrack_duration : Vec<(StopIdx, PositiveDuration)>
 
 }
-
-impl<'a> Request<'a> {
-
-    pub fn new(transit_data : & 'a TransitData,
-        departure_datetime : SecondsSinceDatasetStart,
-        departures_stop_point_and_fallback_duration : Vec<(Idx<StopPoint>, PositiveDuration)>,
-        arrivals_stop_point_and_fallbrack_duration : Vec<(Idx<StopPoint>, PositiveDuration)>
-    ) -> Self
-    {
-        Self {
-            transit_data,
-            departure_datetime,
-            departures_stop_point_and_fallback_duration,
-            arrivals_stop_point_and_fallbrack_duration,
-        }
-    }
-
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct DepartureIdx {
+    idx : usize,
 }
 
 
@@ -69,10 +56,30 @@ struct Criteria {
 }
 
 
+impl<'a> Request<'a> {
+
+    pub fn new(transit_data : & 'a TransitData,
+        departure_datetime : SecondsSinceDatasetStart,
+        departures_stop_point_and_fallback_duration : Vec<(StopIdx, PositiveDuration)>,
+        arrivals_stop_point_and_fallbrack_duration : Vec<(StopIdx, PositiveDuration)>
+    ) -> Self
+    {
+        Self {
+            transit_data,
+            departure_datetime,
+            departures_stop_point_and_fallback_duration,
+            arrivals_stop_point_and_fallbrack_duration,
+        }
+    }
+
+}
+
 impl<'a> PublicTransit for Request<'a> {
     type Stop = StopIdx;
     type Mission = ForwardMission;
     type Trip = ForwardTrip;
+    type Transfer = TransferIdx;
+    type Departure = DepartureIdx;
     type Criteria = Criteria;
 
     fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
@@ -132,6 +139,85 @@ impl<'a> PublicTransit for Request<'a> {
                 (trip, new_criteria)
             })
     }
+
+    fn debark(&self, trip : & Self::Trip, stop : & Self::Stop, onboard_criteria : & Self::Criteria) -> Self::Criteria {
+        debug_assert!( {
+            let arrival_time = onboard_criteria.arrival_time;
+            let engine_data = self.transit_data.engine_data;
+            engine_data.arrival_time_of(trip, stop) == arrival_time
+        });
+        onboard_criteria.clone()    
+    }
+
+    fn ride(&self, trip : & Self::Trip, stop_idx : & Self::Stop, criteria : & Self::Criteria) -> Self::Criteria {
+        let engine_data = & self.transit_data.engine_data;
+        let next_stop = self.next_on_mission(stop_idx, &trip.mission).unwrap();
+        let arrival_time_at_next_stop = engine_data.arrival_time_of(trip, &next_stop);
+        let new_criteria = Criteria {
+            arrival_time : arrival_time_at_next_stop,
+            nb_of_transfers : criteria.nb_of_transfers,
+            fallback_duration : criteria.fallback_duration,
+            transfers_duration : criteria.transfers_duration
+        };
+        new_criteria
+
+    }
+
+    fn transfer(&self, from_stop : & Self::Stop, transfer : & Self::Transfer, criteria : & Self::Criteria) -> (Self::Stop, Self::Criteria) {
+        let engine_data = & self.transit_data.engine_data;
+        let (arrival_stop, transfer_duration) = engine_data.transfer(from_stop, transfer);
+        let new_criteria = Criteria {
+            arrival_time : criteria.arrival_time + transfer_duration,
+            nb_of_transfers : criteria.nb_of_transfers,
+            fallback_duration : criteria.fallback_duration,
+            transfers_duration : criteria.transfers_duration + transfer_duration
+        };
+        (arrival_stop, new_criteria)
+    }
+
+    fn depart(&self, departure : & Self::Departure) -> (Self::Stop, Self::Criteria) {
+        let (stop, fallback_duration) = self.departures_stop_point_and_fallback_duration[departure.idx];
+        let arrival_time = self.departure_datetime + fallback_duration;
+        let criteria = Criteria{
+            arrival_time,
+            nb_of_transfers : 0,
+            fallback_duration,
+            transfers_duration : PositiveDuration::zero()
+        };
+        (stop, criteria)
+    }
+
+    fn journey_arrival(&self, stop : & Self::Stop, criteria : & Self::Criteria) -> Option<Self::Criteria> {
+        self.arrivals_stop_point_and_fallbrack_duration
+            .iter()
+            .find_map(|(arrival_stop, duration)| {
+                if stop == arrival_stop {
+                    Some(duration)
+                }
+                else {
+                    None
+                }
+            })
+            .map(|duration| {
+                Criteria {
+                    arrival_time : criteria.arrival_time,
+                    nb_of_transfers : criteria.nb_of_transfers,
+                    fallback_duration : criteria.fallback_duration + *duration,
+                    transfers_duration : criteria.transfers_duration
+                }
+            })
+
+    }
+
+    fn nb_of_stops(&self) -> usize {
+        self.transit_data.engine_data.nb_of_stops()
+    }
+
+    fn stop_id(&self, stop : & Self::Stop) -> usize {
+        self.transit_data.engine_data.stop_idx_to_usize(stop)
+    }
+
+
 
 }
 

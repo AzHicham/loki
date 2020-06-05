@@ -61,7 +61,7 @@ pub struct StopPatternIdx {
 pub struct StopIdx {
     pub (super) idx : usize
 }
-
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TransferIdx {
     pub (super) stop_idx : StopIdx,
     pub (super) idx_in_stop_transfers : usize,
@@ -93,6 +93,21 @@ impl EngineData {
 
     pub fn arrival_pattern<'a>(& 'a self, arrival_pattern_idx : & StopPatternIdx) -> & 'a StopPatternTimetables<VehicleData, SecondsSinceDayStart> {
         & self.arrival_stop_patterns[arrival_pattern_idx.idx]
+    }
+
+    pub fn transfer(&self, stop_idx : & StopIdx, transfer_idx : & TransferIdx) -> (StopIdx, PositiveDuration) {
+        debug_assert!(*stop_idx == transfer_idx.stop_idx);
+        let stop = self.stop(stop_idx);
+        let result = stop.transfers[transfer_idx.idx_in_stop_transfers];
+        (result.0, result.1)
+    }
+
+    pub fn nb_of_stops(&self) -> usize {
+        self.stops.len()
+    }
+
+    pub fn stop_idx_to_usize(&self, stop_idx : & StopIdx) -> usize {
+        stop_idx.idx
     }
 }
 
