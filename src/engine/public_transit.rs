@@ -8,6 +8,10 @@ pub trait PublicTransit {
     // A trip of a vehicle along a `Mission`
     type Trip : Clone;
 
+    type Departure : Clone;
+
+    type Transfer : Clone;
+
     type Criteria : Clone;
 
     // Returns `true` if `upstream` is positionned strictly before `downstream` 
@@ -27,13 +31,6 @@ pub trait PublicTransit {
         mission : & Self::Mission
     ) -> Option<Self::Stop>;
 
-
-    // Returns all the `Mission`s that can be boarded at `stop`
-    // Should not return twice the same `Mission`.
-    type Missions : Iterator<Item = Self::Mission>;
-    fn boardable_missions_of(&self,
-        stop : & Self::Stop
-    ) -> Self::Missions;
 
     // Returns the `Mission` that `trip` belongs to.
     fn mission_of(&self,
@@ -67,26 +64,23 @@ pub trait PublicTransit {
         waiting_criteria : & Self::Criteria
     ) -> Option<Self::Criteria>;
 
-    // Returns a pareto front of `Trip`s belonging to `mission` that can be boarded at `stop`
-    //   when waiting with `waiting_criteria`.
-    //  More precisely, it returns [(trip_1, crit_1), ..., (trip_n, crit_n)] such that :
-    //   - trip_i and trip_j are distinct for all distinct i,j in [1, ..., n]
-    //   - crit_i is the criteria obtained from boarding trip_i when waiting with `waiting_criteria` 
-    //        i.e. `board_and_ride(stop, trip_i, waiting_criteria) = Some(crit_i)`
-    //   - crit_i and crit_j are not comparable for all distinct i,j in [1, ..., n], i.e.
-    //       is_lower(crit_i, crit_j) == is_lower(crit_j, crit_i) == false;
-    //   - for all `trip` in `trips_of(mission)` we have either :
+
+
+    // Returns Some(best_trip) where `best_trip` is the "best" `Trip` of `mission`
+    // that can be be boarded while being at `stop` with `waiting_criteria`.
+    // Here "best" means the following : 
+    //  - let `best_crit = board_and_ride(stop, best_trip, waiting_criteria)`
+    //  - for all `trip` in `trips_of(mission)` we have either :
     //       - `board_and_ride(stop, trip, waiting_criteria) == None`
-    //       - `board_and_ride(stop, trip, waiting_criteria) == Some(crit)` and there exists an i
-    //            such that `is_lower(crit_i, crit) == true`
-    // The returned `BoardFront` is empty when `mission` cannot be boarded at `stop`
+    //       - `board_and_ride(stop, trip, waiting_criteria) == Some(crit)` and 
+    //            `is_lower(best_crit, crit) == true`
+    // Returns None if `mission` cannot be boarded at `stop` with `waiting_criteria`.
     // Panics if `stop` does not belongs to `mission` 
-    type BoardAndRideFront : Iterator<Item = (Self::Trip, Self::Criteria)>;
-    fn board_and_ride_front(&self, 
+    fn best_trip_to_board(&self,
         stop : & Self::Stop, 
         mission : & Self::Mission,
         waiting_criteria : & Self::Criteria
-    ) -> Self::BoardAndRideFront;
+    ) -> Option<Self::Trip>;
 
     // Returns `debarked_criteria`,
     //   where `derbarked_criteria` is the criteria obtained by debarking from `trip` at `stop`
@@ -110,23 +104,19 @@ pub trait PublicTransit {
         criteria : & Self::Criteria
     ) -> Self::Criteria;
 
-    // Returns the arrival `Stop`s that can be reached from `from_stop`,
-    //  along with the criteria obtained at each arrival if the transfer
-    //  begins at `from_stop` with `criteria`.
-    // Should not return twice the same stop.
-    type Transfers : Iterator<Item = (Self::Stop, Self::Criteria)>;
-    fn transfers(&self,
+    // Performs `transfer` when being at `from_stop` with `criteria`
+    // and returns the arrival `Stop` along with the `Criteria`
+    // obtained after performing the transfer.
+    // Panics if `transfer` cannot be performed from `from_stop`
+    fn transfer(&self,
         from_stop : & Self::Stop,
+        transfer : & Self::Transfer,
         criteria : & Self::Criteria,
-    ) ->  Self::Transfers;
+    ) ->  (Self::Stop, Self::Criteria);
 
-    // Returns the stops from which a beginning of a journey is allowed
-    //  along with the starting criteria for a journey beginning at each of
-    //  these stops.
-    // Should return at least one stop.
-    // Should not return twice the same stop.
-    type JourneyDepartures : Iterator<Item = (Self::Stop, Self::Criteria)>;
-    fn journey_departures(&self) -> Self::JourneyDepartures;
+    // Returns the `Stop` at which this departure occurs
+    // along with the initial `Criteria` 
+    fn depart(&self, departure : & Self::Departure) -> (Self::Stop, Self::Criteria);
 
     // Returns None if destination is not reachable from `stop`
     fn journey_arrival(&self,
@@ -147,5 +137,25 @@ pub trait PublicTransit {
     // Returns an usize between 0 and nb_of_misions()
     // Returns a different value for two different `mission`s
     fn mission_id(&self, mission : & Self::Mission) -> usize;
+
+}
+
+pub trait PublicTransitIters<'a> : PublicTransit {
+
+    // Returns all the `Mission`s that can be boarded at `stop`
+    // Should not return twice the same `Mission`.
+    type MissionsAtStop : Iterator<Item = Self::Mission>;
+    fn boardable_missions_at(& 'a self,
+        stop : & Self::Stop
+    ) -> Self::MissionsAtStop;
+
+
+    type Departures : Iterator<Item = Self::Departure>;
+    fn departures(& 'a self) -> Self::Departures;
+
+    // Returns the set of `Transfer` that can be taken at `from_stop`
+    // Should not return twice the same `Transfer`.
+    type TransfersAtStop : Iterator<Item = Self::Transfer>;
+    fn transfers_at(& 'a self, from_stop : & Self::Stop) -> Self::TransfersAtStop;
 
 }

@@ -32,11 +32,11 @@ pub(super) struct OrderedTimetable<VehicleData, Time> {
 
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub(super) struct TimeTableIdx {
+pub struct TimeTableIdx {
     idx : usize,
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub(super) struct VehicleIdx {
+pub struct VehicleIdx {
     idx : usize
 }
 

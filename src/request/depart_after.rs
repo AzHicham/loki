@@ -11,7 +11,7 @@ use crate::transit_data::{
     depart_after_queries::{
         ForwardMission,
         ForwardTrip,
-        ForwardMissionsIter
+        
     },
     time::{
         SecondsSinceDatasetStart, 
@@ -65,29 +65,29 @@ struct Criteria {
 }
 
 
-impl<'a> PublicTransit for Request<'a> {
-    type Stop = StopIdx;
-    type Mission = ForwardMission;
-    type Trip = ForwardTrip;
-    type Criteria = Criteria;
+// impl<'a> PublicTransit for Request<'a> {
+//     type Stop = StopIdx;
+//     type Mission = ForwardMission;
+//     type Trip = ForwardTrip;
+//     type Criteria = Criteria;
 
-    fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
-        self.transit_data.engine_data.is_upstream_in_forward_mission(upstream, downstream, mission)
-    }
+//     fn is_upstream(&self, upstream : & Self::Stop, downstream : & Self::Stop, mission : & Self::Mission) -> bool {
+//         self.transit_data.engine_data.is_upstream_in_forward_mission(upstream, downstream, mission)
+//     }
 
-    fn next_on_mission(&self, stop : & Self::Stop, mission : & Self::Mission) -> Option<Self::Stop> {
-        self.transit_data.engine_data.next_stop_in_forward_mission(stop, mission)
-    }
+//     fn next_on_mission(&self, stop : & Self::Stop, mission : & Self::Mission) -> Option<Self::Stop> {
+//         self.transit_data.engine_data.next_stop_in_forward_mission(stop, mission)
+//     }
 
-    type Missions = ForwardMissionsIter;
-    fn boardable_missions_of(&self, stop : & Self::Stop) -> Self::Missions {
-        self.transit_data.engine_data
-            .boardable_forward_missions(stop)
+//     type Missions = ForwardMissionsIter;
+//     fn boardable_missions_of(&self, stop : & Self::Stop) -> Self::Missions {
+//         self.transit_data.engine_data
+//             .boardable_forward_missions(stop)
             
-    }
+//     }
 
-    fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
-        self.transit_data.engine_data.forward_mission_of(trip)
-    }
+//     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
+//         self.transit_data.engine_data.forward_mission_of(trip)
+//     }
 
-}
+// }

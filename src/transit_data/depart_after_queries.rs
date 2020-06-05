@@ -107,21 +107,21 @@ impl EngineData {
     }
 
 
-    pub fn boardable_forward_missions<'a>(& 'a self, stop_idx : & StopIdx) -> impl Iterator<Item = ForwardMission> + 'a {
-        let stop = &self.stops[stop_idx.idx];
-        stop.position_in_arrival_patterns.iter()
-            .flat_map(move |(stop_pattern_idx, _)| {
-                let stop_pattern = & self.arrival_stop_patterns[stop_pattern_idx.idx];
-                let timetables = stop_pattern.timetables();
-                timetables.map(move |timetable_idx| {
-                    ForwardMission {
-                        stop_pattern : stop_pattern_idx.clone(),
-                        timetable : timetable_idx.clone()
-                    }
-                })
-            })
+    // pub fn boardable_forward_missions<'a>(& 'a self, stop_idx : & StopIdx) -> impl Iterator<Item = ForwardMission> + 'a {
+    //     let stop = &self.stops[stop_idx.idx];
+    //     stop.position_in_arrival_patterns.iter()
+    //         .flat_map(move |(stop_pattern_idx, _)| {
+    //             let stop_pattern = & self.arrival_stop_patterns[stop_pattern_idx.idx];
+    //             let timetables = stop_pattern.timetables();
+    //             timetables.map(move |timetable_idx| {
+    //                 ForwardMission {
+    //                     stop_pattern : stop_pattern_idx.clone(),
+    //                     timetable : timetable_idx.clone()
+    //                 }
+    //             })
+    //         })
  
-    }
+    // }
 
     pub fn forward_mission_of(&self, forward_trip : & ForwardTrip) -> ForwardMission {
         forward_trip.mission.clone()
@@ -213,67 +213,67 @@ impl EngineData {
 
 }
 
-pub struct ForwardMissionsIter<'a> {
-    engine_data : & 'a EngineData,
-    current_pattern_idx : usize, // set to engine_data.arrival_stop_patterns.len() when the iterator is exhausted
-    next_timetable_idx : usize, // set to be >= pattern.timetables.len() when the current pattern is exhausted
-}
+// pub struct ForwardMissionsIter<'a> {
+//     engine_data : & 'a EngineData,
+//     current_pattern_idx : usize, // set to engine_data.arrival_stop_patterns.len() when the iterator is exhausted
+//     next_timetable_idx : usize, // set to be >= pattern.timetables.len() when the current pattern is exhausted
+// }
 
-impl<'a> ForwardMissionsIter<'a> {
-    pub fn new(engine_data : &'a EngineData) -> Self {
-        Self {
-            engine_data,
-            current_pattern_idx : 0,  
-            next_timetable_idx : 0,
-        }
-    }
-}
+// impl<'a> ForwardMissionsIter<'a> {
+//     pub fn new(engine_data : &'a EngineData) -> Self {
+//         Self {
+//             engine_data,
+//             current_pattern_idx : 0,  
+//             next_timetable_idx : 0,
+//         }
+//     }
+// }
 
-impl<'a> Iterator for ForwardMissionsIter<'a> {
-    type Item = ForwardMission;
+// impl<'a> Iterator for ForwardMissionsIter<'a> {
+//     type Item = ForwardMission;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let has_current_pattern = self.engine_data.arrival_stop_patterns.get(self.current_pattern_idx);
-        if let Some(pattern) = has_current_pattern {
-            if self.next_timetable_idx < pattern.timetables.len()  {
-                let timetable =  TimeTableIdx {
-                    idx : self.next_timetable_idx
-                };
-                self.next_timetable_idx += 1;
-                let stop_pattern = StopPatternIdx {
-                    idx : self.current_pattern_idx
-                };
-                let result = ForwardMission {
-                    stop_pattern,
-                    timetable,
-                };
-                return Some(result);
-            }
-            else {
-                while self.current_pattern_idx  < self.engine_data.arrival_stop_patterns.len() {
-                    self.current_pattern_idx += 1;
-                    let pattern = &self.engine_data.arrival_stop_patterns[self.current_pattern_idx];
-                    if pattern.timetables.len() > 0 {
-                        self.next_timetable_idx = 1;
-                        let timetable = TimeTableIdx {
-                            idx : 0
-                        };
-                        let stop_pattern = StopPatternIdx {
-                            idx : self.current_pattern_idx,
-                        };
-                        let result = ForwardMission {
-                            stop_pattern,
-                            timetable,
-                        };
-                        return Some(result);
-                    }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let has_current_pattern = self.engine_data.arrival_stop_patterns.get(self.current_pattern_idx);
+//         if let Some(pattern) = has_current_pattern {
+//             if self.next_timetable_idx < pattern.timetables.len()  {
+//                 let timetable =  TimeTableIdx {
+//                     idx : self.next_timetable_idx
+//                 };
+//                 self.next_timetable_idx += 1;
+//                 let stop_pattern = StopPatternIdx {
+//                     idx : self.current_pattern_idx
+//                 };
+//                 let result = ForwardMission {
+//                     stop_pattern,
+//                     timetable,
+//                 };
+//                 return Some(result);
+//             }
+//             else {
+//                 while self.current_pattern_idx  < self.engine_data.arrival_stop_patterns.len() {
+//                     self.current_pattern_idx += 1;
+//                     let pattern = &self.engine_data.arrival_stop_patterns[self.current_pattern_idx];
+//                     if pattern.timetables.len() > 0 {
+//                         self.next_timetable_idx = 1;
+//                         let timetable = TimeTableIdx {
+//                             idx : 0
+//                         };
+//                         let stop_pattern = StopPatternIdx {
+//                             idx : self.current_pattern_idx,
+//                         };
+//                         let result = ForwardMission {
+//                             stop_pattern,
+//                             timetable,
+//                         };
+//                         return Some(result);
+//                     }
 
-                }
-                return None;
-            }
-        }
-        else {
-            return None;
-        }
-    }
-}
+//                 }
+//                 return None;
+//             }
+//         }
+//         else {
+//             return None;
+//         }
+//     }
+// }
