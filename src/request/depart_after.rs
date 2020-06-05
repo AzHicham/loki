@@ -84,7 +84,7 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
-        self.transit_data.engine_data.forward_mission_of(trip)
+        trip.mission
     }
 
     fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
@@ -105,10 +105,32 @@ impl<'a> PublicTransit for Request<'a> {
                 return None;
             }
         }
-        let next_stop = 
-        let arrival_time_at_next_stop = engine_data.arrival_time_of(trip, );
+        let next_stop = self.next_on_mission(stop_idx, &trip.mission).unwrap();
+        let arrival_time_at_next_stop = engine_data.arrival_time_of(trip, &next_stop);
+        let new_criteria = Criteria {
+            arrival_time : arrival_time_at_next_stop,
+            nb_of_transfers : waiting_criteria.nb_of_transfers + 1,
+            fallback_duration : waiting_criteria.fallback_duration,
+            transfers_duration : waiting_criteria.transfers_duration
+        };
+        Some(new_criteria)
         
         
+    }
+
+    fn best_trip_to_board(&self, stop_idx : & Self::Stop, mission : & Self::Mission, waiting_criteria : & Self::Criteria) -> Option<(Self::Trip, Self::Criteria)> {
+        let engine_data = self.transit_data.engine_data;
+        let waiting_time = &waiting_criteria.arrival_time;
+        engine_data.best_trip_to_board_at_stop(waiting_time, mission, stop_idx)
+            .map(|(trip, arrival_time)| {
+                let new_criteria =  Criteria {
+                    arrival_time,
+                    nb_of_transfers : waiting_criteria.nb_of_transfers + 1,
+                    fallback_duration : waiting_criteria.fallback_duration,
+                    transfers_duration : waiting_criteria.transfers_duration,
+                };
+                (trip, new_criteria)
+            })
     }
 
 }

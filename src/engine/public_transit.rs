@@ -52,6 +52,7 @@ pub trait PublicTransit {
     //      - boarding `trip` at `stop` when waiting with 
     //      - ride `trip` until arrival at the next stop 
     // Returns None if `trip` cannot be boarded when being at `stop` with `waiting_criteria`
+    // Panics if `stop` is the last on the `Mission` of `trip`
     // Panics if `trip` does not belongs to `boardable_missions_of_(stop)`
     fn board_and_ride(&self,
         stop : & Self::Stop,
@@ -61,11 +62,11 @@ pub trait PublicTransit {
 
 
 
-    // Returns Some(best_trip) where `best_trip` is the "best" `Trip` of `mission`
-    // that can be be boarded while being at `stop` with `waiting_criteria`.
-    // Here "best" means the following : 
-    //  - let `best_crit = board_and_ride(stop, best_trip, waiting_criteria)`
-    //  - for all `trip` in `trips_of(mission)` we have either :
+    // Returns Some((best_trip, best_crit) where `best_trip` is 
+    // the "best" `Trip` of `mission` that can be be boarded while
+    // being at `stop` with `waiting_criteria`, and
+    // `best_crit = board_and_ride(stop, best_trip, waiting_criteria)`
+    // Here "best" means that  for all `trip` in `trips_of(mission)` we have either :
     //       - `board_and_ride(stop, trip, waiting_criteria) == None`
     //       - `board_and_ride(stop, trip, waiting_criteria) == Some(crit)` and 
     //            `is_lower(best_crit, crit) == true`
@@ -75,7 +76,7 @@ pub trait PublicTransit {
         stop : & Self::Stop, 
         mission : & Self::Mission,
         waiting_criteria : & Self::Criteria
-    ) -> Option<Self::Trip>;
+    ) -> Option<(Self::Trip, Self::Criteria)>;
 
     // Returns `debarked_criteria`,
     //   where `derbarked_criteria` is the criteria obtained by debarking from `trip` at `stop`
@@ -91,7 +92,7 @@ pub trait PublicTransit {
     // Returns the `new_criteria` obtained when riding along `trip`
     // to the arrival to next stop of its `Mission`, when being onboard at 
     // the arrival of `trip` at `stop` with `criteria`. 
-    // Panics if `stop` is the last on the `Mission` of `trip`
+
     // Panics if `stop` does not belongs to the `Mission` of `trip`
     fn ride(&self,
         trip : & Self::Trip,

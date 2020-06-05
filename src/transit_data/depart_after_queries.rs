@@ -17,15 +17,15 @@ use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ForwardMission {
-    stop_pattern : StopPatternIdx,
-    timetable : TimeTableIdx,
+    pub stop_pattern : StopPatternIdx,
+    pub timetable : TimeTableIdx,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ForwardTrip {
-    mission : ForwardMission,
-    vehicle : VehicleIdx,
-    day : DaysSinceDatasetStart,
+    pub mission : ForwardMission,
+    pub vehicle : VehicleIdx,
+    pub day : DaysSinceDatasetStart,
 }
 
 impl Stop {
@@ -147,12 +147,34 @@ impl EngineData {
         
     }
 
-    pub fn best_vehicle_to_board(&self, 
+
+    pub fn best_trip_to_board_at_stop(&self,
+        waiting_time : & SecondsSinceDatasetStart,
+        mission : & ForwardMission,
+        stop_idx : & StopIdx
+     ) -> Option<(ForwardTrip, SecondsSinceDatasetStart)> 
+     {
+        let stop_pattern_idx = &mission.stop_pattern;
+        let timetable_idx = &mission.timetable;
+        let position = self.stop(stop_idx).position_in_arrival_pattern(stop_pattern_idx).unwrap();
+        self.best_vehicle_to_board(waiting_time, stop_pattern_idx, timetable_idx, position)
+            .map(|(day, vehicle, arrival_time)| {
+                let trip = ForwardTrip {
+                    mission : * mission,
+                    day,
+                    vehicle,               
+                };
+                (trip, arrival_time)
+            })
+
+     }
+
+    fn best_vehicle_to_board(&self, 
         waiting_time : & SecondsSinceDatasetStart,
         stop_pattern_idx : & StopPatternIdx,
         timetable_idx : & TimeTableIdx,
         position : & Position
-     ) -> Option<(DaysSinceDatasetStart, VehicleIdx)> 
+     ) -> Option<(DaysSinceDatasetStart, VehicleIdx, SecondsSinceDatasetStart)> 
      {
 
 
@@ -212,7 +234,7 @@ impl EngineData {
             }
         }
 
-        best_vehicle_day_and_its_debark_time_at_next_stop.map(|(vehicle, day, _)| (day, vehicle))
+        best_vehicle_day_and_its_debark_time_at_next_stop
        
     }
 
