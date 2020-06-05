@@ -55,11 +55,16 @@ pub struct Arrived {
 ///      the specific RouteStop where this Arrival occurs is given by the RouteStop
 ///      associated to the Debarked that comes before this Arrived
 
+enum WaitingData<PT : PublicTransit> {
+    Transfer(PT::Transfer),
+    Departure(PT::Departure)
+}
+
 pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each moment
     onboards  : Vec<PT::Trip>,
     debarkeds  : Vec<PT::Stop>,
-    waitings   : Vec<PT::Stop>,
+    waitings   : Vec<WaitingData<PT>>,
 
     // parents 
     onboard_parents   : Vec<Waiting>,
@@ -87,11 +92,11 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         }
     }
 
-    pub fn depart(& mut self, route_stop : & PT::Stop) -> Waiting {
+    pub fn depart(& mut self, departure : & PT::Departure) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
         debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
-        self.waitings.push(route_stop.clone());
+        self.waitings.push(WaitingData::Departure(departure.clone()));
         self.waiting_parents.push(None);
 
         Waiting{ id }
@@ -118,11 +123,11 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Debarked{ id }
     }
 
-    pub fn transfer(& mut self, debarked : & Debarked, route_stop : & PT::Stop) -> Waiting {
+    pub fn transfer(& mut self, debarked : & Debarked, transfer : & PT::Transfer) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
         debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
-        self.waitings.push(route_stop.clone());
+        self.waitings.push(WaitingData::Transfer(transfer.clone()));
         self.waiting_parents.push(Some(debarked.clone()));
 
         Waiting{ id }
@@ -136,17 +141,17 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Arrived{ id }
     }
 
-    pub fn onboard_trip(&self, onboard : & Onboard) -> & PT::Trip {
-        &self.onboards[onboard.id]
-    }
+    // pub fn onboard_trip(&self, onboard : & Onboard) -> & PT::Trip {
+    //     &self.onboards[onboard.id]
+    // }
 
-    pub fn debarked_stop(&self, debarked : & Debarked) -> & PT::Stop {
-        &self.debarkeds[debarked.id]
-    }
+    // pub fn debarked_stop(&self, debarked : & Debarked) -> & PT::Stop {
+    //     &self.debarkeds[debarked.id]
+    // }
 
-    pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::Stop {
-        &self.waitings[waiting.id]
-    }
+    // pub fn waiting_stop(&self, waiting : & Waiting ) -> & PT::Stop {
+    //     &self.waitings[waiting.id]
+    // }
 
     pub fn clear(&mut self) {
         self.onboards.clear();

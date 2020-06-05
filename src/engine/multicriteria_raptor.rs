@@ -122,7 +122,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         // TODO : check that all departure stops are distincts
         for departure in self.pt.departures() {
             let (stop, criteria) = self.pt.depart(&departure);
-            let journey = self.journeys_tree.depart(&stop);
+            let journey = self.journeys_tree.depart(&departure);
             let stop_id = self.pt.stop_id(&stop);
     
             let new_waiting_front = & mut self.new_waiting_fronts[stop_id];
@@ -341,7 +341,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
                         self.stops_with_new_waiting.push(arrival_stop.clone());
                     }
 
-                    let waiting = self.journeys_tree.transfer(&debarked, &arrival_stop);
+                    let waiting = self.journeys_tree.transfer(&debarked, &transfer);
                     waiting_front.remove_elements_dominated_by( &arrival_criteria, self.pt);
                     new_waiting_front.add_and_remove_elements_dominated(waiting, arrival_criteria, self.pt);
                     
