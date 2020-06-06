@@ -24,7 +24,7 @@ impl EngineData {
         stop.position_in_arrival_patterns.keys()
     }
 
-    pub fn arrival_pattern_and_timetables_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalTimetablesOfStop {
+    pub fn arrival_pattern_and_timetables_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalTimetablesOfStop<'a> {
         ArrivalTimetablesOfStop::new(&self, stop_idx)
     }
 

@@ -12,8 +12,9 @@ use super::iters::{ArrivalTimetablesOfStop};
 
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
+use super::calendars::{DaysIter};
 
-use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable};
+use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable, VehiclesIter};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ForwardMission {
@@ -117,6 +118,10 @@ impl EngineData {
 
     pub fn forward_mission_of(&self, forward_trip : & ForwardTrip) -> ForwardMission {
         forward_trip.mission.clone()
+    }
+
+    pub fn forward_trips_of(&self, forward_mission : & ForwardMission) -> ForwardTripsOfMission {
+        ForwardTripsOfMission::new(&self, forward_mission)
     }
 
     // Panics if `trip` does not go through `stop_idx` 
@@ -270,5 +275,61 @@ impl<'a> Iterator for ForwardMissionsOfStop<'a> {
                 timetable
             }
         })
+    }
+}
+
+pub struct ForwardTripsOfMission {
+    mission : ForwardMission,
+    has_current_vehicle : Option<VehicleIdx>, // None when the iterator is exhausted
+    vehicles_iter : VehiclesIter,
+    days_iter : DaysIter,
+}
+
+impl ForwardTripsOfMission {
+    fn new(engine_data : & EngineData, mission : & ForwardMission) -> Self {
+        let pattern_idx = mission.stop_pattern.idx;
+        let stop_pattern = & engine_data.arrival_stop_patterns[pattern_idx];
+        let timetable = stop_pattern.get_timetable(&mission.timetable);
+
+        let mut vehicles_iter = timetable.vehicles();
+        let has_current_vehicle = vehicles_iter.next();
+        let days_iter = engine_data.calendars.days();
+
+        Self {
+            mission : * mission,
+            has_current_vehicle,
+            vehicles_iter,
+            days_iter
+        }
+
+    }
+}
+
+impl Iterator for ForwardTripsOfMission {
+    type Item = ForwardTrip;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(current_vehicle) = self.has_current_vehicle {
+                match self.days_iter.next() {
+                    Some(day) => {
+                        let trip = 
+                        ForwardTrip {
+                            mission : self.mission,
+                            vehicle : current_vehicle,
+                            day,
+                        };
+                        return Some(trip);
+                    },
+                    None => {
+                        self.has_current_vehicle = self.vehicles_iter.next();
+                    }
+                }
+
+            }
+            else {
+                return None;
+            }
+        }
     }
 }

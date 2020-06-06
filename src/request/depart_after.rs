@@ -12,8 +12,12 @@ use crate::transit_data::{
     depart_after_queries::{
         ForwardMission,
         ForwardTrip,
-        ForwardMissionsOfStop
+        ForwardMissionsOfStop,
+        ForwardTripsOfMission,
         
+    },
+    iters::{
+        TransfersOfStopIter,
     },
     time::{
         SecondsSinceDatasetStart, 
@@ -223,4 +227,42 @@ impl<'a> PublicTransit for Request<'a> {
 
 impl<'inner, 'outer> PublicTransitIters<'outer> for Request<'inner> {
     type MissionsAtStop = ForwardMissionsOfStop< 'outer >;
+
+    fn boardable_missions_at(& 'outer self, stop : & Self::Stop) -> Self::MissionsAtStop {
+        self.transit_data.engine_data.boardable_forward_missions(stop)
+    }
+
+    type Departures = Departures;
+    fn departures(& 'outer self) -> Self::Departures {
+        let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
+        Departures {
+            inner : 0..nb_of_departures
+        }
+    }
+
+    type TransfersAtStop = TransfersOfStopIter;
+    fn transfers_at(& 'outer self, from_stop : & Self::Stop) -> Self::TransfersAtStop {
+        self.transit_data.engine_data.transfers_of(from_stop)
+    }
+
+    type TripsOfMission = ForwardTripsOfMission;
+    fn trips_of(&'outer self, mission : & Self::Mission) -> Self::TripsOfMission {
+        self.transit_data.engine_data.forward_trips_of(mission)
+    }
+}
+
+pub struct Departures {
+    inner : std::ops::Range<usize>
+}
+
+impl Iterator for Departures {
+    type Item = DepartureIdx;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|idx| {
+            DepartureIdx{
+                idx
+            }
+        })
+    }
 }

@@ -51,6 +51,12 @@ impl Calendars {
         }
     }
 
+    pub fn days(&self) -> DaysIter {
+        DaysIter {
+            inner : 0..self.nb_of_days
+        }
+    }
+
     // try to convert a unix timestamp (nb of seconds since midnight UTC on January 1, 1970)
     // to the number of seconds since the beginning of this calendar
     // returns None if the timestamp is out of bounds of this calendar
@@ -167,6 +173,20 @@ impl Calendars {
         }
     }
 
+}
 
+pub struct DaysIter {
+    inner : std::ops::Range<u16>
+}
 
+impl Iterator for DaysIter {
+    type Item = DaysSinceDatasetStart;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|idx| {
+            DaysSinceDatasetStart {
+                days : idx
+            }
+        })
+    }
 }
