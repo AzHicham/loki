@@ -52,7 +52,7 @@ pub struct DepartureIdx {
 
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct Criteria {
+pub struct Criteria {
     arrival_time : SecondsSinceDatasetStart,
     nb_of_transfers : usize,
     fallback_duration : PositiveDuration,
@@ -95,7 +95,7 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
-        trip.mission
+        trip.mission.clone()
     }
 
     fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
@@ -106,7 +106,7 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn board_and_ride(&self, stop_idx : & StopIdx, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {
 
-        let engine_data = self.transit_data.engine_data;
+        let engine_data = & self.transit_data.engine_data;
         let has_departure_time = engine_data.departure_time_of(trip, stop_idx);
         if has_departure_time.is_none() {
             return None;
@@ -130,7 +130,7 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn best_trip_to_board(&self, stop_idx : & Self::Stop, mission : & Self::Mission, waiting_criteria : & Self::Criteria) -> Option<(Self::Trip, Self::Criteria)> {
-        let engine_data = self.transit_data.engine_data;
+        let engine_data = & self.transit_data.engine_data;
         let waiting_time = &waiting_criteria.arrival_time;
         engine_data.best_trip_to_board_at_stop(waiting_time, mission, stop_idx)
             .map(|(trip, arrival_time)| {
@@ -146,9 +146,9 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn debark(&self, trip : & Self::Trip, stop : & Self::Stop, onboard_criteria : & Self::Criteria) -> Self::Criteria {
         debug_assert!( {
-            let arrival_time = onboard_criteria.arrival_time;
-            let engine_data = self.transit_data.engine_data;
-            engine_data.arrival_time_of(trip, stop) == arrival_time
+            let arrival_time = & onboard_criteria.arrival_time;
+            let engine_data = & self.transit_data.engine_data;
+            engine_data.arrival_time_of(trip, stop) == *arrival_time
         });
         onboard_criteria.clone()    
     }
@@ -171,7 +171,7 @@ impl<'a> PublicTransit for Request<'a> {
         let engine_data = & self.transit_data.engine_data;
         let (arrival_stop, transfer_duration) = engine_data.transfer(from_stop, transfer);
         let new_criteria = Criteria {
-            arrival_time : criteria.arrival_time + transfer_duration,
+            arrival_time : criteria.arrival_time.clone() + transfer_duration,
             nb_of_transfers : criteria.nb_of_transfers,
             fallback_duration : criteria.fallback_duration,
             transfers_duration : criteria.transfers_duration + transfer_duration
@@ -181,7 +181,7 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn depart(&self, departure : & Self::Departure) -> (Self::Stop, Self::Criteria) {
         let (stop, fallback_duration) = self.departures_stop_point_and_fallback_duration[departure.idx];
-        let arrival_time = self.departure_datetime + fallback_duration;
+        let arrival_time = self.departure_datetime.clone() + fallback_duration;
         let criteria = Criteria{
             arrival_time,
             nb_of_transfers : 0,
@@ -204,7 +204,7 @@ impl<'a> PublicTransit for Request<'a> {
             })
             .map(|duration| {
                 Criteria {
-                    arrival_time : criteria.arrival_time,
+                    arrival_time : criteria.arrival_time.clone(),
                     nb_of_transfers : criteria.nb_of_transfers,
                     fallback_duration : criteria.fallback_duration + *duration,
                     transfers_duration : criteria.transfers_duration

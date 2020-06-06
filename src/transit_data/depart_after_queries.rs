@@ -16,7 +16,7 @@ use super::calendars::{DaysIter};
 
 use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable, VehiclesIter};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Ord, PartialOrd)]
 pub struct ForwardMission {
     pub stop_pattern : StopPatternIdx,
     pub timetable : TimeTableIdx,
@@ -145,7 +145,7 @@ impl EngineData {
         let position = self.stop(stop_idx).position_in_arrival_pattern(pattern_idx).unwrap();
         let vehicle_idx = & trip.vehicle;
         let has_seconds_in_day = timetable.board_time_at(vehicle_idx, position);
-        has_seconds_in_day.map(|seconds_in_day| {
+        has_seconds_in_day.as_ref().map(|seconds_in_day| {
             let days = &trip.day;
             SecondsSinceDatasetStart::compose(days, &seconds_in_day)
         })
@@ -165,7 +165,7 @@ impl EngineData {
         self.best_vehicle_to_board(waiting_time, stop_pattern_idx, timetable_idx, position)
             .map(|(vehicle, day, arrival_time)| {
                 let trip = ForwardTrip {
-                    mission : * mission,
+                    mission : mission.clone(),
                     day,
                     vehicle,               
                 };
@@ -296,7 +296,7 @@ impl ForwardTripsOfMission {
         let days_iter = engine_data.calendars.days();
 
         Self {
-            mission : * mission,
+            mission : mission.clone(),
             has_current_vehicle,
             vehicles_iter,
             days_iter
@@ -310,13 +310,13 @@ impl Iterator for ForwardTripsOfMission {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(current_vehicle) = self.has_current_vehicle {
+            if let Some(current_vehicle) = & mut self.has_current_vehicle {
                 match self.days_iter.next() {
                     Some(day) => {
                         let trip = 
                         ForwardTrip {
-                            mission : self.mission,
-                            vehicle : current_vehicle,
+                            mission : self.mission.clone(),
+                            vehicle : current_vehicle.clone(),
                             day,
                         };
                         return Some(trip);

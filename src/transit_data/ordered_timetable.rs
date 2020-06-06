@@ -31,7 +31,7 @@ pub struct OrderedTimetable<VehicleData, Time> {
     latest_board_time_by_position : Vec<Option<Time>>, 
 
 }
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Ord, PartialOrd)]
 pub struct TimeTableIdx {
     idx : usize,
 }

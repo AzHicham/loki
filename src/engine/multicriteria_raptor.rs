@@ -1,7 +1,7 @@
 use crate::engine::public_transit::{PublicTransit, PublicTransitIters};
 use crate::engine::journeys_tree::{JourneysTree};
 use crate::engine::pareto_front::{OnboardFront, DebarkedFront, WaitingFront, ArrivedFront};
-
+use std::collections::BTreeMap;
 
 
 pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
@@ -12,8 +12,7 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
     new_waiting_fronts : Vec<WaitingFront<PT>>,// map a `stop` to a pareto front
     stops_with_new_waiting : Vec<PT::Stop>,  // list of Stops
 
-    mission_has_new_waiting :  Vec<Option<PT::Stop>>, // map a mission to an Option<Stop>
-    missions_with_new_waiting : Vec<PT::Mission>,         // list of Mission
+    missions_with_new_waiting : BTreeMap<PT::Mission, PT::Stop>,
 
     // map a `stop` to the pareto front of Pathes which
     // ends at `stop` with a Transit 
@@ -33,7 +32,6 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
     pub fn new(pt : &'pt PT ) -> Self {
         let nb_of_stops = pt.nb_of_stops();
-        let nb_of_missions = pt.nb_of_missions();
         Self {
             pt,
             journeys_tree : JourneysTree::new(),
@@ -42,8 +40,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             new_waiting_fronts : vec![WaitingFront::<PT>::new(); nb_of_stops],
             stops_with_new_waiting : Vec::new(),
 
-            mission_has_new_waiting : vec![None; nb_of_missions],
-            missions_with_new_waiting : Vec::new(),
+            missions_with_new_waiting : BTreeMap::new(),
 
             debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
             new_debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
@@ -93,9 +90,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         }
         self.stops_with_new_waiting.clear();
 
-        for has_stop in & mut self.mission_has_new_waiting {
-            *has_stop = None;
-        }
+        self.missions_with_new_waiting.clear();
 
         for front in & mut self.debarked_fronts {
             front.clear();
@@ -167,22 +162,23 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
     // - reads `stops_with_new_waiting`
     fn identify_missions_with_new_waitings(& mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
-        debug_assert!(self.mission_has_new_waiting.iter().all(|has| has.is_none()));
         debug_assert!(self.missions_with_new_waiting.is_empty());
 
         for stop in self.stops_with_new_waiting.iter() {
             // TODO : check that the same mission is not returned twice
             for mission in self.pt.boardable_missions_at(&stop) {
-                let mission_id = self.pt.mission_id(&mission);
-                let current_mission_has_new_waiting = & mut self.mission_has_new_waiting[mission_id];
-                if let Some(old_waiting_stop) = current_mission_has_new_waiting {
-                    if self.pt.is_upstream(&stop, old_waiting_stop, &mission) {
-                        *old_waiting_stop = stop.clone();
+                let current_mission_has_new_waiting = self.missions_with_new_waiting.entry(mission.clone());
+                use std::collections::btree_map::Entry;
+                match current_mission_has_new_waiting {
+                    Entry::Vacant(entry) => {
+                        entry.insert(stop.clone());
+                    },
+                    Entry::Occupied(mut entry) => {
+                        let saved_waiting_stop = entry.get_mut();
+                        if self.pt.is_upstream(&stop, saved_waiting_stop, &mission) {
+                            *saved_waiting_stop = stop.clone();
+                        }
                     }
-                }
-                else {
-                    * current_mission_has_new_waiting = Some(stop.clone());
-                    self.missions_with_new_waiting.push(mission);
                 }
             }  
         }
@@ -199,9 +195,8 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         debug_assert!(self.stops_with_new_debarked.is_empty());
         debug_assert!(self.new_debarked_fronts.iter().all(|front| { front.is_empty() } ));
 
-        for mission in self.missions_with_new_waiting.iter() {
-            let mission_id = self.pt.mission_id(mission);
-            let mut has_stop = self.mission_has_new_waiting[mission_id].clone();  
+        for (mission, mission_first_stop) in self.missions_with_new_waiting.iter() {
+            let mut has_stop = Some(mission_first_stop.clone());
 
             self.onboard_front.clear();
 
@@ -376,12 +371,6 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         }
         self.stops_with_new_waiting.clear();
 
-        for mission in self.missions_with_new_waiting.iter() {
-            let mission_id = self.pt.mission_id(mission);
-            let current_mission_has_new_waiting = & mut self.mission_has_new_waiting[mission_id];
-            debug_assert!(current_mission_has_new_waiting.is_some());
-            *current_mission_has_new_waiting = None;
-        }
         self.missions_with_new_waiting.clear();
     }
 }
