@@ -1,12 +1,15 @@
 use std::cmp::Ordering;
-use super::data::{Position, StopIdx};
+use super::data::{StopIdx};
 use std::ops::Range;
 use std::iter::Map;
+use std::collections::BTreeMap;
 
 pub struct StopPatternTimetables<VehicleData, Time> {
     pub stops : Vec<StopIdx>,
+    pub stops_to_position : BTreeMap<StopIdx, Position>,
     pub timetables : Vec<OrderedTimetable<VehicleData, Time>>,
 }
+
 
 // TODO : document more explicitely !
 pub struct OrderedTimetable<VehicleData, Time> {
@@ -31,6 +34,12 @@ pub struct OrderedTimetable<VehicleData, Time> {
     latest_board_time_by_position : Vec<Option<Time>>, 
 
 }
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct Position {
+    idx : usize,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Ord, PartialOrd)]
 pub struct TimeTableIdx {
     idx : usize,
@@ -42,25 +51,58 @@ pub struct VehicleIdx {
 
 pub type TimeTablesIter = Map<Range<usize>, fn(usize) -> TimeTableIdx >;
 
-impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
+impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time>
+where Time : Ord + Clone
+{
     pub fn new(stops : Vec<StopIdx>) -> Self {
         assert!( stops.len() >= 2);
+        let mut stops_to_position = BTreeMap::new();
+        for (pos_idx, stop) in stops.iter().enumerate() {
+            let pos = Position{ idx : pos_idx};
+            stops_to_position.insert(stop.clone(), pos);
+        }
         Self{
             stops,
+            stops_to_position,
             timetables : Vec::new(),
         }
     }
 
-    pub fn get_stop_at(&self, position : & Position) -> StopIdx {
-        self.stops[position.idx]
+    pub fn position(&self, stop : & StopIdx) -> &Position {
+        self.stops_to_position.get(stop)
+            .unwrap_or_else( || panic!(format!(
+                "The stop {:?} is expected to belongs to the stop_pattern ", 
+                    *stop)
+                )
+            )
     }
 
-    pub fn nb_of_positions(&self) -> usize {
-        return self.stops.len()
+    pub fn is_upstream(&self, upstream : & StopIdx, downstream : & StopIdx) -> bool {
+        let upstream_position = self.position(upstream);
+        let downstream_position = self.position(downstream);
+        upstream_position.idx < downstream_position.idx
     }
 
-    pub fn get_timetable<'a>(& 'a self, timetable_idx : & TimeTableIdx) -> & 'a OrderedTimetable<VehicleData, Time> {
-        & self.timetables[timetable_idx.idx]
+
+    pub fn next_stop(&self, stop : & StopIdx) -> Option<&StopIdx> {
+        let position = self.position(stop);
+        self.stops.get(position.idx + 1)
+    }
+
+    pub fn is_last_stop(&self, stop : & StopIdx) -> bool {
+        let position = self.position(stop);
+        position.idx == self.stops.len() - 1
+        
+    }
+
+
+    pub fn timetable<'a>(& 'a self, timetable : & TimeTableIdx) -> & 'a OrderedTimetable<VehicleData, Time> {
+        self.timetables.get(timetable.idx)
+            .unwrap_or_else( || panic!(format!(
+                "The timetable {:?} is expected to belongs to the stop_pattern ", 
+                    *timetable)
+                )
+            )
     }
 
     pub fn timetables(&self) -> TimeTablesIter {
@@ -73,6 +115,28 @@ impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time> {
 
     pub fn nb_of_timetables(&self) -> usize {
         self.timetables.len()
+    }
+
+    pub fn debark_time_at(&self, timetable : & TimeTableIdx, vehicle : & VehicleIdx, stop : & StopIdx) -> & Time {
+        let position = self.position(stop);
+        let timetable = self.timetable(timetable);
+        timetable.debark_time_at_(vehicle.idx, position.idx)
+    }
+
+    pub fn board_time_at(&self, timetable : & TimeTableIdx, vehicle: & VehicleIdx, stop : & StopIdx) -> & Option<Time> {
+        let position = self.position(stop);
+        let timetable = self.timetable(timetable);
+        timetable.board_time_at_(vehicle.idx, position.idx)
+    }
+
+    pub fn last_board_time_at(&self, timetable : & TimeTableIdx, stop : & StopIdx) -> & Option<Time> {
+        let position = self.position(stop);
+        let timetable = self.timetable(timetable);
+        timetable.latest_board_time_at(position.idx)
+    }
+
+    fn nb_of_positions(&self) -> usize {
+        self.stops.len()
     }
 
     // Insert in the vehicle in a timetable if 
@@ -136,22 +200,22 @@ where Time : Ord + Clone
         &self.debark_times_by_vehicle[vehicle_idx][pos_idx]
     }
 
+    pub fn debark_time_at(&self, vehicle : & VehicleIdx, position :  & Position) -> &Time {
+        self.debark_time_at_(vehicle.idx, position.idx)
+    }
+
     fn board_time_at_(&self, vehicle_idx : usize, pos_idx : usize) -> & Option<Time >{
         &self.board_times_by_position[pos_idx][vehicle_idx]
     }
 
-    pub fn debark_time_at(&self, vehicle_idx : & VehicleIdx, position : & Position) -> & Time {
-        self.debark_time_at_(vehicle_idx.idx, position.idx)
+    pub fn board_time_at(&self, vehicle : & VehicleIdx, position :  & Position) -> &Option<Time> {
+        self.board_time_at_(vehicle.idx, position.idx)
     }
 
-    pub fn board_time_at(&self, vehicle_idx : & VehicleIdx, position : & Position) -> & Option<Time> {
-        self.board_time_at_(vehicle_idx.idx, position.idx)
-    }
-
-    pub fn last_board_time_at(&self, position : & Position) -> & Option<Time> {
-        let pos_idx = position.idx;
+    fn latest_board_time_at(&self, pos_idx : usize) -> & Option<Time> {
         & self.latest_board_time_by_position[pos_idx]
     }
+
 
     pub fn vehicles(&self) -> VehiclesIter {
         (0..self.nb_of_vehicles()).map(|idx| {
@@ -377,9 +441,4 @@ Time : Ord + Clone
 
     Ok(())
 
-}
-
-
-pub struct TimetablesIter {
-    
 }

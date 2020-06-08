@@ -6,7 +6,6 @@ use crate::transit_data::{
         Stop,
         StopIdx,
         StopPatternIdx,
-        Position,
         TransferIdx,
     },
     depart_after_queries::{

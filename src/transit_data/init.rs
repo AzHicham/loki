@@ -12,7 +12,6 @@ use super::data::{
     StopPatternIdx, 
     StopPointArray, 
     VehicleData, 
-    Position, 
     Stop, 
     TransitModelTime,
     TransitData,
@@ -48,7 +47,7 @@ impl EngineData {
 
         let mut engine_data = Self {
             arrival_stop_point_array_to_stop_pattern : BTreeMap::new(),
-            stop_point_idx_to_stops_idx : BTreeMap::new(),
+            stop_point_idx_to_stops : BTreeMap::new(),
             stops : Vec::with_capacity(nb_of_stop_points),
             arrival_stop_patterns : Vec::new(),
             calendars : Calendars::new(start_date, end_date),
@@ -81,7 +80,7 @@ impl EngineData {
         }
 
         //create transfer between all stops representing the same stop_point
-        for stops_idx in self.stop_point_idx_to_stops_idx.values() {
+        for stops_idx in self.stop_point_idx_to_stops.values() {
             let from_stops_idx = stops_idx.clone();
             let to_stops_idx = stops_idx.clone();
             for from_stop_idx in from_stops_idx {
@@ -102,8 +101,8 @@ impl EngineData {
 
         let empty_vec : Vec<StopIdx> = Vec::new();
 
-        let from_stops_idx = self.stop_point_idx_to_stops_idx.get(&from_stop_point_idx).map_or_else(|| empty_vec.iter(), |vec| vec.iter());
-        let to_stops_idx = self.stop_point_idx_to_stops_idx.get(&to_stop_point_idx).map_or_else(|| empty_vec.iter(), |vec| vec.iter());
+        let from_stops_idx = self.stop_point_idx_to_stops.get(&from_stop_point_idx).map_or_else(|| empty_vec.iter(), |vec| vec.iter());
+        let to_stops_idx = self.stop_point_idx_to_stops.get(&to_stop_point_idx).map_or_else(|| empty_vec.iter(), |vec| vec.iter());
 
         for from_stop_idx in from_stops_idx {
             let from_stop = & mut self.stops[from_stop_idx.idx];
@@ -245,9 +244,9 @@ impl EngineData {
 
 
         let mut stops = Vec::with_capacity(nb_of_positions);
-        for (position_id, stop_point_idx) in arrival_stop_point_array.iter().enumerate() {
-            let has_stops_idx = self.stop_point_idx_to_stops_idx.get(stop_point_idx);
-            let stop_idx = match has_stops_idx {
+        for stop_point_idx in arrival_stop_point_array.iter() {
+            let has_stops = self.stop_point_idx_to_stops.get(stop_point_idx);
+            let stop_idx = match has_stops {
                 None => {
                     let new_stop_idx = self.add_new_stop_point(*stop_point_idx);
                     new_stop_idx
@@ -256,7 +255,7 @@ impl EngineData {
                     debug_assert!(stops_idx.len() >=1 );
                     let has_suitable_stop_idx = stops_idx.iter().find(|&&stop_idx| {
                         let stop = & self.stops[stop_idx.idx];
-                        ! stop.position_in_arrival_patterns.contains_key(&stop_pattern_idx)
+                        ! stop.arrival_patterns.contains(&stop_pattern_idx)
                     });
                     if let Some(&stop_idx) = has_suitable_stop_idx {
                         stop_idx
@@ -265,13 +264,13 @@ impl EngineData {
                     // are already been used in this stop_pattern
                     // hence we create a new copy
                     else {
-                        self.add_new_stop_point_copy(*stop_point_idx)
+                        let new_stop_idx = self.add_new_stop_point(*stop_point_idx);
+                        new_stop_idx
                     }
                 }
             };
-            let position = Position { idx : position_id};
             let stop = & mut self.stops[stop_idx.idx];
-            stop.position_in_arrival_patterns.insert(stop_pattern_idx, position);
+            stop.arrival_patterns.push(stop_pattern_idx);
 
             stops.push(stop_idx);
         }
@@ -287,37 +286,18 @@ impl EngineData {
     }
 
     fn add_new_stop_point(&mut self, stop_point_idx : Idx<StopPoint>) -> StopIdx {
-        debug_assert!( ! self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
         let stop = Stop{ 
             stop_point_idx,
-            position_in_arrival_patterns : BTreeMap::new(),
+            arrival_patterns : Vec::new(),
             transfers : Vec::new() 
         };
         let stop_idx = StopIdx {
             idx : self.stops.len()
         };
         self.stops.push(stop);
-        let stops_idx = vec![stop_idx];
-        self.stop_point_idx_to_stops_idx.insert(stop_point_idx, stops_idx);
-        stop_idx
-    }
-
-    fn add_new_stop_point_copy(&mut self, stop_point_idx : Idx<StopPoint>) -> StopIdx {
-        debug_assert!( self.stop_point_idx_to_stops_idx.contains_key(&stop_point_idx));
-        let stop = Stop{ 
-            stop_point_idx,
-            position_in_arrival_patterns : BTreeMap::new(),
-            transfers : Vec::new()
-        };
-        let stop_idx = StopIdx {
-            idx : self.stops.len()
-        };
-        self.stops.push(stop);
-        let  stops_idx = self.stop_point_idx_to_stops_idx.get_mut(&stop_point_idx).unwrap();
-        debug_assert!(stops_idx.len() >= 1);
+        let mut stops_idx = self.stop_point_idx_to_stops.entry(stop_point_idx).or_insert(Vec::new());
         stops_idx.push(stop_idx);
         stop_idx
-
     }
 
 }

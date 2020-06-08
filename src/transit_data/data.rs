@@ -29,12 +29,6 @@ pub struct Duration {
     pub (super) seconds : u32
 }
 
-  
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub struct Position {
-    pub (super) idx : usize,
-}
-
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
@@ -45,8 +39,7 @@ pub struct VehicleData {
 
 pub struct Stop {
     pub (super) stop_point_idx : Idx<StopPoint>,
-    // TODO ? : replace Vec by HashMap/BTreeMap StopPatternIdx -> Position 
-    pub (super) position_in_arrival_patterns : BTreeMap<StopPatternIdx, Position>,
+    pub (super) arrival_patterns : Vec<StopPatternIdx>,
     pub (super) transfers : Vec<(StopIdx, PositiveDuration, Option<Idx<Transfer>>)>
 }
 
@@ -57,7 +50,7 @@ pub struct StopPatternIdx {
     pub (super) idx : usize
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
 pub struct StopIdx {
     pub (super) idx : usize
 }
@@ -70,7 +63,7 @@ pub struct TransferIdx {
 
 pub struct EngineData {
     pub (super) arrival_stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPatternIdx>,
-    pub (super) stop_point_idx_to_stops_idx : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
+    pub (super) stop_point_idx_to_stops : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
 
     pub (super) stops : Vec<Stop>,
     pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, SecondsSinceDayStart>>,

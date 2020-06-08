@@ -4,7 +4,6 @@ use super::data::{
     Stop,
     StopIdx,
     StopPatternIdx,
-    Position,
     VehicleData,
     TransferIdx,
 };
@@ -12,16 +11,17 @@ use super::data::{
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
 
-use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable, TimeTablesIter};
+use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable, TimeTablesIter, Position};
 
 use std::collections::btree_map::Keys;
+use std::slice::Iter as SliceIter;
 
-type ArrivalPatternsOfStop<'a> = Keys<'a, StopPatternIdx, Position>;
+type ArrivalPatternsOfStop<'a> = SliceIter<'a, StopPatternIdx>;
 
 impl EngineData {
     pub fn arrival_patterns_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalPatternsOfStop<'a> {
         let stop = self.stop(stop_idx);
-        stop.position_in_arrival_patterns.keys()
+        stop.arrival_patterns.iter()
     }
 
     pub fn arrival_pattern_and_timetables_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalTimetablesOfStop<'a> {
