@@ -66,38 +66,26 @@ impl<'a> Iterator for ArrivalTimetablesOfStop<'a> {
     type Item = (StopPatternIdx, TimeTableIdx);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((pattern_idx, timetable_iter)) = & mut self.curr_pattern {
-            // if there is still a timetable in this pattern, we return it
-            if let Some(timetable_idx) = timetable_iter.next() {
-                Some((*pattern_idx, timetable_idx))
-            }
-            // otherwise, all timetables in the current pattern have been yielded
-            else {
-                loop {
-                    // if there is a new pattern to look at
-                    if let Some(new_pattern_idx) = self.pattern_iter.next() {
-                        let mut new_timetable_iter = self.engine_data.arrival_pattern(&new_pattern_idx).timetables();
-                        // and if the new pattern has at least one timetable
-                        // we yield this (new_pattern, timetable)
-                        // and we mark the new_pattern as the current one
-                        if let Some(next_timetable) = new_timetable_iter.next() {
+        loop {
+            if let Some((pattern_idx, timetable_iter)) = & mut self.curr_pattern {
+                // if there is still a timetable in this pattern, we return it
+                if let Some(timetable_idx) = timetable_iter.next() {
+                    return Some((*pattern_idx, timetable_idx));
+                }
+                else {
+                // otherwise, all timetables in the current pattern have been yielded
+                    match self.pattern_iter.next() {
+                        None => { self.curr_pattern = None;},
+                        Some(new_pattern_idx) => {
+                            let new_timetable_iter = self.engine_data.arrival_pattern(&new_pattern_idx).timetables();
                             self.curr_pattern = Some((*new_pattern_idx, new_timetable_iter));
-                            return Some((*new_pattern_idx, next_timetable));
                         }
-                        // if the new_pattern has no timetable,
-                        // we loop to the next pattern
-                    }
-                    // no new pattern to look at
-                    // we mark the iterator as exhauster
-                    else {
-                        self.curr_pattern = None;
-                        return None;
                     }
                 }
             }
-        }
-        else {
-            None
+            else {
+                return None;
+            }
         }
     }
 }
