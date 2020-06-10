@@ -7,14 +7,13 @@ use transit_model::{
 use std::collections::{BTreeMap};
 use typed_index_collection::{Idx};
 use super::data::{ 
-    EngineData, 
+    TransitData, 
     Stop,  
     StopPattern, 
     StopPoints, 
     VehicleData, 
     StopData, 
     TransitModelTime,
-    TransitData,
 
 };
 use super::ordered_timetable::{
@@ -28,17 +27,7 @@ use log::warn;
 
 
 impl TransitData {
-    pub fn new(transit_model : Model, default_transfer_duration : PositiveDuration) -> Self {
-        let engine_data = EngineData::new(&transit_model, default_transfer_duration);
-        Self {
-            engine_data,
-            transit_model,
-        }
-    }
-}
 
-
-impl EngineData {
     fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
 
         let nb_of_stop_points = transit_model.stop_points.len();

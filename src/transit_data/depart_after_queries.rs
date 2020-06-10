@@ -1,12 +1,12 @@
 
 use super::data::{
-    EngineData,
+    TransitData,
     Stop,
     StopPattern,
     VehicleData,
 };
 
-use super::iters::{ArrivalTimetablesOfStop};
+use super::iters::{ForwardTimetablesOfStop};
 
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
@@ -29,7 +29,7 @@ pub struct ForwardTrip {
 
 
 
-impl EngineData {
+impl TransitData {
 
 
     pub fn is_upstream_in_forward_mission(&self,
@@ -67,7 +67,7 @@ impl EngineData {
         stop_idx : & Stop
     ) -> ForwardMissionsOfStop
     {
-        let inner = self.arrival_pattern_and_timetables_of(stop_idx);
+        let inner = self.forward_pattern_and_timetables_of(stop_idx);
         ForwardMissionsOfStop {
             inner
         }
@@ -215,7 +215,7 @@ impl EngineData {
 
 
 pub struct ForwardMissionsOfStop<'a> {
-    inner : ArrivalTimetablesOfStop<'a>
+    inner : ForwardTimetablesOfStop<'a>
 }
 
 impl<'a> Iterator for ForwardMissionsOfStop<'a> {
@@ -240,14 +240,14 @@ pub struct ForwardTripsOfMission {
 }
 
 impl ForwardTripsOfMission {
-    fn new(engine_data : & EngineData, mission : & ForwardMission) -> Self {
+    fn new(transit_data : & TransitData, mission : & ForwardMission) -> Self {
         let pattern = mission.stop_pattern;
-        let stop_pattern = & engine_data.forward_pattern(&pattern);
+        let stop_pattern = & transit_data.forward_pattern(&pattern);
         let timetable = stop_pattern.timetable_data(&mission.timetable);
 
         let mut vehicles_iter = timetable.vehicles();
         let has_current_vehicle = vehicles_iter.next();
-        let days_iter = engine_data.calendars.days();
+        let days_iter = transit_data.calendars.days();
 
         Self {
             mission : mission.clone(),

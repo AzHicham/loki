@@ -63,7 +63,7 @@ pub struct Transfer {
 }
 
 
-pub struct EngineData {
+pub struct TransitData {
     pub (super) arrival_stop_points_to_forward_pattern : BTreeMap< StopPoints, StopPattern>,
     pub (super) stop_point_idx_to_stop : HashMap< Idx<StopPoint>, Stop  >,
 
@@ -75,13 +75,10 @@ pub struct EngineData {
 
 }
 
-pub struct TransitData {
-    pub engine_data : EngineData,
-    pub transit_model : TransitModel,
-}
 
 
-impl EngineData {
+
+impl TransitData {
     pub fn stop_data<'a>(& 'a self, stop : & Stop) -> & 'a StopData {
         & self.stops_data[stop.idx]
     }

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 pub struct StopPatternTimetables<VehicleData, Time> {
     pub stops : Vec<Stop>,
-    pub stops_to_position : HashMap<Stop, Position>,
     pub timetables : Vec<TimetableData<VehicleData, Time>>,
 }
 
@@ -57,14 +56,8 @@ where Time : Ord + Clone
 {
     pub fn new(stops : Vec<Stop>) -> Self {
         assert!( stops.len() >= 2);
-        let mut stops_to_position = HashMap::new();
-        for (pos_idx, stop) in stops.iter().enumerate() {
-            let pos = Position{ idx : pos_idx};
-            stops_to_position.insert(stop.clone(), pos);
-        }
         Self{
             stops,
-            stops_to_position,
             timetables : Vec::new(),
         }
     }
@@ -92,36 +85,10 @@ where Time : Ord + Clone
         }
     }
 
-    pub fn position(&self, stop : & Stop) -> &Position {
-        self.stops_to_position.get(stop)
-            .unwrap_or_else( || panic!(format!(
-                "The stop {:?} is expected to belongs to the stop_pattern ", 
-                    *stop)
-                )
-            )
-    }
-
     pub fn stop_at(&self, position : & Position) -> & Stop {
         & self.stops[position.idx]
     }
 
-    pub fn is_upstream(&self, upstream : & Stop, downstream : & Stop) -> bool {
-        let upstream_position = self.position(upstream);
-        let downstream_position = self.position(downstream);
-        upstream_position.idx < downstream_position.idx
-    }
-
-
-    pub fn next_stop(&self, stop : & Stop) -> Option<&Stop> {
-        let position = self.position(stop);
-        self.stops.get(position.idx + 1)
-    }
-
-    pub fn is_last_stop(&self, stop : & Stop) -> bool {
-        let position = self.position(stop);
-        position.idx == self.stops.len() - 1
-        
-    }
 
     pub fn is_last_position(&self, position : & Position) -> bool {
         position.idx == self.stops.len() - 1   
