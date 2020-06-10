@@ -2,8 +2,7 @@
 use super::data::{
     EngineData,
     Stop,
-    StopIdx,
-    StopPatternIdx,
+    StopPattern,
     VehicleData,
 };
 
@@ -17,7 +16,7 @@ use super::ordered_timetable::{Timetable, Position, Vehicle, TimetableData, Vehi
 use std::hash::Hash;
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ForwardMission {
-    pub stop_pattern : StopPatternIdx,
+    pub stop_pattern : StopPattern,
     pub timetable : Timetable,
 }
 
@@ -34,8 +33,8 @@ impl EngineData {
 
 
     pub fn is_upstream_in_forward_mission(&self,
-        upstream : & StopIdx,
-        downstream : & StopIdx,
+        upstream : & Stop,
+        downstream : & Stop,
         mission : & ForwardMission,
     ) -> bool {
         let pattern = self.arrival_pattern(&mission.stop_pattern);
@@ -44,9 +43,9 @@ impl EngineData {
     }
 
     pub fn next_stop_in_forward_mission(&self,
-        stop : & StopIdx,
+        stop : & Stop,
         mission : & ForwardMission,
-    ) -> Option<StopIdx> 
+    ) -> Option<Stop> 
     {
         let pattern = self.arrival_pattern(&mission.stop_pattern);
         pattern.next_stop(stop).cloned()
@@ -54,7 +53,7 @@ impl EngineData {
 
 
     pub fn boardable_forward_missions<'a>(& 'a self, 
-        stop_idx : & StopIdx
+        stop_idx : & Stop
     ) -> ForwardMissionsOfStop
     {
         let inner = self.arrival_pattern_and_timetables_of(stop_idx);
@@ -72,7 +71,7 @@ impl EngineData {
     }
 
     // Panics if `trip` does not go through `stop_idx` 
-    pub fn arrival_time_of(&self, trip : & ForwardTrip, stop : & StopIdx) -> SecondsSinceDatasetStart {
+    pub fn arrival_time_of(&self, trip : & ForwardTrip, stop : & Stop) -> SecondsSinceDatasetStart {
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
         let vehicle = & trip.vehicle;
@@ -83,7 +82,7 @@ impl EngineData {
 
     // Panics if `trip` does not go through `stop_idx` 
     // None if `trip` does not allows boarding at `stop_idx`
-    pub fn departure_time_of(&self, trip : & ForwardTrip, stop : & StopIdx) -> Option<SecondsSinceDatasetStart> {
+    pub fn departure_time_of(&self, trip : & ForwardTrip, stop : & Stop) -> Option<SecondsSinceDatasetStart> {
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
         let vehicle = & trip.vehicle;
@@ -99,7 +98,7 @@ impl EngineData {
     pub fn best_trip_to_board_at_stop(&self,
         waiting_time : & SecondsSinceDatasetStart,
         mission : & ForwardMission,
-        stop : & StopIdx
+        stop : & Stop
      ) -> Option<(ForwardTrip, SecondsSinceDatasetStart)> 
      {
         let stop_pattern = &mission.stop_pattern;
@@ -118,9 +117,9 @@ impl EngineData {
 
     fn best_vehicle_to_board(&self, 
         waiting_time : & SecondsSinceDatasetStart,
-        stop_pattern : & StopPatternIdx,
+        stop_pattern : & StopPattern,
         timetable : & Timetable,
-        stop : & StopIdx
+        stop : & Stop
      ) -> Option<(Vehicle, DaysSinceDatasetStart,SecondsSinceDatasetStart)> 
      {
 

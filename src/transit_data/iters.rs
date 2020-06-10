@@ -1,11 +1,11 @@
 
 use super::data::{
     EngineData,
+    StopData,
     Stop,
-    StopIdx,
-    StopPatternIdx,
+    StopPattern,
     VehicleData,
-    TransferIdx,
+    Transfer,
 };
 
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
@@ -16,23 +16,23 @@ use super::ordered_timetable::{Timetable, Vehicle, TimetableData, TimetablesIter
 use std::collections::btree_map::Keys;
 use std::slice::Iter as SliceIter;
 
-type ArrivalPatternsOfStop<'a> = SliceIter<'a, StopPatternIdx>;
+type ArrivalPatternsOfStop<'a> = SliceIter<'a, StopPattern>;
 
 impl EngineData {
-    pub fn arrival_patterns_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalPatternsOfStop<'a> {
-        let stop = self.stop(stop_idx);
-        stop.arrival_patterns.iter()
+    pub fn arrival_patterns_of<'a>(&'a self, stop : & Stop) -> ArrivalPatternsOfStop<'a> {
+        let stop_data = self.stop_data(stop);
+        stop_data.arrival_patterns.iter()
     }
 
-    pub fn arrival_pattern_and_timetables_of<'a>(&'a self, stop_idx : & StopIdx) -> ArrivalTimetablesOfStop<'a> {
+    pub fn arrival_pattern_and_timetables_of<'a>(&'a self, stop_idx : & Stop) -> ArrivalTimetablesOfStop<'a> {
         ArrivalTimetablesOfStop::new(&self, stop_idx)
     }
 
-    pub fn transfers_of(& self, stop_idx : & StopIdx) -> TransfersOfStopIter {
-        let stop = self.stop(stop_idx);
-        let nb_of_transfers = stop.transfers.len();
+    pub fn transfers_of(& self, stop : & Stop) -> TransfersOfStopIter {
+        let stop_data = self.stop_data(stop);
+        let nb_of_transfers = stop_data.transfers.len();
         TransfersOfStopIter {
-            stop_idx : * stop_idx,
+            stop : * stop,
             tranfer_idx_iter : 0..nb_of_transfers
         }
     }
@@ -42,12 +42,12 @@ impl EngineData {
 pub struct ArrivalTimetablesOfStop<'a> {
     engine_data : & 'a EngineData,
     pattern_iter : ArrivalPatternsOfStop<'a>, 
-    curr_pattern : Option<(StopPatternIdx, TimetablesIter)>, // None when iterator has ended
+    curr_pattern : Option<(StopPattern, TimetablesIter)>, // None when iterator has ended
 }
 
 impl<'a> ArrivalTimetablesOfStop<'a> {
-    pub(super) fn new(engine_data : &'a EngineData, stop_idx : & StopIdx) -> Self {
-        let mut pattern_iter = engine_data.arrival_patterns_of(stop_idx);
+    pub(super) fn new(engine_data : &'a EngineData, stop : & Stop) -> Self {
+        let mut pattern_iter = engine_data.arrival_patterns_of(stop);
         let has_first_pattern_idx = pattern_iter.next();
         let curr_pattern = has_first_pattern_idx.map(|pattern_idx| {
             (*pattern_idx, engine_data.arrival_pattern(&pattern_idx).timetables())
@@ -63,22 +63,22 @@ impl<'a> ArrivalTimetablesOfStop<'a> {
 }
 
 impl<'a> Iterator for ArrivalTimetablesOfStop<'a> {
-    type Item = (StopPatternIdx, Timetable);
+    type Item = (StopPattern, Timetable);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some((pattern_idx, timetable_iter)) = & mut self.curr_pattern {
+            if let Some((pattern, timetable_iter)) = & mut self.curr_pattern {
                 // if there is still a timetable in this pattern, we return it
-                if let Some(timetable_idx) = timetable_iter.next() {
-                    return Some((*pattern_idx, timetable_idx));
+                if let Some(timetable) = timetable_iter.next() {
+                    return Some((*pattern, timetable));
                 }
                 else {
                 // otherwise, all timetables in the current pattern have been yielded
                     match self.pattern_iter.next() {
                         None => { self.curr_pattern = None;},
-                        Some(new_pattern_idx) => {
-                            let new_timetable_iter = self.engine_data.arrival_pattern(&new_pattern_idx).timetables();
-                            self.curr_pattern = Some((*new_pattern_idx, new_timetable_iter));
+                        Some(new_pattern) => {
+                            let new_timetable_iter = self.engine_data.arrival_pattern(&new_pattern).timetables();
+                            self.curr_pattern = Some((*new_pattern, new_timetable_iter));
                         }
                     }
                 }
@@ -92,17 +92,17 @@ impl<'a> Iterator for ArrivalTimetablesOfStop<'a> {
 
 use std::ops::Range;
 pub struct TransfersOfStopIter {
-    stop_idx : StopIdx,
+    stop : Stop,
     tranfer_idx_iter : Range<usize>
 }
 
 impl Iterator for TransfersOfStopIter {
-    type Item = TransferIdx;
+    type Item = Transfer;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tranfer_idx_iter.next().map(|idx_in_stop_transfers| {
-            TransferIdx{
-                stop_idx : self.stop_idx,
+            Transfer{
+                stop : self.stop,
                 idx_in_stop_transfers
             }
         })

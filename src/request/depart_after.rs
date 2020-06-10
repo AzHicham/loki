@@ -4,9 +4,9 @@ use crate::transit_data::{
         EngineData,
         TransitData,
         Stop,
-        StopIdx,
-        StopPatternIdx,
-        TransferIdx,
+        StopData,
+        StopPattern,
+        Transfer,
     },
     depart_after_queries::{
         ForwardMission,
@@ -38,8 +38,8 @@ use transit_model::{
 pub struct Request<'a> {
     transit_data : & 'a TransitData,
     departure_datetime : SecondsSinceDatasetStart,
-    departures_stop_point_and_fallback_duration : Vec<(StopIdx, PositiveDuration)>,
-    arrivals_stop_point_and_fallbrack_duration : Vec<(StopIdx, PositiveDuration)>
+    departures_stop_point_and_fallback_duration : Vec<(Stop, PositiveDuration)>,
+    arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>
 
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -63,8 +63,8 @@ impl<'a> Request<'a> {
 
     pub fn new(transit_data : & 'a TransitData,
         departure_datetime : SecondsSinceDatasetStart,
-        departures_stop_point_and_fallback_duration : Vec<(StopIdx, PositiveDuration)>,
-        arrivals_stop_point_and_fallbrack_duration : Vec<(StopIdx, PositiveDuration)>
+        departures_stop_point_and_fallback_duration : Vec<(Stop, PositiveDuration)>,
+        arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>
     ) -> Self
     {
         Self {
@@ -78,10 +78,10 @@ impl<'a> Request<'a> {
 }
 
 impl<'a> PublicTransit for Request<'a> {
-    type Stop = StopIdx;
+    type Stop = Stop;
     type Mission = ForwardMission;
     type Trip = ForwardTrip;
-    type Transfer = TransferIdx;
+    type Transfer = Transfer;
     type Departure = DepartureIdx;
     type Criteria = Criteria;
 
@@ -103,10 +103,10 @@ impl<'a> PublicTransit for Request<'a> {
         && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
     }
 
-    fn board_and_ride(&self, stop_idx : & StopIdx, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {
+    fn board_and_ride(&self, stop : & Stop, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {
 
         let engine_data = & self.transit_data.engine_data;
-        let has_departure_time = engine_data.departure_time_of(trip, stop_idx);
+        let has_departure_time = engine_data.departure_time_of(trip, stop);
         if has_departure_time.is_none() {
             return None;
         }
@@ -115,7 +115,7 @@ impl<'a> PublicTransit for Request<'a> {
                 return None;
             }
         }
-        let next_stop = self.next_on_mission(stop_idx, &trip.mission).unwrap();
+        let next_stop = self.next_on_mission(stop, &trip.mission).unwrap();
         let arrival_time_at_next_stop = engine_data.arrival_time_of(trip, &next_stop);
         let new_criteria = Criteria {
             arrival_time : arrival_time_at_next_stop,
