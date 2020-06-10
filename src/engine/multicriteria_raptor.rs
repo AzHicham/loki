@@ -12,7 +12,9 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
     new_waiting_fronts : Vec<WaitingFront<PT>>,// map a `stop` to a pareto front
     stops_with_new_waiting : Vec<PT::Stop>,  // list of Stops
 
-    missions_with_new_waiting : HashMap<PT::Mission, PT::Stop>,
+
+    mission_has_new_waiting : Vec::<Option<PT::Position>>, // map a Mission to an Option<Position>
+    missions_with_new_waiting : Vec::<PT::Mission>, // list of Missions
 
     // map a `stop` to the pareto front of Pathes which
     // ends at `stop` with a Transit 
@@ -32,6 +34,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
     pub fn new(pt : &'pt PT ) -> Self {
         let nb_of_stops = pt.nb_of_stops();
+        let nb_of_missions = pt.nb_of_missions();
         Self {
             pt,
             journeys_tree : JourneysTree::new(),
@@ -40,7 +43,8 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             new_waiting_fronts : vec![WaitingFront::<PT>::new(); nb_of_stops],
             stops_with_new_waiting : Vec::new(),
 
-            missions_with_new_waiting : HashMap::new(),
+            mission_has_new_waiting : vec![None; nb_of_missions],
+            missions_with_new_waiting : Vec::new(),
 
             debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
             new_debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
@@ -90,6 +94,9 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         }
         self.stops_with_new_waiting.clear();
 
+        for has in & mut self.mission_has_new_waiting {
+            *has = None;
+        }
         self.missions_with_new_waiting.clear();
 
         for front in & mut self.debarked_fronts {
@@ -162,23 +169,23 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
     // - reads `stops_with_new_waiting`
     fn identify_missions_with_new_waitings(& mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
+        debug_assert!(self.mission_has_new_waiting.iter().all(|has| { has.is_none()}));
         debug_assert!(self.missions_with_new_waiting.is_empty());
 
         for stop in self.stops_with_new_waiting.iter() {
             // TODO : check that the same mission is not returned twice
-            for mission in self.pt.boardable_missions_at(&stop) {
-                let current_mission_has_new_waiting = self.missions_with_new_waiting.entry(mission.clone());
-                use std::collections::hash_map::Entry;
-                match current_mission_has_new_waiting {
-                    Entry::Vacant(entry) => {
-                        entry.insert(stop.clone());
-                    },
-                    Entry::Occupied(mut entry) => {
-                        let saved_waiting_stop = entry.get_mut();
-                        if self.pt.is_upstream(&stop, saved_waiting_stop, &mission) {
-                            *saved_waiting_stop = stop.clone();
-                        }
+            for (mission, position) in self.pt.boardable_missions_at(&stop) {
+                let mission_id = self.pt.mission_id(&mission);
+
+                let current_mission_has_new_waiting = & mut self.mission_has_new_waiting[mission_id];
+                if let Some(current_position) = current_mission_has_new_waiting {
+                    if self.pt.is_upstream(&position, current_position, &mission) {
+                        * current_mission_has_new_waiting = Some(position);
                     }
+                }
+                else {
+                    * current_mission_has_new_waiting = Some(position);
+                    self.missions_with_new_waiting.push(mission);
                 }
             }  
         }
@@ -195,12 +202,14 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         debug_assert!(self.stops_with_new_debarked.is_empty());
         debug_assert!(self.new_debarked_fronts.iter().all(|front| { front.is_empty() } ));
 
-        for (mission, mission_first_stop) in self.missions_with_new_waiting.iter() {
-            let mut has_stop = Some(mission_first_stop.clone());
+        for mission in self.missions_with_new_waiting.iter() {
+            let mission_id = self.pt.mission_id(mission);
+            let mut has_position = self.mission_has_new_waiting[mission_id];
 
             self.onboard_front.clear();
 
-            while let Some(stop) = has_stop {
+            while let Some(position) = has_position {
+                let stop = self.pt.stop_of(&position, mission);
                 let stop_id = self.pt.stop_id(&stop);
                 // update debarked front at this stop with elements from
                 //   onboard front
@@ -211,7 +220,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
                     for ((ref onboard, ref trip), ref onboard_criteria) in self.onboard_front.iter() {
 
-                        let new_debarked_criteria = self.pt.debark(trip, &stop, onboard_criteria);
+                        let new_debarked_criteria = self.pt.debark(trip, &position, onboard_criteria);
 
                         if debarked_front.dominates(&new_debarked_criteria, self.pt) {
                             continue;
@@ -232,11 +241,11 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
 
                 // we update has_stop to the next stop on the route
-                has_stop = self.pt.next_on_mission(&stop, mission);
+                has_position = self.pt.next_on_mission(&position, mission);
 
                 // if there is no next stop on the route
                 // there is no need to the update onboard front
-                if has_stop.is_none() {
+                if has_position.is_none() {
                     continue;
                 }
 
@@ -245,7 +254,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
                     self.new_onboard_front.clear();
                     let new_waiting_front = & self.new_waiting_fronts[stop_id];
                     for (ref waiting, ref waiting_criteria) in new_waiting_front.iter() {
-                        if let Some((trip, new_onboard_criteria)) = self.pt.best_trip_to_board(&stop, &mission, &waiting_criteria) {                      
+                        if let Some((trip, new_onboard_criteria)) = self.pt.best_trip_to_board(&position, &mission, &waiting_criteria) {                      
                             if self.new_onboard_front.dominates(&new_onboard_criteria, self.pt) {
                                 continue;
                             }
@@ -260,7 +269,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
                 //   pareto front along the way
                 {
                     for ((onboard, trip), criteria) in self.onboard_front.iter() {
-                        let new_criteria = self.pt.ride(&trip, &stop, &criteria);
+                        let new_criteria = self.pt.ride(&trip, &position, &criteria);
                         if self.new_onboard_front.dominates(&new_criteria, self.pt) {
                             continue;
                         }

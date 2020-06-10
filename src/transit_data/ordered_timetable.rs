@@ -35,6 +35,10 @@ pub struct TimetableData<VehicleData, Time> {
 
 }
 
+pub struct PatternBuilder {
+    stops : Vec<Stop>,
+}
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Position {
     idx : usize,
@@ -49,12 +53,34 @@ pub struct Vehicle {
     idx : usize
 }
 
+
+impl PatternBuilder {
+    pub fn with_capacity(nb_of_stops : usize) -> Self {
+        Self {
+            stops : Vec::with_capacity(nb_of_stops)
+        }
+    }
+
+    pub fn add_stop(&mut self, stop : & Stop) -> Position
+    {
+        let position = Position { idx : self.stops.len()};
+        self.stops.push(stop.clone());
+        position
+    }
+
+    pub fn finish<VehicleData, Time>(self) -> StopPatternTimetables<VehicleData, Time> 
+    where Time : Ord + Clone
+    {
+        StopPatternTimetables::new(self.stops)
+    }
+}
+
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable >;
 
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time>
 where Time : Ord + Clone
 {
-    pub fn new(stops : Vec<Stop>) -> Self {
+    fn new(stops : Vec<Stop>) -> Self {
         assert!( stops.len() >= 2);
         let mut stops_to_position = HashMap::new();
         for (pos_idx, stop) in stops.iter().enumerate() {
