@@ -13,18 +13,18 @@ use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSince
 
 use super::calendars::{DaysIter};
 
-use super::ordered_timetable::{TimeTableIdx, Position, VehicleIdx, OrderedTimetable, VehiclesIter};
-
-#[derive(Debug, PartialEq, Eq, Clone, Ord, PartialOrd)]
+use super::ordered_timetable::{Timetable, Position, Vehicle, TimetableData, VehiclesIter};
+use std::hash::Hash;
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ForwardMission {
     pub stop_pattern : StopPatternIdx,
-    pub timetable : TimeTableIdx,
+    pub timetable : Timetable,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ForwardTrip {
     pub mission : ForwardMission,
-    pub vehicle : VehicleIdx,
+    pub vehicle : Vehicle,
     pub day : DaysSinceDatasetStart,
 }
 
@@ -119,9 +119,9 @@ impl EngineData {
     fn best_vehicle_to_board(&self, 
         waiting_time : & SecondsSinceDatasetStart,
         stop_pattern : & StopPatternIdx,
-        timetable : & TimeTableIdx,
+        timetable : & Timetable,
         stop : & StopIdx
-     ) -> Option<(VehicleIdx, DaysSinceDatasetStart,SecondsSinceDatasetStart)> 
+     ) -> Option<(Vehicle, DaysSinceDatasetStart,SecondsSinceDatasetStart)> 
      {
 
 
@@ -141,13 +141,13 @@ impl EngineData {
 
         let mut nb_of_days_to_offset = 0u16;
         let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose();
-        let mut best_vehicle_day_and_its_debark_time_at_next_stop : Option<(VehicleIdx, DaysSinceDatasetStart, SecondsSinceDatasetStart)> = None;
+        let mut best_vehicle_day_and_its_debark_time_at_next_stop : Option<(Vehicle, DaysSinceDatasetStart, SecondsSinceDatasetStart)> = None;
 
         let position = pattern_data.position(stop);
         let next_stop = pattern_data.next_stop(stop).unwrap();
         let next_position = pattern_data.position(next_stop);
 
-        let timetable_data = pattern_data.timetable(timetable);
+        let timetable_data = pattern_data.timetable_data(timetable);
         
         while waiting_time_in_day <= latest_board_time_in_day {
             
@@ -187,9 +187,9 @@ impl EngineData {
     fn best_vehicle_to_board_in_day(&self, 
         day : & DaysSinceDatasetStart,
         time_in_day : & SecondsSinceDayStart,
-        timetable : & OrderedTimetable<VehicleData, SecondsSinceDayStart>,
+        timetable : & TimetableData<VehicleData, SecondsSinceDayStart>,
         position : & Position,
-    ) -> Option<VehicleIdx>
+    ) -> Option<Vehicle>
     {
         timetable.best_filtered_vehicle_to_board_at(time_in_day, position, |vehicle_data| {
             let calendar_idx = vehicle_data.calendar_idx;
@@ -197,7 +197,6 @@ impl EngineData {
         })
 
     }
-
 
 }
 
@@ -221,7 +220,7 @@ impl<'a> Iterator for ForwardMissionsOfStop<'a> {
 
 pub struct ForwardTripsOfMission {
     mission : ForwardMission,
-    has_current_vehicle : Option<VehicleIdx>, // None when the iterator is exhausted
+    has_current_vehicle : Option<Vehicle>, // None when the iterator is exhausted
     vehicles_iter : VehiclesIter,
     days_iter : DaysIter,
 }
@@ -230,7 +229,7 @@ impl ForwardTripsOfMission {
     fn new(engine_data : & EngineData, mission : & ForwardMission) -> Self {
         let pattern_idx = mission.stop_pattern.idx;
         let stop_pattern = & engine_data.arrival_stop_patterns[pattern_idx];
-        let timetable = stop_pattern.timetable(&mission.timetable);
+        let timetable = stop_pattern.timetable_data(&mission.timetable);
 
         let mut vehicles_iter = timetable.vehicles();
         let has_current_vehicle = vehicles_iter.next();

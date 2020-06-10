@@ -2,17 +2,17 @@ use std::cmp::Ordering;
 use super::data::{StopIdx};
 use std::ops::Range;
 use std::iter::Map;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 pub struct StopPatternTimetables<VehicleData, Time> {
     pub stops : Vec<StopIdx>,
-    pub stops_to_position : BTreeMap<StopIdx, Position>,
-    pub timetables : Vec<OrderedTimetable<VehicleData, Time>>,
+    pub stops_to_position : HashMap<StopIdx, Position>,
+    pub timetables : Vec<TimetableData<VehicleData, Time>>,
 }
 
 
 // TODO : document more explicitely !
-pub struct OrderedTimetable<VehicleData, Time> {
+pub struct TimetableData<VehicleData, Time> {
     // vehicle data, ordered by increasing debark times
     // meaning that is v1 is before v2 in this vector,
     // then for all `position` we have 
@@ -40,23 +40,23 @@ pub struct Position {
     idx : usize,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Ord, PartialOrd)]
-pub struct TimeTableIdx {
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Timetable {
     idx : usize,
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct VehicleIdx {
+pub struct Vehicle {
     idx : usize
 }
 
-pub type TimeTablesIter = Map<Range<usize>, fn(usize) -> TimeTableIdx >;
+pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable >;
 
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time>
 where Time : Ord + Clone
 {
     pub fn new(stops : Vec<StopIdx>) -> Self {
         assert!( stops.len() >= 2);
-        let mut stops_to_position = BTreeMap::new();
+        let mut stops_to_position = HashMap::new();
         for (pos_idx, stop) in stops.iter().enumerate() {
             let pos = Position{ idx : pos_idx};
             stops_to_position.insert(stop.clone(), pos);
@@ -96,7 +96,7 @@ where Time : Ord + Clone
     }
 
 
-    pub fn timetable<'a>(& 'a self, timetable : & TimeTableIdx) -> & 'a OrderedTimetable<VehicleData, Time> {
+    pub fn timetable_data<'a>(& 'a self, timetable : & Timetable) -> & 'a TimetableData<VehicleData, Time> {
         self.timetables.get(timetable.idx)
             .unwrap_or_else( || panic!(format!(
                 "The timetable {:?} is expected to belongs to the stop_pattern ", 
@@ -105,9 +105,9 @@ where Time : Ord + Clone
             )
     }
 
-    pub fn timetables(&self) -> TimeTablesIter {
+    pub fn timetables(&self) -> TimetablesIter {
         (0..self.timetables.len()).map(|idx| {
-            TimeTableIdx {
+            Timetable {
                 idx
             }
         })
@@ -117,22 +117,22 @@ where Time : Ord + Clone
         self.timetables.len()
     }
 
-    pub fn debark_time_at(&self, timetable : & TimeTableIdx, vehicle : & VehicleIdx, stop : & StopIdx) -> & Time {
+    pub fn debark_time_at(&self, timetable : & Timetable, vehicle : & Vehicle, stop : & StopIdx) -> & Time {
         let position = self.position(stop);
-        let timetable = self.timetable(timetable);
-        timetable.debark_time_at_(vehicle.idx, position.idx)
+        let timetable_data = self.timetable_data(timetable);
+        timetable_data.debark_time_at_(vehicle.idx, position.idx)
     }
 
-    pub fn board_time_at(&self, timetable : & TimeTableIdx, vehicle: & VehicleIdx, stop : & StopIdx) -> & Option<Time> {
+    pub fn board_time_at(&self, timetable : & Timetable, vehicle: & Vehicle, stop : & StopIdx) -> & Option<Time> {
         let position = self.position(stop);
-        let timetable = self.timetable(timetable);
-        timetable.board_time_at_(vehicle.idx, position.idx)
+        let timetable_data = self.timetable_data(timetable);
+        timetable_data.board_time_at_(vehicle.idx, position.idx)
     }
 
-    pub fn last_board_time_at(&self, timetable : & TimeTableIdx, stop : & StopIdx) -> & Option<Time> {
+    pub fn last_board_time_at(&self, timetable : & Timetable, stop : & StopIdx) -> & Option<Time> {
         let position = self.position(stop);
-        let timetable = self.timetable(timetable);
-        timetable.latest_board_time_at(position.idx)
+        let timetable_data = self.timetable_data(timetable);
+        timetable_data.latest_board_time_at(position.idx)
     }
 
     fn nb_of_positions(&self) -> usize {
@@ -158,29 +158,29 @@ where Time : Ord + Clone
             return Err(err);
         }
 
-        for timetable in & mut self.timetables {
-            if timetable.accept(debark_times.clone()) {
-                timetable.insert(debark_times, board_times, vehicle_data);
+        for timetable_data in & mut self.timetables {
+            if timetable_data.accept(debark_times.clone()) {
+                timetable_data.insert(debark_times, board_times, vehicle_data);
                 return Ok(());
             }
         }
-        let mut new_timetable = OrderedTimetable::new(self.nb_of_positions());
-        new_timetable.insert(debark_times, board_times, vehicle_data);
-        self.timetables.push(new_timetable);
+        let mut new_timetable_data =TimetableData::new(self.nb_of_positions());
+        new_timetable_data.insert(debark_times, board_times, vehicle_data);
+        self.timetables.push(new_timetable_data);
         Ok(())
     }
 
 }
 
-pub type VehiclesIter = Map<Range<usize>, fn(usize)->VehicleIdx>;
+pub type VehiclesIter = Map<Range<usize>, fn(usize)->Vehicle>;
 
-impl<VehicleData, Time> OrderedTimetable<VehicleData, Time>
+impl<VehicleData, Time> TimetableData<VehicleData, Time>
 where Time : Ord + Clone 
 {
 
     fn new(nb_of_positions : usize) -> Self {
         assert!( nb_of_positions >= 2);
-        OrderedTimetable{
+        Self{
             vehicles_data : Vec::new(),
             debark_times_by_vehicle : Vec::new(),
             board_times_by_position : vec![Vec::new(); nb_of_positions],
@@ -200,7 +200,7 @@ where Time : Ord + Clone
         &self.debark_times_by_vehicle[vehicle_idx][pos_idx]
     }
 
-    pub fn debark_time_at(&self, vehicle : & VehicleIdx, position :  & Position) -> &Time {
+    pub fn debark_time_at(&self, vehicle : & Vehicle, position :  & Position) -> &Time {
         self.debark_time_at_(vehicle.idx, position.idx)
     }
 
@@ -208,7 +208,7 @@ where Time : Ord + Clone
         &self.board_times_by_position[pos_idx][vehicle_idx]
     }
 
-    pub fn board_time_at(&self, vehicle : & VehicleIdx, position :  & Position) -> &Option<Time> {
+    pub fn board_time_at(&self, vehicle : & Vehicle, position :  & Position) -> &Option<Time> {
         self.board_time_at_(vehicle.idx, position.idx)
     }
 
@@ -219,7 +219,7 @@ where Time : Ord + Clone
 
     pub fn vehicles(&self) -> VehiclesIter {
         (0..self.nb_of_vehicles()).map(|idx| {
-            VehicleIdx{
+            Vehicle{
                 idx
             }
         })
@@ -332,14 +332,14 @@ where Time : Ord + Clone
     // at the subsequent positions at the earliest time.
     // Note : this may NOT be the vehicle with the earliest boarding time
     // Returns None if no vehicle can be boarded after `waiting_time`
-    pub fn best_vehicle_to_board_at(&self, waiting_time : & Time, position : & Position) -> Option<VehicleIdx> {
+    pub fn best_vehicle_to_board_at(&self, waiting_time : & Time, position : & Position) -> Option<Vehicle> {
         self.board_times_by_position[position.idx]
             .iter()
             .enumerate()
             .find_map(|(idx, has_board_time)| {
                 match has_board_time {
                     Some(board_time) if waiting_time <= board_time => {
-                        let vehicle = VehicleIdx {
+                        let vehicle = Vehicle {
                             idx
                         };
                         Some(vehicle)
@@ -360,7 +360,7 @@ where Time : Ord + Clone
         waiting_time : & Time, 
         position : & Position,
         filter : Filter
-    ) -> Option<VehicleIdx> 
+    ) -> Option<Vehicle> 
     where Filter : Fn(&VehicleData) -> bool
     {
         self.board_times_by_position[position.idx].iter()
@@ -370,7 +370,7 @@ where Time : Ord + Clone
             .find_map(|(idx, (has_board_time, _)) | {
                 match has_board_time {
                     Some(board_time) if waiting_time <= board_time => {
-                        let vehicle = VehicleIdx { idx };
+                        let vehicle = Vehicle { idx };
                         Some(vehicle)
                     },
                     _ => None

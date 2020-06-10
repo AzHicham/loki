@@ -47,7 +47,7 @@ impl EngineData {
 
         let mut engine_data = Self {
             arrival_stop_point_array_to_stop_pattern : BTreeMap::new(),
-            stop_point_idx_to_stops : BTreeMap::new(),
+            stop_point_idx_to_stops : std::collections::HashMap::new(),
             stops : Vec::with_capacity(nb_of_stop_points),
             arrival_stop_patterns : Vec::new(),
             calendars : Calendars::new(start_date, end_date),

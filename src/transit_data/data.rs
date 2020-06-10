@@ -14,6 +14,7 @@ use super::calendars::{Calendars, CalendarIdx};
 use super::time::{SecondsSinceDayStart, PositiveDuration};
 use typed_index_collection::{Idx};
 
+use std::collections::HashMap;
 
 fn run() {
     let input_dir = PathBuf::from("tests/fixtures/small_ntfs/");
@@ -45,12 +46,12 @@ pub struct Stop {
 
 pub type StopPointArray = Vec< Idx<StopPoint> >;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct StopPatternIdx {
     pub (super) idx : usize
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct StopIdx {
     pub (super) idx : usize
 }
@@ -63,7 +64,7 @@ pub struct TransferIdx {
 
 pub struct EngineData {
     pub (super) arrival_stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPatternIdx>,
-    pub (super) stop_point_idx_to_stops : BTreeMap< Idx<StopPoint>, Vec< StopIdx > >,
+    pub (super) stop_point_idx_to_stops : HashMap< Idx<StopPoint>, Vec< StopIdx > >,
 
     pub (super) stops : Vec<Stop>,
     pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, SecondsSinceDayStart>>,

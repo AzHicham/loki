@@ -1,7 +1,7 @@
 use crate::engine::public_transit::{PublicTransit, PublicTransitIters};
 use crate::engine::journeys_tree::{JourneysTree};
 use crate::engine::pareto_front::{OnboardFront, DebarkedFront, WaitingFront, ArrivedFront};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 
 pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
@@ -12,7 +12,7 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
     new_waiting_fronts : Vec<WaitingFront<PT>>,// map a `stop` to a pareto front
     stops_with_new_waiting : Vec<PT::Stop>,  // list of Stops
 
-    missions_with_new_waiting : BTreeMap<PT::Mission, PT::Stop>,
+    missions_with_new_waiting : HashMap<PT::Mission, PT::Stop>,
 
     // map a `stop` to the pareto front of Pathes which
     // ends at `stop` with a Transit 
@@ -40,7 +40,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             new_waiting_fronts : vec![WaitingFront::<PT>::new(); nb_of_stops],
             stops_with_new_waiting : Vec::new(),
 
-            missions_with_new_waiting : BTreeMap::new(),
+            missions_with_new_waiting : HashMap::new(),
 
             debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
             new_debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
@@ -168,7 +168,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             // TODO : check that the same mission is not returned twice
             for mission in self.pt.boardable_missions_at(&stop) {
                 let current_mission_has_new_waiting = self.missions_with_new_waiting.entry(mission.clone());
-                use std::collections::btree_map::Entry;
+                use std::collections::hash_map::Entry;
                 match current_mission_has_new_waiting {
                     Entry::Vacant(entry) => {
                         entry.insert(stop.clone());

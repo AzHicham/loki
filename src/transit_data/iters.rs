@@ -11,7 +11,7 @@ use super::data::{
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
 
-use super::ordered_timetable::{TimeTableIdx, VehicleIdx, OrderedTimetable, TimeTablesIter, Position};
+use super::ordered_timetable::{Timetable, Vehicle, TimetableData, TimetablesIter, Position};
 
 use std::collections::btree_map::Keys;
 use std::slice::Iter as SliceIter;
@@ -42,7 +42,7 @@ impl EngineData {
 pub struct ArrivalTimetablesOfStop<'a> {
     engine_data : & 'a EngineData,
     pattern_iter : ArrivalPatternsOfStop<'a>, 
-    curr_pattern : Option<(StopPatternIdx, TimeTablesIter)>, // None when iterator has ended
+    curr_pattern : Option<(StopPatternIdx, TimetablesIter)>, // None when iterator has ended
 }
 
 impl<'a> ArrivalTimetablesOfStop<'a> {
@@ -63,7 +63,7 @@ impl<'a> ArrivalTimetablesOfStop<'a> {
 }
 
 impl<'a> Iterator for ArrivalTimetablesOfStop<'a> {
-    type Item = (StopPatternIdx, TimeTableIdx);
+    type Item = (StopPatternIdx, Timetable);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {

@@ -1,9 +1,11 @@
+
+use std::hash::Hash;
 pub trait PublicTransit {
     // A point where a vehicle can be boarded into or debarked from
     type Stop : Clone;
 
     // A `Mission` is an ordered sequence of pairwise distinct `Stop`s
-    type Mission : Clone + Ord;
+    type Mission : Clone + Eq + Hash;
 
     // A trip of a vehicle along a `Mission`
     type Trip : Clone;
