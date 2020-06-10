@@ -10,7 +10,7 @@ pub(super) use transit_model::objects::Time as TransitModelTime;
 
 use std::path::PathBuf;
 use std::collections::{BTreeMap};
-use super::ordered_timetable::StopPatternTimetables;
+use super::ordered_timetable::{StopPatternTimetables, Position};
 use super::calendars::{Calendars, CalendarIdx};
 use super::time::{SecondsSinceDayStart, PositiveDuration};
 use typed_index_collection::{Idx};
@@ -41,11 +41,11 @@ pub struct VehicleData {
 
 pub struct StopData {
     pub (super) stop_point_idx : Idx<StopPoint>,
-    pub (super) arrival_patterns : Vec<StopPattern>,
+    pub (super) position_in_forward_patterns : Vec<(StopPattern, Position)>,
     pub (super) transfers : Vec<(Stop, PositiveDuration, Option<Idx<TransitModelTransfer>>)>
 }
 
-pub type StopPointArray = Vec< Idx<StopPoint> >;
+pub type StopPoints = Vec< Idx<StopPoint> >;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct StopPattern {
@@ -64,11 +64,11 @@ pub struct Transfer {
 
 
 pub struct EngineData {
-    pub (super) arrival_stop_point_array_to_stop_pattern : BTreeMap< StopPointArray, StopPattern>,
-    pub (super) stop_point_idx_to_stops : HashMap< Idx<StopPoint>, Vec< Stop > >,
+    pub (super) arrival_stop_points_to_forward_pattern : BTreeMap< StopPoints, StopPattern>,
+    pub (super) stop_point_idx_to_stop : HashMap< Idx<StopPoint>, Stop  >,
 
     pub (super) stops_data : Vec<StopData>,
-    pub (super) arrival_stop_patterns : Vec<StopPatternTimetables<VehicleData, SecondsSinceDayStart>>,
+    pub (super) forward_patterns : Vec<StopPatternTimetables<VehicleData, SecondsSinceDayStart>>,
 
     pub (super) calendars : Calendars,
 
@@ -86,8 +86,8 @@ impl EngineData {
         & self.stops_data[stop.idx]
     }
 
-    pub fn arrival_pattern<'a>(& 'a self, arrival_pattern : & StopPattern) -> & 'a StopPatternTimetables<VehicleData, SecondsSinceDayStart> {
-        & self.arrival_stop_patterns[arrival_pattern.idx]
+    pub fn forward_pattern<'a>(& 'a self, pattern : & StopPattern) -> & 'a StopPatternTimetables<VehicleData, SecondsSinceDayStart> {
+        & self.forward_patterns[pattern.idx]
     }
 
     pub fn transfer(&self, stop : & Stop, transfer : & Transfer) -> (Stop, PositiveDuration) {

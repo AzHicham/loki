@@ -5,7 +5,7 @@ pub trait PublicTransit {
     type Stop : Clone;
 
     // A `Mission` is an ordered sequence of `Position`
-    type Mission : Clone;
+    type Mission : Clone + Hash + Eq;
 
     type Position : Clone;
 
@@ -41,7 +41,8 @@ pub trait PublicTransit {
         trip : & Self::Trip
     ) -> Self::Mission;
 
-
+    // Returns the `Stop` at `position` in `mission`
+    // Panics if `position` does not belongs to `mission`
     fn stop_of(&self,
         position : & Self::Position,
         mission : & Self::Mission
@@ -136,10 +137,10 @@ pub trait PublicTransit {
     fn stop_id(&self, stop : & Self::Stop) -> usize;
 
     // // An upper bound on the total number of `Mission`s
-    fn nb_of_missions(&self) -> usize;
-    // Returns an usize between 0 and nb_of_misions()
-    // Returns a different value for two different `mission`s
-    fn mission_id(&self, mission : & Self::Mission) -> usize;
+    // fn nb_of_missions(&self) -> usize;
+    // // Returns an usize between 0 and nb_of_misions()
+    // // Returns a different value for two different `mission`s
+    // fn mission_id(&self, mission : & Self::Mission) -> usize;
 
 }
 
@@ -152,7 +153,6 @@ pub trait PublicTransitIters<'a> : PublicTransit {
         stop : & Self::Stop
     ) -> Self::MissionsAtStop;
 
-
     type Departures : Iterator<Item = Self::Departure>;
     fn departures(& 'a self) -> Self::Departures;
 
@@ -160,8 +160,6 @@ pub trait PublicTransitIters<'a> : PublicTransit {
     // Should not return twice the same `Transfer`.
     type TransfersAtStop : Iterator<Item = Self::Transfer>;
     fn transfers_at(& 'a self, from_stop : & Self::Stop) -> Self::TransfersAtStop;
-
-
 
     // Returns all `Trip`s belonging to `mission`
     type TripsOfMission : Iterator<Item = Self::Trip>;

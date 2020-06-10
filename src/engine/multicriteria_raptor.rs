@@ -12,9 +12,7 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
     new_waiting_fronts : Vec<WaitingFront<PT>>,// map a `stop` to a pareto front
     stops_with_new_waiting : Vec<PT::Stop>,  // list of Stops
 
-
-    mission_has_new_waiting : Vec::<Option<PT::Position>>, // map a Mission to an Option<Position>
-    missions_with_new_waiting : Vec::<PT::Mission>, // list of Missions
+    missions_with_new_waiting : HashMap::<PT::Mission, PT::Position>, // list of Missions
 
     // map a `stop` to the pareto front of Pathes which
     // ends at `stop` with a Transit 
@@ -34,7 +32,6 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
     pub fn new(pt : &'pt PT ) -> Self {
         let nb_of_stops = pt.nb_of_stops();
-        let nb_of_missions = pt.nb_of_missions();
         Self {
             pt,
             journeys_tree : JourneysTree::new(),
@@ -43,8 +40,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             new_waiting_fronts : vec![WaitingFront::<PT>::new(); nb_of_stops],
             stops_with_new_waiting : Vec::new(),
 
-            mission_has_new_waiting : vec![None; nb_of_missions],
-            missions_with_new_waiting : Vec::new(),
+            missions_with_new_waiting : HashMap::new(),
 
             debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
             new_debarked_fronts : vec![DebarkedFront::<PT>::new(); nb_of_stops],
@@ -94,9 +90,6 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         }
         self.stops_with_new_waiting.clear();
 
-        for has in & mut self.mission_has_new_waiting {
-            *has = None;
-        }
         self.missions_with_new_waiting.clear();
 
         for front in & mut self.debarked_fronts {
@@ -169,23 +162,24 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
     // - reads `stops_with_new_waiting`
     fn identify_missions_with_new_waitings(& mut self) {
         debug_assert!(!self.stops_with_new_waiting.is_empty());
-        debug_assert!(self.mission_has_new_waiting.iter().all(|has| { has.is_none()}));
         debug_assert!(self.missions_with_new_waiting.is_empty());
 
         for stop in self.stops_with_new_waiting.iter() {
             // TODO : check that the same mission is not returned twice
             for (mission, position) in self.pt.boardable_missions_at(&stop) {
-                let mission_id = self.pt.mission_id(&mission);
 
-                let current_mission_has_new_waiting = & mut self.mission_has_new_waiting[mission_id];
-                if let Some(current_position) = current_mission_has_new_waiting {
-                    if self.pt.is_upstream(&position, current_position, &mission) {
-                        * current_mission_has_new_waiting = Some(position);
+                let current_mission_has_new_waiting = self.missions_with_new_waiting.entry(mission.clone());
+                use std::collections::hash_map::Entry;
+                match current_mission_has_new_waiting {
+                    Entry::Vacant(entry) => {
+                        entry.insert(position);
+                    },
+                    Entry::Occupied(mut entry) => {
+                        let saved_position = entry.get_mut();
+                        if self.pt.is_upstream(&position, saved_position, &mission) {
+                            * saved_position = position;
+                        }
                     }
-                }
-                else {
-                    * current_mission_has_new_waiting = Some(position);
-                    self.missions_with_new_waiting.push(mission);
                 }
             }  
         }
@@ -202,9 +196,9 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         debug_assert!(self.stops_with_new_debarked.is_empty());
         debug_assert!(self.new_debarked_fronts.iter().all(|front| { front.is_empty() } ));
 
-        for mission in self.missions_with_new_waiting.iter() {
-            let mission_id = self.pt.mission_id(mission);
-            let mut has_position = self.mission_has_new_waiting[mission_id];
+        for (mission, first_position) in self.missions_with_new_waiting.iter() {
+
+            let mut has_position = Some(first_position.clone());
 
             self.onboard_front.clear();
 

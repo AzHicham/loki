@@ -35,11 +35,7 @@ pub struct TimetableData<VehicleData, Time> {
 
 }
 
-pub struct PatternBuilder {
-    stops : Vec<Stop>,
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd)]
 pub struct Position {
     idx : usize,
 }
@@ -54,33 +50,12 @@ pub struct Vehicle {
 }
 
 
-impl PatternBuilder {
-    pub fn with_capacity(nb_of_stops : usize) -> Self {
-        Self {
-            stops : Vec::with_capacity(nb_of_stops)
-        }
-    }
-
-    pub fn add_stop(&mut self, stop : & Stop) -> Position
-    {
-        let position = Position { idx : self.stops.len()};
-        self.stops.push(stop.clone());
-        position
-    }
-
-    pub fn finish<VehicleData, Time>(self) -> StopPatternTimetables<VehicleData, Time> 
-    where Time : Ord + Clone
-    {
-        StopPatternTimetables::new(self.stops)
-    }
-}
-
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable >;
 
 impl<VehicleData, Time> StopPatternTimetables<VehicleData, Time>
 where Time : Ord + Clone
 {
-    fn new(stops : Vec<Stop>) -> Self {
+    pub fn new(stops : Vec<Stop>) -> Self {
         assert!( stops.len() >= 2);
         let mut stops_to_position = HashMap::new();
         for (pos_idx, stop) in stops.iter().enumerate() {
@@ -94,6 +69,29 @@ where Time : Ord + Clone
         }
     }
 
+
+    pub fn stops_and_positions(&self) -> impl Iterator<Item = (Stop, Position)> + '_ {
+        self.stops.iter().enumerate()
+            .map(|(idx, stop)| {
+                let position = Position { idx };
+                (stop.clone(), position)
+            })
+    }
+
+    pub fn is_valid(&self, position : & Position) -> bool {
+        position.idx < self.nb_of_positions()
+    }
+
+    pub fn next_position(&self, position : & Position) -> Option<Position> {
+        let next_position = Position{ idx : position.idx + 1};
+        if self.is_valid(&next_position) {
+            Some(next_position)
+        }
+        else{
+            None
+        }
+    }
+
     pub fn position(&self, stop : & Stop) -> &Position {
         self.stops_to_position.get(stop)
             .unwrap_or_else( || panic!(format!(
@@ -101,6 +99,10 @@ where Time : Ord + Clone
                     *stop)
                 )
             )
+    }
+
+    pub fn stop_at(&self, position : & Position) -> & Stop {
+        & self.stops[position.idx]
     }
 
     pub fn is_upstream(&self, upstream : & Stop, downstream : & Stop) -> bool {
@@ -119,6 +121,10 @@ where Time : Ord + Clone
         let position = self.position(stop);
         position.idx == self.stops.len() - 1
         
+    }
+
+    pub fn is_last_position(&self, position : & Position) -> bool {
+        position.idx == self.stops.len() - 1   
     }
 
 
@@ -143,20 +149,17 @@ where Time : Ord + Clone
         self.timetables.len()
     }
 
-    pub fn debark_time_at(&self, timetable : & Timetable, vehicle : & Vehicle, stop : & Stop) -> & Time {
-        let position = self.position(stop);
+    pub fn debark_time_at(&self, timetable : & Timetable, vehicle : & Vehicle, position : & Position) -> & Time {
         let timetable_data = self.timetable_data(timetable);
         timetable_data.debark_time_at_(vehicle.idx, position.idx)
     }
 
-    pub fn board_time_at(&self, timetable : & Timetable, vehicle: & Vehicle, stop : & Stop) -> & Option<Time> {
-        let position = self.position(stop);
+    pub fn board_time_at(&self, timetable : & Timetable, vehicle: & Vehicle, position : & Position) -> & Option<Time> {
         let timetable_data = self.timetable_data(timetable);
         timetable_data.board_time_at_(vehicle.idx, position.idx)
     }
 
-    pub fn last_board_time_at(&self, timetable : & Timetable, stop : & Stop) -> & Option<Time> {
-        let position = self.position(stop);
+    pub fn last_board_time_at(&self, timetable : & Timetable, position : & Position) -> & Option<Time> {
         let timetable_data = self.timetable_data(timetable);
         timetable_data.latest_board_time_at(position.idx)
     }

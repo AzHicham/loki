@@ -33,22 +33,33 @@ impl EngineData {
 
 
     pub fn is_upstream_in_forward_mission(&self,
-        upstream : & Stop,
-        downstream : & Stop,
+        upstream : & Position,
+        downstream : & Position,
         mission : & ForwardMission,
     ) -> bool {
-        let pattern = self.arrival_pattern(&mission.stop_pattern);
-        pattern.is_upstream(upstream, downstream)
+        debug_assert!({
+            let pattern = self.forward_pattern(&mission.stop_pattern);
+            pattern.is_valid(upstream) && pattern.is_valid(downstream)
+        });
+        upstream < downstream
        
     }
 
-    pub fn next_stop_in_forward_mission(&self,
-        stop : & Stop,
+    pub fn next_position_in_forward_mission(&self,
+        position : & Position,
         mission : & ForwardMission,
-    ) -> Option<Stop> 
+    ) -> Option<Position> 
     {
-        let pattern = self.arrival_pattern(&mission.stop_pattern);
-        pattern.next_stop(stop).cloned()
+        let pattern = self.forward_pattern(&mission.stop_pattern);
+        pattern.next_position(position)
+    }
+
+    pub fn stop_at_position_in_forward_mission(&self,
+        position : & Position,
+        mission : & ForwardMission,
+    ) -> Stop {
+        let pattern = self.forward_pattern(&mission.stop_pattern);
+        pattern.stop_at(position).clone()
     }
 
 
@@ -71,22 +82,22 @@ impl EngineData {
     }
 
     // Panics if `trip` does not go through `stop_idx` 
-    pub fn arrival_time_of(&self, trip : & ForwardTrip, stop : & Stop) -> SecondsSinceDatasetStart {
+    pub fn arrival_time_of(&self, trip : & ForwardTrip, position : & Position) -> SecondsSinceDatasetStart {
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
         let vehicle = & trip.vehicle;
-        let seconds_in_day = self.arrival_pattern(pattern).debark_time_at(timetable, vehicle, stop);
+        let seconds_in_day = self.forward_pattern(pattern).debark_time_at(timetable, vehicle, position);
         let days = &trip.day;
         SecondsSinceDatasetStart::compose(days, seconds_in_day)
     }
 
-    // Panics if `trip` does not go through `stop_idx` 
+    // Panics if `position` is not valid for `trip`
     // None if `trip` does not allows boarding at `stop_idx`
-    pub fn departure_time_of(&self, trip : & ForwardTrip, stop : & Stop) -> Option<SecondsSinceDatasetStart> {
+    pub fn departure_time_of(&self, trip : & ForwardTrip, position : & Position) -> Option<SecondsSinceDatasetStart> {
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
         let vehicle = & trip.vehicle;
-        let has_seconds_in_day = self.arrival_pattern(pattern).board_time_at(timetable, vehicle, stop);
+        let has_seconds_in_day = self.forward_pattern(pattern).board_time_at(timetable, vehicle, position);
         has_seconds_in_day.as_ref().map(|seconds_in_day| {
             let days = &trip.day;
             SecondsSinceDatasetStart::compose(days, &seconds_in_day)
@@ -95,15 +106,15 @@ impl EngineData {
     }
 
 
-    pub fn best_trip_to_board_at_stop(&self,
+    pub fn best_trip_to_board_at(&self,
         waiting_time : & SecondsSinceDatasetStart,
         mission : & ForwardMission,
-        stop : & Stop
+        position : & Position
      ) -> Option<(ForwardTrip, SecondsSinceDatasetStart)> 
      {
         let stop_pattern = &mission.stop_pattern;
         let timetable = &mission.timetable;
-        self.best_vehicle_to_board(waiting_time, stop_pattern, timetable, stop)
+        self.best_vehicle_to_board(waiting_time, stop_pattern, timetable, position)
             .map(|(vehicle, day, arrival_time)| {
                 let trip = ForwardTrip {
                     mission : mission.clone(),
@@ -119,20 +130,25 @@ impl EngineData {
         waiting_time : & SecondsSinceDatasetStart,
         stop_pattern : & StopPattern,
         timetable : & Timetable,
-        stop : & Stop
+        position : & Position
      ) -> Option<(Vehicle, DaysSinceDatasetStart,SecondsSinceDatasetStart)> 
      {
 
 
         //TODO : reread this and look for optimization
 
-        let pattern_data = self.arrival_pattern(stop_pattern);
-        // we should never try to board a stop pattern at its last position
-        debug_assert!(! pattern_data.is_last_stop(stop));
-
+        let pattern_data = self.forward_pattern(stop_pattern);
         
+        debug_assert!(! pattern_data.is_last_position(position));
 
-        let has_latest_board_time = pattern_data.last_board_time_at(timetable, stop);
+        let has_next_position = pattern_data.next_position(position);
+        if has_next_position.is_none() {
+            // there is no vehicle to board at the last position of a pattern
+            return None;
+        }
+        let next_position = has_next_position.unwrap();
+
+        let has_latest_board_time = pattern_data.last_board_time_at(timetable, position);
         if has_latest_board_time.is_none() {
             return None;
         }
@@ -142,9 +158,7 @@ impl EngineData {
         let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose();
         let mut best_vehicle_day_and_its_debark_time_at_next_stop : Option<(Vehicle, DaysSinceDatasetStart, SecondsSinceDatasetStart)> = None;
 
-        let position = pattern_data.position(stop);
-        let next_stop = pattern_data.next_stop(stop).unwrap();
-        let next_position = pattern_data.position(next_stop);
+
 
         let timetable_data = pattern_data.timetable_data(timetable);
         
@@ -205,14 +219,15 @@ pub struct ForwardMissionsOfStop<'a> {
 }
 
 impl<'a> Iterator for ForwardMissionsOfStop<'a> {
-    type Item = ForwardMission;
+    type Item = (ForwardMission, Position);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(pattern, timetable)| {
-            ForwardMission{
+        self.inner.next().map(|(pattern, position, timetable)| {
+            let mission = ForwardMission{
                 stop_pattern : pattern,
                 timetable
-            }
+            };
+            (mission, position)
         })
     }
 }
@@ -226,8 +241,8 @@ pub struct ForwardTripsOfMission {
 
 impl ForwardTripsOfMission {
     fn new(engine_data : & EngineData, mission : & ForwardMission) -> Self {
-        let pattern_idx = mission.stop_pattern.idx;
-        let stop_pattern = & engine_data.arrival_stop_patterns[pattern_idx];
+        let pattern = mission.stop_pattern;
+        let stop_pattern = & engine_data.forward_pattern(&pattern);
         let timetable = stop_pattern.timetable_data(&mission.timetable);
 
         let mut vehicles_iter = timetable.vehicles();
