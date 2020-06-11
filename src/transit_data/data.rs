@@ -45,6 +45,12 @@ pub struct StopData {
     pub (super) transfers : Vec<(Stop, PositiveDuration, Option<Idx<TransitModelTransfer>>)>
 }
 
+
+pub enum BoardDebark{
+    BoardOnly,
+    DebarkOnly,
+    Both,
+}
 pub type StopPoints = Vec< Idx<StopPoint> >;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -98,8 +104,12 @@ impl TransitData {
         self.stops_data.len()
     }
 
-    pub fn stop_idx_to_usize(&self, stop : & Stop) -> usize {
+    pub fn stop_to_usize(&self, stop : & Stop) -> usize {
         stop.idx
+    }
+
+    pub fn stop_point_idx_to_stop(&self, stop_point_idx : & Idx<StopPoint>) -> Option<&Stop> {
+        self.stop_point_idx_to_stop.get(stop_point_idx)
     }
 }
 

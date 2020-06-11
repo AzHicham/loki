@@ -7,7 +7,7 @@ use crate::transit_data::{
         StopPattern,
         Transfer,
     },
-    depart_after_queries::{
+    forward_queries::{
         ForwardMission,
         ForwardTrip,
         ForwardMissionsOfStop,
@@ -217,7 +217,7 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn stop_id(&self, stop : & Self::Stop) -> usize {
-        self.transit_data.stop_idx_to_usize(stop)
+        self.transit_data.stop_to_usize(stop)
     }
 
 

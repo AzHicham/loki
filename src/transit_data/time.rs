@@ -28,6 +28,11 @@ impl PositiveDuration {
 }
 
 impl SecondsSinceDatasetStart {
+
+    pub fn zero() -> Self {
+        SecondsSinceDatasetStart{seconds : 0}
+    }
+
        // TODO : add doc and doctest
     pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceDayStart) {
         let (days_u16, seconds_u32) = self.decompose_inner();

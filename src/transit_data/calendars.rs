@@ -36,7 +36,7 @@ impl Calendars {
 
     pub fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self {
         assert!(first_date <= last_date);
-        let nb_of_days_i64 : i64 = (last_date - first_date).num_days();
+        let nb_of_days_i64 : i64 = (last_date - first_date).num_days() + 1;
 
         let nb_of_days : u16 = TryFrom::try_from(nb_of_days_i64)
                 .expect("Trying to construct a calendar with more days than u16::MAX.");
@@ -86,6 +86,7 @@ impl Calendars {
             }
         }
     }
+
 
     pub fn to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
         let date = datetime.date();

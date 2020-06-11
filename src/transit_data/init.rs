@@ -28,7 +28,7 @@ use log::warn;
 
 impl TransitData {
 
-    fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
+    pub fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
 
         let nb_of_stop_points = transit_model.stop_points.len();
 
@@ -49,6 +49,11 @@ impl TransitData {
 
     fn init(&mut self, transit_model : & Model, default_transfer_duration : PositiveDuration) {
        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
+           if vehicle_journey.stop_times.len() < 2 {
+               warn!("Skipping vehicle journey {} that has less than 2 stop times.", vehicle_journey.id);
+               continue;
+           }
+           // dbg!(vehicle_journey);
             self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
 
@@ -61,8 +66,8 @@ impl TransitData {
                     self.insert_transfer(from_stop_point_idx, to_stop_point_idx, transfer_idx, duration)
                 }
                 _ => {
-                    //TODO : log some error
-                    continue;
+                    warn!("Skipping transfer between {} and {} because at least one of this stop is not used by 
+                           vehicles.", transfer.from_stop_id, transfer.to_stop_id);
                 }
             }
 
@@ -101,7 +106,7 @@ impl TransitData {
                                             .iter()
                                             .filter(|stop_time| {
                                                 stop_time.drop_off_type == 0
-                                                // == 1 means the drop off is not permitter
+                                                // == 1 means the drop off is not allowed
                                                 // TODO == 2 means an On Demand Transport 
                                                 //         see what should be done here
                                             });
