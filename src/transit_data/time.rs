@@ -27,6 +27,14 @@ impl PositiveDuration {
     }
 }
 
+impl SecondsSinceDayStart {
+    pub fn zero() -> Self {
+        Self {
+            seconds : 0
+        }
+    }
+}
+
 impl SecondsSinceDatasetStart {
 
     pub fn zero() -> Self {
@@ -109,5 +117,18 @@ impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetStart {
         Self {
             seconds : self.seconds + rhs.seconds
         }
+    }
+}
+
+
+impl std::fmt::Display for SecondsSinceDayStart {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{:02}:{:02}:{:02}",
+            self.seconds / 60 / 60,
+            self.seconds / 60 % 60,
+            self.seconds % 60
+        )
     }
 }

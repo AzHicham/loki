@@ -6,32 +6,34 @@ use super::data::{
     StopPattern,
     VehicleData,
     Transfer,
+    Mission,
+    Trip,
 };
 
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
+use super::calendars::DaysIter;
 
 
-use super::ordered_timetable::{Timetable, Vehicle, TimetableData, TimetablesIter, Position};
+use super::ordered_timetable::{Timetable, Vehicle, TimetableData, TimetablesIter, Position, VehiclesIter};
 
 use std::collections::btree_map::Keys;
 use std::slice::Iter as SliceIter;
 
-type ForwardPatternsOfStop<'a> = SliceIter<'a, (StopPattern, Position)>;
+type PatternsOfStop<'a> = SliceIter<'a, (StopPattern, Position)>;
 
 impl TransitData {
-    pub fn forward_patterns_of<'a>(&'a self, stop : & Stop) -> ForwardPatternsOfStop<'a> {
-        let stop_data = self.stop_data(stop);
-        stop_data.position_in_forward_patterns.iter()
+    pub fn missions_of<'a>(&'a self, stop : & Stop) -> MissionsOfStop<'a> {
+        MissionsOfStop::new(&self, stop)
     }
 
-    pub fn forward_pattern_and_timetables_of<'a>(&'a self, stop : & Stop) -> ForwardTimetablesOfStop<'a> {
-        ForwardTimetablesOfStop::new(&self, stop)
+    pub fn trips_of( & self, mission : & Mission) -> TripsOfMission {
+        TripsOfMission::new(&self, mission)
     }
 
-    pub fn transfers_of(& self, stop : & Stop) -> TransfersOfStopIter {
+    pub fn transfers_of(& self, stop : & Stop) -> TransfersOfStop {
         let stop_data = self.stop_data(stop);
         let nb_of_transfers = stop_data.transfers.len();
-        TransfersOfStopIter {
+        TransfersOfStop {
             stop : * stop,
             tranfer_idx_iter : 0..nb_of_transfers
         }
@@ -39,18 +41,19 @@ impl TransitData {
 
 }
 
-pub struct ForwardTimetablesOfStop<'a> {
+pub struct MissionsOfStop<'a> {
     transit_data : & 'a TransitData,
-    pattern_iter : ForwardPatternsOfStop<'a>, 
+    pattern_iter : PatternsOfStop<'a>, 
     curr_pattern : Option<(StopPattern, Position, TimetablesIter)>, // None when iterator has ended
 }
 
-impl<'a> ForwardTimetablesOfStop<'a> {
+impl<'a> MissionsOfStop<'a> {
     pub(super) fn new(transit_data : &'a TransitData, stop : & Stop) -> Self {
-        let mut pattern_iter = transit_data.forward_patterns_of(stop);
+        let stop_data = transit_data.stop_data(stop);
+        let mut pattern_iter = stop_data.position_in_patterns.iter();
         let has_first_pattern_idx = pattern_iter.next();
         let curr_pattern = has_first_pattern_idx.map(|(pattern, position)| {
-            (*pattern, *position,  transit_data.forward_pattern(&pattern).timetables())
+            (*pattern, *position,  transit_data.pattern(&pattern).timetables())
         });
         Self {
             transit_data,
@@ -62,22 +65,26 @@ impl<'a> ForwardTimetablesOfStop<'a> {
 
 }
 
-impl<'a> Iterator for ForwardTimetablesOfStop<'a> {
-    type Item = (StopPattern, Position, Timetable);
+impl<'a> Iterator for MissionsOfStop<'a> {
+    type Item = (Mission, Position);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some((pattern, position, timetable_iter)) = & mut self.curr_pattern {
                 // if there is still a timetable in this pattern, we return it
                 if let Some(timetable) = timetable_iter.next() {
-                    return Some((*pattern, *position, timetable));
+                    let mission = Mission {
+                        stop_pattern : *pattern,
+                        timetable
+                    };
+                    return Some((mission, *position));
                 }
                 else {
                 // otherwise, all timetables in the current pattern have been yielded
                     match self.pattern_iter.next() {
                         None => { self.curr_pattern = None;},
                         Some((new_pattern, new_position)) => {
-                            let new_timetable_iter = self.transit_data.forward_pattern(&new_pattern).timetables();
+                            let new_timetable_iter = self.transit_data.pattern(&new_pattern).timetables();
                             self.curr_pattern = Some((*new_pattern, *new_position, new_timetable_iter));
                         }
                     }
@@ -91,12 +98,12 @@ impl<'a> Iterator for ForwardTimetablesOfStop<'a> {
 }
 
 use std::ops::Range;
-pub struct TransfersOfStopIter {
+pub struct TransfersOfStop {
     stop : Stop,
     tranfer_idx_iter : Range<usize>
 }
 
-impl Iterator for TransfersOfStopIter {
+impl Iterator for TransfersOfStop {
     type Item = Transfer;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -108,3 +115,63 @@ impl Iterator for TransfersOfStopIter {
         })
     }
 }
+
+
+
+
+
+pub struct TripsOfMission {
+    mission : Mission,
+    has_current_vehicle : Option<Vehicle>, // None when the iterator is exhausted
+    vehicles_iter : VehiclesIter,
+    days_iter : DaysIter,
+}
+
+impl TripsOfMission {
+    fn new(transit_data : & TransitData, mission : & Mission) -> Self {
+        let pattern = mission.stop_pattern;
+        let pattern_data = & transit_data.pattern(&pattern);
+
+        let mut vehicles_iter = pattern_data.vehicles(&mission.timetable);
+        let has_current_vehicle = vehicles_iter.next();
+        let days_iter = transit_data.calendars.days();
+
+        Self {
+            mission : mission.clone(),
+            has_current_vehicle,
+            vehicles_iter,
+            days_iter
+        }
+
+    }
+}
+
+impl Iterator for TripsOfMission {
+    type Item = Trip;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(current_vehicle) = & mut self.has_current_vehicle {
+                match self.days_iter.next() {
+                    Some(day) => {
+                        let trip = 
+                        Trip {
+                            mission : self.mission.clone(),
+                            vehicle : current_vehicle.clone(),
+                            day,
+                        };
+                        return Some(trip);
+                    },
+                    None => {
+                        self.has_current_vehicle = self.vehicles_iter.next();
+                    }
+                }
+
+            }
+            else {
+                return None;
+            }
+        }
+    }
+}
+

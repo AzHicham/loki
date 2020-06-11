@@ -6,17 +6,15 @@ use crate::transit_data::{
         StopData,
         StopPattern,
         Transfer,
+        Mission,
+        Trip,
     },
-    forward_queries::{
-        ForwardMission,
-        ForwardTrip,
-        ForwardMissionsOfStop,
-        ForwardTripsOfMission,
-        
-    },
+
     ordered_timetable::Position,
     iters::{
-        TransfersOfStopIter,
+        TransfersOfStop,
+        MissionsOfStop,
+        TripsOfMission,
     },
     time::{
         SecondsSinceDatasetStart, 
@@ -79,19 +77,19 @@ impl<'a> Request<'a> {
 
 impl<'a> PublicTransit for Request<'a> {
     type Stop = Stop;
-    type Mission = ForwardMission;
-    type Trip = ForwardTrip;
+    type Mission = Mission;
+    type Trip = Trip;
     type Transfer = Transfer;
     type Departure = DepartureIdx;
     type Criteria = Criteria;
     type Position = Position;
 
     fn is_upstream(&self, upstream : & Self::Position, downstream : & Self::Position, mission : & Self::Mission) -> bool {
-        self.transit_data.is_upstream_in_forward_mission(upstream, downstream, mission)
+        self.transit_data.is_upstream_in_mission(upstream, downstream, mission)
     }
 
     fn next_on_mission(&self, stop : & Self::Position, mission : & Self::Mission) -> Option<Self::Position> {
-        self.transit_data.next_position_in_forward_mission(stop, mission)
+        self.transit_data.next_position_in_mission(stop, mission)
     }
 
     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
@@ -99,7 +97,7 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn stop_of(&self, position: & Self::Position, mission: & Self::Mission) -> Self::Stop {
-        self.transit_data.stop_at_position_in_forward_mission(position, mission)
+        self.transit_data.stop_at_position_in_mission(position, mission)
     }
 
     fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
@@ -110,12 +108,12 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn board_and_ride(&self, position : & Position, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {
 
-        let has_departure_time = self.transit_data.departure_time_of(trip, position);
-        if has_departure_time.is_none() {
+        let has_board_time = self.transit_data.board_time_of(trip, position);
+        if has_board_time.is_none() {
             return None;
         }
-        if let Some(departure_time) = has_departure_time {
-            if waiting_criteria.arrival_time > departure_time {
+        if let Some(board_time) = has_board_time {
+            if waiting_criteria.arrival_time > board_time {
                 return None;
             }
         }
@@ -134,7 +132,7 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn best_trip_to_board(&self, position : & Self::Position, mission : & Self::Mission, waiting_criteria : & Self::Criteria) -> Option<(Self::Trip, Self::Criteria)> {
         let waiting_time = &waiting_criteria.arrival_time;
-        self.transit_data.best_trip_to_board_at(waiting_time, mission, position)
+        self.transit_data.earliest_trip_to_board_at(waiting_time, mission, position)
             .map(|(trip, arrival_time)| {
                 let new_criteria =  Criteria {
                     arrival_time,
@@ -225,10 +223,10 @@ impl<'a> PublicTransit for Request<'a> {
 }
 
 impl<'inner, 'outer> PublicTransitIters<'outer> for Request<'inner> {
-    type MissionsAtStop = ForwardMissionsOfStop< 'outer >;
+    type MissionsAtStop = MissionsOfStop< 'outer >;
 
     fn boardable_missions_at(& 'outer self, stop : & Self::Stop) -> Self::MissionsAtStop {
-        self.transit_data.boardable_forward_missions(stop)
+        self.transit_data.missions_of(stop)
     }
 
     type Departures = Departures;
@@ -239,14 +237,14 @@ impl<'inner, 'outer> PublicTransitIters<'outer> for Request<'inner> {
         }
     }
 
-    type TransfersAtStop = TransfersOfStopIter;
+    type TransfersAtStop = TransfersOfStop;
     fn transfers_at(& 'outer self, from_stop : & Self::Stop) -> Self::TransfersAtStop {
         self.transit_data.transfers_of(from_stop)
     }
 
-    type TripsOfMission = ForwardTripsOfMission;
+    type TripsOfMission = TripsOfMission;
     fn trips_of(&'outer self, mission : & Self::Mission) -> Self::TripsOfMission {
-        self.transit_data.forward_trips_of(mission)
+        self.transit_data.trips_of(mission)
     }
 }
 

@@ -14,16 +14,17 @@ use super::data::{
     VehicleData, 
     StopData, 
     TransitModelTime,
+    FlowDirection,
 
 };
 use super::ordered_timetable::{
-    StopPatternTimetables,
+    StopPatternData,
     VehicleTimesError
 };
 use super::calendars::Calendars;
 use super::time::{SecondsSinceDayStart, PositiveDuration};
 
-use log::warn;
+use log::{warn, info};
 
 
 impl TransitData {
@@ -35,10 +36,10 @@ impl TransitData {
         let (start_date, end_date) = transit_model.calculate_validity_period().expect("Unable to calculate a validity period.");
 
         let mut engine_data = Self {
-            arrival_stop_points_to_forward_pattern : BTreeMap::new(),
+            stop_points_to_pattern : BTreeMap::new(),
             stop_point_idx_to_stop : std::collections::HashMap::new(),
             stops_data : Vec::with_capacity(nb_of_stop_points),
-            forward_patterns : Vec::new(),
+            patterns : Vec::new(),
             calendars : Calendars::new(start_date, end_date),
         };
 
@@ -48,14 +49,11 @@ impl TransitData {
     }
 
     fn init(&mut self, transit_model : & Model, default_transfer_duration : PositiveDuration) {
-       for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-           if vehicle_journey.stop_times.len() < 2 {
-               warn!("Skipping vehicle journey {} that has less than 2 stop times.", vehicle_journey.id);
-               continue;
-           }
-           // dbg!(vehicle_journey);
+        info!("Inserting vehicle journeys");
+        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
             self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
+        info!("Inserting transfers");
 
         for (transfer_idx, transfer) in transit_model.transfers.iter() {
             let has_from_stop_point_idx = transit_model.stop_points.get_idx(&transfer.from_stop_id);
@@ -102,54 +100,56 @@ impl TransitData {
                                         , transit_model : & Model
                                     ) {
         
-        let arrival_stop_times_iter = vehicle_journey.stop_times
-                                            .iter()
-                                            .filter(|stop_time| {
-                                                stop_time.drop_off_type == 0
-                                                // == 1 means the drop off is not allowed
-                                                // TODO == 2 means an On Demand Transport 
-                                                //         see what should be done here
-                                            });
-        let arrival_stop_points : StopPoints = arrival_stop_times_iter.clone()
-                                                        .map(|stop_time| stop_time.stop_point_idx)
-                                                        .collect();
 
+        let mut stop_points : StopPoints = vehicle_journey.stop_times
+                                        .iter()
+                                        .filter_map(|stop_time| {
+                                            let stop_point_idx = stop_time.stop_point_idx;
+                                            match (stop_time.pickup_type, stop_time.drop_off_type) {
+                                                (0, 0) => Some((stop_point_idx, FlowDirection::BoardAndDebark)),
+                                                (1, 0) => Some((stop_point_idx, FlowDirection::DebarkOnly)),
+                                                (0, 1) => Some((stop_point_idx, FlowDirection::BoardOnly)),
+                                                _ => {
+                                                    warn!("Skipping stop_time : \n {:?} \n because of 
+                                                       unhandled pickup type {} or dropoff type {} ",
+                                                       stop_time,
+                                                       stop_time.pickup_type,
+                                                       stop_time.drop_off_type
+                                                    );
+                                                    None
+                                                }
+                                            }
+                                        })
+                                        .collect();
+        
+        if stop_points.len() < 2 {
+            warn!("Skipping vehicle journey {} that has less than 2 stop times.", vehicle_journey.id);
+            return ;
+        }      
+        if stop_points[0].1 != FlowDirection::BoardOnly {
+            warn!("First stop time of vehicle journey {} has debarked allowed. I ignore it.", vehicle_journey.id);
+            stop_points[0].1 = FlowDirection::BoardOnly;
+        }      
+        if stop_points.last().unwrap().1 != FlowDirection::DebarkOnly {
+            warn!("Last stop time of vehicle journey {} has boarding allowed. I ignore it.", vehicle_journey.id);
+            stop_points.last_mut().unwrap().1 = FlowDirection::BoardOnly;
+        }                      
+                
 
-        let has_forward_pattern = self.arrival_stop_points_to_forward_pattern.get(&arrival_stop_points);
-        let forward_pattern = if let Some(pattern) = has_forward_pattern {
-            *pattern
+        let has_pattern = self.stop_points_to_pattern.get(&stop_points);
+        let pattern = if let Some(pattern_) = has_pattern {
+            *pattern_
         }
         else {
-            self.create_new_forward_pattern(arrival_stop_points)
+            self.create_new_pattern(stop_points)
         };
-        let forward_pattern_data = & mut self.forward_patterns[forward_pattern.idx];
 
-        let arrival_times_iter  = arrival_stop_times_iter.clone()
-                                .map(|stop_time| {
-                                    let arrival_time  = arrival_time(stop_time);
-                                    SecondsSinceDayStart {
-                                        seconds : arrival_time.total_seconds()
-                                    }
-                                });
-        let departure_times_iter = arrival_stop_times_iter.clone()
-                                    .map(|stop_time|
-                                        if stop_time.pickup_type == 0 {
-                                            let departure_time = departure_time(stop_time);
-                                            let result = SecondsSinceDayStart {
-                                                seconds : departure_time.total_seconds()
-                                            };
-                                            Some(result)
-                                        }
-                                        //  == 1 it means that boarding is not allowed
-                                        //   at this stop_point
-                                        // TODO : == 2 means an On Demand Transport 
-                                        //        see what should be done here
-                                        else {
-                                            None
-                                        }
-                                        
-                                    );
+        let pattern_data = & mut self.patterns[pattern.idx];
 
+        let board_debark_times = vehicle_journey.stop_times.iter()
+                                    .map(|stop_time| {
+                                        (board_time(stop_time), debark_time(stop_time))
+                                    });
 
         let transit_model_calendar = transit_model.calendars
                                 .get(&vehicle_journey.service_id)
@@ -167,49 +167,57 @@ impl TransitData {
             calendar_idx  
         };
 
-        let insert_error = forward_pattern_data.insert(arrival_times_iter, departure_times_iter, daily_trip_data);
+        let insert_error = pattern_data.insert(board_debark_times, daily_trip_data);
         if let Err(err) = insert_error {
             match err {
-                VehicleTimesError::BoardBeforeDebark(idx) => {
-                    let stop_time = &vehicle_journey.stop_times[idx];
-                    let arrival_time = arrival_time(stop_time);
-                    let departure_time = departure_time(stop_time);
-                    warn!("Skipping vehicle journey {} in arrival pattern because at position {} its 
-                            departure time {} is earlier than its arrival time {} ", 
+                VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
+                    let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let board = board_time(upstream_stop_time);
+                    let debark = debark_time(downstream_stop_time);
+                    warn!("Skipping vehicle journey {} because its 
+                            debark time {} at sequence {}
+                            is earlier than its 
+                            board time {} upstream at sequence {} ", 
                             vehicle_journey.id,
-                            idx,
-                            departure_time,
-                            arrival_time
+                            debark,
+                            downstream_stop_time.sequence,
+                            board,
+                            upstream_stop_time.sequence
                         );
                 },
-                VehicleTimesError::NextDebarkIsBeforeBoard(idx) => {
-                    let stop_time = &vehicle_journey.stop_times[idx];
-                    let departure_time = departure_time(stop_time);
-                    let next_stop_time = &vehicle_journey.stop_times[idx+1];
-                    let next_arrival_time = arrival_time(next_stop_time);
-                    warn!("Skipping vehicle journey {} in arrival pattern because its 
-                            departure time {} at position {} is after its arrival time {} 
-                            at the next position",
+                VehicleTimesError::DecreasingBoardTime(position_pair) => {
+                    let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let upstream_board = board_time(upstream_stop_time);
+                    let downstream_board = board_time(downstream_stop_time);
+                    warn!("Skipping vehicle journey {} because its 
+                            board time {} at sequence {}
+                            is earlier than its
+                            board time {} upstream at sequence {} ",
                             vehicle_journey.id,
-                            departure_time,
-                            idx,
-                            next_arrival_time
+                            downstream_board,
+                            downstream_stop_time.sequence,
+                            upstream_board,
+                            upstream_stop_time.sequence
                         );
                 },
-                VehicleTimesError::NextDebarkIsBeforePrevDebark(idx) => {
-                    let stop_time = &vehicle_journey.stop_times[idx];
-                    let arrival_time_ = arrival_time(stop_time);
-                    let next_stop_time = &vehicle_journey.stop_times[idx+1];
-                    let next_arrival_time = arrival_time(next_stop_time);
-                    warn!("Skipping vehicle journey {} in arrival pattern because its 
-                            arrival time {} at position {} is after its arrival time {} 
-                            at the next position",
+                VehicleTimesError::DecreasingDebarkTime(position_pair) => {
+                    let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let upstream_debark = debark_time(upstream_stop_time);
+                    let downstream_debark = debark_time(downstream_stop_time);
+                    warn!("Skipping vehicle journey {} because its 
+                            debark time {} at sequence {}
+                            is earlier than its
+                            debark time {} upstream at sequence {} ",
                             vehicle_journey.id,
-                            arrival_time_,
-                            idx,
-                            next_arrival_time
+                            downstream_debark,
+                            downstream_stop_time.sequence,
+                            upstream_debark,
+                            upstream_stop_time.sequence
                         );
-                }
+                },
             }
         }
 
@@ -218,17 +226,18 @@ impl TransitData {
 
 
 
-    fn create_new_forward_pattern(& mut self, arrival_stop_points : StopPoints) -> StopPattern {
-        debug_assert!( ! self.arrival_stop_points_to_forward_pattern.contains_key(&arrival_stop_points));
+    fn create_new_pattern(& mut self, stop_points : StopPoints) -> StopPattern {
+        debug_assert!( ! self.stop_points_to_pattern.contains_key(&stop_points));
 
-        let nb_of_positions = arrival_stop_points.len();
+        let nb_of_positions = stop_points.len();
         let pattern = StopPattern {
-            idx : self.forward_patterns.len()
+            idx : self.patterns.len()
         };
 
 
         let mut stops = Vec::with_capacity(nb_of_positions);
-        for stop_point_idx in arrival_stop_points.iter() {
+        let mut flow_directions = Vec::with_capacity(nb_of_positions);
+        for (stop_point_idx, flow_direction) in stop_points.iter() {
             let has_stop = self.stop_point_idx_to_stop.get(stop_point_idx);
             let stop = match has_stop {
                 None => {
@@ -240,21 +249,22 @@ impl TransitData {
                 }
             };
             stops.push(stop);
+            flow_directions.push(flow_direction.clone());
         }
 
 
-        let pattern_data = StopPatternTimetables::new(stops);
+        let pattern_data = StopPatternData::new(stops, flow_directions);
 
 
 
-        self.arrival_stop_points_to_forward_pattern.insert(arrival_stop_points, pattern);
+        self.stop_points_to_pattern.insert(stop_points, pattern);
 
         for (stop, position) in pattern_data.stops_and_positions() {
             let stop_data = & mut self.stops_data[stop.idx]; 
-            stop_data.position_in_forward_patterns.push((pattern, position));
+            stop_data.position_in_patterns.push((pattern, position));
         }
 
-        self.forward_patterns.push(pattern_data);
+        self.patterns.push(pattern_data);
 
         pattern
     }
@@ -263,7 +273,7 @@ impl TransitData {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
         let stop_data = StopData{ 
             stop_point_idx,
-            position_in_forward_patterns : Vec::new(),
+            position_in_patterns : Vec::new(),
             transfers : Vec::new() 
         };
         let stop = Stop {
@@ -276,10 +286,19 @@ impl TransitData {
 
 }
 
-fn departure_time(stop_time : & StopTime) -> TransitModelTime {
-    stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into())
+fn board_time(stop_time : & StopTime) -> SecondsSinceDayStart {
+    let transit_model_time = stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into());
+    let seconds = transit_model_time.total_seconds();
+    SecondsSinceDayStart {
+        seconds
+    }
+
 }
 
-fn arrival_time(stop_time : & StopTime) -> TransitModelTime {
-    stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into())
+fn debark_time(stop_time : & StopTime) -> SecondsSinceDayStart {
+    let transit_model_time = stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
+    let seconds = transit_model_time.total_seconds();
+    SecondsSinceDayStart {
+        seconds
+    }
 }

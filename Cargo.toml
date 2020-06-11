@@ -11,3 +11,18 @@ transit_model = "0.17"
 typed_index_collection = "1"
 chrono = "0.4"
 log = "0.4"
+slog = "2.5"
+slog-term = "2.4"
+slog-scope = "4.1"
+slog-stdlog = "4.0"
+slog-async = "2.3"
+slog-envlogger = "2.1"
+
+[profile.release]
+opt-level = 3
+debug = true
+#rpath = false
+#lto = true
+#debug-assertions = false
+#codegen-units = 1
+#panic = 'unwind'
