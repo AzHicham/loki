@@ -53,6 +53,10 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         }
     }
 
+    pub fn nb_of_journeys(&self) -> usize {
+        self.arrived_front.len()
+    }
+
     pub fn compute(& mut self) {
         self.clear();
 

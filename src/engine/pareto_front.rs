@@ -33,6 +33,10 @@ impl<ItemData : Clone, PT : PublicTransit> ParetoFront<ItemData, PT> {
         std::mem::swap(& mut self.elements, & mut other.elements);
     }
 
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
     pub fn clear(&mut self) {
         self.elements.clear();
     }

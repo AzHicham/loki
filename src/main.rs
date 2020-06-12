@@ -57,6 +57,7 @@ fn main() {
     info!("Data constructed");
     info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
+    info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
 
     let start_stop_point_idx = model.stop_points.get_idx(&start_stop_point_uri).unwrap_or_else( || {
         error!("Start stop point {} not found in model", start_stop_point_uri);
@@ -78,7 +79,10 @@ fn main() {
     let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops);
 
     let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(&request);
+    info!("Start computing journey");
     raptor.compute();
+    info!("Journeys computed");
+    info!("Nb of journeys found : {}", raptor.nb_of_journeys());
 
     // let a_few_vj : Vec<_> = collections.vehicle_journeys.values().take(2).collect();
     // println!("{:#?}", a_few_vj);

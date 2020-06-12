@@ -122,7 +122,13 @@ impl TransitData {
 
     pub fn nb_of_timetables(&self) -> usize {
         self.patterns.iter().map(|pattern| {
-            pattern.timetables.len()
+            pattern.nb_of_timetables()
+        }).sum()
+    }
+
+    pub fn nb_of_vehicles(&self) -> usize {
+        self.patterns.iter().map(|pattern| {
+            pattern.nb_of_vehicles()
         }).sum()
     }
 }
