@@ -55,24 +55,18 @@ pub struct Arrived {
 ///      the specific RouteStop where this Arrival occurs is given by the RouteStop
 ///      associated to the Debarked that comes before this Arrived
 
+
 enum WaitingData<PT : PublicTransit> {
-    Transfer(PT::Transfer),
+    Transfer(PT::Transfer, Debarked),
     Departure(PT::Departure)
 }
 
 pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each moment
-    onboards  : Vec<PT::Trip>,
-    debarkeds  : Vec<PT::Stop>,
+    onboards  : Vec<(PT::Trip, Waiting)>,
+    debarkeds  : Vec<(PT::Stop, Onboard)>,
     waitings   : Vec<WaitingData<PT>>,
-
-    // parents 
-    onboard_parents   : Vec<Waiting>,
-    debarked_parents  : Vec<Onboard>,
-    // a Waiting has no parent when it is the beginning fo the journey
-    waiting_parents : Vec<Option<Debarked>>, 
-    arrived_parents : Vec<Debarked>,
-
+    arrived   : Vec<Debarked>
 
 }
 
@@ -83,21 +77,16 @@ impl<PT : PublicTransit> JourneysTree<PT> {
             onboards : Vec::new(),
             debarkeds : Vec::new(),
             waitings : Vec::new(),
+            arrived : Vec::new(),
 
-            onboard_parents    : Vec::new(),
-            debarked_parents   : Vec::new(),
-            waiting_parents : Vec::new(),
-            arrived_parents  : Vec::new(),
 
         }
     }
 
     pub fn depart(& mut self, departure : & PT::Departure) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
-        debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
         self.waitings.push(WaitingData::Departure(departure.clone()));
-        self.waiting_parents.push(None);
 
         Waiting{ id }
     }
@@ -105,38 +94,31 @@ impl<PT : PublicTransit> JourneysTree<PT> {
 
     pub fn board(& mut self, waiting : & Waiting, trip : & PT::Trip) -> Onboard {
         debug_assert!(self.onboards.len() < MAX_ID);
-        debug_assert!(self.onboards.len() == self.onboard_parents.len());
         let id = self.onboards.len();
-        self.onboards.push(trip.clone());
-        self.onboard_parents.push(waiting.clone());
+        self.onboards.push((trip.clone(), waiting.clone()));
 
         Onboard{ id }
     }
 
     pub fn debark(& mut self, onboard : & Onboard, route_stop : & PT::Stop) -> Debarked {
         debug_assert!(self.debarkeds.len() < MAX_ID);
-        debug_assert!(self.debarkeds.len() == self.debarked_parents.len());
         let id = self.debarkeds.len();
-        self.debarkeds.push(route_stop.clone());
-        self.debarked_parents.push(onboard.clone());
-
+        self.debarkeds.push((route_stop.clone(), onboard.clone()));
         Debarked{ id }
     }
 
     pub fn transfer(& mut self, debarked : & Debarked, transfer : & PT::Transfer) -> Waiting {
         debug_assert!(self.waitings.len() < MAX_ID);
-        debug_assert!(self.waitings.len() == self.waiting_parents.len());
         let id = self.waitings.len();
-        self.waitings.push(WaitingData::Transfer(transfer.clone()));
-        self.waiting_parents.push(Some(debarked.clone()));
+        self.waitings.push(WaitingData::Transfer(transfer.clone(), debarked.clone()));
 
         Waiting{ id }
     }
 
     pub fn arrive(& mut self, debarked : & Debarked) -> Arrived {
-        debug_assert!(self.arrived_parents.len() < MAX_ID);
-        let id = self.arrived_parents.len();
-        self.arrived_parents.push(debarked.clone());
+        debug_assert!(self.arrived.len() < MAX_ID);
+        let id = self.arrived.len();
+        self.arrived.push(debarked.clone());
 
         Arrived{ id }
     }
@@ -157,23 +139,71 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         self.onboards.clear();
         self.debarkeds.clear();
         self.waitings.clear();
-
-
-        self.onboard_parents.clear();
-        self.debarked_parents.clear();
-        self.waiting_parents.clear();
-        self.arrived_parents.clear();
+        self.arrived.clear();
     }
 
     pub fn is_empty(&self) -> bool {
         self.onboards.is_empty()
         && self.debarkeds.is_empty()
         && self.waitings.is_empty()
-
-        && self.onboard_parents.is_empty()
-        && self.debarked_parents.is_empty()
-        && self.waiting_parents.is_empty()
-        && self.arrived_parents.is_empty()
+        && self.arrived.is_empty()
     }
 }
 
+
+pub enum JourneyLeg<PT : PublicTransit> {
+    Connection(PT::Transfer, PT::Trip, PT::Stop),
+    Departure(PT::Departure, PT::Trip, PT::Stop)
+}
+
+enum IterState {
+    Arrived(Arrived), 
+    Waiting(Waiting), 
+}
+pub struct ReverseJourneyIter<'tree, PT> 
+where PT : PublicTransit
+{
+    journeys_tree : & 'tree JourneysTree<PT>,
+    state : IterState
+}
+
+impl<'tree,  PT : PublicTransit> ReverseJourneyIter<'tree,  PT> {
+    fn new(journeys_tree : & 'tree JourneysTree<PT>,  arrived : Arrived) -> Self {
+        Self {
+            journeys_tree,
+            state : IterState::Arrived(arrived)
+        }
+    }
+
+    pub fn prev_leg(& mut self) -> Option<JourneyLeg<PT>> 
+    {
+        let debarked = match self.state {
+
+            IterState::Arrived(arrived) => {
+                &self.journeys_tree.arrived[arrived.id]
+            },
+            IterState::Waiting(waiting) => {
+                match & self.journeys_tree.waitings[waiting.id] {
+                    WaitingData::Departure(_) => {
+                        return None;
+                    },
+                    WaitingData::Transfer(_, debarked) => {
+                        debarked
+                    }
+                }
+            }
+        };
+        let (debark_stop, onboard) = self.journeys_tree.debarkeds[debarked.id].clone();
+        let (trip, waiting) = self.journeys_tree.onboards[onboard.id].clone();
+        self.state = IterState::Waiting(waiting);
+        let result = match & self.journeys_tree.waitings[waiting.id] {
+            WaitingData::Departure(departure) => {
+                JourneyLeg::<PT>::Departure(departure.clone(), trip, debark_stop)
+            },
+            WaitingData::Transfer(transfer,_) => {
+                JourneyLeg::<PT>::Connection(transfer.clone(), trip, debark_stop)
+            }
+        };
+        Some(result)
+    }
+}
