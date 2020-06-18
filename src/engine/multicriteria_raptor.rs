@@ -1,4 +1,4 @@
-use crate::engine::public_transit::{PublicTransit, PublicTransitIters};
+use crate::engine::public_transit::{PublicTransit, PublicTransitIters, Journey};
 use crate::engine::journeys_tree::{JourneysTree};
 use crate::engine::pareto_front::{OnboardFront, DebarkedFront, WaitingFront, ArrivedFront};
 use std::collections::HashMap;
@@ -24,6 +24,8 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
     new_onboard_front : OnboardFront<PT>,
 
     arrived_front : ArrivedFront<PT>,
+
+    //results : Vec<Journey<PT>>,
 
 }
 
@@ -218,19 +220,20 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
                     for ((ref onboard, ref trip), ref onboard_criteria) in self.onboard_front.iter() {
 
-                        let new_debarked_criteria = self.pt.debark(trip, &position, onboard_criteria);
-
-                        if debarked_front.dominates(&new_debarked_criteria, self.pt) {
-                            continue;
-                        }
-                        if new_debarked_front.dominates(&new_debarked_criteria, self.pt) {
-                            continue;
-                        }
-                        let new_debarked = self.journeys_tree.debark(onboard, &stop);
-                        debarked_front.remove_elements_dominated_by( &new_debarked_criteria, self.pt);                         
-                        new_debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria, self.pt);
-                        if  ! current_stop_has_new_debarked {
-                            self.stops_with_new_debarked.push(stop.clone());
+                        let has_new_debarked_criteria = self.pt.debark(trip, &position, onboard_criteria);
+                        if let Some(new_debarked_criteria) = has_new_debarked_criteria {
+                            if debarked_front.dominates(&new_debarked_criteria, self.pt) {
+                                continue;
+                            }
+                            if new_debarked_front.dominates(&new_debarked_criteria, self.pt) {
+                                continue;
+                            }
+                            let new_debarked = self.journeys_tree.debark(onboard, &stop);
+                            debarked_front.remove_elements_dominated_by( &new_debarked_criteria, self.pt);                         
+                            new_debarked_front.add_and_remove_elements_dominated(new_debarked, new_debarked_criteria, self.pt);
+                            if  ! current_stop_has_new_debarked {
+                                self.stops_with_new_debarked.push(stop.clone());
+                            }
                         }
                         
 
@@ -315,16 +318,30 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
     fn perform_transfers_and_arrivals(&mut self) {
         debug_assert!(self.new_waiting_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_waiting.is_empty());
+
+        for arrival in self.pt.arrivals() {
+            let stop = self.pt.arrival_stop(&arrival);
+            let stop_id = self.pt.stop_id(&stop);
+            let new_debarked_front = & self.new_debarked_fronts[stop_id];
+            for (debarked, criteria) in new_debarked_front.iter() {
+                let arrived = self.journeys_tree.arrive(debarked);
+                let arrived_criteria = self.pt.arrive(&arrival, criteria);
+                self.arrived_front.add(arrived, arrived_criteria, self.pt);
+
+            }
+        }
+
+        // we go throught all stops with a new debarked path
         for stop in self.stops_with_new_debarked.iter() {
             let stop_id = self.pt.stop_id(stop);
-            let new_debarked_front = & mut self.new_debarked_fronts[stop_id];
+            let new_debarked_front = & self.new_debarked_fronts[stop_id];
             debug_assert!( ! new_debarked_front.is_empty() );
             for (debarked, criteria) in new_debarked_front.iter() {
-                // we perform arrival from the `debarked` path
-                if let Some(arrived_criteria) = self.pt.journey_arrival(stop, &criteria) {
-                    let arrived = self.journeys_tree.arrive(&debarked);
-                    self.arrived_front.add(arrived, arrived_criteria, self.pt);
-                }
+                // // we perform arrival from the `debarked` path
+                // if let Some(arrived_criteria) = self.pt.journey_arrival(stop, &criteria) {
+                //     let arrived = self.journeys_tree.arrive(&debarked);
+                //     self.arrived_front.add(arrived, arrived_criteria, self.pt);
+                // }
                 // we perform all transfers from the `debarked` path
                 for transfer in self.pt.transfers_at(&stop) {
                     let (arrival_stop, arrival_criteria) = self.pt.transfer(&stop, &transfer, &criteria);

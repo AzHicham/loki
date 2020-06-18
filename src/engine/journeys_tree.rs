@@ -1,5 +1,5 @@
 
-use crate::engine::public_transit::{PublicTransit};
+use crate::engine::public_transit::{PublicTransit, DepartureLeg, ConnectionLeg};
 
 type Id = usize;
 
@@ -150,10 +150,11 @@ impl<PT : PublicTransit> JourneysTree<PT> {
     }
 }
 
-
 pub enum JourneyLeg<PT : PublicTransit> {
-    Connection(PT::Transfer, PT::Trip, PT::Stop),
-    Departure(PT::Departure, PT::Trip, PT::Stop)
+    Connection(ConnectionLeg<PT>),
+    Departure(DepartureLeg<PT>)
+    // Connection(PT::Transfer, PT::Trip, PT::Stop),
+    // Departure(PT::Departure, PT::Trip, PT::Stop)
 }
 
 enum IterState {
@@ -198,10 +199,20 @@ impl<'tree,  PT : PublicTransit> ReverseJourneyIter<'tree,  PT> {
         self.state = IterState::Waiting(waiting);
         let result = match & self.journeys_tree.waitings[waiting.id] {
             WaitingData::Departure(departure) => {
-                JourneyLeg::<PT>::Departure(departure.clone(), trip, debark_stop)
+                let departure_leg = DepartureLeg {
+                    departure : departure.clone(),
+                    trip : trip,
+                    debark_stop : debark_stop
+                };
+                JourneyLeg::<PT>::Departure(departure_leg)
             },
             WaitingData::Transfer(transfer,_) => {
-                JourneyLeg::<PT>::Connection(transfer.clone(), trip, debark_stop)
+                let connection_leg = ConnectionLeg {
+                    transfer : transfer.clone(),
+                    trip,
+                    debark_stop
+                };
+                JourneyLeg::<PT>::Connection(connection_leg)
             }
         };
         Some(result)

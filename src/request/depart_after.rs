@@ -45,6 +45,12 @@ pub struct DepartureIdx {
     idx : usize,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ArrivalIdx {
+    idx : usize,
+}
+
+
 
 
 
@@ -81,6 +87,7 @@ impl<'a> PublicTransit for Request<'a> {
     type Trip = Trip;
     type Transfer = Transfer;
     type Departure = DepartureIdx;
+    type Arrival = ArrivalIdx;
     type Criteria = Criteria;
     type Position = Position;
 
@@ -144,12 +151,19 @@ impl<'a> PublicTransit for Request<'a> {
             })
     }
 
-    fn debark(&self, trip : & Self::Trip, position : & Self::Position, onboard_criteria : & Self::Criteria) -> Self::Criteria {
+    fn debark(&self, trip : & Self::Trip, position : & Self::Position, onboard_criteria : & Self::Criteria) -> Option<Self::Criteria> {
         debug_assert!( {
             let arrival_time = & onboard_criteria.arrival_time;
             self.transit_data.arrival_time_of(trip, position) == *arrival_time
         });
-        onboard_criteria.clone()    
+        self.transit_data.debark_time_of(trip, position).map(|debark_time| {
+            Criteria {
+                arrival_time : debark_time,
+                nb_of_transfers : onboard_criteria.nb_of_transfers,
+                fallback_duration : onboard_criteria.fallback_duration,
+                transfers_duration : onboard_criteria.transfers_duration
+            }
+        })   
     }
 
     fn ride(&self, trip : & Self::Trip, position : & Self::Position, criteria : & Self::Criteria) -> Self::Criteria {
@@ -188,28 +202,22 @@ impl<'a> PublicTransit for Request<'a> {
         (stop, criteria)
     }
 
-    fn journey_arrival(&self, stop : & Self::Stop, criteria : & Self::Criteria) -> Option<Self::Criteria> {
-        self.arrivals_stop_point_and_fallbrack_duration
-            .iter()
-            .find_map(|(arrival_stop, duration)| {
-                if stop == arrival_stop {
-                    Some(duration)
-                }
-                else {
-                    None
-                }
-            })
-            .map(|duration| {
-                Criteria {
-                    arrival_time : criteria.arrival_time.clone(),
-                    nb_of_transfers : criteria.nb_of_transfers,
-                    fallback_duration : criteria.fallback_duration + *duration,
-                    transfers_duration : criteria.transfers_duration
-                }
-            })
 
+    fn arrival_stop(&self, arrival: & Self::Arrival) -> Self::Stop {
+        (&self.arrivals_stop_point_and_fallbrack_duration[arrival.idx]).0.clone()
     }
 
+    fn arrive(&self, arrival: & Self::Arrival, criteria: & Self::Criteria) -> Self::Criteria {
+        let arrival_duration = &self.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
+        Criteria {
+            arrival_time : criteria.arrival_time.clone() + *arrival_duration,
+            nb_of_transfers : criteria.nb_of_transfers,
+            fallback_duration : criteria.fallback_duration + *arrival_duration,
+            transfers_duration : criteria.transfers_duration
+        }
+    }
+
+ 
     fn nb_of_stops(&self) -> usize {
         self.transit_data.nb_of_stops()
     }
@@ -246,6 +254,14 @@ impl<'inner, 'outer> PublicTransitIters<'outer> for Request<'inner> {
     fn trips_of(&'outer self, mission : & Self::Mission) -> Self::TripsOfMission {
         self.transit_data.trips_of(mission)
     }
+
+    type Arrivals = Arrivals;
+    fn arrivals(&'outer self) -> Self::Arrivals {
+        let nb_of_arrivals = self.arrivals_stop_point_and_fallbrack_duration.len();
+        Arrivals{
+            inner : 0..nb_of_arrivals
+        }
+    }
 }
 
 pub struct Departures {
@@ -263,3 +279,20 @@ impl Iterator for Departures {
         })
     }
 }
+
+pub struct Arrivals {
+    inner : std::ops::Range<usize>
+}
+
+impl Iterator for Arrivals {
+    type Item = ArrivalIdx;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|idx| {
+            ArrivalIdx{
+                idx
+            }
+        })
+    }
+}
+

@@ -16,6 +16,8 @@ pub trait PublicTransit {
 
     type Transfer : Clone;
 
+    type Arrival : Clone;
+
     type Criteria : Clone;
 
     // Returns `true` if `upstream` is positionned strictly before `downstream` 
@@ -87,15 +89,16 @@ pub trait PublicTransit {
         waiting_criteria : & Self::Criteria
     ) -> Option<(Self::Trip, Self::Criteria)>;
 
-    // Returns `debarked_criteria`,
+    // Returns `Some(debarked_criteria)`,
     //   where `derbarked_criteria` is the criteria obtained by debarking from `trip` at `position`
     //   when being onboard with `onboard_criteria`
+    // Returns None if a passenger cannot debark from `trip` at `position` with `onboard_criteria`
     // Panics if `position` does not belong to the `Mission` of `trip`
     fn debark(&self,
         trip : & Self::Trip,
         position : & Self::Position, 
         onboard_criteria : & Self::Criteria
-    ) ->  Self::Criteria;
+    ) ->  Option<Self::Criteria>;
 
 
     // Returns the `new_criteria` obtained when riding along `trip`
@@ -122,11 +125,15 @@ pub trait PublicTransit {
     // along with the initial `Criteria` 
     fn depart(&self, departure : & Self::Departure) -> (Self::Stop, Self::Criteria);
 
-    // Returns None if destination is not reachable from `stop`
-    fn journey_arrival(&self,
-        stop : & Self::Stop,
+    // The stop at which this arrival can be made
+    fn arrival_stop(&self, arrival : & Self::Arrival) -> Self::Stop;
+
+    // Returns the criteria obtained after performing `arrival`
+    // while being at `arrival_stop(arrival)` with `criteria`
+    fn arrive(&self,
+        arrival : & Self::Arrival,
         criteria : & Self::Criteria
-    ) -> Option<Self::Criteria>;
+    ) -> Self::Criteria;
 
     //TODO : document monotonicity on board, debark, ride, tranfer, arrival
 
@@ -167,4 +174,26 @@ pub trait PublicTransitIters<'a> : PublicTransit {
         mission : & Self::Mission
     ) -> Self::TripsOfMission;
 
+    type Arrivals : Iterator<Item = Self::Arrival>;
+    fn arrivals(&'a self) -> Self::Arrivals;
+
+}
+
+pub struct DepartureLeg<PT : PublicTransit> {
+    pub departure : PT::Departure,
+    pub trip : PT::Trip,
+    pub debark_stop : PT::Stop
+}
+
+pub struct ConnectionLeg<PT : PublicTransit> {
+    pub transfer : PT::Transfer,
+    pub trip : PT::Trip,
+    pub debark_stop : PT::Stop
+}
+
+
+
+pub struct Journey<PT : PublicTransit> {
+    departure_leg : DepartureLeg<PT>,
+    connections : Vec<ConnectionLeg<PT>>
 }
