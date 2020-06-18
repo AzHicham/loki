@@ -1,5 +1,5 @@
 
-use crate::engine::public_transit::{PublicTransit, DepartureLeg, ConnectionLeg};
+use crate::engine::public_transit::{PublicTransit, DepartureLeg, ConnectionLeg, Journey};
 
 type Id = usize;
 
@@ -66,7 +66,7 @@ pub struct JourneysTree<PT : PublicTransit> {
     onboards  : Vec<(PT::Trip, Waiting)>,
     debarkeds  : Vec<(PT::Stop, Onboard)>,
     waitings   : Vec<WaitingData<PT>>,
-    arrived   : Vec<Debarked>
+    arriveds   : Vec<(PT::Arrival, Debarked)>
 
 }
 
@@ -77,7 +77,7 @@ impl<PT : PublicTransit> JourneysTree<PT> {
             onboards : Vec::new(),
             debarkeds : Vec::new(),
             waitings : Vec::new(),
-            arrived : Vec::new(),
+            arriveds : Vec::new(),
 
 
         }
@@ -115,13 +115,69 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Waiting{ id }
     }
 
-    pub fn arrive(& mut self, debarked : & Debarked) -> Arrived {
-        debug_assert!(self.arrived.len() < MAX_ID);
-        let id = self.arrived.len();
-        self.arrived.push(debarked.clone());
+    pub fn arrive(& mut self, debarked : & Debarked, arrival : & PT::Arrival) -> Arrived {
+        debug_assert!(self.arriveds.len() < MAX_ID);
+        let id = self.arriveds.len();
+        self.arriveds.push((arrival.clone(), debarked.clone()));
 
         Arrived{ id }
     }
+
+    pub fn fill_journey(&self, arrived : & Arrived, journey : & mut Journey<PT>) {
+        journey.arrival = (&self.arriveds[arrived.id].0).clone();
+        let  connections = & mut journey.connections;
+        let new_departure_leg = self.fill_journey_data(arrived,  connections);
+        journey.departure_leg = new_departure_leg;
+    }
+
+    pub fn create_journey(&self, arrived : & Arrived) -> Journey<PT> {
+        let arrival = (&self.arriveds[arrived.id].0).clone();
+        let mut connections : Vec<ConnectionLeg<PT>> = Vec::new();
+        let departure_leg = self.fill_journey_data(arrived, & mut connections);
+        Journey {
+            departure_leg,
+            connections,
+            arrival
+        }
+    }
+
+    fn fill_journey_data(&self, 
+        arrived : & Arrived,
+        connections : & mut Vec<ConnectionLeg<PT>>,
+        ) -> DepartureLeg<PT>
+        {
+            connections.clear();
+            let mut debarked = &self.arriveds[arrived.id].1;
+
+            loop {
+                let (debark_stop, onboard) = self.debarkeds[debarked.id].clone();
+                let (trip, waiting) = self.onboards[onboard.id].clone();
+                let  prev_waiting = & self.waitings[waiting.id];
+                match prev_waiting {
+                    WaitingData::Departure(departure) => {
+                        let departure_leg = DepartureLeg::<PT> {
+                            departure : departure.clone(),
+                            trip : trip,
+                            debark_stop : debark_stop
+                        };
+                        connections.reverse();
+                        return departure_leg;
+                    },
+                    WaitingData::Transfer(transfer, prev_debarked) => {
+                        let connection_leg = ConnectionLeg {
+                            transfer : transfer.clone(),
+                            trip,
+                            debark_stop
+                        };
+                        connections.push(connection_leg);
+                        debarked = prev_debarked;
+                        
+                    }
+
+                }
+
+            }
+        }
 
     // pub fn onboard_trip(&self, onboard : & Onboard) -> & PT::Trip {
     //     &self.onboards[onboard.id]
@@ -139,82 +195,13 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         self.onboards.clear();
         self.debarkeds.clear();
         self.waitings.clear();
-        self.arrived.clear();
+        self.arriveds.clear();
     }
 
     pub fn is_empty(&self) -> bool {
         self.onboards.is_empty()
         && self.debarkeds.is_empty()
         && self.waitings.is_empty()
-        && self.arrived.is_empty()
-    }
-}
-
-pub enum JourneyLeg<PT : PublicTransit> {
-    Connection(ConnectionLeg<PT>),
-    Departure(DepartureLeg<PT>)
-    // Connection(PT::Transfer, PT::Trip, PT::Stop),
-    // Departure(PT::Departure, PT::Trip, PT::Stop)
-}
-
-enum IterState {
-    Arrived(Arrived), 
-    Waiting(Waiting), 
-}
-pub struct ReverseJourneyIter<'tree, PT> 
-where PT : PublicTransit
-{
-    journeys_tree : & 'tree JourneysTree<PT>,
-    state : IterState
-}
-
-impl<'tree,  PT : PublicTransit> ReverseJourneyIter<'tree,  PT> {
-    fn new(journeys_tree : & 'tree JourneysTree<PT>,  arrived : Arrived) -> Self {
-        Self {
-            journeys_tree,
-            state : IterState::Arrived(arrived)
-        }
-    }
-
-    pub fn prev_leg(& mut self) -> Option<JourneyLeg<PT>> 
-    {
-        let debarked = match self.state {
-
-            IterState::Arrived(arrived) => {
-                &self.journeys_tree.arrived[arrived.id]
-            },
-            IterState::Waiting(waiting) => {
-                match & self.journeys_tree.waitings[waiting.id] {
-                    WaitingData::Departure(_) => {
-                        return None;
-                    },
-                    WaitingData::Transfer(_, debarked) => {
-                        debarked
-                    }
-                }
-            }
-        };
-        let (debark_stop, onboard) = self.journeys_tree.debarkeds[debarked.id].clone();
-        let (trip, waiting) = self.journeys_tree.onboards[onboard.id].clone();
-        self.state = IterState::Waiting(waiting);
-        let result = match & self.journeys_tree.waitings[waiting.id] {
-            WaitingData::Departure(departure) => {
-                let departure_leg = DepartureLeg {
-                    departure : departure.clone(),
-                    trip : trip,
-                    debark_stop : debark_stop
-                };
-                JourneyLeg::<PT>::Departure(departure_leg)
-            },
-            WaitingData::Transfer(transfer,_) => {
-                let connection_leg = ConnectionLeg {
-                    transfer : transfer.clone(),
-                    trip,
-                    debark_stop
-                };
-                JourneyLeg::<PT>::Connection(connection_leg)
-            }
-        };
-        Some(result)
+        && self.arriveds.is_empty()
     }
 }

@@ -25,7 +25,7 @@ pub struct MultiCriteriaRaptor<'pt, PT : PublicTransit> {
 
     arrived_front : ArrivedFront<PT>,
 
-    //results : Vec<Journey<PT>>,
+    results : Vec<Journey<PT>>,
 
 }
 
@@ -51,7 +51,9 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             onboard_front : OnboardFront::<PT>::new(),
             new_onboard_front : OnboardFront::<PT>::new(),
 
-            arrived_front : ArrivedFront::<PT>::new()
+            arrived_front : ArrivedFront::<PT>::new(),
+
+            results : Vec::new(),
         }
     }
 
@@ -81,6 +83,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             
         }
 
+        self.fill_results();
 
     }
 
@@ -110,6 +113,9 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
         self.new_onboard_front.clear();
 
         self.arrived_front.clear();
+
+        // we don't clear self.results so as to not release the memory 
+        // allocated for connections in a Journey
 
     }
 
@@ -324,7 +330,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
             let stop_id = self.pt.stop_id(&stop);
             let new_debarked_front = & self.new_debarked_fronts[stop_id];
             for (debarked, criteria) in new_debarked_front.iter() {
-                let arrived = self.journeys_tree.arrive(debarked);
+                let arrived = self.journeys_tree.arrive(debarked, &arrival);
                 let arrived_criteria = self.pt.arrive(&arrival, criteria);
                 self.arrived_front.add(arrived, arrived_criteria, self.pt);
 
@@ -397,4 +403,19 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor<'pt
 
         self.missions_with_new_waiting.clear();
     }
+
+    fn fill_results(& mut self) {
+        for (idx, (arrived,_)) in self.arrived_front.iter().enumerate() {
+            if idx < self.results.len() {
+                let journey_to_fill = & mut self.results[idx];
+                self.journeys_tree.fill_journey(arrived, journey_to_fill);
+            }
+            else {
+                let new_journey = self.journeys_tree.create_journey(arrived);
+                self.results.push(new_journey);
+            }
+
+        }
+    }
+
 }

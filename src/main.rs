@@ -46,6 +46,10 @@ fn main() {
     let start_stop_point_uri = "SAR:SP:1001";
     let end_stop_point_uri = "SAR:SP:6006";
 
+    // let input_dir = PathBuf::from("/home/pascal/data/paris/ntfs/");
+    // let start_stop_point_uri = "OIF:SP:59:3619855";
+    // let end_stop_point_uri = "OIF:SP:6:109";
+
     let model = transit_model::ntfs::read(input_dir).unwrap();
     info!("Transit model loaded");
     info!("Number of vehicle journeys : {}", model.vehicle_journeys.len());
@@ -76,9 +80,17 @@ fn main() {
 
     let departure_datetime = SecondsSinceDatasetStart::zero();
 
+
+
     let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops);
 
     let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(&request);
+
+    // request.solve_with(raptor) <- call raptor, and fill request.responses
+    // read request.responses and print them
+
+    // request.fill_with(request data)
+
     info!("Start computing journey");
     raptor.compute();
     info!("Journeys computed");
