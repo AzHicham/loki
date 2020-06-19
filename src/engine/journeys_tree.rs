@@ -3,26 +3,25 @@ use crate::engine::public_transit::{PublicTransit, DepartureLeg, ConnectionLeg, 
 
 type Id = usize;
 
-const MAX_ID : Id = std::usize::MAX;
 
 
 #[derive(Clone, Copy, Debug)]
-pub struct Onboard {
+pub struct Board {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Debarked {
+pub struct Debark {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Waiting {
+pub struct Wait {
     id : Id
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Arrived {
+pub struct Arrive {
     id : Id
 }
 
@@ -56,17 +55,17 @@ pub struct Arrived {
 ///      associated to the Debarked that comes before this Arrived
 
 
-enum WaitingData<PT : PublicTransit> {
-    Transfer(PT::Transfer, Debarked),
+enum WaitData<PT : PublicTransit> {
+    Transfer(PT::Transfer, Debark),
     Departure(PT::Departure)
 }
 
 pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each moment
-    onboards  : Vec<(PT::Trip, Waiting)>,
-    debarkeds  : Vec<(PT::Stop, Onboard)>,
-    waitings   : Vec<WaitingData<PT>>,
-    arriveds   : Vec<(PT::Arrival, Debarked)>
+    boards  : Vec<(PT::Trip, Wait)>,
+    debarks  : Vec<(PT::Stop, Board)>,
+    waits   : Vec<WaitData<PT>>,
+    arrives   : Vec<(PT::Arrival, Debark)>
 
 }
 
@@ -74,66 +73,61 @@ impl<PT : PublicTransit> JourneysTree<PT> {
 
     pub fn new() -> Self {
         Self {
-            onboards : Vec::new(),
-            debarkeds : Vec::new(),
-            waitings : Vec::new(),
-            arriveds : Vec::new(),
+            boards : Vec::new(),
+            debarks : Vec::new(),
+            waits : Vec::new(),
+            arrives : Vec::new(),
 
 
         }
     }
 
-    pub fn depart(& mut self, departure : & PT::Departure) -> Waiting {
-        debug_assert!(self.waitings.len() < MAX_ID);
-        let id = self.waitings.len();
-        self.waitings.push(WaitingData::Departure(departure.clone()));
+    pub fn depart(& mut self, departure : & PT::Departure) -> Wait {
+        let id = self.waits.len();
+        self.waits.push(WaitData::Departure(departure.clone()));
 
-        Waiting{ id }
+        Wait{ id }
     }
 
 
-    pub fn board(& mut self, waiting : & Waiting, trip : & PT::Trip) -> Onboard {
-        debug_assert!(self.onboards.len() < MAX_ID);
-        let id = self.onboards.len();
-        self.onboards.push((trip.clone(), waiting.clone()));
+    pub fn board(& mut self, waiting : & Wait, trip : & PT::Trip) -> Board {
+        let id = self.boards.len();
+        self.boards.push((trip.clone(), waiting.clone()));
 
-        Onboard{ id }
+        Board{ id }
     }
 
-    pub fn debark(& mut self, onboard : & Onboard, route_stop : & PT::Stop) -> Debarked {
-        debug_assert!(self.debarkeds.len() < MAX_ID);
-        let id = self.debarkeds.len();
-        self.debarkeds.push((route_stop.clone(), onboard.clone()));
-        Debarked{ id }
+    pub fn debark(& mut self, board : & Board, route_stop : & PT::Stop) -> Debark {
+        let id = self.debarks.len();
+        self.debarks.push((route_stop.clone(), board.clone()));
+        Debark{ id }
     }
 
-    pub fn transfer(& mut self, debarked : & Debarked, transfer : & PT::Transfer) -> Waiting {
-        debug_assert!(self.waitings.len() < MAX_ID);
-        let id = self.waitings.len();
-        self.waitings.push(WaitingData::Transfer(transfer.clone(), debarked.clone()));
+    pub fn transfer(& mut self, debark : & Debark, transfer : & PT::Transfer) -> Wait {
+        let id = self.waits.len();
+        self.waits.push(WaitData::Transfer(transfer.clone(), debark.clone()));
 
-        Waiting{ id }
+        Wait{ id }
     }
 
-    pub fn arrive(& mut self, debarked : & Debarked, arrival : & PT::Arrival) -> Arrived {
-        debug_assert!(self.arriveds.len() < MAX_ID);
-        let id = self.arriveds.len();
-        self.arriveds.push((arrival.clone(), debarked.clone()));
+    pub fn arrive(& mut self, debark : & Debark, arrival : & PT::Arrival) -> Arrive {
+        let id = self.arrives.len();
+        self.arrives.push((arrival.clone(), debark.clone()));
 
-        Arrived{ id }
+        Arrive{ id }
     }
 
-    pub fn fill_journey(&self, arrived : & Arrived, journey : & mut Journey<PT>) {
-        journey.arrival = (&self.arriveds[arrived.id].0).clone();
+    pub fn fill_journey(&self, arrive : & Arrive, journey : & mut Journey<PT>) {
+        journey.arrival = (&self.arrives[arrive.id].0).clone();
         let  connections = & mut journey.connections;
-        let new_departure_leg = self.fill_journey_data(arrived,  connections);
+        let new_departure_leg = self.fill_journey_data(arrive,  connections);
         journey.departure_leg = new_departure_leg;
     }
 
-    pub fn create_journey(&self, arrived : & Arrived) -> Journey<PT> {
-        let arrival = (&self.arriveds[arrived.id].0).clone();
+    pub fn create_journey(&self, arrive : & Arrive) -> Journey<PT> {
+        let arrival = (&self.arrives[arrive.id].0).clone();
         let mut connections : Vec<ConnectionLeg<PT>> = Vec::new();
-        let departure_leg = self.fill_journey_data(arrived, & mut connections);
+        let departure_leg = self.fill_journey_data(arrive, & mut connections);
         Journey {
             departure_leg,
             connections,
@@ -142,19 +136,19 @@ impl<PT : PublicTransit> JourneysTree<PT> {
     }
 
     fn fill_journey_data(&self, 
-        arrived : & Arrived,
+        arrive : & Arrive,
         connections : & mut Vec<ConnectionLeg<PT>>,
         ) -> DepartureLeg<PT>
         {
             connections.clear();
-            let mut debarked = &self.arriveds[arrived.id].1;
+            let mut debark = &self.arrives[arrive.id].1;
 
             loop {
-                let (debark_stop, onboard) = self.debarkeds[debarked.id].clone();
-                let (trip, waiting) = self.onboards[onboard.id].clone();
-                let  prev_waiting = & self.waitings[waiting.id];
-                match prev_waiting {
-                    WaitingData::Departure(departure) => {
+                let (debark_stop, board) = self.debarks[debark.id].clone();
+                let (trip, wait) = self.boards[board.id].clone();
+                let  prev_wait = & self.waits[wait.id];
+                match prev_wait {
+                    WaitData::Departure(departure) => {
                         let departure_leg = DepartureLeg::<PT> {
                             departure : departure.clone(),
                             trip : trip,
@@ -163,14 +157,14 @@ impl<PT : PublicTransit> JourneysTree<PT> {
                         connections.reverse();
                         return departure_leg;
                     },
-                    WaitingData::Transfer(transfer, prev_debarked) => {
+                    WaitData::Transfer(transfer, prev_debark) => {
                         let connection_leg = ConnectionLeg {
                             transfer : transfer.clone(),
                             trip,
                             debark_stop
                         };
                         connections.push(connection_leg);
-                        debarked = prev_debarked;
+                        debark = prev_debark;
                         
                     }
 
@@ -192,16 +186,16 @@ impl<PT : PublicTransit> JourneysTree<PT> {
     // }
 
     pub fn clear(&mut self) {
-        self.onboards.clear();
-        self.debarkeds.clear();
-        self.waitings.clear();
-        self.arriveds.clear();
+        self.boards.clear();
+        self.debarks.clear();
+        self.waits.clear();
+        self.arrives.clear();
     }
 
     pub fn is_empty(&self) -> bool {
-        self.onboards.is_empty()
-        && self.debarkeds.is_empty()
-        && self.waitings.is_empty()
-        && self.arriveds.is_empty()
+        self.boards.is_empty()
+        && self.debarks.is_empty()
+        && self.waits.is_empty()
+        && self.arrives.is_empty()
     }
 }
