@@ -28,31 +28,24 @@ pub struct Arrive {
 
 
 /// A complete journey is a sequence of moments the form
-///  Waiting, Onboard, Debarked, (Waiting, Onboard, Debarked)*, Arrived
-/// i.e. it always starts with a Waiting, Onboard, Debarked, 
-///      followed by zero or more (Waiting, Onboard, Debarked)
-///      and then finished by an Arrived
+///  Wait, Board, Debark, (Wait, Board, Debark)*, Arrive
+/// i.e. it always starts with a Waiti, Board, Debark, 
+///      followed by zero or more (Wait, Board, Debark)
+///      and then finished by an Arrive
 /// 
 /// We associate the minimum amount of data to each moment so as to be able to reconstruct
 /// the whole journey :
-///  - Onboard     -> a Trip  
-///      the specific RouteStop at which this Trip is boarded is given by the RouteStop
-///      associated to the Waiting before the Onboard 
-///  - Debarked    -> a RouteStop
-///      the specific RouteStop where we alight. The specific Trip that is alighted is
-///      given by the Trip associated to the Onboard moment that comes before this Debarked
-///  - Waiting  -> a RouteStop
-///      the specific RouteStop where we are waiting. 
-///      A Waiting can occurs either :
+///  - Board     -> a (Trip, Position)
+///  - Debark   -> a Position
+///      The specific Trip that is alighted is
+///      given by the Trip associated to the Board moment that comes before this Debark
+///  - Wait  -> either a Transfer of a Departure
+///      A Wait can occurs either :
 ///         - at the beginning of the journey, 
-///         - or between a Debarked and a Onboard, which means we are making a transfer
+///         - or between a Debark and a Board, which means we are making a transfer
 ///           between two vehicles. 
-///      In the second case, the the specific RouteStop at which
-///      this transfer begins is given by the RouteStop associated to the Debarked moment
-///      that comes before this Waiting
-///  - Arrived -> nothing
-///      the specific RouteStop where this Arrival occurs is given by the RouteStop
-///      associated to the Debarked that comes before this Arrived
+///  - Arrive -> an Arrival
+
 
 
 enum WaitData<PT : PublicTransit> {
@@ -62,8 +55,8 @@ enum WaitData<PT : PublicTransit> {
 
 pub struct JourneysTree<PT : PublicTransit> {
     // data associated to each moment
-    boards  : Vec<(PT::Trip, Wait)>,
-    debarks  : Vec<(PT::Stop, Board)>,
+    boards  : Vec<(PT::Trip, PT::Position, Wait)>,
+    debarks  : Vec<(PT::Position, Board)>,
     waits   : Vec<WaitData<PT>>,
     arrives   : Vec<(PT::Arrival, Debark)>
 
@@ -90,16 +83,16 @@ impl<PT : PublicTransit> JourneysTree<PT> {
     }
 
 
-    pub fn board(& mut self, waiting : & Wait, trip : & PT::Trip) -> Board {
+    pub fn board(& mut self, wait : & Wait, trip : & PT::Trip, position : & PT::Position) -> Board {
         let id = self.boards.len();
-        self.boards.push((trip.clone(), waiting.clone()));
+        self.boards.push((trip.clone(), position.clone(), wait.clone()));
 
         Board{ id }
     }
 
-    pub fn debark(& mut self, board : & Board, route_stop : & PT::Stop) -> Debark {
+    pub fn debark(& mut self, board : & Board, position : & PT::Position) -> Debark {
         let id = self.debarks.len();
-        self.debarks.push((route_stop.clone(), board.clone()));
+        self.debarks.push((position.clone(), board.clone()));
         Debark{ id }
     }
 
@@ -144,15 +137,16 @@ impl<PT : PublicTransit> JourneysTree<PT> {
             let mut debark = &self.arrives[arrive.id].1;
 
             loop {
-                let (debark_stop, board) = self.debarks[debark.id].clone();
-                let (trip, wait) = self.boards[board.id].clone();
+                let (debark_position, board) = self.debarks[debark.id].clone();
+                let (trip, board_position, wait) = self.boards[board.id].clone();
                 let  prev_wait = & self.waits[wait.id];
                 match prev_wait {
                     WaitData::Departure(departure) => {
                         let departure_leg = DepartureLeg::<PT> {
                             departure : departure.clone(),
                             trip : trip,
-                            debark_stop : debark_stop
+                            board_position,
+                            debark_position
                         };
                         connections.reverse();
                         return departure_leg;
@@ -161,7 +155,8 @@ impl<PT : PublicTransit> JourneysTree<PT> {
                         let connection_leg = ConnectionLeg {
                             transfer : transfer.clone(),
                             trip,
-                            debark_stop
+                            board_position,
+                            debark_position
                         };
                         connections.push(connection_leg);
                         debark = prev_debark;

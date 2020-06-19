@@ -182,13 +182,15 @@ pub trait PublicTransitIters<'a> : PublicTransit {
 pub struct DepartureLeg<PT : PublicTransit> {
     pub departure : PT::Departure,
     pub trip : PT::Trip,
-    pub debark_stop : PT::Stop
+    pub board_position : PT::Position,
+    pub debark_position : PT::Position
 }
 
 pub struct ConnectionLeg<PT : PublicTransit> {
     pub transfer : PT::Transfer,
     pub trip : PT::Trip,
-    pub debark_stop : PT::Stop
+    pub board_position : PT::Position,
+    pub debark_position : PT::Position
 }
 
 

@@ -237,7 +237,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
                             if new_debark_front.dominates(&new_debark_criteria, pt) {
                                 continue;
                             }
-                            let new_debark = self.journeys_tree.debark(board, &stop);
+                            let new_debark = self.journeys_tree.debark(board, &position);
                             debark_front.remove_elements_dominated_by( &new_debark_criteria, pt);                         
                             new_debark_front.add_and_remove_elements_dominated(new_debark, new_debark_criteria, pt);
                             if  ! current_stop_has_new_debark {
@@ -268,7 +268,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
                             if self.new_board_front.dominates(&new_board_criteria, pt) {
                                 continue;
                             }
-                            let new_board = self.journeys_tree.board(&wait, &trip);
+                            let new_board = self.journeys_tree.board(&wait, &trip, &position);
                             self.new_board_front.add_and_remove_elements_dominated((new_board, trip), new_board_criteria, pt);
                         
                         }
