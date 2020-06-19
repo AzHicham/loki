@@ -81,10 +81,14 @@ fn main() {
     let departure_datetime = SecondsSinceDatasetStart::zero();
 
 
+    let nb_of_stops = transit_data.nb_of_stops();
+
+    let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(nb_of_stops);
 
     let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops);
 
-    let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(&request);
+
+
 
     // request.solve_with(raptor) <- call raptor, and fill request.responses
     // read request.responses and print them
@@ -92,7 +96,7 @@ fn main() {
     // request.fill_with(request data)
 
     info!("Start computing journey");
-    raptor.compute();
+    raptor.compute(&request);
     info!("Journeys computed");
     info!("Nb of journeys found : {}", raptor.nb_of_journeys());
 
