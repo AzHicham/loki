@@ -408,7 +408,7 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
     }
 
     fn fill_results(& mut self) {
-        for (idx, (arrived,_)) in self.arrive_front.iter().enumerate() {
+        for (idx, (arrived, criteria)) in self.arrive_front.iter().enumerate() {
             if idx < self.results.len() {
                 let journey_to_fill = & mut self.results[idx];
                 self.journeys_tree.fill_journey(arrived, journey_to_fill);
@@ -419,6 +419,14 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
             }
 
         }
+    }
+
+    pub fn responses(&self) -> impl Iterator<Item = & Journey<PT> >  {
+        let nb_of_journeys = self.nb_of_journeys();
+        (0..nb_of_journeys).map(move |idx| {
+            &self.results[idx]
+        })
+
     }
 
 }

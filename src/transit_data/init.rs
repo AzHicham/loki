@@ -60,7 +60,7 @@ impl TransitData {
             let has_to_stop_point_idx = transit_model.stop_points.get_idx(&transfer.to_stop_id);
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
-                    let duration = transfer.real_min_transfer_time.map_or(default_transfer_duration, |seconds| { PositiveDuration{seconds} });
+                    let duration = transfer.min_transfer_time.map_or(default_transfer_duration, |seconds| { PositiveDuration{seconds} });
                     self.insert_transfer(from_stop_point_idx, to_stop_point_idx, transfer_idx, duration)
                 }
                 _ => {

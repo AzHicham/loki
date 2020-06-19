@@ -15,7 +15,11 @@ use super::calendars::{Calendars, CalendarIdx};
 use super::time::{SecondsSinceDayStart, PositiveDuration, DaysSinceDatasetStart};
 use typed_index_collection::{Idx};
 
+use crate::request::response::{Journey, VehicleSection};
+
 use std::collections::HashMap;
+
+use log::info;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Duration {
@@ -130,6 +134,50 @@ impl TransitData {
         self.patterns.iter().map(|pattern| {
             pattern.nb_of_vehicles()
         }).sum()
+    }
+
+    pub fn print_response(&self, response : & Journey, transit_model : & TransitModel) -> () {
+        info!("*** New journey ***");
+        info!("Arrival time {:?}", response.arrival_section.to_datetime);
+        let mut transfer_duration = PositiveDuration::zero();
+        for (transfer_section, _, _) in response.connections.iter() {
+            let stop = &transfer_section.from_stop;
+            let transfer = &transfer_section.transfer;
+            transfer_duration = transfer_duration + self.stops_data[stop.idx].transfers[transfer.idx_in_stop_transfers].1.clone();
+        }
+
+        info!("Transfer duration {:?}", transfer_duration);
+        
+        info!("Departure {}", self.calendars.to_string(&response.departure_section.from_datetime));
+
+        self.print_vehicle_section(&response.first_vehicle, transit_model);
+        for connection in response.connections.iter() {
+            self.print_vehicle_section(&connection.2, transit_model);
+        }
+    }
+
+    fn print_vehicle_section(&self, vehicle_section : & VehicleSection, transit_model : & TransitModel) {
+        let trip = &vehicle_section.trip;
+        let pattern = &trip.mission.stop_pattern;
+        let timetable = &trip.mission.timetable;
+        let vehicle = &trip.vehicle;
+        let vehicle_journey_idx = self.patterns[pattern.idx].vehicle_data(timetable, vehicle).vehicle_journey_idx;
+        let route_id = &transit_model.vehicle_journeys[vehicle_journey_idx].route_id;
+        let line_id = &transit_model.routes.get(route_id).unwrap().line_id;
+        let from_stop_idx = &self.stops_data[vehicle_section.from_stop.idx].stop_point_idx;
+        let to_stop_idx = &self.stops_data[vehicle_section.to_stop.idx].stop_point_idx;
+        let from_stop_id = &transit_model.stop_points[*from_stop_idx].id;
+        let to_stop_id = &transit_model.stop_points[*to_stop_idx].id;
+        let from_datetime = self.calendars.to_string(&vehicle_section.from_datetime);
+        let to_datetime = self.calendars.to_string(&vehicle_section.to_datetime);
+        info!("{} from {} at {} to {} at {} ", 
+            line_id, 
+            from_stop_id,
+            from_datetime,
+            to_stop_id,
+            to_datetime
+        );
+
     }
 }
 

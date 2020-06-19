@@ -87,6 +87,11 @@ impl Calendars {
         }
     }
 
+    pub fn to_string(&self, seconds : & SecondsSinceDatasetStart) -> String {
+        let datetime = self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64);
+        format!("{}", datetime)
+    }
+
 
     pub fn to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
         let date = datetime.date();

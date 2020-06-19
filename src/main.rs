@@ -43,8 +43,8 @@ fn main() {
     // let end_stop_point_uri = "sp_3";
 
     let input_dir = PathBuf::from("tests/fixtures/ntfs_rennes/");
-    let start_stop_point_uri = "SAR:SP:1001";
-    let end_stop_point_uri = "SAR:SP:6006";
+    // let start_stop_point_uri = "SAR:SP:1001";
+    // let end_stop_point_uri = "SAR:SP:6006";
 
     // let input_dir = PathBuf::from("/home/pascal/data/paris/ntfs/");
     // let start_stop_point_uri = "OIF:SP:59:3619855";
@@ -63,31 +63,47 @@ fn main() {
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
     info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
 
-    let start_stop_point_idx = model.stop_points.get_idx(&start_stop_point_uri).unwrap_or_else( || {
-        error!("Start stop point {} not found in model", start_stop_point_uri);
-        panic!();
-    });
-    let end_stop_point_idx = model.stop_points.get_idx(&end_stop_point_uri).unwrap_or_else( || {
-        error!("End stop point {} not found in model", end_stop_point_uri);
-        panic!();
-    });
 
-    let start_stop = transit_data.stop_point_idx_to_stop(&start_stop_point_idx).unwrap().clone();
-    let end_stop = transit_data.stop_point_idx_to_stop(&end_stop_point_idx).unwrap().clone();
-
-    let start_stops = vec![(start_stop, PositiveDuration::zero())];
-    let end_stops = vec![(end_stop, PositiveDuration::zero())];
-
-    let departure_datetime = SecondsSinceDatasetStart::zero();
 
 
     let nb_of_stops = transit_data.nb_of_stops();
 
     let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(nb_of_stops);
 
-    let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops);
 
+    let start_ends = vec![("SAR:SP:1001", "SAR:SP:6006"), ("SAR:SP:6000", "SAR:SP:6006")];
+    let start_ends = vec![("SAR:SP:1660", "SAR:SP:6005"),("SAR:SP:1001", "SAR:SP:6005"),("SAR:SP:1617", "SAR:SP:6005")];
+    for (start_stop_point_uri, end_stop_point_uri) in &start_ends {
+        let start_stop_point_idx = model.stop_points.get_idx(&start_stop_point_uri).unwrap_or_else( || {
+            error!("Start stop point {} not found in model", start_stop_point_uri);
+            panic!();
+        });
+        let end_stop_point_idx = model.stop_points.get_idx(&end_stop_point_uri).unwrap_or_else( || {
+            error!("End stop point {} not found in model", end_stop_point_uri);
+            panic!();
+        });
+    
+        let start_stop = transit_data.stop_point_idx_to_stop(&start_stop_point_idx).unwrap().clone();
+        let end_stop = transit_data.stop_point_idx_to_stop(&end_stop_point_idx).unwrap().clone();
+    
+        let start_stops = vec![(start_stop, PositiveDuration::zero())];
+        let end_stops = vec![(end_stop, PositiveDuration::zero())];
+    
+        let departure_datetime = SecondsSinceDatasetStart::zero();
 
+        let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops);
+
+        info!("Start computing journey");
+        raptor.compute(&request);
+        info!("Journeys computed");
+        info!("Nb of journeys found : {}", raptor.nb_of_journeys());
+        for pt_journey in raptor.responses() {
+            let response = request.create_response_from_engine_result(pt_journey).unwrap();
+            // info!("{:#?}", criteria);
+            transit_data.print_response(&response, &model);
+        }
+    
+    }
 
 
     // request.solve_with(raptor) <- call raptor, and fill request.responses
@@ -95,10 +111,6 @@ fn main() {
 
     // request.fill_with(request data)
 
-    info!("Start computing journey");
-    raptor.compute(&request);
-    info!("Journeys computed");
-    info!("Nb of journeys found : {}", raptor.nb_of_journeys());
 
     // let a_few_vj : Vec<_> = collections.vehicle_journeys.values().take(2).collect();
     // println!("{:#?}", a_few_vj);

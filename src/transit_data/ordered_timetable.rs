@@ -203,6 +203,10 @@ where VehicleData : Clone
         }
     }
 
+    pub fn vehicle_data(&self, timetable : & Timetable, vehicle : & Vehicle) -> &VehicleData {
+        & self.timetable_data(timetable).vehicles_data[vehicle.idx]
+    }
+
     // If we are waiting to board a vehicle at `position` at time `waiting_time`
     // will return the index of the vehicle, among those vehicle on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time.
