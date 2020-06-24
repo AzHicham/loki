@@ -45,12 +45,17 @@ use transit_model::{
 
 use std::cmp::Ordering;
 
+use log::{error};
+
 pub struct Request<'a> {
     transit_data : & 'a TransitData,
     departure_datetime : SecondsSinceDatasetStart,
     departures_stop_point_and_fallback_duration : Vec<(Stop, PositiveDuration)>,
-    arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>
-
+    arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>,
+    transfer_arrival_penalty : PositiveDuration,
+    transfer_walking_penalty : PositiveDuration,
+    max_arrival_time : SecondsSinceDatasetStart,
+    max_nb_transfer : u8,
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DepartureIdx {
@@ -69,7 +74,7 @@ pub struct ArrivalIdx {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Criteria {
     arrival_time : SecondsSinceDatasetStart,
-    nb_of_transfers : usize,
+    nb_of_transfers : u8,
     fallback_duration : PositiveDuration,
     transfers_duration : PositiveDuration,
 }
@@ -80,7 +85,11 @@ impl<'a> Request<'a> {
     pub fn new(transit_data : & 'a TransitData,
         departure_datetime : SecondsSinceDatasetStart,
         departures_stop_point_and_fallback_duration : Vec<(Stop, PositiveDuration)>,
-        arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>
+        arrivals_stop_point_and_fallbrack_duration : Vec<(Stop, PositiveDuration)>,
+        transfer_arrival_penalty : PositiveDuration,
+        transfer_walking_penalty : PositiveDuration,
+        max_arrival_time : SecondsSinceDatasetStart,
+        max_nb_transfer : u8,
     ) -> Self
     {
         Self {
@@ -88,6 +97,10 @@ impl<'a> Request<'a> {
             departure_datetime,
             departures_stop_point_and_fallback_duration,
             arrivals_stop_point_and_fallbrack_duration,
+            transfer_arrival_penalty,
+            transfer_walking_penalty,
+            max_arrival_time,
+            max_nb_transfer
         }
     }
 
@@ -282,9 +295,31 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
-        lower.arrival_time <= upper.arrival_time
-        && lower.nb_of_transfers <= upper.nb_of_transfers
-        && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
+        // let two_hours = PositiveDuration{ seconds: 2*60*60};
+        // if lower.arrival_time.clone() + two_hours < upper.arrival_time.clone() {
+        //     return true;
+        // }
+        // lower.arrival_time <= upper.arrival_time
+        lower.arrival_time.clone() + self.transfer_arrival_penalty * (lower.nb_of_transfers as u32) <= upper.arrival_time.clone() + self.transfer_arrival_penalty * (upper.nb_of_transfers as u32)
+        // && lower.nb_of_transfers <= upper.nb_of_transfers
+        && lower.fallback_duration + lower.transfers_duration  + self.transfer_walking_penalty * (lower.nb_of_transfers as u32) <=  upper.fallback_duration + upper.transfers_duration + self.transfer_walking_penalty * (upper.nb_of_transfers as u32)
+        // && lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
+        // && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
+    }
+
+    // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
+    //     lower.arrival_time <= upper.arrival_time
+    //     && lower.nb_of_transfers <= upper.nb_of_transfers
+    //     && lower.fallback_duration + lower.transfers_duration <=  upper.fallback_duration + upper.transfers_duration
+    // }
+
+    // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
+    //     lower.arrival_time <= upper.arrival_time
+    // }
+
+    fn is_valid(&self, criteria: & Self::Criteria) -> bool {
+        criteria.arrival_time <= self.max_arrival_time
+        && criteria.nb_of_transfers <= self.max_nb_transfer
     }
 
     fn board_and_ride(&self, position : & Position, trip : & Self::Trip, waiting_criteria : & Self::Criteria) -> Option<Self::Criteria> {

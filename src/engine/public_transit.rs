@@ -56,6 +56,10 @@ pub trait PublicTransit {
         upper : & Self::Criteria
     ) -> bool;
 
+    fn is_valid(&self,
+        criteria : & Self::Criteria
+    ) -> bool;
+
 
     // Returns Some(arrival_criteria) when if `trip` can be boarded 
     //   when being at `position` with `waiting_criteria`.

@@ -128,6 +128,10 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.waits.len() + self.debarks.len() + self.boards.len() + self.arrives.len()
+    }
+
     fn fill_journey_data(&self, 
         arrive : & Arrive,
         connections : & mut Vec<ConnectionLeg<PT>>,

@@ -185,7 +185,7 @@ impl TransitData {
         day : & DaysSinceDatasetStart,
         time_in_day : & SecondsSinceDayStart,
         timetable : & Timetable,
-        pattern_data : & StopPatternData<VehicleData>,
+        pattern_data : & StopPatternData,
         position : & Position,
     ) -> Option<Vehicle>
     {

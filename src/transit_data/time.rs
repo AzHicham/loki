@@ -16,7 +16,7 @@ pub struct DaysSinceDatasetStart {
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
-    pub(super) seconds : u32
+    pub seconds : u32
 }
 
 impl PositiveDuration {
@@ -41,7 +41,8 @@ impl SecondsSinceDatasetStart {
         SecondsSinceDatasetStart{seconds : 0}
     }
 
-       // TODO : add doc and doctest
+    // TODO : add doc and doctest
+    #[inline(always)]
     pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceDayStart) {
         let (days_u16, seconds_u32) = self.decompose_inner();
 
@@ -76,7 +77,8 @@ impl SecondsSinceDatasetStart {
         
 
     }
-
+    
+    #[inline(always)]
     pub fn compose( days : & DaysSinceDatasetStart, seconds_in_day : & SecondsSinceDayStart) -> Self {
         let days_u32 : u32 = days.days.into();
         let seconds : u32 = SECONDS_IN_A_DAY * days_u32   + seconds_in_day.seconds;
@@ -85,6 +87,7 @@ impl SecondsSinceDatasetStart {
         }
     }
 
+    #[inline(always)]
     fn decompose_inner(&self) -> (u16, u32)
     {
         let days_u32 = self.seconds / SECONDS_IN_A_DAY;
@@ -116,6 +119,16 @@ impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetStart {
     fn add(self, rhs : PositiveDuration) -> Self::Output {
         Self {
             seconds : self.seconds + rhs.seconds
+        }
+    }
+}
+
+impl std::ops::Mul<u32> for PositiveDuration {
+    type Output = Self;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        PositiveDuration {
+            seconds : self.seconds * rhs
         }
     }
 }

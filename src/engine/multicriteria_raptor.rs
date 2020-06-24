@@ -3,6 +3,7 @@ use crate::engine::journeys_tree::{JourneysTree};
 use crate::engine::pareto_front::{BoardFront, DebarkFront, WaitFront, ArriveFront};
 use std::collections::HashMap;
 
+use log::info;
 
 pub struct MultiCriteriaRaptor<PT : PublicTransit> {
     journeys_tree : JourneysTree<PT>,
@@ -23,6 +24,8 @@ pub struct MultiCriteriaRaptor<PT : PublicTransit> {
     arrive_front : ArriveFront<PT>,
 
     results : Vec<Journey<PT>>,
+
+    nb_of_rounds : usize,
 
 }
 
@@ -49,6 +52,8 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
             arrive_front : ArriveFront::<PT>::new(),
 
             results : Vec::new(),
+
+            nb_of_rounds : 0,
         }
     }
 
@@ -73,7 +78,10 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
 
         debug_assert!( ! self.missions_with_new_wait.is_empty());
 
-        while ! self.missions_with_new_wait.is_empty() {
+        while ! self.missions_with_new_wait.is_empty()  {
+            let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
+            info!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
+            info!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
             self.save_and_clear_new_debarks(pt);
 
             self.ride(pt);
@@ -83,6 +91,8 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
             self.perform_transfers_and_arrivals(pt);
 
             self.identify_missions_with_new_waits(pt);
+
+            self.nb_of_rounds +=1;
             
         }
 
@@ -119,6 +129,8 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
 
         // we don't clear self.results so as to not release the memory 
         // allocated for connections in a Journey
+
+        self.nb_of_rounds = 0;
 
     }
 
@@ -264,10 +276,18 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
                     self.new_board_front.clear();
                     let new_wait_front = & self.new_wait_fronts[stop_id];
                     for (ref wait, ref wait_criteria) in new_wait_front.iter() {
-                        if let Some((trip, new_board_criteria)) = pt.best_trip_to_board(&position, &mission, &wait_criteria) {                      
+                        if let Some((trip, new_board_criteria)) = pt.best_trip_to_board(&position, &mission, &wait_criteria) {   
+                            if ! pt.is_valid(&new_board_criteria) {
+                                continue;
+                            }    
+                            if self.arrive_front.dominates(&new_board_criteria, pt) {
+                                continue;
+                            }               
                             if self.new_board_front.dominates(&new_board_criteria, pt) {
                                 continue;
                             }
+
+
                             let new_board = self.journeys_tree.board(&wait, &trip, &position);
                             self.new_board_front.add_and_remove_elements_dominated((new_board, trip), new_board_criteria, pt);
                         
@@ -280,9 +300,16 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
                 {
                     for ((board, trip), criteria) in self.board_front.iter() {
                         let new_criteria = pt.ride(&trip, &position, &criteria);
+                        if ! pt.is_valid(&new_criteria) {
+                            continue;
+                        }
+                        if self.arrive_front.dominates(&new_criteria, pt) {
+                            continue;
+                        }
                         if self.new_board_front.dominates(&new_criteria, pt) {
                             continue;
                         }
+
                         self.new_board_front.add((board.clone(), trip.clone()), new_criteria, pt);
 
                     }
@@ -357,12 +384,17 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
                     let arrival_id = pt.stop_id(&arrival_stop);
                     let wait_front = & mut self.wait_fronts[arrival_id];
                     let new_wait_front = & mut self.new_wait_fronts[arrival_id];
+                    if ! pt.is_valid(&arrival_criteria ) {
+                        continue;
+                    }
                     if wait_front.dominates(&arrival_criteria, pt) {
                         continue;
                     }
                     if new_wait_front.dominates(&arrival_criteria, pt) {
                         continue;
                     }
+
+
 
                     if new_wait_front.is_empty() {
                         self.stops_with_new_wait.push(arrival_stop.clone());
@@ -427,6 +459,14 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
             &self.results[idx]
         })
 
+    }
+
+    pub fn tree_size(&self) -> usize {
+        self.journeys_tree.size()
+    }
+
+    pub fn nb_of_rounds(&self) -> usize {
+        self.nb_of_rounds
     }
 
 }
