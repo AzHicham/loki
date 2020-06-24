@@ -69,7 +69,7 @@ pub struct TransitData {
     pub (super) stop_point_idx_to_stop : HashMap< Idx<StopPoint>, Stop  >,
 
     pub (super) stops_data : Vec<StopData>,
-    pub (super) patterns : Vec<StopPatternData<VehicleData>>,
+    pub (super) patterns : Vec<StopPatternData>,
 
     pub (super) calendars : Calendars,
 
@@ -97,7 +97,7 @@ impl TransitData {
         & self.stops_data[stop.idx]
     }
 
-    pub fn pattern<'a>(& 'a self, pattern : & StopPattern) -> & 'a StopPatternData<VehicleData> {
+    pub fn pattern<'a>(& 'a self, pattern : & StopPattern) -> & 'a StopPatternData {
         & self.patterns[pattern.idx]
     }
 
@@ -147,6 +147,7 @@ impl TransitData {
         }
 
         info!("Transfer duration {:?}", transfer_duration);
+        info!("Nb of vehicles : {}", 1 + response.connections.len());
         
         info!("Departure {}", self.calendars.to_string(&response.departure_section.from_datetime));
 
@@ -163,7 +164,7 @@ impl TransitData {
         let vehicle = &trip.vehicle;
         let vehicle_journey_idx = self.patterns[pattern.idx].vehicle_data(timetable, vehicle).vehicle_journey_idx;
         let route_id = &transit_model.vehicle_journeys[vehicle_journey_idx].route_id;
-        let line_id = &transit_model.routes.get(route_id).unwrap().line_id;
+        let route_id = &transit_model.routes.get(route_id).unwrap().id;
         let from_stop_idx = &self.stops_data[vehicle_section.from_stop.idx].stop_point_idx;
         let to_stop_idx = &self.stops_data[vehicle_section.to_stop.idx].stop_point_idx;
         let from_stop_id = &transit_model.stop_points[*from_stop_idx].id;
@@ -171,7 +172,7 @@ impl TransitData {
         let from_datetime = self.calendars.to_string(&vehicle_section.from_datetime);
         let to_datetime = self.calendars.to_string(&vehicle_section.to_datetime);
         info!("{} from {} at {} to {} at {} ", 
-            line_id, 
+            route_id, 
             from_stop_id,
             from_datetime,
             to_stop_id,

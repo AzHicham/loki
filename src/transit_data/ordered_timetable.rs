@@ -1,21 +1,20 @@
 use std::cmp::Ordering;
-use super::data::{Stop, FlowDirection};
+use super::data::{Stop, FlowDirection, VehicleData};
 use std::ops::Range;
 use std::iter::{Map, Chain};
-use std::collections::HashMap;
 
 use super::time::SecondsSinceDayStart as Time;
 
 // TODO : document more explicitely !
-pub struct StopPatternData<VehicleData> {
+pub struct StopPatternData {
     stops : Vec<Stop>,
     flow_directions : Vec<FlowDirection>,
-    timetables : Vec<TimetableData<VehicleData>>,
+    timetables : Vec<TimetableData>,
 }
 
-
+#[derive(Debug)]
 // TODO : document more explicitely !
-pub struct TimetableData<VehicleData> {
+pub struct TimetableData {
     // vehicles data, ordered by increasing times
     // meaning that is v1 is before v2 in this vector,
     // then for all `position` we have 
@@ -61,8 +60,7 @@ pub struct Vehicle {
 
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable >;
 
-impl<VehicleData> StopPatternData<VehicleData>
-where VehicleData : Clone
+impl StopPatternData
 {
     pub fn new(stops : Vec<Stop>, flow_directions : Vec<FlowDirection>) -> Self {
         assert!(stops.len() >= 2);
@@ -127,7 +125,7 @@ where VehicleData : Clone
         }
     }
 
-    fn timetable_data<'a>(& 'a self, timetable : & Timetable) -> & 'a TimetableData<VehicleData> {
+    fn timetable_data<'a>(& 'a self, timetable : & Timetable) -> & 'a TimetableData {
         self.timetables.get(timetable.idx)
             .unwrap_or_else( || panic!(format!(
                 "The timetable {:?} is expected to belongs to the stop_pattern ", 
@@ -324,7 +322,7 @@ where VehicleData : Clone
 
 pub type VehiclesIter = Map<Range<usize>, fn(usize)->Vehicle>;
 
-impl<VehicleData> TimetableData<VehicleData>
+impl TimetableData
 {
 
     fn new(nb_of_positions : usize) -> Self {
@@ -382,6 +380,54 @@ impl<VehicleData> TimetableData<VehicleData>
     }
 
 
+    fn find_insert_idx_after<BoardDebarkTimes>(& self, board_debark_times : BoardDebarkTimes, start_search_idx : usize) -> Option<usize>
+    where 
+    BoardDebarkTimes : Iterator<Item =  (Time, Time)> + ExactSizeIterator + Clone,
+    {
+
+        let nb_of_vehicles = self.nb_of_vehicles();
+        assert!(start_search_idx < nb_of_vehicles);
+        
+        let board_then_debark = board_debark_times.clone().map(|(board,_)| board)
+                                    .chain(board_debark_times.clone().map(|(_, debark)| debark));
+
+        let first_vehicle_idx = start_search_idx;
+        let has_first_vehicle_comp = partial_cmp(board_then_debark.clone(), self.vehicle_board_then_debark_times(first_vehicle_idx));
+        // if the candidate_times_vector is not comparable with first_vehicle_times_vector
+        // then we cannot add the candidate to this timetable
+        if has_first_vehicle_comp.is_none() {
+            return None;
+        }
+        let first_vehicle_comp = has_first_vehicle_comp.unwrap();
+        // if first_vehicle_times_vector >= candidate_times_vector , 
+        // then we should insert the candidate at the first position
+        if first_vehicle_comp == Ordering::Less || first_vehicle_comp == Ordering::Equal {
+            return Some(first_vehicle_idx);
+        }
+        assert!(first_vehicle_comp == Ordering::Greater);
+        // otherwise, we look for a vehicle such that
+        // prev_vehicle_times_vector <= candidate_times_vector <= vehicle_times_vector
+        let second_vehicle_idx = first_vehicle_idx + 1;
+        for vehicle_idx in second_vehicle_idx..nb_of_vehicles {
+            let has_vehicle_comp = partial_cmp(board_then_debark.clone(), self.vehicle_board_then_debark_times(vehicle_idx), );
+            // if the candidate_times_vector is not comparable with vehicle_times_vector
+            // then we cannot add the candidate to this timetable
+            if has_vehicle_comp.is_none() {
+                return None;
+            }
+            let vehicle_comp = has_vehicle_comp.unwrap();
+
+            if vehicle_comp == Ordering::Less ||  vehicle_comp == Ordering::Equal {
+                return Some(vehicle_idx)
+            }            assert!(vehicle_comp == Ordering::Greater);
+        }
+        
+        // here  candidate_times_vector  >= vehicle_times_vector for all vehicles,
+        // so we can insert the candidate as the last vehicle
+        Some(nb_of_vehicles)
+
+    }
+
     fn find_insert_idx<BoardDebarkTimes>(& self, board_debark_times : BoardDebarkTimes) -> Option<usize>
     where 
     BoardDebarkTimes : Iterator<Item =  (Time, Time)> + ExactSizeIterator + Clone,
@@ -395,45 +441,56 @@ impl<VehicleData> TimetableData<VehicleData>
         }
 
         let board_then_debark = board_debark_times.clone().map(|(board,_)| board)
-                                    .chain(board_debark_times.clone().map(|(_, debark)| debark));
+        .chain(board_debark_times.clone().map(|(_, debark)| debark));
 
-        let first_vehicle_idx = 0usize;
-        let has_first_vehicle_comp = partial_cmp(self.vehicle_board_then_debark_times(first_vehicle_idx), board_then_debark.clone());
-        // if the candidate_times_vector is not comparable with first_vehicle_times_vector
-        // then we cannot add the candidate to this timetable
-        if has_first_vehicle_comp.is_none() {
-            return None;
-        }
-        let first_vehicle_comp = has_first_vehicle_comp.unwrap();
-        // if first_vehicle_times_vector >= candidate_times_vector , 
-        // then we should insert the candidate at the first position
-        if first_vehicle_comp == Ordering::Greater {
-            return Some(first_vehicle_idx);
-        }
-        assert!(first_vehicle_comp == Ordering::Less || first_vehicle_comp == Ordering::Equal );
-        // otherwise, we look for a vehicle such that
-        // prev_vehicle_times_vector <= candidate_times_vector <= vehicle_times_vector
-        let mut prev_vehicle_comp = first_vehicle_comp;
-        for vehicle_idx in 1..nb_of_vehicles {
-            let has_vehicle_comp = partial_cmp(self.vehicle_board_then_debark_times(vehicle_idx), board_then_debark.clone());
-            // if the candidate_times_vector is not comparable with vehicle_times_vector
-            // then we cannot add the candidate to this timetable
-            if has_vehicle_comp.is_none() {
-                return None;
+        let first_board_time = board_debark_times.clone().next().unwrap().0;
+        let first_board_time_binary_search = (&self.board_times_by_position[0]).binary_search(&first_board_time);
+        match first_board_time_binary_search {
+            // here, first_board_time has not been found in &self.board_times_by_position[0]
+            // and insert_idx is the index where this first_board_time should be inserted
+            // so as to keep &self.board_times_by_position[0] sorted
+            // so we  have 
+            //  first_board_time < &self.board_times_by_position[0][insert_idx]     if insert_idx < len
+            //  first_board_time > &self.board_times_by_position[0][insert_idx -1]  if insert_idx > 0 
+            // so we are be able to insert the vehicle at insert_idx only if
+            //       board_then_debark <= vehicle_board_then_debark_times(insert_idx) if insert_idx < len
+            // and   board_then_debark >= vehicle_board_then_debark_times(insert_idx - 1) if insert_idx > 0
+            Err(insert_idx) => {
+                if insert_idx < self.nb_of_vehicles() {
+                    match partial_cmp(board_then_debark.clone(), self.vehicle_board_then_debark_times(insert_idx)) {
+                        None => { return None;},
+                        Some(Ordering::Equal) | Some(Ordering::Greater) => { assert!(false);},
+                        Some(Ordering::Less) => {()}
+                    }
+                }
+
+                if insert_idx > 0 {
+                    match partial_cmp(board_then_debark.clone(), self.vehicle_board_then_debark_times(insert_idx - 1)) {
+                        None => { return None;},
+                        Some(Ordering::Equal) | Some(Ordering::Less) => { assert!(false);},
+                        Some(Ordering::Greater) => {()}
+                    } 
+                }
+
+                return Some(insert_idx);
+            },
+            Ok(insert_idx) => {
+                assert!(self.board_times_by_position[0][insert_idx] == first_board_time );
+                let mut refined_insert_idx = insert_idx;
+                while refined_insert_idx > 0 && self.board_times_by_position[0][refined_insert_idx] == first_board_time {
+                    refined_insert_idx = refined_insert_idx - 1;
+                }
+                if refined_insert_idx > 0 {
+                    match partial_cmp(board_then_debark.clone(), self.vehicle_board_then_debark_times(refined_insert_idx - 1)) {
+                        None => { return None;},
+                        Some(Ordering::Equal) | Some(Ordering::Less) => { assert!(false);},
+                        Some(Ordering::Greater) => {()}
+                    } 
+                }
+                return self.find_insert_idx_after(board_debark_times, refined_insert_idx);
             }
-            let vehicle_comp = has_vehicle_comp.unwrap();
-
-            if (prev_vehicle_comp == Ordering::Less || prev_vehicle_comp == Ordering::Equal)
-               && (vehicle_comp == Ordering::Greater) 
-               {
-                   return Some(vehicle_idx);
-               }
-            prev_vehicle_comp = vehicle_comp;
         }
-        
-        // here  candidate_times_vector  >= vehicle_times_vector for all vehicles,
-        // so we can insert the candidate as the last vehicl
-        Some(nb_of_vehicles)
+
 
     }
 
@@ -441,6 +498,23 @@ impl<VehicleData> TimetableData<VehicleData>
     where 
     BoardDebarkTimes : Iterator<Item =  (Time, Time)> + ExactSizeIterator + Clone,
     {
+        if insert_idx < self.nb_of_vehicles() {
+            assert!({
+                let board_then_debark = board_debark_times.clone().map(|(board,_)| board)
+                .chain(board_debark_times.clone().map(|(_, debark)| debark));
+                let insert_cmp = partial_cmp(board_then_debark, self.vehicle_board_then_debark_times(insert_idx));
+                insert_cmp == Some(Ordering::Less) || insert_cmp == Some(Ordering::Equal)
+            });
+        }
+        if insert_idx > 0 {
+            assert!({
+                let board_then_debark = board_debark_times.clone().map(|(board,_)| board)
+                .chain(board_debark_times.clone().map(|(_, debark)| debark));
+                let prev_insert_cmp = partial_cmp(board_then_debark, self.vehicle_board_then_debark_times(insert_idx-1));
+                prev_insert_cmp == Some(Ordering::Greater) 
+            });
+        }
+        
         for (position, (board_time, debark_time)) in board_debark_times.enumerate() {
             self.board_times_by_position[position].insert(insert_idx, board_time.clone());
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
@@ -473,7 +547,7 @@ impl<VehicleData> TimetableData<VehicleData>
     // return `Some(best_vehicle)`
     // where `best_vehicle` is the vehicle, among those vehicle on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time,
-    fn best_filtered_vehicle_to_board_at<Filter>(&self, 
+    fn best_filtered_vehicle_to_board_at_by_linear_search<Filter>(&self, 
         waiting_time : & Time, 
         position : & Position,
         filter : Filter
@@ -493,6 +567,50 @@ impl<VehicleData> TimetableData<VehicleData>
                     None
                 }
             })
+    }
+
+    // If we are waiting to board a vehicle at `position` at time `waiting_time`
+    // return `Some(best_vehicle)`
+    // where `best_vehicle` is the vehicle, among those vehicle on which `filter` returns true,
+    //  to board that allows to debark at the subsequent positions at the earliest time,
+    fn best_filtered_vehicle_to_board_at<Filter>(&self, 
+        waiting_time : & Time, 
+        position : & Position,
+        filter : Filter
+    ) -> Option<Vehicle> 
+    where Filter : Fn(&VehicleData) -> bool
+    {
+        let search_result = self.board_times_by_position[position.idx].binary_search(waiting_time);
+        let first_boardable_vehicle = match search_result {
+            // here it means that 
+            //    waiting_time < board_time(idx)    if idx < len
+            //    waiting_time > board_time(idx -1) if idx > 0
+            // so idx is indeed the first vehicle that can be boarded 
+            Err(idx) => {
+                idx
+            },
+            // here it means that 
+            //    waiting_time == board_time(idx)
+            // but maybe idx is not the smallest idx such hat waiting_time == board_time(idx)
+            Ok(idx) => {
+                let mut first_idx = idx;
+                while first_idx > 0 && self.board_times_by_position[position.idx][first_idx] == *waiting_time {
+                    first_idx = first_idx - 1;
+                }
+                first_idx
+            }
+        };
+
+
+        for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicles() {
+            let vehicle_data = &self.vehicles_data[vehicle_idx];
+            let board_time = &self.board_times_by_position[position.idx][vehicle_idx];
+            if filter(vehicle_data) && waiting_time <= board_time {
+                let vehicle = Vehicle{ idx : vehicle_idx};
+                return Some(vehicle);
+            }
+        }
+        return None;
     }
 
 }
@@ -536,7 +654,7 @@ Lower : Iterator<Item = Value> + Clone,
 Upper : Iterator<Item = Value> + Clone,
 Value : Ord,
 {
-    assert!( lower.clone().count() == upper.clone().count() );
+    debug_assert!( lower.clone().count() == upper.clone().count() );
     let zip_iter = lower.zip(upper);
     let mut first_not_equal_iter = zip_iter.skip_while(|(lower_val, upper_val) | lower_val == upper_val);
     let has_first_not_equal = first_not_equal_iter.next();
