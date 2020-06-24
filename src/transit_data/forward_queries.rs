@@ -3,7 +3,6 @@ use super::data::{
     TransitData,
     Stop,
     StopPattern,
-    VehicleData,
     Mission,
     Trip,
 };
@@ -11,10 +10,7 @@ use super::data::{
 
 use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
 
-use super::calendars::{DaysIter};
-
-use super::ordered_timetable::{Timetable, Position, Vehicle, StopPatternData, VehiclesIter};
-use std::hash::Hash;
+use super::ordered_timetable::{Timetable, Position, Vehicle, StopPatternData};
 
 impl TransitData {
 

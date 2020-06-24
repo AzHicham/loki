@@ -3,8 +3,6 @@ use crate::transit_data::{
     data::{
         TransitData,
         Stop,
-        StopData,
-        StopPattern,
         Transfer,
         Mission,
         Trip,
@@ -19,7 +17,6 @@ use crate::transit_data::{
     time::{
         SecondsSinceDatasetStart, 
         PositiveDuration,
-        DaysSinceDatasetStart,
     }
 };
 
@@ -38,14 +35,9 @@ use super::response:: {
     Journey,
 };
 
-use typed_index_collection::{Idx};
-use transit_model::{
-    objects::{StopPoint,},
-}; 
 
 use std::cmp::Ordering;
 
-use log::{error};
 
 pub struct Request<'a> {
     transit_data : & 'a TransitData,

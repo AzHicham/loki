@@ -8,11 +8,10 @@ use transit_model::{
 pub(super) use transit_model::objects::Time as TransitModelTime;
 
 
-use std::path::PathBuf;
-use std::collections::{BTreeMap};
+use std::{collections::{BTreeMap}};
 use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
 use super::calendars::{Calendars, CalendarIdx};
-use super::time::{SecondsSinceDayStart, PositiveDuration, DaysSinceDatasetStart};
+use super::time::{PositiveDuration, DaysSinceDatasetStart};
 use typed_index_collection::{Idx};
 
 use crate::request::response::{Journey, VehicleSection};

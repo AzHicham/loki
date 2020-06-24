@@ -1,22 +1,18 @@
 
 use super::data::{
     TransitData,
-    StopData,
     Stop,
     StopPattern,
-    VehicleData,
     Transfer,
     Mission,
     Trip,
 };
 
-use super::time::{ DaysSinceDatasetStart ,SecondsSinceDatasetStart, SecondsSinceDayStart};
+
 use super::calendars::DaysIter;
 
 
-use super::ordered_timetable::{Timetable, Vehicle, TimetableData, TimetablesIter, Position, VehiclesIter};
-
-use std::collections::btree_map::Keys;
+use super::ordered_timetable::{Vehicle, TimetablesIter, Position, VehiclesIter};
 use std::slice::Iter as SliceIter;
 
 type PatternsOfStop<'a> = SliceIter<'a, (StopPattern, Position)>;

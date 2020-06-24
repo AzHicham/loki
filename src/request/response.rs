@@ -1,12 +1,8 @@
 
 use crate::transit_data::{
     data::{
-        TransitData,
         Stop,
-        StopData,
-        StopPattern,
         Transfer,
-        Mission,
         Trip,
     },
 
