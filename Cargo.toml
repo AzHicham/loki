@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 transit_model = "0.17"
+# transit_model = { path = "../transit_model/"}
 typed_index_collection = "1"
 chrono = "0.4"
 log = "0.4"
@@ -17,12 +18,14 @@ slog-scope = "4.1"
 slog-stdlog = "4.0"
 slog-async = "2.3"
 slog-envlogger = "2.1"
+rand = "0.7"
+rand_chacha = "0.2.2"
 
 [profile.release]
 opt-level = 3
 debug = true
-#rpath = false
-#lto = true
-#debug-assertions = false
-#codegen-units = 1
-#panic = 'unwind'
+# rpath = false
+# lto = true
+# debug-assertions = false
+# codegen-units = 1
+panic = 'abort'
