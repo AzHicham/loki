@@ -1,22 +1,59 @@
+use laxatips::transit_model;
+use laxatips::{ TransitData, MultiCriteriaRaptor, DepartAfterRequest, PositiveDuration, SecondsSinceDatasetStart};
+use laxatips::log::{info, error};
 
-
-mod transit_data;
-mod engine;
-mod request;
-
-
-
-use transit_model;
 use std::path::PathBuf;
-
-use transit_data::time::{ PositiveDuration, SecondsSinceDatasetStart};
-use log::{info, error};
 
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
 
 use std::time::SystemTime;
+
+
+use structopt::StructOpt;
+
+
+#[derive(StructOpt)]
+#[structopt(name = "laxatips_cli", about = "Run laxatips from the command line.")]
+struct Options {
+    /// directory of ntfs files to load
+    #[structopt(short = "n", long = "ntfs", parse(from_os_str),)]
+    input: PathBuf,
+
+    // /// current datetime
+    // #[structopt(
+    //     short = "x",
+    //     long,
+    //     parse(try_from_str),
+    //     default_value = &transit_model::CURRENT_DATETIME
+    // )]
+    // current_datetime: DateTime<FixedOffset>,
+
+
+    /// transfer penalty to apply
+    #[structopt(long, default_value = "120")]
+    transfer_arrival_penalty: u32,
+
+    #[structopt(long, default_value = "120")]
+    transfer_walking_penalty: u32,
+
+    #[structopt(long, default_value = "10")]
+    max_nb_transfer: u8,
+
+    #[structopt(long, default_value = "100")]
+    nb_queries : u32,
+
+}
+// #[derive(StructOpt)]
+// struct RandomStopAreas {
+//     #[structopt(short ="n", long, default_value = "100")]
+//     nb_queries : u32,
+
+// }
+
+
+
 
 
 fn init_logger() -> slog_scope::GlobalLoggerGuard {
@@ -60,7 +97,7 @@ fn make_random_queries_stop_point(model: & transit_model::Model, nb_of_queries :
 
 
 
-fn make_random_queries_stop_area(model: & transit_model::Model, nb_of_queries : usize ) -> Vec<(Vec<String>, Vec<String>)> {
+fn make_random_queries_stop_area(model: & transit_model::Model, nb_of_queries : u32 ) -> Vec<(Vec<String>, Vec<String>)> {
     use rand::prelude::*;
     //let mut rng = thread_rng();
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
@@ -87,6 +124,10 @@ fn make_query_stop_area(model: & transit_model::Model, from_stop_area : &str, to
 
 fn main() {
     let _log_guard = init_logger();
+
+    let options = Options::from_args();
+    let input_dir = options.input;
+
     // let input_dir = PathBuf::from("tests/fixtures/small_ntfs/");
     // let start_stop_point_uri = "sp_1";
     // let end_stop_point_uri = "sp_3";
@@ -95,7 +136,7 @@ fn main() {
     // let start_stop_point_uri = "SAR:SP:1001";
     // let end_stop_point_uri = "SAR:SP:6006";
 
-    let input_dir = PathBuf::from("/home/pascal/data/paris/ntfs/");
+    // let input_dir = PathBuf::from("/home/pascal/data/paris/ntfs/");
     // let start_stop_point_uri = "OIF:SP:59:3619855";
     // let end_stop_point_uri = "OIF:SP:6:109";
 
@@ -125,7 +166,7 @@ fn main() {
 
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration{seconds : 60};
-    let transit_data = transit_data::data::TransitData::new(&model, default_transfer_duration);
+    let transit_data = TransitData::new(&model, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
     info!("Number of pattern {} ", transit_data.nb_of_patterns());
@@ -137,7 +178,7 @@ fn main() {
 
     let nb_of_stops = transit_data.nb_of_stops();
 
-    let mut raptor = engine::multicriteria_raptor::MultiCriteriaRaptor::new(nb_of_stops);
+    let mut raptor = MultiCriteriaRaptor::new(nb_of_stops);
 
 
     let start_ends = vec![("SAR:SP:1001", "SAR:SP:6006"), ("SAR:SP:6000", "SAR:SP:6006")];
@@ -146,7 +187,7 @@ fn main() {
 
     let start_ends = vec![("OIF:SP:59:3619855", "OIF:SP:6:109"); 1];
     let start_ends = vec![("OIF:SP:8775815:810:A", "OIF:SP:88:241"); 1];
-    let start_ends = make_random_queries_stop_area(&model, 300);
+    let start_ends = make_random_queries_stop_area(&model, options.nb_queries);
 
     // let start_ends = vec![make_query_stop_area(&model, &"OIF:SA:8739384", &"OIF:SA:8768600")];
 
@@ -174,12 +215,12 @@ fn main() {
     
         let departure_datetime = SecondsSinceDatasetStart::zero() + PositiveDuration{ seconds : 8*60*60} + PositiveDuration{ seconds : 24*60*60}; 
 
-        let transfer_arrival_penalty = PositiveDuration{ seconds : 120};
-        let transfer_walking_penalty = PositiveDuration{ seconds : 90};
+        let transfer_arrival_penalty = PositiveDuration{ seconds : options.transfer_arrival_penalty};
+        let transfer_walking_penalty = PositiveDuration{ seconds : options.transfer_walking_penalty};
         let max_arrival_time = departure_datetime.clone() + PositiveDuration{ seconds : 12*60*60};
-        let max_nb_transfer : u8 = 50;
+        let max_nb_transfer : u8 = options.max_nb_transfer;
 
-        let request = request::depart_after::Request::new(&transit_data, departure_datetime, start_stops, end_stops, transfer_arrival_penalty, transfer_walking_penalty, max_arrival_time, max_nb_transfer);
+        let request = DepartAfterRequest::new(&transit_data, departure_datetime, start_stops, end_stops, transfer_arrival_penalty, transfer_walking_penalty, max_arrival_time, max_nb_transfer);
 
         info!("Start computing journey");
         let request_timer = SystemTime::now();
@@ -207,4 +248,3 @@ fn main() {
     // println!("{:#?}", a_few_vj);
 
 }
-
