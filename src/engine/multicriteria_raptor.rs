@@ -443,10 +443,10 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
         for (idx, (arrived, criteria)) in self.arrive_front.iter().enumerate() {
             if idx < self.results.len() {
                 let journey_to_fill = & mut self.results[idx];
-                self.journeys_tree.fill_journey(arrived, journey_to_fill);
+                self.journeys_tree.fill_journey(arrived, criteria, journey_to_fill);
             }
             else {
-                let new_journey = self.journeys_tree.create_journey(arrived);
+                let new_journey = self.journeys_tree.create_journey(arrived, criteria);
                 self.results.push(new_journey);
             }
 

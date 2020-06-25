@@ -110,21 +110,23 @@ impl<PT : PublicTransit> JourneysTree<PT> {
         Arrive{ id }
     }
 
-    pub fn fill_journey(&self, arrive : & Arrive, journey : & mut Journey<PT>) {
+    pub fn fill_journey(&self, arrive : & Arrive, criteria : & PT::Criteria, journey : & mut Journey<PT>) {
         journey.arrival = (&self.arrives[arrive.id].0).clone();
         let  connection_legs = & mut journey.connection_legs;
         let new_departure_leg = self.fill_journey_data(arrive,  connection_legs);
         journey.departure_leg = new_departure_leg;
+        journey.criteria_at_arrival = criteria.clone();
     }
 
-    pub fn create_journey(&self, arrive : & Arrive) -> Journey<PT> {
+    pub fn create_journey(&self, arrive : & Arrive, criteria : & PT::Criteria) -> Journey<PT> {
         let arrival = (&self.arrives[arrive.id].0).clone();
         let mut connection_legs : Vec<ConnectionLeg<PT>> = Vec::new();
         let departure_leg = self.fill_journey_data(arrive, & mut connection_legs);
         Journey {
             departure_leg,
             connection_legs,
-            arrival
+            arrival,
+            criteria_at_arrival : criteria.clone()
         }
     }
 

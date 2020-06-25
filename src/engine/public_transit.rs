@@ -202,5 +202,6 @@ pub struct ConnectionLeg<PT : PublicTransit> {
 pub struct Journey<PT : PublicTransit> {
     pub departure_leg : DepartureLeg<PT>,
     pub connection_legs : Vec<ConnectionLeg<PT>>,
-    pub arrival : PT::Arrival
+    pub arrival : PT::Arrival,
+    pub criteria_at_arrival : PT::Criteria,
 }
