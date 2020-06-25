@@ -21,7 +21,7 @@ use super::ordered_timetable::{
     StopPatternData,
     VehicleTimesError
 };
-use super::calendars::Calendars;
+use super::calendar::Calendar;
 use super::time::{SecondsSinceDayStart, PositiveDuration};
 
 use log::{warn, info};
@@ -40,7 +40,7 @@ impl TransitData {
             stop_point_idx_to_stop : std::collections::HashMap::new(),
             stops_data : Vec::with_capacity(nb_of_stop_points),
             patterns : Vec::new(),
-            calendars : Calendars::new(start_date, end_date),
+            calendar : Calendar::new(start_date, end_date),
         };
 
         engine_data.init(transit_model, default_transfer_duration);
@@ -160,11 +160,11 @@ impl TransitData {
                                                 )
                                             );
 
-        let calendar_idx = self.calendars.get_or_insert(transit_model_calendar.dates.iter());
+        let days_pattern = self.calendar.get_or_insert(transit_model_calendar.dates.iter());
         
         let daily_trip_data = VehicleData{
             vehicle_journey_idx ,
-            calendar_idx  
+            days_pattern  
         };
 
         let insert_error = pattern_data.insert(board_debark_times, daily_trip_data);

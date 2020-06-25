@@ -11,28 +11,28 @@ use chrono::{
     NaiveDate,
 };
 
-pub struct Calendars{
+pub struct Calendar{
     first_date : NaiveDate, //first date which may be allowed
     last_date : NaiveDate,  //last date (included) which may be allowed
     nb_of_days : u16,  // == (last_date - first_date).num_of_days()
                        // we allow at most u16::MAX = 65_535 days
-    calendars : Vec<Calendar>,
+    days_patterns : Vec<DaysPatternData>,
 
     buffer : Vec<bool>
 }
 
-struct Calendar {
+struct DaysPatternData {
     allowed_dates : Vec<bool>
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct CalendarIdx {
+pub struct DaysPattern {
     idx : usize
 }
 
 
 
-impl Calendars {
+impl Calendar {
 
     pub fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self {
         assert!(first_date <= last_date);
@@ -45,7 +45,7 @@ impl Calendars {
             first_date,
             last_date,
             nb_of_days,
-            calendars : Vec::new(),
+            days_patterns : Vec::new(),
 
             buffer : vec![false; nb_of_days.into()]
         }
@@ -110,14 +110,14 @@ impl Calendars {
         })
     }
 
-    pub fn is_allowed(&self, calendar_idx : & CalendarIdx, day : & DaysSinceDatasetStart) -> bool {
+    pub fn is_allowed(&self,  days_pattern: & DaysPattern, day : & DaysSinceDatasetStart) -> bool {
         debug_assert!(day.days < self.nb_of_days);
-        debug_assert!(calendar_idx.idx < self.calendars.len());
+        debug_assert!(days_pattern.idx < self.days_patterns.len());
         let day_idx : usize = day.days.into();
-        self.calendars[calendar_idx.idx].allowed_dates[day_idx]
+        self.days_patterns[days_pattern.idx].allowed_dates[day_idx]
     }
 
-    pub fn get_or_insert<'a, Dates>(&mut self, dates : Dates) -> CalendarIdx 
+    pub fn get_or_insert<'a, Dates>(&mut self, dates : Dates) -> DaysPattern 
     where Dates : Iterator<Item = & 'a NaiveDate>
     {
         // set all elements of the buffer to false
@@ -132,26 +132,26 @@ impl Calendars {
             }
         }
 
-        let has_calendar_idx = self.calendars.iter()
+        let has_days_pattern = self.days_patterns.iter()
                                 .enumerate()
                                 .find(|(_, calendar) | {
                                     calendar.allowed_dates == self.buffer
                                 })
                                 .map( |(idx, _)| idx );
 
-        let idx = if let Some(idx) = has_calendar_idx {
+        let idx = if let Some(idx) = has_days_pattern {
                 idx
         }
         else {
-            let idx = self.calendars.len();
-            let calendar = Calendar{
+            let idx = self.days_patterns.len();
+            let days_pattern_data = DaysPatternData{
                 allowed_dates : self.buffer.clone()
             };
-            self.calendars.push(calendar);
+            self.days_patterns.push(days_pattern_data);
             idx
         };
 
-        CalendarIdx{
+        DaysPattern{
             idx
         }
     }

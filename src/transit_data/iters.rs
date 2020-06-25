@@ -9,7 +9,7 @@ use super::data::{
 };
 
 
-use super::calendars::DaysIter;
+use super::calendar::DaysIter;
 
 
 use super::ordered_timetable::{Vehicle, TimetablesIter, Position, VehiclesIter};
@@ -130,7 +130,7 @@ impl TripsOfMission {
 
         let mut vehicles_iter = pattern_data.vehicles(&mission.timetable);
         let has_current_vehicle = vehicles_iter.next();
-        let days_iter = transit_data.calendars.days();
+        let days_iter = transit_data.calendar.days();
 
         Self {
             mission : mission.clone(),

@@ -7,7 +7,7 @@ pub mod init;
 #[allow(dead_code)]
 pub(super) mod ordered_timetable;
 #[allow(dead_code)]
-mod calendars;
+mod calendar;
 #[allow(dead_code)]
 pub mod forward_queries;
 

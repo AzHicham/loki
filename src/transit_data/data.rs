@@ -10,7 +10,7 @@ pub(super) use transit_model::objects::Time as TransitModelTime;
 
 use std::{collections::{BTreeMap}};
 use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
-use super::calendars::{Calendars, CalendarIdx};
+use super::calendar::{Calendar, DaysPattern};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
 use typed_index_collection::{Idx};
 
@@ -29,7 +29,7 @@ pub struct Duration {
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
-    pub (super) calendar_idx : CalendarIdx,
+    pub (super) days_pattern : DaysPattern,
 
 }
 
@@ -70,7 +70,7 @@ pub struct TransitData {
     pub (super) stops_data : Vec<StopData>,
     pub (super) patterns : Vec<StopPatternData>,
 
-    pub (super) calendars : Calendars,
+    pub (super) calendar : Calendar,
 
 
 }
@@ -148,7 +148,7 @@ impl TransitData {
         info!("Transfer duration {:?}", transfer_duration);
         info!("Nb of vehicles : {}", 1 + response.connections.len());
         
-        info!("Departure {}", self.calendars.to_string(&response.departure_section.from_datetime));
+        info!("Departure {}", self.calendar.to_string(&response.departure_section.from_datetime));
 
         self.print_vehicle_section(&response.first_vehicle, transit_model);
         for connection in response.connections.iter() {
@@ -168,8 +168,8 @@ impl TransitData {
         let to_stop_idx = &self.stops_data[vehicle_section.to_stop.idx].stop_point_idx;
         let from_stop_id = &transit_model.stop_points[*from_stop_idx].id;
         let to_stop_id = &transit_model.stop_points[*to_stop_idx].id;
-        let from_datetime = self.calendars.to_string(&vehicle_section.from_datetime);
-        let to_datetime = self.calendars.to_string(&vehicle_section.to_datetime);
+        let from_datetime = self.calendar.to_string(&vehicle_section.from_datetime);
+        let to_datetime = self.calendar.to_string(&vehicle_section.to_datetime);
         info!("{} from {} at {} to {} at {} ", 
             route_id, 
             from_stop_id,

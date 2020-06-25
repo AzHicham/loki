@@ -186,8 +186,8 @@ impl TransitData {
     ) -> Option<Vehicle>
     {
         pattern_data.earliest_filtered_vehicle_to_board_at(time_in_day, timetable, position, |vehicle_data| {
-            let calendar_idx = vehicle_data.calendar_idx;
-            self.calendars.is_allowed(&calendar_idx, day)
+            let days_pattern = vehicle_data.days_pattern;
+            self.calendar.is_allowed(&days_pattern, day)
         })
 
     }
