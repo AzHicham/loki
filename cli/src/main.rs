@@ -9,7 +9,8 @@ use slog::Drain;
 use slog_async::OverflowStrategy;
 
 use std::time::SystemTime;
-
+use chrono::NaiveDateTime;
+use failure::{Error, bail};
 
 use structopt::StructOpt;
 
@@ -31,18 +32,26 @@ struct Options {
     // current_datetime: DateTime<FixedOffset>,
 
 
-    /// transfer penalty to apply
-    #[structopt(long, default_value = "120")]
-    transfer_arrival_penalty: u32,
+    /// transfer penalty to apply to arrival time
+    #[structopt(long, default_value = "00:02:00")]
+    transfer_arrival_penalty: String,
 
-    #[structopt(long, default_value = "120")]
-    transfer_walking_penalty: u32,
+    /// transfer penalty to apply to walking time
+    #[structopt(long, default_value = "00:02:00")]
+    transfer_walking_penalty: String,
 
     #[structopt(long, default_value = "10")]
     max_nb_transfer: u8,
 
     #[structopt(long, default_value = "100")]
     nb_queries : u32,
+
+    #[structopt(long, default_value = "24:00:00")]
+    max_journey_duration : String,
+
+    // Departure datetime of the query, formatted like 20190628T163215
+    // #[structopt(long)]
+    // departure_datetime : String,
 
 }
 // #[derive(StructOpt)]
@@ -122,6 +131,37 @@ fn make_query_stop_area(model: & transit_model::Model, from_stop_area : &str, to
     (start_stop_points, end_stop_points)
 }
 
+
+fn parse_datetime(string_datetime : &str) -> Result<NaiveDateTime, Error> {
+    let try_datetime = NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
+    match try_datetime {
+        Ok(datetime) => {
+            Ok(datetime)
+        },
+        Err(_) => {
+            bail!("Unable to parse {} as a datetime. Expected format is 20190628T163215", string_datetime)
+        }
+    }
+}
+
+fn parse_duration(string_duration: &str) -> Result<PositiveDuration, Error> {
+    let mut t = string_duration.split(':');
+    let (hours, minutes, seconds) = match (t.next(), t.next(), t.next(), t.next()) {
+        (Some(h), Some(m), Some(s), None) => (h, m, s),
+        _ => {
+            bail!("Unable to parse {} as a duration. Expected format is 14:35:12", string_duration);
+        },
+    };
+    let hours: u32 = hours.parse()?;
+    let minutes: u32 = minutes.parse()?;
+    let seconds: u32 = seconds.parse()?;
+    if minutes > 59 || seconds > 59 {
+        bail!("Unable to parse {} as a duration. Expected format is 14:35:12", string_duration);
+    }
+    Ok(PositiveDuration::from_hms(hours, minutes, seconds))
+}
+
+
 fn main() {
     let _log_guard = init_logger();
 
@@ -191,7 +231,16 @@ fn main() {
 
     // let start_ends = vec![make_query_stop_area(&model, &"OIF:SA:8739384", &"OIF:SA:8768600")];
 
+    let departure_datetime = SecondsSinceDatasetStart::zero() + PositiveDuration::from_hms(8, 0, 0) + PositiveDuration::from_hms(24, 0, 0); 
+
+    let transfer_arrival_penalty = parse_duration(&options.transfer_arrival_penalty).unwrap();
+    let transfer_walking_penalty = parse_duration(&options.transfer_walking_penalty).unwrap();
+    let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
+    let max_arrival_time = departure_datetime.clone() + max_journey_duration;
+    let max_nb_transfer : u8 = options.max_nb_transfer;
+
     let compute_timer = SystemTime::now();
+    let mut total_nb_of_rounds = 0;
     for (start_stop_point_uris, end_stop_point_uris) in &start_ends {
         let start_stops = start_stop_point_uris.iter().map(|uri| {
             let stop_idx = model.stop_points.get_idx(&uri).unwrap_or_else( || {
@@ -213,14 +262,9 @@ fn main() {
 
 
     
-        let departure_datetime = SecondsSinceDatasetStart::zero() + PositiveDuration{ seconds : 8*60*60} + PositiveDuration{ seconds : 24*60*60}; 
 
-        let transfer_arrival_penalty = PositiveDuration{ seconds : options.transfer_arrival_penalty};
-        let transfer_walking_penalty = PositiveDuration{ seconds : options.transfer_walking_penalty};
-        let max_arrival_time = departure_datetime.clone() + PositiveDuration{ seconds : 12*60*60};
-        let max_nb_transfer : u8 = options.max_nb_transfer;
 
-        let request = DepartAfterRequest::new(&transit_data, departure_datetime, start_stops, end_stops, transfer_arrival_penalty, transfer_walking_penalty, max_arrival_time, max_nb_transfer);
+        let request = DepartAfterRequest::new(&transit_data, departure_datetime.clone(), start_stops, end_stops, transfer_arrival_penalty, transfer_walking_penalty, max_arrival_time.clone(), max_nb_transfer);
 
         info!("Start computing journey");
         let request_timer = SystemTime::now();
@@ -228,16 +272,18 @@ fn main() {
         info!("Journeys computed in {} ms with {} rounds", request_timer.elapsed().unwrap().as_millis(), raptor.nb_of_rounds());
         info!("Nb of journeys found : {}", raptor.nb_of_journeys());
         info!("Tree size : {}", raptor.tree_size());
-        for pt_journey in raptor.responses() {
-            let response = request.create_response_from_engine_result(pt_journey).unwrap();
-            // info!("{:#?}", criteria);
-            transit_data.print_response(&response, &model);
-        }
+        total_nb_of_rounds += raptor.nb_of_rounds();
+        // for pt_journey in raptor.responses() {
+        //     let response = request.create_response_from_engine_result(pt_journey).unwrap();
+        //     // info!("{:#?}", criteria);
+        //     transit_data.print_response(&response, &model);
+        // }
     
     }
     let duration = compute_timer.elapsed().unwrap().as_millis();
     info!("Data build duration {} ms", data_build_time);
     info!("Average duration per request : {} ms", (duration as f64) / (start_ends.len() as f64));
+    info!("Average nb of rounds : {}", (total_nb_of_rounds as f64) / (start_ends.len() as f64));
     // request.solve_with(raptor) <- call raptor, and fill request.responses
     // read request.responses and print them
 

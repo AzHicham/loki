@@ -25,6 +25,11 @@ impl PositiveDuration {
             seconds : 0
         }
     }
+
+    pub fn from_hms(hours : u32, minutes : u32, seconds : u32) -> PositiveDuration {
+        let total_seconds = seconds + 60 * minutes + 60*60*hours;
+        PositiveDuration{seconds : total_seconds}
+    }
 }
 
 impl SecondsSinceDayStart {
