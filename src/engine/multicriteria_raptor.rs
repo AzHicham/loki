@@ -3,7 +3,7 @@ use crate::engine::journeys_tree::{JourneysTree};
 use crate::engine::pareto_front::{BoardFront, DebarkFront, WaitFront, ArriveFront};
 use std::collections::HashMap;
 
-use log::info;
+
 
 pub struct MultiCriteriaRaptor<PT : PublicTransit> {
     journeys_tree : JourneysTree<PT>,
@@ -79,9 +79,10 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
         debug_assert!( ! self.missions_with_new_wait.is_empty());
 
         while ! self.missions_with_new_wait.is_empty()  {
-            let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
-            info!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
-            info!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
+            // use log::info;
+            // let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
+            // info!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
+            // info!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
             self.save_and_clear_new_debarks(pt);
 
             self.ride(pt);

@@ -89,7 +89,13 @@ impl Calendar {
 
     pub fn to_string(&self, seconds : & SecondsSinceDatasetStart) -> String {
         let datetime = self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64);
-        format!("{}", datetime)
+        datetime.format("%Y%m%dT%H%M%S").to_string()
+    }
+
+    pub fn to_pretty_string(&self, seconds : & SecondsSinceDatasetStart) -> String {
+        let datetime = self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64);
+        datetime.format("%H%:M%:S %d %b %y").to_string()
+
     }
 
 
