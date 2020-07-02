@@ -22,32 +22,26 @@ struct Options {
     #[structopt(short = "n", long = "ntfs", parse(from_os_str),)]
     input: PathBuf,
 
-    // /// current datetime
-    // #[structopt(
-    //     short = "x",
-    //     long,
-    //     parse(try_from_str),
-    //     default_value = &transit_model::CURRENT_DATETIME
-    // )]
-    // current_datetime: DateTime<FixedOffset>,
-
-
-    /// transfer penalty to apply to arrival time
+    /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = "00:02:00")]
-    transfer_arrival_penalty: String,
+    leg_arrival_penalty: String,
 
-    /// transfer penalty to apply to walking time
+    /// penalty to apply to walking time for each vehicle leg in a journey
     #[structopt(long, default_value = "00:02:00")]
-    transfer_walking_penalty: String,
+    leg_walking_penalty: String,
 
+    /// maximum number of vehicle legs in a journey
     #[structopt(long, default_value = "10")]
-    max_nb_transfer: u8,
+    max_nb_of_legs: u8,
+
+    /// maximum duration of a journey
+    #[structopt(long, default_value = "24:00:00")]
+    max_journey_duration : String,
 
     #[structopt(long, default_value = "100")]
     nb_queries : u32,
 
-    #[structopt(long, default_value = "24:00:00")]
-    max_journey_duration : String,
+
 
     // Departure datetime of the query, formatted like 20190628T163215
     // #[structopt(long)]
@@ -233,11 +227,11 @@ fn main() {
 
     let departure_datetime = SecondsSinceDatasetStart::zero() + PositiveDuration::from_hms(8, 0, 0) + PositiveDuration::from_hms(24, 0, 0); 
 
-    let transfer_arrival_penalty = parse_duration(&options.transfer_arrival_penalty).unwrap();
-    let transfer_walking_penalty = parse_duration(&options.transfer_walking_penalty).unwrap();
+    let leg_arrival_penalty = parse_duration(&options.leg_arrival_penalty).unwrap();
+    let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
     let max_arrival_time = departure_datetime.clone() + max_journey_duration;
-    let max_nb_transfer : u8 = options.max_nb_transfer;
+    let max_nb_of_legs : u8 = options.max_nb_of_legs;
 
     let compute_timer = SystemTime::now();
     let mut total_nb_of_rounds = 0;
@@ -264,7 +258,14 @@ fn main() {
     
 
 
-        let request = DepartAfterRequest::new(&transit_data, departure_datetime.clone(), start_stops, end_stops, transfer_arrival_penalty, transfer_walking_penalty, max_arrival_time.clone(), max_nb_transfer);
+        let request = DepartAfterRequest::new(&transit_data, 
+            departure_datetime.clone(), 
+            start_stops, end_stops, 
+            leg_arrival_penalty, 
+            leg_walking_penalty, 
+            max_arrival_time.clone(), 
+            max_nb_of_legs
+        );
 
         info!("Start computing journey");
         let request_timer = SystemTime::now();
@@ -284,13 +285,6 @@ fn main() {
     info!("Data build duration {} ms", data_build_time);
     info!("Average duration per request : {} ms", (duration as f64) / (start_ends.len() as f64));
     info!("Average nb of rounds : {}", (total_nb_of_rounds as f64) / (start_ends.len() as f64));
-    // request.solve_with(raptor) <- call raptor, and fill request.responses
-    // read request.responses and print them
 
-    // request.fill_with(request data)
-
-
-    // let a_few_vj : Vec<_> = collections.vehicle_journeys.values().take(2).collect();
-    // println!("{:#?}", a_few_vj);
 
 }
