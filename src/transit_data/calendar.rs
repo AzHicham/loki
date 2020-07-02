@@ -57,6 +57,13 @@ impl Calendar {
         }
     }
 
+    pub fn first_date(&self) -> & NaiveDate {
+        & self.first_date
+    }
+
+    pub fn last_date(&self) -> & NaiveDate {
+        & self.last_date
+    }
     // try to convert a unix timestamp (nb of seconds since midnight UTC on January 1, 1970)
     // to the number of seconds since the beginning of this calendar
     // returns None if the timestamp is out of bounds of this calendar
@@ -64,26 +71,10 @@ impl Calendar {
     pub fn timestamp_to_seconds_since_start(&self, timestamp : i64) -> Option<SecondsSinceDatasetStart> {
         let has_datetime = NaiveDateTime::from_timestamp_opt(timestamp, 0);
         if let Some(datetime) = has_datetime {
-            self.to_seconds_since_start(&datetime)
+            self.naive_datetime_to_seconds_since_start(&datetime)
         }
         else {
             None
-        }
-    }
-
-    // try to parse a string datetime (formatted like '20200316T123560')
-    // and convert it to the number of seconds since the beginning of this calendar
-    // returns None if the parsing failed, or if the date is out of bounds of this calendar
-    pub fn string_datetime_to_seconds_since_start(&self, string_datetime : &str) -> Option<SecondsSinceDatasetStart> {
- 
-        let try_datetime = NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
-        match try_datetime {
-            Ok(datetime) => {
-                self.to_seconds_since_start(&datetime)
-            },
-            Err(_) => {
-                None
-            }
         }
     }
 
@@ -99,7 +90,7 @@ impl Calendar {
     }
 
 
-    pub fn to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
+    pub fn naive_datetime_to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
         let date = datetime.date();
         if ! self.contains(&date) {
             return None;

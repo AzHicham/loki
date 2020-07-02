@@ -70,7 +70,7 @@ pub struct TransitData {
     pub (super) stops_data : Vec<StopData>,
     pub (super) patterns : Vec<StopPatternData>,
 
-    pub (super) calendar : Calendar,
+    pub calendar : Calendar,
 
 
 }
