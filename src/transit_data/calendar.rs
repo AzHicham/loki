@@ -79,16 +79,19 @@ impl Calendar {
     }
 
     pub fn to_string(&self, seconds : & SecondsSinceDatasetStart) -> String {
-        let datetime = self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64);
+        let datetime = self.to_naive_datetime(seconds);
         datetime.format("%Y%m%dT%H%M%S").to_string()
     }
 
     pub fn to_pretty_string(&self, seconds : & SecondsSinceDatasetStart) -> String {
-        let datetime = self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64);
-        datetime.format("%H%:M%:S %d %b %y").to_string()
+        let datetime = self.to_naive_datetime(seconds);
+        datetime.format("%H:%M:%S %d-%b-%y").to_string()
 
     }
 
+    pub fn to_naive_datetime(&self, seconds : & SecondsSinceDatasetStart) -> NaiveDateTime {
+        self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64)
+    }
 
     pub fn naive_datetime_to_seconds_since_start(&self, datetime : & NaiveDateTime) -> Option<SecondsSinceDatasetStart> {
         let date = datetime.date();

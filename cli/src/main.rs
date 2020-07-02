@@ -1,6 +1,6 @@
 use laxatips::transit_model;
 use laxatips::{ TransitData, MultiCriteriaRaptor, DepartAfterRequest, PositiveDuration, SecondsSinceDatasetStart};
-use laxatips::log::{info, debug};
+use laxatips::log::{info, debug, trace};
 
 use std::path::PathBuf;
 
@@ -308,11 +308,11 @@ fn run() -> Result<(), Error> {
         debug!("Nb of journeys found : {}", raptor.nb_of_journeys());
         debug!("Tree size : {}", raptor.tree_size());
         total_nb_of_rounds += raptor.nb_of_rounds();
-        // for pt_journey in raptor.responses() {
-        //     let response = request.create_response_from_engine_result(pt_journey).unwrap();
-        //     // info!("{:#?}", criteria);
-        //     transit_data.print_response(&response, &model);
-        // }
+        for pt_journey in raptor.responses() {
+            let response = request.create_response_from_engine_result(pt_journey).unwrap();
+
+            trace!("{}",transit_data.print_response(&response, &model)?);
+        }
     
     }
     let duration = compute_timer.elapsed().unwrap().as_millis();

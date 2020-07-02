@@ -135,9 +135,23 @@ impl TransitData {
         }).sum()
     }
 
-    pub fn print_response(&self, response : & Journey, transit_model : & TransitModel) -> () {
-        info!("*** New journey ***");
-        info!("Arrival time {:?}", response.arrival_section.to_datetime);
+    pub fn print_response(&self, 
+        response : & Journey, 
+        transit_model : & TransitModel, 
+    ) -> Result<String, std::fmt::Error> {
+        let mut result = String::new();
+        self.write_response(response, transit_model, & mut result)?;
+        Ok(result)
+        
+    }
+
+    pub fn write_response< Writer : std::fmt::Write>(&self, 
+            response : & Journey, 
+            transit_model : & TransitModel, 
+            writer : & mut Writer
+    ) -> Result<(), std::fmt::Error> {
+        writeln!(writer, "*** New journey ***")?;
+        writeln!(writer, "Arrival : {}", self.calendar.to_pretty_string(&response.arrival_section.to_datetime) )?;
         let mut transfer_duration = PositiveDuration::zero();
         for (transfer_section, _, _) in response.connections.iter() {
             let stop = &transfer_section.from_stop;
@@ -145,18 +159,25 @@ impl TransitData {
             transfer_duration = transfer_duration + self.stops_data[stop.idx].transfers[transfer.idx_in_stop_transfers].1.clone();
         }
 
-        info!("Transfer duration {:?}", transfer_duration);
-        info!("Nb of vehicles : {}", 1 + response.connections.len());
+        writeln!(writer, "Transfer duration : {}", transfer_duration)?;
+        writeln!(writer, "Nb of vehicles : {}", 1 + response.connections.len())?;
         
-        info!("Departure {}", self.calendar.to_string(&response.departure_section.from_datetime));
+        writeln!(writer, "Departure : {}", self.calendar.to_pretty_string(&response.departure_section.from_datetime))?;
 
-        self.print_vehicle_section(&response.first_vehicle, transit_model);
+        self.write_vehicle_section(&response.first_vehicle, transit_model, writer)?;
         for connection in response.connections.iter() {
-            self.print_vehicle_section(&connection.2, transit_model);
+            self.write_vehicle_section(&connection.2, transit_model, writer)?;
         }
+
+        Ok(())
     }
 
-    fn print_vehicle_section(&self, vehicle_section : & VehicleSection, transit_model : & TransitModel) {
+    fn write_vehicle_section< Writer : std::fmt::Write>(&self, 
+        vehicle_section : & VehicleSection, 
+        transit_model : & TransitModel,
+        writer : & mut Writer
+    ) -> Result<(), std::fmt::Error>
+    {
         let trip = &vehicle_section.trip;
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
@@ -168,16 +189,16 @@ impl TransitData {
         let to_stop_idx = &self.stops_data[vehicle_section.to_stop.idx].stop_point_idx;
         let from_stop_id = &transit_model.stop_points[*from_stop_idx].id;
         let to_stop_id = &transit_model.stop_points[*to_stop_idx].id;
-        let from_datetime = self.calendar.to_string(&vehicle_section.from_datetime);
-        let to_datetime = self.calendar.to_string(&vehicle_section.to_datetime);
-        info!("{} from {} at {} to {} at {} ", 
+        let from_datetime = self.calendar.to_pretty_string(&vehicle_section.from_datetime);
+        let to_datetime = self.calendar.to_pretty_string(&vehicle_section.to_datetime);
+        writeln!(writer, "{} from {} at {} to {} at {} ", 
             route_id, 
             from_stop_id,
             from_datetime,
             to_stop_id,
             to_datetime
-        );
-
+        )?;
+        Ok(())
     }
 }
 

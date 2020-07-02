@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 
 const SECONDS_IN_A_DAY : u32 = 60 * 60 * 24;
 
@@ -29,6 +30,27 @@ impl PositiveDuration {
     pub fn from_hms(hours : u32, minutes : u32, seconds : u32) -> PositiveDuration {
         let total_seconds = seconds + 60 * minutes + 60*60*hours;
         PositiveDuration{seconds : total_seconds}
+    }
+}
+
+
+impl Display for PositiveDuration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+
+        let hours = self.seconds / (60*60);
+        let minutes_in_secs = self.seconds % (60*60);
+        let minutes = minutes_in_secs / 60;
+        let seconds = minutes_in_secs % 60;
+        if hours != 0 {
+            write!(f, "{}h{:02}m{:02}s", hours, minutes, seconds )
+        }
+        else if minutes != 0 {
+            write!(f, "{}m{:02}s", minutes, seconds)
+        }
+        else {
+            write!(f, "{}s", seconds)
+        }
+        
     }
 }
 
