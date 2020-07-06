@@ -29,7 +29,7 @@ impl TransitData {
 
     pub fn stop_at_position_in_mission(&self, position: &Position, mission: &Mission) -> Stop {
         let pattern = self.pattern(&mission.stop_pattern);
-        pattern.stop_at(position).clone()
+        *pattern.stop_at(position)
     }
 
     pub fn mission_of(&self, trip: &Trip) -> Mission {
@@ -118,17 +118,14 @@ impl TransitData {
         debug_assert!(!pattern_data.is_last_position(position));
 
         let has_next_position = pattern_data.next_position(position);
-        if has_next_position.is_none() {
-            // there is no vehicle to board at the last position of a pattern
-            return None;
-        }
-        let next_position = has_next_position.unwrap();
+        // if there is no vehicle to board at this position, we return None
+        let next_position = has_next_position?;
 
         let has_latest_board_time = pattern_data.latest_board_time_at(timetable, position);
-        if has_latest_board_time.is_none() {
-            return None;
-        }
-        let latest_board_time_in_day = has_latest_board_time.cloned().unwrap();
+
+        // if there is no latest board time, it means that this position cannot be boarded
+        // and we return None
+        let latest_board_time_in_day = has_latest_board_time?;
 
         let mut nb_of_days_to_offset = 0u16;
         let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose();
@@ -138,7 +135,7 @@ impl TransitData {
             SecondsSinceDatasetStart,
         )> = None;
 
-        while waiting_time_in_day <= latest_board_time_in_day {
+        while waiting_time_in_day <= *latest_board_time_in_day {
             let has_vehicle = self.earliest_vehicle_to_board_in_day(
                 &waiting_day,
                 &waiting_time_in_day,

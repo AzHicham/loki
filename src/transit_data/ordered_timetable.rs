@@ -72,7 +72,7 @@ impl StopPatternData {
     pub fn stops_and_positions(&self) -> impl Iterator<Item = (Stop, Position)> + '_ {
         self.stops.iter().enumerate().map(|(idx, stop)| {
             let position = Position { idx };
-            (stop.clone(), position)
+            (*stop, position)
         })
     }
 
@@ -230,7 +230,7 @@ impl StopPatternData {
     // Insert in the vehicle in a timetable if
     // the given debark_times and board_times are coherent.
     // Returns a VehicleTimesError otherwise.
-    pub fn insert<'a, 'b, BoardDebarkTimes>(
+    pub fn insert<BoardDebarkTimes>(
         &mut self,
         board_debark_times: BoardDebarkTimes,
         vehicle_data: VehicleData,
@@ -357,7 +357,7 @@ impl TimetableData {
         self.vehicles_data.len()
     }
 
-    fn vehicle_debark_times<'a>(&'a self, vehicle_idx: usize) -> VehicleTimes<'a> {
+    fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes {
         debug_assert!(vehicle_idx < self.vehicles_data.len());
         VehicleTimes {
             times_by_position: &self.debark_times_by_position,
@@ -366,7 +366,7 @@ impl TimetableData {
         }
     }
 
-    fn vehicle_board_times<'a>(&'a self, vehicle_idx: usize) -> VehicleTimes<'a> {
+    fn vehicle_board_times(& self, vehicle_idx: usize) -> VehicleTimes {
         debug_assert!(vehicle_idx < self.vehicles_data.len());
         VehicleTimes {
             times_by_position: &self.board_times_by_position,
@@ -397,7 +397,7 @@ impl TimetableData {
         let board_then_debark = board_debark_times
             .clone()
             .map(|(board, _)| board)
-            .chain(board_debark_times.clone().map(|(_, debark)| debark));
+            .chain(board_debark_times.map(|(_, debark)| debark));
 
         let first_vehicle_idx = start_search_idx;
         let has_first_vehicle_comp = partial_cmp(
@@ -406,10 +406,7 @@ impl TimetableData {
         );
         // if the candidate_times_vector is not comparable with first_vehicle_times_vector
         // then we cannot add the candidate to this timetable
-        if has_first_vehicle_comp.is_none() {
-            return None;
-        }
-        let first_vehicle_comp = has_first_vehicle_comp.unwrap();
+        let first_vehicle_comp = has_first_vehicle_comp?;
         // if first_vehicle_times_vector >= candidate_times_vector ,
         // then we should insert the candidate at the first position
         if first_vehicle_comp == Ordering::Less || first_vehicle_comp == Ordering::Equal {
@@ -426,10 +423,7 @@ impl TimetableData {
             );
             // if the candidate_times_vector is not comparable with vehicle_times_vector
             // then we cannot add the candidate to this timetable
-            if has_vehicle_comp.is_none() {
-                return None;
-            }
-            let vehicle_comp = has_vehicle_comp.unwrap();
+            let vehicle_comp = has_vehicle_comp?;
 
             if vehicle_comp == Ordering::Less || vehicle_comp == Ordering::Equal {
                 return Some(vehicle_idx);
@@ -482,7 +476,7 @@ impl TimetableData {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Greater) => {
-                            assert!(false);
+                            unreachable!();
                         }
                         Some(Ordering::Less) => (),
                     }
@@ -490,20 +484,20 @@ impl TimetableData {
 
                 if insert_idx > 0 {
                     match partial_cmp(
-                        board_then_debark.clone(),
+                        board_then_debark,
                         self.vehicle_board_then_debark_times(insert_idx - 1),
                     ) {
                         None => {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Less) => {
-                            assert!(false);
+                            unreachable!();
                         }
                         Some(Ordering::Greater) => (),
                     }
                 }
 
-                return Some(insert_idx);
+                Some(insert_idx)
             }
             Ok(insert_idx) => {
                 assert!(self.board_times_by_position[0][insert_idx] == first_board_time);
@@ -511,23 +505,23 @@ impl TimetableData {
                 while refined_insert_idx > 0
                     && self.board_times_by_position[0][refined_insert_idx] == first_board_time
                 {
-                    refined_insert_idx = refined_insert_idx - 1;
+                    refined_insert_idx -=  1;
                 }
                 if refined_insert_idx > 0 {
                     match partial_cmp(
-                        board_then_debark.clone(),
+                        board_then_debark,
                         self.vehicle_board_then_debark_times(refined_insert_idx - 1),
                     ) {
                         None => {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Less) => {
-                            assert!(false);
+                            unreachable!();
                         }
                         Some(Ordering::Greater) => (),
                     }
                 }
-                return self.find_insert_idx_after(board_debark_times, refined_insert_idx);
+                self.find_insert_idx_after(board_debark_times, refined_insert_idx)
             }
         }
     }
@@ -652,7 +646,7 @@ impl TimetableData {
                 while first_idx > 0
                     && self.board_times_by_position[position.idx][first_idx] == *waiting_time
                 {
-                    first_idx = first_idx - 1;
+                    first_idx -=  1;
                 }
                 first_idx
             }
@@ -666,7 +660,7 @@ impl TimetableData {
                 return Some(vehicle);
             }
         }
-        return None;
+        None
     }
 }
 
@@ -738,7 +732,7 @@ where
     // if has_first_not_equal == None
     // then values == item_values
     // the two vector are equal
-    return Some(Ordering::Equal);
+    Some(Ordering::Equal)
 }
 #[derive(Clone)]
 struct VehicleTimes<'a> {

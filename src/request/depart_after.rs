@@ -72,11 +72,11 @@ impl<'a> Request<'a> {
             let from_datetime = self.departure_datetime.clone();
             let departure_idx = pt_journey.departure_leg.departure.idx;
             let (stop, duration) = &self.departures_stop_point_and_fallback_duration[departure_idx];
-            let to_datetime = self.departure_datetime.clone() + duration.clone();
+            let to_datetime = self.departure_datetime.clone() + *duration;
             DepartureSection {
                 from_datetime,
                 to_datetime,
-                to_stop: stop.clone(),
+                to_stop: *stop,
             }
         };
         let first_vehicle = {
@@ -137,7 +137,7 @@ impl<'a> Request<'a> {
             }
         };
 
-        let mut prev_stop = first_vehicle.to_stop.clone();
+        let mut prev_stop = first_vehicle.to_stop;
         let mut prev_datetime = first_vehicle.to_datetime.clone();
         let mut connections = Vec::new();
 
@@ -206,7 +206,7 @@ impl<'a> Request<'a> {
                 Ordering::Greater => {
                     let from_datetime = transfer_section.to_datetime.clone();
                     let to_datetime = vehicle_section.from_datetime.clone();
-                    let stop = transfer_section.to_stop.clone();
+                    let stop = transfer_section.to_stop;
                     let section = WaitingSection {
                         from_datetime,
                         to_datetime,
@@ -216,7 +216,7 @@ impl<'a> Request<'a> {
                 }
             };
 
-            prev_stop = vehicle_section.to_stop.clone();
+            prev_stop = vehicle_section.to_stop;
             prev_datetime = vehicle_section.to_datetime.clone();
 
             connections.push((transfer_section, waiting_section, vehicle_section));
@@ -230,7 +230,7 @@ impl<'a> Request<'a> {
             if from_stop != *arrival_stop {
                 return Err(());
             }
-            let to_datetime = prev_datetime.clone() + *duration;
+            let to_datetime = prev_datetime + *duration;
             ArrivalSection {
                 from_datetime,
                 to_datetime,
@@ -329,13 +329,13 @@ impl<'a> PublicTransit for Request<'a> {
         waiting_criteria: &Self::Criteria,
     ) -> Option<Self::Criteria> {
         let has_board_time = self.transit_data.board_time_of(trip, position);
-        if has_board_time.is_none() {
-            return None;
-        }
         if let Some(board_time) = has_board_time {
             if waiting_criteria.arrival_time > board_time {
                 return None;
             }
+        }
+        else {
+            return None;
         }
         let next_position = self.next_on_mission(position, &trip.mission).unwrap();
         let arrival_time_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
@@ -396,13 +396,12 @@ impl<'a> PublicTransit for Request<'a> {
     ) -> Self::Criteria {
         let next_position = self.next_on_mission(position, &trip.mission).unwrap();
         let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
-        let new_criteria = Criteria {
+        Criteria {
             arrival_time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
-        };
-        new_criteria
+        }
     }
 
     fn transfer(
@@ -435,9 +434,8 @@ impl<'a> PublicTransit for Request<'a> {
     }
 
     fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
-        (&self.arrivals_stop_point_and_fallbrack_duration[arrival.idx])
+        (self.arrivals_stop_point_and_fallbrack_duration[arrival.idx])
             .0
-            .clone()
     }
 
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {

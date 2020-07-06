@@ -49,7 +49,7 @@ impl<ItemData: Clone, PT: PublicTransit> ParetoFront<ItemData, PT> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     pub fn add_unchecked(&mut self, item_data: ItemData, criteria: PT::Criteria) {

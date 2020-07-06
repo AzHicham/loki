@@ -74,28 +74,28 @@ impl<PT: PublicTransit> JourneysTree<PT> {
     pub fn board(&mut self, wait: &Wait, trip: &PT::Trip, position: &PT::Position) -> Board {
         let id = self.boards.len();
         self.boards
-            .push((trip.clone(), position.clone(), wait.clone()));
+            .push((trip.clone(), position.clone(), *wait));
 
         Board { id }
     }
 
     pub fn debark(&mut self, board: &Board, position: &PT::Position) -> Debark {
         let id = self.debarks.len();
-        self.debarks.push((position.clone(), board.clone()));
+        self.debarks.push((position.clone(), *board));
         Debark { id }
     }
 
     pub fn transfer(&mut self, debark: &Debark, transfer: &PT::Transfer) -> Wait {
         let id = self.waits.len();
         self.waits
-            .push(WaitData::Transfer(transfer.clone(), debark.clone()));
+            .push(WaitData::Transfer(transfer.clone(), *debark));
 
         Wait { id }
     }
 
     pub fn arrive(&mut self, debark: &Debark, arrival: &PT::Arrival) -> Arrive {
         let id = self.arrives.len();
-        self.arrives.push((arrival.clone(), debark.clone()));
+        self.arrives.push((arrival.clone(), *debark));
 
         Arrive { id }
     }
@@ -145,7 +145,7 @@ impl<PT: PublicTransit> JourneysTree<PT> {
                 WaitData::Departure(departure) => {
                     let departure_leg = DepartureLeg::<PT> {
                         departure: departure.clone(),
-                        trip: trip,
+                        trip,
                         board_position,
                         debark_position,
                     };

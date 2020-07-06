@@ -288,7 +288,7 @@ impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
                         }
 
                         self.new_board_front
-                            .add((board.clone(), trip.clone()), new_criteria, pt);
+                            .add((*board, trip.clone()), new_criteria, pt);
                     }
                 }
                 self.board_front.replace_with(&mut self.new_board_front);
@@ -315,7 +315,7 @@ impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
                 //  - we removed from debarked_front all elements that were dominated by an element of new_debarked_front
                 //
                 // TODO : add debug_assert here to check what is written above
-                debark_front.add_unchecked(debark.clone(), criteria.clone());
+                debark_front.add_unchecked(*debark, criteria.clone());
             }
             new_debark_front.clear();
         }
@@ -400,7 +400,7 @@ impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
                 //  - we removed from `waiting_front` all elements that were dominated by an element of `new_waiting_front`
                 //
                 // TODO : add debug_assert here to check what is written above
-                wait_front.add_unchecked(wait.clone(), criteria.clone());
+                wait_front.add_unchecked(*wait, criteria.clone());
             }
             new_wait_front.clear();
         }

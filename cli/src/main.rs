@@ -58,7 +58,7 @@ enum Command {
 
 #[derive(StructOpt)]
 struct Random {
-    #[structopt(short = "n", long, default_value = "100")]
+    #[structopt(short = "n", long, default_value = "10")]
     nb_queries: u32,
 }
 

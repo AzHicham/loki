@@ -6,7 +6,6 @@ use super::data::{
 use super::ordered_timetable::{StopPatternData, VehicleTimesError};
 use super::time::{PositiveDuration, SecondsSinceDayStart};
 use std::collections::BTreeMap;
-use transit_model;
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
@@ -251,13 +250,12 @@ impl TransitData {
             let has_stop = self.stop_point_idx_to_stop.get(stop_point_idx);
             let stop = match has_stop {
                 None => {
-                    let new_stop = self.add_new_stop_point(*stop_point_idx);
-                    new_stop
+                    self.add_new_stop_point(*stop_point_idx)
                 }
                 Some(&stop) => stop,
             };
             stops.push(stop);
-            flow_directions.push(flow_direction.clone());
+            flow_directions.push(*flow_direction);
         }
 
         let pattern_data = StopPatternData::new(stops, flow_directions);
