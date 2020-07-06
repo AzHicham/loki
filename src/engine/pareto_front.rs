@@ -2,7 +2,6 @@ use crate::engine::public_transit::PublicTransit;
 use crate::engine::journeys_tree::{Board, Debark, Wait, Arrive};
 
 use std::slice::Iter as SliceIter;
-use std::vec::Drain as DrainIter;
 
 pub struct ParetoFront<ItemData, PT : PublicTransit> {
     elements : Vec<(ItemData, PT::Criteria)>
@@ -84,20 +83,9 @@ impl<ItemData : Clone, PT : PublicTransit> ParetoFront<ItemData, PT> {
  
     }
 
-    pub fn merge_with(& mut self, other : & Self, pt : & PT) {
-        for element in & other.elements {
-            let id = &element.0;
-            let criteria = &element.1;
-            self.add(id.clone(), criteria.clone(), pt);
-        }
-    }
 
     pub fn iter(&self) -> SliceIter<'_, (ItemData, PT::Criteria)> {
         self.elements.iter()
-    }
-
-    pub fn drain(& mut self) -> DrainIter<'_, (ItemData, PT::Criteria)> {
-        self.elements.drain(..)
     }
 
 }

@@ -547,7 +547,7 @@ impl TimetableData
     // return `Some(best_vehicle)`
     // where `best_vehicle` is the vehicle, among those vehicle on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time,
-    fn best_filtered_vehicle_to_board_at_by_linear_search<Filter>(&self, 
+    fn _best_filtered_vehicle_to_board_at_by_linear_search<Filter>(&self, 
         waiting_time : & Time, 
         position : & Position,
         filter : Filter

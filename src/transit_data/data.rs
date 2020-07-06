@@ -18,7 +18,7 @@ use crate::request::response::{Journey, VehicleSection};
 
 use std::collections::HashMap;
 
-use log::info;
+
 
 #[derive(Debug, Copy, Clone)]
 pub struct Duration {

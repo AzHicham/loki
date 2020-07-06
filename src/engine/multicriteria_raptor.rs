@@ -159,32 +159,6 @@ impl<'pt, PT : PublicTransit + PublicTransitIters<'pt> > MultiCriteriaRaptor< PT
         }   
     }
 
-    // copy `new_waiting_fronts` in `waiting_fronts`
-    // - update `waiting_fronts`
-    // - reads `stops_with_new_waiting` and `new_waiting_fronts`
-    fn save_new_wait_fronts(&mut self, pt : & 'pt PT) {
-        debug_assert!(!self.stops_with_new_wait.is_empty());
-        // TODO : check that new_waiting_fronts[stop] is empty for all
-        //     stops not in stops_with_new_waiting
-
-        for stop in self.stops_with_new_wait.iter() {
-            let stop_id = pt.stop_id(stop);
-            let wait_front = & mut self.wait_fronts[stop_id];
-            let new_wait_front = & self.new_wait_fronts[stop_id];
-            debug_assert!( ! new_wait_front.is_empty() );
-            for (wait, criteria) in new_wait_front.iter() {
-                // we do not need to check, because 
-                //  - `new_waiting_front` is a pareto front 
-                //  - we added an element to `new_waiting_front` only if it was not dominated by `waiting_front`
-                //  - we removed from `waiting_front` all elements that were dominated by an element of `new_waiting_front`
-                //
-                // TODO : add debug_assert here to check what is written above
-                wait_front.add_unchecked(wait.clone(), criteria.clone());
-
-            }
-        }
-    }
-
     // identify missions that can be boarded from the new waiting pathes
     // - fill `mission_has_new_waiting` and `missions_with_new_waiting`
     // - reads `stops_with_new_waiting`

@@ -99,25 +99,6 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 }
 
 
-fn random_stop_uri(model : & transit_model::Model) -> String {
-    use rand::prelude::*;
-    let mut rng = thread_rng();
-    model.stop_points.values().choose(& mut rng).unwrap().id.to_owned()
-}
-
-fn make_random_queries_stop_point(model: & transit_model::Model, nb_of_queries : usize ) -> Vec<(String, String)> {
-    use rand::prelude::*;
-    //let mut rng = thread_rng();
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
-    let mut result = Vec::new();
-    for _ in 0..nb_of_queries {
-        let start_uri = model.stop_points.values().choose(& mut rng).unwrap().id.to_owned();
-        let stop_uri = model.stop_points.values().choose(& mut rng).unwrap().id.to_owned();
-        result.push((start_uri, stop_uri));
-    }
-    result 
-}
-
 
 fn make_query_stop_area(model: & transit_model::Model, from_stop_area : &str, to_stop_area : &str ) -> (Vec<String>, Vec<String>) {
     use std::collections::BTreeSet;
@@ -194,15 +175,6 @@ fn run() -> Result<(), Error> {
 
     let mut raptor = MultiCriteriaRaptor::<DepartAfterRequest>::new(nb_of_stops);
 
-
-    let start_ends = vec![("SAR:SP:1001", "SAR:SP:6006"), ("SAR:SP:6000", "SAR:SP:6006")];
-    let start_ends = vec![("SAR:SP:1660", "SAR:SP:6005"),("SAR:SP:1001", "SAR:SP:6005"),("SAR:SP:1617", "SAR:SP:6005")];
-    // let start_ends = vec![("SAR:SP:1001", "SAR:SP:6006"); 1000];
-
-    let start_ends = vec![("OIF:SP:59:3619855", "OIF:SP:6:109"); 1];
-    let start_ends = vec![("OIF:SP:8775815:810:A", "OIF:SP:88:241"); 1];
-
-    // let start_ends = vec![make_query_stop_area(&model, &"OIF:SA:8739384", &"OIF:SA:8768600")];
 
     let departure_datetime : SecondsSinceDatasetStart = {
         let naive_datetime = match options.departure_datetime {
