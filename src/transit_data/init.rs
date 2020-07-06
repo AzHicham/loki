@@ -1,54 +1,42 @@
-
+use super::calendar::Calendar;
+use super::data::{
+    FlowDirection, Stop, StopData, StopPattern, StopPoints, TransitData, TransitModelTime,
+    VehicleData,
+};
+use super::ordered_timetable::{StopPatternData, VehicleTimesError};
+use super::time::{PositiveDuration, SecondsSinceDayStart};
+use std::collections::BTreeMap;
 use transit_model;
 use transit_model::{
-    model::{Model},
-    objects::{StopPoint, VehicleJourney, Transfer as TransitModelTransfer, StopTime},
-}; 
-use std::collections::{BTreeMap};
-use typed_index_collection::{Idx};
-use super::data::{ 
-    TransitData, 
-    Stop,  
-    StopPattern, 
-    StopPoints, 
-    VehicleData, 
-    StopData, 
-    TransitModelTime,
-    FlowDirection,
-
+    model::Model,
+    objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
 };
-use super::ordered_timetable::{
-    StopPatternData,
-    VehicleTimesError
-};
-use super::calendar::Calendar;
-use super::time::{SecondsSinceDayStart, PositiveDuration};
+use typed_index_collection::Idx;
 
-use log::{warn, info};
-
+use log::{info, warn};
 
 impl TransitData {
-
-    pub fn new(transit_model : & Model, default_transfer_duration : PositiveDuration) -> Self {
-
+    pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
 
-        let (start_date, end_date) = transit_model.calculate_validity_period().expect("Unable to calculate a validity period.");
+        let (start_date, end_date) = transit_model
+            .calculate_validity_period()
+            .expect("Unable to calculate a validity period.");
 
         let mut engine_data = Self {
-            stop_points_to_pattern : BTreeMap::new(),
-            stop_point_idx_to_stop : std::collections::HashMap::new(),
-            stops_data : Vec::with_capacity(nb_of_stop_points),
-            patterns : Vec::new(),
-            calendar : Calendar::new(start_date, end_date),
+            stop_points_to_pattern: BTreeMap::new(),
+            stop_point_idx_to_stop: std::collections::HashMap::new(),
+            stops_data: Vec::with_capacity(nb_of_stop_points),
+            patterns: Vec::new(),
+            calendar: Calendar::new(start_date, end_date),
         };
 
         engine_data.init(transit_model, default_transfer_duration);
- 
+
         engine_data
     }
 
-    fn init(&mut self, transit_model : & Model, default_transfer_duration : PositiveDuration) {
+    fn init(&mut self, transit_model: &Model, default_transfer_duration: PositiveDuration) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
             self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
@@ -60,47 +48,58 @@ impl TransitData {
             let has_to_stop_point_idx = transit_model.stop_points.get_idx(&transfer.to_stop_id);
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
-                    let duration = transfer.min_transfer_time.map_or(default_transfer_duration, |seconds| { PositiveDuration{seconds} });
-                    self.insert_transfer(from_stop_point_idx, to_stop_point_idx, transfer_idx, duration)
+                    let duration = transfer
+                        .min_transfer_time
+                        .map_or(default_transfer_duration, |seconds| PositiveDuration {
+                            seconds,
+                        });
+                    self.insert_transfer(
+                        from_stop_point_idx,
+                        to_stop_point_idx,
+                        transfer_idx,
+                        duration,
+                    )
                 }
                 _ => {
                     warn!("Skipping transfer between {} and {} because at least one of this stop is not used by 
                            vehicles.", transfer.from_stop_id, transfer.to_stop_id);
                 }
             }
-
         }
-
-
     }
 
-    fn insert_transfer(& mut self, from_stop_point_idx : Idx<StopPoint>
-                                , to_stop_point_idx : Idx<StopPoint>
-                                , transfer_idx : Idx<TransitModelTransfer>
-                                , duration : PositiveDuration ) 
-    { 
-
+    fn insert_transfer(
+        &mut self,
+        from_stop_point_idx: Idx<StopPoint>,
+        to_stop_point_idx: Idx<StopPoint>,
+        transfer_idx: Idx<TransitModelTransfer>,
+        duration: PositiveDuration,
+    ) {
         let has_from_stop = self.stop_point_idx_to_stop.get(&from_stop_point_idx);
         let has_to_stop = self.stop_point_idx_to_stop.get(&to_stop_point_idx);
 
         match (has_from_stop, has_to_stop) {
             (Some(from_stop), Some(to_stop)) => {
-                let from_stop_data = & mut self.stops_data[from_stop.idx];
-                from_stop_data.transfers.push((*to_stop, duration, Some(transfer_idx)));
-            },
-            _ => {
-                warn!("Transfer {:?} is between stops which does not appears in the data.", transfer_idx);
+                let from_stop_data = &mut self.stops_data[from_stop.idx];
+                from_stop_data
+                    .transfers
+                    .push((*to_stop, duration, Some(transfer_idx)));
             }
-        }                          
+            _ => {
+                warn!(
+                    "Transfer {:?} is between stops which does not appears in the data.",
+                    transfer_idx
+                );
+            }
+        }
     }
-    
 
-    fn insert_vehicle_journey(& mut self, vehicle_journey_idx : Idx<VehicleJourney>
-                                        , vehicle_journey : & VehicleJourney
-                                        , transit_model : & Model
-                                    ) {
-        
-
+    fn insert_vehicle_journey(
+        &mut self,
+        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey: &VehicleJourney,
+        transit_model: &Model,
+    ) {
         let mut stop_points : StopPoints = vehicle_journey.stop_times
                                         .iter()
                                         .filter_map(|stop_time| {
@@ -121,50 +120,60 @@ impl TransitData {
                                             }
                                         })
                                         .collect();
-        
+
         if stop_points.len() < 2 {
-            warn!("Skipping vehicle journey {} that has less than 2 stop times.", vehicle_journey.id);
-            return ;
-        }      
+            warn!(
+                "Skipping vehicle journey {} that has less than 2 stop times.",
+                vehicle_journey.id
+            );
+            return;
+        }
         if stop_points[0].1 != FlowDirection::BoardOnly {
-            warn!("First stop time of vehicle journey {} has debarked allowed. I ignore it.", vehicle_journey.id);
+            warn!(
+                "First stop time of vehicle journey {} has debarked allowed. I ignore it.",
+                vehicle_journey.id
+            );
             stop_points[0].1 = FlowDirection::BoardOnly;
-        }      
+        }
         if stop_points.last().unwrap().1 != FlowDirection::DebarkOnly {
-            warn!("Last stop time of vehicle journey {} has boarding allowed. I ignore it.", vehicle_journey.id);
+            warn!(
+                "Last stop time of vehicle journey {} has boarding allowed. I ignore it.",
+                vehicle_journey.id
+            );
             stop_points.last_mut().unwrap().1 = FlowDirection::BoardOnly;
-        }                      
-                
+        }
 
         let has_pattern = self.stop_points_to_pattern.get(&stop_points);
         let pattern = if let Some(pattern_) = has_pattern {
             *pattern_
-        }
-        else {
+        } else {
             self.create_new_pattern(stop_points)
         };
 
-        let pattern_data = & mut self.patterns[pattern.idx];
+        let pattern_data = &mut self.patterns[pattern.idx];
 
-        let board_debark_times = vehicle_journey.stop_times.iter()
-                                    .map(|stop_time| {
-                                        (board_time(stop_time), debark_time(stop_time))
-                                    });
+        let board_debark_times = vehicle_journey
+            .stop_times
+            .iter()
+            .map(|stop_time| (board_time(stop_time), debark_time(stop_time)));
 
-        let transit_model_calendar = transit_model.calendars
-                                .get(&vehicle_journey.service_id)
-                                .unwrap_or_else(|| 
-                                    panic!(format!("Calendar {} needed for vehicle journey {} not found", 
-                                                    vehicle_journey.service_id, 
-                                                    vehicle_journey.id)
-                                                )
-                                            );
+        let transit_model_calendar = transit_model
+            .calendars
+            .get(&vehicle_journey.service_id)
+            .unwrap_or_else(|| {
+                panic!(format!(
+                    "Calendar {} needed for vehicle journey {} not found",
+                    vehicle_journey.service_id, vehicle_journey.id
+                ))
+            });
 
-        let days_pattern = self.calendar.get_or_insert(transit_model_calendar.dates.iter());
-        
-        let daily_trip_data = VehicleData{
-            vehicle_journey_idx ,
-            days_pattern  
+        let days_pattern = self
+            .calendar
+            .get_or_insert(transit_model_calendar.dates.iter());
+
+        let daily_trip_data = VehicleData {
+            vehicle_journey_idx,
+            days_pattern,
         };
 
         let insert_error = pattern_data.insert(board_debark_times, daily_trip_data);
@@ -172,68 +181,69 @@ impl TransitData {
             match err {
                 VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
                     let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let downstream_stop_time =
+                        &vehicle_journey.stop_times[position_pair.downstream];
                     let board = board_time(upstream_stop_time);
                     let debark = debark_time(downstream_stop_time);
-                    warn!("Skipping vehicle journey {} because its 
+                    warn!(
+                        "Skipping vehicle journey {} because its 
                             debark time {} at sequence {}
                             is earlier than its 
-                            board time {} upstream at sequence {} ", 
-                            vehicle_journey.id,
-                            debark,
-                            downstream_stop_time.sequence,
-                            board,
-                            upstream_stop_time.sequence
-                        );
-                },
+                            board time {} upstream at sequence {} ",
+                        vehicle_journey.id,
+                        debark,
+                        downstream_stop_time.sequence,
+                        board,
+                        upstream_stop_time.sequence
+                    );
+                }
                 VehicleTimesError::DecreasingBoardTime(position_pair) => {
                     let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let downstream_stop_time =
+                        &vehicle_journey.stop_times[position_pair.downstream];
                     let upstream_board = board_time(upstream_stop_time);
                     let downstream_board = board_time(downstream_stop_time);
-                    warn!("Skipping vehicle journey {} because its 
+                    warn!(
+                        "Skipping vehicle journey {} because its 
                             board time {} at sequence {}
                             is earlier than its
                             board time {} upstream at sequence {} ",
-                            vehicle_journey.id,
-                            downstream_board,
-                            downstream_stop_time.sequence,
-                            upstream_board,
-                            upstream_stop_time.sequence
-                        );
-                },
+                        vehicle_journey.id,
+                        downstream_board,
+                        downstream_stop_time.sequence,
+                        upstream_board,
+                        upstream_stop_time.sequence
+                    );
+                }
                 VehicleTimesError::DecreasingDebarkTime(position_pair) => {
                     let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                    let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+                    let downstream_stop_time =
+                        &vehicle_journey.stop_times[position_pair.downstream];
                     let upstream_debark = debark_time(upstream_stop_time);
                     let downstream_debark = debark_time(downstream_stop_time);
-                    warn!("Skipping vehicle journey {} because its 
+                    warn!(
+                        "Skipping vehicle journey {} because its 
                             debark time {} at sequence {}
                             is earlier than its
                             debark time {} upstream at sequence {} ",
-                            vehicle_journey.id,
-                            downstream_debark,
-                            downstream_stop_time.sequence,
-                            upstream_debark,
-                            upstream_stop_time.sequence
-                        );
-                },
+                        vehicle_journey.id,
+                        downstream_debark,
+                        downstream_stop_time.sequence,
+                        upstream_debark,
+                        upstream_stop_time.sequence
+                    );
+                }
             }
         }
-
     }
 
-
-
-
-    fn create_new_pattern(& mut self, stop_points : StopPoints) -> StopPattern {
-        debug_assert!( ! self.stop_points_to_pattern.contains_key(&stop_points));
+    fn create_new_pattern(&mut self, stop_points: StopPoints) -> StopPattern {
+        debug_assert!(!self.stop_points_to_pattern.contains_key(&stop_points));
 
         let nb_of_positions = stop_points.len();
         let pattern = StopPattern {
-            idx : self.patterns.len()
+            idx: self.patterns.len(),
         };
-
 
         let mut stops = Vec::with_capacity(nb_of_positions);
         let mut flow_directions = Vec::with_capacity(nb_of_positions);
@@ -243,24 +253,19 @@ impl TransitData {
                 None => {
                     let new_stop = self.add_new_stop_point(*stop_point_idx);
                     new_stop
-                },
-                Some(&stop) => {
-                    stop
                 }
+                Some(&stop) => stop,
             };
             stops.push(stop);
             flow_directions.push(flow_direction.clone());
         }
 
-
         let pattern_data = StopPatternData::new(stops, flow_directions);
-
-
 
         self.stop_points_to_pattern.insert(stop_points, pattern);
 
         for (stop, position) in pattern_data.stops_and_positions() {
-            let stop_data = & mut self.stops_data[stop.idx]; 
+            let stop_data = &mut self.stops_data[stop.idx];
             stop_data.position_in_patterns.push((pattern, position));
         }
 
@@ -269,36 +274,32 @@ impl TransitData {
         pattern
     }
 
-    fn add_new_stop_point(&mut self, stop_point_idx : Idx<StopPoint>) -> Stop {
+    fn add_new_stop_point(&mut self, stop_point_idx: Idx<StopPoint>) -> Stop {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
-        let stop_data = StopData{ 
+        let stop_data = StopData {
             stop_point_idx,
-            position_in_patterns : Vec::new(),
-            transfers : Vec::new() 
+            position_in_patterns: Vec::new(),
+            transfers: Vec::new(),
         };
         let stop = Stop {
-            idx : self.stops_data.len()
+            idx: self.stops_data.len(),
         };
         self.stops_data.push(stop_data);
         self.stop_point_idx_to_stop.insert(stop_point_idx, stop);
         stop
     }
-
 }
 
-fn board_time(stop_time : & StopTime) -> SecondsSinceDayStart {
-    let transit_model_time = stop_time.departure_time - TransitModelTime::new(0,0, stop_time.boarding_duration.into());
+fn board_time(stop_time: &StopTime) -> SecondsSinceDayStart {
+    let transit_model_time =
+        stop_time.departure_time - TransitModelTime::new(0, 0, stop_time.boarding_duration.into());
     let seconds = transit_model_time.total_seconds();
-    SecondsSinceDayStart {
-        seconds
-    }
-
+    SecondsSinceDayStart { seconds }
 }
 
-fn debark_time(stop_time : & StopTime) -> SecondsSinceDayStart {
-    let transit_model_time = stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
+fn debark_time(stop_time: &StopTime) -> SecondsSinceDayStart {
+    let transit_model_time =
+        stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
     let seconds = transit_model_time.total_seconds();
-    SecondsSinceDayStart {
-        seconds
-    }
+    SecondsSinceDayStart { seconds }
 }

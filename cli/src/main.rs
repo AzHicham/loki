@@ -1,6 +1,9 @@
+use laxatips::log::{debug, info, trace};
 use laxatips::transit_model;
-use laxatips::{ TransitData, MultiCriteriaRaptor, DepartAfterRequest, PositiveDuration, SecondsSinceDatasetStart};
-use laxatips::log::{info, debug, trace};
+use laxatips::{
+    DepartAfterRequest, MultiCriteriaRaptor, PositiveDuration, SecondsSinceDatasetStart,
+    TransitData,
+};
 
 use std::path::PathBuf;
 
@@ -8,18 +11,17 @@ use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
 
-use std::time::SystemTime;
 use chrono::NaiveDateTime;
-use failure::{Error, bail, format_err};
+use failure::{bail, format_err, Error};
+use std::time::SystemTime;
 
 use structopt::StructOpt;
-
 
 #[derive(StructOpt)]
 #[structopt(name = "laxatips_cli", about = "Run laxatips from the command line.")]
 struct Options {
     /// directory of ntfs files to load
-    #[structopt(short = "n", long = "ntfs", parse(from_os_str),)]
+    #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
     input: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
@@ -36,48 +38,38 @@ struct Options {
 
     /// maximum duration of a journey
     #[structopt(long, default_value = "24:00:00")]
-    max_journey_duration : String,
+    max_journey_duration: String,
 
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
     #[structopt(long)]
-    departure_datetime : Option<String>,
+    departure_datetime: Option<String>,
 
     #[structopt(subcommand)]
-    command : Command,
-
-
-
+    command: Command,
 }
 
 #[derive(StructOpt)]
 enum Command {
     Random(Random),
-    StopAreas(StopAreas)
-    
+    StopAreas(StopAreas),
 }
 
 #[derive(StructOpt)]
 struct Random {
-    #[structopt(short ="n", long, default_value = "100")]
-    nb_queries : u32,
-
+    #[structopt(short = "n", long, default_value = "100")]
+    nb_queries: u32,
 }
 
 #[derive(StructOpt)]
 struct StopAreas {
     #[structopt(long)]
-    start : String,
+    start: String,
 
     #[structopt(long)]
-    end : String,
-
+    end: String,
 }
-
-
-
-
 
 fn init_logger() -> slog_scope::GlobalLoggerGuard {
     let decorator = slog_term::TermDecorator::new().stdout().build();
@@ -98,29 +90,37 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
     scope_guard
 }
 
-
-
-fn make_query_stop_area(model: & transit_model::Model, from_stop_area : &str, to_stop_area : &str ) -> (Vec<String>, Vec<String>) {
+fn make_query_stop_area(
+    model: &transit_model::Model,
+    from_stop_area: &str,
+    to_stop_area: &str,
+) -> (Vec<String>, Vec<String>) {
     use std::collections::BTreeSet;
     let mut start_sa_set = BTreeSet::new();
     start_sa_set.insert(model.stop_areas.get_idx(from_stop_area).unwrap());
-    let start_stop_points : Vec<String>= model.get_corresponding(&start_sa_set).iter().map(|idx| model.stop_points[*idx].id.clone()).collect();
+    let start_stop_points: Vec<String> = model
+        .get_corresponding(&start_sa_set)
+        .iter()
+        .map(|idx| model.stop_points[*idx].id.clone())
+        .collect();
     let mut end_sa_set = BTreeSet::new();
     end_sa_set.insert(model.stop_areas.get_idx(to_stop_area).unwrap());
-    let end_stop_points = model.get_corresponding(&end_sa_set).iter().map(|idx| model.stop_points[*idx].id.clone()).collect();
+    let end_stop_points = model
+        .get_corresponding(&end_sa_set)
+        .iter()
+        .map(|idx| model.stop_points[*idx].id.clone())
+        .collect();
     (start_stop_points, end_stop_points)
 }
 
-
-fn parse_datetime(string_datetime : &str) -> Result<NaiveDateTime, Error> {
+fn parse_datetime(string_datetime: &str) -> Result<NaiveDateTime, Error> {
     let try_datetime = NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
     match try_datetime {
-        Ok(datetime) => {
-            Ok(datetime)
-        },
-        Err(_) => {
-            bail!("Unable to parse {} as a datetime. Expected format is 20190628T163215", string_datetime)
-        }
+        Ok(datetime) => Ok(datetime),
+        Err(_) => bail!(
+            "Unable to parse {} as a datetime. Expected format is 20190628T163215",
+            string_datetime
+        ),
     }
 }
 
@@ -129,85 +129,85 @@ fn parse_duration(string_duration: &str) -> Result<PositiveDuration, Error> {
     let (hours, minutes, seconds) = match (t.next(), t.next(), t.next(), t.next()) {
         (Some(h), Some(m), Some(s), None) => (h, m, s),
         _ => {
-            bail!("Unable to parse {} as a duration. Expected format is 14:35:12", string_duration);
-        },
+            bail!(
+                "Unable to parse {} as a duration. Expected format is 14:35:12",
+                string_duration
+            );
+        }
     };
     let hours: u32 = hours.parse()?;
     let minutes: u32 = minutes.parse()?;
     let seconds: u32 = seconds.parse()?;
     if minutes > 59 || seconds > 59 {
-        bail!("Unable to parse {} as a duration. Expected format is 14:35:12", string_duration);
+        bail!(
+            "Unable to parse {} as a duration. Expected format is 14:35:12",
+            string_duration
+        );
     }
     Ok(PositiveDuration::from_hms(hours, minutes, seconds))
 }
 
-
-
 fn run() -> Result<(), Error> {
-
     let options = Options::from_args();
     let input_dir = options.input;
 
-
     let model = transit_model::ntfs::read(input_dir).unwrap();
     info!("Transit model loaded");
-    info!("Number of vehicle journeys : {}", model.vehicle_journeys.len());
+    info!(
+        "Number of vehicle journeys : {}",
+        model.vehicle_journeys.len()
+    );
     info!("Number of routes : {}", model.routes.len());
 
-
-
     let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration{seconds : 60};
+    let default_transfer_duration = PositiveDuration { seconds: 60 };
     let transit_data = TransitData::new(&model, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
     info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
     info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
-    info!("Validity dates between {} and {}", 
-        transit_data.calendar.first_date(), 
+    info!(
+        "Validity dates between {} and {}",
+        transit_data.calendar.first_date(),
         transit_data.calendar.last_date()
     );
-
-
 
     let nb_of_stops = transit_data.nb_of_stops();
 
     let mut raptor = MultiCriteriaRaptor::<DepartAfterRequest>::new(nb_of_stops);
 
-
-    let departure_datetime : SecondsSinceDatasetStart = {
+    let departure_datetime: SecondsSinceDatasetStart = {
         let naive_datetime = match options.departure_datetime {
-            Some(string_datetime) => {
-                parse_datetime(&string_datetime)?
-            },
+            Some(string_datetime) => parse_datetime(&string_datetime)?,
             None => {
                 let naive_date = transit_data.calendar.first_date();
-                naive_date.and_hms(8,0,0)
+                naive_date.and_hms(8, 0, 0)
             }
         };
-        let seconds = transit_data.calendar.naive_datetime_to_seconds_since_start(&naive_datetime).ok_or_else (|| {
-            format_err!("The requested datetime {} is not valid for the data.
-                Valid dates are between {} and {}", 
-                naive_datetime,
-                transit_data.calendar.first_date(), 
-                transit_data.calendar.last_date() 
-            )
-        })?;
+        let seconds = transit_data
+            .calendar
+            .naive_datetime_to_seconds_since_start(&naive_datetime)
+            .ok_or_else(|| {
+                format_err!(
+                    "The requested datetime {} is not valid for the data.
+                Valid dates are between {} and {}",
+                    naive_datetime,
+                    transit_data.calendar.first_date(),
+                    transit_data.calendar.last_date()
+                )
+            })?;
         seconds
     };
-    
 
     let leg_arrival_penalty = parse_duration(&options.leg_arrival_penalty).unwrap();
     let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
     let max_arrival_time = departure_datetime.clone() + max_journey_duration;
-    let max_nb_of_legs : u8 = options.max_nb_of_legs;
+    let max_nb_of_legs: u8 = options.max_nb_of_legs;
 
     let compute_timer = SystemTime::now();
 
-
-    
     match options.command {
         Command::Random(random) => {
             let mut total_nb_of_rounds = 0;
@@ -216,121 +216,143 @@ fn run() -> Result<(), Error> {
                 use rand::prelude::*;
                 //let mut rng = thread_rng();
                 let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
-                let start_stop_area_uri =  &model.stop_areas.values().choose(& mut rng).unwrap().id;
-                let end_stop_area_uri =  &model.stop_areas.values().choose(& mut rng).unwrap().id;
-                
-        
-                let nb_of_rounds = solve(start_stop_area_uri, 
+                let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
+                let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
+
+                let nb_of_rounds = solve(
+                    start_stop_area_uri,
                     end_stop_area_uri,
-                    & mut raptor, 
-                    &transit_data, 
+                    &mut raptor,
+                    &transit_data,
                     &model,
                     &departure_datetime,
                     &leg_arrival_penalty,
                     &leg_walking_penalty,
                     &max_arrival_time,
-                    max_nb_of_legs
+                    max_nb_of_legs,
                 )?;
-        
+
                 total_nb_of_rounds += nb_of_rounds;
-        
-            
             }
             let duration = compute_timer.elapsed().unwrap().as_millis();
             info!("Data build duration {} ms", data_build_time);
-            info!("Average duration per request : {} ms", (duration as f64) / (nb_queries as f64));
-            info!("Average nb of rounds : {}", (total_nb_of_rounds as f64) / (nb_queries as f64));
-        },
+            info!(
+                "Average duration per request : {} ms",
+                (duration as f64) / (nb_queries as f64)
+            );
+            info!(
+                "Average nb of rounds : {}",
+                (total_nb_of_rounds as f64) / (nb_queries as f64)
+            );
+        }
         Command::StopAreas(stop_areas) => {
             let start_stop_area_uri = &stop_areas.start;
             let end_stop_area_uri = &stop_areas.end;
-            
-    
-            solve(start_stop_area_uri, 
+
+            solve(
+                start_stop_area_uri,
                 end_stop_area_uri,
-                & mut raptor, 
-                &transit_data, 
+                &mut raptor,
+                &transit_data,
                 &model,
                 &departure_datetime,
                 &leg_arrival_penalty,
                 &leg_walking_penalty,
                 &max_arrival_time,
-                max_nb_of_legs
+                max_nb_of_legs,
             )?;
-    
         }
     };
-
-
-
 
     Ok(())
 }
 
 fn solve<'a>(
-    start_stop_area_uri : & str,
-    end_stop_area_uri : & str, 
-    engine : &mut MultiCriteriaRaptor<DepartAfterRequest<'a>>, 
-    transit_data : & 'a TransitData,
-    model : & transit_model::Model,
-    departure_datetime : &SecondsSinceDatasetStart,
-    leg_arrival_penalty : &PositiveDuration,
-    leg_walking_penalty : & PositiveDuration,
-    max_arrival_time : &SecondsSinceDatasetStart,
-    max_nb_of_legs : u8
+    start_stop_area_uri: &str,
+    end_stop_area_uri: &str,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'a>>,
+    transit_data: &'a TransitData,
+    model: &transit_model::Model,
+    departure_datetime: &SecondsSinceDatasetStart,
+    leg_arrival_penalty: &PositiveDuration,
+    leg_walking_penalty: &PositiveDuration,
+    max_arrival_time: &SecondsSinceDatasetStart,
+    max_nb_of_legs: u8,
 ) -> Result<usize, Error> {
+    trace!(
+        "Request start stop area : {}, end stop_area : {}",
+        start_stop_area_uri,
+        end_stop_area_uri
+    );
+    let (start_stop_point_uris, end_stop_point_uris) =
+        make_query_stop_area(&model, start_stop_area_uri, end_stop_area_uri);
+    let start_stops = start_stop_point_uris
+        .iter()
+        .map(|uri| {
+            let stop_idx = model
+                .stop_points
+                .get_idx(&uri)
+                .ok_or_else(|| format_err!("Start stop point {} not found in model", uri))?;
+            let stop = transit_data
+                .stop_point_idx_to_stop(&stop_idx)
+                .ok_or_else(|| {
+                    format_err!(
+                        "End stop point {} with idx {:?} not found in transit_data.",
+                        uri,
+                        stop_idx
+                    )
+                })?;
+            Ok((stop.clone(), PositiveDuration::zero()))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
 
-    trace!("Request start stop area : {}, end stop_area : {}", start_stop_area_uri, end_stop_area_uri);
-    let (start_stop_point_uris, end_stop_point_uris) = make_query_stop_area(&model, start_stop_area_uri, end_stop_area_uri);
-    let start_stops  = start_stop_point_uris.iter().map(|uri| {
-        let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
-            format_err!("Start stop point {} not found in model", uri)
-        })?;
-        let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
-            format_err!("End stop point {} with idx {:?} not found in transit_data.",
-                uri,
-                stop_idx
-            )
-        })?;
-        Ok((stop.clone(), PositiveDuration::zero()))
-    }).collect::<Result<Vec<_>,Error>>()?;
+    let end_stops = end_stop_point_uris
+        .iter()
+        .map(|uri| {
+            let stop_idx = model
+                .stop_points
+                .get_idx(&uri)
+                .ok_or_else(|| format_err!("End stop point {} not found in model", uri))?;
+            let stop = transit_data
+                .stop_point_idx_to_stop(&stop_idx)
+                .ok_or_else(|| {
+                    format_err!(
+                        "End stop point {} with idx {:?} not found in transit_data.",
+                        uri,
+                        stop_idx
+                    )
+                })?;
+            Ok((stop.clone(), PositiveDuration::zero()))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
 
-    let end_stops = end_stop_point_uris.iter().map(|uri| {
-        let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
-            format_err!("End stop point {} not found in model", uri)
-        })?;
-        let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
-            format_err!("End stop point {} with idx {:?} not found in transit_data.",
-                uri,
-                stop_idx
-            )
-        })?;
-        Ok((stop.clone(), PositiveDuration::zero()))
-    }).collect::<Result<Vec<_>,Error>>()?;
-
-
-
-
-
-    let request = DepartAfterRequest::<'a>::new(&transit_data, 
-        departure_datetime.clone(), 
-        start_stops, end_stops, 
-        leg_arrival_penalty.clone(), 
-        leg_walking_penalty.clone(), 
-        max_arrival_time.clone(), 
-        max_nb_of_legs
+    let request = DepartAfterRequest::<'a>::new(
+        &transit_data,
+        departure_datetime.clone(),
+        start_stops,
+        end_stops,
+        leg_arrival_penalty.clone(),
+        leg_walking_penalty.clone(),
+        max_arrival_time.clone(),
+        max_nb_of_legs,
     );
 
     debug!("Start computing journey");
     let request_timer = SystemTime::now();
     engine.compute(&request);
-    debug!("Journeys computed in {} ms with {} rounds", request_timer.elapsed().unwrap().as_millis(), engine.nb_of_rounds());
+    debug!(
+        "Journeys computed in {} ms with {} rounds",
+        request_timer.elapsed().unwrap().as_millis(),
+        engine.nb_of_rounds()
+    );
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
-        let response = request.create_response_from_engine_result(pt_journey).unwrap();
+        let response = request
+            .create_response_from_engine_result(pt_journey)
+            .unwrap();
 
-        trace!("{}",transit_data.print_response(&response, &model)?);
+        trace!("{}", transit_data.print_response(&response, &model)?);
     }
 
     Ok(engine.nb_of_rounds())
