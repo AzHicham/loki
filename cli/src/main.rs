@@ -38,24 +38,42 @@ struct Options {
     #[structopt(long, default_value = "24:00:00")]
     max_journey_duration : String,
 
-    #[structopt(long, default_value = "10")]
-    nb_queries : u32,
-
-
-
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
     #[structopt(long)]
     departure_datetime : Option<String>,
 
-}
-// #[derive(StructOpt)]
-// struct RandomStopAreas {
-//     #[structopt(short ="n", long, default_value = "100")]
-//     nb_queries : u32,
+    #[structopt(subcommand)]
+    command : Command,
 
-// }
+
+
+}
+
+#[derive(StructOpt)]
+enum Command {
+    Random(Random),
+    StopAreas(StopAreas)
+    
+}
+
+#[derive(StructOpt)]
+struct Random {
+    #[structopt(short ="n", long, default_value = "100")]
+    nb_queries : u32,
+
+}
+
+#[derive(StructOpt)]
+struct StopAreas {
+    #[structopt(long)]
+    start : String,
+
+    #[structopt(long)]
+    end : String,
+
+}
 
 
 
@@ -100,21 +118,6 @@ fn make_random_queries_stop_point(model: & transit_model::Model, nb_of_queries :
     result 
 }
 
-
-
-fn make_random_queries_stop_area(model: & transit_model::Model, nb_of_queries : u32 ) -> Vec<(Vec<String>, Vec<String>)> {
-    use rand::prelude::*;
-    //let mut rng = thread_rng();
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
-    let mut result = Vec::new();
-    for _ in 0..nb_of_queries {
-        let start_stop_area = &model.stop_areas.values().choose(& mut rng).unwrap().id;
-        let end_stop_area = &model.stop_areas.values().choose(& mut rng).unwrap().id;
-        // info!("Requesting stop areas {} {}", start_stop_area, end_stop_area);
-        result.push(make_query_stop_area(model, &start_stop_area, &end_stop_area));
-    }
-    result 
-}
 
 fn make_query_stop_area(model: & transit_model::Model, from_stop_area : &str, to_stop_area : &str ) -> (Vec<String>, Vec<String>) {
     use std::collections::BTreeSet;
@@ -164,40 +167,12 @@ fn run() -> Result<(), Error> {
     let options = Options::from_args();
     let input_dir = options.input;
 
-    // let input_dir = PathBuf::from("tests/fixtures/small_ntfs/");
-    // let start_stop_point_uri = "sp_1";
-    // let end_stop_point_uri = "sp_3";
-
-    // let input_dir = PathBuf::from("tests/fixtures/ntfs_rennes/");
-    // let start_stop_point_uri = "SAR:SP:1001";
-    // let end_stop_point_uri = "SAR:SP:6006";
-
-    // let input_dir = PathBuf::from("/home/pascal/data/paris/ntfs/");
-    // let start_stop_point_uri = "OIF:SP:59:3619855";
-    // let end_stop_point_uri = "OIF:SP:6:109";
 
     let model = transit_model::ntfs::read(input_dir).unwrap();
     info!("Transit model loaded");
     info!("Number of vehicle journeys : {}", model.vehicle_journeys.len());
     info!("Number of routes : {}", model.routes.len());
 
-    // use std::fs::File;
-    // use std::io::BufReader;
-    // use std::io::BufWriter;
-    // // {
-    // //     let out_file = File::create("foo.txt").unwrap();
-    // //     let writer = BufWriter::new(out_file);
-    // //     serde_json::to_writer_pretty(writer, &model.into_collections()).expect("error writing");
-    // // }
-    // let file = File::open("foo.txt").unwrap();
-    // let reader = BufReader::new(file);
-    // let collections : transit_model::model::Collections = serde_json::from_reader(reader).unwrap();
-    // println!("{:#?}", collections.datasets);
-    // println!("{:#?}", collections.calendars);
-    // let model : transit_model::Model = transit_model::Model::new(collections).unwrap();
-
-    // println!("{:#?}", model.datasets);
-    // println!("{:#?}", model.lines);
 
 
     let data_timer = SystemTime::now();
@@ -217,7 +192,7 @@ fn run() -> Result<(), Error> {
 
     let nb_of_stops = transit_data.nb_of_stops();
 
-    let mut raptor = MultiCriteriaRaptor::new(nb_of_stops);
+    let mut raptor = MultiCriteriaRaptor::<DepartAfterRequest>::new(nb_of_stops);
 
 
     let start_ends = vec![("SAR:SP:1001", "SAR:SP:6006"), ("SAR:SP:6000", "SAR:SP:6006")];
@@ -226,7 +201,6 @@ fn run() -> Result<(), Error> {
 
     let start_ends = vec![("OIF:SP:59:3619855", "OIF:SP:6:109"); 1];
     let start_ends = vec![("OIF:SP:8775815:810:A", "OIF:SP:88:241"); 1];
-    let start_ends = make_random_queries_stop_area(&model, options.nb_queries);
 
     // let start_ends = vec![make_query_stop_area(&model, &"OIF:SA:8739384", &"OIF:SA:8768600")];
 
@@ -259,69 +233,135 @@ fn run() -> Result<(), Error> {
     let max_nb_of_legs : u8 = options.max_nb_of_legs;
 
     let compute_timer = SystemTime::now();
-    let mut total_nb_of_rounds = 0;
-    for (start_stop_point_uris, end_stop_point_uris) in &start_ends {
-
-        let start_stops  = start_stop_point_uris.iter().map(|uri| {
-            let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
-                format_err!("Start stop point {} not found in model", uri)
-            })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
-                format_err!("End stop point {} with idx {:?} not found in transit_data.",
-                    uri,
-                    stop_idx
-                )
-            })?;
-            Ok((stop.clone(), PositiveDuration::zero()))
-        }).collect::<Result<Vec<_>,Error>>()?;
-
-        let end_stops = end_stop_point_uris.iter().map(|uri| {
-            let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
-                format_err!("End stop point {} not found in model", uri)
-            })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
-                format_err!("End stop point {} with idx {:?} not found in transit_data.",
-                    uri,
-                    stop_idx
-                )
-            })?;
-            Ok((stop.clone(), PositiveDuration::zero()))
-        }).collect::<Result<Vec<_>,Error>>()?;
 
 
     
-
-
-        let request = DepartAfterRequest::new(&transit_data, 
-            departure_datetime.clone(), 
-            start_stops, end_stops, 
-            leg_arrival_penalty, 
-            leg_walking_penalty, 
-            max_arrival_time.clone(), 
-            max_nb_of_legs
-        );
-
-        debug!("Start computing journey");
-        let request_timer = SystemTime::now();
-        raptor.compute(&request);
-        debug!("Journeys computed in {} ms with {} rounds", request_timer.elapsed().unwrap().as_millis(), raptor.nb_of_rounds());
-        debug!("Nb of journeys found : {}", raptor.nb_of_journeys());
-        debug!("Tree size : {}", raptor.tree_size());
-        total_nb_of_rounds += raptor.nb_of_rounds();
-        for pt_journey in raptor.responses() {
-            let response = request.create_response_from_engine_result(pt_journey).unwrap();
-
-            trace!("{}",transit_data.print_response(&response, &model)?);
+    match options.command {
+        Command::Random(random) => {
+            let mut total_nb_of_rounds = 0;
+            let nb_queries = random.nb_queries;
+            for _ in 1..nb_queries {
+                use rand::prelude::*;
+                //let mut rng = thread_rng();
+                let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
+                let start_stop_area_uri =  &model.stop_areas.values().choose(& mut rng).unwrap().id;
+                let end_stop_area_uri =  &model.stop_areas.values().choose(& mut rng).unwrap().id;
+                
+        
+                let nb_of_rounds = solve(start_stop_area_uri, 
+                    end_stop_area_uri,
+                    & mut raptor, 
+                    &transit_data, 
+                    &model,
+                    &departure_datetime,
+                    &leg_arrival_penalty,
+                    &leg_walking_penalty,
+                    &max_arrival_time,
+                    max_nb_of_legs
+                )?;
+        
+                total_nb_of_rounds += nb_of_rounds;
+        
+            
+            }
+            let duration = compute_timer.elapsed().unwrap().as_millis();
+            info!("Data build duration {} ms", data_build_time);
+            info!("Average duration per request : {} ms", (duration as f64) / (nb_queries as f64));
+            info!("Average nb of rounds : {}", (total_nb_of_rounds as f64) / (nb_queries as f64));
+        },
+        Command::StopAreas(stop_areas) => {
+            let start_stop_area_uri = &stop_areas.start;
+            let end_stop_area_uri = &stop_areas.end;
+            
+    
+            solve(start_stop_area_uri, 
+                end_stop_area_uri,
+                & mut raptor, 
+                &transit_data, 
+                &model,
+                &departure_datetime,
+                &leg_arrival_penalty,
+                &leg_walking_penalty,
+                &max_arrival_time,
+                max_nb_of_legs
+            )?;
+    
         }
-    
-    }
-    let duration = compute_timer.elapsed().unwrap().as_millis();
-    info!("Data build duration {} ms", data_build_time);
-    info!("Average duration per request : {} ms", (duration as f64) / (start_ends.len() as f64));
-    info!("Average nb of rounds : {}", (total_nb_of_rounds as f64) / (start_ends.len() as f64));
+    };
+
+
 
 
     Ok(())
+}
+
+fn solve<'a>(
+    start_stop_area_uri : & str,
+    end_stop_area_uri : & str, 
+    engine : &mut MultiCriteriaRaptor<DepartAfterRequest<'a>>, 
+    transit_data : & 'a TransitData,
+    model : & transit_model::Model,
+    departure_datetime : &SecondsSinceDatasetStart,
+    leg_arrival_penalty : &PositiveDuration,
+    leg_walking_penalty : & PositiveDuration,
+    max_arrival_time : &SecondsSinceDatasetStart,
+    max_nb_of_legs : u8
+) -> Result<usize, Error> {
+
+    trace!("Request start stop area : {}, end stop_area : {}", start_stop_area_uri, end_stop_area_uri);
+    let (start_stop_point_uris, end_stop_point_uris) = make_query_stop_area(&model, start_stop_area_uri, end_stop_area_uri);
+    let start_stops  = start_stop_point_uris.iter().map(|uri| {
+        let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
+            format_err!("Start stop point {} not found in model", uri)
+        })?;
+        let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
+            format_err!("End stop point {} with idx {:?} not found in transit_data.",
+                uri,
+                stop_idx
+            )
+        })?;
+        Ok((stop.clone(), PositiveDuration::zero()))
+    }).collect::<Result<Vec<_>,Error>>()?;
+
+    let end_stops = end_stop_point_uris.iter().map(|uri| {
+        let stop_idx = model.stop_points.get_idx(&uri).ok_or_else( || {
+            format_err!("End stop point {} not found in model", uri)
+        })?;
+        let stop = transit_data.stop_point_idx_to_stop(&stop_idx).ok_or_else(|| {
+            format_err!("End stop point {} with idx {:?} not found in transit_data.",
+                uri,
+                stop_idx
+            )
+        })?;
+        Ok((stop.clone(), PositiveDuration::zero()))
+    }).collect::<Result<Vec<_>,Error>>()?;
+
+
+
+
+
+    let request = DepartAfterRequest::<'a>::new(&transit_data, 
+        departure_datetime.clone(), 
+        start_stops, end_stops, 
+        leg_arrival_penalty.clone(), 
+        leg_walking_penalty.clone(), 
+        max_arrival_time.clone(), 
+        max_nb_of_legs
+    );
+
+    debug!("Start computing journey");
+    let request_timer = SystemTime::now();
+    engine.compute(&request);
+    debug!("Journeys computed in {} ms with {} rounds", request_timer.elapsed().unwrap().as_millis(), engine.nb_of_rounds());
+    debug!("Nb of journeys found : {}", engine.nb_of_journeys());
+    debug!("Tree size : {}", engine.tree_size());
+    for pt_journey in engine.responses() {
+        let response = request.create_response_from_engine_result(pt_journey).unwrap();
+
+        trace!("{}",transit_data.print_response(&response, &model)?);
+    }
+
+    Ok(engine.nb_of_rounds())
 }
 
 fn main() {
