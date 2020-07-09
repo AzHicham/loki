@@ -1,0 +1,3 @@
+[submodule "server/navitia-proto"]
+	path = server/navitia-proto
+	url = git@github.com:CanalTP/navitia-proto.git

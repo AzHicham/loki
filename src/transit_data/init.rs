@@ -139,7 +139,7 @@ impl TransitData {
                 "Last stop time of vehicle journey {} has boarding allowed. I ignore it.",
                 vehicle_journey.id
             );
-            stop_points.last_mut().unwrap().1 = FlowDirection::BoardOnly;
+            stop_points.last_mut().unwrap().1 = FlowDirection::DebarkOnly;
         }
 
         let has_pattern = self.stop_points_to_pattern.get(&stop_points);
@@ -156,15 +156,17 @@ impl TransitData {
             .iter()
             .map(|stop_time| (board_time(stop_time), debark_time(stop_time)));
 
-        let transit_model_calendar = transit_model
+        let has_transit_model_calendar = transit_model
             .calendars
-            .get(&vehicle_journey.service_id)
-            .unwrap_or_else(|| {
-                panic!(format!(
-                    "Calendar {} needed for vehicle journey {} not found",
-                    vehicle_journey.service_id, vehicle_journey.id
-                ))
-            });
+            .get(&vehicle_journey.service_id);
+        if has_transit_model_calendar.is_none() {
+            warn!(
+                "Skipping vehicle journey {} because its calendar {} was not found",
+                vehicle_journey.id, vehicle_journey.service_id, 
+            );
+            return;
+        }
+        let transit_model_calendar = has_transit_model_calendar.unwrap();
 
         let days_pattern = self
             .calendar
