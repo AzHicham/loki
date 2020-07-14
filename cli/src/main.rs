@@ -151,7 +151,7 @@ fn run() -> Result<(), Error> {
     let options = Options::from_args();
     let input_dir = options.input;
 
-    let model = transit_model::ntfs::read(input_dir).unwrap();
+    let model = transit_model::ntfs::read(input_dir)?;
     info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
