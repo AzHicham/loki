@@ -82,7 +82,7 @@ impl TransitData {
                 let from_stop_data = &mut self.stops_data[from_stop.idx];
                 from_stop_data
                     .transfers
-                    .push((*to_stop, duration, Some(transfer_idx)));
+                    .push((*to_stop, duration, transfer_idx));
             }
             _ => {
                 warn!(
@@ -99,26 +99,34 @@ impl TransitData {
         vehicle_journey: &VehicleJourney,
         transit_model: &Model,
     ) {
-        let mut stop_points : StopPoints = vehicle_journey.stop_times
-                                        .iter()
-                                        .filter_map(|stop_time| {
-                                            let stop_point_idx = stop_time.stop_point_idx;
-                                            match (stop_time.pickup_type, stop_time.drop_off_type) {
-                                                (0, 0) => Some((stop_point_idx, FlowDirection::BoardAndDebark)),
-                                                (1, 0) => Some((stop_point_idx, FlowDirection::DebarkOnly)),
-                                                (0, 1) => Some((stop_point_idx, FlowDirection::BoardOnly)),
-                                                _ => {
-                                                    warn!("Skipping stop_time : \n {:?} \n because of 
-                                                       unhandled pickup type {} or dropoff type {} ",
-                                                       stop_time,
-                                                       stop_time.pickup_type,
-                                                       stop_time.drop_off_type
-                                                    );
-                                                    None
-                                                }
-                                            }
-                                        })
-                                        .collect();
+
+
+
+
+        let mut stop_points = {
+            let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
+            for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
+                let stop_point_idx = stop_time.stop_point_idx;
+                let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
+                    (0, 0) => (stop_point_idx, FlowDirection::BoardAndDebark),
+                    (1, 0) => (stop_point_idx, FlowDirection::DebarkOnly),
+                    (0, 1) => (stop_point_idx, FlowDirection::BoardOnly),
+                    _ => {
+                        warn!("Skipping vehicle journey {} that has a bad {}ith stop_time : \n {:?} \n because of 
+                        unhandled pickup type {} or dropoff type {} ",
+                        vehicle_journey.id,
+                        idx,
+                        stop_time,
+                        stop_time.pickup_type,
+                        stop_time.drop_off_type
+                        );
+                        return;
+                    }
+                };
+                result.push(to_push);
+            }
+            result 
+        };
 
         if stop_points.len() < 2 {
             warn!(
