@@ -24,7 +24,7 @@ pub struct Arrive {
 
 /// A complete journey is a sequence of moments the form
 ///  Wait, Board, Debark, (Wait, Board, Debark)*, Arrive
-/// i.e. it always starts with a Waiti, Board, Debark,
+/// i.e. it always starts with a Wait, Board, Debark,
 ///      followed by zero or more (Wait, Board, Debark)
 ///      and then finished by an Arrive
 ///

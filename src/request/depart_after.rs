@@ -5,6 +5,8 @@ use crate::transit_data::{
     time::{PositiveDuration, SecondsSinceDatasetStart},
 };
 
+use crate::request::response2;
+
 use crate::engine::public_transit::{Journey as PTJourney, PublicTransit, PublicTransitIters};
 
 use super::response::{
@@ -62,6 +64,79 @@ impl<'a> Request<'a> {
             max_arrival_time,
             max_nb_legs,
         }
+    }
+
+    pub fn new_default(transit_data : & 'a TransitData) -> Self {
+        Self {
+            transit_data,
+            departure_datetime : SecondsSinceDatasetStart::zero(),
+            departures_stop_point_and_fallback_duration : Vec::new(),
+            arrivals_stop_point_and_fallbrack_duration : Vec::new(),
+            leg_arrival_penalty : PositiveDuration::zero(),
+            leg_walking_penalty : PositiveDuration::zero(),
+            max_arrival_time : SecondsSinceDatasetStart::zero(),
+            max_nb_legs : 0
+        }
+    }
+
+    pub fn update(& mut self,
+        departure_datetime: SecondsSinceDatasetStart,
+        departures_stop_point_and_fallback_duration: impl Iterator<Item=(Stop, PositiveDuration)>,
+        arrivals_stop_point_and_fallbrack_duration: impl Iterator<Item=(Stop, PositiveDuration)>,
+        leg_arrival_penalty: PositiveDuration,
+        leg_walking_penalty: PositiveDuration,
+        max_arrival_time: SecondsSinceDatasetStart,
+        max_nb_legs: u8,
+    )  {
+        self.departure_datetime = departure_datetime;
+        self.departures_stop_point_and_fallback_duration.clear();
+        for (stop, duration) in departures_stop_point_and_fallback_duration {
+            self.departures_stop_point_and_fallback_duration.push((stop, duration));
+        }
+        self.arrivals_stop_point_and_fallbrack_duration.clear();
+        for (stop, duration) in arrivals_stop_point_and_fallbrack_duration {
+            self.arrivals_stop_point_and_fallbrack_duration.push((stop, duration));
+        }
+        self.leg_arrival_penalty = leg_arrival_penalty;
+        self.leg_walking_penalty = leg_walking_penalty;
+        self.max_arrival_time = max_arrival_time;
+        self.max_nb_legs = max_nb_legs;
+    }
+
+
+    pub fn create_response2(&self,
+        pt_journey: &PTJourney<Self>,
+        transit_data: &'a TransitData,
+    ) -> Result<response2::Journey, response2::BadJourney> {
+        let departure_datetime = self.departure_datetime.clone();
+        let departure_idx = pt_journey.departure_leg.departure.idx;
+        let departure_fallback_duration = &self.departures_stop_point_and_fallback_duration[departure_idx].1;
+
+        let first_vehicle = response2::VehicleLeg {
+            trip : pt_journey.departure_leg.trip.clone(),
+            board_position : pt_journey.departure_leg.board_position,
+            debark_position : pt_journey.departure_leg.debark_position
+        };
+
+        let arrival_fallback_duration = &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
+
+        let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
+            let transfer = connection_leg.transfer.clone();
+            let vehicle_leg = response2::VehicleLeg {
+                trip : connection_leg.trip.clone(),
+                board_position : connection_leg.board_position,
+                debark_position : connection_leg.debark_position,
+            };
+            (transfer, vehicle_leg)
+        });
+
+        response2::Journey::new(departure_datetime, 
+            *departure_fallback_duration, 
+            first_vehicle, 
+            connections, 
+            *arrival_fallback_duration, 
+            transit_data
+        )
     }
 
     pub fn create_response_from_engine_result(
@@ -146,7 +221,7 @@ impl<'a> Request<'a> {
                 let from_datetime = prev_datetime;
                 let from_stop = prev_stop;
                 let transfer = connection_leg.transfer.clone();
-                let (to_stop, duration) = self.transit_data.transfer(&from_stop, &transfer);
+                let (to_stop, duration) = self.transit_data.transfer(&transfer);
                 let to_datetime = from_datetime.clone() + duration;
                 TransferSection {
                     from_datetime,
@@ -410,7 +485,7 @@ impl<'a> PublicTransit for Request<'a> {
         transfer: &Self::Transfer,
         criteria: &Self::Criteria,
     ) -> (Self::Stop, Self::Criteria) {
-        let (arrival_stop, transfer_duration) = self.transit_data.transfer(from_stop, transfer);
+        let (arrival_stop, transfer_duration) = self.transit_data.transfer(transfer);
         let new_criteria = Criteria {
             arrival_time: criteria.arrival_time.clone() + transfer_duration,
             nb_of_legs: criteria.nb_of_legs,

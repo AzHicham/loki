@@ -97,7 +97,7 @@ pub trait PublicTransit {
     // Returns the `new_criteria` obtained when riding along `trip`
     // to the arrival to next position of its `Mission`, when being onboard at
     // the arrival of `trip` at `stop` with `criteria`.
-    // Panics if `poistion` does not belongs to the `Mission` of `trip`
+    // Panics if `position` does not belongs to the `Mission` of `trip`
     fn ride(
         &self,
         trip: &Self::Trip,

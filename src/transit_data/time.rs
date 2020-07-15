@@ -2,15 +2,15 @@ use std::fmt::{Display, Formatter};
 
 const SECONDS_IN_A_DAY: u32 = 60 * 60 * 24;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceDayStart {
     pub(super) seconds: u32,
 }
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceDatasetStart {
     pub(super) seconds: u32,
 }
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DaysSinceDatasetStart {
     pub(super) days: u16,
 }

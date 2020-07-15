@@ -98,11 +98,14 @@ impl TransitData {
         & self.patterns[pattern.idx]
     }
 
-    pub fn transfer(&self, stop : & Stop, transfer : & Transfer) -> (Stop, PositiveDuration) {
-        debug_assert!(*stop == transfer.stop);
-        let stop_data = self.stop_data(stop);
+    pub fn transfer(&self, transfer : & Transfer) -> (Stop, PositiveDuration) {
+        let stop_data = self.stop_data(&transfer.stop);
         let result = stop_data.transfers[transfer.idx_in_stop_transfers];
         (result.0, result.1)
+    }
+
+    pub fn transfer_start_stop(&self, transfer : & Transfer) -> Stop {
+        transfer.stop
     }
 
     pub fn nb_of_stops(&self) -> usize {
@@ -141,6 +144,17 @@ impl TransitData {
         self.write_response(response, transit_model, & mut result)?;
         Ok(result)
         
+    }
+
+    pub fn vehicle_journey_idx(&self, trip : & Trip) -> Idx<VehicleJourney> {
+        let pattern = &trip.mission.stop_pattern;
+        let timetable = &trip.mission.timetable;
+        let vehicle = &trip.vehicle;
+        self.patterns[pattern.idx].vehicle_data(timetable, vehicle).vehicle_journey_idx
+    }
+
+    pub fn stop_point_idx(&self, stop : & Stop) -> Idx<StopPoint> {
+        self.stops_data[stop.idx].stop_point_idx
     }
 
     pub fn write_response< Writer : std::fmt::Write>(&self, 

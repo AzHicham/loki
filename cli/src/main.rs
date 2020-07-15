@@ -349,10 +349,14 @@ fn solve<'a>(
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
         let response = request
-            .create_response_from_engine_result(pt_journey)
-            .unwrap();
+             .create_response2(pt_journey, transit_data)
+             .unwrap();            
+        trace!("{}", response.print(&transit_data, &model)?);
 
-        trace!("{}", transit_data.print_response(&response, &model)?);
+        // let response = request
+        //     .create_response_from_engine_result(pt_journey)
+        //     .unwrap();
+        // trace!("{}", transit_data.print_response(&response, &model)?);
     }
 
     Ok(engine.nb_of_rounds())
