@@ -5,15 +5,11 @@ use crate::transit_data::{
     time::{PositiveDuration, SecondsSinceDatasetStart},
 };
 
-use crate::request::response2;
+
 
 use crate::engine::public_transit::{Journey as PTJourney, PublicTransit, PublicTransitIters};
 
-use super::response::{
-    ArrivalSection, DepartureSection, Journey, TransferSection, VehicleSection, WaitingSection,
-};
-
-use std::cmp::Ordering;
+use super::response;
 
 pub struct Request<'a> {
     transit_data: &'a TransitData,
@@ -104,15 +100,15 @@ impl<'a> Request<'a> {
     }
 
 
-    pub fn create_response2(&self,
+    pub fn create_response(&self,
         pt_journey: &PTJourney<Self>,
         transit_data: &'a TransitData,
-    ) -> Result<response2::Journey, response2::BadJourney> {
+    ) -> Result<response::Journey, response::BadJourney> {
         let departure_datetime = self.departure_datetime.clone();
         let departure_idx = pt_journey.departure_leg.departure.idx;
         let departure_fallback_duration = &self.departures_stop_point_and_fallback_duration[departure_idx].1;
 
-        let first_vehicle = response2::VehicleLeg {
+        let first_vehicle = response::VehicleLeg {
             trip : pt_journey.departure_leg.trip.clone(),
             board_position : pt_journey.departure_leg.board_position,
             debark_position : pt_journey.departure_leg.debark_position
@@ -122,7 +118,7 @@ impl<'a> Request<'a> {
 
         let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
             let transfer = connection_leg.transfer.clone();
-            let vehicle_leg = response2::VehicleLeg {
+            let vehicle_leg = response::VehicleLeg {
                 trip : connection_leg.trip.clone(),
                 board_position : connection_leg.board_position,
                 debark_position : connection_leg.debark_position,
@@ -130,7 +126,7 @@ impl<'a> Request<'a> {
             (transfer, vehicle_leg)
         });
 
-        response2::Journey::new(departure_datetime, 
+        response::Journey::new(departure_datetime, 
             *departure_fallback_duration, 
             first_vehicle, 
             connections, 
@@ -139,190 +135,7 @@ impl<'a> Request<'a> {
         )
     }
 
-    pub fn create_response_from_engine_result(
-        &self,
-        pt_journey: &PTJourney<Self>,
-    ) -> Result<Journey, ()> {
-        let departure_section = {
-            let from_datetime = self.departure_datetime.clone();
-            let departure_idx = pt_journey.departure_leg.departure.idx;
-            let (stop, duration) = &self.departures_stop_point_and_fallback_duration[departure_idx];
-            let to_datetime = self.departure_datetime.clone() + *duration;
-            DepartureSection {
-                from_datetime,
-                to_datetime,
-                to_stop: *stop,
-            }
-        };
-        let first_vehicle = {
-            let trip = &pt_journey.departure_leg.trip;
-            let board_position = &pt_journey.departure_leg.board_position;
-            let debark_position = &pt_journey.departure_leg.debark_position;
-            let from_datetime = self
-                .transit_data
-                .board_time_of(trip, board_position)
-                .unwrap();
-            let to_datetime = self
-                .transit_data
-                .debark_time_of(trip, debark_position)
-                .unwrap();
-            let mission = self.transit_data.mission_of(trip);
-            if self
-                .transit_data
-                .is_upstream_in_mission(debark_position, board_position, &mission)
-            {
-                return Err(());
-            }
-            let from_stop = self
-                .transit_data
-                .stop_at_position_in_mission(board_position, &mission);
-            let to_stop = self
-                .transit_data
-                .stop_at_position_in_mission(debark_position, &mission);
-            if from_stop != departure_section.to_stop {
-                return Err(());
-            }
-            VehicleSection {
-                from_datetime,
-                to_datetime,
-                from_stop,
-                to_stop,
-                trip: trip.clone(),
-            }
-        };
-
-        let first_waiting = match first_vehicle
-            .from_datetime
-            .cmp(&departure_section.to_datetime)
-        {
-            Ordering::Less => {
-                return Err(());
-            }
-            Ordering::Equal => None,
-            Ordering::Greater => {
-                let from_datetime = departure_section.to_datetime.clone();
-                let to_datetime = first_vehicle.from_datetime.clone();
-                let stop = departure_section.to_stop;
-                let section = WaitingSection {
-                    from_datetime,
-                    to_datetime,
-                    stop,
-                };
-                Some(section)
-            }
-        };
-
-        let mut prev_stop = first_vehicle.to_stop;
-        let mut prev_datetime = first_vehicle.to_datetime.clone();
-        let mut connections = Vec::new();
-
-        for connection_leg in pt_journey.connection_legs.iter() {
-            let transfer_section = {
-                let from_datetime = prev_datetime;
-                let from_stop = prev_stop;
-                let transfer = connection_leg.transfer.clone();
-                let (to_stop, duration) = self.transit_data.transfer(&transfer);
-                let to_datetime = from_datetime.clone() + duration;
-                TransferSection {
-                    from_datetime,
-                    to_datetime,
-                    from_stop,
-                    to_stop,
-                    transfer,
-                }
-            };
-
-            let vehicle_section = {
-                let trip = &connection_leg.trip;
-                let board_position = &connection_leg.board_position;
-                let debark_position = &connection_leg.debark_position;
-                let from_datetime = self
-                    .transit_data
-                    .board_time_of(trip, board_position)
-                    .unwrap();
-                let to_datetime = self
-                    .transit_data
-                    .debark_time_of(trip, debark_position)
-                    .unwrap();
-                let mission = self.transit_data.mission_of(trip);
-                if self.transit_data.is_upstream_in_mission(
-                    debark_position,
-                    board_position,
-                    &mission,
-                ) {
-                    return Err(());
-                }
-                let from_stop = self
-                    .transit_data
-                    .stop_at_position_in_mission(board_position, &mission);
-                let to_stop = self
-                    .transit_data
-                    .stop_at_position_in_mission(debark_position, &mission);
-                if from_stop != transfer_section.to_stop {
-                    return Err(());
-                }
-                VehicleSection {
-                    from_datetime,
-                    to_datetime,
-                    from_stop,
-                    to_stop,
-                    trip: trip.clone(),
-                }
-            };
-
-            let waiting_section = match vehicle_section
-                .from_datetime
-                .cmp(&transfer_section.to_datetime)
-            {
-                Ordering::Less => {
-                    return Err(());
-                }
-                Ordering::Equal => None,
-                Ordering::Greater => {
-                    let from_datetime = transfer_section.to_datetime.clone();
-                    let to_datetime = vehicle_section.from_datetime.clone();
-                    let stop = transfer_section.to_stop;
-                    let section = WaitingSection {
-                        from_datetime,
-                        to_datetime,
-                        stop,
-                    };
-                    Some(section)
-                }
-            };
-
-            prev_stop = vehicle_section.to_stop;
-            prev_datetime = vehicle_section.to_datetime.clone();
-
-            connections.push((transfer_section, waiting_section, vehicle_section));
-        }
-
-        let arrival_section = {
-            let from_datetime = prev_datetime.clone();
-            let from_stop = prev_stop;
-            let (arrival_stop, duration) =
-                &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx];
-            if from_stop != *arrival_stop {
-                return Err(());
-            }
-            let to_datetime = prev_datetime + *duration;
-            ArrivalSection {
-                from_datetime,
-                to_datetime,
-                from_stop,
-            }
-        };
-
-        let journey = Journey {
-            departure_section,
-            first_waiting,
-            first_vehicle,
-            connections,
-            arrival_section,
-        };
-
-        Ok(journey)
-    }
+    
 }
 
 impl<'a> PublicTransit for Request<'a> {
@@ -481,7 +294,7 @@ impl<'a> PublicTransit for Request<'a> {
 
     fn transfer(
         &self,
-        from_stop: &Self::Stop,
+        _from_stop: &Self::Stop,
         transfer: &Self::Transfer,
         criteria: &Self::Criteria,
     ) -> (Self::Stop, Self::Criteria) {

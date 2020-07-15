@@ -1,5 +1,4 @@
-use transit_model::{
-    model::Model as TransitModel,
+pub (crate) use transit_model::{
     objects::{StopPoint, VehicleJourney, Transfer as TransitModelTransfer},
 
 }; 
@@ -10,9 +9,8 @@ use std::{collections::{BTreeMap}};
 use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
 use super::calendar::{Calendar, DaysPattern};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
-use typed_index_collection::{Idx};
+pub(crate) use typed_index_collection::{Idx};
 
-use crate::request::response::{Journey, VehicleSection};
 
 use std::collections::HashMap;
 
@@ -34,7 +32,7 @@ pub struct VehicleData {
 pub struct StopData {
     pub (super) stop_point_idx : Idx<StopPoint>,
     pub (super) position_in_patterns : Vec<(StopPattern, Position)>,
-    pub (super) transfers : Vec<(Stop, PositiveDuration, Option<Idx<TransitModelTransfer>>)>
+    pub (super) transfers : Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
@@ -136,16 +134,6 @@ impl TransitData {
         }).sum()
     }
 
-    pub fn print_response(&self, 
-        response : & Journey, 
-        transit_model : & TransitModel, 
-    ) -> Result<String, std::fmt::Error> {
-        let mut result = String::new();
-        self.write_response(response, transit_model, & mut result)?;
-        Ok(result)
-        
-    }
-
     pub fn vehicle_journey_idx(&self, trip : & Trip) -> Idx<VehicleJourney> {
         let pattern = &trip.mission.stop_pattern;
         let timetable = &trip.mission.timetable;
@@ -157,61 +145,13 @@ impl TransitData {
         self.stops_data[stop.idx].stop_point_idx
     }
 
-    pub fn write_response< Writer : std::fmt::Write>(&self, 
-            response : & Journey, 
-            transit_model : & TransitModel, 
-            writer : & mut Writer
-    ) -> Result<(), std::fmt::Error> {
-        writeln!(writer, "*** New journey ***")?;
-        writeln!(writer, "Arrival : {}", self.calendar.to_pretty_string(&response.arrival_section.to_datetime) )?;
-        let mut transfer_duration = PositiveDuration::zero();
-        for (transfer_section, _, _) in response.connections.iter() {
-            let stop = &transfer_section.from_stop;
-            let transfer = &transfer_section.transfer;
-            transfer_duration = transfer_duration + self.stops_data[stop.idx].transfers[transfer.idx_in_stop_transfers].1;
-        }
-
-        writeln!(writer, "Transfer duration : {}", transfer_duration)?;
-        writeln!(writer, "Nb of vehicles : {}", 1 + response.connections.len())?;
-        
-        writeln!(writer, "Departure : {}", self.calendar.to_pretty_string(&response.departure_section.from_datetime))?;
-
-        self.write_vehicle_section(&response.first_vehicle, transit_model, writer)?;
-        for connection in response.connections.iter() {
-            self.write_vehicle_section(&connection.2, transit_model, writer)?;
-        }
-
-        Ok(())
+    pub fn transfer_idx(&self, transfer : & Transfer) -> Idx<TransitModelTransfer> {
+        let stop_data = self.stop_data(&transfer.stop);
+        let result = stop_data.transfers[transfer.idx_in_stop_transfers];
+        result.2
     }
 
-    fn write_vehicle_section< Writer : std::fmt::Write>(&self, 
-        vehicle_section : & VehicleSection, 
-        transit_model : & TransitModel,
-        writer : & mut Writer
-    ) -> Result<(), std::fmt::Error>
-    {
-        let trip = &vehicle_section.trip;
-        let pattern = &trip.mission.stop_pattern;
-        let timetable = &trip.mission.timetable;
-        let vehicle = &trip.vehicle;
-        let vehicle_journey_idx = self.patterns[pattern.idx].vehicle_data(timetable, vehicle).vehicle_journey_idx;
-        let route_id = &transit_model.vehicle_journeys[vehicle_journey_idx].route_id;
-        let route_id = &transit_model.routes.get(route_id).unwrap().id;
-        let from_stop_idx = &self.stops_data[vehicle_section.from_stop.idx].stop_point_idx;
-        let to_stop_idx = &self.stops_data[vehicle_section.to_stop.idx].stop_point_idx;
-        let from_stop_id = &transit_model.stop_points[*from_stop_idx].id;
-        let to_stop_id = &transit_model.stop_points[*to_stop_idx].id;
-        let from_datetime = self.calendar.to_pretty_string(&vehicle_section.from_datetime);
-        let to_datetime = self.calendar.to_pretty_string(&vehicle_section.to_datetime);
-        writeln!(writer, "{} from {} at {} to {} at {} ", 
-            route_id, 
-            from_stop_id,
-            from_datetime,
-            to_stop_id,
-            to_datetime
-        )?;
-        Ok(())
-    }
+    
 }
 
 

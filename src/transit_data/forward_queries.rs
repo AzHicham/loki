@@ -32,6 +32,11 @@ impl TransitData {
         *pattern.stop_at(position)
     }
 
+    pub fn stop_at_position_in_trip(&self, position: &Position, trip: &Trip) -> Stop {
+        let pattern = self.pattern(&trip.mission.stop_pattern);
+        *pattern.stop_at(position)
+    }
+
     pub fn mission_of(&self, trip: &Trip) -> Mission {
         trip.mission.clone()
     }

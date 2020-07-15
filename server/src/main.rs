@@ -24,7 +24,7 @@ use std::time::SystemTime;
 
 use std::convert::TryFrom;
 
-mod response;
+// mod response;
 
 
 const DEFAULT_MAX_DURATION : PositiveDuration = PositiveDuration{seconds : 24*60*60};
@@ -287,13 +287,12 @@ fn run() ->  Result<(), Error>  {
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
         let response = engine_request
-            .create_response_from_engine_result(pt_journey)
-            .unwrap();
-
-        trace!("{}", transit_data.print_response(&response, &model)?);
+             .create_response(pt_journey, &transit_data)
+             .unwrap();            
+        trace!("{}", response.print(&transit_data, &model)?);
     }
 
-    let proto_response = navitia_proto::Response::default();
+    // let proto_response = navitia_proto::Response::default();
 
     Ok(())
 }
