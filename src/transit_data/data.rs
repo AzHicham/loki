@@ -1,15 +1,15 @@
-pub (crate) use transit_model::{
+pub use transit_model::{
     objects::{StopPoint, VehicleJourney, Transfer as TransitModelTransfer},
 
 }; 
-pub(super) use transit_model::objects::Time as TransitModelTime;
-
+pub use transit_model::objects::Time as TransitModelTime;
+pub use typed_index_collection::{Idx};
 
 use std::{collections::{BTreeMap}};
 use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
 use super::calendar::{Calendar, DaysPattern};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
-pub(crate) use typed_index_collection::{Idx};
+
 
 
 use std::collections::HashMap;

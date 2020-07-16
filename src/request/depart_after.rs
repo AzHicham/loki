@@ -9,7 +9,7 @@ use crate::transit_data::{
 
 use crate::engine::public_transit::{Journey as PTJourney, PublicTransit, PublicTransitIters};
 
-use super::response;
+use crate::response;
 
 pub struct Request<'a> {
     transit_data: &'a TransitData,

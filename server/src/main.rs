@@ -1,6 +1,8 @@
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
+// pub mod navitia_proto {
+//     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
+// }
+
+pub mod navitia_proto;
 
 use prost::Message;
 use laxatips::log::{debug, info, warn, trace};
@@ -24,7 +26,7 @@ use std::time::SystemTime;
 
 use std::convert::TryFrom;
 
-// mod response;
+mod response;
 
 
 const DEFAULT_MAX_DURATION : PositiveDuration = PositiveDuration{seconds : 24*60*60};
@@ -243,6 +245,20 @@ fn fill_engine_request_from_protobuf(
 
 }
 
+fn run2() ->  Result<(), Error> {
+    let request_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_request.proto");
+    let proto_request_bytes = fs::read(request_filepath)?;
+    let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
+    println!("Request : \n{:#?}", proto_request);
+
+    let resp_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_resp.proto");
+    let proto_resp_bytes = fs::read(resp_filepath)?;
+    let proto_resp = navitia_proto::Response::decode(proto_resp_bytes.as_slice())?;
+    println!("Response : \n {:#?}", proto_resp);
+
+    Ok(())
+}
+
 fn run() ->  Result<(), Error>  {
 
     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
@@ -318,7 +334,7 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 
 fn main() {
     let _log_guard = init_logger();
-    if let Err(err) = run() {
+    if let Err(err) = run2() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }
