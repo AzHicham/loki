@@ -54,6 +54,11 @@ impl Calendar {
     pub fn last_date(&self) -> &NaiveDate {
         &self.last_date
     }
+
+    pub fn to_naive_date(&self, day : & DaysSinceDatasetStart) -> NaiveDate {
+        self.first_date().clone() + chrono::Duration::days(day.days as i64)
+    }
+
     // try to convert a unix timestamp (nb of seconds since midnight UTC on January 1, 1970)
     // to the number of seconds since the beginning of this calendar
     // returns None if the timestamp is out of bounds of this calendar

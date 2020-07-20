@@ -41,6 +41,10 @@ impl TransitData {
         trip.mission.clone()
     }
 
+    pub fn stoptime_idx(&self, position: &Position, trip: &Trip) -> usize {
+        position.idx
+    }
+
     // Panics if `trip` does not go through `stop_idx`
     pub fn arrival_time_of(&self, trip: &Trip, position: &Position) -> SecondsSinceDatasetStart {
         let pattern = &trip.mission.stop_pattern;

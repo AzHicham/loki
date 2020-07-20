@@ -4,7 +4,7 @@ use crate::transit_data::{
     time::{SecondsSinceDatasetStart, PositiveDuration},
 };
 use transit_model::Model;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, NaiveDate};
 
 #[derive(Debug, Clone)]
 pub struct VehicleLeg {
@@ -260,9 +260,12 @@ use crate::transit_data::data::{StopPoint, Idx, VehicleJourney, TransitModelTran
 pub struct VehicleSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub from_stop_point: Idx<StopPoint>,
-    pub to_stop_point: Idx<StopPoint>,
     pub vehicle_journey: Idx<VehicleJourney>,
+    pub day_for_vehicle_journey : NaiveDate,
+    // the index (in vehicle_journey.stop_times) of the stop_time we board at 
+    pub from_stoptime_idx: usize, 
+    // the index (in vehicle_journey.stop_times) of the stop_time we debark at 
+    pub to_stoptime_idx: usize,
 }
 
 pub struct TransferSection {
@@ -311,7 +314,10 @@ impl Journey {
         }
     }
 
-
+    pub fn first_vehicle_section(&self, transit_data : & TransitData) -> VehicleSection
+    {
+        self.vehicle_section(&VehicleLegIdx::First, transit_data)
+    }
 
     fn vehicle_section(&self, 
         vehicle_leg_idx : & VehicleLegIdx, 
@@ -324,10 +330,8 @@ impl Journey {
         let trip = &vehicle_leg.trip;
         let vehicle_journey = transit_data.vehicle_journey_idx(trip);
 
-        let from_stop = transit_data.stop_at_position_in_trip(&vehicle_leg.board_position, &trip);
-        let to_stop = transit_data.stop_at_position_in_trip(&vehicle_leg.debark_position, &trip);
-        let from_stop_point = transit_data.stop_point_idx(&from_stop);
-        let to_stop_point = transit_data.stop_point_idx(&to_stop);
+        let from_stoptime_idx = transit_data.stoptime_idx(&vehicle_leg.board_position, &trip);
+        let to_stoptime_idx = transit_data.stoptime_idx(&vehicle_leg.debark_position, &trip);
 
         //unwraps below are safe because of checks that happens during Self::new()
         let board_time = transit_data.board_time_of(trip, &vehicle_leg.board_position).unwrap();
@@ -336,12 +340,15 @@ impl Journey {
         let from_datetime = transit_data.calendar.to_naive_datetime(&board_time);
         let to_datetime = transit_data.calendar.to_naive_datetime(&debark_time);
 
+        let day_for_vehicle_journey = transit_data.calendar.to_naive_date(&trip.day);
+
         VehicleSection {
             from_datetime,
             to_datetime,
-            from_stop_point,
-            to_stop_point,
-            vehicle_journey : vehicle_journey
+            from_stoptime_idx,
+            to_stoptime_idx,
+            vehicle_journey : vehicle_journey,
+            day_for_vehicle_journey,
         }
 
     }

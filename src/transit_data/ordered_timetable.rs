@@ -42,7 +42,7 @@ pub struct TimetableData {
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd)]
 pub struct Position {
-    idx: usize,
+    pub (super) idx: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
