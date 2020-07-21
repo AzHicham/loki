@@ -160,7 +160,7 @@ fn run() -> Result<(), Error> {
     info!("Number of routes : {}", model.routes.len());
 
     let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration { seconds: 60 };
+    let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
     let transit_data = TransitData::new(&model, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");

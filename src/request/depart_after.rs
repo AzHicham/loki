@@ -184,13 +184,14 @@ impl<'a> PublicTransit for Request<'a> {
         lower.arrival_time.clone() + self.leg_arrival_penalty * (lower.nb_of_legs as u32) 
             <= upper.arrival_time.clone() + self.leg_arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
-        && 
-        ( lower.fallback_duration + lower.transfers_duration  + self.leg_walking_penalty * (lower.nb_of_legs as u32) 
-            <=  upper.fallback_duration + upper.transfers_duration + self.leg_walking_penalty * (upper.nb_of_legs as u32) 
-        ||
+        // && 
+        // lower.fallback_duration + lower.transfers_duration  + self.leg_walking_penalty * (lower.nb_of_legs as u32) 
+        //     <=  upper.fallback_duration + upper.transfers_duration + self.leg_walking_penalty * (upper.nb_of_legs as u32) 
+        
+        &&
         lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration 
              <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration 
-        )
+        
 
         // && lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
         // && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration

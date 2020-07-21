@@ -145,7 +145,7 @@ impl Journey {
 
     }
 
-    pub fn arrival_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetStart {
+    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetStart {
         let last_vehicle_leg = self.connections.last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);
@@ -155,7 +155,7 @@ impl Journey {
         last_debark_time + self.arrival_fallback_duration
     }
 
-    pub fn start_time(&self, 
+    fn start_time(&self, 
         vehicle_leg_idx : & VehicleLegIdx, 
         transit_data : & TransitData
     ) -> NaiveDateTime {
@@ -179,6 +179,13 @@ impl Journey {
         result
     }
 
+    pub fn total_duration(&self, transit_data : & TransitData) -> PositiveDuration {
+        let arrival_time = self.arrival(transit_data);
+        let departure_time = self.departure_datetime;
+        //unwrap is safe because of checks that happens during Self construction
+        arrival_time.duration_since(&departure_time).unwrap()
+    }
+
     pub fn nb_of_legs(&self) -> usize {
         self.connections.len() + 1
     }
@@ -186,6 +193,24 @@ impl Journey {
     pub fn nb_of_connections(&self) -> usize {
         self.connections.len()
     }
+
+    pub fn nb_of_transfers(&self) -> usize {
+        self.connections.len()
+    }
+
+    pub fn departure_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        transit_data.calendar.to_naive_datetime(&self.departure_datetime)
+    }
+
+    pub fn arrival_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        let arrival_time = self.arrival(transit_data);
+        transit_data.calendar.to_naive_datetime(&arrival_time)
+    }
+
+    pub fn total_fallback_duration(&self) -> PositiveDuration {
+        self.departure_fallback_duration + self.arrival_fallback_duration
+    }
+
 
     pub fn print(&self, 
         transit_data : & TransitData, 
@@ -203,10 +228,15 @@ impl Journey {
             writer : & mut Writer
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;
-        let arrival_time = self.arrival_time(transit_data);
+        let arrival_time = self.arrival(transit_data);
         writeln!(writer, "Arrival : {}", transit_data.calendar.to_pretty_string(&arrival_time ))?;
         writeln!(writer, "Transfer duration : {}", self.total_transfer_duration(transit_data))?;
         writeln!(writer, "Nb of vehicles : {}", self.nb_of_legs())?;
+        writeln!(writer, "Fallback  total: {}, start {}, end {}", 
+            self.total_fallback_duration(),
+            self.departure_fallback_duration,
+            self.arrival_fallback_duration
+        )?;
         
         writeln!(writer, "Departure : {}", transit_data.calendar.to_pretty_string(&self.departure_datetime))?;
 
@@ -411,7 +441,7 @@ ConnectionIter<'journey, 'data> {
     type Item=(TransferSection, WaitingSection, VehicleSection);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.connection_idx >= self.journey.nb_of_connections() {
+        if self.connection_idx >= self.journey.connections.len() {
             return None;
         }
 

@@ -112,8 +112,8 @@ impl TransitData {
                     (1, 0) => (stop_point_idx, FlowDirection::DebarkOnly),
                     (0, 1) => (stop_point_idx, FlowDirection::BoardOnly),
                     _ => {
-                        warn!("Skipping vehicle journey {} that has a bad {}ith stop_time : \n {:?} \n because of 
-                        unhandled pickup type {} or dropoff type {} ",
+                        warn!("Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
+                        because of unhandled pickup type {} or dropoff type {}. ",
                         vehicle_journey.id,
                         idx,
                         stop_time,

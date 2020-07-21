@@ -29,7 +29,7 @@ use std::convert::TryFrom;
 mod response;
 
 
-const DEFAULT_MAX_DURATION : PositiveDuration = PositiveDuration{seconds : 24*60*60};
+const DEFAULT_MAX_DURATION : PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
 const DEFAULT_MAX_NB_LEGS : u8 = 10;
 
 fn read_ntfs(ntfs_path : & Path) -> Result<(transit_model::model::Model, TransitData), Error> {
@@ -42,7 +42,7 @@ fn read_ntfs(ntfs_path : & Path) -> Result<(transit_model::model::Model, Transit
     info!("Number of routes : {}", model.routes.len());
 
     let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration { seconds: 60 };
+    let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
     let transit_data = TransitData::new(&model, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
@@ -113,9 +113,7 @@ fn fill_engine_request_from_protobuf(
                 })?;
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| {
-                    PositiveDuration {
-                        seconds : duration_u32
-                   }
+                    PositiveDuration::from_hms(0, 0, duration_u32) 
                 })
                 .ok()
                 .or_else(|| {
@@ -163,9 +161,7 @@ fn fill_engine_request_from_protobuf(
 
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| {
-                    PositiveDuration {
-                        seconds : duration_u32
-                   }
+                    PositiveDuration::from_hms(0, 0, duration_u32)
                 })
                 .ok()
                 .or_else(|| {
@@ -184,23 +180,30 @@ fn fill_engine_request_from_protobuf(
 
 
     let departure_timestamp_u64 = journey_request.datetimes.get(0).ok_or_else(|| {
-        format_err!("Not datetime provided.")
+        format_err!("Not departure datetime provided.")
     })?;
     let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).map_err(|_| {
-        format_err!("The datetime {} cannot be converted to a valid utc timestamp.", departure_timestamp_u64)
+        format_err!("The departure datetime {} cannot be converted to a valid i64 timestamp.", departure_timestamp_u64)
     })?;
     let departure_datetime = transit_data.calendar.timestamp_to_seconds_since_start(departure_timestamp_i64).ok_or_else(|| {
-        format_err!("The timestamp {} is out of bound of the allowed dates.\
-                     Allowed dates are between {} and {}.", 
+        format_err!("The departure timestamp {} is out of bound of the allowed dates. \
+                     Allowed dates are between {} and {}. \
+                     Timestamp corresponds to {}. ", 
                     departure_timestamp_i64,
                     transit_data.calendar.first_date(),
-                    transit_data.calendar.last_date()
+                    transit_data.calendar.last_date(),
+                    chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0),
                 )
     })?;
 
+    info!("Requested timestamp {}, datetime {}",
+        departure_timestamp_u64,
+        chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0)
+    );
+
 
     let max_duration = u32::try_from(journey_request.max_duration).map(|duration| {
-        PositiveDuration{ seconds : duration}
+        PositiveDuration::from_hms(0, 0, duration)
     })
     .unwrap_or_else(|_| {
         warn!("The max duration {} cannot be converted to a u32.\
@@ -235,8 +238,8 @@ fn fill_engine_request_from_protobuf(
         departure_datetime.clone(),
         departure_stops_and_fallback_duration,
         arrival_stops_and_fallback_duration,
-        PositiveDuration{seconds : 120}, //leg_arrival_penalty
-        PositiveDuration{seconds : 120}, //leg_walking_penalty,
+        PositiveDuration::from_hms(0, 2, 0), //leg_arrival_penalty
+        PositiveDuration::from_hms(0, 2, 0), //leg_walking_penalty,
         max_arrival_time,
         max_nb_of_legs, //max_nb_of_legs,
     );
@@ -263,9 +266,9 @@ fn run() ->  Result<(), Error>  {
 
     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
 
-    let request_filepath = Path::new("./tests/auvergne/request6.proto");
+    // let request_filepath = Path::new("./tests/auvergne/with_resp/2_request.proto");
+    let request_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_request.proto");
     // let request_filepath = Path::new("./tests/request1.proto");
-
     
     let (model, transit_data) = read_ntfs(ntfs_path)?;
 
@@ -308,7 +311,15 @@ fn run() ->  Result<(), Error>  {
         trace!("{}", response.print(&transit_data, &model)?);
     }
 
-    // let proto_response = navitia_proto::Response::default();
+    let mut proto_response = navitia_proto::Response::default();
+
+    let journeys_iter = engine.responses().filter_map(|pt_journey| {
+        engine_request.create_response(pt_journey, &transit_data).ok()
+    });
+    response::fill_response(journeys_iter, & mut proto_response, &model, &transit_data)?;
+
+
+    println!("Response : {:#?}", proto_response);
 
     Ok(())
 }
@@ -334,7 +345,7 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 
 fn main() {
     let _log_guard = init_logger();
-    if let Err(err) = run2() {
+    if let Err(err) = run() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }

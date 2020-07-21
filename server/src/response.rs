@@ -1,70 +1,270 @@
 
 use crate::navitia_proto;
-use prost::Message;
-use laxatips::log::{debug, info, warn, trace};
 use laxatips::transit_model;
 use laxatips::{
-    DepartAfterRequest as EngineRequest, 
-    MultiCriteriaRaptor, 
-    PositiveDuration, 
     TransitData,
     response:: {Journey,
-        DepartureSection,
         VehicleSection,
         WaitingSection,
         TransferSection,
-        ArrivalSection,
     },
     Idx,
     StopPoint,
     VehicleJourney,
-    TransitModelTransfer,
 };
 
 use chrono::{NaiveDate, NaiveDateTime};
 
-use failure::{bail, format_err, Error};
-use std::time::SystemTime;
+use failure::{format_err, Error};
+
 
 use std::convert::TryFrom;
-use std::fmt::Write;
 
 
 
-fn fill_protobuf_response_from_engine_result(
+pub fn fill_response<Journeys>(
+    journeys : Journeys,
+    proto : & mut navitia_proto::Response,
+    model :& transit_model::Model,
+    transit_data : & TransitData,
+) -> Result<(), Error>
+where Journeys : Iterator<Item = Journey> 
+{
+    proto.status_code = None;
+    proto.error = None;
+    proto.info = None;
+    proto.publication_date = None;
+    proto.ignored_words.clear();
+    proto.bad_words.clear();
+    proto.places.clear();
+    proto.places_nearby.clear();
+    proto.validity_patterns.clear();
+    proto.lines.clear();
+    proto.journey_patterns.clear();
+    proto.vehicle_journeys.clear();
+    proto.stop_points.clear();
+    proto.stop_areas.clear();
+    proto.networks.clear();
+    proto.physical_modes.clear();
+    proto.commercial_modes.clear();
+    proto.connections.clear();
+    proto.journey_pattern_points.clear();
+    proto.companies.clear();
+    proto.routes.clear();
+    proto.pois.clear();
+    proto.poi_types.clear();
+    proto.calendars.clear();
+    proto.line_groups.clear();
+    proto.trips.clear();
+    proto.contributors.clear();
+    proto.datasets.clear();
+    proto.route_points.clear();
+    proto.impacts.clear();
+    let mut nb_of_journeys = 0usize;
+    for (idx, journey) in journeys.enumerate() {
+        let proto_journey = if idx < proto.journeys.len() {
+            & mut proto.journeys[idx]
+        }
+        else {
+            proto.journeys.resize_with(idx + 1, || navitia_proto::Journey::default());
+            & mut proto.journeys[idx]
+        };
+        fill_journey(&journey, proto_journey, model, transit_data)?;
+        nb_of_journeys+=1;
+    }
+    proto.journeys.truncate(nb_of_journeys);
+
+    proto.set_response_type(navitia_proto::ResponseType::ItineraryFound);
+    proto.prev = None;
+    proto.next = None;
+    proto.next_request_date_time = None;
+    proto.route_schedules.clear();
+    proto.departure_boards.clear();
+    proto.next_departures.clear();
+    proto.next_arrivals.clear();
+    proto.stop_schedules.clear();
+    proto.load = None;
+    proto.metadatas = None;
+    proto.pagination = None;
+    proto.traffic_reports.clear();
+    proto.line_reports.clear();
+    proto.tickets.clear();
+    proto.pt_objects.clear();
+    proto.feed_publishers.clear();
+    proto.nearest_stop_points.clear();
+    proto.links.clear();
+    proto.graphical_isochrones.clear();
+    proto.heat_maps.clear();
+    proto.geo_status = None;
+    proto.car_co2_emission = None;
+    proto.sn_routing_matrix = None;
+    proto.equipment_reports.clear();
+    proto.terminus_schedules.clear();
+
+    Ok(())
+    
+}
+
+fn fill_journey(
     journey : & Journey,
-    proto_journey : & mut navitia_proto::Journey, 
+    proto : & mut navitia_proto::Journey, 
     model :& transit_model::Model,
     transit_data : & TransitData,
 ) -> Result<(), Error>
 {
-    proto_journey.sections.clear();
 
-    //proto_journey.sections.resize_with(journey.nb_of_connections() * 3, || Default::default());
+    proto.duration = Some(duration_to_i32(
+                &journey.departure_datetime(transit_data), 
+                &journey.arrival_datetime(transit_data)
+            )?
+        );
 
-    let first_section = & mut proto_journey.sections[0];
+    proto.nb_transfers = Some(i32::try_from(journey.nb_of_transfers())?);
+
+    proto.departure_date_time = Some(to_u64_timestamp(&journey.departure_datetime(transit_data))?);
+    proto.arrival_date_time = Some(to_u64_timestamp(&journey.arrival_datetime(transit_data))?);
+
+    proto.requested_date_time = None;
+
+
+    // we have one section for the first vehicle,
+    // and then for each connection, the 3 sections : transfer, waiting, vehicle
+    proto.sections.resize_with(1 + 3 * journey.nb_of_connections() , || Default::default());
+
+    let first_section = & mut proto.sections[0];
     fill_public_transport_section(&journey.first_vehicle_section(transit_data), first_section, model)?;
     
-    // for connection in journey.connections(transit_data) {
-    //     let mut proto_section = {
-    //         let has_section = proto_journey.sections.get_mut(section_idx);
-    //         if let Some(section) = has_section {
-    //             section
-    //         }
-    //         else {
-    //             proto_journey.sections.push(navitia_proto::Section::default());
-    //             proto_journey.sections.insert(index, element)
-    //         }
-    //     };
-    //     let vehicle_section = &connection.2;
-    //     fill_public_transport_section(vehicle_section, proto_section, model);
-    //     section_idx +=1 ;
-    // }
+    for (connection_idx, connection) in journey.connections(transit_data).enumerate() {
+        {
+            let proto_transfer_section = & mut proto.sections[1 + 3 * connection_idx];
+            let transfer_section = &connection.0;
+            fill_transfer_section(transfer_section, proto_transfer_section, model)?;
+        }
+        {
+            let proto_waiting_section = & mut proto.sections[2 + 3 * connection_idx];
+            let waiting_section = &connection.1;
+            fill_waiting_section(waiting_section, proto_waiting_section, model)?;
+        }
+        {
+            let proto_vehicle_section = & mut proto.sections[3 + 3 * connection_idx];
+            let vehicle_section = &connection.2;
+            fill_public_transport_section(vehicle_section, proto_vehicle_section, model)?;
+        }
+         
+    }
+
+    proto.origin = None;
+    proto.destination = None;
+    proto.r#type = None;
+    proto.fare = None;
+    proto.tags.clear();
+    proto.calendars.clear();
+    proto.co2_emission = None;
+    proto.most_serious_disruption_effect = None;
+    proto.internal_id = None;
+    proto.sn_dur = Some(journey.total_fallback_duration().total_seconds());
+    proto.transfer_dur = Some(journey.total_transfer_duration(transit_data).total_seconds());
+    proto.min_waiting_dur = None;
+    proto.nb_vj_extentions = None;
+    proto.nb_sections = Some(u32::try_from(journey.nb_of_legs())?);
+    proto.durations = Some( navitia_proto::Durations {
+        total : Some(i32::try_from(journey.total_duration(transit_data).total_seconds())?),
+        walking : Some(i32::try_from(
+            (journey.total_fallback_duration() + journey.total_transfer_duration(transit_data)).total_seconds()
+        )?),
+        bike : Some(0),
+        car : Some(0),
+        ridesharing : Some(0),
+        taxi : Some(0),
+    }
+    );
     
 
 
     
     Ok(())
+}
+
+fn fill_transfer_section(
+    transfer_section : & TransferSection,
+    proto : & mut navitia_proto::Section,
+    model : & transit_model::Model
+) -> Result<(), Error>
+{
+
+    proto.set_type(navitia_proto::SectionType::Transfer);
+
+    let proto_origin = proto.origin.get_or_insert_with( || navitia_proto::PtObject::default());
+    fill_stop_point_pt_object(transfer_section.from_stop_point, proto_origin, model)?;
+    let proto_destination = proto.destination.get_or_insert_with( || navitia_proto::PtObject::default());
+    fill_stop_point_pt_object(transfer_section.to_stop_point, proto_destination, model)?;
+
+    proto.pt_display_informations = None;
+    proto.uris = None;
+    proto.vehicle_journey = None;
+    proto.stop_date_times.clear();
+    proto.street_network = None;
+    proto.cycle_lane_length = None;
+    proto.set_transfer_type(navitia_proto::TransferType::Walking);
+    proto.ridesharing_journeys.clear();
+    proto.ridesharing_information = None;
+
+    proto.shape.clear();
+
+    proto.duration = Some(duration_to_i32(&transfer_section.from_datetime, &transfer_section.to_datetime)?);
+
+    proto.begin_date_time = Some(to_u64_timestamp(&transfer_section.from_datetime)?);
+    proto.end_date_time = Some(to_u64_timestamp(&transfer_section.to_datetime)?);
+
+    proto.base_begin_date_time = None;
+    proto.base_end_date_time = None;
+    proto.length = None;
+    proto.id = None;
+    proto.co2_emission = None;
+    proto.additional_informations.clear();
+
+    Ok(())
+}
+
+
+fn fill_waiting_section(
+    waiting_section : & WaitingSection,
+    proto : & mut navitia_proto::Section,
+    model : & transit_model::Model
+) -> Result<(), Error>
+{
+
+    proto.set_type(navitia_proto::SectionType::Waiting);
+
+    let proto_origin = proto.origin.get_or_insert_with( || navitia_proto::PtObject::default());
+    fill_stop_point_pt_object(waiting_section.stop_point, proto_origin, model)?;
+    let proto_destination = proto.destination.get_or_insert_with( || navitia_proto::PtObject::default());
+    fill_stop_point_pt_object(waiting_section.stop_point, proto_destination, model)?;
+
+    proto.pt_display_informations = None;
+    proto.uris = None;
+    proto.vehicle_journey = None;
+    proto.stop_date_times.clear();
+    proto.street_network = None;
+    proto.cycle_lane_length = None;
+    proto.transfer_type = None;
+    proto.ridesharing_journeys.clear();
+    proto.ridesharing_information = None;
+    proto.shape.clear();
+    proto.duration = Some(duration_to_i32(&waiting_section.from_datetime, &waiting_section.to_datetime)?);
+    proto.begin_date_time = Some(to_u64_timestamp(&waiting_section.from_datetime)?);
+    proto.end_date_time = Some(to_u64_timestamp(&waiting_section.to_datetime)?);
+    proto.begin_date_time = None;
+    proto.base_end_date_time = None;
+    proto.realtime_level = None;
+    proto.length = None;
+    proto.id = None;
+    proto.co2_emission = None;
+    proto.additional_informations.clear();
+
+
+    Ok(())
+
 }
 
 fn fill_public_transport_section(
@@ -73,7 +273,6 @@ fn fill_public_transport_section(
     model : & transit_model::Model
 ) -> Result<(), Error>
 {
-    
     
     let vehicle_journey = & model.vehicle_journeys[vehicle_section.vehicle_journey];
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
@@ -84,7 +283,7 @@ fn fill_public_transport_section(
                 vehicle_journey.id
             )
         })?;
-    let from_stop_point = &model.stop_points[from_stoptime.stop_point_idx];
+    let from_stop_point_idx = from_stoptime.stop_point_idx;
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
     let to_stoptime = vehicle_journey.stop_times.get(to_stoptime_idx)
         .ok_or_else( || {
@@ -93,13 +292,13 @@ fn fill_public_transport_section(
                 vehicle_journey.id
             )
         })?;
-    let to_stop_point = &model.stop_points[to_stoptime.stop_point_idx];
+    let to_stop_point_idx = to_stoptime.stop_point_idx;
 
     proto.set_type(navitia_proto::SectionType::PublicTransport);
     let proto_origin = proto.origin.get_or_insert_with( || navitia_proto::PtObject::default());
-    fill_stop_point_pt_object(&from_stop_point, proto_origin, model)?;
+    fill_stop_point_pt_object(from_stop_point_idx, proto_origin, model)?;
     let proto_destination = proto.destination.get_or_insert_with(|| navitia_proto::PtObject::default());
-    fill_stop_point_pt_object(to_stop_point, proto_destination, model)?;
+    fill_stop_point_pt_object(to_stop_point_idx, proto_destination, model)?;
     let proto_pt_display_info = proto.pt_display_informations.get_or_insert_with(|| navitia_proto::PtDisplayInfo::default());
     fill_pt_display_info(vehicle_section.vehicle_journey, proto_pt_display_info, model)?;
     
@@ -107,9 +306,9 @@ fn fill_public_transport_section(
     proto.vehicle_journey = None;
     
     let nb_of_stop_times = to_stoptime_idx - from_stoptime_idx + 1;
+    let stop_times = &vehicle_journey.stop_times[from_stoptime_idx..=to_stoptime_idx];
     proto.stop_date_times.resize(nb_of_stop_times, navitia_proto::StopDateTime::default());
-    for (stop_time, proto_stop_date_time) in vehicle_journey.stop_times[from_stoptime_idx..=to_stoptime_idx]
-                                    .iter().zip(proto.stop_date_times.iter_mut()) 
+    for (stop_time, proto_stop_date_time) in stop_times.iter().zip(proto.stop_date_times.iter_mut()) 
     {
         fill_stop_datetime(stop_time, &vehicle_section.day_for_vehicle_journey, proto_stop_date_time, model)?;
     }
@@ -119,7 +318,13 @@ fn fill_public_transport_section(
     proto.transfer_type = None;
     proto.ridesharing_journeys.clear();
     proto.ridesharing_information = None;
+
     proto.shape.clear();
+    fill_shape_from_stop_points(
+        stop_times.iter().map(|stop_time| stop_time.stop_point_idx), 
+        & mut proto.shape, 
+        model
+    )?;
 
     proto.duration = Some(duration_to_i32(&vehicle_section.from_datetime, &vehicle_section.to_datetime)?);
     proto.begin_date_time = Some(to_u64_timestamp(&vehicle_section.from_datetime)?);
@@ -139,6 +344,7 @@ fn fill_public_transport_section(
     proto.length = None;
 
 
+    
     //proto.stop_date_times
     // proto_section.r#type = Some(navitia_proto::SectionType::PublicTransport);
     // proto_section.origin = 
@@ -146,12 +352,15 @@ fn fill_public_transport_section(
 }
 
 fn fill_stop_point_pt_object(
-    stop_point : & StopPoint,
+    stop_point_idx : Idx<StopPoint>,
     proto : & mut navitia_proto::PtObject,
     model : & transit_model::Model
 ) -> Result<(), Error> {
+
+    let stop_point = & model.stop_points[stop_point_idx];
+
     proto.name = stop_point.name.clone();
-    proto.uri = stop_point.id.clone();
+    proto.uri = format!("stop_point:{}", stop_point.id);
     proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
 
     proto.stop_area = None;
@@ -181,7 +390,7 @@ fn fill_stop_point(
 ) -> Result<(), Error> {
     proto.name = Some(stop_point.name.clone());
     proto.administrative_regions.clear();
-    proto.uri = Some(stop_point.id.clone());
+    proto.uri = Some(format!("stop_point:{}",stop_point.id));
     proto.coord = Some(navitia_proto::GeographicalCoord {
         lat : stop_point.coord.lat,
         lon : stop_point.coord.lon
@@ -204,7 +413,10 @@ fn fill_stop_point(
     proto.label = None;
     proto.commercial_modes.clear();
     proto.physical_modes.clear();
-    proto.fare_zone = None;
+    proto.fare_zone =  Some(navitia_proto::FareZone {
+            name : stop_point.fare_zone_id.clone()
+        }
+    );
     proto.equipment_details.clear();
     
     Ok(())
@@ -219,7 +431,7 @@ fn fill_stop_area(
         format_err!("The stop_area {} cannot be found in the model.", stop_area_id)
     })?;
     proto.name = Some(stop_area.name.clone());
-    proto.uri = Some(stop_area.id.clone());
+    proto.uri = Some(format!("stop_area:{}", stop_area.id));
     proto.coord = Some(navitia_proto::GeographicalCoord {
         lat : stop_area.coord.lat,
         lon : stop_area.coord.lon
@@ -287,6 +499,7 @@ fn fill_pt_display_info(vehicle_journey_idx : Idx<VehicleJourney>,
         proto_uris.line = Some(format!("line:{}", line.id));
         proto_uris.route = Some(format!("route:{}", route.id));
         proto_uris.commercial_mode = Some(format!("commercial_mode:{}", line.commercial_mode_id));
+        proto_uris.physical_mode = Some(format!("physical_mode:{}", vehicle_journey.physical_mode_id));
         proto_uris.network = Some(format!("network:{}", line.network_id));
         proto_uris.note = None;
         proto_uris.journey_pattern = vehicle_journey.journey_pattern_id.as_ref()
@@ -359,6 +572,22 @@ fn to_u64_timestamp(datetime : & NaiveDateTime) -> Result<u64, Error> {
             datetime
         )
     })
+}
+
+fn fill_shape_from_stop_points(stop_points : impl Iterator<Item = Idx<StopPoint>>,
+    proto : & mut Vec<navitia_proto::GeographicalCoord>,
+    model : & transit_model::Model
+) -> Result<(), Error>
+{
+    proto.clear();
+    for stop_point_idx in stop_points {
+        let stop_point = &model.stop_points[stop_point_idx];
+        proto.push(navitia_proto::GeographicalCoord {
+            lat : stop_point.coord.lat,
+            lon : stop_point.coord.lon
+        });
+    }
+    Ok(())
 }
 
 

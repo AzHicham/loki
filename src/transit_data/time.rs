@@ -17,7 +17,7 @@ pub struct DaysSinceDatasetStart {
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
-    pub seconds: u32,
+    pub (super) seconds: u32,
 }
 
 impl PositiveDuration {
@@ -25,11 +25,15 @@ impl PositiveDuration {
         Self { seconds: 0 }
     }
 
-    pub fn from_hms(hours: u32, minutes: u32, seconds: u32) -> PositiveDuration {
+    pub const fn from_hms(hours: u32, minutes: u32, seconds: u32) -> PositiveDuration {
         let total_seconds = seconds + 60 * minutes + 60 * 60 * hours;
         PositiveDuration {
             seconds: total_seconds,
         }
+    }
+
+    pub fn total_seconds(&self) -> u64 {
+        self.seconds as u64
     }
 }
 
@@ -109,6 +113,11 @@ impl SecondsSinceDatasetStart {
         let seconds = self.seconds % SECONDS_IN_A_DAY;
 
         (days_u16, seconds)
+    }
+
+    pub fn duration_since(&self, start_datetime : & SecondsSinceDatasetStart) -> Option<PositiveDuration> {
+        self.seconds.checked_sub(start_datetime.seconds)
+            .map(|seconds| PositiveDuration{seconds})
     }
 }
 
