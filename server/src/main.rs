@@ -83,7 +83,7 @@ fn fill_engine_request_from_protobuf(
         format_err!("request.journey should not be empty for api PtPlanner.")
     })?;
 
-    println!("{:#?}", journey_request);
+    // println!("{:#?}", journey_request);
 
     let departure_stops_and_fallback_duration = journey_request.origin.iter().enumerate()
         .filter_map(|(idx, location_context)| {
@@ -270,8 +270,8 @@ fn server() -> Result<(), Error>{
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
 
-    // assert!(responder.bind("tcp://*:5555").is_ok());
-    assert!(responder.bind("ipc:///tmp/fr_auv_kraken").is_ok());
+    assert!(responder.bind("tcp://*:5555").is_ok());
+    // assert!(responder.bind("ipc:///tmp/fr_auv_kraken").is_ok());
 
     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
     let (model, transit_data) = read_ntfs(ntfs_path)?;
@@ -297,7 +297,7 @@ fn server() -> Result<(), Error>{
             &mut proto_response
         )?;
 
-        println!("Received {:#?}", proto_request);
+        // println!("Received {:#?}", proto_request);
         thread::sleep(Duration::from_millis(1000));
         response_bytes.clear();
         proto_response.encode(& mut response_bytes)?;
@@ -375,7 +375,7 @@ fn solve_protobuf<'a>(
     response::fill_response(journeys_iter,  proto_response, &model, &transit_data)?;
 
 
-    println!("Response : {:#?}", *proto_response);
+    // println!("Response : {:#?}", *proto_response);
     // let mut response_bytes  :Vec<u8> = Vec::new();
     // proto_response.encode(& mut response_bytes)?;
 
