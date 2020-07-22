@@ -129,7 +129,7 @@ fn fill_journey(
 
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
-    proto.sections.resize_with(1 + 3 * journey.nb_of_connections() , || Default::default());
+    proto.sections.resize_with(1 + 3 * journey.nb_of_connections(), || Default::default());
 
     let first_section = & mut proto.sections[0];
     fill_public_transport_section(&journey.first_vehicle_section(transit_data), first_section, model)?;

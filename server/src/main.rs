@@ -249,16 +249,60 @@ fn fill_engine_request_from_protobuf(
 }
 
 fn run2() ->  Result<(), Error> {
-    let request_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_request.proto");
+    let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
     let proto_request_bytes = fs::read(request_filepath)?;
     let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
     println!("Request : \n{:#?}", proto_request);
 
-    let resp_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_resp.proto");
+    let resp_filepath = Path::new("./tests/auvergne/with_resp/3_simplified_resp.proto");
     let proto_resp_bytes = fs::read(resp_filepath)?;
     let proto_resp = navitia_proto::Response::decode(proto_resp_bytes.as_slice())?;
     println!("Response : \n {:#?}", proto_resp);
 
+    Ok(())
+}
+
+
+
+fn server() -> Result<(), Error>{
+    use std::thread;
+    use std::time::Duration;
+    let context = zmq::Context::new();
+    let responder = context.socket(zmq::REP).unwrap();
+
+    // assert!(responder.bind("tcp://*:5555").is_ok());
+    assert!(responder.bind("ipc:///tmp/fr_auv_kraken").is_ok());
+
+    let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
+    let (model, transit_data) = read_ntfs(ntfs_path)?;
+    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
+
+    let mut engine_request = EngineRequest::new_default(&transit_data);
+
+    let mut proto_response = navitia_proto::Response::default();
+
+    let mut request_msg = zmq::Message::new();
+    let mut response_bytes  :Vec<u8> = Vec::new();
+    loop {
+        responder.recv(&mut request_msg, 0).unwrap();
+        // let proto_request = navitia_proto::Request::decode(bytes.as_slice())?;
+        use std::ops::Deref;
+        let proto_request = navitia_proto::Request::decode(request_msg.deref())?;
+
+        solve_protobuf(&proto_request, 
+            & mut engine_request, 
+            & model, 
+            &transit_data, 
+            &mut engine, 
+            &mut proto_response
+        )?;
+
+        println!("Received {:#?}", proto_request);
+        thread::sleep(Duration::from_millis(1000));
+        response_bytes.clear();
+        proto_response.encode(& mut response_bytes)?;
+        responder.send(&response_bytes, 0).unwrap();
+    }
     Ok(())
 }
 
@@ -267,7 +311,7 @@ fn run() ->  Result<(), Error>  {
     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
 
     // let request_filepath = Path::new("./tests/auvergne/with_resp/2_request.proto");
-    let request_filepath = Path::new("./tests/auvergne/with_resp/auvergne_03_request.proto");
+    let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
     // let request_filepath = Path::new("./tests/request1.proto");
     
     let (model, transit_data) = read_ntfs(ntfs_path)?;
@@ -284,9 +328,21 @@ fn run() ->  Result<(), Error>  {
 
     let mut engine_request = EngineRequest::new_default(&transit_data);
 
+    Ok(())
+}
+
+fn solve_protobuf<'a>(
+    proto_request : &navitia_proto::Request,
+    engine_request : & mut EngineRequest<'a>,
+    model :& transit_model::Model,
+    transit_data : & 'a TransitData,
+    engine : & mut MultiCriteriaRaptor<EngineRequest<'a>>,
+    proto_response : & mut navitia_proto::Response
+) -> Result<(), Error>
+{
 
     fill_engine_request_from_protobuf(&proto_request, 
-        & mut engine_request, 
+        engine_request, 
         & model, 
         & transit_data, 
         &DEFAULT_MAX_DURATION, 
@@ -311,15 +367,17 @@ fn run() ->  Result<(), Error>  {
         trace!("{}", response.print(&transit_data, &model)?);
     }
 
-    let mut proto_response = navitia_proto::Response::default();
+    * proto_response = navitia_proto::Response::default();
 
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         engine_request.create_response(pt_journey, &transit_data).ok()
     });
-    response::fill_response(journeys_iter, & mut proto_response, &model, &transit_data)?;
+    response::fill_response(journeys_iter,  proto_response, &model, &transit_data)?;
 
 
-    println!("Response : {:#?}", proto_response);
+    println!("Response : {:#?}", *proto_response);
+    // let mut response_bytes  :Vec<u8> = Vec::new();
+    // proto_response.encode(& mut response_bytes)?;
 
     Ok(())
 }
@@ -345,7 +403,7 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 
 fn main() {
     let _log_guard = init_logger();
-    if let Err(err) = run() {
+    if let Err(err) = server() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }

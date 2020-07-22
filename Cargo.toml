@@ -10,6 +10,7 @@ edition = "2018"
 members = [
 	"cli",
 	"server",
+	"client",
 ]
 
 [dependencies]

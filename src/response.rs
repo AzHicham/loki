@@ -258,7 +258,10 @@ impl Journey {
         let trip = &vehicle_leg.trip;
         let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
         let route_id = &model.vehicle_journeys[vehicle_journey_idx].route_id;
-        let route_id = &model.routes.get(route_id).unwrap().id;
+        let route = &model.routes.get(route_id).unwrap();
+        let line= &model.lines.get(&route.line_id).unwrap();
+
+        
 
         let from_stop = transit_data.stop_at_position_in_trip(&vehicle_leg.board_position, &trip);
         let to_stop = transit_data.stop_at_position_in_trip(&vehicle_leg.debark_position, &trip);
@@ -273,7 +276,7 @@ impl Journey {
         let from_datetime = transit_data.calendar.to_pretty_string(&board_time);
         let to_datetime = transit_data.calendar.to_pretty_string(&debark_time);
         writeln!(writer, "{} from {} at {} to {} at {} ", 
-            route_id, 
+            line.id, 
             from_stop_id,
             from_datetime,
             to_stop_id,
@@ -452,6 +455,7 @@ ConnectionIter<'journey, 'data> {
             to_datetime : vehicle_section.from_datetime.clone(),
             stop_point : transfer_section.to_stop_point.clone(),
         };
+        self.connection_idx += 1;
         Some((transfer_section, waiting_section, vehicle_section))
     }
 }
