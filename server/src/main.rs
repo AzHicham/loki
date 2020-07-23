@@ -92,7 +92,7 @@ fn fill_engine_request_from_protobuf(
                 .stop_points
                 .get_idx(stop_point_uri)
                 .or_else(|| {
-                    warn!("The {}th departure stop point {} is not found in model.\
+                    warn!("The {}th departure stop point {} is not found in model. \
                             I ignore it.", 
                             idx,
                             stop_point_uri
@@ -103,7 +103,7 @@ fn fill_engine_request_from_protobuf(
                 .stop_point_idx_to_stop(&stop_idx)
                 .or_else(|| {
                     warn!(
-                        "The {}th departure stop point {} with idx {:?} is not found in transit_data.\
+                        "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
                         I ignore it",
                         idx,
                         stop_point_uri,
@@ -118,7 +118,7 @@ fn fill_engine_request_from_protobuf(
                 .ok()
                 .or_else(|| {
                     warn!(
-                        "The {}th departure stop point {} has a fallback duration {}\
+                        "The {}th departure stop point {} has a fallback duration {} \
                         that cannot be converted to u32. I ignore it",
                         idx,
                         stop_point_uri,
@@ -139,7 +139,7 @@ fn fill_engine_request_from_protobuf(
                 .stop_points
                 .get_idx(stop_point_uri)
                 .or_else(|| {
-                    warn!("The {}th arrival stop point {} is not found in model.\
+                    warn!("The {}th arrival stop point {} is not found in model. \
                             I ignore it.", 
                             idx,
                             stop_point_uri
@@ -150,7 +150,7 @@ fn fill_engine_request_from_protobuf(
                 .stop_point_idx_to_stop(&stop_idx)
                 .or_else(|| {
                     warn!(
-                        "The {}th arrival stop point {} with idx {:?} is not found in transit_data.\
+                        "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
                         I ignore it",
                         idx,
                         stop_point_uri,
@@ -270,8 +270,8 @@ fn server() -> Result<(), Error>{
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
 
-    assert!(responder.bind("tcp://*:5555").is_ok());
-    // assert!(responder.bind("ipc:///tmp/fr_auv_kraken").is_ok());
+    // assert!(responder.bind("tcp://*:5555").is_ok());
+    assert!(responder.bind("ipc:///tmp/fr_auv_laxatips").is_ok());
 
     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
     let (model, transit_data) = read_ntfs(ntfs_path)?;
@@ -283,12 +283,14 @@ fn server() -> Result<(), Error>{
 
     let mut request_msg = zmq::Message::new();
     let mut response_bytes  :Vec<u8> = Vec::new();
+    let mut count = 0;
     loop {
         responder.recv(&mut request_msg, 0).unwrap();
         // let proto_request = navitia_proto::Request::decode(bytes.as_slice())?;
         use std::ops::Deref;
         let proto_request = navitia_proto::Request::decode(request_msg.deref())?;
 
+        info!("Received request {:?}", proto_request.request_id);
         solve_protobuf(&proto_request, 
             & mut engine_request, 
             & model, 
@@ -298,38 +300,44 @@ fn server() -> Result<(), Error>{
         )?;
 
         // println!("Received {:#?}", proto_request);
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(10));
         response_bytes.clear();
+
+        let mut response_file = std::fs::File::create(format!("./dump_proto_response_{}", count))?;
+        use std::io::Write;
+        write!(& mut response_file, "{:#?}", proto_response)?;
+        info!("Writing response file {}", count);
         proto_response.encode(& mut response_bytes)?;
         responder.send(&response_bytes, 0).unwrap();
+        count += 1;
     }
     Ok(())
 }
 
-fn run() ->  Result<(), Error>  {
+// fn run() ->  Result<(), Error>  {
 
-    let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
+//     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
 
-    // let request_filepath = Path::new("./tests/auvergne/with_resp/2_request.proto");
-    let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
-    // let request_filepath = Path::new("./tests/request1.proto");
+//     // let request_filepath = Path::new("./tests/auvergne/with_resp/2_request.proto");
+//     let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
+//     // let request_filepath = Path::new("./tests/request1.proto");
     
-    let (model, transit_data) = read_ntfs(ntfs_path)?;
-
-    
-
-    let proto_request_bytes = fs::read(request_filepath)?;
-    let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
-
+//     let (model, transit_data) = read_ntfs(ntfs_path)?;
 
     
 
-    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
+//     let proto_request_bytes = fs::read(request_filepath)?;
+//     let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
 
-    let mut engine_request = EngineRequest::new_default(&transit_data);
 
-    Ok(())
-}
+    
+
+//     let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
+
+//     let mut engine_request = EngineRequest::new_default(&transit_data);
+
+//     Ok(())
+// }
 
 fn solve_protobuf<'a>(
     proto_request : &navitia_proto::Request,

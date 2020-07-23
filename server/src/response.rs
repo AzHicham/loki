@@ -69,7 +69,7 @@ where Journeys : Iterator<Item = Journey>
             proto.journeys.resize_with(idx + 1, || navitia_proto::Journey::default());
             & mut proto.journeys[idx]
         };
-        fill_journey(&journey, proto_journey, model, transit_data)?;
+        fill_journey(&journey, proto_journey, model, transit_data, idx)?;
         nb_of_journeys+=1;
     }
     proto.journeys.truncate(nb_of_journeys);
@@ -105,11 +105,13 @@ where Journeys : Iterator<Item = Journey>
     
 }
 
+
 fn fill_journey(
     journey : & Journey,
     proto : & mut navitia_proto::Journey, 
     model :& transit_model::Model,
     transit_data : & TransitData,
+    journey_id : usize,
 ) -> Result<(), Error>
 {
 
@@ -132,23 +134,27 @@ fn fill_journey(
     proto.sections.resize_with(1 + 3 * journey.nb_of_connections(), || Default::default());
 
     let first_section = & mut proto.sections[0];
-    fill_public_transport_section(&journey.first_vehicle_section(transit_data), first_section, model)?;
+    let section_id = format!("section_{}_{}", journey_id, 0);
+    fill_public_transport_section(&journey.first_vehicle_section(transit_data), first_section, model, section_id)?;
     
     for (connection_idx, connection) in journey.connections(transit_data).enumerate() {
         {
+            let section_id = format!("section_{}_{}", journey_id, 1 + 3 * connection_idx);
             let proto_transfer_section = & mut proto.sections[1 + 3 * connection_idx];
             let transfer_section = &connection.0;
-            fill_transfer_section(transfer_section, proto_transfer_section, model)?;
+            fill_transfer_section(transfer_section, proto_transfer_section, model, section_id)?;
         }
         {
+            let section_id = format!("section_{}_{}", journey_id, 2 + 3 * connection_idx);
             let proto_waiting_section = & mut proto.sections[2 + 3 * connection_idx];
             let waiting_section = &connection.1;
-            fill_waiting_section(waiting_section, proto_waiting_section, model)?;
+            fill_waiting_section(waiting_section, proto_waiting_section, model, section_id)?;
         }
         {
+            let section_id = format!("section_{}_{}", journey_id, 3 + 3 * connection_idx);
             let proto_vehicle_section = & mut proto.sections[3 + 3 * connection_idx];
             let vehicle_section = &connection.2;
-            fill_public_transport_section(vehicle_section, proto_vehicle_section, model)?;
+            fill_public_transport_section(vehicle_section, proto_vehicle_section, model, section_id)?;
         }
          
     }
@@ -188,7 +194,8 @@ fn fill_journey(
 fn fill_transfer_section(
     transfer_section : & TransferSection,
     proto : & mut navitia_proto::Section,
-    model : & transit_model::Model
+    model : & transit_model::Model,
+    section_id : String
 ) -> Result<(), Error>
 {
 
@@ -217,9 +224,9 @@ fn fill_transfer_section(
     proto.end_date_time = Some(to_u64_timestamp(&transfer_section.to_datetime)?);
 
     proto.base_begin_date_time = None;
-    proto.base_end_date_time = None;
+    proto.base_end_date_time = None; 
     proto.length = None;
-    proto.id = None;
+    proto.id = Some(section_id);
     proto.co2_emission = None;
     proto.additional_informations.clear();
 
@@ -230,7 +237,8 @@ fn fill_transfer_section(
 fn fill_waiting_section(
     waiting_section : & WaitingSection,
     proto : & mut navitia_proto::Section,
-    model : & transit_model::Model
+    model : & transit_model::Model,
+    section_id : String
 ) -> Result<(), Error>
 {
 
@@ -254,11 +262,11 @@ fn fill_waiting_section(
     proto.duration = Some(duration_to_i32(&waiting_section.from_datetime, &waiting_section.to_datetime)?);
     proto.begin_date_time = Some(to_u64_timestamp(&waiting_section.from_datetime)?);
     proto.end_date_time = Some(to_u64_timestamp(&waiting_section.to_datetime)?);
-    proto.begin_date_time = None;
+    proto.base_begin_date_time = None;
     proto.base_end_date_time = None;
     proto.realtime_level = None;
     proto.length = None;
-    proto.id = None;
+    proto.id = Some(section_id);
     proto.co2_emission = None;
     proto.additional_informations.clear();
 
@@ -270,7 +278,8 @@ fn fill_waiting_section(
 fn fill_public_transport_section(
     vehicle_section : & VehicleSection,
     proto : & mut navitia_proto::Section,
-    model : & transit_model::Model
+    model : & transit_model::Model,
+    section_id : String,
 ) -> Result<(), Error>
 {
     
@@ -336,7 +345,7 @@ fn fill_public_transport_section(
     proto.realtime_level = None;
     proto.length = None;
 
-    proto.id = None;
+    proto.id = Some(section_id);
 
     proto.co2_emission = None;
     proto.additional_informations.clear();
