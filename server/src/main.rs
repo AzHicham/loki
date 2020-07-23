@@ -1,11 +1,13 @@
-// pub mod navitia_proto {
-//     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-// }
+pub mod navitia_proto {
+    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
+}
 
-pub mod navitia_proto;
+// pub mod navitia_proto;
+mod response;
 
+use structopt::StructOpt;
 use prost::Message;
-use laxatips::log::{debug, info, warn, trace};
+use laxatips::log::{debug, info, warn, trace, error};
 use laxatips::transit_model;
 use laxatips::{
     DepartAfterRequest as EngineRequest, 
@@ -14,8 +16,7 @@ use laxatips::{
     TransitData,
 };
 
-use std::fs;
-use std::path::Path;
+use std::path::{PathBuf, Path};
 
 use slog::slog_o;
 use slog::Drain;
@@ -26,11 +27,26 @@ use std::time::SystemTime;
 
 use std::convert::TryFrom;
 
-mod response;
+
 
 
 const DEFAULT_MAX_DURATION : PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
 const DEFAULT_MAX_NB_LEGS : u8 = 10;
+
+
+#[derive(StructOpt)]
+#[structopt(name = "laxatips_server", about = "Run laxatips server.")]
+struct Options {
+    /// directory of ntfs files to load
+    #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
+    input: PathBuf,
+
+    /// penalty to apply to arrival time for each vehicle leg in a journey
+    #[structopt(short ="s")]
+    socket: String,
+
+}
+
 
 fn read_ntfs(ntfs_path : & Path) -> Result<(transit_model::model::Model, TransitData), Error> {
     let model = transit_model::ntfs::read(ntfs_path)?;
@@ -248,96 +264,8 @@ fn fill_engine_request_from_protobuf(
 
 }
 
-fn run2() ->  Result<(), Error> {
-    let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
-    let proto_request_bytes = fs::read(request_filepath)?;
-    let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
-    println!("Request : \n{:#?}", proto_request);
-
-    let resp_filepath = Path::new("./tests/auvergne/with_resp/3_simplified_resp.proto");
-    let proto_resp_bytes = fs::read(resp_filepath)?;
-    let proto_resp = navitia_proto::Response::decode(proto_resp_bytes.as_slice())?;
-    println!("Response : \n {:#?}", proto_resp);
-
-    Ok(())
-}
 
 
-
-fn server() -> Result<(), Error>{
-    use std::thread;
-    use std::time::Duration;
-    let context = zmq::Context::new();
-    let responder = context.socket(zmq::REP).unwrap();
-
-    // assert!(responder.bind("tcp://*:5555").is_ok());
-    assert!(responder.bind("ipc:///tmp/fr_auv_laxatips").is_ok());
-
-    let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
-    let (model, transit_data) = read_ntfs(ntfs_path)?;
-    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
-
-    let mut engine_request = EngineRequest::new_default(&transit_data);
-
-    let mut proto_response = navitia_proto::Response::default();
-
-    let mut request_msg = zmq::Message::new();
-    let mut response_bytes  :Vec<u8> = Vec::new();
-    let mut count = 0;
-    loop {
-        responder.recv(&mut request_msg, 0).unwrap();
-        // let proto_request = navitia_proto::Request::decode(bytes.as_slice())?;
-        use std::ops::Deref;
-        let proto_request = navitia_proto::Request::decode(request_msg.deref())?;
-
-        info!("Received request {:?}", proto_request.request_id);
-        solve_protobuf(&proto_request, 
-            & mut engine_request, 
-            & model, 
-            &transit_data, 
-            &mut engine, 
-            &mut proto_response
-        )?;
-
-        // println!("Received {:#?}", proto_request);
-        thread::sleep(Duration::from_millis(10));
-        response_bytes.clear();
-
-        let mut response_file = std::fs::File::create(format!("./dump_proto_response_{}", count))?;
-        use std::io::Write;
-        write!(& mut response_file, "{:#?}", proto_response)?;
-        info!("Writing response file {}", count);
-        proto_response.encode(& mut response_bytes)?;
-        responder.send(&response_bytes, 0).unwrap();
-        count += 1;
-    }
-    Ok(())
-}
-
-// fn run() ->  Result<(), Error>  {
-
-//     let ntfs_path = Path::new("/home/pascal/artemis/artemis_data/fr-auv/fusio/");
-
-//     // let request_filepath = Path::new("./tests/auvergne/with_resp/2_request.proto");
-//     let request_filepath = Path::new("./tests/auvergne/with_resp/3_simplified.proto");
-//     // let request_filepath = Path::new("./tests/request1.proto");
-    
-//     let (model, transit_data) = read_ntfs(ntfs_path)?;
-
-    
-
-//     let proto_request_bytes = fs::read(request_filepath)?;
-//     let proto_request = navitia_proto::Request::decode(proto_request_bytes.as_slice())?;
-
-
-    
-
-//     let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
-
-//     let mut engine_request = EngineRequest::new_default(&transit_data);
-
-//     Ok(())
-// }
 
 fn solve_protobuf<'a>(
     proto_request : &navitia_proto::Request,
@@ -388,6 +316,111 @@ fn solve_protobuf<'a>(
     // proto_response.encode(& mut response_bytes)?;
 
     Ok(())
+}
+
+
+
+
+fn solve<'a>(
+    engine_request : & mut EngineRequest<'a>,
+    model :& transit_model::Model,
+    transit_data : & 'a TransitData,
+    engine : & mut MultiCriteriaRaptor<EngineRequest<'a>>,
+    proto_response : & mut navitia_proto::Response,
+    socket : & zmq::Socket,
+    zmq_message : & mut zmq::Message,
+    response_bytes : & mut Vec<u8>,
+) -> Result<(), Error>
+{
+    socket.recv(zmq_message, 0).map_err(|err| {
+        format_err!("Could not receive zmq message : \n {}", err)
+    })?;
+    use std::ops::Deref;
+    let proto_request = navitia_proto::Request::decode((*zmq_message).deref()).map_err(|err| {
+        format_err!("Could not decode zmq message into protobuf: \n {}", err)
+    })?;
+
+    info!("Received request {:?}", proto_request.request_id);
+    
+    let solve_result = solve_protobuf(&proto_request, 
+        engine_request, 
+        model, 
+        transit_data, 
+        engine, 
+        proto_response
+    );
+
+    if let Result::Err(err) = solve_result {
+        error!("Error while solving request {:?} : \n {}",
+            proto_request.request_id,
+            err
+        );
+        *proto_response = navitia_proto::Response::default();
+        proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
+        let mut proto_error = navitia_proto::Error::default();
+        proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
+        proto_error.message = Some(format!("{}", err));
+        proto_response.error = Some(proto_error);
+    }
+
+    response_bytes.clear();
+
+    proto_response.encode(response_bytes).map_err(|err| {
+        format_err!("Could not encode protobuf into zmq message: \n {}", err)
+    })?;
+
+    info!("Sending response for request {:?}", proto_request.request_id);
+    
+    socket.send(&*response_bytes, 0).map_err(|err| {
+        format_err!("Could not send zmq response : \n {}", err)
+    })?;
+
+
+    Ok(())
+}
+
+fn server() -> Result<(), Error>{
+
+    let options = Options::from_args();
+
+    let context = zmq::Context::new();
+    let responder = context.socket(zmq::REP).unwrap();
+
+    responder.bind(&options.socket).map_err(|err| {
+        format_err!("Could not bind socket {}. Error : {}", options.socket, err)
+    })?;
+
+    let ntfs_path = options.input;
+
+    let (model, transit_data) = read_ntfs(&ntfs_path)?;
+    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
+
+    let mut engine_request = EngineRequest::new_default(&transit_data);
+
+    let mut proto_response = navitia_proto::Response::default();
+
+    let mut zmq_message = zmq::Message::new();
+    let mut response_bytes  :Vec<u8> = Vec::new();
+
+    loop {
+        let solve_result = solve(
+            & mut engine_request, 
+            & model, 
+            & transit_data, 
+            & mut engine, 
+            & mut proto_response, 
+            & responder, 
+            & mut zmq_message, 
+            & mut response_bytes
+        );
+        if let Err(err) = solve_result {
+            error!("Failed to solve request : ");
+            for cause in err.iter_chain() {
+                error!("{}", cause);
+            }
+        }
+        
+    }
 }
 
 fn init_logger() -> slog_scope::GlobalLoggerGuard {

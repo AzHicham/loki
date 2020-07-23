@@ -155,21 +155,6 @@ impl Journey {
         last_debark_time + self.arrival_fallback_duration
     }
 
-    fn start_time(&self, 
-        vehicle_leg_idx : & VehicleLegIdx, 
-        transit_data : & TransitData
-    ) -> NaiveDateTime {
-        let vehicle_leg = match vehicle_leg_idx {
-            VehicleLegIdx::First => &self.first_vehicle,
-            VehicleLegIdx::Connection(idx) => &self.connections[*idx].1
-        };
-        let datetime = transit_data
-            .board_time_of(&vehicle_leg.trip, &vehicle_leg.board_position)
-            .unwrap(); //unwrap is safe because of checks that happens during Self construction
-        transit_data.calendar.to_naive_datetime(&datetime)
-
-    }
-
     pub fn total_transfer_duration(&self, transit_data : & TransitData) -> PositiveDuration {
         let mut result = PositiveDuration::zero();
         for (transfer, _) in &self.connections {

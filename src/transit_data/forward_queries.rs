@@ -41,7 +41,7 @@ impl TransitData {
         trip.mission.clone()
     }
 
-    pub fn stoptime_idx(&self, position: &Position, trip: &Trip) -> usize {
+    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> usize {
         position.idx
     }
 

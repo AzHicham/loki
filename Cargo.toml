@@ -10,11 +10,10 @@ edition = "2018"
 members = [
 	"cli",
 	"server",
-	"client",
 ]
 
 [dependencies]
-transit_model = "0.20"
+transit_model = "0.23"
 # transit_model = { path = "../transit_model/"}
 typed_index_collection = "1"
 chrono = "0.4"
