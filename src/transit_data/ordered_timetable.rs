@@ -304,8 +304,8 @@ impl StopPatternData {
         let corrected_board_debark_times = board_debark_times.zip(self.flow_directions.iter()).map(
             |((board_time, debark_time), flow_direction)| match flow_direction {
                 FlowDirection::BoardAndDebark => (board_time, debark_time),
-                FlowDirection::BoardOnly => (board_time.clone(), board_time),
-                FlowDirection::DebarkOnly => (debark_time.clone(), debark_time),
+                FlowDirection::BoardOnly => (board_time, board_time),
+                FlowDirection::DebarkOnly => (debark_time, debark_time),
             },
         );
 
@@ -562,10 +562,10 @@ impl TimetableData {
         }
 
         for (position, (board_time, debark_time)) in board_debark_times.enumerate() {
-            self.board_times_by_position[position].insert(insert_idx, board_time.clone());
+            self.board_times_by_position[position].insert(insert_idx, board_time);
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
             let latest_board_time = &mut self.latest_board_time_by_position[position];
-            *latest_board_time = std::cmp::max(latest_board_time.clone(), board_time);
+            *latest_board_time = std::cmp::max(*latest_board_time, board_time);
         }
         self.vehicles_data.insert(insert_idx, vehicle_data);
     }

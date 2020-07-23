@@ -56,7 +56,7 @@ impl Calendar {
     }
 
     pub fn to_naive_date(&self, day : & DaysSinceDatasetStart) -> NaiveDate {
-        self.first_date().clone() + chrono::Duration::days(day.days as i64)
+        *self.first_date() + chrono::Duration::days(day.days as i64)
     }
 
     // try to convert a unix timestamp (nb of seconds since midnight UTC on January 1, 1970)

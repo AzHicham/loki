@@ -104,7 +104,7 @@ impl<'a> Request<'a> {
         pt_journey: &PTJourney<Self>,
         transit_data: &'a TransitData,
     ) -> Result<response::Journey, response::BadJourney> {
-        let departure_datetime = self.departure_datetime.clone();
+        let departure_datetime = self.departure_datetime;
         let departure_idx = pt_journey.departure_leg.departure.idx;
         let departure_fallback_duration = &self.departures_stop_point_and_fallback_duration[departure_idx].1;
 
@@ -181,8 +181,8 @@ impl<'a> PublicTransit for Request<'a> {
         //     return true;
         // }
         // lower.arrival_time <= upper.arrival_time
-        lower.arrival_time.clone() + self.leg_arrival_penalty * (lower.nb_of_legs as u32) 
-            <= upper.arrival_time.clone() + self.leg_arrival_penalty * (upper.nb_of_legs as u32)
+        lower.arrival_time + self.leg_arrival_penalty * (lower.nb_of_legs as u32) 
+            <= upper.arrival_time + self.leg_arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         && 
         lower.fallback_duration + lower.transfers_duration  + self.leg_walking_penalty * (lower.nb_of_legs as u32) 
@@ -301,7 +301,7 @@ impl<'a> PublicTransit for Request<'a> {
     ) -> (Self::Stop, Self::Criteria) {
         let (arrival_stop, transfer_duration) = self.transit_data.transfer(transfer);
         let new_criteria = Criteria {
-            arrival_time: criteria.arrival_time.clone() + transfer_duration,
+            arrival_time: criteria.arrival_time + transfer_duration,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration + transfer_duration,
@@ -312,7 +312,7 @@ impl<'a> PublicTransit for Request<'a> {
     fn depart(&self, departure: &Self::Departure) -> (Self::Stop, Self::Criteria) {
         let (stop, fallback_duration) =
             self.departures_stop_point_and_fallback_duration[departure.idx];
-        let arrival_time = self.departure_datetime.clone() + fallback_duration;
+        let arrival_time = self.departure_datetime + fallback_duration;
         let criteria = Criteria {
             arrival_time,
             nb_of_legs: 0,
@@ -330,7 +330,7 @@ impl<'a> PublicTransit for Request<'a> {
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {
         let arrival_duration = &self.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
         Criteria {
-            arrival_time: criteria.arrival_time.clone() + *arrival_duration,
+            arrival_time: criteria.arrival_time + *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,

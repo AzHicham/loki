@@ -130,7 +130,7 @@ impl Journey {
                 return Err(BadJourney::BadTransferEndStop(transfer.clone(), vehicle_leg.clone(), idx))
             }
 
-            let end_transfer_time = prev_debark_time.clone() + transfer_duration;
+            let end_transfer_time = prev_debark_time + transfer_duration;
             if end_transfer_time > board_time {
                 return Err(BadJourney::BadTransferEndTime(transfer.clone(), vehicle_leg.clone(), idx))
             }
@@ -365,7 +365,7 @@ impl Journey {
             to_datetime,
             from_stoptime_idx,
             to_stoptime_idx,
-            vehicle_journey : vehicle_journey,
+            vehicle_journey ,
             day_for_vehicle_journey,
         }
 
@@ -436,9 +436,9 @@ ConnectionIter<'journey, 'data> {
         let transfer_section = self.journey.transfer_section(self.connection_idx, self.transit_data);
         let vehicle_section = self.journey.vehicle_section(&VehicleLegIdx::Connection(self.connection_idx), self.transit_data);
         let waiting_section = WaitingSection {
-            from_datetime : transfer_section.to_datetime.clone(),
-            to_datetime : vehicle_section.from_datetime.clone(),
-            stop_point : transfer_section.to_stop_point.clone(),
+            from_datetime : transfer_section.to_datetime,
+            to_datetime : vehicle_section.from_datetime,
+            stop_point : transfer_section.to_stop_point,
         };
         self.connection_idx += 1;
         Some((transfer_section, waiting_section, vehicle_section))
