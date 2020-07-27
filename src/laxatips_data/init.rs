@@ -12,7 +12,9 @@ use transit_model::{
 };
 use typed_index_collection::Idx;
 
-use log::{info, warn, debug};
+use chrono_tz::Tz as TimeZone;
+
+use log::{info, warn};
 
 impl TransitData {
     pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
@@ -181,12 +183,67 @@ impl TransitData {
             .calendar
             .get_or_insert(transit_model_calendar.dates.iter());
 
+
+        let has_route = transit_model.routes.get(&vehicle_journey.route_id);
+        if has_route.is_none() {
+            warn!(
+                "Skipping vehicle journey {} because its route {} was not found.",
+                vehicle_journey.id, vehicle_journey.route_id, 
+            );
+            return;
+        };
+        let route = has_route.unwrap();
+        let has_line = transit_model.lines.get(&route.line_id);
+
+        if has_line.is_none() {
+            warn!(
+                "Skipping vehicle journey {} because its line {} was not found.",
+                vehicle_journey.id, route.line_id, 
+            );
+            return;
+        }
+        let line = has_line.unwrap();
+        let has_network = transit_model.networks.get(&line.network_id);
+        if has_network.is_none() {
+            warn!(
+                "Skipping vehicle journey {} because its network {} was not found.",
+                vehicle_journey.id, line.network_id, 
+            );
+            return;
+        }
+        let network = has_network.unwrap();
+
+        let timezone = {
+            if network.timezone.is_none() {
+                warn!(
+                    "Skipping vehicle journey {} because its network {} has no timezone.",
+                    vehicle_journey.id, line.network_id, 
+                );
+                return;
+            };
+            let timezone_string = network.timezone.as_ref().unwrap();
+            let has_timezone : Result<TimeZone, _> = timezone_string.parse();
+            match has_timezone {
+                Result::Err(err) => {
+                    warn!(
+                        "Skipping vehicle journey {} because I can't parse its timezone {}. \n {}",
+                        vehicle_journey.id, timezone_string, err, 
+                    );
+                    return;
+                }
+                Result::Ok(timezone) => {
+                    timezone
+                }
+            }
+        };
+
+
         let daily_trip_data = VehicleData {
             vehicle_journey_idx,
             days_pattern,
         };
 
-        let insert_error = pattern_data.insert(board_debark_times, daily_trip_data);
+        let insert_error = pattern_data.insert(board_debark_times, &timezone, daily_trip_data);
         if let Err(err) = insert_error {
             match err {
                 VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
