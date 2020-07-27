@@ -103,9 +103,6 @@ impl TransitData {
         transit_model: &Model,
     ) {
 
-
-
-
         let mut stop_points = {
             let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
             for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {

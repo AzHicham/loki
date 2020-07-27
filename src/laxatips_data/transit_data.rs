@@ -10,23 +10,17 @@ use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
 use super::calendar::{Calendar, DaysPattern};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
 
-
-
 use std::collections::HashMap;
 
 
 
-#[derive(Debug, Copy, Clone)]
-pub struct Duration {
-    pub (super) seconds : u32
-}
+
 
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
     pub (super) days_pattern : DaysPattern,
-
 }
 
 pub struct StopData {
@@ -48,7 +42,7 @@ pub struct StopPattern {
     pub (super) idx : usize
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub struct Stop {
     pub (super) idx : usize
 }
