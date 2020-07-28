@@ -10,49 +10,46 @@ Reads a [ntfs][1] dataset and then process protobuf journey requests (the format
 
 You should have 
 
-Be sure to update the `navitia-proto` git submodule.
+Be sure to fetch the `navitia-proto` git submodule.
 ```bash
-git submodule update
+git submodule init    # a first time, to fetch the navitia-proto repo
+git submodule update  # each time the navitia-proto repo is updated
 cargo build --release
 ```
 
-
 ## How to use
 
-Two usages for now :
-- you can specify an origin and destination stop_areas with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs stop-areas --start start_stop_area_uri --end end_stop_area_uri
-  ```
-  where `start_stop_area_uri` and `end_stop_area_uri` are uri of stop areas occuring in the ntfs dataset located in the directory `/path/to/ntfs/`.
+Laxatips-server can be used to answer the "public transit" part of distributed journey request. 
+The setup is as follow :
+- a jormun server will receive the distributed journey request, and create several subrequest to be handled by backends, before
+  serving the response 
+- a laxatips-server backend will answer all "pt_journey" subrequests
+- a kraken backend will answer all other subrequests
 
-  You can obtain more logs by specifying the log level as follows
-   ```bash
-    RUST_LOG=TRACE cargo run --release -- --ntfs /path/to/ntfs stop-areas --start start_stop_area_uri --end end_stop_area_uri
-  ```
-  where the allows log levels are `TRACE, DEBUG, INFO, WARN, ERROR`.
-
-- you can perform random queries on a ntfs dataset with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs random
-  ```
-  This will perform 10 queries between stop_areas chosen at random in the ntfs dataset.
-  You can specify the number of queries to perform with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs random --nb-queries 100
-  ```
-
-In both cases you can change some parameters (e.g. the maximum duration of a journey, the maximum number of public transit leg, etc.) with command line options. To obtain a list, launch :
-```bash
-cargo run --release -- help
+You should have a ntfs dataset in `/path/to/ntfs` which has been binarized to `/path/to/data.nav.lz4` (you can use [eitry][8] for generating a `data.nav.lz4` from a ntfs dataset).
+You need to setup :
+- a jormun server from [this branch][7] which should be configured with 
+```json
+{"key": "mycoverage", "zmq_socket": "ipc:///tmp/kraken", "pt_zmq_socket" : "ipc:///tmp/laxatips"}
+```
+- a kraken configured with 
+```
+database = /path/to/data.nav.lz4
+zmq_socket = "ipc:///tmp/kraken"
 ```
 
+- a laxatips server launched with
+  ```bash
+  cargo run --release -- --ntfs /path/to/ntfs --socket ipc:///tmp/laxatips
+  ```
+
+Then you can send http requests to the jormun server !
 
 ## Architecture
 
 ### Protobuf 
 
-This crate uses [prost][4] to handle protobuf (de)serialization specified in [navitia-proto][2].
+This crate uses [prost][4] to handle (de)serialization of protobuf. The protobuf schema is specified in [navitia-proto][2].
 This means that Rust code is generated from `.proto` files at compile time, by [prost-build][3] in the build script [build.rs][5]. 
 To see where the rust code is generated, run 
 ```bash
@@ -65,7 +62,9 @@ And you should see a line like the following in the output :
 
 See [this page][6] for more information on build scripts.
 
-### ZMQ
+
+
+
 
 
 [1]: https://github.com/CanalTP/ntfs-specification
@@ -74,3 +73,5 @@ See [this page][6] for more information on build scripts.
 [4]: https://crates.io/crates/prost
 [5]: ./build.rs
 [6]: https://doc.rust-lang.org/cargo/reference/build-scripts.html
+[7]: https://github.com/CanalTP/navitia/pull/3251
+[8]: https://github.com/CanalTP/navitia/blob/dev/source/eitri/Readme.md
