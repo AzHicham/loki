@@ -9,4 +9,7 @@ fn main() {
         &["navitia-proto/"],
     )
     .unwrap();
+    use std::env;
+    let out_dir = env::var("OUT_DIR").unwrap();
+    println!("Writing protobuf code in {}/pbnavitia.rs", out_dir );
 }
