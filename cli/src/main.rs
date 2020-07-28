@@ -212,10 +212,10 @@ fn run() -> Result<(), Error> {
         Command::Random(random) => {
             let mut total_nb_of_rounds = 0;
             let nb_queries = random.nb_queries;
+            use rand::prelude::{SeedableRng, IteratorRandom};
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
             for _ in 1..nb_queries {
-                use rand::prelude::*;
-                //let mut rng = thread_rng();
-                let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
+                       
                 let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
                 let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
 
