@@ -12,7 +12,7 @@ use transit_model::{
 };
 use typed_index_collection::Idx;
 
-use log::{info, warn};
+use log::{info, warn, debug};
 
 impl TransitData {
     pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
@@ -86,7 +86,8 @@ impl TransitData {
             }
             _ => {
                 warn!(
-                    "Transfer {:?} is between stops which does not appears in the data.",
+                    "Transfer {:?} is between stops which does not appears in the data. 
+                    I ignore it.",
                     transfer_idx
                 );
             }
@@ -136,14 +137,14 @@ impl TransitData {
             return;
         }
         if stop_points[0].1 != FlowDirection::BoardOnly {
-            warn!(
+            debug!(
                 "First stop time of vehicle journey {} has debarked allowed. I ignore it.",
                 vehicle_journey.id
             );
             stop_points[0].1 = FlowDirection::BoardOnly;
         }
         if stop_points.last().unwrap().1 != FlowDirection::DebarkOnly {
-            warn!(
+            debug!(
                 "Last stop time of vehicle journey {} has boarding allowed. I ignore it.",
                 vehicle_journey.id
             );
@@ -169,7 +170,7 @@ impl TransitData {
             .get(&vehicle_journey.service_id);
         if has_transit_model_calendar.is_none() {
             warn!(
-                "Skipping vehicle journey {} because its calendar {} was not found",
+                "Skipping vehicle journey {} because its calendar {} was not found.",
                 vehicle_journey.id, vehicle_journey.service_id, 
             );
             return;
@@ -198,7 +199,7 @@ impl TransitData {
                         "Skipping vehicle journey {} because its 
                             debark time {} at sequence {}
                             is earlier than its 
-                            board time {} upstream at sequence {} ",
+                            board time {} upstream at sequence {}. ",
                         vehicle_journey.id,
                         debark,
                         downstream_stop_time.sequence,
@@ -216,7 +217,7 @@ impl TransitData {
                         "Skipping vehicle journey {} because its 
                             board time {} at sequence {}
                             is earlier than its
-                            board time {} upstream at sequence {} ",
+                            board time {} upstream at sequence {}. ",
                         vehicle_journey.id,
                         downstream_board,
                         downstream_stop_time.sequence,
@@ -234,7 +235,7 @@ impl TransitData {
                         "Skipping vehicle journey {} because its 
                             debark time {} at sequence {}
                             is earlier than its
-                            debark time {} upstream at sequence {} ",
+                            debark time {} upstream at sequence {}. ",
                         vehicle_journey.id,
                         downstream_debark,
                         downstream_stop_time.sequence,

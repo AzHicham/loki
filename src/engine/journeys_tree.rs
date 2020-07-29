@@ -1,4 +1,4 @@
-use crate::engine::public_transit::{ConnectionLeg, DepartureLeg, Journey, PublicTransit};
+use crate::public_transit::{ConnectionLeg, DepartureLeg, Journey, PublicTransit};
 
 type Id = usize;
 

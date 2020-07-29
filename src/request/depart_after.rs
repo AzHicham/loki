@@ -7,7 +7,7 @@ use crate::transit_data::{
 
 
 
-use crate::engine::public_transit::{Journey as PTJourney, PublicTransit, PublicTransitIters};
+use crate::public_transit::{Journey as PTJourney, PublicTransit, PublicTransitIters};
 
 use crate::response;
 

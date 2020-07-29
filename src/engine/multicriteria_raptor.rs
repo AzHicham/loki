@@ -1,6 +1,6 @@
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
-use crate::engine::public_transit::{Journey, PublicTransit, PublicTransitIters};
+use crate::public_transit::{Journey, PublicTransit, PublicTransitIters};
 use std::collections::HashMap;
 
 pub struct MultiCriteriaRaptor<PT: PublicTransit> {
@@ -77,10 +77,10 @@ impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
         debug_assert!(!self.missions_with_new_wait.is_empty());
 
         while !self.missions_with_new_wait.is_empty() {
-            // use log::info;
-            // let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
-            // info!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
-            // info!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
+            use log::trace;
+            let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
+            trace!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
+            trace!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
             self.save_and_clear_new_debarks(pt);
 
             self.ride(pt);
@@ -359,6 +359,9 @@ impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
                     let wait_front = &mut self.wait_fronts[arrival_id];
                     let new_wait_front = &mut self.new_wait_fronts[arrival_id];
                     if !pt.is_valid(&arrival_criteria) {
+                        continue;
+                    }
+                    if self.arrive_front.dominates(&arrival_criteria, pt) {
                         continue;
                     }
                     if wait_front.dominates(&arrival_criteria, pt) {

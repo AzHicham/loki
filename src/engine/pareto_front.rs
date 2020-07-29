@@ -1,5 +1,5 @@
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
-use crate::engine::public_transit::PublicTransit;
+use crate::public_transit::PublicTransit;
 
 use std::slice::Iter as SliceIter;
 
