@@ -72,6 +72,7 @@ pub struct TransitData {
 }
 
 
+
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Mission {
     pub stop_pattern : StopPattern,

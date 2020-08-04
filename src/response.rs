@@ -1,5 +1,6 @@
-use crate::transit_data::{
-    data::{Transfer, Trip, TransitData},
+use crate::laxatips_data::{
+    LaxatipsData,
+    transit_data::{Transfer, Trip, TransitData},
     ordered_timetable::Position,
     time::{SecondsSinceDatasetStart, PositiveDuration},
 };
@@ -198,20 +199,20 @@ impl Journey {
 
 
     pub fn print(&self, 
-        transit_data : & TransitData, 
-        model : & Model, 
+        laxatips_data : & LaxatipsData, 
     ) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
-        self.write(transit_data, model, & mut result)?;
+        self.write(laxatips_data, & mut result)?;
         Ok(result)
         
     }
 
     pub fn write< Writer : std::fmt::Write>(&self, 
-            transit_data : & TransitData, 
-            model : & Model, 
+        laxatips_data : & LaxatipsData, 
             writer : & mut Writer
     ) -> Result<(), std::fmt::Error> {
+        let transit_data = &laxatips_data.transit_data;
+        let model = &laxatips_data.model;
         writeln!(writer, "*** New journey ***")?;
         let arrival_time = self.arrival(transit_data);
         writeln!(writer, "Arrival : {}", transit_data.calendar.to_pretty_string(&arrival_time ))?;
@@ -273,7 +274,7 @@ impl Journey {
     
 }
 
-use crate::transit_data::data::{StopPoint, Idx, VehicleJourney, TransitModelTransfer};
+use crate::laxatips_data::transit_data::{StopPoint, Idx, VehicleJourney, TransitModelTransfer};
 
 pub struct VehicleSection {
     pub from_datetime: NaiveDateTime,

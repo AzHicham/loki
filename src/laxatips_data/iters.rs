@@ -1,4 +1,4 @@
-use super::data::{Mission, Stop, StopPattern, Transfer, TransitData, Trip};
+use super::transit_data::{Mission, Stop, StopPattern, Transfer, TransitData, Trip};
 
 use super::calendar::DaysIter;
 

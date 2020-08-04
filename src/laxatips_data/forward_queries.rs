@@ -1,4 +1,4 @@
-use super::data::{Mission, Stop, StopPattern, TransitData, Trip};
+use super::transit_data::{Mission, Stop, StopPattern, TransitData, Trip};
 
 use super::time::{DaysSinceDatasetStart, SecondsSinceDatasetStart, SecondsSinceDayStart};
 

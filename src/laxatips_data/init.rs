@@ -1,5 +1,5 @@
 use super::calendar::Calendar;
-use super::data::{
+use super::transit_data::{
     FlowDirection, Stop, StopData, StopPattern, StopPoints, TransitData, TransitModelTime,
     VehicleData,
 };

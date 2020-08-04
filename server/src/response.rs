@@ -1,8 +1,9 @@
 use crate::navitia_proto;
 use laxatips::transit_model;
 use laxatips::{
+    LaxatipsData,
     response::{Journey, TransferSection, VehicleSection, WaitingSection},
-    Idx, StopPoint, TransitData, VehicleJourney,
+    Idx, StopPoint, VehicleJourney,
 };
 
 use chrono::{NaiveDate, NaiveDateTime};
@@ -14,8 +15,7 @@ use std::convert::TryFrom;
 pub fn fill_response<Journeys>(
     journeys: Journeys,
     proto: &mut navitia_proto::Response,
-    model: &transit_model::Model,
-    transit_data: &TransitData,
+    laxatips_data : & LaxatipsData, 
 ) -> Result<(), Error>
 where
     Journeys: Iterator<Item = Journey>,
@@ -60,7 +60,7 @@ where
                 .resize_with(idx + 1, || navitia_proto::Journey::default());
             &mut proto.journeys[idx]
         };
-        fill_journey(&journey, proto_journey, model, transit_data, idx)?;
+        fill_journey(&journey, proto_journey, laxatips_data, idx)?;
         nb_of_journeys += 1;
     }
     proto.journeys.truncate(nb_of_journeys);
@@ -98,10 +98,11 @@ where
 fn fill_journey(
     journey: &Journey,
     proto: &mut navitia_proto::Journey,
-    model: &transit_model::Model,
-    transit_data: &TransitData,
+    laxatips_data : & LaxatipsData,
     journey_id: usize,
 ) -> Result<(), Error> {
+    let transit_data = & laxatips_data.transit_data;
+    let model = & laxatips_data.model;
     proto.duration = Some(duration_to_i32(
         &journey.departure_datetime(transit_data),
         &journey.arrival_datetime(transit_data),

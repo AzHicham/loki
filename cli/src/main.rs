@@ -1,8 +1,9 @@
 use laxatips::log::{debug, info, trace};
 use laxatips::transit_model;
 use laxatips::{
-    DepartAfterRequest, MultiCriteriaRaptor, PositiveDuration, SecondsSinceDatasetStart,
-    TransitData,
+    LaxatipsData,
+    DepartAfterRequest, MultiCriteriaRaptor, PositiveDuration, 
+    
 };
 
 use std::path::PathBuf;
@@ -12,7 +13,7 @@ use slog::Drain;
 use slog_async::OverflowStrategy;
 
 use chrono::NaiveDateTime;
-use failure::{bail, format_err, Error};
+use failure::{bail, Error};
 use std::time::SystemTime;
 
 use structopt::StructOpt;
@@ -161,7 +162,8 @@ fn run() -> Result<(), Error> {
 
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let transit_data = TransitData::new(&model, default_transfer_duration);
+    let laxatips_data = LaxatipsData::new(model, default_transfer_duration);
+    let transit_data = &laxatips_data.transit_data;
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
     info!("Number of pattern {} ", transit_data.nb_of_patterns());
@@ -177,33 +179,18 @@ fn run() -> Result<(), Error> {
 
     let mut raptor = MultiCriteriaRaptor::<DepartAfterRequest>::new(nb_of_stops);
 
-    let departure_datetime: SecondsSinceDatasetStart = {
-        let naive_datetime = match options.departure_datetime {
+    let departure_datetime = match options.departure_datetime {
             Some(string_datetime) => parse_datetime(&string_datetime)?,
             None => {
                 let naive_date = transit_data.calendar.first_date();
                 naive_date.and_hms(8, 0, 0)
             }
         };
-        let seconds = transit_data
-            .calendar
-            .naive_datetime_to_seconds_since_start(&naive_datetime)
-            .ok_or_else(|| {
-                format_err!(
-                    "The requested datetime {} is not valid for the data.
-                Valid dates are between {} and {}",
-                    naive_datetime,
-                    transit_data.calendar.first_date(),
-                    transit_data.calendar.last_date()
-                )
-            })?;
-        seconds
-    };
+
 
     let leg_arrival_penalty = parse_duration(&options.leg_arrival_penalty).unwrap();
     let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
-    let max_arrival_time = departure_datetime.clone() + max_journey_duration;
     let max_nb_of_legs: u8 = options.max_nb_of_legs;
 
     let compute_timer = SystemTime::now();
@@ -216,19 +203,18 @@ fn run() -> Result<(), Error> {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
             for _ in 1..nb_queries {
                        
-                let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
-                let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
+                let start_stop_area_uri = &laxatips_data.model.stop_areas.values().choose(&mut rng).unwrap().id;
+                let end_stop_area_uri = &laxatips_data.model.stop_areas.values().choose(&mut rng).unwrap().id;
 
                 let nb_of_rounds = solve(
                     start_stop_area_uri,
                     end_stop_area_uri,
                     &mut raptor,
-                    &transit_data,
-                    &model,
+                    &laxatips_data,
                     &departure_datetime,
                     &leg_arrival_penalty,
                     &leg_walking_penalty,
-                    &max_arrival_time,
+                    &max_journey_duration,
                     max_nb_of_legs,
                 )?;
 
@@ -253,12 +239,11 @@ fn run() -> Result<(), Error> {
                 start_stop_area_uri,
                 end_stop_area_uri,
                 &mut raptor,
-                &transit_data,
-                &model,
+                &laxatips_data,
                 &departure_datetime,
                 &leg_arrival_penalty,
                 &leg_walking_penalty,
-                &max_arrival_time,
+                &max_journey_duration,
                 max_nb_of_legs,
             )?;
         }
@@ -267,16 +252,15 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-fn solve<'a>(
+fn solve<'data>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'a>>,
-    transit_data: &'a TransitData,
-    model: &transit_model::Model,
-    departure_datetime: &SecondsSinceDatasetStart,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data>>,
+    laxatips_data : & 'data LaxatipsData,
+    departure_datetime: & NaiveDateTime,
     leg_arrival_penalty: &PositiveDuration,
     leg_walking_penalty: &PositiveDuration,
-    max_arrival_time: &SecondsSinceDatasetStart,
+    max_duration_to_arrival: &PositiveDuration,
     max_nb_of_legs: u8,
 ) -> Result<usize, Error> {
     trace!(
@@ -285,57 +269,29 @@ fn solve<'a>(
         end_stop_area_uri
     );
     let (start_stop_point_uris, end_stop_point_uris) =
-        make_query_stop_area(&model, start_stop_area_uri, end_stop_area_uri);
+        make_query_stop_area(&laxatips_data.model, start_stop_area_uri, end_stop_area_uri);
     let start_stops = start_stop_point_uris
         .iter()
         .map(|uri| {
-            let stop_idx = model
-                .stop_points
-                .get_idx(&uri)
-                .ok_or_else(|| format_err!("Start stop point {} not found in model", uri))?;
-            let stop = transit_data
-                .stop_point_idx_to_stop(&stop_idx)
-                .ok_or_else(|| {
-                    format_err!(
-                        "End stop point {} with idx {:?} not found in transit_data.",
-                        uri,
-                        stop_idx
-                    )
-                })?;
-            Ok((stop.clone(), PositiveDuration::zero()))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+            (uri.as_str(), PositiveDuration::zero())
+        });
 
     let end_stops = end_stop_point_uris
         .iter()
         .map(|uri| {
-            let stop_idx = model
-                .stop_points
-                .get_idx(&uri)
-                .ok_or_else(|| format_err!("End stop point {} not found in model", uri))?;
-            let stop = transit_data
-                .stop_point_idx_to_stop(&stop_idx)
-                .ok_or_else(|| {
-                    format_err!(
-                        "End stop point {} with idx {:?} not found in transit_data.",
-                        uri,
-                        stop_idx
-                    )
-                })?;
-            Ok((stop.clone(), PositiveDuration::zero()))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+            (uri.as_str(), PositiveDuration::zero())
+        });
 
-    let request = DepartAfterRequest::<'a>::new(
-        &transit_data,
+    let request = DepartAfterRequest::<'data>::new(
+        laxatips_data,
         departure_datetime.clone(),
         start_stops,
         end_stops,
         leg_arrival_penalty.clone(),
         leg_walking_penalty.clone(),
-        max_arrival_time.clone(),
+        *max_duration_to_arrival,
         max_nb_of_legs,
-    );
+    )?;
 
     debug!("Start computing journey");
     let request_timer = SystemTime::now();
@@ -349,9 +305,9 @@ fn solve<'a>(
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
         let response = request
-             .create_response(pt_journey, transit_data)
+             .create_response(pt_journey)
              .unwrap();            
-        trace!("{}", response.print(&transit_data, &model)?);
+        trace!("{}", response.print(laxatips_data)?);
 
     }
 
