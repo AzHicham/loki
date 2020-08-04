@@ -1,8 +1,8 @@
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
+// pub mod navitia_proto {
+//     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
+// }
 
-// pub mod navitia_proto;
+pub mod navitia_proto;
 mod response;
 
 use laxatips::log::{debug, error, info, trace, warn};
@@ -199,8 +199,7 @@ fn solve_protobuf<'data>(
     proto_request: &navitia_proto::Request,
     laxatips_data : & 'data LaxatipsData,
     engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
-    proto_response: &mut navitia_proto::Response,
-) -> Result<(), Error> {
+) -> Result<navitia_proto::Response, Error> {
     let engine_request = make_engine_request_from_protobuf(
         &proto_request,
         laxatips_data,
@@ -225,26 +224,21 @@ fn solve_protobuf<'data>(
         trace!("{}", response.print(&laxatips_data)?);
     }
 
-    *proto_response = navitia_proto::Response::default();
+
 
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         engine_request
             .create_response(pt_journey)
             .ok()
     });
-    response::fill_response(journeys_iter, proto_response, laxatips_data)?;
 
-    // println!("Response : {:#?}", *proto_response);
-    // let mut response_bytes  :Vec<u8> = Vec::new();
-    // proto_response.encode(& mut response_bytes)?;
+    response::make_response(journeys_iter, laxatips_data)
 
-    Ok(())
 }
 
 fn solve<'data>(
     laxatips_data : & 'data LaxatipsData,
     engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
-    proto_response: &mut navitia_proto::Response,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
@@ -262,22 +256,27 @@ fn solve<'data>(
         &proto_request,
         laxatips_data,
         engine,
-        proto_response,
     );
 
-    if let Result::Err(err) = solve_result {
-        error!(
-            "Error while solving request {:?} : \n {}",
-            proto_request.request_id, err
-        );
-        *proto_response = navitia_proto::Response::default();
-        proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
-        let mut proto_error = navitia_proto::Error::default();
-        proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
-        proto_error.message = Some(format!("{}", err));
-        proto_response.error = Some(proto_error);
-    }
+    let proto_response = match solve_result {
+        Result::Err(err) => {
+            error!(
+                "Error while solving request {:?} : \n {}",
+                proto_request.request_id, err
+            );
 
+            let mut proto_response = navitia_proto::Response::default();
+            proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
+            let mut proto_error = navitia_proto::Error::default();
+            proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
+            proto_error.message = Some(format!("{}", err));
+            proto_response.error = Some(proto_error);
+            proto_response
+        },
+        Ok(proto_response) => {
+            proto_response
+        }
+    };
     response_bytes.clear();
 
     proto_response
@@ -311,8 +310,6 @@ fn server() -> Result<(), Error> {
     let laxatips_data = read_ntfs(&ntfs_path)?;
     let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(laxatips_data.transit_data.nb_of_stops());
 
-    let mut proto_response = navitia_proto::Response::default();
-
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
 
@@ -320,7 +317,6 @@ fn server() -> Result<(), Error> {
         let solve_result = solve(
             &laxatips_data,
             &mut engine,
-            &mut proto_response,
             &responder,
             &mut zmq_message,
             &mut response_bytes,
