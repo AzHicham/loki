@@ -71,25 +71,19 @@ This last step is handled not inside the library, but in the subcrates. For exam
 - `response.rs` provides transformation of a `public_transit::Journey` (produced by the engine) to a `response::Journey` (understandable with `TransitData`) and then to sections (understandable with `Model`)
 
 
-### Public Transit Interface
-
-### Implementation(s) of the Public Transit Interface
-
 ### Engine
-
-The interface expected by the engine is described in `public_transit.rs`.
 The actual engine is implemented in `multicriteria_raptor.rs`.
 The engine uses Pareto fronts implemented in `pareto_front.rs`, and store the journeys computed
 in a Tree implemented in `journeys_tree.rs`.
 
-## Next steps
-
+## TODO
+- take into account the timezones in the data. For now we consider that the time given in `Model.stop_times` are given in the UTC timezone. In fact, they are given in the timezone of the network of the vehicle_journey they belongs to.
+The most natural thing to do is to modify `ordered_timetable.rs` to store the timezone in each timetable (a timetable will contains only vehicle in the same timezone), and to give answers in UTC.
+- while processing a journey obtained from the engine in `DepartAfterRequest`, implements a "backward" pass to make departure time as late as possible
+- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `ordered_timetable.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`). 
+  
 
 - an engine struct need to be spawn for each kind of request. Can we reuse the same struct for multiple kinds ?
-- 
-
-- implements the `PublicTransit` interface, using ntfs data read with `transit_model` with "classical" criteria (arrival time, number of transfers, walking time)
-- test and debug...
 - implements other criteria (overcrowding, train frequency, ...)
 
 [1]: ./cli/Readme.md
