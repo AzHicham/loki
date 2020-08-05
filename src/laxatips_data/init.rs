@@ -14,7 +14,7 @@ use typed_index_collection::Idx;
 
 use chrono_tz::Tz as TimeZone;
 
-use log::{info, warn};
+use log::{info, warn, debug};
 
 impl TransitData {
     pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {

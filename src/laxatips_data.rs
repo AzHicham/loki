@@ -4,6 +4,8 @@ pub mod init;
 
 pub(super) mod ordered_timetable;
 
+pub(super) mod timetables;
+
 mod calendar;
 
 pub mod forward_queries;

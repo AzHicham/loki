@@ -1,5 +1,5 @@
-use crate::transit_data::data::{Stop};
-use crate::transit_data::calendar::{DaysPattern};
+use crate::laxatips_data::transit_data::{Stop};
+use crate::laxatips_data::calendar::{DaysPattern};
 use std::cmp::Ordering;
 use std::iter::{Chain, Map};
 use std::ops::Range;
@@ -8,7 +8,7 @@ use transit_model::objects::{VehicleJourney};
 use transit_model::model::Model;
 use typed_index_collection::{Idx};
 
-use crate::transit_data::time::SecondsSinceDayStart as Time;
+use crate::laxatips_data::time::SecondsSinceDayStart as Time;
 use chrono_tz::Tz as TimeZone;
 use std::collections::BTreeMap;
 
