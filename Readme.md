@@ -24,6 +24,7 @@ The library can be used as :
 
 ### Overview
 
+
 The laxatips library resolve around the [`PublicTransit`](./src/public_transit.rs) trait, an abstract interface 
 for a public transit request.
 The engine can solve any request that implements this `PublicTransit` trait.
@@ -33,75 +34,56 @@ The goal is to implements `PublicTransit` for each kind of request (forward/back
 and have the engine (same code) for every one of them.
 For now there is only one implementation : forward request with a criteria on arrival time and walking time, implemented in [depart_after.rs](./src/request/depart_after.rs).
 
-In order to construct a `Request` structure implements the `PublicTransit` trait (such as the one in [depart_after.rs](./src/request/depart_after.rs)), one needs two inputs :
- - data provided by the traveller : the allowed departure and arrival stop points, along with their fallback durations
- - data describing the public transit network
+In order to ease the construction a `Request` structure that implements the `PublicTransit` trait, 
+this library provides the `LaxatipsData` structure. 
+A `LaxatipsData` is made of two distincts parts:
+- a `Model` from the `transit_model` crate. This is the input data that contains all information on the public transit network, as well as means to communicate with the client (e.g. string identifier for all objects)
+- a `TransitData` that is a communication layer between the engine and the `Model`. It speaks to the engine with its associated types (`Stop`, `Mission`, `Trip`, etc.), and with the `Model` throught indices (`Idx<StopPoint>`, `Idx<VehicleJourney>`, etc.).
+  
 
-Handling the data provided by the traveller is the job of the two subcrates [cli][1] and [server][3] :
-they process the input (from the command line, or from a protobuf request) and feed them into the `Request`.
+The library is expected to be set up as follows : 
+- build a `Model` from the input data
+- build a `LaxatipsData` from this `Model`. The `LaxatipsData` is expected to be kept around for the duration of the program
+- build an engine (`MulticriteriaRaptor`) that will solve request. This engine is also expected to be kept around for the duration of the program (it allocates some amount of memory, which is better kept around in order to avoir too many calls to the allocator).
+  
+Now when a client request arrives, it will provide the allowed departure and arrival stop points, along with their fallback durations.
+A `Request` object should be built from the `LaxatipsData` and the client input. 
+During construction, the `Model` will be use to check if the client input is valid (e.g. that the provided stop points uris are known), and will provides indices (e.g. `Idx<StopPoint>`) that can be fed to the `TransitData`, which will convert them in a way understandable for the engine (e.g. to `Stop`)?
 
-Handling data describing the public transit network is the job of the [`TransitData`](./src/transit_data/data.rs) struct.
-A `TransitData` provides queries on the public network structure (stops, transfers, vehicles journeys, etc.)
-in a form that ease the implementation of the `PublicTransit` trait. 
+If everything went good, we now have a `Request` that can be solved with the `MulticriteriaRaptor`.
 
-For example, `TransitData` groups together the vehicle journeys that deserves the same stops and that does not takeover (a takeover is when a vehicle A leaves earlier than vehicle B, but A arrives later than B). 
-Each group is called a `Mission`, which maps to the `Mission` type needed to implements `PublicTransit`.
-More importantly, `TransitData` can compute the earliest vehicle of a `Mission` that can be boarded at a given time. 
+After solving, the `MulticriteriaRaptor` will contains `public_transit::Journey`, that will be processed throught the `Request` into a way that is understantable by the client. 
+First, the `public_transit::Journey` is converted to a `response::Journey`. At this stage, we use the `TransitData` structure to check if the journey is indeed valid (`MulticriteriaRaptor` may have bugs !). 
+The `response::Journey` contains only types associated the `TransitData`. 
+However, it can be transformed into a sequence of `DepartureSection`, `VehicleSection`, `TransferSection`, `WaitingSection`, `ArrivalSection` that contains indices for the `Model` as well as datetime in UTC.
 
-
-A `TransitData` is constructed from a `transit_model::Model`, which itself can be built from an ntfs dataset (or any other kind of dataset handled by the [transit_model](https://crates.io/crates/transit_model) crate).
-
-Note that a `TransitData` does not keep a pointer to the `transit_model::Model` used to built it. 
-It may change in the future.
-
-So the overall "setup step" is :
-- read a dataset to build a `transit_model::Model`
-- build a `TransitData` from the `transit_model::Model`
-- obtain traveller input
-- using the traveller input and the `TransitData`, build a `Request` that implements `PublicTransit` 
-- ask the engine to solve the `Request`.
-
-
-
-
+These sections can then be used in conjunction with the `Model` to provides the response expected by the client.
+This last step is handled not inside the library, but in the subcrates. For example `cli` will just print the journey on the standard output, whereas `server` will fill a protobuf response.
 
 
 
 ### Directory structures
 
-- src/request for implementations of the `PublicTransit` trait
-- src/engine for the algorithm that solve a `PublicTransit` request
+- `public_transit.rs`  provides the `PublicTransit` trait as well as the `public_transit::Journey` to be built by the engine
+- `src/request` contains implementations of the `PublicTransit` trait
+- `src/engine` contains the algorithm that solve a `PublicTransit` request
+- `src/laxatips_data` provide everything for building `LaxatipsData` and using it to implements the `PublicTransit` trait
+- `response.rs` provides transformation of a `public_transit::Journey` (produced by the engine) to a `response::Journey` (understandable with `TransitData`) and then to sections (understandable with `Model`)
 
-Interface between the engine and the request/response
-so as to have an engine able to handle different kind of request (forward/backward, different criteria, forbidden lines/stops)
-
-Data comes from ntfs (transit_model) and request can come from different places (cli, server)
-
-ntfs -> transit_model -> transit_data |-> public_transit implem -> engine -> public_transit::Journey  | -> reponse::Journey  | ->  
-                              request |                                      public_transit implem    |
-
-transit_data -> 
-
-
-### Public Transit Interface
-
-### Implementation(s) of the Public Transit Interface
 
 ### Engine
-
-The interface expected by the engine is described in `public_transit.rs`.
 The actual engine is implemented in `multicriteria_raptor.rs`.
 The engine uses Pareto fronts implemented in `pareto_front.rs`, and store the journeys computed
 in a Tree implemented in `journeys_tree.rs`.
 
-## Next steps
-
+## TODO
+- take into account the timezones in the data. For now we consider that the time given in `Model.stop_times` are given in the UTC timezone. In fact, they are given in the timezone of the network of the vehicle_journey they belongs to.
+The most natural thing to do is to modify `ordered_timetable.rs` to store the timezone in each timetable (a timetable will contains only vehicle in the same timezone), and to give answers in UTC.
+- while processing a journey obtained from the engine in `DepartAfterRequest`, implements a "backward" pass to make departure time as late as possible
+- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `ordered_timetable.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`). 
+  
 
 - an engine struct need to be spawn for each kind of request. Can we reuse the same struct for multiple kinds ?
-- 
-
-- implements the `PublicTransit` interface, using ntfs data read with `transit_model` with "classical" criteria (arrival time, number of transfers, walking time)
-- test and debug...
 - implements other criteria (overcrowding, train frequency, ...)
 
 [1]: ./cli/Readme.md

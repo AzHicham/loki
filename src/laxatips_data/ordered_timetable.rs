@@ -1,4 +1,4 @@
-use super::data::{FlowDirection, Stop, VehicleData};
+use super::transit_data::{FlowDirection, Stop, VehicleData};
 use std::cmp::Ordering;
 use std::iter::{Chain, Map};
 use std::ops::Range;

@@ -1,14 +1,15 @@
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
+// pub mod navitia_proto {
+//     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
+// }
 
-// pub mod navitia_proto;
+pub mod navitia_proto;
 mod response;
 
 use laxatips::log::{debug, error, info, trace, warn};
 use laxatips::transit_model;
 use laxatips::{
-    DepartAfterRequest as EngineRequest, MultiCriteriaRaptor, PositiveDuration, TransitData,
+    DepartAfterRequest as EngineRequest, MultiCriteriaRaptor, PositiveDuration, 
+    LaxatipsData,
 };
 use prost::Message;
 use structopt::StructOpt;
@@ -39,7 +40,7 @@ struct Options {
     socket: String,
 }
 
-fn read_ntfs(ntfs_path: &Path) -> Result<(transit_model::model::Model, TransitData), Error> {
+fn read_ntfs(ntfs_path: &Path) -> Result<LaxatipsData, Error> {
     let model = transit_model::ntfs::read(ntfs_path)?;
     info!("Transit model loaded");
     info!(
@@ -50,8 +51,9 @@ fn read_ntfs(ntfs_path: &Path) -> Result<(transit_model::model::Model, TransitDa
 
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let transit_data = TransitData::new(&model, default_transfer_duration);
+    let laxatips_data = LaxatipsData::new(model, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
+    let transit_data = &laxatips_data.transit_data;
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
@@ -62,17 +64,15 @@ fn read_ntfs(ntfs_path: &Path) -> Result<(transit_model::model::Model, TransitDa
         transit_data.calendar.last_date()
     );
 
-    Ok((model, transit_data))
+    Ok(laxatips_data)
 }
 
-fn fill_engine_request_from_protobuf(
+fn make_engine_request_from_protobuf<'data>(
     proto_request: &navitia_proto::Request,
-    engine_request: &mut EngineRequest,
-    model: &transit_model::Model,
-    transit_data: &TransitData,
+    laxatips_data : & 'data LaxatipsData,
     default_max_duration: &PositiveDuration,
     default_max_nb_of_legs: u8,
-) -> Result<(), Error> {
+) -> Result<EngineRequest<'data>, Error> {
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
         if let Some(api) = has_api {
@@ -95,7 +95,7 @@ fn fill_engine_request_from_protobuf(
 
     // println!("{:#?}", journey_request);
 
-    let departure_stops_and_fallback_duration = journey_request
+    let departures_stop_point_and_fallback_duration = journey_request
         .origin
         .iter()
         .enumerate()
@@ -103,23 +103,7 @@ fn fill_engine_request_from_protobuf(
             let stop_point_uri = location_context
                 .place
                 .as_str()
-                .trim_start_matches("stop_point:");
-            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
-                warn!(
-                    "The {}th departure stop point {} is not found in model. \
-                            I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
-                    "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
-                        I ignore it",
-                    idx, stop_point_uri, stop_idx
-                );
-                None
-            })?;
+                .trim_start_matches("stop_point:");            
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -132,10 +116,10 @@ fn fill_engine_request_from_protobuf(
                     None
                 })?;
 
-            Some((stop.clone(), duration))
+            Some((stop_point_uri, duration))
         });
 
-    let arrival_stops_and_fallback_duration = journey_request
+    let arrivals_stop_point_and_fallback_duration = journey_request
         .destination
         .iter()
         .enumerate()
@@ -144,22 +128,6 @@ fn fill_engine_request_from_protobuf(
                 .place
                 .as_str()
                 .trim_start_matches("stop_point:");
-            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
-                warn!(
-                    "The {}th arrival stop point {} is not found in model. \
-                            I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
-                    "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
-                        I ignore it",
-                    idx, stop_point_uri, stop_idx
-                );
-                None
-            })?;
 
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
@@ -172,7 +140,7 @@ fn fill_engine_request_from_protobuf(
                     );
                     None
                 })?;
-            Some((stop.clone(), duration))
+            Some((stop_point_uri, duration))
         });
 
     let departure_timestamp_u64 = journey_request
@@ -185,20 +153,8 @@ fn fill_engine_request_from_protobuf(
             departure_timestamp_u64
         )
     })?;
-    let departure_datetime = transit_data
-        .calendar
-        .timestamp_to_seconds_since_start(departure_timestamp_i64)
-        .ok_or_else(|| {
-            format_err!(
-                "The departure timestamp {} is out of bound of the allowed dates. \
-                     Allowed dates are between {} and {}. \
-                     Timestamp corresponds to {}. ",
-                departure_timestamp_i64,
-                transit_data.calendar.first_date(),
-                transit_data.calendar.last_date(),
-                chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0),
-            )
-        })?;
+    let departure_datetime = chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
+
 
     info!(
         "Requested timestamp {}, datetime {}",
@@ -206,7 +162,7 @@ fn fill_engine_request_from_protobuf(
         chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0)
     );
 
-    let max_duration = u32::try_from(journey_request.max_duration)
+    let max_duration_to_arrival = u32::try_from(journey_request.max_duration)
         .map(|duration| PositiveDuration::from_hms(0, 0, duration))
         .unwrap_or_else(|_| {
             warn!(
@@ -217,13 +173,7 @@ fn fill_engine_request_from_protobuf(
             default_max_duration.clone()
         });
 
-    // .unwrap_or_else(||
-    //     warn!("The max duration {} cannot be converted to a u32.", journey_request.max_duration);
-
-    // });
-    let max_arrival_time = departure_datetime.clone() + max_duration;
-
-    let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
+    let max_nb_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
@@ -232,32 +182,27 @@ fn fill_engine_request_from_protobuf(
         default_max_nb_of_legs
     });
 
-    engine_request.update(
-        departure_datetime.clone(),
-        departure_stops_and_fallback_duration,
-        arrival_stops_and_fallback_duration,
+    let engine_request = EngineRequest::new(laxatips_data, 
+        departure_datetime, 
+        departures_stop_point_and_fallback_duration, 
+        arrivals_stop_point_and_fallback_duration, 
         PositiveDuration::from_hms(0, 2, 0), //leg_arrival_penalty
         PositiveDuration::from_hms(0, 2, 0), //leg_walking_penalty,
-        max_arrival_time,
-        max_nb_of_legs, //max_nb_of_legs,
-    );
+        max_duration_to_arrival, 
+        max_nb_legs
+    )?;
 
-    Ok(())
+    Ok(engine_request)
 }
 
-fn solve_protobuf<'a>(
+fn solve_protobuf<'data>(
     proto_request: &navitia_proto::Request,
-    engine_request: &mut EngineRequest<'a>,
-    model: &transit_model::Model,
-    transit_data: &'a TransitData,
-    engine: &mut MultiCriteriaRaptor<EngineRequest<'a>>,
-    proto_response: &mut navitia_proto::Response,
-) -> Result<(), Error> {
-    fill_engine_request_from_protobuf(
+    laxatips_data : & 'data LaxatipsData,
+    engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
+) -> Result<navitia_proto::Response, Error> {
+    let engine_request = make_engine_request_from_protobuf(
         &proto_request,
-        engine_request,
-        &model,
-        &transit_data,
+        laxatips_data,
         &DEFAULT_MAX_DURATION,
         DEFAULT_MAX_NB_LEGS,
     )?;
@@ -274,33 +219,26 @@ fn solve_protobuf<'a>(
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
         let response = engine_request
-            .create_response(pt_journey, &transit_data)
+            .create_response(pt_journey)
             .unwrap();
-        trace!("{}", response.print(&transit_data, &model)?);
+        trace!("{}", response.print(&laxatips_data)?);
     }
 
-    *proto_response = navitia_proto::Response::default();
+
 
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         engine_request
-            .create_response(pt_journey, &transit_data)
+            .create_response(pt_journey)
             .ok()
     });
-    response::fill_response(journeys_iter, proto_response, &model, &transit_data)?;
 
-    // println!("Response : {:#?}", *proto_response);
-    // let mut response_bytes  :Vec<u8> = Vec::new();
-    // proto_response.encode(& mut response_bytes)?;
+    response::make_response(journeys_iter, laxatips_data)
 
-    Ok(())
 }
 
-fn solve<'a>(
-    engine_request: &mut EngineRequest<'a>,
-    model: &transit_model::Model,
-    transit_data: &'a TransitData,
-    engine: &mut MultiCriteriaRaptor<EngineRequest<'a>>,
-    proto_response: &mut navitia_proto::Response,
+fn solve<'data>(
+    laxatips_data : & 'data LaxatipsData,
+    engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
@@ -316,26 +254,29 @@ fn solve<'a>(
 
     let solve_result = solve_protobuf(
         &proto_request,
-        engine_request,
-        model,
-        transit_data,
+        laxatips_data,
         engine,
-        proto_response,
     );
 
-    if let Result::Err(err) = solve_result {
-        error!(
-            "Error while solving request {:?} : \n {}",
-            proto_request.request_id, err
-        );
-        *proto_response = navitia_proto::Response::default();
-        proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
-        let mut proto_error = navitia_proto::Error::default();
-        proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
-        proto_error.message = Some(format!("{}", err));
-        proto_response.error = Some(proto_error);
-    }
+    let proto_response = match solve_result {
+        Result::Err(err) => {
+            error!(
+                "Error while solving request {:?} : \n {}",
+                proto_request.request_id, err
+            );
 
+            let mut proto_response = navitia_proto::Response::default();
+            proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
+            let mut proto_error = navitia_proto::Error::default();
+            proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
+            proto_error.message = Some(format!("{}", err));
+            proto_response.error = Some(proto_error);
+            proto_response
+        },
+        Ok(proto_response) => {
+            proto_response
+        }
+    };
     response_bytes.clear();
 
     proto_response
@@ -366,23 +307,16 @@ fn server() -> Result<(), Error> {
 
     let ntfs_path = options.input;
 
-    let (model, transit_data) = read_ntfs(&ntfs_path)?;
-    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(transit_data.nb_of_stops());
-
-    let mut engine_request = EngineRequest::new_default(&transit_data);
-
-    let mut proto_response = navitia_proto::Response::default();
+    let laxatips_data = read_ntfs(&ntfs_path)?;
+    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(laxatips_data.transit_data.nb_of_stops());
 
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
 
     loop {
         let solve_result = solve(
-            &mut engine_request,
-            &model,
-            &transit_data,
+            &laxatips_data,
             &mut engine,
-            &mut proto_response,
             &responder,
             &mut zmq_message,
             &mut response_bytes,
