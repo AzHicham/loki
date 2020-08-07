@@ -15,12 +15,79 @@ use super::timetables_data::*;
 
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
-pub type VehiclesIter = Map<Range<usize>, fn(usize) -> Vehicle>;
-
 impl Timetables {
     pub fn timetables(&self) -> TimetablesIter {
         (0..self.nb_of_timetables()).map(|idx| {
             Timetable{ idx}
+        })
+    }
+
+    pub fn vehicles(&self, timetable : & Timetable) -> VehiclesIter {
+        let timetable_data = self.timetable_data(timetable);
+        let nb_of_vehicles = timetable_data.nb_of_vehicles();
+        let timetable_idx = timetable.idx;
+        VehiclesIter::new(timetable.clone(), 0..nb_of_vehicles)
+    }
+
+    pub fn positions(&self, timetable : & Timetable) -> PositionsIter {
+        let nb_of_position = self.timetable_data(timetable).nb_of_positions();
+        PositionsIter::new(timetable.clone(), 0..nb_of_position)
+    }
+
+
+}
+
+
+pub struct PositionsIter {
+    timetable : Timetable,
+    position_idxs : Range<usize>,
+}
+
+impl PositionsIter {
+    fn new(timetable : Timetable, position_idxs : Range<usize>) -> Self {
+        Self {
+            timetable,
+            position_idxs,
+        }
+    }
+}
+
+impl Iterator for PositionsIter {
+    type Item = Position;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.position_idxs.next().map(|idx| {
+            Position {
+                timetable : self.timetable.clone(),
+                idx 
+            }
+        })
+    }
+}
+
+pub struct VehiclesIter {
+    timetable : Timetable,
+    vehicle_idxs : Range<usize>,
+}
+
+impl VehiclesIter {
+    fn new(timetable : Timetable, vehicle_idxs : Range<usize>) -> Self {
+        Self {
+            timetable,
+            vehicle_idxs,
+        }
+    }
+}
+
+impl Iterator for VehiclesIter {
+    type Item = Vehicle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vehicle_idxs.next().map(|idx| {
+            Vehicle {
+                timetable : self.timetable.clone(),
+                idx 
+            }
         })
     }
 }
@@ -52,6 +119,7 @@ impl TimetableData {
         self.vehicle_board_times(vehicle_idx)
             .chain(self.vehicle_debark_times(vehicle_idx))
     }
+
 
    
 

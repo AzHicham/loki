@@ -166,17 +166,6 @@ impl Timetables {
         self.timetable_data(&vehicle.timetable).vehicle_data(vehicle.idx).vehicle_journey_idx
     }
 
-    pub fn positions<'a>(&self, timetable : & 'a Timetable) -> impl Iterator<Item = Position> + 'a {
-        let nb_of_position = self.timetable_data(timetable).nb_of_positions();
-        (0..nb_of_position).map(move |idx| {
-            Position {
-                timetable : timetable.clone(),
-                idx
-            }
-        })
-    }
-  
-    
 }
 
 

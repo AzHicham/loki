@@ -116,7 +116,7 @@ impl Timetables {
             let inserted = timetable_data
                 .try_insert(corrected_board_debark_times.clone(), timezone, vehicle_data.clone());
             if inserted {
-                return Ok(());
+                return Ok(timetable.clone());
             }
         }
         let mut new_timetable_data = TimetableData::new(stop_flows, timezone, corrected_board_debark_times, vehicle_data);
