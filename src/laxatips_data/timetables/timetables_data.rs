@@ -1,13 +1,13 @@
 use crate::laxatips_data::transit_data::{Stop};
 use crate::laxatips_data::calendar::{DaysPattern};
 use std::cmp::Ordering;
-use std::iter::{Chain, Map};
+use std::iter::{Map};
 use std::ops::Range;
 
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
 
-use crate::laxatips_data::time::SecondsSinceDayStart as Time;
+use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
 use chrono_tz::Tz as TimeZone;
 use std::collections::BTreeMap;
 
@@ -59,26 +59,45 @@ pub (super) struct TimetableData {
     pub (super) latest_board_time_by_position: Vec<Time>,
 }
 #[derive(Debug, Clone)]
-pub (super) struct VehicleData {
-    pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
-    pub (super) days_pattern : DaysPattern,
+pub (crate) struct VehicleData {
+    pub vehicle_journey_idx : Idx<VehicleJourney>,
+    pub days_pattern : DaysPattern,
 }
 
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd)]
-pub struct Position {
-    pub (super) idx: usize,
-}
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, )]
 pub struct Timetable {
     pub (super) idx: usize,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Position {
+    pub timetable : Timetable,
+    pub (super) idx : usize
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Vehicle {
+    pub timetable : Timetable,
     pub (super) idx: usize,
 }
 
+
+impl Position {
+    pub fn is_upstream(&self, other : & Position) -> Option<bool> {
+        if self.timetable != other.timetable {
+            None
+        }
+        else {
+            Some(self.idx < other.idx)
+        }
+    }
+
+    pub fn idx_in_timetable(&self) -> usize {
+        self.idx
+    }
+}
 
 
 impl Timetables {
@@ -89,36 +108,138 @@ impl Timetables {
         }
     }
 
-    
-}
-pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;
+    pub fn timetable_data(&self, timetable : & Timetable) -> & TimetableData {
+        & self.timetable_datas[timetable.idx]
+    }
 
-pub type VehiclesIter = Map<Range<usize>, fn(usize) -> Vehicle>;
+    pub fn nb_of_timetables(&self) -> usize {
+        self.timetable_datas.len()
+    }
 
-impl TimetableData {
-    fn new(stop_flows : StopFlows, timezone : & TimeZone) -> Self {
-        let nb_of_positions = stop_flows.len();
-        assert!(nb_of_positions >= 2);
-        Self {
-            stop_flows,
-            timezone : timezone.clone(),
-            vehicles_data: Vec::new(),
-            debark_times_by_position: vec![Vec::new(); nb_of_positions],
-            board_times_by_position: vec![Vec::new(); nb_of_positions],
-            latest_board_time_by_position: vec![Time::zero(); nb_of_positions],
+    pub fn nb_of_vehicles(&self) -> usize {
+        self.timetable_datas.iter()
+            .map(|timetable_data| timetable_data.nb_of_vehicles())
+            .sum()
+    }
+
+    pub fn next_position(&self, position : & Position) -> Option<Position> {
+        if position.idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
+            let result = Position {
+                timetable : position.timetable,
+                idx : position.idx + 1
+            };
+            Some(result)
+        }
+        else {
+            None
         }
     }
 
-    fn debark_time_at(&self, vehicle: &Vehicle, position: &Position) -> &Time {
-        &self.debark_times_by_position[position.idx][vehicle.idx]
+    pub fn stop_at(&self, timetable : & Timetable, position : & Position) -> & Stop {
+        assert!(*timetable == position.timetable);
+        self.timetable_data(&position.timetable).stop_at(position.idx)
     }
 
-    fn board_time_at(&self, vehicle: &Vehicle, position: &Position) -> &Time {
-        &self.board_times_by_position[position.idx][vehicle.idx]
+    pub fn debark_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+        assert!(vehicle.timetable == position.timetable);
+        let timetable_data = self.timetable_data(&vehicle.timetable);
+        timetable_data.debark_time_at(vehicle.idx, position.idx)
     }
 
-    fn latest_board_time_at(&self, position: &Position) -> &Time {
-        &self.latest_board_time_by_position[position.idx]
+    pub fn board_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+        assert!(vehicle.timetable == position.timetable);
+        let timetable_data = self.timetable_data(&vehicle.timetable);
+        timetable_data.board_time_at(vehicle.idx, position.idx)
+    }
+
+    pub fn arrival_time_at(&self, vehicle: &Vehicle, position: &Position) -> &Time {
+        assert!(vehicle.timetable == position.timetable);
+        self.timetable_data(&vehicle.timetable).arrival_time_at(vehicle.idx, position.idx)
+    }
+
+    pub fn latest_board_time_at(&self, position: &Position) -> Option<&Time> {
+        let timetable_data = self.timetable_data(&position.timetable);
+        timetable_data.latest_board_time_at(position.idx)
+    }
+
+    pub fn vehicle_journey_idx(&self, vehicle: &Vehicle) ->  Idx<VehicleJourney> {
+        self.timetable_data(&vehicle.timetable).vehicle_data(vehicle.idx).vehicle_journey_idx
+    }
+
+    pub fn positions<'a>(&self, timetable : & 'a Timetable) -> impl Iterator<Item = Position> + 'a {
+        let nb_of_position = self.timetable_data(timetable).nb_of_positions();
+        (0..nb_of_position).map(move |idx| {
+            Position {
+                timetable : timetable.clone(),
+                idx
+            }
+        })
+    }
+  
+    
+}
+
+
+impl TimetableData {
+
+    pub (super) fn can_board_at(&self, position_idx: usize) -> bool {
+        match &self.stop_flows[position_idx].1 {
+            FlowDirection::BoardAndDebark
+            | FlowDirection::BoardOnly => true,
+            FlowDirection::DebarkOnly => false
+        }
+    }
+
+    pub (super) fn can_debark_at(&self, position_idx: usize) -> bool {
+        match &self.stop_flows[position_idx].1 {
+            FlowDirection::BoardAndDebark
+            | FlowDirection::DebarkOnly => true,
+            FlowDirection::BoardOnly => false
+        }
+    }
+
+    pub (super) fn arrival_time_at(&self, vehicle_idx : usize, position_idx: usize) -> &Time {
+        &self.debark_times_by_position[position_idx][vehicle_idx]
+ 
+        
+    }
+
+    pub (super) fn debark_time_at(&self, vehicle_idx : usize, position_idx: usize) -> Option<&Time> {
+        if self.can_debark_at(position_idx) {
+            Some(&self.debark_times_by_position[position_idx][vehicle_idx])
+        }
+        else {
+            None
+        }
+        
+    }
+
+    pub (super) fn board_time_at(&self, vehicle_idx : usize, position_idx: usize)-> Option<&Time> {
+        if self.can_board_at(position_idx) {
+            Some(&self.board_times_by_position[position_idx][vehicle_idx])
+        }
+        else {
+            None
+        }
+        
+    }
+
+    pub (super) fn latest_board_time_at(&self, position_idx: usize) -> Option<&Time> {
+        if self.can_board_at(position_idx) {
+            Some(&self.latest_board_time_by_position[position_idx])
+        }
+        else {
+            None
+        }
+        
+    }
+
+    pub (super) fn stop_at(&self, position_idx: usize) -> & Stop {
+        &self.stop_flows[position_idx].0
+    }
+
+    pub (super) fn flow_direction_at(&self, position_idx: usize) -> & FlowDirection {
+        &self.stop_flows[position_idx].1
     }
 
     pub (super) fn nb_of_positions(&self) -> usize {
@@ -127,6 +248,10 @@ impl TimetableData {
 
     pub (super) fn nb_of_vehicles(&self) -> usize {
         self.vehicles_data.len()
+    }
+
+    pub (super) fn vehicle_data(&self, vehicle_idx : usize) -> & VehicleData {
+        &self.vehicles_data[vehicle_idx]
     }
 
    
@@ -173,31 +298,3 @@ where
     // the two vector are equal
     Some(Ordering::Equal)
 }
-#[derive(Clone)]
-struct VehicleTimes<'a> {
-    times_by_position: &'a [Vec<Time>],
-    position: usize,
-    vehicle: usize,
-}
-
-impl<'a> Iterator for VehicleTimes<'a> {
-    type Item = Time;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = self
-            .times_by_position
-            .get(self.position)
-            .map(|time_by_vehicles| &time_by_vehicles[self.vehicle]);
-        if result.is_some() {
-            self.position += 1;
-        }
-        result.cloned()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.times_by_position.len() - self.position;
-        (remaining, Some(remaining))
-    }
-}
-
-impl<'a> ExactSizeIterator for VehicleTimes<'a> {}

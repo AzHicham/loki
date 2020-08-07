@@ -1,8 +1,8 @@
 use crate::laxatips_data::{
     LaxatipsData,
     transit_data::{Transfer, Trip, TransitData},
-    ordered_timetable::Position,
-    time::{SecondsSinceDatasetStart, PositiveDuration},
+    timetables::timetables_data::Position,
+    time::{SecondsSinceDatasetUTCStart, PositiveDuration},
 };
 use transit_model::Model;
 use chrono::{NaiveDateTime, NaiveDate};
@@ -16,7 +16,7 @@ pub struct VehicleLeg {
 
 #[derive(Debug, Clone)]
 pub struct Journey {
-    departure_datetime : SecondsSinceDatasetStart,
+    departure_datetime : SecondsSinceDatasetUTCStart,
     departure_fallback_duration : PositiveDuration,
     first_vehicle: VehicleLeg,
     connections: Vec<(Transfer, VehicleLeg)>,
@@ -42,7 +42,7 @@ pub enum BadJourney {
 impl Journey {
 
     pub fn new(    
-        departure_datetime : SecondsSinceDatasetStart,
+        departure_datetime : SecondsSinceDatasetUTCStart,
         departure_fallback_duration : PositiveDuration,
         first_vehicle: VehicleLeg,
         connections: impl Iterator<Item = (Transfer, VehicleLeg)>,
@@ -146,7 +146,7 @@ impl Journey {
 
     }
 
-    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetStart {
+    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
         let last_vehicle_leg = self.connections.last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);

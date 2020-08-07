@@ -1,13 +1,14 @@
 use std::fmt::{Display, Formatter};
+use chrono_tz::Tz as Timezone;
 
 const SECONDS_IN_A_DAY: u32 = 60 * 60 * 24;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
-pub struct SecondsSinceDayStart {
+pub struct SecondsSinceTimezonedDayStart {
     pub(super) seconds: u32,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
-pub struct SecondsSinceDatasetStart {
+pub struct SecondsSinceDatasetUTCStart {
     pub(super) seconds: u32,
 }
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -53,24 +54,52 @@ impl Display for PositiveDuration {
     }
 }
 
-impl SecondsSinceDayStart {
+impl SecondsSinceTimezonedDayStart {
     pub fn zero() -> Self {
         Self { seconds: 0 }
     }
 }
 
-impl SecondsSinceDatasetStart {
+
+impl std::fmt::Display for SecondsSinceTimezonedDayStart {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{:02}:{:02}:{:02}",
+            self.seconds / 60 / 60,
+            self.seconds / 60 % 60,
+            self.seconds % 60
+        )
+    }
+}
+
+
+
+use crate::laxatips_data::calendar::Calendar;
+
+impl SecondsSinceDatasetUTCStart {
     pub fn zero() -> Self {
-        SecondsSinceDatasetStart { seconds: 0 }
+        Self { seconds: 0 }
     }
 
     // TODO : add doc and doctest
     #[inline(always)]
-    pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceDayStart) {
+    pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart) {
+        // let utc_datetime = calendar.first_date().and_hms(0, 0, self.seconds);
+        // let timezoned_datetime  : chrono::DateTime<Timezone>= chrono::DateTime::from_utc(utc_datetime, timezone);
+        // let date = timezoned_datetime.date();
+        // let timezoned_day_begin = date.and_hms(0, 12, 0) - chrono::Duration::hours(12);
+        // let seconds_in_day_i64 = timezoned_datetime.signed_duration_since(timezoned_day_begin).num_seconds();
+        // use std::convert::TryFrom;
+        // let seconds_in_day_u32 = u32::try_from(seconds_in_day_i64).unwrap();
+        // use chrono::Date;
+        // let number_of_days_i64 = (date - Date::from_utc(*calendar.first_date(), timezone)).num_days();
+        // let number_of_days_u16 = u16::try_from(number_of_days_i64).unwrap();
+
         let (days_u16, seconds_u32) = self.decompose_inner();
 
         let days = DaysSinceDatasetStart { days: days_u16 };
-        let seconds = SecondsSinceDayStart {
+        let seconds = SecondsSinceTimezonedDayStart {
             seconds: seconds_u32,
         };
 
@@ -81,14 +110,14 @@ impl SecondsSinceDatasetStart {
     pub fn decompose_with_days_offset(
         &self,
         nb_of_days_to_offset: u16,
-    ) -> Option<(DaysSinceDatasetStart, SecondsSinceDayStart)> {
+    ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> {
         let (canonical_days_u16, canonical_seconds_u32) = self.decompose_inner();
         let has_days_u16 = canonical_days_u16.checked_sub(nb_of_days_to_offset);
         has_days_u16.map(|days_u16| {
             let days = DaysSinceDatasetStart { days: days_u16 };
             let days_offset_u32: u32 = nb_of_days_to_offset.into();
             let seconds_u32 = canonical_seconds_u32 + days_offset_u32 * SECONDS_IN_A_DAY;
-            let seconds = SecondsSinceDayStart {
+            let seconds = SecondsSinceTimezonedDayStart {
                 seconds: seconds_u32,
             };
             (days, seconds)
@@ -96,7 +125,7 @@ impl SecondsSinceDatasetStart {
     }
 
     #[inline(always)]
-    pub fn compose(days: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceDayStart) -> Self {
+    pub fn compose(days: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceTimezonedDayStart) -> Self {
         let days_u32: u32 = days.days.into();
         let seconds: u32 = SECONDS_IN_A_DAY * days_u32 + seconds_in_day.seconds;
         Self { seconds }
@@ -115,7 +144,7 @@ impl SecondsSinceDatasetStart {
         (days_u16, seconds)
     }
 
-    pub fn duration_since(&self, start_datetime : & SecondsSinceDatasetStart) -> Option<PositiveDuration> {
+    pub fn duration_since(&self, start_datetime : & SecondsSinceDatasetUTCStart) -> Option<PositiveDuration> {
         self.seconds.checked_sub(start_datetime.seconds)
             .map(|seconds| PositiveDuration{seconds})
     }
@@ -131,7 +160,7 @@ impl std::ops::Add for PositiveDuration {
     }
 }
 
-impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetStart {
+impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetUTCStart {
     type Output = Self;
 
     fn add(self, rhs: PositiveDuration) -> Self::Output {
@@ -151,14 +180,3 @@ impl std::ops::Mul<u32> for PositiveDuration {
     }
 }
 
-impl std::fmt::Display for SecondsSinceDayStart {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{:02}:{:02}:{:02}",
-            self.seconds / 60 / 60,
-            self.seconds / 60 % 60,
-            self.seconds % 60
-        )
-    }
-}

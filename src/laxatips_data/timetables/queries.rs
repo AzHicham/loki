@@ -1,32 +1,45 @@
-use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::calendar::{DaysPattern};
+use crate::laxatips_data::calendar::Calendar;
+
 use std::cmp::Ordering;
-use std::iter::{Chain, Map};
-use std::ops::Range;
 
-use transit_model::objects::{VehicleJourney};
-use typed_index_collection::{Idx};
 
-use crate::laxatips_data::time::SecondsSinceDayStart as Time;
-use chrono_tz::Tz as TimeZone;
-use std::collections::BTreeMap;
+use crate::laxatips_data::time::{ SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
 
-use super::timetables_data::*;
+use super::timetables_data::{Timetables, TimetableData, Timetable, Position, VehicleData, Vehicle};
+
+impl Timetables {
+    pub fn best_vehicle_to_board(&self, 
+            waiting_time : & SecondsSinceDatasetUTCStart , 
+            timetable : & Timetable, 
+            position : & Position,
+            calendar : & Calendar,
+        ) -> Option<Vehicle> {
+        assert!(*timetable == position.timetable);
+        self.timetable_data(timetable)
+            .earliest_vehicle_to_board(waiting_time, calendar, position.idx)
+            .map(|(vehicle_idx, days, _) | {
+                Vehicle {
+                    timetable.clone(),
+                    idx : vehicle_idx
+                }
+            })
+    }
+}
 
 impl TimetableData {
  
    
 
     // If we are waiting to board a vehicle at `position` at time `waiting_time`
-    // return `Some(best_vehicle)`
-    // where `best_vehicle` is the vehicle, among those vehicle on which `filter` returns true,
+    // return `Some(best_vehicle)_idx`
+    // where `best_vehicle_idx` is the idx of the vehicle, among those vehicle on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time,
     fn _best_filtered_vehicle_to_board_at_by_linear_search<Filter>(
         &self,
-        waiting_time: &Time,
+        waiting_time: &SecondsSinceTimezonedDayStart,
         position: &Position,
         filter: Filter,
-    ) -> Option<Vehicle>
+    ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -37,8 +50,7 @@ impl TimetableData {
             .filter(|(_, (_, vehicle_data))| filter(vehicle_data))
             .find_map(|(idx, (board_time, _))| {
                 if waiting_time <= board_time {
-                    let vehicle = Vehicle { idx };
-                    Some(vehicle)
+                    Some(idx)
                 } else {
                     None
                 }
@@ -46,19 +58,19 @@ impl TimetableData {
     }
 
     // If we are waiting to board a vehicle at `position` at time `waiting_time`
-    // return `Some(best_vehicle)`
-    // where `best_vehicle` is the vehicle, among those vehicle on which `filter` returns true,
+    // return `Some(best_vehicle_idx)`
+    // where `best_vehicle_idx` is the idx of the vehicle, among those vehicle on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time,
     fn best_filtered_vehicle_to_board_at<Filter>(
         &self,
-        waiting_time: &Time,
-        position: &Position,
+        waiting_time: &SecondsSinceTimezonedDayStart,
+        position_idx: usize,
         filter: Filter,
-    ) -> Option<Vehicle>
+    ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
-        let search_result = self.board_times_by_position[position.idx].binary_search(waiting_time);
+        let search_result = self.board_times_by_position[position_idx].binary_search(waiting_time);
         let first_boardable_vehicle = match search_result {
             // here it means that
             //    waiting_time < board_time(idx)    if idx < len
@@ -71,7 +83,7 @@ impl TimetableData {
             Ok(idx) => {
                 let mut first_idx = idx;
                 while first_idx > 0
-                    && self.board_times_by_position[position.idx][first_idx] == *waiting_time
+                    && self.board_times_by_position[position_idx][first_idx] == *waiting_time
                 {
                     first_idx -=  1;
                 }
@@ -81,112 +93,102 @@ impl TimetableData {
 
         for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicles() {
             let vehicle_data = &self.vehicles_data[vehicle_idx];
-            let board_time = &self.board_times_by_position[position.idx][vehicle_idx];
+            let board_time = &self.board_times_by_position[position_idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= board_time {
-                let vehicle = Vehicle { idx: vehicle_idx };
-                return Some(vehicle);
+                return Some(vehicle_idx);
             }
         }
         None
     }
-}
 
 
-pub struct PositionPair {
-    pub upstream: usize,
-    pub downstream: usize,
-}
+    fn earliest_vehicle_to_board(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        calendar : & Calendar,
+        position_idx: usize,
+    ) -> Option<(usize, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
+        //TODO : reread this and look for optimization
 
-pub enum VehicleTimesError {
-    DebarkBeforeUpstreamBoard(PositionPair), // board_time[upstream] > debark_time[downstream]
-    DecreasingBoardTime(PositionPair),       // board_time[upstream] > board_time[downstream]
-    DecreasingDebarkTime(PositionPair),      // debark_time[upstream] > debark_time[downstream]
-}
-
-fn is_increasing<EnumeratedValues>(
-    mut enumerated_values: EnumeratedValues,
-) -> Result<(), (usize, usize)>
-where
-    EnumeratedValues: Iterator<Item = (usize, Time)>,
-{
-    let has_previous = enumerated_values.next();
-    let (mut prev_position, mut prev_value) = has_previous.unwrap();
-    for (position, value) in enumerated_values {
-        if value < prev_value {
-            return Err((prev_position, position));
-        }
-        prev_position = position;
-        prev_value = value;
-    }
-    Ok(())
-}
-
-// Retuns
-//    - Some(Equal)   if lower[i] == upper[i] for all i
-//    - Some(Less)    if lower[i] <= upper[i] for all i
-//    - Some(Greater) if lower[i] >= upper[i] for all i
-//    - None otherwise (the two vector are not comparable)
-fn partial_cmp<Lower, Upper, Value>(lower: Lower, upper: Upper) -> Option<Ordering>
-where
-    Lower: Iterator<Item = Value> + Clone,
-    Upper: Iterator<Item = Value> + Clone,
-    Value: Ord,
-{
-    debug_assert!(lower.clone().count() == upper.clone().count());
-    let zip_iter = lower.zip(upper);
-    let mut first_not_equal_iter =
-        zip_iter.skip_while(|(lower_val, upper_val)| lower_val == upper_val);
-    let has_first_not_equal = first_not_equal_iter.next();
-    if let Some(first_not_equal) = has_first_not_equal {
-        let ordering = {
-            let lower_val = first_not_equal.0;
-            let upper_val = first_not_equal.1;
-            lower_val.cmp(&upper_val)
-        };
-        debug_assert!(ordering != Ordering::Equal);
-        // let's see if there is an index where the ordering is not the same
-        // as first_ordering
-        let found = first_not_equal_iter.find(|(lower_val, upper_val)| {
-            let cmp = lower_val.cmp(&upper_val);
-            cmp != ordering && cmp != Ordering::Equal
-        });
-        if found.is_some() {
+        let next_position_idx = position_idx + 1;
+        // if we are at the last position, we cannot board
+        if next_position_idx >= self.stop_flows.len() {
             return None;
+        };
+        
+
+        let has_latest_board_time = self.latest_board_time_at(position_idx);
+
+        // if there is no latest board time, it means that this position cannot be boarded
+        // and we return None
+        let latest_board_time_in_day = has_latest_board_time?;
+
+        let mut nb_of_days_to_offset = 0u16;
+        let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose();
+        let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
+            Vehicle,
+            DaysSinceDatasetStart,
+            SecondsSinceDatasetUTCStart,
+        )> = None;
+
+        while waiting_time_in_day <= *latest_board_time_in_day {
+            let has_vehicle = self.earliest_vehicle_to_board_in_day(
+                &waiting_day,
+                &waiting_time_in_day,
+                timetable,
+                pattern_data,
+                position,
+            );
+            if let Some(vehicle) = has_vehicle {
+                let vehicle_arrival_time_in_day_at_next_stop =
+                    pattern_data.arrival_time_at(timetable, &vehicle, &next_position);
+                let vehicle_arrival_time_at_next_stop = SecondsSinceDatasetStart::compose(
+                    &waiting_day,
+                    vehicle_arrival_time_in_day_at_next_stop,
+                );
+                if let Some((_, _, best_arrival_time)) =
+                    &best_vehicle_day_and_its_arrival_time_at_next_position
+                {
+                    if vehicle_arrival_time_at_next_stop < *best_arrival_time {
+                        best_vehicle_day_and_its_arrival_time_at_next_position =
+                            Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
+                    }
+                } else {
+                    best_vehicle_day_and_its_arrival_time_at_next_position =
+                        Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
+                }
+            }
+            nb_of_days_to_offset += 1;
+            let has_prev_day = waiting_time.decompose_with_days_offset(nb_of_days_to_offset);
+            if let Some((day, time_in_day)) = has_prev_day {
+                waiting_day = day;
+                waiting_time_in_day = time_in_day;
+            } else {
+                break;
+            }
         }
-        // if found.is_none(), it means that
-        // all elements are ordered the same, so the two vectors are comparable
-        return Some(ordering);
-    }
-    // if has_first_not_equal == None
-    // then values == item_values
-    // the two vector are equal
-    Some(Ordering::Equal)
-}
-#[derive(Clone)]
-struct VehicleTimes<'a> {
-    times_by_position: &'a [Vec<Time>],
-    position: usize,
-    vehicle: usize,
-}
 
-impl<'a> Iterator for VehicleTimes<'a> {
-    type Item = Time;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = self
-            .times_by_position
-            .get(self.position)
-            .map(|time_by_vehicles| &time_by_vehicles[self.vehicle]);
-        if result.is_some() {
-            self.position += 1;
-        }
-        result.cloned()
+        best_vehicle_day_and_its_arrival_time_at_next_position
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.times_by_position.len() - self.position;
-        (remaining, Some(remaining))
+    fn earliest_vehicle_to_board_in_day(
+        &self,
+        day: &DaysSinceDatasetStart,
+        time_in_day: &SecondsSinceTimezonedDayStart,
+        calendar : & Calendar,
+        position_idx: usize
+    ) -> Option<usize> {
+        self.best_filtered_vehicle_to_board_at(
+            time_in_day,
+            position_idx,
+            |vehicle_data| {
+                let days_pattern = vehicle_data.days_pattern;
+                calendar.is_allowed(&days_pattern, day)
+            },
+        )
     }
+
+    
 }
 
-impl<'a> ExactSizeIterator for VehicleTimes<'a> {}
+

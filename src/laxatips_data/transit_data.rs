@@ -6,7 +6,7 @@ pub use transit_model::objects::Time as TransitModelTime;
 pub use typed_index_collection::{Idx};
 
 use std::{collections::{BTreeMap}};
-use super::ordered_timetable::{StopPatternData, Position, Timetable, Vehicle};
+use super::timetables::timetables_data::{Timetables, Position, Timetable, Vehicle};
 use super::calendar::{Calendar, DaysPattern};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
 
@@ -14,18 +14,19 @@ use std::collections::HashMap;
 
 
 
+pub struct TransitData {
+    pub (super) stop_point_idx_to_stop : HashMap< Idx<StopPoint>, Stop  >,
+
+    pub (super) stops_data : Vec<StopData>,
+    pub (super) timetables : Timetables,
+
+    pub calendar : Calendar,
 
 
-
-#[derive(Debug, Clone)]
-pub struct VehicleData {
-    pub (super) vehicle_journey_idx : Idx<VehicleJourney>,
-    pub (super) days_pattern : DaysPattern,
 }
-
 pub struct StopData {
     pub (super) stop_point_idx : Idx<StopPoint>,
-    pub (super) position_in_patterns : Vec<(StopPattern, Position)>,
+    pub (super) position_in_timetables : Vec<Position>,
     pub (super) transfers : Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>
 }
 
@@ -36,11 +37,6 @@ pub enum FlowDirection{
     BoardAndDebark,
 }
 pub type StopPoints = Vec< (Idx<StopPoint>, FlowDirection) >;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct StopPattern {
-    pub (super) idx : usize
-}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub struct Stop {
@@ -53,29 +49,17 @@ pub struct Transfer {
 }
 
 
-pub struct TransitData {
-    pub (super) stop_points_to_pattern : BTreeMap< StopPoints, StopPattern>,
-    pub (super) stop_point_idx_to_stop : HashMap< Idx<StopPoint>, Stop  >,
 
-    pub (super) stops_data : Vec<StopData>,
-    pub (super) patterns : Vec<StopPatternData>,
-
-    pub calendar : Calendar,
-
-
-}
 
 
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Mission {
-    pub stop_pattern : StopPattern,
     pub timetable : Timetable,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Trip {
-    pub mission : Mission,
     pub vehicle : Vehicle,
     pub day : DaysSinceDatasetStart,
 }
@@ -85,10 +69,6 @@ pub struct Trip {
 impl TransitData {
     pub fn stop_data<'a>(& 'a self, stop : & Stop) -> & 'a StopData {
         & self.stops_data[stop.idx]
-    }
-
-    pub fn pattern<'a>(& 'a self, pattern : & StopPattern) -> & 'a StopPatternData {
-        & self.patterns[pattern.idx]
     }
 
     pub fn transfer(&self, transfer : & Transfer) -> (Stop, PositiveDuration) {
@@ -113,27 +93,18 @@ impl TransitData {
         self.stop_point_idx_to_stop.get(stop_point_idx)
     }
 
-    pub fn nb_of_patterns(&self) -> usize {
-        self.patterns.len()
-    }
-
     pub fn nb_of_timetables(&self) -> usize {
-        self.patterns.iter().map(|pattern| {
-            pattern.nb_of_timetables()
-        }).sum()
+        self.timetables.nb_of_timetables()
     }
 
     pub fn nb_of_vehicles(&self) -> usize {
-        self.patterns.iter().map(|pattern| {
-            pattern.nb_of_vehicles()
-        }).sum()
+        self.timetables.nb_of_vehicles()
     }
 
     pub fn vehicle_journey_idx(&self, trip : & Trip) -> Idx<VehicleJourney> {
-        let pattern = &trip.mission.stop_pattern;
-        let timetable = &trip.mission.timetable;
+        let timetable = &trip.vehicle.timetable;
         let vehicle = &trip.vehicle;
-        self.patterns[pattern.idx].vehicle_data(timetable, vehicle).vehicle_journey_idx
+        self.timetables.vehicle_journey_idx(vehicle)
     }
 
     pub fn stop_point_idx(&self, stop : & Stop) -> Idx<StopPoint> {

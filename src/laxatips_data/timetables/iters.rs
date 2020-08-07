@@ -7,11 +7,23 @@ use std::ops::Range;
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
 
-use crate::laxatips_data::time::SecondsSinceDayStart as Time;
+use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
 use chrono_tz::Tz as TimeZone;
 use std::collections::BTreeMap;
 
 use super::timetables_data::*;
+
+pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;
+
+pub type VehiclesIter = Map<Range<usize>, fn(usize) -> Vehicle>;
+
+impl Timetables {
+    pub fn timetables(&self) -> TimetablesIter {
+        (0..self.nb_of_timetables()).map(|idx| {
+            Timetable{ idx}
+        })
+    }
+}
 
 impl TimetableData {
     
@@ -44,6 +56,7 @@ impl TimetableData {
    
 
 }
+
 
 
 #[derive(Clone)]

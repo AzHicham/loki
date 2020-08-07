@@ -1,11 +1,13 @@
-use super::transit_data::{Mission, Stop, StopPattern, Transfer, TransitData, Trip};
+use super::transit_data::{Mission, Stop, Transfer, TransitData, Trip};
 
 use super::calendar::DaysIter;
 
-use super::ordered_timetable::{Position, TimetablesIter, Vehicle, VehiclesIter};
+use super::timetables::{
+    timetables_data::{Position, Vehicle},
+    iters::{TimetablesIter, VehiclesIter}
+};
 use std::slice::Iter as SliceIter;
 
-type PatternsOfStop<'a> = SliceIter<'a, (StopPattern, Position)>;
 
 impl TransitData {
     pub fn missions_of<'a>(&'a self, stop: &Stop) -> MissionsOfStop<'a> {

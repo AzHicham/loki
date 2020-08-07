@@ -2,7 +2,7 @@ pub mod transit_data;
 
 pub mod init;
 
-pub(super) mod ordered_timetable;
+// pub(super) mod ordered_timetable;
 
 pub(super) mod timetables;
 

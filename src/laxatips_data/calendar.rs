@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use super::time::{DaysSinceDatasetStart, SecondsSinceDatasetStart};
+use super::time::{DaysSinceDatasetStart, SecondsSinceDatasetUTCStart};
 
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -66,7 +66,7 @@ impl Calendar {
     pub fn timestamp_to_seconds_since_start(
         &self,
         timestamp: i64,
-    ) -> Option<SecondsSinceDatasetStart> {
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         let has_datetime = NaiveDateTime::from_timestamp_opt(timestamp, 0);
         if let Some(datetime) = has_datetime {
             self.naive_datetime_to_seconds_since_start(&datetime)
@@ -75,24 +75,24 @@ impl Calendar {
         }
     }
 
-    pub fn to_string(&self, seconds: &SecondsSinceDatasetStart) -> String {
+    pub fn to_string(&self, seconds: &SecondsSinceDatasetUTCStart) -> String {
         let datetime = self.to_naive_datetime(seconds);
         datetime.format("%Y%m%dT%H%M%S").to_string()
     }
 
-    pub fn to_pretty_string(&self, seconds: &SecondsSinceDatasetStart) -> String {
+    pub fn to_pretty_string(&self, seconds: &SecondsSinceDatasetUTCStart) -> String {
         let datetime = self.to_naive_datetime(seconds);
         datetime.format("%H:%M:%S %d-%b-%y").to_string()
     }
 
-    pub fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetStart) -> NaiveDateTime {
+    pub fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime {
         self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds.seconds as i64)
     }
 
     pub fn naive_datetime_to_seconds_since_start(
         &self,
         datetime: &NaiveDateTime,
-    ) -> Option<SecondsSinceDatasetStart> {
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         let date = datetime.date();
         if !self.contains(&date) {
             return None;
@@ -102,7 +102,7 @@ impl Calendar {
         debug_assert!(seconds_i64 <= u32::MAX as i64);
         let try_seconds_u32 = u32::try_from(seconds_i64);
         try_seconds_u32.map_or(None, |seconds_u32| {
-            let result = SecondsSinceDatasetStart {
+            let result = SecondsSinceDatasetUTCStart {
                 seconds: seconds_u32,
             };
             Some(result)

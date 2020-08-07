@@ -8,7 +8,7 @@ use transit_model::objects::{VehicleJourney};
 use transit_model::model::Model;
 use typed_index_collection::{Idx};
 
-use crate::laxatips_data::time::SecondsSinceDayStart as Time;
+use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
 use chrono_tz::Tz as TimeZone;
 use std::collections::BTreeMap;
 
@@ -22,21 +22,22 @@ impl Timetables {
     // Returns a VehicleTimesError otherwise.
     pub fn insert<BoardDebarkTimes>(
         &mut self,
+        stop_flows : StopFlows,
         board_debark_times: BoardDebarkTimes,
         timezone : & TimeZone,
         vehicle_data: VehicleData,
-    ) -> Result<(), VehicleTimesError>
+    ) -> Result<Timetable, VehicleTimesError>
     where
         BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
     {
-        assert!(self.nb_of_positions() == board_debark_times.len());
+        assert!(stop_flows.len() == board_debark_times.len());
 
         let valid_enumerated_board_times = board_debark_times
             .clone()
-            .zip(self.flow_directions.iter())
+            .zip(stop_flows.iter())
             .enumerate()
             .filter_map(
-                |(position, ((board_time, _), flow_direction))| match flow_direction {
+                |(position, ((board_time, _), (_,flow_direction)))| match flow_direction {
                     FlowDirection::BoardOnly | FlowDirection::BoardAndDebark => {
                         Some((position, board_time))
                     }
@@ -54,10 +55,10 @@ impl Timetables {
 
         let valid_enumerated_debark_times = board_debark_times
             .clone()
-            .zip(self.flow_directions.iter())
+            .zip(stop_flows.iter())
             .enumerate()
             .filter_map(
-                |(position, ((_, debark_time), flow_direction))| match flow_direction {
+                |(position, ((_, debark_time), (_, flow_direction)))| match flow_direction {
                     FlowDirection::DebarkOnly | FlowDirection::BoardAndDebark => {
                         Some((position, debark_time))
                     }
@@ -78,44 +79,78 @@ impl Timetables {
             .zip(board_debark_times.clone().skip(1))
             .enumerate();
         for (board_idx, ((board_time, _), (_, debark_time))) in pair_iter {
-            let board_position = Position { idx: board_idx };
-            let debark_position = Position { idx: board_idx + 1 };
-            if self.can_board(&board_position)
-                && self.can_debark(&debark_position)
+            let debark_idx = board_idx  + 1;
+            let can_board = match &stop_flows[board_idx].1 {
+                FlowDirection::BoardAndDebark
+                | FlowDirection::BoardOnly => true,
+                FlowDirection::DebarkOnly =>false
+            };
+            let can_debark = match &stop_flows[debark_idx].1 {
+                FlowDirection::BoardAndDebark
+                | FlowDirection::DebarkOnly => true,
+                FlowDirection::BoardOnly => false
+            };
+            if can_board
+                && can_debark
                 && board_time > debark_time
             {
                 let position_pair = PositionPair {
-                    upstream: board_position.idx,
-                    downstream: debark_position.idx,
+                    upstream: board_idx,
+                    downstream: debark_idx,
                 };
                 return Err(VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair));
             }
         }
 
-        let corrected_board_debark_times = board_debark_times.zip(self.flow_directions.iter()).map(
-            |((board_time, debark_time), flow_direction)| match flow_direction {
+        let corrected_board_debark_times = board_debark_times.zip(stop_flows.iter()).map(
+            |((board_time, debark_time), (_,flow_direction))| match flow_direction {
                 FlowDirection::BoardAndDebark => (board_time, debark_time),
                 FlowDirection::BoardOnly => (board_time, board_time),
                 FlowDirection::DebarkOnly => (debark_time, debark_time),
             },
         );
+        let stop_flows_timetables = self.stop_flows_to_timetables.entry(stop_flows).or_insert(Vec::new());
 
-        for timetable_data in &mut self.timetables {
+        for timetable in stop_flows_timetables {
+            let timetable_data = & mut self.timetable_datas[timetable.idx];
             let inserted = timetable_data
                 .try_insert(corrected_board_debark_times.clone(), timezone, vehicle_data.clone());
             if inserted {
                 return Ok(());
             }
         }
-        let mut new_timetable_data = TimetableData::new(self.nb_of_positions(), timezone);
-        let inserted = new_timetable_data.try_insert(corrected_board_debark_times, timezone, vehicle_data);
-        assert!(inserted);
-        self.timetables.push(new_timetable_data);
-        Ok(())
+        let mut new_timetable_data = TimetableData::new(stop_flows, timezone, corrected_board_debark_times, vehicle_data);
+        let timetable = Timetable{ idx : self.timetable_datas.len() };
+        self.timetable_datas.push(new_timetable_data);
+        stop_flows_timetables.push(timetable);
+        Ok(timetable)
     }
 }
 
 impl TimetableData {
+
+    pub  fn new<BoardDebarkTimes>(
+        stop_flows : StopFlows, 
+        timezone : & TimeZone,
+        board_debark_times: BoardDebarkTimes,
+        vehicle_data: VehicleData,
+    ) -> Self 
+    where
+        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+    {
+        let nb_of_positions = stop_flows.len();
+        assert!(nb_of_positions >= 2);
+        let mut result = Self {
+            stop_flows,
+            timezone : timezone.clone(),
+            vehicles_data: Vec::new(),
+            debark_times_by_position: vec![Vec::new(); nb_of_positions],
+            board_times_by_position: vec![Vec::new(); nb_of_positions],
+            latest_board_time_by_position: vec![Time::zero(); nb_of_positions],
+        };
+        result.do_insert(board_debark_times, vehicle_data, 0);
+        result
+    }
 
     // Try to insert the vehicle in this timetable
     // Returns `true` if insertion was succesfull, `false` otherwise
