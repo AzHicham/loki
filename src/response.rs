@@ -322,7 +322,7 @@ impl Journey {
         let from_datetime = transit_data.calendar.to_naive_datetime(&self.departure_datetime);
         let to_seconds = self.departure_datetime + self.departure_fallback_duration;
         let to_datetime = transit_data.calendar.to_naive_datetime(&to_seconds);
-        let position = self.first_vehicle.debark_position;
+        let position = self.first_vehicle.debark_position.clone();
         let trip = &self.first_vehicle.trip;
         let stop = transit_data.stop_at_position_in_trip(&position, &trip);
         let to_stop_point = transit_data.stop_point_idx(&stop);

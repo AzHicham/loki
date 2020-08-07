@@ -84,65 +84,50 @@ impl SecondsSinceDatasetUTCStart {
 
     // TODO : add doc and doctest
     #[inline(always)]
-    pub fn decompose(&self) -> (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart) {
-        // let utc_datetime = calendar.first_date().and_hms(0, 0, self.seconds);
-        // let timezoned_datetime  : chrono::DateTime<Timezone>= chrono::DateTime::from_utc(utc_datetime, timezone);
-        // let date = timezoned_datetime.date();
-        // let timezoned_day_begin = date.and_hms(0, 12, 0) - chrono::Duration::hours(12);
-        // let seconds_in_day_i64 = timezoned_datetime.signed_duration_since(timezoned_day_begin).num_seconds();
-        // use std::convert::TryFrom;
-        // let seconds_in_day_u32 = u32::try_from(seconds_in_day_i64).unwrap();
-        // use chrono::Date;
-        // let number_of_days_i64 = (date - Date::from_utc(*calendar.first_date(), timezone)).num_days();
-        // let number_of_days_u16 = u16::try_from(number_of_days_i64).unwrap();
-
-        let (days_u16, seconds_u32) = self.decompose_inner();
-
-        let days = DaysSinceDatasetStart { days: days_u16 };
-        let seconds = SecondsSinceTimezonedDayStart {
-            seconds: seconds_u32,
-        };
-
-        (days, seconds)
+    pub fn decompose(&self, calendar : & Calendar, timezone : &Timezone) -> (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart) {
+        self.decompose_with_days_offset(0, calendar, timezone).unwrap()
     }
 
-    // TODO : add doc and doctest
     pub fn decompose_with_days_offset(
         &self,
         nb_of_days_to_offset: u16,
+        calendar : & Calendar,
+        timezone : &Timezone,
     ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> {
-        let (canonical_days_u16, canonical_seconds_u32) = self.decompose_inner();
-        let has_days_u16 = canonical_days_u16.checked_sub(nb_of_days_to_offset);
-        has_days_u16.map(|days_u16| {
-            let days = DaysSinceDatasetStart { days: days_u16 };
-            let days_offset_u32: u32 = nb_of_days_to_offset.into();
-            let seconds_u32 = canonical_seconds_u32 + days_offset_u32 * SECONDS_IN_A_DAY;
-            let seconds = SecondsSinceTimezonedDayStart {
-                seconds: seconds_u32,
-            };
-            (days, seconds)
-        })
+        let datetime_utc = calendar.first_date().and_hms(0, 0, self.seconds);
+        use chrono::offset::TimeZone;
+        let datetime_timezoned = timezone.from_local_datetime(&datetime_utc).earliest()?;
+        let date = datetime_timezoned.date().naive_utc();
+        let reference_date = date.checked_sub_signed(chrono::Duration::days(nb_of_days_to_offset as i64))?;
+        let reference_datetime_utc = reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
+        let reference_datetime_timezoned = timezone.from_local_datetime(&reference_datetime_utc).earliest()?;
+        let reference_day = calendar.date_to_days_since_start(&reference_date)?;
+        let seconds_i64 = (datetime_timezoned - reference_datetime_timezoned).num_seconds();
+        use std::convert::TryFrom;
+        let seconds = u32::try_from(seconds_i64).ok()
+            .map(|seconds_u32|
+                SecondsSinceTimezonedDayStart {
+                    seconds : seconds_u32,
+                }
+            )?;
+        Some((reference_day, seconds))
+
     }
+
+
 
     #[inline(always)]
-    pub fn compose(days: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceTimezonedDayStart) -> Self {
-        let days_u32: u32 = days.days.into();
-        let seconds: u32 = SECONDS_IN_A_DAY * days_u32 + seconds_in_day.seconds;
-        Self { seconds }
+    pub fn compose(day: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceTimezonedDayStart, calendar : & Calendar, timezone : &Timezone) -> Self {
+        let date = *calendar.first_date() + chrono::Duration::days(day.days as i64);
+        use chrono::offset::TimeZone;
+        let datetime_timezoned = timezone.from_utc_date(&date).and_hms(0, 0, seconds_in_day.seconds);
+        use chrono_tz::UTC;
+        let datetime_utc = datetime_timezoned.with_timezone(&UTC).naive_utc();
+        
+        calendar.naive_datetime_to_seconds_since_start(&datetime_utc).unwrap()
+
     }
 
-    #[inline(always)]
-    fn decompose_inner(&self) -> (u16, u32) {
-        let days_u32 = self.seconds / SECONDS_IN_A_DAY;
-
-        // Dangerous cast, that we check in debug build only
-        debug_assert!(days_u32 <= (u16::MAX as u32));
-        let days_u16 = days_u32 as u16;
-
-        let seconds = self.seconds % SECONDS_IN_A_DAY;
-
-        (days_u16, seconds)
-    }
 
     pub fn duration_since(&self, start_datetime : & SecondsSinceDatasetUTCStart) -> Option<PositiveDuration> {
         self.seconds.checked_sub(start_datetime.seconds)

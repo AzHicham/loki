@@ -166,7 +166,6 @@ fn run() -> Result<(), Error> {
     let transit_data = &laxatips_data.transit_data;
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
-    info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
     info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
     info!(

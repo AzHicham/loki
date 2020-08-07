@@ -13,22 +13,110 @@ impl Timetables {
             timetable : & Timetable, 
             position : & Position,
             calendar : & Calendar,
-        ) -> Option<Vehicle> {
+        ) -> Option<(Vehicle, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
         assert!(*timetable == position.timetable);
         self.timetable_data(timetable)
-            .earliest_vehicle_to_board(waiting_time, calendar, position.idx)
-            .map(|(vehicle_idx, days, _) | {
-                Vehicle {
-                    timetable.clone(),
+            .best_vehicle_to_board(waiting_time, calendar, position.idx)
+            .map(|(vehicle_idx, days, arrival_time_at_next_position) | {
+                let vehicle = Vehicle {
+                    timetable : timetable.clone(),
                     idx : vehicle_idx
-                }
+                };
+                (vehicle, days, arrival_time_at_next_position)
             })
     }
 }
 
 impl TimetableData {
  
-   
+
+    fn best_vehicle_to_board(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        calendar : & Calendar,
+        position_idx: usize,
+    ) -> Option<(usize, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
+        //TODO : reread this and look for optimization
+
+        let next_position_idx = position_idx + 1;
+        // if we are at the last position, we cannot board
+        if next_position_idx >= self.stop_flows.len() {
+            return None;
+        };
+        
+
+        let has_latest_board_time = self.latest_board_time_at(position_idx);
+
+        // if there is no latest board time, it means that this position cannot be boarded
+        // and we return None
+        let latest_board_time_in_day = has_latest_board_time?;
+
+        let mut nb_of_days_to_offset = 0u16;
+        let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose(calendar, &self.timezone);
+        let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
+            usize, // vehicle_idx
+            DaysSinceDatasetStart,
+            SecondsSinceDatasetUTCStart,
+        )> = None;
+
+        while waiting_time_in_day <= *latest_board_time_in_day {
+            let has_vehicle = self.best_vehicle_to_board_in_day(
+                &waiting_day,
+                &waiting_time_in_day,
+                calendar,
+                position_idx,
+            );
+            if let Some(vehicle) = has_vehicle {
+                let vehicle_arrival_time_in_day_at_next_stop =
+                    self.arrival_time_at(vehicle, next_position_idx);
+                let vehicle_arrival_time_at_next_stop = SecondsSinceDatasetUTCStart::compose(
+                    &waiting_day,
+                    vehicle_arrival_time_in_day_at_next_stop,
+                    calendar,
+                    &self.timezone
+                );
+                if let Some((_, _, best_arrival_time)) =
+                    &best_vehicle_day_and_its_arrival_time_at_next_position
+                {
+                    if vehicle_arrival_time_at_next_stop < *best_arrival_time {
+                        best_vehicle_day_and_its_arrival_time_at_next_position =
+                            Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
+                    }
+                } else {
+                    best_vehicle_day_and_its_arrival_time_at_next_position =
+                        Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
+                }
+            }
+            nb_of_days_to_offset += 1;
+            let has_prev_day = waiting_time.decompose_with_days_offset(nb_of_days_to_offset, calendar, &self.timezone);
+            if let Some((day, time_in_day)) = has_prev_day {
+                waiting_day = day;
+                waiting_time_in_day = time_in_day;
+            } else {
+                break;
+            }
+        }
+
+        best_vehicle_day_and_its_arrival_time_at_next_position
+    }
+
+    fn best_vehicle_to_board_in_day(
+        &self,
+        day: &DaysSinceDatasetStart,
+        time_in_day: &SecondsSinceTimezonedDayStart,
+        calendar : & Calendar,
+        position_idx: usize
+    ) -> Option<usize> {
+        self.best_filtered_vehicle_to_board_at(
+            time_in_day,
+            position_idx,
+            |vehicle_data| {
+                let days_pattern = vehicle_data.days_pattern;
+                calendar.is_allowed(&days_pattern, day)
+            },
+        )
+    }
+
 
     // If we are waiting to board a vehicle at `position` at time `waiting_time`
     // return `Some(best_vehicle)_idx`
@@ -99,93 +187,6 @@ impl TimetableData {
             }
         }
         None
-    }
-
-
-    fn earliest_vehicle_to_board(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        calendar : & Calendar,
-        position_idx: usize,
-    ) -> Option<(usize, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
-        //TODO : reread this and look for optimization
-
-        let next_position_idx = position_idx + 1;
-        // if we are at the last position, we cannot board
-        if next_position_idx >= self.stop_flows.len() {
-            return None;
-        };
-        
-
-        let has_latest_board_time = self.latest_board_time_at(position_idx);
-
-        // if there is no latest board time, it means that this position cannot be boarded
-        // and we return None
-        let latest_board_time_in_day = has_latest_board_time?;
-
-        let mut nb_of_days_to_offset = 0u16;
-        let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose();
-        let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
-            Vehicle,
-            DaysSinceDatasetStart,
-            SecondsSinceDatasetUTCStart,
-        )> = None;
-
-        while waiting_time_in_day <= *latest_board_time_in_day {
-            let has_vehicle = self.earliest_vehicle_to_board_in_day(
-                &waiting_day,
-                &waiting_time_in_day,
-                timetable,
-                pattern_data,
-                position,
-            );
-            if let Some(vehicle) = has_vehicle {
-                let vehicle_arrival_time_in_day_at_next_stop =
-                    pattern_data.arrival_time_at(timetable, &vehicle, &next_position);
-                let vehicle_arrival_time_at_next_stop = SecondsSinceDatasetStart::compose(
-                    &waiting_day,
-                    vehicle_arrival_time_in_day_at_next_stop,
-                );
-                if let Some((_, _, best_arrival_time)) =
-                    &best_vehicle_day_and_its_arrival_time_at_next_position
-                {
-                    if vehicle_arrival_time_at_next_stop < *best_arrival_time {
-                        best_vehicle_day_and_its_arrival_time_at_next_position =
-                            Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
-                    }
-                } else {
-                    best_vehicle_day_and_its_arrival_time_at_next_position =
-                        Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
-                }
-            }
-            nb_of_days_to_offset += 1;
-            let has_prev_day = waiting_time.decompose_with_days_offset(nb_of_days_to_offset);
-            if let Some((day, time_in_day)) = has_prev_day {
-                waiting_day = day;
-                waiting_time_in_day = time_in_day;
-            } else {
-                break;
-            }
-        }
-
-        best_vehicle_day_and_its_arrival_time_at_next_position
-    }
-
-    fn earliest_vehicle_to_board_in_day(
-        &self,
-        day: &DaysSinceDatasetStart,
-        time_in_day: &SecondsSinceTimezonedDayStart,
-        calendar : & Calendar,
-        position_idx: usize
-    ) -> Option<usize> {
-        self.best_filtered_vehicle_to_board_at(
-            time_in_day,
-            position_idx,
-            |vehicle_data| {
-                let days_pattern = vehicle_data.days_pattern;
-                calendar.is_allowed(&days_pattern, day)
-            },
-        )
     }
 
     

@@ -109,9 +109,9 @@ impl Timetables {
                 FlowDirection::DebarkOnly => (debark_time, debark_time),
             },
         );
-        let stop_flows_timetables = self.stop_flows_to_timetables.entry(stop_flows).or_insert(Vec::new());
+        let stop_flows_timetables = self.stop_flows_to_timetables.entry(stop_flows.clone()).or_insert(Vec::new());
 
-        for timetable in stop_flows_timetables {
+        for timetable in stop_flows_timetables.iter() {
             let timetable_data = & mut self.timetable_datas[timetable.idx];
             let inserted = timetable_data
                 .try_insert(corrected_board_debark_times.clone(), timezone, vehicle_data.clone());
@@ -119,10 +119,10 @@ impl Timetables {
                 return Ok(timetable.clone());
             }
         }
-        let mut new_timetable_data = TimetableData::new(stop_flows, timezone, corrected_board_debark_times, vehicle_data);
+        let new_timetable_data = TimetableData::new(stop_flows.clone(), timezone, corrected_board_debark_times, vehicle_data);
         let timetable = Timetable{ idx : self.timetable_datas.len() };
         self.timetable_datas.push(new_timetable_data);
-        stop_flows_timetables.push(timetable);
+        stop_flows_timetables.push(timetable.clone());
         Ok(timetable)
     }
 }

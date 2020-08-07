@@ -241,7 +241,7 @@ impl TransitData {
             Ok(timetable) => {
                 for position in self.timetables.positions(&timetable) {
                     let stop = self.timetables.stop_at(&timetable, &position);
-                    let stop_data = self.stop_data(stop);
+                    let stop_data = & mut self.stops_data[stop.idx];
                     stop_data.position_in_timetables.push(position);
                 }
             },

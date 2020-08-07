@@ -128,7 +128,7 @@ impl Calendar {
         for date in dates {
             let has_offset = self.date_to_offset(date);
             if let Some(offset) = has_offset {
-                self.buffer[offset] = true;
+                self.buffer[offset as usize] = true;
             }
         }
 
@@ -157,7 +157,17 @@ impl Calendar {
         self.first_date <= *date && *date <= self.last_date
     }
 
-    fn date_to_offset(&self, date: &NaiveDate) -> Option<usize> {
+
+    pub fn date_to_days_since_start(&self, date: &NaiveDate) -> Option<DaysSinceDatasetStart> {
+        self.date_to_offset(date)
+            .map(|offset| {
+                DaysSinceDatasetStart {
+                    days : offset
+                }
+            })
+    }
+
+    fn date_to_offset(&self, date: &NaiveDate) -> Option<u16> {
         if *date < self.first_date || *date > self.last_date {
             None
         } else {
@@ -167,7 +177,7 @@ impl Calendar {
             //  - we check that offset_64 is smaller than usize::MAX because at construction of Calendars
             //    we ensure that (last_date - first_date).num_days() < usize::MAX
             //    and we check above that date <= self.last_date
-            let offset: usize = TryFrom::try_from(offset_64).unwrap();
+            let offset = u16::try_from(offset_64).unwrap();
             Some(offset)
         }
     }

@@ -20,8 +20,8 @@ impl<'data, 'model> Request<'data> {
 
         let first_vehicle = response::VehicleLeg {
             trip : pt_journey.departure_leg.trip.clone(),
-            board_position : pt_journey.departure_leg.board_position,
-            debark_position : pt_journey.departure_leg.debark_position
+            board_position : pt_journey.departure_leg.board_position.clone(),
+            debark_position : pt_journey.departure_leg.debark_position.clone()
         };
 
         let arrival_fallback_duration = &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
@@ -30,8 +30,8 @@ impl<'data, 'model> Request<'data> {
             let transfer = connection_leg.transfer.clone();
             let vehicle_leg = response::VehicleLeg {
                 trip : connection_leg.trip.clone(),
-                board_position : connection_leg.board_position,
-                debark_position : connection_leg.debark_position,
+                board_position : connection_leg.board_position.clone(),
+                debark_position : connection_leg.debark_position.clone(),
             };
             (transfer, vehicle_leg)
         });

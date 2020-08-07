@@ -1,8 +1,7 @@
 use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::calendar::{DaysPattern};
+use crate::laxatips_data::calendar::{Calendar, DaysPattern};
 use std::cmp::Ordering;
-use std::iter::{Map};
-use std::ops::Range;
+use crate::laxatips_data::time::{DaysSinceDatasetStart, SecondsSinceDatasetUTCStart};
 
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
@@ -59,7 +58,7 @@ pub (super) struct TimetableData {
     pub (super) latest_board_time_by_position: Vec<Time>,
 }
 #[derive(Debug, Clone)]
-pub (crate) struct VehicleData {
+pub struct VehicleData {
     pub vehicle_journey_idx : Idx<VehicleJourney>,
     pub days_pattern : DaysPattern,
 }
@@ -108,7 +107,7 @@ impl Timetables {
         }
     }
 
-    pub fn timetable_data(&self, timetable : & Timetable) -> & TimetableData {
+    pub (super) fn timetable_data(&self, timetable : & Timetable) -> & TimetableData {
         & self.timetable_datas[timetable.idx]
     }
 
@@ -125,7 +124,7 @@ impl Timetables {
     pub fn next_position(&self, position : & Position) -> Option<Position> {
         if position.idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
             let result = Position {
-                timetable : position.timetable,
+                timetable : position.timetable.clone(),
                 idx : position.idx + 1
             };
             Some(result)
@@ -140,24 +139,30 @@ impl Timetables {
         self.timetable_data(&position.timetable).stop_at(position.idx)
     }
 
-    pub fn debark_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+    pub fn debark_time_at(&self, vehicle: &Vehicle, position: &Position, day : & DaysSinceDatasetStart, calendar : & Calendar) -> Option<SecondsSinceDatasetUTCStart> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
-        timetable_data.debark_time_at(vehicle.idx, position.idx)
+        timetable_data.debark_time_at(vehicle.idx, position.idx).map(|seconds_in_day| {
+            SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
+        })
     }
 
-    pub fn board_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+    pub fn board_time_at(&self, vehicle: &Vehicle, position: &Position, day : & DaysSinceDatasetStart, calendar : & Calendar) -> Option<SecondsSinceDatasetUTCStart> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
-        timetable_data.board_time_at(vehicle.idx, position.idx)
+        timetable_data.board_time_at(vehicle.idx, position.idx).map(|seconds_in_day| {
+            SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
+        })
     }
 
-    pub fn arrival_time_at(&self, vehicle: &Vehicle, position: &Position) -> &Time {
+    pub fn arrival_time_at(&self, vehicle: &Vehicle, position: &Position, day : & DaysSinceDatasetStart, calendar : & Calendar) -> SecondsSinceDatasetUTCStart {
         assert!(vehicle.timetable == position.timetable);
-        self.timetable_data(&vehicle.timetable).arrival_time_at(vehicle.idx, position.idx)
+        let timetable_data = self.timetable_data(&vehicle.timetable);
+        let seconds_in_day = timetable_data.arrival_time_at(vehicle.idx, position.idx);
+        SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
     }
 
-    pub fn latest_board_time_at(&self, position: &Position) -> Option<&Time> {
+    fn latest_board_time_at(&self, position: &Position) -> Option<&Time> {
         let timetable_data = self.timetable_data(&position.timetable);
         timetable_data.latest_board_time_at(position.idx)
     }

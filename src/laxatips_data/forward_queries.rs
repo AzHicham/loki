@@ -49,8 +49,8 @@ impl TransitData {
     // Panics if `trip` does not go through `position`
     pub fn arrival_time_of(&self, trip: &Trip, position: &Position) -> SecondsSinceDatasetUTCStart {
         let vehicle = &trip.vehicle;
-        let seconds_in_day = self.timetables.arrival_time_at(vehicle, position);
-        SecondsSinceDatasetUTCStart::compose(&trip.day, seconds_in_day)
+        let day = &trip.day;
+        self.timetables.arrival_time_at(vehicle, position, day, & self.calendar)
     }
 
     // Panics if `position` is not valid for `trip`
@@ -61,11 +61,8 @@ impl TransitData {
         position: &Position,
     ) -> Option<SecondsSinceDatasetUTCStart> {
         let vehicle = &trip.vehicle;
-        let has_seconds_in_day = self.timetables.debark_time_at(vehicle, position);
-        has_seconds_in_day.as_ref().map(|seconds_in_day| {
-            let days = &trip.day;
-            SecondsSinceDatasetUTCStart::compose(days, &seconds_in_day)
-        })
+        let day = &trip.day;
+        self.timetables.debark_time_at(vehicle, position, day, &self.calendar)
     }
 
     // Panics if `position` is not valid for `trip`
@@ -76,11 +73,8 @@ impl TransitData {
         position: &Position,
     ) -> Option<SecondsSinceDatasetUTCStart> {
         let vehicle = &trip.vehicle;
-        let has_seconds_in_day = self.timetables.board_time_at(vehicle, position);
-        has_seconds_in_day.as_ref().map(|seconds_in_day| {
-            let days = &trip.day;
-            SecondsSinceDatasetUTCStart::compose(days, &seconds_in_day)
-        })
+        let day = &trip.day;
+        self.timetables.board_time_at(vehicle, position, day, &self.calendar)
     }
 
     pub fn earliest_trip_to_board_at(
@@ -90,7 +84,15 @@ impl TransitData {
         position: &Position,
     ) -> Option<(Trip, SecondsSinceDatasetUTCStart)> {
         let timetable = &mission.timetable;
-        self.timetables.best_vehicle_to_board(waiting_time, timetable, position);
+        self.timetables
+            .best_vehicle_to_board(waiting_time, timetable, position, &self.calendar)
+            .map(|(vehicle, day, arrival_time_at_next_position)| {
+                let trip = Trip {
+                    vehicle,
+                    day,
+                };
+                (trip, arrival_time_at_next_position)
+            })
 
     }
 
