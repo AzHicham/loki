@@ -94,7 +94,7 @@ impl SecondsSinceDatasetUTCStart {
         calendar : & Calendar,
         timezone : &Timezone,
     ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> {
-        let datetime_utc = calendar.first_date().and_hms(0, 0, self.seconds);
+        let datetime_utc = calendar.first_date().and_hms(0, 0, 0) + chrono::Duration::seconds(self.seconds as i64);
         use chrono::offset::TimeZone;
         let datetime_timezoned = timezone.from_local_datetime(&datetime_utc).earliest()?;
         let date = datetime_timezoned.date().naive_utc();
@@ -120,7 +120,7 @@ impl SecondsSinceDatasetUTCStart {
     pub fn compose(day: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceTimezonedDayStart, calendar : & Calendar, timezone : &Timezone) -> Self {
         let date = *calendar.first_date() + chrono::Duration::days(day.days as i64);
         use chrono::offset::TimeZone;
-        let datetime_timezoned = timezone.from_utc_date(&date).and_hms(0, 0, seconds_in_day.seconds);
+        let datetime_timezoned = timezone.from_utc_date(&date).and_hms(0, 0, 0) + chrono::Duration::seconds(seconds_in_day.seconds as i64);
         use chrono_tz::UTC;
         let datetime_utc = datetime_timezoned.with_timezone(&UTC).naive_utc();
         
