@@ -19,4 +19,5 @@ slog-async = "2.3"
 slog-envlogger = "2.1"
 rand = "0.7"
 rand_chacha = "0.2.2"
+log = "0.4"
 # log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }

@@ -1,8 +1,6 @@
 use std::fmt::{Display, Formatter};
 use chrono_tz::Tz as Timezone;
 
-const SECONDS_IN_A_DAY: u32 = 60 * 60 * 24;
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceTimezonedDayStart {
     pub(super) seconds: u32,
@@ -96,7 +94,7 @@ impl SecondsSinceDatasetUTCStart {
     ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> {
         let datetime_utc = calendar.first_date().and_hms(0, 0, 0) + chrono::Duration::seconds(self.seconds as i64);
         use chrono::offset::TimeZone;
-        let datetime_timezoned = timezone.from_local_datetime(&datetime_utc).earliest()?;
+        let datetime_timezoned = timezone.from_utc_datetime(&datetime_utc);
         let date = datetime_timezoned.date().naive_utc();
         let reference_date = date.checked_sub_signed(chrono::Duration::days(nb_of_days_to_offset as i64))?;
         let reference_datetime_utc = reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);

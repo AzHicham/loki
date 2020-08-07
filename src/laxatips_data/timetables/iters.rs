@@ -1,17 +1,8 @@
-use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::calendar::{DaysPattern};
-use std::cmp::Ordering;
+
 use std::iter::{Chain, Map};
 use std::ops::Range;
-
-use transit_model::objects::{VehicleJourney};
-use typed_index_collection::{Idx};
-
 use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
-use chrono_tz::Tz as TimeZone;
-use std::collections::BTreeMap;
-
-use super::timetables_data::*;
+use super::timetables_data::{TimetableData, Timetables, Timetable, Position, Vehicle};
 
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
@@ -25,7 +16,6 @@ impl Timetables {
     pub fn vehicles(&self, timetable : & Timetable) -> VehiclesIter {
         let timetable_data = self.timetable_data(timetable);
         let nb_of_vehicles = timetable_data.nb_of_vehicles();
-        let timetable_idx = timetable.idx;
         VehiclesIter::new(timetable.clone(), 0..nb_of_vehicles)
     }
 

@@ -1,8 +1,8 @@
 use super::transit_data::{Mission, Stop, TransitData, Trip};
 
-use super::time::{DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart};
+use super::time::{SecondsSinceDatasetUTCStart, };
 
-use super::timetables::timetables_data::{Position, Timetable, Vehicle};
+use super::timetables::timetables_data::{Position,  };
 
 impl TransitData {
     pub fn is_upstream_in_mission(
@@ -12,6 +12,7 @@ impl TransitData {
         mission: &Mission,
     ) -> bool {
         assert!(upstream.timetable == downstream.timetable);
+        assert!(upstream.timetable == mission.timetable);
         upstream.is_upstream(downstream).unwrap()
     }
 

@@ -5,9 +5,9 @@ pub use transit_model::{
 pub use transit_model::objects::Time as TransitModelTime;
 pub use typed_index_collection::{Idx};
 
-use std::{collections::{BTreeMap}};
+
 use super::timetables::timetables_data::{Timetables, Position, Timetable, Vehicle};
-use super::calendar::{Calendar, DaysPattern};
+use super::calendar::{Calendar};
 use super::time::{PositiveDuration, DaysSinceDatasetStart};
 
 use std::collections::HashMap;
@@ -30,13 +30,6 @@ pub struct StopData {
     pub (super) transfers : Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
-pub enum FlowDirection{
-    BoardOnly,
-    DebarkOnly,
-    BoardAndDebark,
-}
-pub type StopPoints = Vec< (Idx<StopPoint>, FlowDirection) >;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub struct Stop {
@@ -102,7 +95,6 @@ impl TransitData {
     }
 
     pub fn vehicle_journey_idx(&self, trip : & Trip) -> Idx<VehicleJourney> {
-        let timetable = &trip.vehicle.timetable;
         let vehicle = &trip.vehicle;
         self.timetables.vehicle_journey_idx(vehicle)
     }

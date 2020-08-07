@@ -1,18 +1,8 @@
-use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::calendar::{DaysPattern};
+
 use std::cmp::Ordering;
-use std::iter::{Chain, Map};
-use std::ops::Range;
-
-use transit_model::objects::{VehicleJourney};
-use transit_model::model::Model;
-use typed_index_collection::{Idx};
-
 use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
 use chrono_tz::Tz as TimeZone;
-use std::collections::BTreeMap;
-
-use super::timetables_data::*;
+use super::timetables_data::{Timetables, StopFlows, VehicleData, Timetable, FlowDirection, TimetableData, partial_cmp};
 
 impl Timetables {
 

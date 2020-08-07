@@ -4,9 +4,9 @@ use super::calendar::DaysIter;
 
 use super::timetables::{
     timetables_data::{Position, Vehicle},
-    iters::{TimetablesIter, VehiclesIter}
+    iters::{VehiclesIter}
 };
-use std::slice::Iter as SliceIter;
+
 
 
 impl TransitData {
