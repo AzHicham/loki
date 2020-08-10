@@ -6,7 +6,7 @@ use laxatips::{
     Idx, StopPoint, VehicleJourney,
 };
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use chrono_tz::Tz as Timezone;
 
 use failure::{format_err, Error};
@@ -375,12 +375,9 @@ fn to_utc_timestamp(
     time_in_day: &transit_model::objects::Time,
 ) -> Result<u64, Error> {
     use chrono::TimeZone;
-    let datetime = timezone.from_utc_date(day)
-        .and_hms(time_in_day.hours(), 
-            time_in_day.minutes(), 
-            time_in_day.seconds()
-        );
-    let timestamp_i64 = datetime.timestamp();
+    let local_datetime = day.and_hms(0,0,0) + chrono::Duration::seconds(time_in_day.total_seconds() as i64);
+    let timezoned_datetime = timezone.from_local_datetime(&local_datetime).earliest().unwrap();
+    let timestamp_i64 = timezoned_datetime.timestamp();
     TryFrom::try_from(timestamp_i64).map_err(|_| {
         format_err!(
             "Unable to convert day {} time_in_day {} to u64 utc timestamp.",
