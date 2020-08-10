@@ -146,8 +146,18 @@ impl Journey {
 
     }
 
+    pub fn first_vehicle_board_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        let seconds = self.first_vehicle_board_time(transit_data);
+        transit_data.calendar.to_naive_datetime(&seconds)
+    }
+
     fn first_vehicle_board_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
         transit_data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position).unwrap()
+    }
+
+    pub fn last_vehicle_debark_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        let seconds = self.last_vehicle_debark_time(transit_data);
+        transit_data.calendar.to_naive_datetime(&seconds)
     }
 
     fn last_vehicle_debark_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {

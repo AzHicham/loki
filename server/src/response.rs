@@ -48,13 +48,12 @@ fn make_journey(
     let nb_of_sections = 1 + 3 * journey.nb_of_connections();
 
     let mut proto = navitia_proto::Journey {
-        duration : Some(duration_to_i32(
-                        &journey.departure_datetime(transit_data),
-                        &journey.arrival_datetime(transit_data),
-                    )?),
+        duration : Some(i32::try_from(
+            journey.total_duration_in_pt(transit_data).total_seconds(),
+        )?),
         nb_transfers : Some(i32::try_from(journey.nb_of_transfers())?),
-        departure_date_time : Some(to_u64_timestamp(&journey.departure_datetime(transit_data))?),
-        arrival_date_time : Some(to_u64_timestamp(&journey.arrival_datetime(transit_data))?),
+        departure_date_time : Some(to_u64_timestamp(&journey.first_vehicle_board_datetime(transit_data))?),
+        arrival_date_time : Some(to_u64_timestamp(&journey.last_vehicle_debark_datetime(transit_data))?),
         sections : Vec::with_capacity(nb_of_sections), // to be filled below
         sn_dur : Some(journey.total_fallback_duration().total_seconds()),
         transfer_dur : Some(journey
