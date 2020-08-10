@@ -36,7 +36,7 @@ struct Options {
     input: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(short = "s")]
+    #[structopt(short = "s", long)]
     socket: String,
 }
 
@@ -55,7 +55,6 @@ fn read_ntfs(ntfs_path: &Path) -> Result<LaxatipsData, Error> {
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     let transit_data = &laxatips_data.transit_data;
     info!("Data constructed in {} ms", data_build_duration);
-    info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
     info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
     info!(

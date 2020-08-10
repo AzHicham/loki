@@ -1,8 +1,8 @@
 use crate::laxatips_data::{
     transit_data::{Mission, Stop, Transfer, Trip},
     iters::{MissionsOfStop, TransfersOfStop, TripsOfMission},
-    ordered_timetable::Position,
-    time::{PositiveDuration, SecondsSinceDatasetStart},
+    timetables::timetables_data::Position,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
 
@@ -23,7 +23,7 @@ pub struct ArrivalIdx {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Criteria {
-    arrival_time: SecondsSinceDatasetStart,
+    arrival_time: SecondsSinceDatasetUTCStart,
     nb_of_legs: u8,
     fallback_duration: PositiveDuration,
     transfers_duration: PositiveDuration,
@@ -59,7 +59,7 @@ impl<'data> PublicTransit for Request<'data> {
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
-        trip.mission.clone()
+        Mission{ timetable : trip.vehicle.timetable.clone() }
     }
 
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
@@ -118,7 +118,7 @@ impl<'data> PublicTransit for Request<'data> {
         else {
             return None;
         }
-        let next_position = self.next_on_mission(position, &trip.mission).unwrap();
+        let next_position = self.laxatips_data.transit_data.next_position(position).unwrap();
         let arrival_time_at_next_stop = self.laxatips_data.transit_data.arrival_time_of(trip, &next_position);
         let new_criteria = Criteria {
             arrival_time: arrival_time_at_next_stop,
@@ -175,7 +175,7 @@ impl<'data> PublicTransit for Request<'data> {
         position: &Self::Position,
         criteria: &Self::Criteria,
     ) -> Self::Criteria {
-        let next_position = self.next_on_mission(position, &trip.mission).unwrap();
+        let next_position = self.laxatips_data.transit_data.next_position(position).unwrap();
         let arrival_time_at_next_position = self.laxatips_data.transit_data.arrival_time_of(trip, &next_position);
         Criteria {
             arrival_time: arrival_time_at_next_position,

@@ -6,7 +6,8 @@ use laxatips::{
     Idx, StopPoint, VehicleJourney,
 };
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono_tz::Tz as Timezone;
 
 use failure::{format_err, Error};
 
@@ -47,13 +48,12 @@ fn make_journey(
     let nb_of_sections = 1 + 3 * journey.nb_of_connections();
 
     let mut proto = navitia_proto::Journey {
-        duration : Some(duration_to_i32(
-                        &journey.departure_datetime(transit_data),
-                        &journey.arrival_datetime(transit_data),
-                    )?),
+        duration : Some(i32::try_from(
+            journey.total_duration_in_pt(transit_data).total_seconds(),
+        )?),
         nb_transfers : Some(i32::try_from(journey.nb_of_transfers())?),
-        departure_date_time : Some(to_u64_timestamp(&journey.departure_datetime(transit_data))?),
-        arrival_date_time : Some(to_u64_timestamp(&journey.arrival_datetime(transit_data))?),
+        departure_date_time : Some(to_u64_timestamp(&journey.first_vehicle_board_datetime(transit_data))?),
+        arrival_date_time : Some(to_u64_timestamp(&journey.last_vehicle_debark_datetime(transit_data))?),
         sections : Vec::with_capacity(nb_of_sections), // to be filled below
         sn_dur : Some(journey.total_fallback_duration().total_seconds()),
         transfer_dur : Some(journey
@@ -63,10 +63,13 @@ fn make_journey(
         nb_sections : Some(u32::try_from(journey.nb_of_legs())?),
         durations :  Some(navitia_proto::Durations {
             total: Some(i32::try_from(
-                journey.total_duration(transit_data).total_seconds(),
+                journey.total_duration_in_pt(transit_data).total_seconds(),
             )?),
             walking: Some(i32::try_from(
-                (journey.total_fallback_duration() + journey.total_transfer_duration(transit_data))
+                (
+                    //journey.total_fallback_duration() +
+                    journey.total_transfer_duration(transit_data)
+                )
                     .total_seconds(),
             )?),
             bike: Some(0),
@@ -189,6 +192,7 @@ fn make_public_transport_section(
     let to_stop_point_idx = to_stoptime.stop_point_idx;
     let stop_times = &vehicle_journey.stop_times[from_stoptime_idx..=to_stoptime_idx];
     let day = &vehicle_section.day_for_vehicle_journey;
+    let timezone = get_timezone(&vehicle_section.vehicle_journey, model).unwrap_or(chrono_tz::UTC);
 
     let mut proto = navitia_proto::Section {
         origin : Some(make_stop_point_pt_object(from_stop_point_idx, model)?),
@@ -197,7 +201,7 @@ fn make_public_transport_section(
         stop_date_times : stop_times
                             .iter()
                             .map(|stop_time| 
-                                make_stop_datetime(stop_time, day, model)
+                                make_stop_datetime(stop_time, day, &timezone, model)
                             ).collect::<Result<Vec<_>,_>>()?,
         shape : make_shape_from_stop_points(stop_times.iter().map(|stop_time| stop_time.stop_point_idx), model),
         duration : Some(duration_to_i32(
@@ -352,12 +356,13 @@ fn make_pt_display_info(
 fn make_stop_datetime(
     stoptime: &transit_model::objects::StopTime,
     day: &NaiveDate,
+    timezone : & Timezone,
     model: &transit_model::Model,
 ) -> Result<navitia_proto::StopDateTime, Error> {
     let stop_point = &model.stop_points[stoptime.stop_point_idx];
     let proto = navitia_proto::StopDateTime {
-        arrival_date_time : Some(to_utc_timestamp(day, &stoptime.arrival_time)?),
-        departure_date_time : Some(to_utc_timestamp(day, &stoptime.departure_time)?),
+        arrival_date_time : Some(to_utc_timestamp(timezone, day, &stoptime.arrival_time)?),
+        departure_date_time : Some(to_utc_timestamp(timezone, day, &stoptime.departure_time)?),
         stop_point : Some(make_stop_point(stop_point, model)?),
         ..Default::default()
     };
@@ -365,16 +370,14 @@ fn make_stop_datetime(
 }
 
 fn to_utc_timestamp(
+    timezone : & Timezone,
     day: &NaiveDate,
     time_in_day: &transit_model::objects::Time,
 ) -> Result<u64, Error> {
-    let timestamp_i64 = day
-        .and_hms(
-            time_in_day.hours(),
-            time_in_day.minutes(),
-            time_in_day.seconds(),
-        )
-        .timestamp();
+    use chrono::TimeZone;
+    let local_datetime = day.and_hms(0,0,0) + chrono::Duration::seconds(time_in_day.total_seconds() as i64);
+    let timezoned_datetime = timezone.from_local_datetime(&local_datetime).earliest().unwrap();
+    let timestamp_i64 = timezoned_datetime.timestamp();
     TryFrom::try_from(timestamp_i64).map_err(|_| {
         format_err!(
             "Unable to convert day {} time_in_day {} to u64 utc timestamp.",
@@ -417,4 +420,14 @@ fn make_shape_from_stop_points(
     })
     .collect()
 
+}
+
+fn get_timezone(vehicle_journey_idx: & Idx<VehicleJourney>, model: &transit_model::Model) -> Option<Timezone> {
+    let route_id = &model.vehicle_journeys[*vehicle_journey_idx].route_id;
+    let route = model.routes.get(&route_id)?;
+    let line = model.lines.get(&route.line_id)?;
+    let network = model.networks.get(&line.network_id)?;
+    let timezone_string = &network.timezone.as_ref()?;
+    let has_timezone : Result<Timezone, _> = timezone_string.parse();
+    has_timezone.ok()
 }

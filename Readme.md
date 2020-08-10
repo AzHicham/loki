@@ -80,7 +80,8 @@ in a Tree implemented in `journeys_tree.rs`.
 - take into account the timezones in the data. For now we consider that the time given in `Model.stop_times` are given in the UTC timezone. In fact, they are given in the timezone of the network of the vehicle_journey they belongs to.
 The most natural thing to do is to modify `ordered_timetable.rs` to store the timezone in each timetable (a timetable will contains only vehicle in the same timezone), and to give answers in UTC.
 - while processing a journey obtained from the engine in `DepartAfterRequest`, implements a "backward" pass to make departure time as late as possible
-- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `ordered_timetable.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`). 
+- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `ordered_timetable.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`).
+
   
 
 - an engine struct need to be spawn for each kind of request. Can we reuse the same struct for multiple kinds ?

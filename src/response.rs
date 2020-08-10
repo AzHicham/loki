@@ -1,8 +1,8 @@
 use crate::laxatips_data::{
     LaxatipsData,
     transit_data::{Transfer, Trip, TransitData},
-    ordered_timetable::Position,
-    time::{SecondsSinceDatasetStart, PositiveDuration},
+    timetables::timetables_data::Position,
+    time::{SecondsSinceDatasetUTCStart, PositiveDuration},
 };
 use transit_model::Model;
 use chrono::{NaiveDateTime, NaiveDate};
@@ -16,7 +16,7 @@ pub struct VehicleLeg {
 
 #[derive(Debug, Clone)]
 pub struct Journey {
-    departure_datetime : SecondsSinceDatasetStart,
+    departure_datetime : SecondsSinceDatasetUTCStart,
     departure_fallback_duration : PositiveDuration,
     first_vehicle: VehicleLeg,
     connections: Vec<(Transfer, VehicleLeg)>,
@@ -42,7 +42,7 @@ pub enum BadJourney {
 impl Journey {
 
     pub fn new(    
-        departure_datetime : SecondsSinceDatasetStart,
+        departure_datetime : SecondsSinceDatasetUTCStart,
         departure_fallback_duration : PositiveDuration,
         first_vehicle: VehicleLeg,
         connections: impl Iterator<Item = (Transfer, VehicleLeg)>,
@@ -146,13 +146,32 @@ impl Journey {
 
     }
 
-    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetStart {
+    pub fn first_vehicle_board_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        let seconds = self.first_vehicle_board_time(transit_data);
+        transit_data.calendar.to_naive_datetime(&seconds)
+    }
+
+    fn first_vehicle_board_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
+        transit_data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position).unwrap()
+    }
+
+    pub fn last_vehicle_debark_datetime(&self, transit_data : & TransitData) -> NaiveDateTime {
+        let seconds = self.last_vehicle_debark_time(transit_data);
+        transit_data.calendar.to_naive_datetime(&seconds)
+    }
+
+    fn last_vehicle_debark_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
         let last_vehicle_leg = self.connections.last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);
         let last_debark_time = transit_data
             .debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
             .unwrap(); //unwrap is safe because of checks that happens during Self construction
+        last_debark_time
+    }
+
+    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
+        let last_debark_time = self.last_vehicle_debark_time(transit_data);
         last_debark_time + self.arrival_fallback_duration
     }
 
@@ -168,6 +187,13 @@ impl Journey {
     pub fn total_duration(&self, transit_data : & TransitData) -> PositiveDuration {
         let arrival_time = self.arrival(transit_data);
         let departure_time = self.departure_datetime;
+        //unwrap is safe because of checks that happens during Self construction
+        arrival_time.duration_since(&departure_time).unwrap()
+    }
+
+    pub fn total_duration_in_pt(&self, transit_data : & TransitData) -> PositiveDuration {
+        let arrival_time = self.last_vehicle_debark_time(transit_data);
+        let departure_time = self.first_vehicle_board_time(transit_data);
         //unwrap is safe because of checks that happens during Self construction
         arrival_time.duration_since(&departure_time).unwrap()
     }
@@ -322,7 +348,7 @@ impl Journey {
         let from_datetime = transit_data.calendar.to_naive_datetime(&self.departure_datetime);
         let to_seconds = self.departure_datetime + self.departure_fallback_duration;
         let to_datetime = transit_data.calendar.to_naive_datetime(&to_seconds);
-        let position = self.first_vehicle.debark_position;
+        let position = self.first_vehicle.debark_position.clone();
         let trip = &self.first_vehicle.trip;
         let stop = transit_data.stop_at_position_in_trip(&position, &trip);
         let to_stop_point = transit_data.stop_point_idx(&stop);

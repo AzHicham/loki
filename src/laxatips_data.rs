@@ -2,11 +2,11 @@ pub mod transit_data;
 
 pub mod init;
 
-pub(super) mod ordered_timetable;
+pub(super) mod timetables;
 
 mod calendar;
 
-pub mod forward_queries;
+pub mod queries;
 
 pub mod time;
 

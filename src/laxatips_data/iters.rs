@@ -1,11 +1,13 @@
-use super::transit_data::{Mission, Stop, StopPattern, Transfer, TransitData, Trip};
+use super::transit_data::{Mission, Stop, Transfer, TransitData, Trip};
 
 use super::calendar::DaysIter;
 
-use super::ordered_timetable::{Position, TimetablesIter, Vehicle, VehiclesIter};
-use std::slice::Iter as SliceIter;
+use super::timetables::{
+    timetables_data::{Position, Vehicle},
+    iters::{VehiclesIter}
+};
 
-type PatternsOfStop<'a> = SliceIter<'a, (StopPattern, Position)>;
+
 
 impl TransitData {
     pub fn missions_of<'a>(&'a self, stop: &Stop) -> MissionsOfStop<'a> {
@@ -27,27 +29,16 @@ impl TransitData {
 }
 
 pub struct MissionsOfStop<'a> {
-    transit_data: &'a TransitData,
-    pattern_iter: PatternsOfStop<'a>,
-    curr_pattern: Option<(StopPattern, Position, TimetablesIter)>, // None when iterator has ended
+    positions : std::slice::Iter<'a, Position>,
+
 }
 
 impl<'a> MissionsOfStop<'a> {
     pub(super) fn new(transit_data: &'a TransitData, stop: &Stop) -> Self {
         let stop_data = transit_data.stop_data(stop);
-        let mut pattern_iter = stop_data.position_in_patterns.iter();
-        let has_first_pattern_idx = pattern_iter.next();
-        let curr_pattern = has_first_pattern_idx.map(|(pattern, position)| {
-            (
-                *pattern,
-                *position,
-                transit_data.pattern(&pattern).timetables(),
-            )
-        });
+        let positions = stop_data.position_in_timetables.iter();
         Self {
-            transit_data,
-            pattern_iter,
-            curr_pattern,
+            positions
         }
     }
 }
@@ -56,33 +47,12 @@ impl<'a> Iterator for MissionsOfStop<'a> {
     type Item = (Mission, Position);
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some((pattern, position, timetable_iter)) = &mut self.curr_pattern {
-                // if there is still a timetable in this pattern, we return it
-                if let Some(timetable) = timetable_iter.next() {
-                    let mission = Mission {
-                        stop_pattern: *pattern,
-                        timetable,
-                    };
-                    return Some((mission, *position));
-                } else {
-                    // otherwise, all timetables in the current pattern have been yielded
-                    match self.pattern_iter.next() {
-                        None => {
-                            self.curr_pattern = None;
-                        }
-                        Some((new_pattern, new_position)) => {
-                            let new_timetable_iter =
-                                self.transit_data.pattern(&new_pattern).timetables();
-                            self.curr_pattern =
-                                Some((*new_pattern, *new_position, new_timetable_iter));
-                        }
-                    }
-                }
-            } else {
-                return None;
-            }
-        }
+       self.positions.next().map(|position| {
+           let mission = Mission {
+               timetable : position.timetable.clone()
+           };
+           (mission, position.clone())
+       })
     }
 }
 
@@ -106,23 +76,18 @@ impl Iterator for TransfersOfStop {
 }
 
 pub struct TripsOfMission {
-    mission: Mission,
-    has_current_vehicle: Option<Vehicle>, // None when the iterator is exhausted
+    has_current_vehicle : Option<Vehicle>,
     vehicles_iter: VehiclesIter,
     days_iter: DaysIter,
 }
 
 impl TripsOfMission {
     fn new(transit_data: &TransitData, mission: &Mission) -> Self {
-        let pattern = mission.stop_pattern;
-        let pattern_data = &transit_data.pattern(&pattern);
-
-        let mut vehicles_iter = pattern_data.vehicles(&mission.timetable);
+        let mut vehicles_iter = transit_data.timetables.vehicles(&mission.timetable);
         let has_current_vehicle = vehicles_iter.next();
         let days_iter = transit_data.calendar.days();
 
         Self {
-            mission: mission.clone(),
             has_current_vehicle,
             vehicles_iter,
             days_iter,
@@ -139,7 +104,6 @@ impl Iterator for TripsOfMission {
                 match self.days_iter.next() {
                     Some(day) => {
                         let trip = Trip {
-                            mission: self.mission.clone(),
                             vehicle: current_vehicle.clone(),
                             day,
                         };

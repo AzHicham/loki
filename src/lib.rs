@@ -6,7 +6,7 @@ mod public_transit;
 pub use log;
 pub use transit_model;
 
-pub use laxatips_data::time::{PositiveDuration, SecondsSinceDatasetStart};
+pub use laxatips_data::time::{PositiveDuration};
 
 pub use laxatips_data::transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer};
 

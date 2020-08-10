@@ -4,6 +4,7 @@ use std::iter::{Chain, Map};
 use std::ops::Range;
 
 use super::time::SecondsSinceDayStart as Time;
+use chrono_tz::Tz as TimeZone;
 
 // TODO : document more explicitely !
 pub struct StopPatternData {
@@ -15,6 +16,9 @@ pub struct StopPatternData {
 #[derive(Debug)]
 // TODO : document more explicitely !
 pub struct TimetableData {
+
+    timezone : TimeZone,
+
     // vehicles data, ordered by increasing times
     // meaning that is v1 is before v2 in this vector,
     // then for all `position` we have
@@ -39,6 +43,8 @@ pub struct TimetableData {
 
     latest_board_time_by_position: Vec<Time>,
 }
+
+
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd)]
 pub struct Position {
@@ -233,6 +239,7 @@ impl StopPatternData {
     pub fn insert<BoardDebarkTimes>(
         &mut self,
         board_debark_times: BoardDebarkTimes,
+        timezone : & TimeZone,
         vehicle_data: VehicleData,
     ) -> Result<(), VehicleTimesError>
     where
@@ -311,13 +318,13 @@ impl StopPatternData {
 
         for timetable_data in &mut self.timetables {
             let inserted = timetable_data
-                .try_insert(corrected_board_debark_times.clone(), vehicle_data.clone());
+                .try_insert(corrected_board_debark_times.clone(), timezone, vehicle_data.clone());
             if inserted {
                 return Ok(());
             }
         }
-        let mut new_timetable_data = TimetableData::new(self.nb_of_positions());
-        let inserted = new_timetable_data.try_insert(corrected_board_debark_times, vehicle_data);
+        let mut new_timetable_data = TimetableData::new(self.nb_of_positions(), timezone);
+        let inserted = new_timetable_data.try_insert(corrected_board_debark_times, timezone, vehicle_data);
         assert!(inserted);
         self.timetables.push(new_timetable_data);
         Ok(())
@@ -327,10 +334,11 @@ impl StopPatternData {
 pub type VehiclesIter = Map<Range<usize>, fn(usize) -> Vehicle>;
 
 impl TimetableData {
-    fn new(nb_of_positions: usize) -> Self {
+    fn new(nb_of_positions: usize, timezone : & TimeZone) -> Self {
         assert!(nb_of_positions >= 2);
         Self {
             vehicles_data: Vec::new(),
+            timezone : timezone.clone(),
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
             latest_board_time_by_position: vec![Time::zero(); nb_of_positions],
@@ -575,11 +583,15 @@ impl TimetableData {
     fn try_insert<BoardDebarkTimes>(
         &mut self,
         board_debark_times: BoardDebarkTimes,
+        timezone : & TimeZone,
         vehicle_data: VehicleData,
     ) -> bool
     where
         BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
     {
+        if self.timezone != *timezone {
+            return false;
+        }
         assert!(board_debark_times.len() == self.nb_of_positions());
         let has_insert_idx = self.find_insert_idx(board_debark_times.clone());
         if let Some(insert_idx) = has_insert_idx {

@@ -7,7 +7,7 @@ use laxatips::{
 };
 
 use std::path::PathBuf;
-
+use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
@@ -166,7 +166,6 @@ fn run() -> Result<(), Error> {
     let transit_data = &laxatips_data.transit_data;
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
-    info!("Number of pattern {} ", transit_data.nb_of_patterns());
     info!("Number of timetables {} ", transit_data.nb_of_timetables());
     info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
     info!(
@@ -201,12 +200,12 @@ fn run() -> Result<(), Error> {
             let nb_queries = random.nb_queries;
             use rand::prelude::{SeedableRng, IteratorRandom};
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
-            for _ in 1..nb_queries {
+            for request_id in 1..nb_queries {
                        
                 let start_stop_area_uri = &laxatips_data.model.stop_areas.values().choose(&mut rng).unwrap().id;
                 let end_stop_area_uri = &laxatips_data.model.stop_areas.values().choose(&mut rng).unwrap().id;
 
-                let nb_of_rounds = solve(
+                let solve_result = solve(
                     start_stop_area_uri,
                     end_stop_area_uri,
                     &mut raptor,
@@ -216,9 +215,18 @@ fn run() -> Result<(), Error> {
                     &leg_walking_penalty,
                     &max_journey_duration,
                     max_nb_of_legs,
-                )?;
+                );
 
-                total_nb_of_rounds += nb_of_rounds;
+                match solve_result {
+                    Ok(nb_of_rounds) => {
+                        total_nb_of_rounds += nb_of_rounds;
+                    },
+                    Err(err) => {
+                        warn!("Error while solving request {} between stop_areas {} and {} : {}", request_id, start_stop_area_uri, end_stop_area_uri, err.to_string());
+                    }
+                }
+
+                
             }
             let duration = compute_timer.elapsed().unwrap().as_millis();
             info!("Data build duration {} ms", data_build_time);
@@ -230,6 +238,7 @@ fn run() -> Result<(), Error> {
                 "Average nb of rounds : {}",
                 (total_nb_of_rounds as f64) / (nb_queries as f64)
             );
+            info!("Nb of requests : {}",nb_queries);
         }
         Command::StopAreas(stop_areas) => {
             let start_stop_area_uri = &stop_areas.start;
