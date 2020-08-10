@@ -6,7 +6,7 @@ use laxatips::{
     Idx, StopPoint, VehicleJourney,
 };
 
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
 
 use failure::{format_err, Error};
