@@ -146,13 +146,22 @@ impl Journey {
 
     }
 
-    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
+    fn first_vehicle_board_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
+        transit_data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position).unwrap()
+    }
+
+    fn last_vehicle_debark_time(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
         let last_vehicle_leg = self.connections.last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);
         let last_debark_time = transit_data
             .debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
             .unwrap(); //unwrap is safe because of checks that happens during Self construction
+        last_debark_time
+    }
+
+    fn arrival(&self, transit_data : & TransitData) -> SecondsSinceDatasetUTCStart {
+        let last_debark_time = self.last_vehicle_debark_time(transit_data);
         last_debark_time + self.arrival_fallback_duration
     }
 
@@ -168,6 +177,13 @@ impl Journey {
     pub fn total_duration(&self, transit_data : & TransitData) -> PositiveDuration {
         let arrival_time = self.arrival(transit_data);
         let departure_time = self.departure_datetime;
+        //unwrap is safe because of checks that happens during Self construction
+        arrival_time.duration_since(&departure_time).unwrap()
+    }
+
+    pub fn total_duration_in_pt(&self, transit_data : & TransitData) -> PositiveDuration {
+        let arrival_time = self.last_vehicle_debark_time(transit_data);
+        let departure_time = self.first_vehicle_board_time(transit_data);
         //unwrap is safe because of checks that happens during Self construction
         arrival_time.duration_since(&departure_time).unwrap()
     }

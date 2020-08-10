@@ -36,7 +36,7 @@ struct Options {
     input: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(short = "s")]
+    #[structopt(short = "s", long)]
     socket: String,
 }
 
