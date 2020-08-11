@@ -1,8 +1,8 @@
-// pub mod navitia_proto {
-//     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-// }
+pub mod navitia_proto {
+    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
+}
 
-pub mod navitia_proto;
+// pub mod navitia_proto;
 mod response;
 
 use laxatips::log::{debug, error, info, trace, warn};
