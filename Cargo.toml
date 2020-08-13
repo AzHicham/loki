@@ -14,12 +14,11 @@ members = [
 
 [dependencies]
 transit_model = "0.23"
-# transit_model = { path = "../transit_model/"}
 typed_index_collection = "1"
 chrono = "0.4"
 chrono-tz = "0.5"
 log = "0.4"
-
+static_assertions = "1.1.0"
 
 [profile.release]
 opt-level = 3
