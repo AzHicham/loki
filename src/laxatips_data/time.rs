@@ -141,10 +141,10 @@ impl Calendar {
             let offset_64: i64 = (*date - self.first_date).num_days();
             // should be safe because :
             //  - we check that offset_64 is positive above when testing if date < self.first_date
-            //  - we check that offset_64 is smaller than u8::MAX because at construction of Calendars
-            //    we ensure that (last_date - first_date).num_days() < u8::MAX
+            //  - we check that offset_64 is smaller than u16::MAX because at construction of Calendars
+            //    we ensure that (last_date - first_date).num_days() < u16::MAX
             //    and we check above that date <= self.last_date
-            let offset = u16::try_from(offset_64).unwrap();
+            let offset = offset_64 as u16;
             Some(offset)
         }
     }
@@ -167,8 +167,8 @@ impl Calendar {
         let datetime_timezoned = timezone.from_utc_datetime(&datetime_utc);
         let date = datetime_timezoned.date().naive_utc();
         let reference_date = date.checked_sub_signed(chrono::Duration::days(nb_of_days_to_offset as i64))?;
-        let reference_datetime_utc = reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
-        let reference_datetime_timezoned = timezone.from_local_datetime(&reference_datetime_utc).earliest()?;
+        let reference_datetime_local = reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
+        let reference_datetime_timezoned = timezone.from_local_datetime(&reference_datetime_local).earliest()?;
         let reference_day = self.date_to_days_since_start(&reference_date)?;
         let seconds_i64 = (datetime_timezoned - reference_datetime_timezoned).num_seconds();
         let seconds_i32 = i32::try_from(seconds_i64).ok()?;
