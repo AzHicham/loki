@@ -1,6 +1,5 @@
-use crate::laxatips_data::calendar::Calendar;
-
-use crate::laxatips_data::time::{ SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
+use crate::laxatips_data::days_patterns::DaysPatterns;
+use crate::laxatips_data::time::{Calendar, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
 
 use super::timetables_data::{Timetables, TimetableData, Timetable, Position, VehicleData, Vehicle};
 
@@ -10,10 +9,11 @@ impl Timetables {
             timetable : & Timetable, 
             position : & Position,
             calendar : & Calendar,
+            days_patterns : &  DaysPatterns,
         ) -> Option<(Vehicle, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
         assert!(*timetable == position.timetable);
         self.timetable_data(timetable)
-            .best_vehicle_to_board(waiting_time, calendar, position.idx)
+            .best_vehicle_to_board(waiting_time, position.idx, calendar, days_patterns)
             .map(|(vehicle_idx, days, arrival_time_at_next_position) | {
                 let vehicle = Vehicle {
                     timetable : timetable.clone(),
@@ -30,8 +30,9 @@ impl TimetableData {
     fn best_vehicle_to_board(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
-        calendar : & Calendar,
         position_idx: usize,
+        calendar : & Calendar,
+        days_patterns : & DaysPatterns,
     ) -> Option<(usize, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart)> {
         //TODO : reread this and look for optimization
 
@@ -49,7 +50,7 @@ impl TimetableData {
         let latest_board_time_in_day = has_latest_board_time?;
 
         let mut nb_of_days_to_offset = 0u16;
-        let (mut waiting_day, mut waiting_time_in_day) = waiting_time.decompose(calendar, &self.timezone);
+        let (mut waiting_day, mut waiting_time_in_day) = calendar.decompose(waiting_time, &self.timezone);
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
             usize, // vehicle_idx
             DaysSinceDatasetStart,
@@ -60,16 +61,15 @@ impl TimetableData {
             let has_vehicle = self.best_vehicle_to_board_in_day(
                 &waiting_day,
                 &waiting_time_in_day,
-                calendar,
                 position_idx,
+                days_patterns,
             );
             if let Some(vehicle) = has_vehicle {
                 let vehicle_arrival_time_in_day_at_next_stop =
                     self.arrival_time_at(vehicle, next_position_idx);
-                let vehicle_arrival_time_at_next_stop = SecondsSinceDatasetUTCStart::compose(
+                let vehicle_arrival_time_at_next_stop = calendar.compose(
                     &waiting_day,
                     vehicle_arrival_time_in_day_at_next_stop,
-                    calendar,
                     &self.timezone
                 );
                 if let Some((_, _, best_arrival_time)) =
@@ -85,7 +85,7 @@ impl TimetableData {
                 }
             }
             nb_of_days_to_offset += 1;
-            let has_prev_day = waiting_time.decompose_with_days_offset(nb_of_days_to_offset, calendar, &self.timezone);
+            let has_prev_day = calendar.decompose_with_days_offset(waiting_time, nb_of_days_to_offset, &self.timezone);
             if let Some((day, time_in_day)) = has_prev_day {
                 waiting_day = day;
                 waiting_time_in_day = time_in_day;
@@ -101,15 +101,15 @@ impl TimetableData {
         &self,
         day: &DaysSinceDatasetStart,
         time_in_day: &SecondsSinceTimezonedDayStart,
-        calendar : & Calendar,
-        position_idx: usize
+        position_idx: usize,
+        days_patterns : & DaysPatterns
     ) -> Option<usize> {
         self.best_filtered_vehicle_to_board_at(
             time_in_day,
             position_idx,
             |vehicle_data| {
                 let days_pattern = vehicle_data.days_pattern;
-                calendar.is_allowed(&days_pattern, day)
+                days_patterns.is_allowed(&days_pattern, day)
             },
         )
     }

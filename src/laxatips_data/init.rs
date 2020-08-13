@@ -1,12 +1,12 @@
-use super::calendar::Calendar;
 use super::transit_data::{
-    Stop, StopData,  TransitData, TransitModelTime,
+    Stop, StopData,  TransitData, 
 };
 use super::timetables::{
     timetables_data::{Timetables, VehicleData, FlowDirection},
     insert::{VehicleTimesError}
     };
-use super::time::{PositiveDuration, SecondsSinceTimezonedDayStart};
+use super::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart};
+use super::days_patterns::{DaysPatterns};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
@@ -24,12 +24,14 @@ impl TransitData {
         let (start_date, end_date) = transit_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
-
+        let calendar = Calendar::new(start_date, end_date);
+        let nb_of_days : usize = calendar.nb_of_days().into();
         let mut engine_data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables : Timetables::new(), 
-            calendar: Calendar::new(start_date, end_date),
+            calendar,
+            days_patterns : DaysPatterns::new(nb_of_days)
         };
 
         engine_data.init(transit_model, default_transfer_duration);
@@ -168,8 +170,8 @@ impl TransitData {
         let transit_model_calendar = has_transit_model_calendar.unwrap();
 
         let days_pattern = self
-            .calendar
-            .get_or_insert(transit_model_calendar.dates.iter());
+            .days_patterns
+            .get_or_insert(transit_model_calendar.dates.iter(), &self.calendar);
 
 
         let has_route = transit_model.routes.get(&vehicle_journey.route_id);
@@ -225,10 +227,30 @@ impl TransitData {
             }
         };
 
+        for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
+            let has_board_time = board_time(stop_time);
+            let has_debark_time = debark_time(stop_time);
+            if has_board_time.is_none() || has_debark_time.is_none() {
+                warn!("Skipping vehicle journey {} because I can't compute \
+                       board and debark times for its {}th stop_time. \n {:#?}",
+                      vehicle_journey.id,
+                      idx,
+                      stop_time
+                );
+                return 
+            }
+        }
+
         let board_debark_times = vehicle_journey
             .stop_times
             .iter()
-            .map(|stop_time| (board_time(stop_time), debark_time(stop_time)));
+            .map(|stop_time|  {
+                // we can unwrap() here because we rejected the vehicle journey
+                // above if some stop_time returns None on board_time or debark_time
+                let board_time = board_time(stop_time).unwrap();
+                let debark_time = debark_time(stop_time).unwrap();
+                (board_time, debark_time)
+            });
 
 
         let vehicle_data = VehicleData {
@@ -251,8 +273,8 @@ impl TransitData {
                         let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
                         let downstream_stop_time =
                             &vehicle_journey.stop_times[position_pair.downstream];
-                        let board = board_time(upstream_stop_time);
-                        let debark = debark_time(downstream_stop_time);
+                        let board = board_time(upstream_stop_time).unwrap();
+                        let debark = debark_time(downstream_stop_time).unwrap();
                         warn!(
                             "Skipping vehicle journey {} because its 
                                 debark time {} at sequence {}
@@ -269,8 +291,8 @@ impl TransitData {
                         let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
                         let downstream_stop_time =
                             &vehicle_journey.stop_times[position_pair.downstream];
-                        let upstream_board = board_time(upstream_stop_time);
-                        let downstream_board = board_time(downstream_stop_time);
+                        let upstream_board = board_time(upstream_stop_time).unwrap();
+                        let downstream_board = board_time(downstream_stop_time).unwrap();
                         warn!(
                             "Skipping vehicle journey {} because its 
                                 board time {} at sequence {}
@@ -287,8 +309,8 @@ impl TransitData {
                         let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
                         let downstream_stop_time =
                             &vehicle_journey.stop_times[position_pair.downstream];
-                        let upstream_debark = debark_time(upstream_stop_time);
-                        let downstream_debark = debark_time(downstream_stop_time);
+                        let upstream_debark = debark_time(upstream_stop_time).unwrap();
+                        let downstream_debark = debark_time(downstream_stop_time).unwrap();
                         warn!(
                             "Skipping vehicle journey {} because its 
                                 debark time {} at sequence {}
@@ -324,16 +346,19 @@ impl TransitData {
     }
 }
 
-fn board_time(stop_time: &StopTime) -> SecondsSinceTimezonedDayStart {
-    let transit_model_time =
-        stop_time.departure_time - TransitModelTime::new(0, 0, stop_time.boarding_duration.into());
-    let seconds = transit_model_time.total_seconds();
-    SecondsSinceTimezonedDayStart { seconds }
+
+fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+    use std::convert::TryFrom;
+    let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
+    let boarding_duration = i32::try_from(stop_time.boarding_duration).ok()?;
+    let seconds = departure_seconds.checked_sub(boarding_duration)?;
+    SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
 
-fn debark_time(stop_time: &StopTime) -> SecondsSinceTimezonedDayStart {
-    let transit_model_time =
-        stop_time.arrival_time + TransitModelTime::new(0, 0, stop_time.alighting_duration.into());
-    let seconds = transit_model_time.total_seconds();
-    SecondsSinceTimezonedDayStart { seconds }
+fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+    use std::convert::TryFrom;
+    let arrival_seconds = i32::try_from(stop_time.arrival_time.total_seconds()).ok()?;
+    let alighting_duration = i32::try_from(stop_time.alighting_duration).ok()?;
+    let seconds = arrival_seconds.checked_add(alighting_duration)?;
+    SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }

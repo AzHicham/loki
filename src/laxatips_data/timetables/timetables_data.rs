@@ -1,7 +1,7 @@
 use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::calendar::{Calendar, DaysPattern};
+use crate::laxatips_data::days_patterns::DaysPattern;
 use std::cmp::Ordering;
-use crate::laxatips_data::time::{DaysSinceDatasetStart, SecondsSinceDatasetUTCStart};
+use crate::laxatips_data::time::{Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart};
 
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
@@ -143,7 +143,7 @@ impl Timetables {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         timetable_data.debark_time_at(vehicle.idx, position.idx).map(|seconds_in_day| {
-            SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
+            calendar.compose(day, seconds_in_day, &timetable_data.timezone)
         })
     }
 
@@ -151,7 +151,7 @@ impl Timetables {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         timetable_data.board_time_at(vehicle.idx, position.idx).map(|seconds_in_day| {
-            SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
+            calendar.compose(day, seconds_in_day, &timetable_data.timezone)
         })
     }
 
@@ -159,7 +159,7 @@ impl Timetables {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         let seconds_in_day = timetable_data.arrival_time_at(vehicle.idx, position.idx);
-        SecondsSinceDatasetUTCStart::compose(day, seconds_in_day, calendar, &timetable_data.timezone)
+        calendar.compose(day, seconds_in_day, &timetable_data.timezone)
     }
 
     fn latest_board_time_at(&self, position: &Position) -> Option<&Time> {

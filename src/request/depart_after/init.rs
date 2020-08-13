@@ -45,21 +45,17 @@ impl<'data> Request<'data> {
         let transit_data = &laxatips_data.transit_data;
         let model = &laxatips_data.model;
 
-        let departure_datetime = transit_data
-            .calendar
-            .naive_datetime_to_seconds_since_start(&departure_datetime)
+
+        let departure_datetime = transit_data.calendar.from_naive_datetime(&departure_datetime)
             .ok_or_else(|| {
                 warn!("The departure datetime {} is out of bound of the allowed dates. \
                     Allowed dates are between {} and {}.",
                         departure_datetime,
-                        transit_data.calendar.first_date(),
-                        transit_data.calendar.last_date(),
+                        transit_data.calendar.first_datetime(),
+                        transit_data.calendar.last_datetime(),
                 );
                 BadRequest::DepartureDatetime
-            })?;
-        
-
-        
+            })?;        
 
         let departures : Vec<_> = departures_stop_point_and_fallback_duration
             .enumerate()

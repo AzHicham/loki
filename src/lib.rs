@@ -1,3 +1,5 @@
+extern crate static_assertions;
+
 mod engine;
 mod request;
 mod laxatips_data; 

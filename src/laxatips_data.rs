@@ -4,7 +4,10 @@ pub mod init;
 
 pub(super) mod timetables;
 
-mod calendar;
+
+pub mod days_patterns;
+
+
 
 pub mod queries;
 

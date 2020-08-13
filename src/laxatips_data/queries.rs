@@ -86,7 +86,7 @@ impl TransitData {
     ) -> Option<(Trip, SecondsSinceDatasetUTCStart)> {
         let timetable = &mission.timetable;
         self.timetables
-            .best_vehicle_to_board(waiting_time, timetable, position, &self.calendar)
+            .best_vehicle_to_board(waiting_time, timetable, position, &self.calendar, &self.days_patterns)
             .map(|(vehicle, day, arrival_time_at_next_position)| {
                 let trip = Trip {
                     vehicle,
