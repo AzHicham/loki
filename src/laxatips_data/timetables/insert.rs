@@ -136,7 +136,7 @@ impl TimetableData {
             vehicles_data: Vec::new(),
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
-            latest_board_time_by_position: vec![Time::zero(); nb_of_positions],
+            earliest_and_latest_board_time_by_position: vec![(Time::max(), Time::min()); nb_of_positions],
         };
         result.do_insert(board_debark_times, vehicle_data, 0);
         result
@@ -348,8 +348,9 @@ impl TimetableData {
         for (position, (board_time, debark_time)) in board_debark_times.enumerate() {
             self.board_times_by_position[position].insert(insert_idx, board_time);
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
-            let latest_board_time = &mut self.latest_board_time_by_position[position];
+            let (earliest_board_time, latest_board_time) = &mut self.earliest_and_latest_board_time_by_position[position];
             *latest_board_time = std::cmp::max(*latest_board_time, board_time);
+            *earliest_board_time = std::cmp::min(*earliest_board_time, board_time);
         }
         self.vehicles_data.insert(insert_idx, vehicle_data);
     }

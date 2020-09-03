@@ -55,7 +55,7 @@ pub (super) struct TimetableData {
     //  debark_times_by_position[position] is sorted by increasing times
     pub (super) debark_times_by_position: Vec<Vec<Time>>,
 
-    pub (super) latest_board_time_by_position: Vec<Time>,
+    pub (super) earliest_and_latest_board_time_by_position: Vec<(Time, Time)>,
 }
 #[derive(Debug, Clone)]
 pub struct VehicleData {
@@ -162,9 +162,9 @@ impl Timetables {
         calendar.compose(day, seconds_in_day, &timetable_data.timezone)
     }
 
-    fn latest_board_time_at(&self, position: &Position) -> Option<&Time> {
+    fn earliest_and_latest_board_time_at(&self, position : & Position) -> Option<&(Time, Time)> {
         let timetable_data = self.timetable_data(&position.timetable);
-        timetable_data.latest_board_time_at(position.idx)
+        timetable_data.earliest_and_latest_board_time_at(position.idx)
     }
 
     pub fn vehicle_journey_idx(&self, vehicle: &Vehicle) ->  Idx<VehicleJourney> {
@@ -218,9 +218,9 @@ impl TimetableData {
         
     }
 
-    pub (super) fn latest_board_time_at(&self, position_idx: usize) -> Option<&Time> {
+    pub (super) fn earliest_and_latest_board_time_at(&self, position_idx: usize) -> Option<&(Time, Time)> {
         if self.can_board_at(position_idx) {
-            Some(&self.latest_board_time_by_position[position_idx])
+            Some(&self.earliest_and_latest_board_time_by_position[position_idx])
         }
         else {
             None

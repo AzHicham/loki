@@ -43,30 +43,31 @@ impl TimetableData {
         };
         
 
-        let has_latest_board_time = self.latest_board_time_at(position_idx);
+        let has_earliest_and_latest_board_time = self.earliest_and_latest_board_time_at(position_idx);
 
-        // if there is no latest board time, it means that this position cannot be boarded
+        // if there is no earliest/latest board time, it means that this position cannot be boarded
         // and we return None
-        let latest_board_time_in_day = has_latest_board_time?;
+        let (earliest_board_time_in_day, latest_board_time_in_day) = has_earliest_and_latest_board_time?;
 
-        let mut nb_of_days_to_offset = 0u16;
-        let (mut waiting_day, mut waiting_time_in_day) = calendar.decompose(waiting_time, &self.timezone);
+        let decompositions = calendar.decompositions(waiting_time, 
+            &self.timezone, 
+            *latest_board_time_in_day, 
+            *earliest_board_time_in_day
+        );
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
             usize, // vehicle_idx
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
         )> = None;
-
-        while waiting_time_in_day <= *latest_board_time_in_day {
+        for (waiting_day, waiting_time_in_day) in decompositions {
             let has_vehicle = self.best_vehicle_to_board_in_day(
-                &waiting_day,
-                &waiting_time_in_day,
-                position_idx,
+                &waiting_day, 
+                &waiting_time_in_day, 
+                position_idx, 
                 days_patterns,
             );
             if let Some(vehicle) = has_vehicle {
-                let vehicle_arrival_time_in_day_at_next_stop =
-                    self.arrival_time_at(vehicle, next_position_idx);
+                let vehicle_arrival_time_in_day_at_next_stop = self.arrival_time_at(vehicle, next_position_idx);
                 let vehicle_arrival_time_at_next_stop = calendar.compose(
                     &waiting_day,
                     vehicle_arrival_time_in_day_at_next_stop,
@@ -83,14 +84,6 @@ impl TimetableData {
                     best_vehicle_day_and_its_arrival_time_at_next_position =
                         Some((vehicle, waiting_day, vehicle_arrival_time_at_next_stop));
                 }
-            }
-            nb_of_days_to_offset += 1;
-            let has_prev_day = calendar.decompose_with_days_offset(waiting_time, nb_of_days_to_offset, &self.timezone);
-            if let Some((day, time_in_day)) = has_prev_day {
-                waiting_day = day;
-                waiting_time_in_day = time_in_day;
-            } else {
-                break;
             }
         }
 
