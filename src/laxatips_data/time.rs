@@ -77,14 +77,14 @@ impl Calendar {
     /// The first datetime that can be obtained
     pub fn first_datetime(&self) -> NaiveDateTime {
         self.first_date.and_hms(0,0,0) 
-            - chrono::Duration::hours(MAX_TIMEZONE_OFFSET as i64) // in the west most timezone, we are at UTC-12, with take some margin (day saving times...) and make it -24h
+            - chrono::Duration::seconds(MAX_TIMEZONE_OFFSET as i64) // in the west most timezone, we are at UTC-12, with take some margin (day saving times...) and make it -24h
             - chrono::Duration::seconds(MAX_SECONDS_SINCE_TIMEZONED_DAY_START as i64)
             
     }
 
     pub fn last_datetime(&self) -> NaiveDateTime {
         self.last_date.and_hms(0, 0, 0)
-        + chrono::Duration::hours(MAX_TIMEZONE_OFFSET as i64) // in the west most timezone, we are at UTC+14, with take some margin and make it +24h
+        + chrono::Duration::seconds(MAX_TIMEZONE_OFFSET as i64) // in the west most timezone, we are at UTC+14, with take some margin and make it +24h
         + chrono::Duration::seconds(MAX_SECONDS_SINCE_TIMEZONED_DAY_START as i64)
     }
 
