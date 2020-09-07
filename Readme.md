@@ -34,7 +34,7 @@ The goal is to implements `PublicTransit` for each kind of request (forward/back
 and have the engine (same code) for every one of them.
 For now there is only one implementation : forward request with a criteria on arrival time and walking time, implemented in [depart_after.rs](./src/request/depart_after.rs).
 
-In order to ease the construction a `Request` structure that implements the `PublicTransit` trait, 
+In order to ease the construction of a `Request` structure that implements the `PublicTransit` trait, 
 this library provides the `LaxatipsData` structure. 
 A `LaxatipsData` is made of two distincts parts:
 - a `Model` from the `transit_model` crate. This is the input data that contains all information on the public transit network, as well as means to communicate with the client (e.g. string identifier for all objects)
@@ -48,14 +48,14 @@ The library is expected to be set up as follows :
   
 Now when a client request arrives, it will provide the allowed departure and arrival stop points, along with their fallback durations.
 A `Request` object should be built from the `LaxatipsData` and the client input. 
-During construction, the `Model` will be use to check if the client input is valid (e.g. that the provided stop points uris are known), and will provides indices (e.g. `Idx<StopPoint>`) that can be fed to the `TransitData`, which will convert them in a way understandable for the engine (e.g. to `Stop`)?
+During construction, the `Model` will be use to check if the client input is valid (e.g. that the provided stop points uris are known), and will provides indices (e.g. `Idx<StopPoint>`) that can be fed to the `TransitData`, which will convert them in a way understandable for the engine (e.g. to `Stop`).
 
 If everything went good, we now have a `Request` that can be solved with the `MulticriteriaRaptor`.
 
-After solving, the `MulticriteriaRaptor` will contains `public_transit::Journey`, that will be processed throught the `Request` into a way that is understantable by the client. 
-First, the `public_transit::Journey` is converted to a `response::Journey`. At this stage, we use the `TransitData` structure to check if the journey is indeed valid (`MulticriteriaRaptor` may have bugs !). 
+After solving, the `MulticriteriaRaptor` will contains `public_transit::Journey`s, that will be processed throught the `Request` into a way that is understantable by the client. 
+First, a `public_transit::Journey` is converted to a `response::Journey`. At this stage, we use the `TransitData` structure to check if the journey is indeed valid (`MulticriteriaRaptor` may have bugs !). 
 The `response::Journey` contains only types associated the `TransitData`. 
-However, it can be transformed into a sequence of `DepartureSection`, `VehicleSection`, `TransferSection`, `WaitingSection`, `ArrivalSection` that contains indices for the `Model` as well as datetime in UTC.
+However, it can be transformed into a sequence of `DepartureSection`, `VehicleSection`, `TransferSection`, `WaitingSection`, `ArrivalSection` that contains indices for the `Model` as well as datetimes in UTC.
 
 These sections can then be used in conjunction with the `Model` to provides the response expected by the client.
 This last step is handled not inside the library, but in the subcrates. For example `cli` will just print the journey on the standard output, whereas `server` will fill a protobuf response.
@@ -78,7 +78,7 @@ in a Tree implemented in `journeys_tree.rs`.
 
 ## TODO
 - while processing a journey obtained from the engine in `DepartAfterRequest`, implements a "backward" pass to make departure time as late as possible
-- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `ordered_timetable.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`).
+- implements a `ArriveBeforeRequest`. This can reuse most of the implementation of `DepartAfterRequest` (which is mostly a thin shim above `TransitData`). The first step is to implement in `laxatips_data/timetables/queries.rs` a `best_filtered_vehicle_that_debark_at` that gives the latest vehicle that debark at a position before a given time (similary to `best_filtered_vehicle_to_board_at`).
 - add support for stay-in
 - add support for filtering (forbidden_uris/allowed_uris)
 
