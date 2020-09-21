@@ -13,8 +13,6 @@ use transit_model::{
 };
 use typed_index_collection::Idx;
 
-use chrono_tz::Tz as TimeZone;
-
 use log::{info, warn, debug};
 
 impl TransitData {
@@ -211,20 +209,7 @@ impl TransitData {
                 );
                 return;
             };
-            let timezone_string = network.timezone.as_ref().unwrap();
-            let has_timezone : Result<TimeZone, _> = timezone_string.parse();
-            match has_timezone {
-                Result::Err(err) => {
-                    warn!(
-                        "Skipping vehicle journey {} because I can't parse its timezone {}. \n {}",
-                        vehicle_journey.id, timezone_string, err, 
-                    );
-                    return;
-                }
-                Result::Ok(timezone) => {
-                    timezone
-                }
-            }
+            network.timezone.as_ref().unwrap()
         };
 
         for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
