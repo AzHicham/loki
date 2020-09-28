@@ -24,10 +24,10 @@ pub trait PublicTransit {
     /// Stores data used to determine if a journey is better than another
     type Criteria: Clone;
 
-    /// Returns `true` if `upstream` is positionned strictly before `downstream`
+    /// Returns `true` if `upstream` is positioned strictly before `downstream`
     /// in `mission`.
     ///
-    /// Panics if `upstream` or `downstream` does not belongs to `mission`.
+    /// Panics if `upstream` or `downstream` does not belong to `mission`.
     fn is_upstream(
         &self,
         upstream: &Self::Position,
@@ -39,7 +39,7 @@ pub trait PublicTransit {
     ///
     /// Returns `None` if `position` is the last on `mission`.
     ///
-    /// Panics if `position` does not belongs to `mission`.
+    /// Panics if `position` does not belong to `mission`.
     fn next_on_mission(
         &self,
         position: &Self::Position,
@@ -51,7 +51,7 @@ pub trait PublicTransit {
 
     /// Returns the `Stop` at `position` in `mission`
     ///
-    /// Panics if `position` does not belongs to `mission`
+    /// Panics if `position` does not belong to `mission`
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop;
 
     /// Returns `true` if `lower` is better or equivalent to `upper`
@@ -60,10 +60,10 @@ pub trait PublicTransit {
     /// Returns `false` when `criteria` corresponds to an invalid journey.
     ///
     /// For example if we want to have at most 5 transfer, and `criteria` have 6 transfers
-    ///  then `is_valid(criteria)` should returns false.
+    ///  then `is_valid(criteria)` should return false.
     ///
     /// Similarly, if we want our journey to arrive at most 24h after the given departure time
-    ///  and `criteria` have an arrival time more than 24h after, then `is_valid(criteria)` should returns false.
+    ///  and `criteria` have an arrival time more than 24h after, then `is_valid(criteria)` should return false.
     ///
     /// The more `criteria` you can eliminate in this way, the better the engine will perform.
     fn is_valid(&self, criteria: &Self::Criteria) -> bool;
@@ -78,7 +78,7 @@ pub trait PublicTransit {
     ///
     /// Panics if `position` is the last on the `mission_of_(trip)`.
     ///
-    /// Panics if `position` does not belongs to `mission_of_(trip)`.
+    /// Panics if `position` does not belong to `mission_of_(trip)`.
     fn board_and_ride(
         &self,
         position: &Self::Position,
@@ -87,7 +87,7 @@ pub trait PublicTransit {
     ) -> Option<Self::Criteria>;
 
     /// Returns `Some((best_trip, best_crit))` where `best_trip` is
-    /// the "best" `Trip` of `mission` that can be be boarded while
+    /// the "best" `Trip` of `mission` that can be boarded while
     /// being at `position` with `waiting_criteria`, and
     ///
     /// `best_crit = board_and_ride(position, best_trip, waiting_criteria)`.
@@ -96,11 +96,11 @@ pub trait PublicTransit {
     ///
     /// Let `position_1, ..., position_n` be the sequence of positions after `position` on the `mission_of(trip)`, i.e. :
     ///
-    ///  - `Some(position_1) = next_on_mission(position, mission_of_(trip))`
-    ///  - `Some(position_2) = next_on_mission(position_1, mission_of_(trip))`
+    ///  - `Some(position_1) = next_on_mission(position, mission_of(trip))`
+    ///  - `Some(position_2) = next_on_mission(position_1, mission_of(trip))`
     ///  -  ...
-    ///  - `Some(position_n) = next_on_mission(position_{n-1}, mission_of_(trip))`
-    ///  - `None = next_on_mission(position_n, mission_of_(trip))`
+    ///  - `Some(position_n) = next_on_mission(position_{n-1}, mission_of(trip))`
+    ///  - `None = next_on_mission(position_n, mission_of(trip))`
     ///
     /// Let `best_crit_2, ..., best_crit_n` be the sequence of criteria obtained by boarding and riding `best_trip`, i.e. :
     ///
@@ -133,7 +133,7 @@ pub trait PublicTransit {
     ///
     /// Returns None if `mission` cannot be boarded at `position` with `waiting_criteria`.
     ///
-    /// Panics if `position` does not belongs to `mission`.
+    /// Panics if `position` does not belong to `mission`.
     fn best_trip_to_board(
         &self,
         position: &Self::Position,
@@ -147,7 +147,7 @@ pub trait PublicTransit {
     ///
     /// Returns None if a passenger cannot debark from `trip` at `position` with `onboard_criteria`.
     ///
-    /// Panics if `position` does not belong to `mission_of_(trip)`.
+    /// Panics if `position` does not belong to `mission_of(trip)`.
     fn debark(
         &self,
         trip: &Self::Trip,
@@ -159,7 +159,7 @@ pub trait PublicTransit {
     /// to the arrival to next position of `mission_of(trip)`, when being onboard at
     /// the arrival of `trip` at `position` with `criteria`.
     ///
-    /// Panics if `position` does not belongs to `mission_of(trip)`
+    /// Panics if `position` does not belong to `mission_of(trip)`
     ///
     /// Panics if `position` is the last position of `mission_of(trip)`
     fn ride(
