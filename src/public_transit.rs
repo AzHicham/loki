@@ -59,7 +59,7 @@ pub trait PublicTransit {
 
     /// Returns `false` when `criteria` corresponds to an invalid journey.
     ///
-    /// For example if we want to have at most 5 transfer, and `criteria` have 6 transfers
+    /// For example if we want to have at most 5 transfers, and `criteria` have 6 transfers
     ///  then `is_valid(criteria)` should return false.
     ///
     /// Similarly, if we want our journey to arrive at most 24h after the given departure time
