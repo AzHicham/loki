@@ -23,6 +23,6 @@ jobs:
         git submodule update --init --recursive
     - name: Install libzmq
       run: |
-        apt install libzmq3-dev
+        sudo apt install libzmq3-dev
     - name: Check compilation
       run: cargo check --workspace --verbose
