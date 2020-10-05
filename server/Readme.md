@@ -8,7 +8,10 @@ Reads a [ntfs][1] dataset and then process protobuf journey requests (the format
 
 ## How to compile 
 
-You should have 
+Install libzmq (needed for the `zmq` crate, cf https://crates.io/crates/zmq/):
+```bash
+apt install libzmq3-dev
+```
 
 Be sure to fetch the `navitia-proto` git submodule.
 ```bash
