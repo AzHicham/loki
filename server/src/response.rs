@@ -288,7 +288,7 @@ fn make_stop_area(
                 r#type: key.clone(),
                 value: value.clone(),
             }).collect(),       
-        timezone : stop_area.timezone.clone(),
+        timezone : stop_area.timezone.map(|timezone| timezone.to_string()),
         ..Default::default()
     };
 
@@ -427,7 +427,5 @@ fn get_timezone(vehicle_journey_idx: & Idx<VehicleJourney>, model: &transit_mode
     let route = model.routes.get(&route_id)?;
     let line = model.lines.get(&route.line_id)?;
     let network = model.networks.get(&line.network_id)?;
-    let timezone_string = &network.timezone.as_ref()?;
-    let has_timezone : Result<Timezone, _> = timezone_string.parse();
-    has_timezone.ok()
+    network.timezone.clone()
 }
