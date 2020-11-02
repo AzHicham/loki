@@ -4,6 +4,7 @@ mod engine;
 mod request;
 mod laxatips_data; 
 mod public_transit;
+mod crowding_data;
 
 pub use log;
 pub use transit_model;
