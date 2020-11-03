@@ -7,7 +7,7 @@ use std::path::Path;
 use std::error::Error;
 use log::{warn};
 
-type StopSequence = usize;
+type StopSequence = u32;
 type Load = u8;
 
 type VehicleJourneyIdx = Idx<VehicleJourney>;
@@ -21,7 +21,7 @@ type CrowdingData = BTreeMap<TripDay, VehicleCrowding>;
 
 
 pub fn read<P: AsRef<Path>>(csv_loads_filepath : P, model : & Model) -> Result<CrowdingData, Box<dyn Error>> {
-    let mut result = CrowdingData::new();
+    let mut crowding_data = CrowdingData::new();
     let filepath = csv_loads_filepath.as_ref();
     let mut reader = csv::ReaderBuilder::new()
         .delimiter(b';')
@@ -32,8 +32,8 @@ pub fn read<P: AsRef<Path>>(csv_loads_filepath : P, model : & Model) -> Result<C
     while reader.read_record(& mut record)? {
 
         let is_valid_record = parse_record(&record, model);
-        let (vehicle_journey, stop_sequence, load, date) = match is_valid_record {
-            Ok((vehicle_journey, stop_sequence, load, date)) => (vehicle_journey, stop_sequence, load, date),
+        let (vehicle_journey_idx, stop_sequence, load, date) = match is_valid_record {
+            Ok((vehicle_journey_idx, stop_sequence, load, date)) => (vehicle_journey_idx, stop_sequence, load, date),
             Err(parse_error) => {
                 warn!("Error reading {:?} at line {} : {} \n. I'll skip this line. ",
                         filepath,
@@ -44,7 +44,7 @@ pub fn read<P: AsRef<Path>>(csv_loads_filepath : P, model : & Model) -> Result<C
             }
         };
 
-        let vehicle_crowding = result.entry((vehicle_journey, date)).or_insert(VehicleCrowding::new());
+        let vehicle_crowding = crowding_data.entry((vehicle_journey_idx, date)).or_insert(VehicleCrowding::new());
         if vehicle_crowding.contains_key(&stop_sequence) {
             warn!("Error reading {:?}. There is two load values for trip {} at date {}. I'll ignore the second value.",
                 filepath,
@@ -57,7 +57,44 @@ pub fn read<P: AsRef<Path>>(csv_loads_filepath : P, model : & Model) -> Result<C
 
     }
 
-    Ok(result)
+    // for each vehicle_journey, check that :
+    //  - for each valid date, we have load data for every stop_time
+    for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
+        let has_calendar = model
+            .calendars
+            .get(&vehicle_journey.service_id);
+        if has_calendar.is_none() {
+            continue;
+        }
+        let calendar = has_calendar.unwrap();
+
+        for date in calendar.dates.iter() {
+            let has_loads = crowding_data.get(&(vehicle_journey_idx, *date));
+            if has_loads.is_none() {
+                warn!("No crowding data provided for trip {} on date {}",
+                    vehicle_journey.id,
+                    date
+                );
+                continue;
+            }
+            let loads = has_loads.unwrap();
+
+            for stop_time in vehicle_journey.stop_times.iter() {
+                let stop_sequence = stop_time.sequence;
+                if ! loads.contains_key(&stop_sequence) {
+                    warn!("No crowding data provided for trip {} on date {} at stop sequence {}",
+                        vehicle_journey.id,
+                        date,
+                        stop_sequence
+                    );
+                    continue;
+                }
+            }
+
+        }
+    }
+
+    Ok(crowding_data)
 
 }
 
@@ -71,7 +108,7 @@ fn parse_record(record : &csv::StringRecord, model : & Model) -> Result<(Vehicle
         
     }
 
-    let vehicle_journey = {
+    let vehicle_journey_idx = {
         let trip_id =  &record[0];
         model.vehicle_journeys.get_idx(trip_id)
         .ok_or_else(||
@@ -83,7 +120,7 @@ fn parse_record(record : &csv::StringRecord, model : & Model) -> Result<(Vehicle
 
     let stop_sequence = {
         let string = &record[1];
-        string.parse::<usize>()
+        string.parse::<StopSequence>()
         .map_err(|parse_error|
             format!("Cannot parse the second field (stop_sequence) {} as usize.
                     Parse error {:?}.",
@@ -129,6 +166,6 @@ fn parse_record(record : &csv::StringRecord, model : & Model) -> Result<(Vehicle
         )?
     };
 
-    Ok((vehicle_journey, stop_sequence, load, date))
+    Ok((vehicle_journey_idx, stop_sequence, load, date))
 
 }
