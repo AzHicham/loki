@@ -59,7 +59,7 @@ pub (super) struct TimetableData {
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     pub vehicle_journey_idx : Idx<VehicleJourney>,
-    pub days_pattern : DaysPattern,
+    pub date : chrono::NaiveDate,
 }
 
 

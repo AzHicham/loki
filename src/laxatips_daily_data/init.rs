@@ -42,7 +42,7 @@ impl TransitData {
     fn init(&mut self, transit_model: &Model, default_transfer_duration: PositiveDuration) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
+            let _ = self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
         info!("Inserting transfers");
 
@@ -64,7 +64,7 @@ impl TransitData {
                     )
                 }
                 _ => {
-                    warn!("Skipping transfer between {} and {} because at least one of this stop is not used by 
+                    warn!("Skipping transfer between {} and {} because at least one of this stop is not used by \
                            vehicles.", transfer.from_stop_id, transfer.to_stop_id);
                 }
             }
@@ -90,7 +90,7 @@ impl TransitData {
             }
             _ => {
                 warn!(
-                    "Transfer {:?} is between stops which does not appears in the data. 
+                    "Transfer {:?} is between stops which does not appears in the data. \
                     I ignore it.",
                     transfer_idx
                 );
@@ -110,47 +110,27 @@ impl TransitData {
 
 
 
-        let has_transit_model_calendar = transit_model
+        let transit_model_calendar = transit_model
             .calendars
-            .get(&vehicle_journey.service_id);
-        if has_transit_model_calendar.is_none() {
-            warn!(
-                "Skipping vehicle journey {} because its calendar {} was not found.",
-                vehicle_journey.id, vehicle_journey.service_id, 
-            );
-            return Err(());
-        }
-        let transit_model_calendar = has_transit_model_calendar.unwrap();
-
-        let days_pattern = self
-            .days_patterns
-            .get_or_insert(transit_model_calendar.dates.iter(), &self.calendar);
+            .get(&vehicle_journey.service_id).ok_or_else( || {
+                warn!(
+                    "Skipping vehicle journey {} because its calendar {} was not found.",
+                    vehicle_journey.id, vehicle_journey.service_id, 
+                );
+            })?;
 
         let timezone = timezone_of(vehicle_journey, transit_model)?;
-
-        
-        for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-            let has_board_time = board_time(stop_time);
-            let has_debark_time = debark_time(stop_time);
-            if has_board_time.is_none() || has_debark_time.is_none() {
-                warn!("Skipping vehicle journey {} because I can't compute \
-                       board and debark times for its {}th stop_time. \n {:#?}",
-                      vehicle_journey.id,
-                      idx,
-                      stop_time
-                );
-                return  Err(());
-            }
-        }
 
         let board_debark_timezoned_times = board_debark_timezoned_times_in_day(vehicle_journey)?;
 
 
-        let vehicle_data = VehicleData {
-            vehicle_journey_idx,
-            days_pattern,
-        };
+
         for date in transit_model_calendar.dates.iter() {
+
+            let vehicle_data = VehicleData {
+                vehicle_journey_idx,
+                date : date.clone(),
+            };
 
             let has_board_debark_utc_times = board_debark_utc_times(&board_debark_timezoned_times, date, &timezone, &self.calendar, vehicle_journey);
             if let Ok(board_debark_utc_times) = has_board_debark_utc_times {
