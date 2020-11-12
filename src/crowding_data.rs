@@ -169,3 +169,15 @@ fn parse_record(record : &csv::StringRecord, model : & Model) -> Result<(Vehicle
     Ok((vehicle_journey_idx, stop_sequence, load, date))
 
 }
+
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn exploration() {
+        let input_dir = "/home/pascal/data/charge/ntfs/";
+        let model = transit_model::ntfs::read(input_dir).unwrap();
+        let crowding_data_filepath = "/home/pascal/data/charge/stoptimes_load.csv";
+        let crowding_date = super::read(crowding_data_filepath, &model);
+    }
+}

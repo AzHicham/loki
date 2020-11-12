@@ -1,8 +1,8 @@
 use laxatips::log::{debug, info, trace};
 use laxatips::transit_model;
 use laxatips::{
-    LaxatipsData,
-    DepartAfterRequest, MultiCriteriaRaptor, PositiveDuration, 
+    laxatips_data::{LaxatipsData,PositiveDuration},
+    DepartAfterRequest, MultiCriteriaRaptor, 
     
 };
 

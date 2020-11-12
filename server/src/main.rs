@@ -8,9 +8,9 @@ mod response;
 use laxatips::log::{debug, error, info, trace, warn};
 use laxatips::transit_model;
 use laxatips::{
-    DepartAfterRequest as EngineRequest, MultiCriteriaRaptor, PositiveDuration, 
-    LaxatipsData,
+    DepartAfterRequest as EngineRequest, MultiCriteriaRaptor, 
 };
+use laxatips::laxatips_data::{PositiveDuration, LaxatipsData};
 use prost::Message;
 use structopt::StructOpt;
 

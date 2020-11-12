@@ -1,0 +1,49 @@
+PR Simard
+
+ Testing your setup of notifications for PR stuck_out_tongue This is mostly typos (I can push the fixes if you prefer).
+
+Thanks a lot ! I did get an email this time (who knew you need to watch a repo you're the admin of...).
+Sorry for the response delay.
+
+> I'm also concerned by the number of "panics if 'whatever' does not belong to 'whatever'". It seems like a lot of functions panics. Would it make sense to have some `Result` in the return values instead?
+
+I didn't want to think too much about this when I wrote the code, so maybe now is a good time to think more about this.
+
+The rationale behind "panics everywhere" is the following :
+These functions should not be called in these ways, and if you do it, then it means you have a logic bug in your algorithm. 
+Now, should we crash when a logic bug happens ? In some sense yes, because that's not something can recover from. Even if you recover from the error and keep computing journeys, you should not trust the output of the algorithm anymore.
+
+This is of course a bit extreme :)
+
+ Another concern 
+
+
+ ===========
+
+ This issue is to discuss whether to mandate panicking/returning Result<>/leave undefined 
+the behavior of functions in the PublicTransit trait.
+
+As observed by @woshilapin in https://github.com/CanalTP/laxatips/pull/4#pullrequestreview-493360570
+the documentation now states that implementations of [PublicTransit](https://github.com/CanalTP/laxatips/blob/master/src/public_transit.rs) functions should panic when used with invalid arguments.
+The documentation states clearly which arguments are invalid.
+The question is whether panicking is the right option.
+
+I see 4 options : 
+1. panic
+2. return Results
+3. leave the behavior undefined
+4. refactor the trait so that functions cannot be called with invalid arguments
+
+Let's think a bit about each option.
+
+### Option 1 : Panic 
+This is the "easy" option. The rationale behind it is the following :
+These functions should not be called with invalid arguments, and if you do it, then it means you have a logic bug in your algorithm. 
+Now, should we crash when a logic bug happens ? In some sense yes, because that's not something can recover from. Even if you recover from the error and keep computing journeys, you should not trust the output of the algorithm anymore.
+This is of course a bit extreme :)
+
+The downsides are : 
+- the program becomes less "robust" as it cannot recover from failures. A restart is needed.
+- mandating panics may force the implementations to do unecessary checks, and thus slightly impact perfomances
+
+### Option 2 : Results

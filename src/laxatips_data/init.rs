@@ -242,75 +242,79 @@ impl TransitData {
             vehicle_journey_idx,
             days_pattern,
         };
-
-        let insert_error = self.timetables.insert(stop_flows.clone(), board_debark_times, &timezone, vehicle_data);
-        match insert_error {
-            Ok(timetable) => {
-                for position in self.timetables.positions(&timetable) {
-                    let stop = self.timetables.stop_at(&timetable, &position);
-                    let stop_data = & mut self.stops_data[stop.idx];
-                    stop_data.position_in_timetables.push(position);
-                }
-            },
-            Err(err) =>  {
-                match err {
-                    VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-                        let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                        let downstream_stop_time =
-                            &vehicle_journey.stop_times[position_pair.downstream];
-                        let board = board_time(upstream_stop_time).unwrap();
-                        let debark = debark_time(downstream_stop_time).unwrap();
-                        warn!(
-                            "Skipping vehicle journey {} because its 
-                                debark time {} at sequence {}
-                                is earlier than its 
-                                board time {} upstream at sequence {}. ",
-                            vehicle_journey.id,
-                            debark,
-                            downstream_stop_time.sequence,
-                            board,
-                            upstream_stop_time.sequence
-                        );
+        let nb_copy = 2 * transit_model_calendar.dates.len();
+        for _ in 1..nb_copy {
+            let insert_error = self.timetables.insert(stop_flows.clone(), board_debark_times.clone(), &timezone, vehicle_data.clone());
+            match insert_error {
+                Ok(timetable) => {
+                    for position in self.timetables.positions(&timetable) {
+                        let stop = self.timetables.stop_at(&timetable, &position);
+                        let stop_data = & mut self.stops_data[stop.idx];
+                        stop_data.position_in_timetables.push(position);
                     }
-                    VehicleTimesError::DecreasingBoardTime(position_pair) => {
-                        let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                        let downstream_stop_time =
-                            &vehicle_journey.stop_times[position_pair.downstream];
-                        let upstream_board = board_time(upstream_stop_time).unwrap();
-                        let downstream_board = board_time(downstream_stop_time).unwrap();
-                        warn!(
-                            "Skipping vehicle journey {} because its 
-                                board time {} at sequence {}
-                                is earlier than its
-                                board time {} upstream at sequence {}. ",
-                            vehicle_journey.id,
-                            downstream_board,
-                            downstream_stop_time.sequence,
-                            upstream_board,
-                            upstream_stop_time.sequence
-                        );
-                    }
-                    VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-                        let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-                        let downstream_stop_time =
-                            &vehicle_journey.stop_times[position_pair.downstream];
-                        let upstream_debark = debark_time(upstream_stop_time).unwrap();
-                        let downstream_debark = debark_time(downstream_stop_time).unwrap();
-                        warn!(
-                            "Skipping vehicle journey {} because its 
-                                debark time {} at sequence {}
-                                is earlier than its
-                                debark time {} upstream at sequence {}. ",
-                            vehicle_journey.id,
-                            downstream_debark,
-                            downstream_stop_time.sequence,
-                            upstream_debark,
-                            upstream_stop_time.sequence
-                        );
+                },
+                Err(err) =>  {
+                    match err {
+                        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
+                            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                            let downstream_stop_time =
+                                &vehicle_journey.stop_times[position_pair.downstream];
+                            let board = board_time(upstream_stop_time).unwrap();
+                            let debark = debark_time(downstream_stop_time).unwrap();
+                            warn!(
+                                "Skipping vehicle journey {} because its 
+                                    debark time {} at sequence {}
+                                    is earlier than its 
+                                    board time {} upstream at sequence {}. ",
+                                vehicle_journey.id,
+                                debark,
+                                downstream_stop_time.sequence,
+                                board,
+                                upstream_stop_time.sequence
+                            );
+                        }
+                        VehicleTimesError::DecreasingBoardTime(position_pair) => {
+                            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                            let downstream_stop_time =
+                                &vehicle_journey.stop_times[position_pair.downstream];
+                            let upstream_board = board_time(upstream_stop_time).unwrap();
+                            let downstream_board = board_time(downstream_stop_time).unwrap();
+                            warn!(
+                                "Skipping vehicle journey {} because its 
+                                    board time {} at sequence {}
+                                    is earlier than its
+                                    board time {} upstream at sequence {}. ",
+                                vehicle_journey.id,
+                                downstream_board,
+                                downstream_stop_time.sequence,
+                                upstream_board,
+                                upstream_stop_time.sequence
+                            );
+                        }
+                        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
+                            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+                            let downstream_stop_time =
+                                &vehicle_journey.stop_times[position_pair.downstream];
+                            let upstream_debark = debark_time(upstream_stop_time).unwrap();
+                            let downstream_debark = debark_time(downstream_stop_time).unwrap();
+                            warn!(
+                                "Skipping vehicle journey {} because its 
+                                    debark time {} at sequence {}
+                                    is earlier than its
+                                    debark time {} upstream at sequence {}. ",
+                                vehicle_journey.id,
+                                downstream_debark,
+                                downstream_stop_time.sequence,
+                                upstream_debark,
+                                upstream_stop_time.sequence
+                            );
+                        }
                     }
                 }
             }
+        
         }
+        
     }
 
     

@@ -15,13 +15,12 @@ pub mod iters;
 pub use time::PositiveDuration;
 pub use transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer};
 
-
-pub struct LaxatipsData {
+pub struct LaxatipsDailyData {
     pub transit_data : transit_data::TransitData,
     pub model :  transit_model::Model,
 }
 
-impl<'model> LaxatipsData {
+impl<'model> LaxatipsDailyData {
     pub fn new(model :  transit_model::Model, 
         default_transfer_duration : time::PositiveDuration
     ) -> Self

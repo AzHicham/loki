@@ -1,9 +1,11 @@
 use crate::navitia_proto;
 use laxatips::transit_model;
 use laxatips::{
-    LaxatipsData,
+    laxatips_data::{
+        LaxatipsData, Idx, StopPoint, VehicleJourney,
+    },
     response::{Journey, TransferSection, VehicleSection, WaitingSection},
-    Idx, StopPoint, VehicleJourney,
+    
 };
 
 use chrono::{NaiveDate, NaiveDateTime};

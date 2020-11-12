@@ -1,0 +1,6 @@
+Copier les vjs pour en avoir un par jour
+  - transformer les horaires des vjs en utc
+  - timetable stocke tout en utc
+Mettre à jour le timetable et le best_trip_to_board 
+Génériciser le timetable
+Ajouter la charge
