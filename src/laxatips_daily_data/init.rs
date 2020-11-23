@@ -390,28 +390,21 @@ fn board_debark_utc_times(board_debark_timezoned_times_in_day : &[(SecondsSinceT
     vehicle_journey : & VehicleJourney
 ) -> Result<  Vec<(SecondsSinceDatasetUTCStart, SecondsSinceDatasetUTCStart)> , ()>
 {
+    let day = calendar.date_to_days_since_start(date).ok_or_else(|| {
+        warn!("Skipping vehicle journey {} on day {} because  \
+                this day is not allowed by the calendar. \
+                Allowed day are between {} and {}",
+                vehicle_journey.id,
+                date,
+                calendar.first_date(),
+                calendar.last_date(),
+        );
+    })?;
     let mut result = Vec::with_capacity(board_debark_timezoned_times_in_day.len());
-    for (idx, (board_time, debark_time)) in board_debark_timezoned_times_in_day.iter().enumerate() {
-        let board_time_utc = calendar.compose_from_date(date, board_time, timezone).ok_or_else(|| {
-            warn!("Skipping vehicle journey {} on day {} because I can't convert \
-                    its board time {} in UTC from timezone {} for its {}th stop_time.",
-                    vehicle_journey.id,
-                    date,
-                    board_time,
-                    timezone,
-                    idx,
-            );
-        })?;
-        let debark_time_utc = calendar.compose_from_date(date, debark_time, timezone).ok_or_else(|| {
-            warn!("Skipping vehicle journey {} on day {} because I can't convert \
-                    its debark time {} in UTC from timezone {} for its {}th stop_time.",
-                    vehicle_journey.id,
-                    date,
-                    debark_time,
-                    timezone,
-                    idx,
-            );
-        })?;
+    for (board_time, debark_time) in board_debark_timezoned_times_in_day.iter() {
+
+        let board_time_utc = calendar.compose(&day, board_time, timezone);
+        let debark_time_utc = calendar.compose(&day, debark_time, timezone);
 
         result.push((board_time_utc, debark_time_utc));
     }

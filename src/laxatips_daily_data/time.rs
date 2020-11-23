@@ -125,7 +125,7 @@ impl Calendar {
 
 
 
-    fn date_to_days_since_start(&self, date: &NaiveDate) -> Option<DaysSinceDatasetStart> {
+    pub fn date_to_days_since_start(&self, date: &NaiveDate) -> Option<DaysSinceDatasetStart> {
         self.date_to_offset(date)
             .map(|offset| {
                 DaysSinceDatasetStart {
@@ -178,51 +178,6 @@ impl Calendar {
 
         forward_iter.chain(backward_iter)
     }
-
-    pub fn compose_from_date(&self, date: &NaiveDate, seconds_in_day: &SecondsSinceTimezonedDayStart, timezone : &Timezone) -> Option<SecondsSinceDatasetUTCStart> {
-        if ! self.contains_date(date) {
-            return None;
-        }
-        use chrono::offset::TimeZone;
-        let datetime_timezoned = 
-            timezone.from_utc_date(&date).and_hms(12, 0, 0) 
-            - chrono::Duration::hours(12)
-            + chrono::Duration::seconds(seconds_in_day.seconds as i64);
-        use chrono_tz::UTC;
-        let datetime_utc = datetime_timezoned.with_timezone(&UTC).naive_utc();
-
-        debug_assert!(self.contains_datetime(&datetime_utc));
-        let seconds_i64 = (datetime_utc - self.first_datetime()).num_seconds();
-        // seconds_i64 should be >=0 since 
-        // by construction above, we have 
-        // datetime_utc >=
-        //        first_date 
-        //        - MAX_SECONDS_SINCE_TIMEZONED_DAY_START 
-        //        - MAX_TIMEZONE_OFFSET
-        // which is exactly how first_datetime() is constructed
-        debug_assert!(seconds_i64 >= 0);
-        // seconds_i64 <= u32::MAX since : 
-        // - day < MAX_DAYS_IN_CALENDAR
-        // - seconds_in_day < MAX_SECONDS_SINCE_TIMEZONED_DAY_START
-        // thus seconds_i64 <=  MAX_DAYS_IN_CALENDAR * 24 * 60 * 60 
-        //                     + MAX_SECONDS_SINCE_TIMEZONED_DAY_START 
-        //                     + MAX_TIMEZONE_OFFSET
-        // and the latter number is smaller than u32::MAX
-        static_assertions::const_assert!( 
-            (MAX_DAYS_IN_CALENDAR as i64) * 24 * 60 * 60  
-            + (MAX_SECONDS_SINCE_TIMEZONED_DAY_START as i64)
-            + (MAX_TIMEZONE_OFFSET as i64)
-            <=  u32::MAX as i64
-        );
-        debug_assert!(seconds_i64 <= u32::MAX as i64);
-        let seconds_u32 = seconds_i64 as u32;
-        let result = SecondsSinceDatasetUTCStart {
-            seconds : seconds_u32
-        };
-        Some(result)
-
-    }
- 
  
     pub fn compose(&self, day: &DaysSinceDatasetStart, seconds_in_day: &SecondsSinceTimezonedDayStart,  timezone : &Timezone) -> SecondsSinceDatasetUTCStart {
         debug_assert!(day.days < self.nb_of_days);
