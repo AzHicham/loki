@@ -1,7 +1,7 @@
 
 use std::iter::{Chain, Map};
 use std::ops::Range;
-use super::super::time::SecondsSinceDatasetUTCStart as Time;
+use crate::time::SecondsSinceDatasetUTCStart as Time;
 use super::timetables_data::{TimetableData, Timetables, Timetable, Position, Vehicle};
 
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;

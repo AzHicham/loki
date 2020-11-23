@@ -1,4 +1,4 @@
-use super::time::{DaysSinceDatasetStart, Calendar};
+use crate::time::{DaysSinceDatasetStart, Calendar};
 use chrono::{NaiveDate};
 
 pub struct DaysPatterns {

@@ -122,9 +122,6 @@ impl Calendar {
         self.first_date.and_hms(0, 0, 0) + chrono::Duration::seconds(i64::from(seconds.seconds))
     }
 
-
-
-
     fn date_to_days_since_start(&self, date: &NaiveDate) -> Option<DaysSinceDatasetStart> {
         self.date_to_offset(date)
             .map(|offset| {

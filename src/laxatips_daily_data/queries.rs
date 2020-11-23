@@ -1,6 +1,6 @@
 use super::transit_data::{Mission, Stop, TransitData, Trip};
 
-use super::time::{SecondsSinceDatasetUTCStart, };
+use crate::time::{SecondsSinceDatasetUTCStart, };
 
 use super::timetables::timetables_data::{Position,  };
 

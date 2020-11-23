@@ -1,11 +1,11 @@
 use super::super::transit_data::{Stop};
 use std::cmp::Ordering; 
-use super::super::time::{SecondsSinceDatasetUTCStart};
+use crate::time::{SecondsSinceDatasetUTCStart};
 
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
 
-use super::super::time::SecondsSinceDatasetUTCStart as Time;
+use crate::time::SecondsSinceDatasetUTCStart as Time;
 use chrono_tz::Tz as TimeZone;
 use std::collections::BTreeMap;
 

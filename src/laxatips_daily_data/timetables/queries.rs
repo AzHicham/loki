@@ -1,4 +1,4 @@
-use super::super::time::{SecondsSinceDatasetUTCStart, };
+use crate::time::{SecondsSinceDatasetUTCStart, };
 
 use super::timetables_data::{Timetables, TimetableData, Timetable, Position, VehicleData, Vehicle};
 

@@ -1,6 +1,6 @@
 
 use std::cmp::Ordering;
-use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
+use crate::time::SecondsSinceTimezonedDayStart as Time;
 use chrono_tz::Tz as TimeZone;
 use super::timetables_data::{Timetables, StopFlows, VehicleData, Timetable, FlowDirection, TimetableData, partial_cmp};
 

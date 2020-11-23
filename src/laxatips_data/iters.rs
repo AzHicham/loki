@@ -1,6 +1,6 @@
 use super::transit_data::{Mission, Stop, Transfer, TransitData, Trip};
 
-use super::time::DaysIter;
+use crate::time::DaysIter;
 
 use super::timetables::{
     timetables_data::{Position, Vehicle},

@@ -1,7 +1,7 @@
 
 use std::iter::{Chain, Map};
 use std::ops::Range;
-use crate::laxatips_data::time::SecondsSinceTimezonedDayStart as Time;
+use crate::time::SecondsSinceTimezonedDayStart as Time;
 use super::timetables_data::{TimetableData, Timetables, Timetable, Position, Vehicle};
 
 pub type TimetablesIter = Map<Range<usize>, fn(usize) -> Timetable>;

@@ -2,8 +2,8 @@ use crate::laxatips_data::{
     LaxatipsData,
     transit_data::{Transfer, Trip, TransitData},
     timetables::timetables_data::Position,
-    time::{SecondsSinceDatasetUTCStart, PositiveDuration},
 };
+use crate::time::{SecondsSinceDatasetUTCStart, PositiveDuration};
 use transit_model::Model;
 use chrono::{NaiveDateTime, NaiveDate};
 

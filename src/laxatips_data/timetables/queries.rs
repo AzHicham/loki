@@ -1,5 +1,5 @@
 use crate::laxatips_data::days_patterns::DaysPatterns;
-use crate::laxatips_data::time::{Calendar, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
+use crate::time::{Calendar, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
 
 use super::timetables_data::{Timetables, TimetableData, Timetable, Position, VehicleData, Vehicle};
 

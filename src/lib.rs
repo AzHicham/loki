@@ -11,6 +11,8 @@ pub mod crowding_data;
 pub use log;
 pub use transit_model;
 
+pub mod time;
+
 // pub use laxatips_data::{
 //     LaxatipsData,
 //     time::{PositiveDuration},

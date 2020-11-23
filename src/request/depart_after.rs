@@ -1,8 +1,8 @@
 use crate::laxatips_data::{
     LaxatipsData,
     transit_data::{ Stop,  },
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 
 
 

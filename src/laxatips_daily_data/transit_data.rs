@@ -7,7 +7,7 @@ pub use typed_index_collection::{Idx};
 
 
 use super::timetables::timetables_data::{Timetables, Position, Timetable, Vehicle};
-use super::time::{Calendar, PositiveDuration};
+use crate::time::{Calendar, PositiveDuration};
 
 use std::collections::HashMap;
 

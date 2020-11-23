@@ -1,6 +1,6 @@
 
 use std::cmp::Ordering;
-use super::super::time::SecondsSinceDatasetUTCStart as Time;
+use crate::time::SecondsSinceDatasetUTCStart as Time;
 use chrono_tz::Tz as TimeZone;
 use super::timetables_data::{Timetables, StopFlows, VehicleData, Timetable, FlowDirection, TimetableData, partial_cmp};
 

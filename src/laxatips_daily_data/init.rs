@@ -5,7 +5,7 @@ use super::timetables::{
     timetables_data::{Timetables, VehicleData, FlowDirection},
     insert::{VehicleTimesError}
     };
-use super::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart};
+use crate::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},

@@ -1,7 +1,8 @@
 use crate::laxatips_data::{
     LaxatipsData,
-    time::{PositiveDuration},
 };
+
+use crate::time::{PositiveDuration};
 
 use chrono::NaiveDateTime;
 use log::{warn};
