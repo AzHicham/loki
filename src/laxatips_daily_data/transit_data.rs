@@ -7,8 +7,7 @@ pub use typed_index_collection::{Idx};
 
 
 use super::timetables::timetables_data::{Timetables, Position, Timetable, Vehicle};
-use super::time::{Calendar, PositiveDuration, DaysSinceDatasetStart};
-use super::days_patterns::{DaysPatterns};
+use super::time::{Calendar, PositiveDuration};
 
 use std::collections::HashMap;
 
@@ -21,9 +20,6 @@ pub struct TransitData {
     pub (super) timetables : Timetables,
 
     pub calendar : Calendar,
-
-    pub (super) days_patterns : DaysPatterns,
-
 
 }
 pub struct StopData {

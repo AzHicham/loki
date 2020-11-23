@@ -1,7 +1,6 @@
 use super::super::transit_data::{Stop};
-use super::super::days_patterns::DaysPattern;
 use std::cmp::Ordering; 
-use super::super::time::{Calendar, SecondsSinceDatasetUTCStart};
+use super::super::time::{SecondsSinceDatasetUTCStart};
 
 use transit_model::objects::{VehicleJourney};
 use typed_index_collection::{Idx};
@@ -138,19 +137,19 @@ impl Timetables {
         self.timetable_data(&position.timetable).stop_at(position.idx)
     }
 
-    pub fn debark_time_at(&self, vehicle: &Vehicle, position: &Position,  calendar : & Calendar) -> Option<SecondsSinceDatasetUTCStart> {
+    pub fn debark_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<SecondsSinceDatasetUTCStart> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         timetable_data.debark_time_at(vehicle.idx, position.idx).cloned()
     }
 
-    pub fn board_time_at(&self, vehicle: &Vehicle, position: &Position,  calendar : & Calendar) -> Option<SecondsSinceDatasetUTCStart> {
+    pub fn board_time_at(&self, vehicle: &Vehicle, position: &Position) -> Option<SecondsSinceDatasetUTCStart> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         timetable_data.board_time_at(vehicle.idx, position.idx).cloned()
     }
 
-    pub fn arrival_time_at(&self, vehicle: &Vehicle, position: &Position,  calendar : & Calendar) -> SecondsSinceDatasetUTCStart {
+    pub fn arrival_time_at(&self, vehicle: &Vehicle, position: &Position) -> SecondsSinceDatasetUTCStart {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         timetable_data.arrival_time_at(vehicle.idx, position.idx).clone()

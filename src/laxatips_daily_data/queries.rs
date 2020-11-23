@@ -50,7 +50,7 @@ impl TransitData {
     // Panics if `trip` does not go through `position`
     pub fn arrival_time_of(&self, trip: &Trip, position: &Position) -> SecondsSinceDatasetUTCStart {
         let vehicle = &trip.vehicle;
-        self.timetables.arrival_time_at(vehicle, position, & self.calendar)
+        self.timetables.arrival_time_at(vehicle, position)
     }
 
     // Panics if `position` is not valid for `trip`
@@ -61,7 +61,7 @@ impl TransitData {
         position: &Position,
     ) -> Option<SecondsSinceDatasetUTCStart> {
         let vehicle = &trip.vehicle;
-        self.timetables.debark_time_at(vehicle, position,  &self.calendar)
+        self.timetables.debark_time_at(vehicle, position)
     }
 
     // Panics if `position` is not valid for `trip`
@@ -72,7 +72,7 @@ impl TransitData {
         position: &Position,
     ) -> Option<SecondsSinceDatasetUTCStart> {
         let vehicle = &trip.vehicle;
-        self.timetables.board_time_at(vehicle, position, &self.calendar)
+        self.timetables.board_time_at(vehicle, position)
     }
 
     pub fn earliest_trip_to_board_at(
@@ -83,7 +83,7 @@ impl TransitData {
     ) -> Option<(Trip, SecondsSinceDatasetUTCStart)> {
         let timetable = &mission.timetable;
         self.timetables
-            .best_vehicle_to_board(waiting_time, timetable, position, &self.calendar, &self.days_patterns)
+            .best_vehicle_to_board(waiting_time, timetable, position)
             .map(|(vehicle,  arrival_time_at_next_position)| {
                 let trip = Trip {
                     vehicle,

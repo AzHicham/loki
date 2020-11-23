@@ -1,9 +1,9 @@
 use super::transit_data::{Mission, Stop, Transfer, TransitData, Trip};
 
-use super::time::DaysIter;
+
 
 use super::timetables::{
-    timetables_data::{Position, Vehicle},
+    timetables_data::{Position},
     iters::{VehiclesIter}
 };
 
@@ -81,7 +81,7 @@ pub struct TripsOfMission {
 
 impl TripsOfMission {
     fn new(transit_data: &TransitData, mission: &Mission) -> Self {
-        let mut vehicles_iter = transit_data.timetables.vehicles(&mission.timetable);
+        let vehicles_iter = transit_data.timetables.vehicles(&mission.timetable);
 
         Self {
             vehicles_iter,

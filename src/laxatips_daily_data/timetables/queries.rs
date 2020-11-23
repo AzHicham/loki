@@ -1,5 +1,4 @@
-use super::super::days_patterns::DaysPatterns;
-use super::super::time::{Calendar, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart, DaysSinceDatasetStart};
+use super::super::time::{SecondsSinceDatasetUTCStart, };
 
 use super::timetables_data::{Timetables, TimetableData, Timetable, Position, VehicleData, Vehicle};
 
@@ -8,12 +7,10 @@ impl Timetables {
             waiting_time : & SecondsSinceDatasetUTCStart , 
             timetable : & Timetable, 
             position : & Position,
-            calendar : & Calendar,
-            days_patterns : &  DaysPatterns,
         ) -> Option<(Vehicle, SecondsSinceDatasetUTCStart)> {
         assert!(*timetable == position.timetable);
         self.timetable_data(timetable)
-            .best_vehicle_to_board(waiting_time, position.idx, calendar, days_patterns)
+            .best_vehicle_to_board(waiting_time, position.idx)
             .map(|(vehicle_idx, arrival_time_at_next_position) | {
                 let vehicle = Vehicle {
                     timetable : timetable.clone(),
@@ -31,8 +28,6 @@ impl TimetableData {
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
         position_idx: usize,
-        calendar : & Calendar,
-        days_patterns : & DaysPatterns,
     ) -> Option<(usize, SecondsSinceDatasetUTCStart)> {
         //TODO : reread this and look for optimization
 

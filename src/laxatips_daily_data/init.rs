@@ -6,7 +6,6 @@ use super::timetables::{
     insert::{VehicleTimesError}
     };
 use super::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart};
-use super::days_patterns::{DaysPatterns};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
@@ -25,13 +24,11 @@ impl TransitData {
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
         let calendar = Calendar::new(start_date, end_date);
-        let nb_of_days : usize = calendar.nb_of_days().into();
         let mut engine_data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables : Timetables::new(), 
-            calendar,
-            days_patterns : DaysPatterns::new(nb_of_days)
+            calendar
         };
 
         engine_data.init(transit_model, default_transfer_duration);
