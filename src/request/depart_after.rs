@@ -1,4 +1,4 @@
-use crate::laxatips_data::{
+use crate::calendar_data::{
     LaxatipsData,
     transit_data::{ Stop,  },
 };
@@ -9,8 +9,9 @@ use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 
 
 pub mod init;
-pub mod public_transit;
+// pub mod public_transit;
 pub mod response;
+pub mod traits_impl;
 
 pub struct Request<'data> {
     laxatips_data: &'data LaxatipsData,

@@ -1,9 +1,9 @@
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
-use crate::public_transit::{Journey, PublicTransit, PublicTransitIters};
-use std::collections::HashMap;
+use crate::traits::{Request, RequestIters, Journey, Indices};
+use std::{collections::HashMap, hash::Hash};
 
-pub struct MultiCriteriaRaptor<PT: PublicTransit> {
+pub struct MultiCriteriaRaptor<PT: Request> {
     journeys_tree: JourneysTree<PT>,
 
     wait_fronts: Vec<WaitFront<PT>>, // map a `stop` to a pareto front
@@ -26,7 +26,9 @@ pub struct MultiCriteriaRaptor<PT: PublicTransit> {
     nb_of_rounds: usize,
 }
 
-impl<'pt, PT: PublicTransit + PublicTransitIters<'pt>> MultiCriteriaRaptor<PT> {
+impl<'pt, PT: Request + RequestIters<'pt> + Indices> MultiCriteriaRaptor<PT> 
+where PT::Mission : Hash + PartialEq + Eq
+{
     pub fn new(nb_of_stops: usize) -> Self {
         Self {
             journeys_tree: JourneysTree::new(),

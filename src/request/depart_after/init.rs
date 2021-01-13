@@ -1,4 +1,4 @@
-use crate::laxatips_data::{
+use crate::calendar_data::{
     LaxatipsData,
 };
 

@@ -1,5 +1,7 @@
-use crate::laxatips_data::transit_data::{Stop};
-use crate::laxatips_data::days_patterns::DaysPattern;
+use super::super::{
+    transit_data::{Stop},
+    days_patterns::DaysPattern
+};
 use std::cmp::Ordering;
 use crate::time::{Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart};
 

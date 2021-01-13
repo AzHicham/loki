@@ -2,18 +2,19 @@
 
 
 
-use crate::public_transit::{Journey as PTJourney, };
+use crate::traits::{Journey as PTJourney, };
 
 use crate::response;
 
 use super::Request;
+
 
 impl<'data, 'model> Request<'data> {
   
 
     pub fn create_response(&self,
         pt_journey: &PTJourney<Self>,
-    ) -> Result<response::Journey, response::BadJourney> {
+    ) -> Result<response::Journey<Self>, response::BadJourney<Self>> {
         let departure_datetime = self.departure_datetime;
         let departure_idx = pt_journey.departure_leg.departure.idx;
         let departure_fallback_duration = &self.departures_stop_point_and_fallback_duration[departure_idx].1;
@@ -41,7 +42,7 @@ impl<'data, 'model> Request<'data> {
             first_vehicle, 
             connections, 
             *arrival_fallback_duration, 
-            &self.laxatips_data.transit_data
+            &self
         )
     }
 
