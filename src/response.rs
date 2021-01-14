@@ -55,7 +55,7 @@ pub enum BadJourney<TT : TransitTypes> {
 
 impl<TT : TransitTypes> Journey<TT> 
 where 
-TT : Response ,
+TT : Response + NetworkStructure ,
 TT::Trip : Debug + Clone, 
 TT::Position : Debug + Clone
 {

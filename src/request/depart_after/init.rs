@@ -1,6 +1,4 @@
-use crate::calendar_data::{
-    LaxatipsData,
-};
+use crate::traits::{TransitTypes, TimeQueries, Input};
 
 use crate::time::{PositiveDuration};
 
@@ -30,10 +28,13 @@ impl fmt::Display for BadRequest {
 
 impl std::error::Error for BadRequest {}
 
-impl<'data> Request<'data> {
+impl<'data, 'model, Data : TransitTypes> Request<'data, 'model, Data>
+where Data : TimeQueries + Input
+{
 
     pub fn new<'a, 'b>(
-        laxatips_data : & 'data LaxatipsData,
+        model : & 'model transit_model::Model,
+        transit_data : & 'data Data,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item=(&'a str, PositiveDuration)>,
         arrivals_stop_point_and_fallback_duration: impl Iterator<Item=(&'b str, PositiveDuration)>,
@@ -43,17 +44,15 @@ impl<'data> Request<'data> {
         max_nb_legs: u8,
     ) ->  Result<Self, BadRequest>
     {
-        let transit_data = &laxatips_data.transit_data;
-        let model = &laxatips_data.model;
 
 
-        let departure_datetime = transit_data.calendar.from_naive_datetime(&departure_datetime)
+        let departure_datetime = transit_data.from_naive_datetime(&departure_datetime)
             .ok_or_else(|| {
-                warn!("The departure datetime {} is out of bound of the allowed dates. \
-                    Allowed dates are between {} and {}.",
+                warn!("The departure datetime {:?} is out of bound of the allowed dates. \
+                    Allowed dates are between {:?} and {:?}.",
                         departure_datetime,
-                        transit_data.calendar.first_datetime(),
-                        transit_data.calendar.last_datetime(),
+                        transit_data.first_datetime(),
+                        transit_data.last_datetime(),
                 );
                 BadRequest::DepartureDatetime
             })?;        
@@ -113,7 +112,8 @@ impl<'data> Request<'data> {
 
 
         let result =Self {
-            laxatips_data,
+            model,
+            transit_data,
             departure_datetime,
             departures_stop_point_and_fallback_duration : departures,
             arrivals_stop_point_and_fallbrack_duration : arrivals,

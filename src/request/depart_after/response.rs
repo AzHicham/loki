@@ -2,14 +2,16 @@
 
 
 
-use crate::traits::{Journey as PTJourney, };
+use crate::traits::{Journey as PTJourney, Response, TimeQueries, NetworkStructure};
 
 use crate::response;
 
 use super::Request;
 
 
-impl<'data, 'model> Request<'data> {
+impl<'data, 'model, Data : Response> Request<'data, 'model, Data>
+where Data : TimeQueries + NetworkStructure
+{
   
 
     pub fn create_response(&self,

@@ -1,10 +1,6 @@
-use crate::calendar_data::{
-    LaxatipsData,
-    transit_data::{ Stop,  },
-};
 use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 
-
+use crate::traits::TransitTypes;
 
 
 
@@ -13,11 +9,12 @@ pub mod init;
 pub mod response;
 pub mod traits_impl;
 
-pub struct Request<'data> {
-    laxatips_data: &'data LaxatipsData,
+pub struct Request<'data, 'model, Data : TransitTypes> {
+    model : & 'model transit_model::Model,
+    transit_data: &'data Data,
     departure_datetime: SecondsSinceDatasetUTCStart,
-    departures_stop_point_and_fallback_duration: Vec<(Stop, PositiveDuration)>,
-    arrivals_stop_point_and_fallbrack_duration: Vec<(Stop, PositiveDuration)>,
+    departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
+    arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
     leg_arrival_penalty: PositiveDuration,
     leg_walking_penalty: PositiveDuration,
     max_arrival_time: SecondsSinceDatasetUTCStart,

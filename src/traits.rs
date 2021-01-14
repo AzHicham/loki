@@ -69,8 +69,16 @@ pub trait NetworkStructure : TransitTypes {
 
 pub trait TimeQueries : TransitTypes {
 
+    // Panics if `position` is not valid for `trip`
+    // None if `trip` does not allows boarding at `stop_idx`
     fn board_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> Option<SecondsSinceDatasetUTCStart>;
+    // Panics if `position` is not valid for `trip`
+    // None if `trip` does not allows debark at `stop_idx`
     fn debark_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> Option<SecondsSinceDatasetUTCStart>;
+    
+    // Panics if `trip` does not go through `position`
+    fn arrival_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> SecondsSinceDatasetUTCStart;
+
 
     fn transfer(&self, transfer : & Self::Transfer) -> (Self::Stop, PositiveDuration);
 
@@ -106,7 +114,7 @@ pub trait TransitIters<'a>: TransitTypes {
 
 }
 
-pub trait Response : TransitTypes + NetworkStructure + TimeQueries {
+pub trait Response : TransitTypes + NetworkStructure + TimeQueries  {
     fn to_naive_datetime(&self, seconds : &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
     fn vehicle_journey_idx(&self, trip : & Self::Trip) -> Idx<VehicleJourney>;
@@ -121,8 +129,17 @@ pub trait Response : TransitTypes + NetworkStructure + TimeQueries {
     fn is_same_stop(&self, stop_a : & Self::Stop, stop_b : & Self::Stop) -> bool;
 }
 
+pub trait Input : TransitTypes {
+    fn from_naive_datetime(&self, naive_datetime : &chrono::NaiveDateTime) -> Option<SecondsSinceDatasetUTCStart>;
 
-pub trait Request : TransitTypes + NetworkStructure  {
+    fn first_datetime(&self) -> SecondsSinceDatasetUTCStart;
+    fn last_datetime(&self) -> SecondsSinceDatasetUTCStart;
+
+    fn stop_point_idx_to_stop(&self, stop_idx : & Idx<StopPoint>) -> Option<Self::Stop>;
+}
+
+
+pub trait Request : NetworkStructure   {
 
     /// Identify a possible departure of a journey
     type Departure: Clone;
@@ -275,7 +292,7 @@ pub trait Request : TransitTypes + NetworkStructure  {
 }
 
 
-pub trait RequestIters<'a> : TransitTypes + Request + TransitIters<'a> {
+pub trait RequestIters<'a> : Request + TransitIters<'a> {
     /// Iterator for all possible arrivals of a journey
     type Arrivals: Iterator<Item = Self::Arrival>;
     /// Returns the identifiers of all possible arrivals of a journey

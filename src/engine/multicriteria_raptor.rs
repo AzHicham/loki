@@ -2,7 +2,7 @@ use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use crate::traits::{Request, RequestIters, Journey, Indices};
 use std::{collections::HashMap, hash::Hash};
-
+use log::trace;
 pub struct MultiCriteriaRaptor<PT: Request> {
     journeys_tree: JourneysTree<PT>,
 
@@ -79,7 +79,7 @@ where PT::Mission : Hash + PartialEq + Eq
         debug_assert!(!self.missions_with_new_wait.is_empty());
 
         while !self.missions_with_new_wait.is_empty() {
-            use log::trace;
+
             let nb_new_wait :usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
             trace!("Round {}, nb of missions {}, new_wait {}", self.nb_of_rounds, self.missions_with_new_wait.len(), nb_new_wait);
             trace!("Tree size {}, arrived {}", self.tree_size(), self.arrive_front.len());
