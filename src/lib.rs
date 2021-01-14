@@ -14,6 +14,10 @@ pub use transit_model;
 pub mod time;
 
 mod traits;
+
+mod timetables;
+
+mod transit_data;
 // pub use laxatips_data::{
 //     LaxatipsData,
 //     time::{PositiveDuration},

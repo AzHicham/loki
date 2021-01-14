@@ -1,11 +1,8 @@
-use super::transit_data::{
-    Stop, StopData,  TransitData, 
-};
-use super::timetables::{
-    timetables_data::{Timetables, VehicleData, FlowDirection},
-    insert::{VehicleTimesError}
-    };
-use crate::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart, SecondsSinceDatasetUTCStart};
+use crate::transit_data::{Stop, TransitData, };
+
+
+use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter,  FlowDirection  };
+use crate::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
@@ -14,9 +11,10 @@ use typed_index_collection::Idx;
 
 use log::{info, warn, debug};
 
-use chrono::NaiveDate;
 
-impl TransitData {
+impl<Timetables> TransitData<Timetables> 
+where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
+{
     pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
 
@@ -27,7 +25,7 @@ impl TransitData {
         let mut engine_data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
-            timetables : Timetables::new(), 
+            timetables : Timetables::new(start_date, end_date), 
             calendar
         };
 
@@ -107,7 +105,7 @@ impl TransitData {
 
 
 
-        let transit_model_calendar = transit_model
+        let model_calendar = transit_model
             .calendars
             .get(&vehicle_journey.service_id).ok_or_else( || {
                 warn!(
@@ -120,38 +118,27 @@ impl TransitData {
 
         let board_debark_timezoned_times = board_debark_timezoned_times_in_day(vehicle_journey)?;
 
+        let missions = self.timetables.insert(stop_flows, 
+            &board_debark_timezoned_times, 
+            model_calendar.dates.iter(), 
+            &timezone, 
+            vehicle_journey_idx,
+            vehicle_journey);
 
 
-        for date in transit_model_calendar.dates.iter() {
 
-            let vehicle_data = VehicleData {
-                vehicle_journey_idx,
-                date : date.clone(),
-            };
-
-            let has_board_debark_utc_times = board_debark_utc_times(&board_debark_timezoned_times, date, &timezone, &self.calendar, vehicle_journey);
-            if let Ok(board_debark_utc_times) = has_board_debark_utc_times {
-                let insert_error = self.timetables.insert(
-                    stop_flows.clone(), 
-                    board_debark_utc_times.iter().map(|pair| pair.clone()), 
-                    &timezone, 
-                    vehicle_data.clone()
-                );
-                match insert_error {
-                    Ok(timetable) => {
-                        for position in self.timetables.positions(&timetable) {
-                            let stop = self.timetables.stop_at(&timetable, &position);
-                            let stop_data = & mut self.stops_data[stop.idx];
-                            stop_data.position_in_timetables.push(position);
-                        }
-                    },
-                    Err(error) =>  {
-                        handle_vehicletimes_error(vehicle_journey, date, &error);
-                    }
-                }
+        for mission in missions.iter() {
+            for position in self.timetables.positions(&mission) {
+                let stop = self.timetables.stop_at(&position, &mission); 
+                let stop_data = & mut self.stops_data[stop.idx];
+                stop_data.position_in_timetables.push(position);
             }
-             
         }
+            
+
+
+        
+
 
         Ok(())
         
@@ -161,7 +148,9 @@ impl TransitData {
 
     fn add_new_stop_point(&mut self, stop_point_idx: Idx<StopPoint>) -> Stop {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
-        let stop_data = StopData {
+
+        use super::StopData;
+        let stop_data = StopData::<Timetables> {
             stop_point_idx,
             position_in_timetables: Vec::new(),
             transfers: Vec::new(),
@@ -293,69 +282,6 @@ fn timezone_of(vehicle_journey : & VehicleJourney, transit_model : & Model) -> R
         
 }
 
-
-fn handle_vehicletimes_error(vehicle_journey : & VehicleJourney, date : & NaiveDate, error : & VehicleTimesError) {
-    match error {
-        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time =
-                &vehicle_journey.stop_times[position_pair.downstream];
-            let board = board_time(upstream_stop_time).unwrap();
-            let debark = debark_time(downstream_stop_time).unwrap();
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    debark time {} at sequence {}\
-                    is earlier than its \
-                    board time {} upstream at sequence {}. ",
-                vehicle_journey.id,
-                date,
-                debark,
-                downstream_stop_time.sequence,
-                board,
-                upstream_stop_time.sequence
-            );
-        }
-        VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time =
-                &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_board = board_time(upstream_stop_time).unwrap();
-            let downstream_board = board_time(downstream_stop_time).unwrap();
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    board time {} at sequence {} \
-                    is earlier than its \
-                    board time {} upstream at sequence {}. ",
-                vehicle_journey.id,
-                date,
-                downstream_board,
-                downstream_stop_time.sequence,
-                upstream_board,
-                upstream_stop_time.sequence
-            );
-        }
-        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time =
-                &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_debark = debark_time(upstream_stop_time).unwrap();
-            let downstream_debark = debark_time(downstream_stop_time).unwrap();
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    debark time {} at sequence {} \
-                    is earlier than its \
-                    debark time {} upstream at sequence {}. ",
-                vehicle_journey.id,
-                date,
-                downstream_debark,
-                downstream_stop_time.sequence,
-                upstream_debark,
-                upstream_stop_time.sequence
-            );
-        }
-    }
-}
-
 fn board_debark_timezoned_times_in_day(vehicle_journey : & VehicleJourney) -> Result<  Vec<(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)> , ()>
 {
     let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
@@ -381,34 +307,4 @@ fn board_debark_timezoned_times_in_day(vehicle_journey : & VehicleJourney) -> Re
     }
 
     Ok(result)
-}
-
-fn board_debark_utc_times(board_debark_timezoned_times_in_day : &[(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)], 
-    date : & NaiveDate,
-    timezone : & chrono_tz::Tz,
-    calendar : & Calendar,
-    vehicle_journey : & VehicleJourney
-) -> Result<  Vec<(SecondsSinceDatasetUTCStart, SecondsSinceDatasetUTCStart)> , ()>
-{
-    let day = calendar.date_to_days_since_start(date).ok_or_else(|| {
-        warn!("Skipping vehicle journey {} on day {} because  \
-                this day is not allowed by the calendar. \
-                Allowed day are between {} and {}",
-                vehicle_journey.id,
-                date,
-                calendar.first_date(),
-                calendar.last_date(),
-        );
-    })?;
-    let mut result = Vec::with_capacity(board_debark_timezoned_times_in_day.len());
-    for (board_time, debark_time) in board_debark_timezoned_times_in_day.iter() {
-
-        let board_time_utc = calendar.compose(&day, board_time, timezone);
-        let debark_time_utc = calendar.compose(&day, debark_time, timezone);
-
-        result.push((board_time_utc, debark_time_utc));
-    }
-
-    Ok(result)
-   
 }
