@@ -1,5 +1,5 @@
 mod daily;
-mod calendar;
+mod periodic;
 mod generic_timetables;
 mod iters;
 
@@ -28,7 +28,6 @@ pub trait Timetables {
     fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self;
 
     fn nb_of_missions(&self) -> usize;
-    fn nb_of_trips(&self) -> usize;
 
     fn vehicle_journey_idx(&self, trip : & Self::Trip) -> Idx<VehicleJourney>;
     fn stoptime_idx(&self, position : &Self::Position, trip : & Self::Trip) -> usize;
