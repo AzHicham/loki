@@ -8,16 +8,26 @@ mod request;
 mod public_transit;
 pub mod crowding_data;
 
+pub use chrono::NaiveDateTime;
 pub use log;
+pub use time::PositiveDuration;
 pub use transit_model;
 
 pub mod time;
 
-// mod traits;
+pub mod traits;
 
 mod timetables;
 
 mod transit_data;
+
+pub type PeriodicData = transit_data::TransitData< timetables::PeriodicTimetables>;
+pub type DailyData = transit_data::TransitData< timetables::DailyTimetables>;
+
+pub type DailyRequest<'data, 'model> = request::depart_after::Request<'data, 'model, DailyData>;
+
+pub type PeriodicRequest<'data, 'model> = request::depart_after::Request<'data, 'model, PeriodicData>;
+
 // pub use laxatips_data::{
 //     LaxatipsData,
 //     time::{PositiveDuration},

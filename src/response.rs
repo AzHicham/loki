@@ -3,22 +3,22 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::time::{SecondsSinceDatasetUTCStart, PositiveDuration};
+use crate::{time::{SecondsSinceDatasetUTCStart, PositiveDuration}, traits::{Request, Response, TimeQueries}};
 use transit_model::Model;
 use chrono::{NaiveDateTime, NaiveDate};
-use crate::public_transit::PublicTransit;
+use crate::traits::{TransitTypes};
 
 use std::fmt::Debug;
 
 
-pub struct VehicleLeg<PT : PublicTransit> 
+pub struct VehicleLeg<PT : TransitTypes> 
 {
     pub trip: PT::Trip,
     pub board_position: PT::Position,
     pub debark_position: PT::Position,
 }
 
-impl<PT : PublicTransit> Clone for VehicleLeg<PT> {
+impl<PT : TransitTypes> Clone for VehicleLeg<PT> {
     fn clone(&self) -> Self {
         Self {
             trip : self.trip.clone(),
@@ -29,7 +29,7 @@ impl<PT : PublicTransit> Clone for VehicleLeg<PT> {
 }
 
 #[derive(Clone)]
-pub struct Journey<PT : PublicTransit> {
+pub struct Journey<PT : TransitTypes> {
     departure_datetime : SecondsSinceDatasetUTCStart,
     departure_fallback_duration : PositiveDuration,
     first_vehicle: VehicleLeg<PT>,
@@ -42,7 +42,7 @@ pub enum VehicleLegIdx {
     Connection(usize)
 }
 #[derive( Clone)]
-pub enum BadJourney<PT : PublicTransit> {
+pub enum BadJourney<PT : TransitTypes> {
     DebarkIsUpstreamBoard(VehicleLeg<PT>, VehicleLegIdx), 
     NoBoardTime(VehicleLeg<PT>, VehicleLegIdx),
     NoDebarkTime(VehicleLeg<PT>, VehicleLegIdx),
@@ -53,7 +53,8 @@ pub enum BadJourney<PT : PublicTransit> {
 
 
 
-impl<PT : PublicTransit> Journey<PT> 
+impl<PT> Journey<PT> 
+where PT : TransitTypes +  TimeQueries + Response
 {
 
     pub fn new(    
@@ -240,11 +241,11 @@ impl<PT : PublicTransit> Journey<PT>
 
 
     pub fn print(&self, 
-        laxatips_data : & PT, 
+        data : & PT, 
         model : & Model,
     ) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
-        self.write(laxatips_data, model, & mut result)?;
+        self.write(data, model, & mut result)?;
         Ok(result)
         
     }
@@ -371,7 +372,7 @@ pub struct ArrivalSection {
 
 
 
-impl<PT : PublicTransit> Journey<PT> {
+impl<PT : TransitTypes + Response> Journey<PT> {
 
 
     pub fn departure_section(&self, transit_data : & PT) -> DepartureSection {
@@ -475,13 +476,13 @@ impl<PT : PublicTransit> Journey<PT> {
 
 }
 
-pub struct ConnectionIter<'journey, 'data, PT : PublicTransit> {
+pub struct ConnectionIter<'journey, 'data, PT : TransitTypes> {
     transit_data : & 'data PT,
     journey : & 'journey Journey<PT>,
     connection_idx : usize,
 }
 
-impl<'journey, 'data, PT : PublicTransit>  Iterator 
+impl<'journey, 'data, PT : TransitTypes + Response>  Iterator 
 for 
 ConnectionIter<'journey, 'data, PT> {
     type Item=(TransferSection, WaitingSection, VehicleSection);

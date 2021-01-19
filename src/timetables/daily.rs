@@ -1,18 +1,23 @@
 
 
-use super::generic_timetables::Timetables;
+use super::{TimetablesIter, generic_timetables::Timetables};
 
 use chrono::NaiveDate;
-use crate::time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart};
+use crate::time::{Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart};
 use crate::transit_data::{Idx, VehicleJourney};
 
 use crate::timetables::Timetables as TimetablesTrait;
 
 use crate::log::warn;
 
-struct DailyTimetables {
-    timetables : Timetables<SecondsSinceDatasetUTCStart, (), Idx<VehicleJourney>>,
+pub struct DailyTimetables {
+    timetables : Timetables<SecondsSinceDatasetUTCStart, (), VehicleData>,
     calendar : Calendar,
+}
+#[derive(Clone)]
+struct VehicleData {
+    vehicle_journey_idx : Idx<VehicleJourney>,
+    day : DaysSinceDatasetStart,
 }
 
 impl TimetablesTrait for DailyTimetables {
@@ -38,7 +43,12 @@ impl TimetablesTrait for DailyTimetables {
     }
 
     fn vehicle_journey_idx(&self, trip : & Self::Trip) -> Idx<VehicleJourney> {
-        self.timetables.vehicle_data(trip).clone()
+        self.timetables.vehicle_data(trip).vehicle_journey_idx
+    }
+
+    fn day_of(&self, trip : & Self::Trip) -> NaiveDate {
+        let day = self.timetables.vehicle_data(trip).day;
+        self.calendar().to_naive_date(&day)
     }
 
     fn stoptime_idx(&self, position : &Self::Position, trip : & Self::Trip) -> usize {
@@ -124,11 +134,15 @@ impl TimetablesTrait for DailyTimetables {
                         let debark_time_utc =  calendar.compose(&day, debark_time, timezone).clone() ;
                         (board_time_utc, debark_time_utc)
                     });
+                    let vehicle_data = VehicleData{
+                        vehicle_journey_idx,
+                        day
+                    };
                     let insert_error = self.timetables.insert(
                         stop_flows.clone(), 
                         board_debark_utc_times, 
                         (),
-                        vehicle_journey_idx,
+                        vehicle_data,
                     );
                     match insert_error {
                         Ok(mission) => {
@@ -147,6 +161,28 @@ impl TimetablesTrait for DailyTimetables {
              
         }
         result
+    }
+
+
+}
+
+impl<'a> TimetablesIter<'a> for DailyTimetables {
+    type Positions =  super::iters::PositionsIter;
+
+    fn positions(&'a self, mission : & Self::Mission) -> Self::Positions {
+        self.timetables.positions(mission)
+    }
+
+    type Trips = super::iters::VehicleIter;
+
+    fn trips_of(&'a self, mission : & Self::Mission) -> Self::Trips {
+        self.timetables.vehicles(mission)
+    }
+
+    type Missions = super::iters::TimetableIter;
+
+    fn missions(&'a self) -> Self::Missions {
+        self.timetables.timetables()
     }
 }
 

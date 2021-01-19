@@ -3,7 +3,8 @@ mod periodic;
 mod generic_timetables;
 mod iters;
 
-
+pub use periodic::PeriodicTimetables;
+pub use daily::DailyTimetables;
 
 use std::hash::Hash;
 
@@ -14,6 +15,8 @@ use crate::time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDa
 use chrono_tz::Tz as TimeZone;
 use chrono::{NaiveDate};
 
+use std::fmt::Debug;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
 pub enum FlowDirection{
     BoardOnly,
@@ -23,9 +26,9 @@ pub enum FlowDirection{
 pub type StopFlows = Vec< (Stop, FlowDirection) >;
 
 pub trait Timetables {
-    type Mission : Hash + Eq + Clone;
-    type Position : Clone;
-    type Trip : Clone;
+    type Mission : Debug + Clone + Hash + Eq;
+    type Position : Debug + Clone;
+    type Trip : Debug + Clone;
 
     fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self;
 
@@ -35,6 +38,7 @@ pub trait Timetables {
 
     fn vehicle_journey_idx(&self, trip : & Self::Trip) -> Idx<VehicleJourney>;
     fn stoptime_idx(&self, position : &Self::Position, trip : & Self::Trip) -> usize;
+    fn day_of(&self, trip : & Self::Trip) -> NaiveDate;
 
     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission;
     fn stop_at(&self, position : & Self::Position, mission : & Self::Mission) -> Stop;
@@ -79,6 +83,9 @@ pub trait TimetablesIter<'a> : Timetables{
 
     type Trips : Iterator<Item = Self::Trip>;
     fn trips_of(&'a self, mission : & Self::Mission) -> Self::Trips;
+
+    type Missions : Iterator<Item = Self::Mission>;
+    fn missions(&'a self) -> Self::Missions;
 
 }
 

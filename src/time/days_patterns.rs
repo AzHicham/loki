@@ -1,4 +1,7 @@
-use crate::time::{DaysSinceDatasetStart, Calendar};
+
+use std::iter::Enumerate;
+
+use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::{NaiveDate};
 
 pub struct DaysPatterns {
@@ -30,6 +33,13 @@ impl DaysPatterns {
         debug_assert!(days_pattern.idx < self.days_patterns.len());
         let day_idx: usize = day.days.into();
         self.days_patterns[days_pattern.idx].allowed_dates[day_idx]
+    }
+
+    pub fn days_in_pattern(&self, days_pattern : & DaysPattern) -> DaysInPatternIter {
+        let iter = self.days_patterns[days_pattern.idx].allowed_dates.iter().enumerate();
+        DaysInPatternIter {
+            allowed_dates : iter
+        }
     }
 
     pub fn get_or_insert<'a, Dates>(&mut self, dates: Dates, calendar : & Calendar) -> DaysPattern
@@ -69,5 +79,32 @@ impl DaysPatterns {
         DaysPattern { idx }
     }
 
+}
+
+pub struct DaysInPatternIter<'pattern> {
+    allowed_dates : Enumerate<std::slice::Iter<'pattern, bool>>
+}
+
+impl<'pattern> Iterator for DaysInPatternIter<'pattern>  {
+    type Item = DaysSinceDatasetStart;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.allowed_dates.next() {
+                Some((day_idx, is_allowed)) if *is_allowed => {
+                    let days : u16 = day_idx as u16;
+                    return Some(DaysSinceDatasetStart{
+                        days
+                    });
+                },
+                Some(_)  => {
+                    ()
+                },
+                None => {
+                    return None;
+                }
+            }
+        }
+    }
 }
 

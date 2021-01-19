@@ -1,9 +1,7 @@
-mod days_patterns;
 
+use crate::time::days_patterns::{DaysPatterns, DaysPattern, DaysInPatternIter};
 
-use days_patterns::{DaysPatterns, DaysPattern};
-
-use super::generic_timetables::{Timetables, Vehicle};
+use super::{TimetablesIter, generic_timetables::{Timetables, Vehicle}};
 
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
@@ -15,7 +13,7 @@ use crate::timetables::Timetables as TimetablesTrait;
 
 use crate::log::warn;
 
-struct PeriodicTimetables {
+pub struct PeriodicTimetables {
     timetables : Timetables<SecondsSinceTimezonedDayStart, TimeZone, VehicleData>,
     calendar : Calendar,
     days_patterns : DaysPatterns,
@@ -28,7 +26,7 @@ struct VehicleData {
 }
 
 #[derive(Debug, Clone)]
-struct Trip {
+pub struct Trip {
     vehicle : Vehicle,
     day : DaysSinceDatasetStart,
 }
@@ -62,8 +60,12 @@ impl TimetablesTrait for PeriodicTimetables {
         self.timetables.vehicle_data(&trip.vehicle).vehicle_journey_idx.clone()
     }
 
-    fn stoptime_idx(&self, position : &Self::Position, trip : & Self::Trip) -> usize {
+    fn stoptime_idx(&self, position : &Self::Position, _trip : & Self::Trip) -> usize {
         self.timetables.stoptime_idx(position)
+    }
+
+    fn day_of(&self, trip : & Self::Trip) -> NaiveDate {
+        self.calendar().to_naive_date(&trip.day)
     }
 
     fn mission_of(&self, trip : & Self::Trip) -> Self::Mission {
@@ -280,6 +282,81 @@ fn handle_vehicletimes_error(vehicle_journey : & VehicleJourney,
                 upstream_debark,
                 upstream_stop_time.sequence
             );
+        }
+    }
+}
+
+impl<'a> TimetablesIter<'a> for PeriodicTimetables {
+    type Positions =  super::iters::PositionsIter;
+
+    fn positions(&'a self, mission : & Self::Mission) -> Self::Positions {
+        self.timetables.positions(mission)
+    }
+
+    type Trips = TripsIter<'a>;
+
+    fn trips_of(&'a self, mission : & Self::Mission) -> Self::Trips {
+        TripsIter::new(&self, mission)
+    }
+
+    type Missions = super::iters::TimetableIter;
+
+    fn missions(&'a self) -> Self::Missions {
+        self.timetables.timetables()
+    }
+}
+
+
+pub struct TripsIter<'a> {
+    periodic : & 'a PeriodicTimetables,
+    current_vehicle_days : Option<(Vehicle, DaysInPatternIter<'a>)>,
+    vehicles_iter: super::iters::VehicleIter,
+}
+
+impl<'a> TripsIter<'a> {
+    fn new(periodic: & 'a PeriodicTimetables, timetable: &super::generic_timetables::Timetable) -> Self {
+        let mut vehicles_iter = periodic.timetables.vehicles(&timetable);
+        let has_current_vehicle = vehicles_iter.next();
+        let current_vehicle_days = has_current_vehicle.map(|vehicle| {
+            let days_pattern = periodic.timetables.vehicle_data(&vehicle).days_pattern;
+            let days_iter = periodic.days_patterns.days_in_pattern(&days_pattern);
+            (vehicle, days_iter)
+        });
+
+        Self {
+            periodic,
+            current_vehicle_days,
+            vehicles_iter,
+        }
+    }
+}
+
+impl<'a> Iterator for TripsIter<'a> {
+    type Item = Trip;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some((vehicle, days_iter)) = &mut self.current_vehicle_days {
+                match days_iter.next() {
+                    Some(day) => {
+                        let trip = Trip {
+                            vehicle: vehicle.clone(),
+                            day,
+                        };
+                        return Some(trip);
+                    }
+                    None => {
+                        let has_current_vehicle = self.vehicles_iter.next();
+                        let current_vehicle_days = has_current_vehicle.map(|vehicle| {
+                            let days_pattern = self.periodic.timetables.vehicle_data(&vehicle).days_pattern;
+                            let days_iter = self.periodic.days_patterns.days_in_pattern(&days_pattern);
+                            (vehicle, days_iter)
+                        });
+                    }
+                }
+            } else {
+                return None;
+            }
         }
     }
 }

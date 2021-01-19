@@ -4,10 +4,7 @@
 //     timetables::timetables_data::Position,
 // };
 use crate::time::{SecondsSinceDatasetUTCStart, PositiveDuration};
-use transit_model::{
-    objects::{StopPoint, VehicleJourney, Transfer as TransitModelTransfer},
-
-}; 
+use transit_model::{Model, objects::{StopPoint, VehicleJourney, Transfer as TransitModelTransfer}}; 
 pub use typed_index_collection::{Idx};
 use chrono::{NaiveDateTime, NaiveDate};
 
@@ -31,6 +28,7 @@ pub trait TransitTypes {
 
     
 }
+
 
 pub trait NetworkStructure : TransitTypes {
 
@@ -130,11 +128,11 @@ pub trait Response : TransitTypes + NetworkStructure + TimeQueries  {
 }
 
 pub trait Input : TransitTypes {
-    fn from_naive_datetime(&self, naive_datetime : &chrono::NaiveDateTime) -> Option<SecondsSinceDatasetUTCStart>;
 
-    fn first_datetime(&self) -> SecondsSinceDatasetUTCStart;
-    fn last_datetime(&self) -> SecondsSinceDatasetUTCStart;
+    fn new(model : & Model, default_transfer_duration : PositiveDuration) -> Self;
 
+    fn calendar(&self) -> & crate::time::Calendar;
+    
     fn stop_point_idx_to_stop(&self, stop_idx : & Idx<StopPoint>) -> Option<Self::Stop>;
 }
 

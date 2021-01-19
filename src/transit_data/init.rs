@@ -15,18 +15,16 @@ use log::{info, warn, debug};
 impl<Timetables> TransitData<Timetables> 
 where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
 {
-    pub fn new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
+    pub fn _new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
 
         let (start_date, end_date) = transit_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
-        let calendar = Calendar::new(start_date, end_date);
         let mut engine_data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables : Timetables::new(start_date, end_date), 
-            calendar
         };
 
         engine_data.init(transit_model, default_transfer_duration);
@@ -131,7 +129,7 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
             for position in self.timetables.positions(&mission) {
                 let stop = self.timetables.stop_at(&position, &mission); 
                 let stop_data = & mut self.stops_data[stop.idx];
-                stop_data.position_in_timetables.push((*mission ,position));
+                stop_data.position_in_timetables.push((mission.clone() ,position));
             }
         }
             
