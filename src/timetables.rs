@@ -5,12 +5,14 @@ mod iters;
 
 
 
+use std::hash::Hash;
+
 pub use crate::transit_data::{Stop, VehicleJourney, Idx};
 
-use crate::time::{SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart};
+use crate::time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart};
 
 use chrono_tz::Tz as TimeZone;
-use chrono::NaiveDate;
+use chrono::{NaiveDate};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
 pub enum FlowDirection{
@@ -21,11 +23,13 @@ pub enum FlowDirection{
 pub type StopFlows = Vec< (Stop, FlowDirection) >;
 
 pub trait Timetables {
-    type Mission;
-    type Position;
-    type Trip;
+    type Mission : Hash + Eq + Clone;
+    type Position : Clone;
+    type Trip : Clone;
 
     fn new(first_date : NaiveDate, last_date : NaiveDate) -> Self;
+
+    fn calendar(&self) -> &Calendar;
 
     fn nb_of_missions(&self) -> usize;
 
@@ -42,7 +46,7 @@ pub trait Timetables {
         mission: &Self::Mission,
     ) -> bool;
 
-    fn next_position_in_mission(
+    fn next_position(
         &self,
         position: &Self::Position,
         mission: &Self::Mission,
@@ -69,8 +73,12 @@ pub trait Timetables {
 }
 
 pub trait TimetablesIter<'a> : Timetables{
+
     type Positions : Iterator<Item = Self::Position>;
     fn positions(&'a self, mission : & Self::Mission) -> Self::Positions;
+
+    type Trips : Iterator<Item = Self::Trip>;
+    fn trips_of(&'a self, mission : & Self::Mission) -> Self::Trips;
 
 }
 

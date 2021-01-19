@@ -1,16 +1,12 @@
-
-
-
-
-use crate::traits::{Journey as PTJourney, Response, TimeQueries, NetworkStructure};
+use crate::public_transit::{PublicTransit, Journey as PTJourney};
+use crate::timetables::Timetables as TimetablesTrait;
 
 use crate::response;
 
 use super::Request;
 
 
-impl<'data, 'model, Data : Response> Request<'data, 'model, Data>
-where Data : TimeQueries + NetworkStructure
+impl<'data, 'model, Timetables : TimetablesTrait > Request<'data, 'model, Timetables>
 {
   
 

@@ -1,8 +1,7 @@
-use crate::calendar_data::{
-    transit_data::{Mission, Stop, Transfer, Trip},
-    iters::{MissionsOfStop, TransfersOfStop, TripsOfMission},
-    timetables::timetables_data::Position,
-};
+
+use crate::transit_data::{Stop, Transfer, TransitData};
+use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+
 
 use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 
@@ -31,15 +30,16 @@ pub struct Criteria {
 }
 
 
-impl<'data> PublicTransit for Request<'data> {
+impl<'data, 'model, Timetables : TimetablesTrait> PublicTransit for Request<'data, 'model, Timetables> {
     type Stop = Stop;
-    type Mission = Mission;
-    type Trip = Trip;
+    type Mission = Timetables::Mission;
+    type Trip = Timetables::Trip;
+    type Position = Timetables::Position;
     type Transfer = Transfer;
     type Departure = DepartureIdx;
     type Arrival = ArrivalIdx;
     type Criteria = Criteria;
-    type Position = Position;
+
 
     fn is_upstream(
         &self,
@@ -47,7 +47,7 @@ impl<'data> PublicTransit for Request<'data> {
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.laxatips_data.transit_data
+        self.transit_data.timetables
             .is_upstream_in_mission(upstream, downstream, mission)
     }
 
@@ -56,16 +56,16 @@ impl<'data> PublicTransit for Request<'data> {
         stop: &Self::Position,
         mission: &Self::Mission,
     ) -> Option<Self::Position> {
-        self.laxatips_data.transit_data.next_position_in_mission(stop, mission)
+        self.transit_data.timetables.next_position(stop, mission)
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
-        Mission{ timetable : trip.vehicle.timetable.clone() }
+        self.transit_data.timetables.mission_of(trip)
     }
 
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
-        self.laxatips_data.transit_data
-            .stop_at_position_in_mission(position, mission)
+        self.transit_data.timetables
+            .stop_at(position, mission)
     }
 
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
@@ -106,11 +106,11 @@ impl<'data> PublicTransit for Request<'data> {
 
     fn board_and_ride(
         &self,
-        position: &Position,
+        position: &Self::Position,
         trip: &Self::Trip,
         waiting_criteria: &Self::Criteria,
     ) -> Option<Self::Criteria> {
-        let has_board_time = self.laxatips_data.transit_data.board_time_of(trip, position);
+        let has_board_time = self.transit_data.timetables.board_time_of(trip, position);
         if let Some(board_time) = has_board_time {
             if waiting_criteria.arrival_time > board_time {
                 return None;
@@ -119,8 +119,9 @@ impl<'data> PublicTransit for Request<'data> {
         else {
             return None;
         }
-        let next_position = self.laxatips_data.transit_data.next_position(position).unwrap();
-        let arrival_time_at_next_stop = self.laxatips_data.transit_data.arrival_time_of(trip, &next_position);
+        let mission = self.transit_data.timetables.mission_of(trip);
+        let next_position = self.transit_data.timetables.next_position(position, &mission).unwrap();
+        let arrival_time_at_next_stop = self.transit_data.timetables.arrival_time_of(trip, &next_position);
         let new_criteria = Criteria {
             arrival_time: arrival_time_at_next_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -137,7 +138,7 @@ impl<'data> PublicTransit for Request<'data> {
         waiting_criteria: &Self::Criteria,
     ) -> Option<(Self::Trip, Self::Criteria)> {
         let waiting_time = &waiting_criteria.arrival_time;
-        self.laxatips_data.transit_data
+        self.transit_data.timetables
             .earliest_trip_to_board_at(waiting_time, mission, position)
             .map(|(trip, arrival_time)| {
                 let new_criteria = Criteria {
@@ -158,9 +159,9 @@ impl<'data> PublicTransit for Request<'data> {
     ) -> Option<Self::Criteria> {
         debug_assert!({
             let arrival_time = &onboard_criteria.arrival_time;
-            self.laxatips_data.transit_data.arrival_time_of(trip, position) == *arrival_time
+            self.transit_data.timetables.arrival_time_of(trip, position) == *arrival_time
         });
-        self.laxatips_data.transit_data
+        self.transit_data.timetables
             .debark_time_of(trip, position)
             .map(|debark_time| Criteria {
                 arrival_time: debark_time,
@@ -176,8 +177,9 @@ impl<'data> PublicTransit for Request<'data> {
         position: &Self::Position,
         criteria: &Self::Criteria,
     ) -> Self::Criteria {
-        let next_position = self.laxatips_data.transit_data.next_position(position).unwrap();
-        let arrival_time_at_next_position = self.laxatips_data.transit_data.arrival_time_of(trip, &next_position);
+        let mission = self.transit_data.timetables.mission_of(trip);
+        let next_position = self.transit_data.timetables.next_position(position, &mission).unwrap();
+        let arrival_time_at_next_position = self.transit_data.timetables.arrival_time_of(trip, &next_position);
         Criteria {
             arrival_time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
@@ -192,7 +194,7 @@ impl<'data> PublicTransit for Request<'data> {
         transfer: &Self::Transfer,
         criteria: &Self::Criteria,
     ) -> (Self::Stop, Self::Criteria) {
-        let (arrival_stop, transfer_duration) = self.laxatips_data.transit_data.transfer(transfer);
+        let (arrival_stop, transfer_duration) = self.transit_data.transfer(transfer);
         let new_criteria = Criteria {
             arrival_time: criteria.arrival_time + transfer_duration,
             nb_of_legs: criteria.nb_of_legs,
@@ -231,19 +233,30 @@ impl<'data> PublicTransit for Request<'data> {
     }
 
     fn nb_of_stops(&self) -> usize {
-        self.laxatips_data.transit_data.nb_of_stops()
+        self.transit_data.nb_of_stops()
     }
 
     fn stop_id(&self, stop: &Self::Stop) -> usize {
-        self.laxatips_data.transit_data.stop_to_usize(stop)
+        self.transit_data.stop_to_usize(stop)
     }
 }
 
-impl<'data,  'outer> PublicTransitIters<'outer> for Request<'data> {
-    type MissionsAtStop = MissionsOfStop<'outer>;
+
+use crate::transit_data::iters::{MissionsOfStop, TransfersOfStop};
+
+impl<'data, 'model, 'outer, Timetables> 
+PublicTransitIters<'outer> 
+for 
+Request<'data, 'model, Timetables> 
+where
+Timetables : TimetablesIter<'outer>,
+Timetables::Mission : 'outer,
+Timetables::Position : 'outer
+{
+    type MissionsAtStop = MissionsOfStop<'outer, Timetables>;
 
     fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.laxatips_data.transit_data.missions_of(stop)
+        self.transit_data.missions_of(stop)
     }
 
     type Departures = Departures;
@@ -256,12 +269,12 @@ impl<'data,  'outer> PublicTransitIters<'outer> for Request<'data> {
 
     type TransfersAtStop = TransfersOfStop;
     fn transfers_at(&'outer self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
-        self.laxatips_data.transit_data.transfers_of(from_stop)
+        self.transit_data.transfers_of(from_stop)
     }
 
-    type TripsOfMission = TripsOfMission;
+    type TripsOfMission = Timetables::Trips;
     fn trips_of(&'outer self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.laxatips_data.transit_data.trips_of(mission)
+        self.transit_data.timetables.trips_of(mission)
     }
 
     type Arrivals = Arrivals;

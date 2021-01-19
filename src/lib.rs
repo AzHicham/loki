@@ -2,10 +2,10 @@ extern crate static_assertions;
 
 mod engine;
 mod request;
-pub mod calendar_data; 
-pub mod daily_data; 
+// pub mod calendar_data; 
+// pub mod daily_data; 
 
-//mod public_transit;
+mod public_transit;
 pub mod crowding_data;
 
 pub use log;
@@ -13,7 +13,7 @@ pub use transit_model;
 
 pub mod time;
 
-mod traits;
+// mod traits;
 
 mod timetables;
 

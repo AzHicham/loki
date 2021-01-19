@@ -1,4 +1,5 @@
 pub mod init;
+pub mod iters;
 
 
 pub use transit_model::{
@@ -9,11 +10,12 @@ pub use transit_model::objects::Time as TransitModelTime;
 pub use typed_index_collection::{Idx};
 
 
+
 use crate::time::{Calendar, PositiveDuration};
 
 use std::collections::HashMap;
 
-use crate::timetables::{Timetables as TimetablesTrait};
+use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 
 pub struct TransitData<Timetables : TimetablesTrait> {
@@ -27,7 +29,7 @@ pub struct TransitData<Timetables : TimetablesTrait> {
 }
 pub struct StopData<Timetables : TimetablesTrait> {
     pub (super) stop_point_idx : Idx<StopPoint>,
-    pub (super) position_in_timetables : Vec<Timetables::Position>,
+    pub (super) position_in_timetables : Vec<(Timetables::Mission, Timetables::Position)>,
     pub (super) transfers : Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>
 }
 
@@ -89,6 +91,8 @@ impl<Timetables : TimetablesTrait> TransitData<Timetables> {
 
     
 }
+
+
 
 
 

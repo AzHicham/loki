@@ -29,6 +29,10 @@ impl TimetablesTrait for DailyTimetables {
         }
     }
 
+    fn calendar(&self) -> & Calendar {
+        &self.calendar
+    }
+
     fn nb_of_missions(&self) -> usize {
         self.timetables.nb_of_timetables()
     }
@@ -58,7 +62,7 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.is_upstream(upstream, downstream, mission)
     }
 
-    fn next_position_in_mission(
+    fn next_position(
         &self,
         position: &Self::Position,
         mission: &Self::Mission,

@@ -131,7 +131,7 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
             for position in self.timetables.positions(&mission) {
                 let stop = self.timetables.stop_at(&position, &mission); 
                 let stop_data = & mut self.stops_data[stop.idx];
-                stop_data.position_in_timetables.push(position);
+                stop_data.position_in_timetables.push((*mission ,position));
             }
         }
             

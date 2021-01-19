@@ -1,21 +1,17 @@
-use super::transit_data::{Mission, Stop, Transfer, TransitData, Trip};
+use super::{Stop, Transfer, TransitData};
 
 
 
-use super::timetables::{
-    timetables_data::{Position},
-    iters::{VehiclesIter}
-};
+use crate::timetables::{Timetables as TimetablesTrait};
 
 
 
-impl TransitData {
-    pub fn missions_of<'a>(&'a self, stop: &Stop) -> MissionsOfStop<'a> {
-        MissionsOfStop::new(&self, stop)
-    }
-
-    pub fn trips_of(&self, mission: &Mission) -> TripsOfMission {
-        TripsOfMission::new(&self, mission)
+impl<Timetables : TimetablesTrait> TransitData<Timetables>  {
+    pub fn missions_of<'a>(&'a self, stop: &Stop) -> MissionsOfStop<'a, Timetables> {
+        let stop_data = self.stop_data(stop);
+        MissionsOfStop {
+            inner : stop_data.position_in_timetables.iter()
+        }
     }
 
     pub fn transfers_of(&self, stop: &Stop) -> TransfersOfStop {
@@ -28,33 +24,31 @@ impl TransitData {
     }
 }
 
-pub struct MissionsOfStop<'a> {
-    positions : std::slice::Iter<'a, Position>,
 
+
+pub struct MissionsOfStop<'a, Timetables : TimetablesTrait> {
+    inner : std::slice::Iter<'a, (Timetables::Mission, Timetables::Position)>
 }
 
-impl<'a> MissionsOfStop<'a> {
-    pub(super) fn new(transit_data: &'a TransitData, stop: &Stop) -> Self {
-        let stop_data = transit_data.stop_data(stop);
-        let positions = stop_data.position_in_timetables.iter();
-        Self {
-            positions
-        }
-    }
-}
-
-impl<'a> Iterator for MissionsOfStop<'a> {
-    type Item = (Mission, Position);
+impl<'a, Timetables : TimetablesTrait> 
+Iterator 
+for MissionsOfStop<'a, Timetables> {
+    type Item = (Timetables::Mission, Timetables::Position);
 
     fn next(&mut self) -> Option<Self::Item> {
-       self.positions.next().map(|position| {
-           let mission = Mission {
-               timetable : position.timetable.clone()
-           };
-           (mission, position.clone())
-       })
+        self.inner.next().cloned()
     }
 }
+
+impl<'a, Timetables : TimetablesTrait> 
+ ExactSizeIterator 
+ for 
+ MissionsOfStop<'a, Timetables>  {
+     fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
 
 use std::ops::Range;
 pub struct TransfersOfStop {
@@ -75,28 +69,11 @@ impl Iterator for TransfersOfStop {
     }
 }
 
-pub struct TripsOfMission {
-    vehicles_iter: VehiclesIter,
-}
-
-impl TripsOfMission {
-    fn new(transit_data: &TransitData, mission: &Mission) -> Self {
-        let vehicles_iter = transit_data.timetables.vehicles(&mission.timetable);
-
-        Self {
-            vehicles_iter,
-        }
+impl ExactSizeIterator 
+ for 
+ TransfersOfStop {
+     fn len(&self) -> usize {
+        self.tranfer_idx_iter.len()
     }
 }
 
-impl Iterator for TripsOfMission {
-    type Item = Trip;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.vehicles_iter.next().map(|vehicle| { 
-            Trip {
-                vehicle
-            }
-        })
-    }
-}

@@ -1,18 +1,18 @@
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
-use crate::traits::{TransitTypes, Request};
+use crate::public_transit::{PublicTransit};
 
 use std::slice::Iter as SliceIter;
 
-pub struct ParetoFront<ItemData, PT: Request> {
+pub struct ParetoFront<ItemData, PT: PublicTransit> {
     elements: Vec<(ItemData, PT::Criteria)>,
 }
 
-pub type BoardFront<PT> = ParetoFront<(Board, <PT as TransitTypes>::Trip), PT>;
+pub type BoardFront<PT> = ParetoFront<(Board, <PT as PublicTransit>::Trip), PT>;
 pub type DebarkFront<PT> = ParetoFront<Debark, PT>;
 pub type WaitFront<PT> = ParetoFront<Wait, PT>;
 pub type ArriveFront<PT> = ParetoFront<Arrive, PT>;
 
-impl<ItemData: Clone, PT: Request> Clone for ParetoFront<ItemData, PT> {
+impl<ItemData: Clone, PT: PublicTransit> Clone for ParetoFront<ItemData, PT> {
     fn clone(&self) -> Self {
         ParetoFront {
             elements: self.elements.clone(),
@@ -20,7 +20,7 @@ impl<ItemData: Clone, PT: Request> Clone for ParetoFront<ItemData, PT> {
     }
 }
 
-impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
+impl<ItemData: Clone, PT: PublicTransit> ParetoFront<ItemData, PT> {
     pub fn new() -> Self {
         Self {
             elements: Vec::new(),
@@ -45,7 +45,7 @@ impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
 
     pub fn dominates(&self, criteria: &PT::Criteria, pt: &PT) -> bool {
         for (_, ref old_criteria) in &self.elements {
-            if Request::is_lower(pt, old_criteria, criteria) {
+            if PublicTransit::is_lower(pt, old_criteria, criteria) {
                 return true;
             }
         }
@@ -58,7 +58,7 @@ impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
 
     pub fn remove_elements_dominated_by(&mut self, criteria: &PT::Criteria, pt: &PT) {
         self.elements
-            .retain(|(_, old_criteria)| !Request::is_lower(pt, &criteria, old_criteria));
+            .retain(|(_, old_criteria)| !PublicTransit::is_lower(pt, &criteria, old_criteria));
     }
 
     pub fn add_and_remove_elements_dominated(

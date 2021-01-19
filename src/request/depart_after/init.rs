@@ -1,5 +1,6 @@
-use crate::traits::{TransitTypes, TimeQueries, Input};
-
+use crate::public_transit::PublicTransit;
+use crate::timetables::Timetables as TimetablesTrait;
+use crate::transit_data::TransitData;
 use crate::time::{PositiveDuration};
 
 use chrono::NaiveDateTime;
@@ -28,13 +29,12 @@ impl fmt::Display for BadRequest {
 
 impl std::error::Error for BadRequest {}
 
-impl<'data, 'model, Data : TransitTypes> Request<'data, 'model, Data>
-where Data : TimeQueries + Input
+impl<'data, 'model, Timetables : TimetablesTrait > Request<'data, 'model, Timetables>
 {
 
     pub fn new<'a, 'b>(
         model : & 'model transit_model::Model,
-        transit_data : & 'data Data,
+        transit_data : & 'data TransitData<Timetables>,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item=(&'a str, PositiveDuration)>,
         arrivals_stop_point_and_fallback_duration: impl Iterator<Item=(&'b str, PositiveDuration)>,
@@ -46,13 +46,13 @@ where Data : TimeQueries + Input
     {
 
 
-        let departure_datetime = transit_data.from_naive_datetime(&departure_datetime)
+        let departure_datetime = transit_data.timetables.calendar().from_naive_datetime(&departure_datetime)
             .ok_or_else(|| {
                 warn!("The departure datetime {:?} is out of bound of the allowed dates. \
                     Allowed dates are between {:?} and {:?}.",
                         departure_datetime,
-                        transit_data.first_datetime(),
-                        transit_data.last_datetime(),
+                        transit_data.timetables.calendar().first_datetime(),
+                        transit_data.timetables.calendar().last_datetime(),
                 );
                 BadRequest::DepartureDatetime
             })?;        

@@ -1,6 +1,5 @@
 mod days_patterns;
 
-use std::f32::MAX_EXP;
 
 use days_patterns::{DaysPatterns, DaysPattern};
 
@@ -28,6 +27,7 @@ struct VehicleData {
     vehicle_journey_idx : Idx<VehicleJourney>
 }
 
+#[derive(Debug, Clone)]
 struct Trip {
     vehicle : Vehicle,
     day : DaysSinceDatasetStart,
@@ -48,6 +48,10 @@ impl TimetablesTrait for PeriodicTimetables {
             calendar ,
             days_patterns : DaysPatterns::new(nb_of_days)
         }
+    }
+
+    fn calendar(&self) -> & Calendar {
+        &self.calendar
     }
 
     fn nb_of_missions(&self) -> usize {
@@ -79,7 +83,7 @@ impl TimetablesTrait for PeriodicTimetables {
         self.timetables.is_upstream(upstream, downstream, mission)
     }
 
-    fn next_position_in_mission(
+    fn next_position(
         &self,
         position: &Self::Position,
         mission: &Self::Mission,
