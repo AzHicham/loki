@@ -1,19 +1,20 @@
-
-
 use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 
-use crate::traits::{ TransitTypes, TransitIters, NetworkStructure, Request as RequestTrait, RequestIters, Indices, Response, TimeQueries};
+use crate::traits::{
+    Indices, NetworkStructure, Request as RequestTrait, RequestIters, Response, TimeQueries,
+    TransitIters, TransitTypes,
+};
 
 use super::Request;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DepartureIdx {
-    pub (super) idx: usize,
+    pub(super) idx: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ArrivalIdx {
-    pub (super) idx: usize,
+    pub(super) idx: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -24,25 +25,24 @@ pub struct Criteria {
     transfers_duration: PositiveDuration,
 }
 
-
-impl<'data, 'model, Data : TransitTypes> TransitTypes for Request<'data, 'model, Data> {
+impl<'data, Data: TransitTypes> TransitTypes for Request<'data, Data> {
     type Stop = Data::Stop;
     type Mission = Data::Mission;
     type Trip = Data::Trip;
     type Transfer = Data::Transfer;
     type Position = Data::Position;
-
 }
 
-impl<'data, 'model, Data : TransitTypes + NetworkStructure> NetworkStructure for Request<'data, 'model, Data> {
+impl<'data, 'model, Data: TransitTypes + NetworkStructure> NetworkStructure
+    for Request<'data, Data>
+{
     fn is_upstream(
         &self,
         upstream: &Self::Position,
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.transit_data
-            .is_upstream(upstream, downstream, mission)
+        self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -58,20 +58,16 @@ impl<'data, 'model, Data : TransitTypes + NetworkStructure> NetworkStructure for
     }
 
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
-        self.transit_data
-            .stop_of(position, mission)
+        self.transit_data.stop_of(position, mission)
     }
 }
-impl<'data, 'model, Data : TransitTypes > RequestTrait for Request<'data, 'model, Data> 
-where Data : TimeQueries + NetworkStructure
-
+impl<'data, 'model, Data: TransitTypes> RequestTrait for Request<'data, Data>
+where
+    Data: TimeQueries + NetworkStructure,
 {
     type Departure = DepartureIdx;
     type Arrival = ArrivalIdx;
     type Criteria = Criteria;
-
-
-    
 
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         // let two_hours = PositiveDuration{ seconds: 2*60*60};
@@ -84,12 +80,11 @@ where Data : TimeQueries + NetworkStructure
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         && 
         lower.fallback_duration + lower.transfers_duration  + self.leg_walking_penalty * (lower.nb_of_legs as u32) 
-            <=  upper.fallback_duration + upper.transfers_duration + self.leg_walking_penalty * (upper.nb_of_legs as u32) 
+            <=  upper.fallback_duration + upper.transfers_duration + self.leg_walking_penalty * (upper.nb_of_legs as u32)
 
         // &&
-        // lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration 
-        //      <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration 
-        
+        // lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration
+        //      <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
 
         // && lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
         // && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
@@ -120,8 +115,7 @@ where Data : TimeQueries + NetworkStructure
             if waiting_criteria.arrival_time > board_time {
                 return None;
             }
-        }
-        else {
+        } else {
             return None;
         }
         let mission = self.transit_data.mission_of(trip);
@@ -183,7 +177,10 @@ where Data : TimeQueries + NetworkStructure
         criteria: &Self::Criteria,
     ) -> Self::Criteria {
         let mission = self.transit_data.mission_of(trip);
-        let next_position = self.transit_data.next_on_mission(position, &mission).unwrap();
+        let next_position = self
+            .transit_data
+            .next_on_mission(position, &mission)
+            .unwrap();
         let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
         Criteria {
             arrival_time: arrival_time_at_next_position,
@@ -212,19 +209,20 @@ where Data : TimeQueries + NetworkStructure
     fn depart(&self, departure: &Self::Departure) -> (Self::Stop, Self::Criteria) {
         let (stop, fallback_duration) =
             &self.departures_stop_point_and_fallback_duration[departure.idx];
-        let arrival_time = self.departure_datetime + fallback_duration.clone();
+        let arrival_time = self.departure_datetime + *fallback_duration;
         let criteria = Criteria {
             arrival_time,
             nb_of_legs: 0,
-            fallback_duration : * fallback_duration,
+            fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
         };
         (stop.clone(), criteria)
     }
 
     fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
-        (&self.arrivals_stop_point_and_fallbrack_duration[arrival.idx])
-            .0.clone()
+        self.arrivals_stop_point_and_fallbrack_duration[arrival.idx]
+            .0
+            .clone()
     }
 
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {
@@ -236,12 +234,11 @@ where Data : TimeQueries + NetworkStructure
             transfers_duration: criteria.transfers_duration,
         }
     }
-
-
 }
 
-impl<'data, 'model, Data : TransitTypes> Indices for Request<'data, 'model, Data> 
-where Data : Indices
+impl<'data, 'model, Data: TransitTypes> Indices for Request<'data, Data>
+where
+    Data: Indices,
 {
     fn nb_of_stops(&self) -> usize {
         self.transit_data.nb_of_stops()
@@ -252,11 +249,11 @@ where Data : Indices
     }
 }
 
-impl<'data, 'outer, 'model, Data : TransitTypes>  RequestIters<'outer> for Request<'data, 'model, Data> 
-where Data : TransitIters<'outer> + NetworkStructure + TimeQueries
+impl<'data, 'outer, Data: TransitTypes> RequestIters<'outer>
+    for Request<'data,  Data>
+where
+    Data: TransitIters<'outer> + NetworkStructure + TimeQueries,
 {
-
-
     type Departures = Departures;
     fn departures(&'outer self) -> Self::Departures {
         let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
@@ -274,8 +271,10 @@ where Data : TransitIters<'outer> + NetworkStructure + TimeQueries
     }
 }
 
-impl<'data, 'outer, 'model, Data : TransitTypes> TransitIters<'outer> for Request<'data, 'model, Data>  
-where Data : TransitIters<'outer>
+impl<'data, 'outer, Data: TransitTypes> TransitIters<'outer>
+    for Request<'data, Data>
+where
+    Data: TransitIters<'outer>,
 {
     type MissionsAtStop = Data::MissionsAtStop;
 
@@ -291,8 +290,6 @@ where Data : TransitIters<'outer>
     fn trips_of(&'outer self, mission: &Self::Mission) -> Self::TripsOfMission {
         self.transit_data.trips_of(mission)
     }
-
-
 }
 
 pub struct Departures {
@@ -319,22 +316,35 @@ impl Iterator for Arrivals {
     }
 }
 
-impl<'data, 'model, Data> TimeQueries for Request<'data, 'model, Data>
-where Data : TimeQueries
+impl<'data, Data> TimeQueries for Request<'data, Data>
+where
+    Data: TimeQueries,
 {
-    fn board_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> Option<SecondsSinceDatasetUTCStart> {
+    fn board_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         self.transit_data.board_time_of(trip, position)
     }
 
-    fn debark_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> Option<SecondsSinceDatasetUTCStart> {
+    fn debark_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         self.transit_data.debark_time_of(trip, position)
     }
 
-    fn arrival_time_of(&self, trip : &Self::Trip, position  : & Self::Position) -> SecondsSinceDatasetUTCStart {
+    fn arrival_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> SecondsSinceDatasetUTCStart {
         self.transit_data.arrival_time_of(trip, position)
     }
 
-    fn transfer(&self, transfer : & Self::Transfer) -> (Self::Stop, PositiveDuration) {
+    fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration) {
         self.transit_data.transfer(transfer)
     }
 
@@ -344,44 +354,53 @@ where Data : TimeQueries
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)> {
-        self.transit_data.earliest_trip_to_board_at(waiting_time, mission, position)
+        self.transit_data
+            .earliest_trip_to_board_at(waiting_time, mission, position)
     }
-
-
 }
 
-impl<'data, 'model, Data> Response for Request<'data, 'model, Data> 
-where Data : Response
+impl<'data, Data> Response for Request<'data,Data>
+where
+    Data: Response,
 {
-    fn to_naive_datetime(&self, seconds : &SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {
+    fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {
         self.transit_data.to_naive_datetime(seconds)
     }
 
-    fn vehicle_journey_idx(&self, trip : & Self::Trip) -> typed_index_collection::Idx<transit_model::objects::VehicleJourney> {
+    fn vehicle_journey_idx(
+        &self,
+        trip: &Self::Trip,
+    ) -> typed_index_collection::Idx<transit_model::objects::VehicleJourney> {
         self.transit_data.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop : & Self::Stop) -> typed_index_collection::Idx<transit_model::objects::StopPoint> {
+    fn stop_point_idx(
+        &self,
+        stop: &Self::Stop,
+    ) -> typed_index_collection::Idx<transit_model::objects::StopPoint> {
         self.transit_data.stop_point_idx(stop)
     }
 
-    fn stoptime_idx(&self, position  : & Self::Position, trip : & Self::Trip) -> usize {
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
         self.transit_data.stoptime_idx(&position, &trip)
     }
 
-    fn transfer_idx(&self, transfer : & Self::Transfer) -> typed_index_collection::Idx<transit_model::objects::Transfer> {
+    fn transfer_idx(
+        &self,
+        transfer: &Self::Transfer,
+    ) -> typed_index_collection::Idx<transit_model::objects::Transfer> {
         self.transit_data.transfer_idx(transfer)
     }
 
-    fn day_of(&self, trip : & Self::Trip) -> chrono::NaiveDate {
+    fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
         self.transit_data.day_of(trip)
     }
 
-    fn transfer_start_stop(&self, transfer : & Self::Transfer) -> Self::Stop {
+    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop {
         self.transit_data.transfer_start_stop(transfer)
     }
 
-    fn is_same_stop(&self, stop_a : & Self::Stop, stop_b : & Self::Stop) -> bool {
+    fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
         self.transit_data.is_same_stop(stop_a, stop_b)
     }
 }

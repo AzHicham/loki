@@ -1,4 +1,4 @@
-use crate::traits::{Request,  RequestIters, Journey, ConnectionLeg, DepartureLeg};
+use crate::traits::{ConnectionLeg, DepartureLeg, Journey, Request};
 type Id = usize;
 
 #[derive(Clone, Copy, Debug)]
@@ -72,8 +72,7 @@ impl<PT: Request> JourneysTree<PT> {
 
     pub fn board(&mut self, wait: &Wait, trip: &PT::Trip, position: &PT::Position) -> Board {
         let id = self.boards.len();
-        self.boards
-            .push((trip.clone(), position.clone(), *wait));
+        self.boards.push((trip.clone(), position.clone(), *wait));
 
         Board { id }
     }
@@ -164,7 +163,6 @@ impl<PT: Request> JourneysTree<PT> {
             }
         }
     }
-
 
     pub fn clear(&mut self) {
         self.boards.clear();

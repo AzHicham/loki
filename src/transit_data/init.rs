@@ -1,19 +1,18 @@
-use crate::transit_data::{Stop, TransitData, };
+use crate::transit_data::{Stop, TransitData};
 
-
-use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter,  FlowDirection  };
-use crate::time::{Calendar, PositiveDuration, SecondsSinceTimezonedDayStart};
+use crate::time::{PositiveDuration, SecondsSinceTimezonedDayStart};
+use crate::timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
 };
 use typed_index_collection::Idx;
 
-use log::{info, warn, debug};
+use log::{debug, info, warn};
 
-
-impl<Timetables> TransitData<Timetables> 
-where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
+impl<Timetables> TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     pub fn _new(transit_model: &Model, default_transfer_duration: PositiveDuration) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
@@ -24,7 +23,7 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
         let mut engine_data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
-            timetables : Timetables::new(start_date, end_date), 
+            timetables: Timetables::new(start_date, end_date),
         };
 
         engine_data.init(transit_model, default_transfer_duration);
@@ -35,7 +34,8 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
     fn init(&mut self, transit_model: &Model, default_transfer_duration: PositiveDuration) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            let _ = self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
+            let _ =
+                self.insert_vehicle_journey(vehicle_journey_idx, vehicle_journey, transit_model);
         }
         info!("Inserting transfers");
 
@@ -96,19 +96,16 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
         transit_model: &Model,
-    ) -> Result<(), ()>
-    {
-
+    ) -> Result<(), ()> {
         let stop_flows = self.create_stop_flows(vehicle_journey)?;
-
-
 
         let model_calendar = transit_model
             .calendars
-            .get(&vehicle_journey.service_id).ok_or_else( || {
+            .get(&vehicle_journey.service_id)
+            .ok_or_else(|| {
                 warn!(
                     "Skipping vehicle journey {} because its calendar {} was not found.",
-                    vehicle_journey.id, vehicle_journey.service_id, 
+                    vehicle_journey.id, vehicle_journey.service_id,
                 );
             })?;
 
@@ -116,33 +113,27 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
 
         let board_debark_timezoned_times = board_debark_timezoned_times_in_day(vehicle_journey)?;
 
-        let missions = self.timetables.insert(stop_flows, 
-            &board_debark_timezoned_times, 
-            model_calendar.dates.iter(), 
-            &timezone, 
+        let missions = self.timetables.insert(
+            stop_flows,
+            &board_debark_timezoned_times,
+            model_calendar.dates.iter(),
+            &timezone,
             vehicle_journey_idx,
-            vehicle_journey);
-
-
+            vehicle_journey,
+        );
 
         for mission in missions.iter() {
             for position in self.timetables.positions(&mission) {
-                let stop = self.timetables.stop_at(&position, &mission); 
-                let stop_data = & mut self.stops_data[stop.idx];
-                stop_data.position_in_timetables.push((mission.clone() ,position));
+                let stop = self.timetables.stop_at(&position, &mission);
+                let stop_data = &mut self.stops_data[stop.idx];
+                stop_data
+                    .position_in_timetables
+                    .push((mission.clone(), position));
             }
         }
-            
-
-
-        
-
 
         Ok(())
-        
     }
-
-    
 
     fn add_new_stop_point(&mut self, stop_point_idx: Idx<StopPoint>) -> Stop {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
@@ -161,17 +152,19 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
         stop
     }
 
-
-    fn create_stop_flows(& mut self, vehicle_journey : & VehicleJourney) -> Result<Vec<(Stop,FlowDirection)>, ()> {
+    fn create_stop_flows(
+        &mut self,
+        vehicle_journey: &VehicleJourney,
+    ) -> Result<Vec<(Stop, FlowDirection)>, ()> {
         let mut stop_flows = {
             let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
             for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
                 let stop_point_idx = stop_time.stop_point_idx;
-                let stop = self.stop_point_idx_to_stop.get(&stop_point_idx)
+                let stop = self
+                    .stop_point_idx_to_stop
+                    .get(&stop_point_idx)
                     .cloned()
-                    .unwrap_or_else( ||
-                        self.add_new_stop_point(stop_point_idx)
-                    );
+                    .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
                 let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
                     (0, 0) => (stop, FlowDirection::BoardAndDebark),
                     (1, 0) => (stop, FlowDirection::DebarkOnly),
@@ -190,7 +183,7 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
                 };
                 result.push(to_push);
             }
-            result 
+            result
         };
 
         if stop_flows.len() < 2 {
@@ -219,7 +212,6 @@ where Timetables : TimetablesTrait + for<'a> TimetablesIter<'a>
     }
 }
 
-
 fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
     use std::convert::TryFrom;
     let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
@@ -236,68 +228,69 @@ fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
     SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
 
-fn timezone_of(vehicle_journey : & VehicleJourney, transit_model : & Model) -> Result<chrono_tz::Tz, ()> {
+fn timezone_of(
+    vehicle_journey: &VehicleJourney,
+    transit_model: &Model,
+) -> Result<chrono_tz::Tz, ()> {
     let has_route = transit_model.routes.get(&vehicle_journey.route_id);
-        if has_route.is_none() {
+    if has_route.is_none() {
+        warn!(
+            "Skipping vehicle journey {} because its route {} was not found.",
+            vehicle_journey.id, vehicle_journey.route_id,
+        );
+        return Err(());
+    };
+    let route = has_route.unwrap();
+    let has_line = transit_model.lines.get(&route.line_id);
+
+    if has_line.is_none() {
+        warn!(
+            "Skipping vehicle journey {} because its line {} was not found.",
+            vehicle_journey.id, route.line_id,
+        );
+        return Err(());
+    }
+    let line = has_line.unwrap();
+    let has_network = transit_model.networks.get(&line.network_id);
+    if has_network.is_none() {
+        warn!(
+            "Skipping vehicle journey {} because its network {} was not found.",
+            vehicle_journey.id, line.network_id,
+        );
+        return Err(());
+    }
+    let network = has_network.unwrap();
+
+    let timezone = {
+        if network.timezone.is_none() {
             warn!(
-                "Skipping vehicle journey {} because its route {} was not found.",
-                vehicle_journey.id, vehicle_journey.route_id, 
+                "Skipping vehicle journey {} because its network {} has no timezone.",
+                vehicle_journey.id, line.network_id,
             );
             return Err(());
         };
-        let route = has_route.unwrap();
-        let has_line = transit_model.lines.get(&route.line_id);
-
-        if has_line.is_none() {
-            warn!(
-                "Skipping vehicle journey {} because its line {} was not found.",
-                vehicle_journey.id, route.line_id, 
-            );
-            return Err(());
-        }
-        let line = has_line.unwrap();
-        let has_network = transit_model.networks.get(&line.network_id);
-        if has_network.is_none() {
-            warn!(
-                "Skipping vehicle journey {} because its network {} was not found.",
-                vehicle_journey.id, line.network_id, 
-            );
-            return Err(());
-        }
-        let network = has_network.unwrap();
-
-        let timezone = {
-            if network.timezone.is_none() {
-                warn!(
-                    "Skipping vehicle journey {} because its network {} has no timezone.",
-                    vehicle_journey.id, line.network_id, 
-                );
-                return Err(());
-            };
-            network.timezone.clone().unwrap()
-        };
-        Ok(timezone)
-        
+        network.timezone.clone().unwrap()
+    };
+    Ok(timezone)
 }
 
-fn board_debark_timezoned_times_in_day(vehicle_journey : & VehicleJourney) -> Result<  Vec<(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)> , ()>
-{
+fn board_debark_timezoned_times_in_day(
+    vehicle_journey: &VehicleJourney,
+) -> Result<Vec<(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)>, ()> {
     let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
     for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-        let board_time = board_time(stop_time).ok_or_else( || {
-            warn!("Skipping vehicle journey {} because I can't compute \
+        let board_time = board_time(stop_time).ok_or_else(|| {
+            warn!(
+                "Skipping vehicle journey {} because I can't compute \
                    board time for its {}th stop_time. \n {:#?}",
-                  vehicle_journey.id,
-                  idx,
-                  stop_time
+                vehicle_journey.id, idx, stop_time
             );
         })?;
-        let debark_time = debark_time(stop_time).ok_or_else( || {
-            warn!("Skipping vehicle journey {} because I can't compute \
+        let debark_time = debark_time(stop_time).ok_or_else(|| {
+            warn!(
+                "Skipping vehicle journey {} because I can't compute \
                    debark time for its {}th stop_time. \n {:#?}",
-                  vehicle_journey.id,
-                  idx,
-                  stop_time
+                vehicle_journey.id, idx, stop_time
             );
         })?;
 

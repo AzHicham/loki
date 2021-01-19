@@ -1,8 +1,7 @@
-
 use std::iter::Enumerate;
 
 use crate::time::{Calendar, DaysSinceDatasetStart};
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 
 pub struct DaysPatterns {
     days_patterns: Vec<DaysPatternData>,
@@ -20,11 +19,10 @@ pub struct DaysPattern {
 }
 
 impl DaysPatterns {
-
-    pub fn new(nb_of_days : usize ) -> Self {
+    pub fn new(nb_of_days: usize) -> Self {
         Self {
-            days_patterns : Vec::new(),
-            buffer :  vec![false; nb_of_days],
+            days_patterns: Vec::new(),
+            buffer: vec![false; nb_of_days],
         }
     }
 
@@ -35,14 +33,17 @@ impl DaysPatterns {
         self.days_patterns[days_pattern.idx].allowed_dates[day_idx]
     }
 
-    pub fn days_in_pattern(&self, days_pattern : & DaysPattern) -> DaysInPatternIter {
-        let iter = self.days_patterns[days_pattern.idx].allowed_dates.iter().enumerate();
+    pub fn days_in_pattern(&self, days_pattern: &DaysPattern) -> DaysInPatternIter {
+        let iter = self.days_patterns[days_pattern.idx]
+            .allowed_dates
+            .iter()
+            .enumerate();
         DaysInPatternIter {
-            allowed_dates : iter
+            allowed_dates: iter,
         }
     }
 
-    pub fn get_or_insert<'a, Dates>(&mut self, dates: Dates, calendar : & Calendar) -> DaysPattern
+    pub fn get_or_insert<'a, Dates>(&mut self, dates: Dates, calendar: &Calendar) -> DaysPattern
     where
         Dates: Iterator<Item = &'a NaiveDate>,
     {
@@ -78,28 +79,23 @@ impl DaysPatterns {
 
         DaysPattern { idx }
     }
-
 }
 
 pub struct DaysInPatternIter<'pattern> {
-    allowed_dates : Enumerate<std::slice::Iter<'pattern, bool>>
+    allowed_dates: Enumerate<std::slice::Iter<'pattern, bool>>,
 }
 
-impl<'pattern> Iterator for DaysInPatternIter<'pattern>  {
+impl<'pattern> Iterator for DaysInPatternIter<'pattern> {
     type Item = DaysSinceDatasetStart;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.allowed_dates.next() {
                 Some((day_idx, is_allowed)) if *is_allowed => {
-                    let days : u16 = day_idx as u16;
-                    return Some(DaysSinceDatasetStart{
-                        days
-                    });
-                },
-                Some(_)  => {
-                    ()
-                },
+                    let days: u16 = day_idx as u16;
+                    return Some(DaysSinceDatasetStart { days });
+                }
+                Some(_) => (),
                 None => {
                     return None;
                 }
@@ -107,4 +103,3 @@ impl<'pattern> Iterator for DaysInPatternIter<'pattern>  {
         }
     }
 }
-

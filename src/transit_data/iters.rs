@@ -1,16 +1,12 @@
 use super::{Stop, Transfer, TransitData};
 
+use crate::timetables::Timetables as TimetablesTrait;
 
-
-use crate::timetables::{Timetables as TimetablesTrait};
-
-
-
-impl<Timetables : TimetablesTrait> TransitData<Timetables>  {
+impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     pub fn missions_of<'a>(&'a self, stop: &Stop) -> MissionsOfStop<'a, Timetables> {
         let stop_data = self.stop_data(stop);
         MissionsOfStop {
-            inner : stop_data.position_in_timetables.iter()
+            inner: stop_data.position_in_timetables.iter(),
         }
     }
 
@@ -24,15 +20,11 @@ impl<Timetables : TimetablesTrait> TransitData<Timetables>  {
     }
 }
 
-
-
-pub struct MissionsOfStop<'a, Timetables : TimetablesTrait> {
-    inner : std::slice::Iter<'a, (Timetables::Mission, Timetables::Position)>
+pub struct MissionsOfStop<'a, Timetables: TimetablesTrait> {
+    inner: std::slice::Iter<'a, (Timetables::Mission, Timetables::Position)>,
 }
 
-impl<'a, Timetables : TimetablesTrait> 
-Iterator 
-for MissionsOfStop<'a, Timetables> {
+impl<'a, Timetables: TimetablesTrait> Iterator for MissionsOfStop<'a, Timetables> {
     type Item = (Timetables::Mission, Timetables::Position);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -40,15 +32,11 @@ for MissionsOfStop<'a, Timetables> {
     }
 }
 
-impl<'a, Timetables : TimetablesTrait> 
- ExactSizeIterator 
- for 
- MissionsOfStop<'a, Timetables>  {
-     fn len(&self) -> usize {
+impl<'a, Timetables: TimetablesTrait> ExactSizeIterator for MissionsOfStop<'a, Timetables> {
+    fn len(&self) -> usize {
         self.inner.len()
     }
 }
-
 
 use std::ops::Range;
 pub struct TransfersOfStop {
@@ -69,11 +57,8 @@ impl Iterator for TransfersOfStop {
     }
 }
 
-impl ExactSizeIterator 
- for 
- TransfersOfStop {
-     fn len(&self) -> usize {
+impl ExactSizeIterator for TransfersOfStop {
+    fn len(&self) -> usize {
         self.tranfer_idx_iter.len()
     }
 }
-

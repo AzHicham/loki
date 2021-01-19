@@ -6,8 +6,7 @@ pub mod init;
 pub mod response;
 pub mod traits_impl;
 
-pub struct Request<'data, 'model, Data : TransitTypes> {
-    model : & 'model transit_model::Model,
+pub struct Request<'data, Data: TransitTypes> {
     transit_data: &'data Data,
     departure_datetime: SecondsSinceDatasetUTCStart,
     departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -17,4 +16,3 @@ pub struct Request<'data, 'model, Data : TransitTypes> {
     max_arrival_time: SecondsSinceDatasetUTCStart,
     max_nb_legs: u8,
 }
-

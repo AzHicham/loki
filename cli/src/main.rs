@@ -1,17 +1,17 @@
-use laxatips::{log::{debug, info, trace}, transit_model::Model};
 use laxatips::transit_model;
 use laxatips::{
-    PositiveDuration,
-    DepartAfterRequest, MultiCriteriaRaptor, 
-    DailyData, PeriodicData
-    
+    log::{debug, info, trace},
+    transit_model::Model,
+};
+use laxatips::{
+    DailyData, DepartAfterRequest, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
 
-use std::{hash::Hash, path::PathBuf};
 use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
+use std::{hash::Hash, path::PathBuf};
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
@@ -50,7 +50,7 @@ struct Options {
 
     /// Timetable implementation to use : "periodic" (default) or "daily"
     #[structopt(long, default_value = "periodic")]
-    implem : String,
+    implem: String,
 
     #[structopt(subcommand)]
     command: Command,
@@ -157,26 +157,30 @@ fn run() -> Result<(), Error> {
     let options = Options::from_args();
     if options.implem == "periodic" {
         launch::<PeriodicData>(options)?;
-    }
-    else if options.implem == "daily" {
+    } else if options.implem == "daily" {
         launch::<DailyData>(options)?;
-    }
-    else {
-        bail!(format!("Bad implem option : {} .\n Allowed options are `periodic` or  `daily`", options.implem));
+    } else {
+        bail!(format!(
+            "Bad implem option : {} .\n Allowed options are `periodic` or  `daily`",
+            options.implem
+        ));
     }
     Ok(())
-
-
 }
 
 use laxatips::traits::*;
 
-fn launch<Data>(options : Options) -> Result<(), Error>
-where 
-Data : TransitTypes + Input + Indices + TimeQueries + Response + NetworkStructure + for<'a> TransitIters<'a>,
-Data::Mission : Hash + PartialEq + Eq
+fn launch<Data>(options: Options) -> Result<(), Error>
+where
+    Data: TransitTypes
+        + Input
+        + Indices
+        + TimeQueries
+        + Response
+        + NetworkStructure
+        + for<'a> TransitIters<'a>,
+    Data::Mission: Hash + PartialEq + Eq,
 {
-
     let input_dir = options.input;
     let model = transit_model::ntfs::read(input_dir)?;
     info!("Transit model loaded");
@@ -201,16 +205,13 @@ Data::Mission : Hash + PartialEq + Eq
 
     let nb_of_stops = transit_data.nb_of_stops();
 
-
-
     let departure_datetime = match options.departure_datetime {
-            Some(string_datetime) => parse_datetime(&string_datetime)?,
-            None => {
-                let naive_date = transit_data.calendar().first_date();
-                naive_date.and_hms(8, 0, 0)
-            }
-        };
-
+        Some(string_datetime) => parse_datetime(&string_datetime)?,
+        None => {
+            let naive_date = transit_data.calendar().first_date();
+            naive_date.and_hms(8, 0, 0)
+        }
+    };
 
     let leg_arrival_penalty = parse_duration(&options.leg_arrival_penalty).unwrap();
     let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
@@ -225,10 +226,9 @@ Data::Mission : Hash + PartialEq + Eq
         Command::Random(random) => {
             let mut total_nb_of_rounds = 0;
             let nb_queries = random.nb_queries;
-            use rand::prelude::{SeedableRng, IteratorRandom};
+            use rand::prelude::{IteratorRandom, SeedableRng};
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
             for request_id in 1..nb_queries {
-                       
                 let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
                 let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
 
@@ -248,13 +248,17 @@ Data::Mission : Hash + PartialEq + Eq
                 match solve_result {
                     Ok(nb_of_rounds) => {
                         total_nb_of_rounds += nb_of_rounds;
-                    },
+                    }
                     Err(err) => {
-                        warn!("Error while solving request {} between stop_areas {} and {} : {}", request_id, start_stop_area_uri, end_stop_area_uri, err.to_string());
+                        warn!(
+                            "Error while solving request {} between stop_areas {} and {} : {}",
+                            request_id,
+                            start_stop_area_uri,
+                            end_stop_area_uri,
+                            err.to_string()
+                        );
                     }
                 }
-
-                
             }
             let duration = compute_timer.elapsed().unwrap().as_millis();
             info!("Data build duration {} ms", data_build_time);
@@ -266,7 +270,7 @@ Data::Mission : Hash + PartialEq + Eq
                 "Average nb of rounds : {}",
                 (total_nb_of_rounds as f64) / (nb_queries as f64)
             );
-            info!("Nb of requests : {}",nb_queries);
+            info!("Nb of requests : {}", nb_queries);
         }
         Command::StopAreas(stop_areas) => {
             let start_stop_area_uri = &stop_areas.start;
@@ -290,22 +294,21 @@ Data::Mission : Hash + PartialEq + Eq
     Ok(())
 }
 
-
-fn solve<'data, 'model, Data>(
+fn solve<'data,  Data>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, 'model, Data>>,
-    model : & 'model Model,
-    transit_data : & 'data Data,
-    departure_datetime: & NaiveDateTime,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data,  Data>>,
+    model: & Model,
+    transit_data: &'data Data,
+    departure_datetime: &NaiveDateTime,
     leg_arrival_penalty: &PositiveDuration,
     leg_walking_penalty: &PositiveDuration,
     max_duration_to_arrival: &PositiveDuration,
     max_nb_of_legs: u8,
-) -> Result<usize, Error> 
-where 
-Data : TimeQueries + NetworkStructure + Input + Indices + Response + for<'a> TransitIters<'a>,
-Data::Mission : Hash + PartialEq + Eq,
+) -> Result<usize, Error>
+where
+    Data: TimeQueries + NetworkStructure + Input + Indices + Response + for<'a> TransitIters<'a>,
+    Data::Mission: Hash + PartialEq + Eq,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -316,17 +319,13 @@ Data::Mission : Hash + PartialEq + Eq,
         make_query_stop_area(model, start_stop_area_uri, end_stop_area_uri);
     let start_stops = start_stop_point_uris
         .iter()
-        .map(|uri| {
-            (uri.as_str(), PositiveDuration::zero())
-        });
+        .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
     let end_stops = end_stop_point_uris
         .iter()
-        .map(|uri| {
-            (uri.as_str(), PositiveDuration::zero())
-        });
+        .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request = DepartAfterRequest::<'data, 'model, Data>::new(
+    let request = DepartAfterRequest::<'data,  Data>::new(
         model,
         transit_data,
         departure_datetime.clone(),
@@ -349,14 +348,13 @@ Data::Mission : Hash + PartialEq + Eq,
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
-        let response = request
-             .create_response(pt_journey);
+        let response = request.create_response(pt_journey);
         match response {
-            Ok(journey) => {trace!("{}", journey.print(&request, model)?);}
+            Ok(journey) => {
+                trace!("{}", journey.print(&request, model)?);
+            }
             Err(_) => {}
-        };           
-
-
+        };
     }
 
     Ok(engine.nb_of_rounds())

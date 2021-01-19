@@ -1,11 +1,8 @@
+use chrono::{NaiveDate};
 use std::fmt::{Display, Formatter};
-use chrono_tz::Tz as Timezone;
-use std::convert::TryFrom;
-use chrono::{NaiveDate, NaiveDateTime};
 
 mod calendar;
 pub mod days_patterns;
-
 
 /// Duration since "noon minus 12 hours" on a day in a specific timezone
 /// This corresponds to the "Time" notion found in gtfs/ntfs stop_times.txt
@@ -16,10 +13,9 @@ pub struct SecondsSinceTimezonedDayStart {
     seconds: i32,
 }
 
+const MAX_SECONDS_SINCE_TIMEZONED_DAY_START: i32 = 48 * 60 * 60; // 48h
 
-const MAX_SECONDS_SINCE_TIMEZONED_DAY_START : i32 = 48 * 60 * 60; // 48h
-
-const MAX_TIMEZONE_OFFSET : i32 = 24 * 60 * 60; // 24h in seconds
+const MAX_TIMEZONE_OFFSET: i32 = 24 * 60 * 60; // 24h in seconds
 
 /// Duration since 00:00:00 UTC in the first allowed day of the data
 /// This is used in the engine to store a point in time in an unambiguous way
@@ -31,25 +27,22 @@ pub struct SecondsSinceDatasetUTCStart {
 /// Number of days since the first allowed day of the data
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DaysSinceDatasetStart {
-    pub (super) days: u16,
+    pub(super) days: u16,
 }
 
 // we allow 36_600 days which is more than 100 years, and less than u16::MAX = 65_535 days
-const MAX_DAYS_IN_CALENDAR : u16 = 100*366; 
-
+const MAX_DAYS_IN_CALENDAR: u16 = 100 * 366;
 
 pub struct Calendar {
-    first_date: NaiveDate,  //first date which may be allowed
-    last_date: NaiveDate,   //last date (included) which may be allowed
-    nb_of_days: u16,        // == (last_date - first_date).num_of_days() + 1
-                            // we allow at most MAX_DAYS_IN_CALENDAR days
+    first_date: NaiveDate, //first date which may be allowed
+    last_date: NaiveDate,  //last date (included) which may be allowed
+    nb_of_days: u16,       // == (last_date - first_date).num_of_days() + 1
+                           // we allow at most MAX_DAYS_IN_CALENDAR days
 }
-
-
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
-    pub (super) seconds: u32,
+    pub(super) seconds: u32,
 }
 
 impl PositiveDuration {
@@ -92,46 +85,44 @@ impl SecondsSinceTimezonedDayStart {
 
     pub fn max() -> Self {
         Self {
-            seconds : MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+            seconds: MAX_SECONDS_SINCE_TIMEZONED_DAY_START,
         }
     }
 
     pub fn min() -> Self {
         Self {
-            seconds : MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+            seconds: MAX_SECONDS_SINCE_TIMEZONED_DAY_START,
         }
     }
 
-    pub fn from_seconds( seconds : i32) -> Option<Self> {
-        if seconds > MAX_SECONDS_SINCE_TIMEZONED_DAY_START || seconds < - MAX_SECONDS_SINCE_TIMEZONED_DAY_START {
+    pub fn from_seconds(seconds: i32) -> Option<Self> {
+        if seconds > MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+            || seconds < -MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+        {
             None
-        }
-        else {
-            let result = Self{ seconds  };
+        } else {
+            let result = Self { seconds };
             Some(result)
         }
-        
     }
 
-    pub fn from_seconds_i64( seconds_i64 : i64) -> Option<Self> {
+    pub fn from_seconds_i64(seconds_i64: i64) -> Option<Self> {
         let max_i64 = i64::from(MAX_SECONDS_SINCE_TIMEZONED_DAY_START);
-        if seconds_i64 > max_i64  || seconds_i64 < - max_i64 {
+        if seconds_i64 > max_i64 || seconds_i64 < -max_i64 {
             None
-        }
-        else {
+        } else {
             // since  :
-            //  - seconds_i64 belongs to [-MAX_SECONDS_SINCE_TIMEZONED_DAY_START, MAX_SECONDS_SINCE_TIMEZONED_DAY_START] 
+            //  - seconds_i64 belongs to [-MAX_SECONDS_SINCE_TIMEZONED_DAY_START, MAX_SECONDS_SINCE_TIMEZONED_DAY_START]
             //  - MAX_SECONDS_SINCE_TIMEZONED_DAY_START <= i32::MAX
             // we can safely cas seconds_i64 to i32
             let seconds_i32 = seconds_i64 as i32;
-            let result = Self{ seconds : seconds_i32  };
+            let result = Self {
+                seconds: seconds_i32,
+            };
             Some(result)
         }
-        
     }
-
 }
-
 
 impl std::fmt::Display for SecondsSinceTimezonedDayStart {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -145,13 +136,14 @@ impl std::fmt::Display for SecondsSinceTimezonedDayStart {
     }
 }
 
-
-
 impl SecondsSinceDatasetUTCStart {
-
-    pub fn duration_since(&self, start_datetime : & SecondsSinceDatasetUTCStart) -> Option<PositiveDuration> {
-        self.seconds.checked_sub(start_datetime.seconds)
-            .map(|seconds| PositiveDuration{seconds})
+    pub fn duration_since(
+        &self,
+        start_datetime: &SecondsSinceDatasetUTCStart,
+    ) -> Option<PositiveDuration> {
+        self.seconds
+            .checked_sub(start_datetime.seconds)
+            .map(|seconds| PositiveDuration { seconds })
     }
 }
 
@@ -184,4 +176,3 @@ impl std::ops::Mul<u32> for PositiveDuration {
         }
     }
 }
-
