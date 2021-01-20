@@ -1,4 +1,4 @@
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use std::fmt::{Display, Formatter};
 
 mod calendar;

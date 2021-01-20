@@ -42,7 +42,7 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.nb_of_timetables()
     }
 
-    fn mission_id(&self, mission : &Self::Mission) -> usize {
+    fn mission_id(&self, mission: &Self::Mission) -> usize {
         mission.idx
     }
 
@@ -64,7 +64,7 @@ impl TimetablesTrait for DailyTimetables {
     }
 
     fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> super::Stop {
-        * self.timetables.stop_at(position, mission)
+        *self.timetables.stop_at(position, mission)
     }
 
     fn is_upstream_in_mission(
@@ -157,10 +157,8 @@ impl TimetablesTrait for DailyTimetables {
                         board_debark_timezoned_times
                             .iter()
                             .map(|(board_time, debark_time)| {
-                                let board_time_utc =
-                                    calendar.compose(&day, board_time, timezone);
-                                let debark_time_utc =
-                                    calendar.compose(&day, debark_time, timezone);
+                                let board_time_utc = calendar.compose(&day, board_time, timezone);
+                                let debark_time_utc = calendar.compose(&day, debark_time, timezone);
                                 (board_time_utc, debark_time_utc)
                             });
                     let vehicle_data = VehicleData {

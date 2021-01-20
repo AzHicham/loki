@@ -273,9 +273,8 @@ impl<'calendar> Iterator for ForwardDecompose<'calendar> {
         if let Some(ref reference_date) = self.has_reference_date {
             let reference_datetime_timezoned =
                 reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
-            let seconds_i64 = (self.datetime_timezoned_to_decompose
-                - reference_datetime_timezoned)
-                .num_seconds();
+            let seconds_i64 =
+                (self.datetime_timezoned_to_decompose - reference_datetime_timezoned).num_seconds();
 
             let has_seconds = SecondsSinceTimezonedDayStart::from_seconds_i64(seconds_i64);
             let has_reference_day = self
@@ -338,9 +337,8 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
         if let Some(ref reference_date) = self.has_reference_date {
             let reference_datetime_timezoned =
                 reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
-            let seconds_i64 = (self.datetime_timezoned_to_decompose
-                - reference_datetime_timezoned)
-                .num_seconds();
+            let seconds_i64 =
+                (self.datetime_timezoned_to_decompose - reference_datetime_timezoned).num_seconds();
 
             let has_seconds = SecondsSinceTimezonedDayStart::from_seconds_i64(seconds_i64);
             let has_reference_day = self

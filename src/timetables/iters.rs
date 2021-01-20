@@ -97,7 +97,7 @@ impl<Time, TimezoneData, TripData> TimetableData<Time, TimezoneData, TripData>
     }
 
     pub(super) fn vehicle_board_then_debark_times(
-        & self,
+        &self,
         vehicle_idx: usize,
     ) -> Chain<VehicleTimes<'_, Time>, VehicleTimes<'_, Time>> {
         self.vehicle_board_times(vehicle_idx)

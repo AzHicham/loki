@@ -30,7 +30,7 @@ pub trait TransitTypes {
     type Transfer: Debug + Clone;
 }
 
-pub trait NetworkStructure: TransitTypes {
+pub trait Data: TransitTypes {
     /// Returns `true` if `upstream` is positioned strictly before `downstream`
     /// in `mission`.
     ///
@@ -60,9 +60,7 @@ pub trait NetworkStructure: TransitTypes {
     ///
     /// Panics if `position` does not belong to `mission`
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop;
-}
 
-pub trait TimeQueries: TransitTypes {
     // Panics if `position` is not valid for `trip`
     // None if `trip` does not allows boarding at `stop_idx`
     fn board_time_of(
@@ -93,9 +91,42 @@ pub trait TimeQueries: TransitTypes {
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>;
+
+    fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
+
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
+    fn stop_point_idx(&self, stop: &Self::Stop) -> Idx<StopPoint>;
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
+    fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
+
+    fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
+
+    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop;
+
+    fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
+
+    fn new(model: &Model, default_transfer_duration: PositiveDuration) -> Self;
+
+    fn calendar(&self) -> &crate::time::Calendar;
+
+    fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
+
+    /// An upper bound on the total number of `Stop`s.
+    fn nb_of_stops(&self) -> usize;
+
+    /// Returns an usize between 0 and nb_of_stops().
+    ///
+    /// Returns a different value for two different `stop`s.
+    fn stop_id(&self, stop: &Self::Stop) -> usize;
+
+    /// An upper bound on the total number of `Mission`s
+    fn nb_of_missions(&self) -> usize;
+    /// Returns an usize between 0 and nb_of_misions()
+    /// Returns a different value for two different `mission`s
+    fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-pub trait TransitIters<'a>: TransitTypes {
+pub trait DataIters<'a>: TransitTypes {
     /// Iterator for the `Mission`s that can be boarded at a `stop`
     /// along with the `Position` of `stop` on each `Mission`
     type MissionsAtStop: Iterator<Item = (Self::Mission, Self::Position)>;
@@ -117,30 +148,7 @@ pub trait TransitIters<'a>: TransitTypes {
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
-pub trait Response: TransitTypes + NetworkStructure + TimeQueries {
-    fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
-
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
-    fn stop_point_idx(&self, stop: &Self::Stop) -> Idx<StopPoint>;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
-
-    fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
-
-    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop;
-
-    fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
-}
-
-pub trait Input: TransitTypes {
-    fn new(model: &Model, default_transfer_duration: PositiveDuration) -> Self;
-
-    fn calendar(&self) -> &crate::time::Calendar;
-
-    fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
-}
-
-pub trait Request: NetworkStructure {
+pub trait Request: TransitTypes {
     /// Identify a possible departure of a journey
     type Departure: Clone;
 
@@ -287,21 +295,37 @@ pub trait Request: NetworkStructure {
 
     /// The stop at which this arrival can be made
     fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop;
-}
 
-pub trait RequestIters<'a>: Request + TransitIters<'a> {
-    /// Iterator for all possible arrivals of a journey
-    type Arrivals: Iterator<Item = Self::Arrival>;
-    /// Returns the identifiers of all possible arrivals of a journey
-    fn arrivals(&'a self) -> Self::Arrivals;
+    /// Returns `true` if `upstream` is positioned strictly before `downstream`
+    /// in `mission`.
+    ///
+    /// Panics if `upstream` or `downstream` does not belong to `mission`.
+    fn is_upstream(
+        &self,
+        upstream: &Self::Position,
+        downstream: &Self::Position,
+        mission: &Self::Mission,
+    ) -> bool;
 
-    /// Iterator for all possible departures of a journey
-    type Departures: Iterator<Item = Self::Departure>;
-    /// Returns the identifiers of all possible departures of a journey
-    fn departures(&'a self) -> Self::Departures;
-}
+    /// Returns `Some(next_position)` if `next_position` is after `position` on `mission`.
+    ///
+    /// Returns `None` if `position` is the last on `mission`.
+    ///
+    /// Panics if `position` does not belong to `mission`.
+    fn next_on_mission(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position>;
 
-pub trait Indices: TransitTypes {
+    /// Returns the `Mission` that `trip` belongs to.
+    fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
+
+    /// Returns the `Stop` at `position` in `mission`
+    ///
+    /// Panics if `position` does not belong to `mission`
+    fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop;
+
     /// An upper bound on the total number of `Stop`s.
     fn nb_of_stops(&self) -> usize;
 
@@ -314,26 +338,42 @@ pub trait Indices: TransitTypes {
     fn nb_of_missions(&self) -> usize;
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
-    fn mission_id(&self, mission : & Self::Mission) -> usize;
+    fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-pub struct DepartureLeg<PT: Request> {
-    pub departure: PT::Departure,
-    pub trip: PT::Trip,
-    pub board_position: PT::Position,
-    pub debark_position: PT::Position,
+pub trait RequestIters<'a>: Request + DataIters<'a> {
+    /// Iterator for all possible arrivals of a journey
+    type Arrivals: Iterator<Item = Self::Arrival>;
+    /// Returns the identifiers of all possible arrivals of a journey
+    fn arrivals(&'a self) -> Self::Arrivals;
+
+    /// Iterator for all possible departures of a journey
+    type Departures: Iterator<Item = Self::Departure>;
+    /// Returns the identifiers of all possible departures of a journey
+    fn departures(&'a self) -> Self::Departures;
 }
 
-pub struct ConnectionLeg<PT: Request> {
-    pub transfer: PT::Transfer,
-    pub trip: PT::Trip,
-    pub board_position: PT::Position,
-    pub debark_position: PT::Position,
+pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
+
+pub trait RequestWithIters: Request + for<'a> RequestIters<'a> {}
+
+pub struct DepartureLeg<T: Request> {
+    pub departure: T::Departure,
+    pub trip: T::Trip,
+    pub board_position: T::Position,
+    pub debark_position: T::Position,
 }
 
-pub struct Journey<PT: Request> {
-    pub departure_leg: DepartureLeg<PT>,
-    pub connection_legs: Vec<ConnectionLeg<PT>>,
-    pub arrival: PT::Arrival,
-    pub criteria_at_arrival: PT::Criteria,
+pub struct ConnectionLeg<T: Request> {
+    pub transfer: T::Transfer,
+    pub trip: T::Trip,
+    pub board_position: T::Position,
+    pub debark_position: T::Position,
+}
+
+pub struct Journey<T: Request> {
+    pub departure_leg: DepartureLeg<T>,
+    pub connection_legs: Vec<ConnectionLeg<T>>,
+    pub arrival: T::Arrival,
+    pub criteria_at_arrival: T::Criteria,
 }

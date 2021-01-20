@@ -8,7 +8,7 @@ pub use typed_index_collection::Idx;
 
 use crate::{
     time::{Calendar, PositiveDuration},
-    traits::{Indices, Input, NetworkStructure, Response, TimeQueries, TransitIters, TransitTypes},
+    traits::{Data, DataIters, DataWithIters, TransitTypes},
 };
 
 use std::collections::HashMap;
@@ -59,14 +59,12 @@ impl<Timetables: TimetablesTrait> TransitTypes for TransitData<Timetables> {
     type Transfer = Transfer;
 }
 
-impl<Timetables> Input for TransitData<Timetables>
+impl<Timetables: TimetablesTrait> Data for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
-        self.stop_point_idx_to_stop
-            .get(stop_point_idx)
-            .copied()
+        self.stop_point_idx_to_stop.get(stop_point_idx).copied()
     }
 
     fn new(model: &transit_model::Model, default_transfer_duration: PositiveDuration) -> Self {
@@ -76,12 +74,7 @@ where
     fn calendar(&self) -> &Calendar {
         self.timetables.calendar()
     }
-}
 
-impl<Timetables> NetworkStructure for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait,
-{
     fn is_upstream(
         &self,
         upstream: &Self::Position,
@@ -107,12 +100,7 @@ where
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
         self.timetables.stop_at(position, mission)
     }
-}
 
-impl<Timetables> TimeQueries for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait,
-{
     fn board_time_of(
         &self,
         trip: &Self::Trip,
@@ -152,12 +140,7 @@ where
         self.timetables
             .earliest_trip_to_board_at(waiting_time, mission, position)
     }
-}
 
-impl<Timetables> Indices for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait,
-{
     fn nb_of_stops(&self) -> usize {
         self.stops_data.len()
     }
@@ -170,40 +153,10 @@ where
         self.timetables.nb_of_missions()
     }
 
-    fn mission_id(&self, mission : & Self::Mission) -> usize {
+    fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
     }
-}
 
-impl<'a, Timetables> TransitIters<'a> for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + TimetablesIter<'a>,
-    Timetables::Mission: 'a,
-    Timetables::Position: 'a,
-{
-    type MissionsAtStop = MissionsOfStop<'a, Timetables>;
-
-    fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.missions_of(stop)
-    }
-
-    type TransfersAtStop = iters::TransfersOfStop;
-
-    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
-        self.transfers_of(from_stop)
-    }
-
-    type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
-
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.timetables.trips_of(mission)
-    }
-}
-
-impl<Timetables> Response for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait,
-{
     fn to_naive_datetime(
         &self,
         seconds: &crate::time::SecondsSinceDatasetUTCStart,
@@ -240,4 +193,37 @@ where
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
         stop_a.idx == stop_b.idx
     }
+}
+
+impl<'a, Timetables> DataIters<'a> for TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + TimetablesIter<'a>,
+    Timetables::Mission: 'a,
+    Timetables::Position: 'a,
+{
+    type MissionsAtStop = MissionsOfStop<'a, Timetables>;
+
+    fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
+        self.missions_of(stop)
+    }
+
+    type TransfersAtStop = iters::TransfersOfStop;
+
+    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
+        self.transfers_of(from_stop)
+    }
+
+    type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
+
+    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission {
+        self.timetables.trips_of(mission)
+    }
+}
+
+impl<Timetables> DataWithIters for TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
+    Timetables::Mission: 'static,
+    Timetables::Position: 'static,
+{
 }

@@ -1,7 +1,5 @@
-
-use crate::traits::{
-    Journey as PTJourney, NetworkStructure, Response, TimeQueries,
-};
+use crate::traits;
+use crate::traits::Journey as PTJourney;
 
 use crate::response;
 
@@ -9,11 +7,11 @@ use super::Request;
 
 impl<'data, 'model, Data> Request<'data, Data>
 where
-    Data: TimeQueries + NetworkStructure + Response,
+    Data: traits::Data,
 {
     pub fn create_response(
         &self,
-        data : & Data,
+        data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
         let departure_datetime = self.departure_datetime;
@@ -46,7 +44,7 @@ where
             first_vehicle,
             connections,
             *arrival_fallback_duration,
-            data
+            data,
         )
     }
 }

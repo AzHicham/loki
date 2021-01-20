@@ -5,8 +5,8 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::log::{debug, error, info, trace, warn}; 
-use laxatips::traits::{Indices, Input, NetworkStructure, Response, TimeQueries, TransitIters, TransitTypes};
+use laxatips::log::{debug, error, info, trace, warn};
+use laxatips::traits;
 use laxatips::transit_model;
 use laxatips::{
     DailyData, DepartAfterRequest, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
@@ -16,7 +16,7 @@ use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
-use std::{hash::Hash, path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -46,8 +46,9 @@ struct Options {
     implem: String,
 }
 
-fn read_ntfs<Data>(ntfs_path: &Path) -> Result<(Data, Model), Error> 
-where Data : Input
+fn read_ntfs<Data>(ntfs_path: &Path) -> Result<(Data, Model), Error>
+where
+    Data: traits::Data,
 {
     let model = transit_model::ntfs::read(ntfs_path)?;
     info!("Transit model loaded");
@@ -73,12 +74,13 @@ where Data : Input
 
 fn make_engine_request_from_protobuf<'data, Data>(
     proto_request: &navitia_proto::Request,
-    data : & 'data Data,
-    model : & Model,
+    data: &'data Data,
+    model: &Model,
     default_max_duration: &PositiveDuration,
     default_max_nb_of_legs: u8,
-) -> Result<DepartAfterRequest<'data,  Data>, Error> 
-where Data : TransitTypes + Input
+) -> Result<DepartAfterRequest<'data, Data>, Error>
+where
+    Data: traits::Data,
 {
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
@@ -110,7 +112,7 @@ where Data : TransitTypes + Input
             let stop_point_uri = location_context
                 .place
                 .as_str()
-                .trim_start_matches("stop_point:");            
+                .trim_start_matches("stop_point:");
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -162,7 +164,6 @@ where Data : TransitTypes + Input
     })?;
     let departure_datetime = chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
-
     info!(
         "Requested timestamp {}, datetime {}",
         departure_timestamp_u64,
@@ -189,29 +190,29 @@ where Data : TransitTypes + Input
         default_max_nb_of_legs
     });
 
-    let engine_request = DepartAfterRequest::new(model,
-        data, 
-        departure_datetime, 
-        departures_stop_point_and_fallback_duration, 
-        arrivals_stop_point_and_fallback_duration, 
+    let engine_request = DepartAfterRequest::new(
+        model,
+        data,
+        departure_datetime,
+        departures_stop_point_and_fallback_duration,
+        arrivals_stop_point_and_fallback_duration,
         PositiveDuration::from_hms(0, 2, 0), //leg_arrival_penalty
         PositiveDuration::from_hms(0, 2, 0), //leg_walking_penalty,
-        max_duration_to_arrival, 
-        max_nb_legs
+        max_duration_to_arrival,
+        max_nb_legs,
     )?;
 
     Ok(engine_request)
 }
 
 fn solve_protobuf<'data, Data>(
-    model : & Model,
+    model: &Model,
     proto_request: &navitia_proto::Request,
-    data : & 'data Data,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data,  Data>>,
-) -> Result<navitia_proto::Response, Error> 
-where 
-Data: TimeQueries + NetworkStructure + Input + Indices + Response + for<'a> TransitIters<'a>,
-Data::Mission: Hash + PartialEq + Eq,
+    data: &'data Data,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
+) -> Result<navitia_proto::Response, Error>
+where
+    Data: traits::DataWithIters,
 {
     let request = make_engine_request_from_protobuf(
         &proto_request,
@@ -238,34 +239,28 @@ Data::Mission: Hash + PartialEq + Eq,
                 trace!("{}", journey.print(data, model)?);
             }
             Err(_) => {
-                trace!("An error occured while converting an engine journey to response."); 
+                trace!("An error occured while converting an engine journey to response.");
             }
         };
     }
 
-
-
-    let journeys_iter = engine.responses().filter_map(|pt_journey| {
-        request
-            .create_response(data, pt_journey)
-            .ok()
-    });
+    let journeys_iter = engine
+        .responses()
+        .filter_map(|pt_journey| request.create_response(data, pt_journey).ok());
 
     response::make_response(journeys_iter, data, model)
-
 }
 
 fn solve<'data, Data>(
-    data : & 'data Data,
-    model : & Model,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data,  Data>>,
+    data: &'data Data,
+    model: &Model,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
-) -> Result<(), Error> 
+) -> Result<(), Error>
 where
-    Data: TimeQueries + NetworkStructure + Input + Indices + Response + for<'a> TransitIters<'a>,
-    Data::Mission: Hash + PartialEq + Eq,
+    Data: traits::DataWithIters,
 {
     socket
         .recv(zmq_message, 0)
@@ -276,12 +271,7 @@ where
 
     info!("Received request {:?}", proto_request.request_id);
 
-    let solve_result = solve_protobuf(
-        model, 
-        &proto_request,
-        data,
-        engine,
-    );
+    let solve_result = solve_protobuf(model, &proto_request, data, engine);
 
     let proto_response = match solve_result {
         Result::Err(err) => {
@@ -297,10 +287,8 @@ where
             proto_error.message = Some(format!("{}", err));
             proto_response.error = Some(proto_error);
             proto_response
-        },
-        Ok(proto_response) => {
-            proto_response
         }
+        Ok(proto_response) => proto_response,
     };
     response_bytes.clear();
 
@@ -321,7 +309,6 @@ where
 }
 
 fn server() -> Result<(), Error> {
-
     let options = Options::from_args();
     if options.implem == "periodic" {
         launch::<PeriodicData>(options)?;
@@ -334,19 +321,11 @@ fn server() -> Result<(), Error> {
         ));
     }
     Ok(())
-
 }
 
 fn launch<Data>(options: Options) -> Result<(), Error>
 where
-    Data: TransitTypes
-        + Input
-        + Indices
-        + TimeQueries
-        + Response
-        + NetworkStructure
-        + for<'a> TransitIters<'a>,
-    Data::Mission: Hash + PartialEq + Eq,
+    Data: traits::DataWithIters,
 {
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
@@ -358,7 +337,10 @@ where
     let ntfs_path = options.input;
 
     let (data, model) = read_ntfs::<Data>(&ntfs_path)?;
-    let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(
+        data.nb_of_stops(),
+        data.nb_of_missions(),
+    );
 
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
@@ -366,7 +348,7 @@ where
     loop {
         let solve_result = solve(
             &data,
-            & model,
+            &model,
             &mut engine,
             &responder,
             &mut zmq_message,

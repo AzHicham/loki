@@ -45,7 +45,7 @@ impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
 
     pub fn dominates(&self, criteria: &PT::Criteria, pt: &PT) -> bool {
         for (_, ref old_criteria) in &self.elements {
-            if Request::is_lower(pt, old_criteria, criteria) {
+            if pt.is_lower(old_criteria, criteria) {
                 return true;
             }
         }
@@ -58,7 +58,7 @@ impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
 
     pub fn remove_elements_dominated_by(&mut self, criteria: &PT::Criteria, pt: &PT) {
         self.elements
-            .retain(|(_, old_criteria)| !Request::is_lower(pt, &criteria, old_criteria));
+            .retain(|(_, old_criteria)| !pt.is_lower(&criteria, old_criteria));
     }
 
     pub fn add_and_remove_elements_dominated(

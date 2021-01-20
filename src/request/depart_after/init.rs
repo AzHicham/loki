@@ -1,5 +1,5 @@
 use crate::time::PositiveDuration;
-use crate::traits::{Input, TransitTypes};
+use crate::traits;
 
 use chrono::NaiveDateTime;
 use log::warn;
@@ -34,12 +34,12 @@ impl fmt::Display for BadRequest {
 
 impl std::error::Error for BadRequest {}
 
-impl<'data,  Data> Request<'data,Data>
+impl<'data, Data> Request<'data, Data>
 where
-    Data: TransitTypes + Input,
+    Data: traits::Data,
 {
     pub fn new<'a, 'b>(
-        model: & transit_model::Model,
+        model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,

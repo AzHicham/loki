@@ -1,12 +1,12 @@
 use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
-use crate::traits::TransitTypes;
+use crate::traits;
 
 pub mod init;
 // pub mod public_transit;
 pub mod response;
 pub mod traits_impl;
 
-pub struct Request<'data, Data: TransitTypes> {
+pub struct Request<'data, Data: traits::Data> {
     transit_data: &'data Data,
     departure_datetime: SecondsSinceDatasetUTCStart,
     departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,

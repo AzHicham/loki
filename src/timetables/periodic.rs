@@ -59,7 +59,7 @@ impl TimetablesTrait for PeriodicTimetables {
         self.timetables.nb_of_timetables()
     }
 
-    fn mission_id(&self, mission : &Self::Mission) -> usize {
+    fn mission_id(&self, mission: &Self::Mission) -> usize {
         mission.idx
     }
 
@@ -231,9 +231,7 @@ impl TimetablesTrait for PeriodicTimetables {
         };
         let insert_error = self.timetables.insert(
             stop_flows,
-            board_debark_timezoned_times
-                .iter()
-                .copied(),
+            board_debark_timezoned_times.iter().copied(),
             *timezone,
             vehicle_data,
         );
@@ -375,7 +373,7 @@ impl<'a> Iterator for TripsIter<'a> {
                     }
                     None => {
                         let has_current_vehicle = self.vehicles_iter.next();
-                        self.current_vehicle_days= has_current_vehicle.map(|vehicle| {
+                        self.current_vehicle_days = has_current_vehicle.map(|vehicle| {
                             let days_pattern =
                                 self.periodic.timetables.vehicle_data(&vehicle).days_pattern;
                             let days_iter =

@@ -3,22 +3,19 @@
 //     data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::traits::TransitTypes;
-use crate::{
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-    traits::{Response, TimeQueries},
-};
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::traits;
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
 
 use std::fmt::Debug;
-pub struct VehicleLeg<Data: TransitTypes> {
+pub struct VehicleLeg<Data: traits::Data> {
     pub trip: Data::Trip,
     pub board_position: Data::Position,
     pub debark_position: Data::Position,
 }
 
-impl<Data: TransitTypes> Clone for VehicleLeg<Data> {
+impl<Data: traits::Data> Clone for VehicleLeg<Data> {
     fn clone(&self) -> Self {
         Self {
             trip: self.trip.clone(),
@@ -29,7 +26,7 @@ impl<Data: TransitTypes> Clone for VehicleLeg<Data> {
 }
 
 #[derive(Clone)]
-pub struct Journey<Data: TransitTypes> {
+pub struct Journey<Data: traits::Data> {
     departure_datetime: SecondsSinceDatasetUTCStart,
     departure_fallback_duration: PositiveDuration,
     first_vehicle: VehicleLeg<Data>,
@@ -42,7 +39,7 @@ pub enum VehicleLegIdx {
     Connection(usize),
 }
 #[derive(Clone)]
-pub enum BadJourney<Data: TransitTypes> {
+pub enum BadJourney<Data: traits::Data> {
     DebarkIsUpstreamBoard(VehicleLeg<Data>, VehicleLegIdx),
     NoBoardTime(VehicleLeg<Data>, VehicleLegIdx),
     NoDebarkTime(VehicleLeg<Data>, VehicleLegIdx),
@@ -53,7 +50,7 @@ pub enum BadJourney<Data: TransitTypes> {
 
 impl<Data> Journey<Data>
 where
-    Data: TransitTypes + TimeQueries + Response,
+    Data: traits::Data,
 {
     pub fn new(
         departure_datetime: SecondsSinceDatasetUTCStart,
@@ -96,11 +93,9 @@ where
                 ));
             }
 
-            let debark_time = data
-                .debark_time_of(trip, debark_position)
-                .ok_or_else(|| {
-                    BadJourney::NoDebarkTime(self.first_vehicle.clone(), VehicleLegIdx::First)
-                })?;
+            let debark_time = data.debark_time_of(trip, debark_position).ok_or_else(|| {
+                BadJourney::NoDebarkTime(self.first_vehicle.clone(), VehicleLegIdx::First)
+            })?;
 
             let debark_stop = data.stop_of(debark_position, &mission);
             (debark_stop, debark_time)
@@ -132,17 +127,13 @@ where
                 ));
             }
 
-            let board_time = data
-                .board_time_of(trip, board_position)
-                .ok_or_else(|| {
-                    BadJourney::NoBoardTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
-                })?;
+            let board_time = data.board_time_of(trip, board_position).ok_or_else(|| {
+                BadJourney::NoBoardTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
+            })?;
 
-            let debark_time = data
-                .debark_time_of(trip, debark_position)
-                .ok_or_else(|| {
-                    BadJourney::NoDebarkTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
-                })?;
+            let debark_time = data.debark_time_of(trip, debark_position).ok_or_else(|| {
+                BadJourney::NoDebarkTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
+            })?;
 
             let board_stop = data.stop_of(board_position, &mission);
             let debark_stop = data.stop_of(debark_position, &mission);
@@ -178,8 +169,7 @@ where
     }
 
     fn first_vehicle_board_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
-        data
-            .board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position)
+        data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position)
             .unwrap()
     }
 
@@ -194,10 +184,8 @@ where
             .last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);
-        data
-            .debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
+        data.debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
             .unwrap() //unwrap is safe because of checks that happens during Self construction
-        
     }
 
     fn arrival(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
@@ -386,7 +374,7 @@ pub struct ArrivalSection {
     pub from_stop_point: Idx<StopPoint>,
 }
 
-impl<Data: TransitTypes + Response> Journey<Data> {
+impl<Data: traits::Data> Journey<Data> {
     pub fn departure_section(&self, data: &Data) -> DepartureSection {
         let from_datetime = data.to_naive_datetime(&self.departure_datetime);
         let to_seconds = self.departure_datetime + self.departure_fallback_duration;
@@ -407,11 +395,7 @@ impl<Data: TransitTypes + Response> Journey<Data> {
         self.vehicle_section(&VehicleLegIdx::First, data)
     }
 
-    fn vehicle_section(
-        &self,
-        vehicle_leg_idx: &VehicleLegIdx,
-        data: &Data,
-    ) -> VehicleSection {
+    fn vehicle_section(&self, vehicle_leg_idx: &VehicleLegIdx, data: &Data) -> VehicleSection {
         let vehicle_leg = match vehicle_leg_idx {
             VehicleLegIdx::First => &self.first_vehicle,
             VehicleLegIdx::Connection(idx) => &self.connections[*idx].1,
@@ -457,8 +441,7 @@ impl<Data: TransitTypes + Response> Journey<Data> {
             .unwrap();
         let from_datetime = data.to_naive_datetime(&prev_debark_time);
         let prev_mission = data.mission_of(&prev_trip);
-        let prev_debark_stop =
-        data.stop_of(&prev_vehicle_leg.debark_position, &prev_mission);
+        let prev_debark_stop = data.stop_of(&prev_vehicle_leg.debark_position, &prev_mission);
         let from_stop_point = data.stop_point_idx(&prev_debark_stop);
 
         let (transfer, _) = &self.connections[connection_idx];
@@ -489,15 +472,13 @@ impl<Data: TransitTypes + Response> Journey<Data> {
     }
 }
 
-pub struct ConnectionIter<'journey, 'data, Data: TransitTypes> {
+pub struct ConnectionIter<'journey, 'data, Data: traits::Data> {
     data: &'data Data,
     journey: &'journey Journey<Data>,
     connection_idx: usize,
 }
 
-impl<'journey, 'data, Data: TransitTypes + Response> Iterator
-    for ConnectionIter<'journey, 'data, Data>
-{
+impl<'journey, 'data, Data: traits::Data> Iterator for ConnectionIter<'journey, 'data, Data> {
     type Item = (TransferSection, WaitingSection, VehicleSection);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -508,10 +489,9 @@ impl<'journey, 'data, Data: TransitTypes + Response> Iterator
         let transfer_section = self
             .journey
             .transfer_section(self.connection_idx, self.data);
-        let vehicle_section = self.journey.vehicle_section(
-            &VehicleLegIdx::Connection(self.connection_idx),
-            self.data,
-        );
+        let vehicle_section = self
+            .journey
+            .vehicle_section(&VehicleLegIdx::Connection(self.connection_idx), self.data);
         let waiting_section = WaitingSection {
             from_datetime: transfer_section.to_datetime,
             to_datetime: vehicle_section.from_datetime,

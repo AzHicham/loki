@@ -7,7 +7,6 @@ mod request;
 
 pub mod crowding_data;
 
-
 pub use chrono::NaiveDateTime;
 pub use log;
 pub use time::PositiveDuration;
@@ -24,12 +23,11 @@ mod transit_data;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 
-pub type DailyRequest<'data, 'model> = request::depart_after::Request<'data,  DailyData>;
+pub type DailyRequest<'data, 'model> = request::depart_after::Request<'data, DailyData>;
 
-pub type PeriodicRequest<'data, 'model> =
-    request::depart_after::Request<'data,  PeriodicData>;
+pub type PeriodicRequest<'data, 'model> = request::depart_after::Request<'data, PeriodicData>;
 
-pub use transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer};
+pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 

@@ -1,4 +1,7 @@
-use std::{borrow::Borrow, cmp::{Ordering, max, min}};
+use std::{
+    borrow::Borrow,
+    cmp::{max, min, Ordering},
+};
 
 use std::collections::BTreeMap;
 
@@ -78,7 +81,6 @@ where
     pub(super) fn nb_of_timetables(&self) -> usize {
         self.timetable_datas.len()
     }
-
 
     pub(super) fn timetable_data(
         &self,
@@ -292,7 +294,6 @@ where
         &self.stop_flows[position_idx].0
     }
 
-
     pub(super) fn nb_of_positions(&self) -> usize {
         self.board_times_by_position.len()
     }
@@ -370,9 +371,11 @@ where
     {
         let nb_of_positions = stop_flows.len();
         assert!(nb_of_positions >= 2);
-        assert!(board_debark_times.clone().len() == nb_of_positions);
-        let earliest_and_latest_board_time_by_position : Vec<_> = board_debark_times.clone()
-            .map(|(board_time,_)| (board_time.clone(), board_time)).collect();
+        assert!(board_debark_times.len() == nb_of_positions);
+        let earliest_and_latest_board_time_by_position: Vec<_> = board_debark_times
+            .clone()
+            .map(|(board_time, _)| (board_time.clone(), board_time))
+            .collect();
         let mut result = Self {
             timezone_data,
             stop_flows,
@@ -591,9 +594,9 @@ where
             self.board_times_by_position[position].insert(insert_idx, board_time.clone());
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
 
-            let (earliest, latest) = & mut self.earliest_and_latest_board_time_by_position[position];
+            let (earliest, latest) = &mut self.earliest_and_latest_board_time_by_position[position];
             *earliest = min(earliest.clone(), board_time.clone());
-            *latest   = max(latest.clone(), board_time);
+            *latest = max(latest.clone(), board_time);
         }
         self.vehicle_datas.insert(insert_idx, vehicle_data);
     }
@@ -666,7 +669,7 @@ where
 }
 
 pub(super) fn inspect<BoardDebarkTimes, Time>(
-    stop_flows: &StopFlows,
+    stop_flows: &[(Stop, FlowDirection)],
     board_debark_times: BoardDebarkTimes,
 ) -> Result<(), VehicleTimesError>
 where

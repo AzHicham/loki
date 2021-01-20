@@ -35,7 +35,7 @@ pub trait Timetables {
     fn calendar(&self) -> &Calendar;
 
     fn nb_of_missions(&self) -> usize;
-    fn mission_id(&self, mission : &Self::Mission) -> usize;
+    fn mission_id(&self, mission: &Self::Mission) -> usize;
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;

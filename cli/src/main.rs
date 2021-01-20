@@ -7,11 +7,13 @@ use laxatips::{
     DailyData, DepartAfterRequest, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
 
+use laxatips::traits;
+
 use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
-use std::{hash::Hash, path::PathBuf};
+use std::path::PathBuf;
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
@@ -168,18 +170,9 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-use laxatips::traits::*;
-
 fn launch<Data>(options: Options) -> Result<(), Error>
 where
-    Data: TransitTypes
-        + Input
-        + Indices
-        + TimeQueries
-        + Response
-        + NetworkStructure
-        + for<'a> TransitIters<'a>,
-    Data::Mission: Hash + PartialEq + Eq,
+    Data: traits::DataWithIters,
 {
     let input_dir = options.input;
     let model = transit_model::ntfs::read(input_dir)?;
@@ -219,7 +212,8 @@ where
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
     let max_nb_of_legs: u8 = options.max_nb_of_legs;
 
-    let mut raptor = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(nb_of_stops, nb_of_missions);
+    let mut raptor =
+        MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(nb_of_stops, nb_of_missions);
 
     let compute_timer = SystemTime::now();
 
@@ -295,11 +289,11 @@ where
     Ok(())
 }
 
-fn solve<'data,  Data>(
+fn solve<'data, Data>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data,  Data>>,
-    model: & Model,
+    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
+    model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
     leg_arrival_penalty: &PositiveDuration,
@@ -308,8 +302,7 @@ fn solve<'data,  Data>(
     max_nb_of_legs: u8,
 ) -> Result<usize, Error>
 where
-    Data: TimeQueries + NetworkStructure + Input + Indices + Response + for<'a> TransitIters<'a>,
-    Data::Mission: Hash + PartialEq + Eq,
+    Data: traits::DataWithIters,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -326,7 +319,7 @@ where
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request = DepartAfterRequest::<'data,  Data>::new(
+    let request = DepartAfterRequest::<'data, Data>::new(
         model,
         data,
         departure_datetime.clone(),
@@ -355,7 +348,7 @@ where
                 trace!("{}", journey.print(data, model)?);
             }
             Err(_) => {
-                trace!("An error occured while converting an engine journey to response."); 
+                trace!("An error occured while converting an engine journey to response.");
             }
         };
     }
