@@ -42,6 +42,10 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.nb_of_timetables()
     }
 
+    fn mission_id(&self, mission : &Self::Mission) -> usize {
+        mission.idx
+    }
+
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
         self.timetables.vehicle_data(trip).vehicle_journey_idx
     }

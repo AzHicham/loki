@@ -2,7 +2,7 @@ use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use crate::traits::{Indices, Journey, Request, RequestIters};
 use log::trace;
-use std::{collections::HashMap, hash::Hash};
+
 pub struct MultiCriteriaRaptor<PT: Request + Indices> {
     journeys_tree: JourneysTree<PT>,
 
@@ -10,7 +10,9 @@ pub struct MultiCriteriaRaptor<PT: Request + Indices> {
     new_wait_fronts: Vec<WaitFront<PT>>, // map a `stop` to a pareto front
     stops_with_new_wait: Vec<PT::Stop>, // list of Stops
 
-    missions_with_new_wait: HashMap<PT::Mission, PT::Position>, // list of Missions
+    mission_has_new_wait : Vec<Option<PT::Position>>, // map a `mission` to a position 
+
+    missions_with_new_wait: Vec<PT::Mission>, // list of Missions
 
     debark_fronts: Vec<DebarkFront<PT>>, // map a `stop` to a pareto front
     new_debark_fronts: Vec<DebarkFront<PT>>, // map a `stop` to a pareto front
@@ -26,11 +28,10 @@ pub struct MultiCriteriaRaptor<PT: Request + Indices> {
     nb_of_rounds: usize,
 }
 
-impl<'pt, PT: Request + RequestIters<'pt> + Indices> MultiCriteriaRaptor<PT>
-where
-    PT::Mission: Hash + PartialEq + Eq,
+
+impl<PT: Request + for<'a> RequestIters<'a> + Indices> MultiCriteriaRaptor<PT>
 {
-    pub fn new(nb_of_stops: usize) -> Self {
+    pub fn new(nb_of_stops: usize, nb_of_missions : usize) -> Self {
         Self {
             journeys_tree: JourneysTree::new(),
 
@@ -38,7 +39,8 @@ where
             new_wait_fronts: vec![WaitFront::<PT>::new(); nb_of_stops],
             stops_with_new_wait: Vec::new(),
 
-            missions_with_new_wait: HashMap::new(),
+            mission_has_new_wait : vec![None; nb_of_missions],
+            missions_with_new_wait: Vec::new(),
 
             debark_fronts: vec![DebarkFront::<PT>::new(); nb_of_stops],
             new_debark_fronts: vec![DebarkFront::<PT>::new(); nb_of_stops],
@@ -59,7 +61,7 @@ where
         self.arrive_front.len()
     }
 
-    fn resize(&mut self, nb_of_stops: usize) {
+    fn resize(&mut self, nb_of_stops: usize, nb_of_missions : usize) {
         self.wait_fronts.resize(nb_of_stops, WaitFront::<PT>::new());
         self.new_wait_fronts
             .resize(nb_of_stops, WaitFront::<PT>::new());
@@ -67,11 +69,13 @@ where
             .resize(nb_of_stops, DebarkFront::<PT>::new());
         self.new_debark_fronts
             .resize(nb_of_stops, DebarkFront::<PT>::new());
+
+        self.mission_has_new_wait.resize(nb_of_missions, None);
     }
 
-    pub fn compute(&mut self, pt: &'pt PT) {
+    pub fn compute(&mut self, pt: & PT) {
         self.clear();
-        self.resize(pt.nb_of_stops());
+        self.resize(pt.nb_of_stops(), pt.nb_of_missions());
 
         self.init_with_departures(pt);
 
@@ -120,6 +124,9 @@ where
         }
         self.stops_with_new_wait.clear();
 
+        for opt in & mut self.mission_has_new_wait {
+            *opt = None;
+        }
         self.missions_with_new_wait.clear();
 
         for front in &mut self.debark_fronts {
@@ -142,7 +149,7 @@ where
     }
 
     // fill new_waiting_fronts with journeys departures
-    fn init_with_departures(&mut self, pt: &'pt PT) {
+    fn init_with_departures(&mut self, pt: & PT) {
         debug_assert!(self.journeys_tree.is_empty());
         debug_assert!(self
             .new_wait_fronts
@@ -169,27 +176,41 @@ where
     // identify missions that can be boarded from the new waiting pathes
     // - fill `mission_has_new_waiting` and `missions_with_new_waiting`
     // - reads `stops_with_new_waiting`
-    fn identify_missions_with_new_waits(&mut self, pt: &'pt PT) {
+    fn identify_missions_with_new_waits(&mut self, pt: & PT) {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         debug_assert!(self.missions_with_new_wait.is_empty());
 
         for stop in self.stops_with_new_wait.iter() {
             // TODO : check that the same mission is not returned twice
             for (mission, position) in pt.boardable_missions_at(&stop) {
-                let current_mission_has_new_wait =
-                    self.missions_with_new_wait.entry(mission.clone());
-                use std::collections::hash_map::Entry;
+                let current_mission_has_new_wait = & mut self.mission_has_new_wait[pt.mission_id(&mission)];
                 match current_mission_has_new_wait {
-                    Entry::Vacant(entry) => {
-                        entry.insert(position);
-                    }
-                    Entry::Occupied(mut entry) => {
-                        let saved_position = entry.get_mut();
+                    Some(saved_position) => {
                         if pt.is_upstream(&position, saved_position, &mission) {
                             *saved_position = position;
                         }
                     }
+                    None => {
+                        *current_mission_has_new_wait = Some(position);
+                        self.missions_with_new_wait.push(mission)
+                    }
                 }
+
+                // let current_mission_has_new_wait =
+                //     self.missions_with_new_wait.entry(mission.clone());
+                // use std::collections::hash_map::Entry;
+                // match current_mission_has_new_wait {
+                //     Entry::Vacant(entry) => {
+                //         entry.insert(position);
+                //     }
+                //     Entry::Occupied(mut entry) => {
+                //         let saved_position = entry.get_mut();
+                //         if pt.is_upstream(&position, saved_position, &mission) {
+                //             *saved_position = position;
+                //         }
+                //     }
+                // }
+
             }
         }
     }
@@ -200,7 +221,7 @@ where
     // - uses `onboard_front` and `new_onboard_front` as local buffers
     // - reads `missions_with_new_waiting`, `mission_has_new_waiting`,
     //         `new_waiting_fronts`, `debarked_fronts`
-    fn ride(&mut self, pt: &'pt PT) {
+    fn ride(&mut self, pt: & PT) {
         debug_assert!(!self.missions_with_new_wait.is_empty());
         debug_assert!(self.stops_with_new_debark.is_empty());
         debug_assert!(self
@@ -208,8 +229,8 @@ where
             .iter()
             .all(|front| { front.is_empty() }));
 
-        for (mission, first_position) in self.missions_with_new_wait.iter() {
-            let mut has_position = Some(first_position.clone());
+        for mission in self.missions_with_new_wait.iter() {
+            let mut has_position = self.mission_has_new_wait[pt.mission_id(mission)].clone();
 
             self.board_front.clear();
 
@@ -310,7 +331,7 @@ where
     // tranfer `new_debarked_fronts` into `debarked_fronts`
     // - update `debarked_fronts` and clear `new_debarked_fronts`
     // - reads `stops_with_new_debarked` and `new_debarked_fronts`
-    fn save_and_clear_new_debarks(&mut self, pt: &'pt PT) {
+    fn save_and_clear_new_debarks(&mut self, pt: & PT) {
         debug_assert!(!self.stops_with_new_debark.is_empty());
         // TODO : check that new_debarked_front[stop] is empty for all
         //     stops not in stops_with_new_debarked
@@ -337,7 +358,7 @@ where
     // - update `new_waiting_fronts` and `arrived_front`
     // - reads `stops_with_new_debarked`, `new_debarked_fronts`
     //         `waiting_fronts`, `new_waiting_fronts`
-    fn perform_transfers_and_arrivals(&mut self, pt: &'pt PT) {
+    fn perform_transfers_and_arrivals(&mut self, pt: & PT) {
         debug_assert!(self.new_wait_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_wait.is_empty());
 
@@ -397,7 +418,7 @@ where
     // tranfer `new_waiting_fronts` into `waiting_fronts`
     // - update `waiting_fronts` and clear `new_waiting_fronts`
     // - reads `stops_with_new_waiting` and `new_waiting_fronts`
-    fn save_and_clear_new_waits(&mut self, pt: &'pt PT) {
+    fn save_and_clear_new_waits(&mut self, pt: & PT) {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         // TODO : check that new_waiting_fronts[stop] is empty for all
         //     stops not in stops_with_new_waiting

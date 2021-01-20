@@ -358,7 +358,7 @@ where
     let ntfs_path = options.input;
 
     let (data, model) = read_ntfs::<Data>(&ntfs_path)?;
-    let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(data.nb_of_stops());
+    let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(data.nb_of_stops(), data.nb_of_missions());
 
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();

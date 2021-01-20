@@ -165,6 +165,14 @@ where
     fn stop_id(&self, stop: &Stop) -> usize {
         stop.idx
     }
+
+    fn nb_of_missions(&self) -> usize {
+        self.timetables.nb_of_missions()
+    }
+
+    fn mission_id(&self, mission : & Self::Mission) -> usize {
+        self.timetables.mission_id(mission)
+    }
 }
 
 impl<'a, Timetables> TransitIters<'a> for TransitData<Timetables>

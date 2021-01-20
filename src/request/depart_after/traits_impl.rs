@@ -247,6 +247,14 @@ where
     fn stop_id(&self, stop: &Self::Stop) -> usize {
         self.transit_data.stop_id(stop)
     }
+
+    fn nb_of_missions(&self) -> usize {
+        self.transit_data.nb_of_missions()
+    }
+
+    fn mission_id(&self, mission : & Self::Mission) -> usize {
+        self.transit_data.mission_id(mission)
+    }
 }
 
 impl<'data, 'outer, Data: TransitTypes> RequestIters<'outer>

@@ -310,11 +310,11 @@ pub trait Indices: TransitTypes {
     /// Returns a different value for two different `stop`s.
     fn stop_id(&self, stop: &Self::Stop) -> usize;
 
-    // // An upper bound on the total number of `Mission`s
-    // fn nb_of_missions(&self) -> usize;
-    // // Returns an usize between 0 and nb_of_misions()
-    // // Returns a different value for two different `mission`s
-    // fn mission_id(&self, mission : & Self::Mission) -> usize;
+    /// An upper bound on the total number of `Mission`s
+    fn nb_of_missions(&self) -> usize;
+    /// Returns an usize between 0 and nb_of_misions()
+    /// Returns a different value for two different `mission`s
+    fn mission_id(&self, mission : & Self::Mission) -> usize;
 }
 
 pub struct DepartureLeg<PT: Request> {
