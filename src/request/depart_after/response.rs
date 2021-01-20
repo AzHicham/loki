@@ -13,8 +13,9 @@ where
 {
     pub fn create_response(
         &self,
+        data : & Data,
         pt_journey: &PTJourney<Self>,
-    ) -> Result<response::Journey<Self>, response::BadJourney<Self>> {
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
         let departure_datetime = self.departure_datetime;
         let departure_idx = pt_journey.departure_leg.departure.idx;
         let departure_fallback_duration =
@@ -45,7 +46,7 @@ where
             first_vehicle,
             connections,
             *arrival_fallback_duration,
-            &self,
+            data
         )
     }
 }

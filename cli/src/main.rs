@@ -192,23 +192,23 @@ where
 
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let transit_data = Data::new(&model, default_transfer_duration);
+    let stop_datatime = Data::new(&model, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
-    // info!("Number of timetables {} ", transit_data.nb_of_timetables());
-    // info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
+    // info!("Number of timetables {} ", stop_datatime.nb_of_timetables());
+    // info!("Number of vehicles {} ", stop_datatime.nb_of_vehicles());
     info!(
         "Validity dates between {} and {}",
-        transit_data.calendar().first_date(),
-        transit_data.calendar().last_date()
+        stop_datatime.calendar().first_date(),
+        stop_datatime.calendar().last_date()
     );
 
-    let nb_of_stops = transit_data.nb_of_stops();
+    let nb_of_stops = stop_datatime.nb_of_stops();
 
     let departure_datetime = match options.departure_datetime {
         Some(string_datetime) => parse_datetime(&string_datetime)?,
         None => {
-            let naive_date = transit_data.calendar().first_date();
+            let naive_date = stop_datatime.calendar().first_date();
             naive_date.and_hms(8, 0, 0)
         }
     };
@@ -237,7 +237,7 @@ where
                     end_stop_area_uri,
                     &mut raptor,
                     &model,
-                    &transit_data,
+                    &stop_datatime,
                     &departure_datetime,
                     &leg_arrival_penalty,
                     &leg_walking_penalty,
@@ -281,7 +281,7 @@ where
                 end_stop_area_uri,
                 &mut raptor,
                 &model,
-                &transit_data,
+                &stop_datatime,
                 &departure_datetime,
                 &leg_arrival_penalty,
                 &leg_walking_penalty,
@@ -299,7 +299,7 @@ fn solve<'data,  Data>(
     end_stop_area_uri: &str,
     engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data,  Data>>,
     model: & Model,
-    transit_data: &'data Data,
+    stop_datatime: &'data Data,
     departure_datetime: &NaiveDateTime,
     leg_arrival_penalty: &PositiveDuration,
     leg_walking_penalty: &PositiveDuration,
@@ -327,7 +327,7 @@ where
 
     let request = DepartAfterRequest::<'data,  Data>::new(
         model,
-        transit_data,
+        stop_datatime,
         departure_datetime.clone(),
         start_stops,
         end_stops,
@@ -348,12 +348,14 @@ where
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
-        let response = request.create_response(pt_journey);
+        let response = request.create_response(stop_datatime, pt_journey);
         match response {
             Ok(journey) => {
-                trace!("{}", journey.print(&request, model)?);
+                trace!("{}", journey.print(stop_datatime, model)?);
             }
-            Err(_) => {}
+            Err(_) => {
+                trace!("An error occured while converting an engine journey to response."); 
+            }
         };
     }
 

@@ -29,17 +29,7 @@ pub type DailyRequest<'data, 'model> = request::depart_after::Request<'data,  Da
 pub type PeriodicRequest<'data, 'model> =
     request::depart_after::Request<'data,  PeriodicData>;
 
-// pub use laxatips_data::{
-//     LaxatipsData,
-//     time::{PositiveDuration},
-//     transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer}
-// };
-
-// pub use laxatips_daily_data::{
-//     LaxatipsDailyData,
-//     time::{PositiveDuration},
-//     transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer}
-// };
+pub use transit_data::{TransitData, Idx, StopPoint, VehicleJourney, TransitModelTransfer};
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 

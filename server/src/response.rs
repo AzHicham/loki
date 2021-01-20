@@ -1,30 +1,34 @@
 use crate::navitia_proto;
 use laxatips::transit_model;
 use laxatips::{
-    laxatips_data::{
-        LaxatipsData, Idx, StopPoint, VehicleJourney,
-    },
+        Idx, StopPoint, VehicleJourney,
     response::{Journey, TransferSection, VehicleSection, WaitingSection},
     
 };
+
+use laxatips::traits::{ Response, TimeQueries,  TransitTypes};
+
 
 use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
 
 use failure::{format_err, Error};
+use transit_model::Model;
 
 use std::convert::TryFrom;
 
-pub fn make_response<Journeys>(
+pub fn make_response<Journeys, Data>(
     journeys: Journeys,
-    laxatips_data : & LaxatipsData, 
+    data : & Data, 
+    model : & Model, 
 ) -> Result<navitia_proto::Response, Error>
 where
-    Journeys: Iterator<Item = Journey>,
+    Journeys: Iterator<Item = Journey<Data>>,
+    Data : TransitTypes + Response
 {
     let mut proto = navitia_proto::Response {
         journeys : journeys.enumerate()
-                        .map(|(idx, journey) | make_journey(&journey, laxatips_data, idx))
+                        .map(|(idx, journey) | make_journey(&journey, idx, data, model))
                         .collect::<Result<Vec<_>, _>>()?,
 
         ..Default::default()
@@ -36,14 +40,14 @@ where
     Ok(proto)
 }
 
-fn make_journey(
-    journey: &Journey,
-
-    laxatips_data : & LaxatipsData,
+fn make_journey<Data>(
+    journey: &Journey<Data>,
     journey_id: usize,
-) -> Result<navitia_proto::Journey, Error> {
-    let transit_data = & laxatips_data.transit_data;
-    let model = & laxatips_data.model;
+    data : & Data,
+    model : & Model,
+) -> Result<navitia_proto::Journey, Error> 
+where Data : TransitTypes + TimeQueries + Response
+{
 
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
@@ -51,26 +55,26 @@ fn make_journey(
 
     let mut proto = navitia_proto::Journey {
         duration : Some(i32::try_from(
-            journey.total_duration_in_pt(transit_data).total_seconds(),
+            journey.total_duration_in_pt(data).total_seconds(),
         )?),
         nb_transfers : Some(i32::try_from(journey.nb_of_transfers())?),
-        departure_date_time : Some(to_u64_timestamp(&journey.first_vehicle_board_datetime(transit_data))?),
-        arrival_date_time : Some(to_u64_timestamp(&journey.last_vehicle_debark_datetime(transit_data))?),
+        departure_date_time : Some(to_u64_timestamp(&journey.first_vehicle_board_datetime(data))?),
+        arrival_date_time : Some(to_u64_timestamp(&journey.last_vehicle_debark_datetime(data))?),
         sections : Vec::with_capacity(nb_of_sections), // to be filled below
         sn_dur : Some(journey.total_fallback_duration().total_seconds()),
         transfer_dur : Some(journey
-                                .total_transfer_duration(transit_data)
+                                .total_transfer_duration(data)
                                 .total_seconds(),
                         ),
         nb_sections : Some(u32::try_from(journey.nb_of_legs())?),
         durations :  Some(navitia_proto::Durations {
             total: Some(i32::try_from(
-                journey.total_duration_in_pt(transit_data).total_seconds(),
+                journey.total_duration_in_pt(data).total_seconds(),
             )?),
             walking: Some(i32::try_from(
                 (
                     //journey.total_fallback_duration() +
-                    journey.total_transfer_duration(transit_data)
+                    journey.total_transfer_duration(data)
                 )
                     .total_seconds(),
             )?),
@@ -83,9 +87,9 @@ fn make_journey(
     };
 
     let section_id = format!("section_{}_{}", journey_id, 0);
-    proto.sections.push(make_public_transport_section(&journey.first_vehicle_section(transit_data), model, section_id)?);
+    proto.sections.push(make_public_transport_section(&journey.first_vehicle_section(data), model, section_id)?);
 
-    for (connection_idx, connection) in journey.connections(transit_data).enumerate() {
+    for (connection_idx, connection) in journey.connections(data).enumerate() {
         {
             let section_id = format!("section_{}_{}", journey_id, 1 + 3 * connection_idx);
             let transfer_section = &connection.0;
