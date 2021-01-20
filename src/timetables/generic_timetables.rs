@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, cmp::Ordering};
+use std::{borrow::Borrow, cmp::{Ordering, max, min}};
 
 use std::collections::BTreeMap;
 
@@ -61,7 +61,7 @@ pub struct Vehicle {
 
 impl<Time, TimezoneData, VehicleData> Timetables<Time, TimezoneData, VehicleData>
 where
-    Time: Ord,
+    Time: Ord + Clone,
     TimezoneData: PartialEq + Clone,
 {
     pub(super) fn new() -> Self {
@@ -243,7 +243,7 @@ where
 
 impl<Time, TimezoneData, VehicleData> TimetableData<Time, TimezoneData, VehicleData>
 where
-    Time: Ord,
+    Time: Ord + Clone,
     TimezoneData: PartialEq,
 {
     fn can_board(&self, position_idx: usize) -> bool {
@@ -370,13 +370,16 @@ where
     {
         let nb_of_positions = stop_flows.len();
         assert!(nb_of_positions >= 2);
+        assert!(board_debark_times.clone().len() == nb_of_positions);
+        let earliest_and_latest_board_time_by_position : Vec<_> = board_debark_times.clone()
+            .map(|(board_time,_)| (board_time.clone(), board_time)).collect();
         let mut result = Self {
             timezone_data,
             stop_flows,
             vehicle_datas: Vec::new(),
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
-            earliest_and_latest_board_time_by_position: Vec::new(),
+            earliest_and_latest_board_time_by_position,
         };
         result.do_insert(board_debark_times, vehicle_data, 0);
         result
@@ -585,8 +588,12 @@ where
         }
 
         for (position, (board_time, debark_time)) in board_debark_times.enumerate() {
-            self.board_times_by_position[position].insert(insert_idx, board_time);
+            self.board_times_by_position[position].insert(insert_idx, board_time.clone());
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
+
+            let (earliest, latest) = & mut self.earliest_and_latest_board_time_by_position[position];
+            *earliest = min(earliest.clone(), board_time.clone());
+            *latest   = max(latest.clone(), board_time);
         }
         self.vehicle_datas.insert(insert_idx, vehicle_data);
     }

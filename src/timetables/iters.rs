@@ -6,7 +6,7 @@ pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
 impl<Time, TimezoneData, TripData> Timetables<Time, TimezoneData, TripData>
 where
-    Time: Ord,
+    Time: Ord + Clone,
     TimezoneData: PartialEq + Clone,
 {
     pub fn timetables(&self) -> TimetableIter {
