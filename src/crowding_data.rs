@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
-use log::warn;
-use std::collections::BTreeMap;
+use log::{debug, trace};
+use std::collections::{BTreeMap};
 use std::error::Error;
 use std::path::Path;
 use transit_model::objects::VehicleJourney;
@@ -12,89 +12,180 @@ type Load = u8;
 
 type VehicleJourneyIdx = Idx<VehicleJourney>;
 
-type TripDay = (VehicleJourneyIdx, NaiveDate);
 
-type VehicleCrowding = BTreeMap<StopSequence, Load>;
 
-type CrowdingData = BTreeMap<TripDay, VehicleCrowding>;
+pub struct CrowdData {
+    per_vehicle_journey : BTreeMap<VehicleJourneyIdx, VehicleJourneyCrowd>
+}
 
-pub fn read<P: AsRef<Path>>(
-    csv_loads_filepath: P,
-    model: &Model,
-) -> Result<CrowdingData, Box<dyn Error>> {
-    let mut crowding_data = CrowdingData::new();
-    let filepath = csv_loads_filepath.as_ref();
-    let mut reader = csv::ReaderBuilder::new()
-        .delimiter(b';')
-        .from_path(filepath)?;
+struct VehicleJourneyCrowd {
+    stop_sequence_to_idx : BTreeMap<StopSequence, usize>,
+    per_date : BTreeMap<NaiveDate, TripCrowd>
+}
 
-    let mut record = csv::StringRecord::new();
+struct TripCrowd {
+    per_stop : Vec<Option<Load>>
+}
 
-    while reader.read_record(&mut record)? {
-        let is_valid_record = parse_record(&record, model);
-        let (vehicle_journey_idx, stop_sequence, load, date) = match is_valid_record {
-            Ok((vehicle_journey_idx, stop_sequence, load, date)) => {
-                (vehicle_journey_idx, stop_sequence, load, date)
-            }
-            Err(parse_error) => {
-                warn!(
-                    "Error reading {:?} at line {} : {} \n. I'll skip this line. ",
-                    filepath,
-                    reader.position().line(),
-                    parse_error
-                );
-                continue;
-            }
-        };
-
-        let vehicle_crowding = crowding_data
-            .entry((vehicle_journey_idx, date))
-            .or_insert_with(VehicleCrowding::new);
-        if vehicle_crowding.contains_key(&stop_sequence) {
-            warn!("Error reading {:?}. There is two load values for trip {} at date {}. I'll ignore the second value.",
-                filepath,
-                &record[0],
-                date
-            );
-            continue;
+impl VehicleJourneyCrowd {
+    fn new<StopSequenceIter>(stop_sequence_iter : StopSequenceIter) -> Self 
+    where StopSequenceIter : Iterator<Item = StopSequence>
+    {
+        let mut stop_sequence_to_idx = BTreeMap::new();
+        for (idx, stop_sequence) in stop_sequence_iter.enumerate() {
+            stop_sequence_to_idx.insert(stop_sequence, idx);
         }
-        vehicle_crowding.insert(stop_sequence, load);
+        Self {
+            stop_sequence_to_idx,
+            per_date : BTreeMap::new()
+        }
     }
 
-    // for each vehicle_journey, check that :
-    //  - for each valid date, we have load data for every stop_time
-    for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
-        let has_calendar = model.calendars.get(&vehicle_journey.service_id);
-        if has_calendar.is_none() {
-            continue;
+
+    // Returns `Ok()` if the load has been set.
+    // Returns `Err()` if `stop_sequence` is not valid for this vehicle_journey
+    fn set_load(& mut self, date : & NaiveDate, stop_sequence : StopSequence, load : Load) -> Result<(), ()>
+    {
+        let idx = self.stop_sequence_to_idx.get(&stop_sequence).ok_or(())?;
+        let nb_of_stop = self.stop_sequence_to_idx.len();
+        let trip_crowd = self.per_date.entry(*date).or_insert_with(||TripCrowd::new(nb_of_stop));
+        trip_crowd.per_stop[*idx] = Some(load);
+        Ok(())
+    }
+
+    // Returns `Err()` if `stop_sequence` is not valid for this vehicle_journey
+    fn get_load(&self, date : & NaiveDate, stop_sequence : StopSequence) -> Result<Option<Load>, ()> {
+        let idx = self.stop_sequence_to_idx.get(&stop_sequence).ok_or(())?;
+        if let Some(trip_crowd) = self.per_date.get(date) {
+            Ok(trip_crowd.per_stop[*idx].clone())
         }
-        let calendar = has_calendar.unwrap();
+        else {
+            Ok(None)
+        }
+        
+    }
+}
 
-        for date in calendar.dates.iter() {
-            let has_loads = crowding_data.get(&(vehicle_journey_idx, *date));
-            if has_loads.is_none() {
-                warn!(
-                    "No crowding data provided for trip {} on date {}",
-                    vehicle_journey.id, date
-                );
-                continue;
-            }
-            let loads = has_loads.unwrap();
+impl TripCrowd {
+    fn new(nb_of_stop : usize) -> Self {
+        Self {
+            per_stop : vec![None; nb_of_stop]
+        }
+    }
+}
 
-            for stop_time in vehicle_journey.stop_times.iter() {
-                let stop_sequence = stop_time.sequence;
-                if !loads.contains_key(&stop_sequence) {
-                    warn!(
-                        "No crowding data provided for trip {} on date {} at stop sequence {}",
-                        vehicle_journey.id, date, stop_sequence
+impl CrowdData {
+
+    pub fn new<P: AsRef<Path>>(
+        csv_loads_filepath: P,
+        model: &Model,
+    ) -> Result<Self, Box<dyn Error>> {
+        let mut crowd_data = CrowdData{
+            per_vehicle_journey : BTreeMap::new()
+        };
+        let filepath = csv_loads_filepath.as_ref();
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b';')
+            .from_path(filepath)?;
+
+        let mut record = csv::StringRecord::new();
+
+        while reader.read_record(&mut record)? {
+            let is_valid_record = parse_record(&record, model);
+            let (vehicle_journey_idx, stop_sequence, load, date) = match is_valid_record {
+                Ok((vehicle_journey_idx, stop_sequence, load, date)) => {
+                    (vehicle_journey_idx, stop_sequence, load, date)
+                }
+                Err(parse_error) => {
+                    debug!(
+                        "Error reading {:?} at line {} : {} \n. I'll skip this line. ",
+                        filepath,
+                        reader.position().line(),
+                        parse_error
                     );
                     continue;
                 }
+            };
+
+            let stop_sequence_iter =  model.vehicle_journeys[vehicle_journey_idx]
+                .stop_times.iter().map(|stop_time| {
+                    stop_time.sequence
+                });
+
+
+            let vehicle_journey_crowd = crowd_data
+                .per_vehicle_journey
+                .entry(vehicle_journey_idx)
+                .or_insert_with(||VehicleJourneyCrowd::new(stop_sequence_iter));
+            let load_result = vehicle_journey_crowd.get_load(&date, stop_sequence);
+            match load_result {
+                Err(_) => {
+                    trace!("Error reading {:?} at line {}. \n 
+                        The provided stop_sequence {} is not valid for the vehicle_journey {}.
+                        I'll skip this line.",
+                        filepath,
+                        reader.position().line(),
+                        stop_sequence,
+                        &record[0]
+                    );
+                    trace!("Valid stop_sequence : {:#?}", vehicle_journey_crowd.stop_sequence_to_idx);
+                    continue;
+                }
+                Ok(Some(_)) => {
+                    trace!("Error reading {:?}. There is two load values for trip {} at date {}. I'll ignore the second value.",
+                        filepath,
+                        &record[0],
+                        date
+                    );
+                    continue;
+                },
+                Ok(None) => {}
+
             }
+            let _ = vehicle_journey_crowd.set_load(&date, stop_sequence, load);
+        }
+
+        crowd_data.check(model);
+
+        Ok(crowd_data)
+    }
+
+    fn check(&self, model : & Model)  {
+        // for each vehicle_journey, check that :
+        //  - for each valid date, we have load data for every stop_time
+        for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
+            let has_calendar = model.calendars.get(&vehicle_journey.service_id);
+            if has_calendar.is_none() {
+                continue;
+            }
+            let calendar = has_calendar.unwrap();
+
+            let has_vehicle_journey_crowd = self.per_vehicle_journey.get(&vehicle_journey_idx);
+            if has_vehicle_journey_crowd.is_none() {
+                debug!(
+                    "No crowding data provided for vehicle_journey {}",
+                    vehicle_journey.id
+                );
+                continue;
+            }
+            let vehicle_journey_crowd = has_vehicle_journey_crowd.unwrap();
+            for date in calendar.dates.iter() {
+                for stop_time in vehicle_journey.stop_times.iter() {
+                    let stop_sequence = stop_time.sequence;
+                    // unwrap is safe here because we initialize `vehicle_journey_crowd`
+                    // with vehicle_journey.stop_times.stop_sequence (used also here to iterate stop_sequence)
+                    let load_result = vehicle_journey_crowd.get_load(date, stop_sequence).unwrap(); 
+                    if load_result.is_none() {
+                        debug!(
+                            "No crowding data provided for vehicle_journey {} on date {} at stop sequence {}",
+                            vehicle_journey.id, date, stop_sequence
+                        );
+                    }
+                }
+            }            
         }
     }
 
-    Ok(crowding_data)
 }
 
 fn parse_record(
@@ -168,11 +259,13 @@ fn parse_record(
 
 #[cfg(test)]
 mod tests {
+    use super::CrowdData;
+
     #[test]
     fn exploration() {
         let input_dir = "/home/pascal/data/charge/ntfs/";
         let model = transit_model::ntfs::read(input_dir).unwrap();
-        let crowding_data_filepath = "/home/pascal/data/charge/stoptimes_load.csv";
-        let crowding_date = super::read(crowding_data_filepath, &model);
+        let crowd_data_filepath = "/home/pascal/data/charge/stoptimes_load.csv";
+        let _crowd_data = CrowdData::new(crowd_data_filepath, &model);
     }
 }
