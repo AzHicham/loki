@@ -5,7 +5,7 @@ mod request;
 // pub mod calendar_data;
 // pub mod daily_data;
 
-pub mod crowding_data;
+pub mod loads_data;
 
 pub use chrono::NaiveDateTime;
 pub use log;

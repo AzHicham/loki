@@ -12,7 +12,7 @@ use crate::transit_data::{Idx, VehicleJourney};
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
 
-use crate::timetables::Timetables as TimetablesTrait;
+use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
 
 use crate::log::warn;
 
@@ -34,13 +34,16 @@ pub struct Trip {
     day: DaysSinceDatasetStart,
 }
 
-impl TimetablesTrait for PeriodicTimetables {
+impl TimetablesTypes for PeriodicTimetables {
     type Mission = super::generic_timetables::Timetable;
 
     type Position = super::generic_timetables::Position;
 
     type Trip = Trip;
 
+}
+
+impl TimetablesTrait for PeriodicTimetables {
     fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         let calendar = Calendar::new(first_date, last_date);
         let nb_of_days: usize = calendar.nb_of_days().into();
