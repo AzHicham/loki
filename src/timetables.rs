@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
-use crate::{loads_data::Load, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}};
+use crate::{loads_data::{Load, LoadsData}, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}};
 
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
@@ -207,7 +207,7 @@ pub trait TimeLoadtables : Types {
             SecondsSinceTimezonedDayStart,
             SecondsSinceTimezonedDayStart,
         )],
-        loads : & [Load],
+        loads_data : & LoadsData,
         valid_dates: NaiveDates,
         timezone: &TimeZone,
         vehicle_journey_idx: Idx<VehicleJourney>,

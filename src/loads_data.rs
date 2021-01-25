@@ -99,9 +99,9 @@ impl LoadsData {
         Some(trip_load.per_stop.as_slice())
     }
 
-    pub fn default_loads(&self) -> std::iter::Repeat<Load> {
-        std::iter::repeat(Load::Medium)
-    }
+    // pub fn default_loads(&self) -> std::iter::Repeat<Load> {
+    //     std::iter::repeat(Load::Medium)
+    // }
 
     pub fn new<P: AsRef<Path>>(
         csv_occupancys_filepath: P,

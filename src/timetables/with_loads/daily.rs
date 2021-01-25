@@ -1,13 +1,13 @@
-use std::{cmp::max, iter::Map};
+use std::{cmp::max};
 
 use super::super::{TimetablesIter, Stop, StopFlows, 
     generic_timetables::{Timetables, Timetable, Position, Vehicle, VehicleTimesError}, 
     iters::{PositionsIter, VehicleIter, TimetableIter}
 };
 
-use crate::time::{
+use crate::{loads_data::LoadsData, time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-};
+}};
 use crate::transit_data::{Idx, VehicleJourney};
 use chrono::NaiveDate;
 
@@ -15,7 +15,7 @@ use crate::timetables::{TimeLoad, TimeLoadtables, Types as TimetablesTypes};
 
 use crate::log::warn;
 
-use crate::loads_data::{Load, LoadsData};
+use crate::loads_data::{Load};
 
 pub struct DailyTimetables {
     timetables: Timetables<TimeLoad, (), VehicleData>,
@@ -138,7 +138,7 @@ impl TimeLoadtables for DailyTimetables {
             SecondsSinceTimezonedDayStart,
             SecondsSinceTimezonedDayStart,
         )],
-        loads : & [Load],
+        loads_data : & LoadsData,
         valid_dates: NaiveDates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
@@ -147,8 +147,8 @@ impl TimeLoadtables for DailyTimetables {
     where
         NaiveDates: Iterator<Item = &'date chrono::NaiveDate>,
     {
+
         let mut result = Vec::new();
-        assert!(board_debark_timezoned_times.len() - 1 == loads.len() );
 
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);
@@ -175,13 +175,25 @@ impl TimeLoadtables for DailyTimetables {
                                 let debark_time_utc = calendar.compose(&day, debark_time, timezone);
                                 (board_time_utc, debark_time_utc)
                             });
+
+                    let has_loads = loads_data.loads(&vehicle_journey_idx, date);
+                    assert!(if let Some(loads) = has_loads {
+                        board_debark_timezoned_times.len()  == loads.len() 
+                    } 
+                    else {
+                        true
+                    }                       
+                    );
+
                     let board_debark_timeloads = board_debark_utc_times.enumerate()
                             .map(|(idx, (board_time, debark_time))| {
-                                let load_after_board = &loads[idx];
-                                let board_timeload = TimeLoad::new(board_time, *load_after_board);
+                                let load_after_board = has_loads.map_or(Load::Medium, 
+                                    |loads| loads[idx].clone());
+                                let board_timeload = TimeLoad::new(board_time, load_after_board);
 
-                                let load_before_debark = &loads[max(idx - 1, 0)];
-                                let debark_timeload = TimeLoad::new(debark_time, *load_before_debark);
+                                let load_before_debark = has_loads.map_or(Load::Medium, 
+                                    |loads| loads[max(idx - 1, 0)].clone());
+                                let debark_timeload = TimeLoad::new(debark_time, load_before_debark);
                                 (board_timeload, debark_timeload)
                             });
                     let vehicle_data = VehicleData {
