@@ -1,17 +1,17 @@
 use super::{generic_timetables::Timetables, TimetablesIter};
 
-use crate::time::{
+use crate::{loads_data::{Load, LoadsData}, time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-};
+}};
 use crate::transit_data::{Idx, VehicleJourney};
 use chrono::NaiveDate;
 
-use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
+use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes, Stop, FlowDirection};
 
 use crate::log::warn;
 
 pub struct DailyTimetables {
-    timetables: Timetables<SecondsSinceDatasetUTCStart, (), VehicleData>,
+    timetables: Timetables<SecondsSinceDatasetUTCStart, (), (), VehicleData>,
     calendar: Calendar,
 }
 #[derive(Clone)]
@@ -91,24 +91,28 @@ impl TimetablesTrait for DailyTimetables {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> SecondsSinceDatasetUTCStart {
-        *self.timetables.arrival_time(trip, position)
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
+        let time = self.timetables.arrival_time(trip, position).0;
+        (*time, Load::default())
+            
     }
 
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart> {
-        self.timetables.debark_time(trip, position).cloned()
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+        self.timetables.debark_time(trip, position)
+            .map(|(time, _)| (*time, Load::default()))
     }
 
     fn board_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart> {
-        self.timetables.board_time(trip, position).cloned()
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+        self.timetables.board_time(trip, position)
+            .map(|(time, _)| (*time, Load::default()))
     }
 
     fn earliest_trip_to_board_at(
@@ -116,29 +120,39 @@ impl TimetablesTrait for DailyTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)> {
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .earliest_vehicle_to_board(waiting_time, mission, position)
-            .map(|(trip, time)| (trip, *time))
+            .map(|(trip, time, _)| (trip, *time, Load::default()))
     }
 
-    fn insert<'date, NaiveDates>(
+    fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stop_flows: super::StopFlows,
-        board_debark_timezoned_times: &[(
-            SecondsSinceTimezonedDayStart,
-            SecondsSinceTimezonedDayStart,
-        )],
-        valid_dates: NaiveDates,
+        stops : Stops,
+        flows : Flows,
+        board_times : Times,
+        debark_times : Times,
+        loads_data : & LoadsData,
+        valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
     ) -> Vec<Self::Mission>
     where
-        NaiveDates: Iterator<Item = &'date chrono::NaiveDate>,
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+
     {
         let mut result = Vec::new();
-
+        let nb_of_positions = stops.len();
+        let loads = if nb_of_positions > 0 {
+            vec![(); nb_of_positions - 1]
+        }
+        else {
+            vec![(); 0]
+        };
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
@@ -156,21 +170,22 @@ impl TimetablesTrait for DailyTimetables {
                 }
                 Some(day) => {
                     let calendar = &self.calendar;
-                    let board_debark_utc_times =
-                        board_debark_timezoned_times
-                            .iter()
-                            .map(|(board_time, debark_time)| {
-                                let board_time_utc = calendar.compose(&day, board_time, timezone);
-                                let debark_time_utc = calendar.compose(&day, debark_time, timezone);
-                                (board_time_utc, debark_time_utc)
-                            });
+                    let board_times_utc = board_times.clone().map(|time| {
+                        calendar.compose(&day, &time, timezone)
+                    });
+                    let debark_times_utc = debark_times.clone().map(|time|{
+                        calendar.compose(&day, &time, timezone)
+                    });
                     let vehicle_data = VehicleData {
                         vehicle_journey_idx,
                         day,
                     };
                     let insert_error = self.timetables.insert(
-                        stop_flows.clone(),
-                        board_debark_utc_times,
+                        stops.clone(),
+                        flows.clone(),
+                        board_times_utc,
+                        debark_times_utc,
+                        loads.clone().into_iter(),
                         (),
                         vehicle_data,
                     );
@@ -182,8 +197,7 @@ impl TimetablesTrait for DailyTimetables {
                             handle_vehicletimes_error(
                                 vehicle_journey,
                                 date,
-                                &error,
-                                board_debark_timezoned_times,
+                                &error
                             );
                         }
                     }
@@ -220,61 +234,48 @@ fn handle_vehicletimes_error(
     vehicle_journey: &VehicleJourney,
     date: &NaiveDate,
     error: &VehicleTimesError,
-    board_debark_times: &[(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)],
 ) {
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let board = &board_debark_times[position_pair.upstream].0;
-            let debark = &board_debark_times[position_pair.downstream].1;
             warn!(
                 "Skipping vehicle journey {} on day {} because its \
-                    debark time {} at sequence {}\
+                    debark time at : \n {:?} \n\
                     is earlier than its \
-                    board time {} upstream at sequence {}. ",
+                    board time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
                 date,
-                debark,
-                downstream_stop_time.sequence,
-                board,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_board = &board_debark_times[position_pair.upstream].0;
-            let downstream_board = &board_debark_times[position_pair.downstream].0;
             warn!(
                 "Skipping vehicle journey {} on day {} because its \
-                    board time {} at sequence {} \
+                    board time at : \n {:?} \n \
                     is earlier than its \
-                    board time {} upstream at sequence {}. ",
+                    board time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
                 date,
-                downstream_board,
-                downstream_stop_time.sequence,
-                upstream_board,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_debark = &board_debark_times[position_pair.upstream].1;
-            let downstream_debark = &board_debark_times[position_pair.downstream].1;
             warn!(
                 "Skipping vehicle journey {} on day {} because its \
-                    debark time {} at sequence {} \
+                    debark time at : \n {:?} \n \
                     is earlier than its \
-                    debark time {} upstream at sequence {}. ",
+                    debark time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
                 date,
-                downstream_debark,
-                downstream_stop_time.sequence,
-                upstream_debark,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
     }

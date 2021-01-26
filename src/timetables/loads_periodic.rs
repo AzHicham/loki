@@ -1,6 +1,6 @@
 use std::{cmp::max, collections::BTreeMap};
 
-use super::super::{TimetablesIter, Stop, StopFlows, 
+use super::{TimetablesIter, Stop, StopFlows, 
     generic_timetables::{Timetables, Timetable, Position, Vehicle, VehicleTimesError}, 
     iters::{PositionsIter, VehicleIter, TimetableIter}
 };
@@ -9,51 +9,18 @@ use crate::{loads_data::LoadsData, time::{Calendar, DaysSinceDatasetStart, Secon
 use crate::transit_data::{Idx, VehicleJourney};
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
-use crate::timetables::{TimeLoad, TimeLoadtables, Types as TimetablesTypes};
+use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes, FlowDirection};
 
 use crate::log::warn;
 
 use crate::loads_data::{Load};
 
 
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LocalTimeLoad {
-    time : SecondsSinceTimezonedDayStart,
-    load : Load,
-}
-
-impl LocalTimeLoad {
-    fn new(time : SecondsSinceTimezonedDayStart, load : Load) -> Self {
-        Self{
-            time,
-            load
-        }
-    }
-}
-
-use std::cmp::Ordering;
-
-impl Ord for LocalTimeLoad {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Ordering::{Less, Equal, Greater};
-        match Ord::cmp(&self.time, &other.time) {
-            Less => Less, 
-            Greater => Greater,
-            Equal => self.load.cmp(&other.load)
-        }
-    }
-}
-
-impl PartialOrd for LocalTimeLoad {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
+pub type Time = SecondsSinceTimezonedDayStart;
 
 
 pub struct PeriodicTimetables {
-    timetables: Timetables<LocalTimeLoad, TimeZone, VehicleData>,
+    timetables: Timetables<Time, Load, TimeZone, VehicleData>,
     calendar: Calendar,
     days_patterns: DaysPatterns,
 }
@@ -79,7 +46,7 @@ impl TimetablesTypes for PeriodicTimetables {
 
 }
 
-impl TimeLoadtables for PeriodicTimetables {
+impl TimetablesTrait for PeriodicTimetables {
     fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         let calendar = Calendar::new(first_date, last_date);
         let nb_of_days: usize = calendar.nb_of_days().into();
@@ -141,46 +108,46 @@ impl TimeLoadtables for PeriodicTimetables {
         self.timetables.next_position(position, mission)
     }
 
-    fn arrival_timeload_of(
+    fn arrival_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> TimeLoad {
-        let localtime_load = self.timetables.arrival_time(&trip.vehicle, position);
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
+        let (localtime, load) = self.timetables.arrival_time(&trip.vehicle, position);
         let timetable = self.timetables.timetable_of(&trip.vehicle);
         let timezone = self.timetables.timezone_data(&timetable);
         let day = &trip.day;
-        let time = self.calendar.compose(day, &localtime_load.time, timezone);
-        TimeLoad::new(time, localtime_load.load)
+        let time = self.calendar.compose(day, &localtime, timezone);
+        (time, *load)
     }
 
-    fn debark_timeload_of(
+    fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<TimeLoad> {
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load) > {
         let has_localtime_load = self.timetables.debark_time(&trip.vehicle, position);
-        has_localtime_load.map(|localtime_load| {
+        has_localtime_load.map(|(localtime, load)| {
             let timetable = self.timetables.timetable_of(&trip.vehicle);
             let timezone = self.timetables.timezone_data(&timetable);
             let day = &trip.day;
-            let time = self.calendar.compose(day, &localtime_load.time, timezone);
-            TimeLoad::new(time, localtime_load.load)
+            let time = self.calendar.compose(day, &localtime, timezone);
+            (time, *load)
         })
     }
 
-    fn board_timeload_of(
+    fn board_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<TimeLoad> {
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         let has_localtime_load = self.timetables.board_time(&trip.vehicle, position);
-        has_localtime_load.map(|localtime_load| {
+        has_localtime_load.map(|(localtime, load)| {
             let timetable = self.timetables.timetable_of(&trip.vehicle);
             let timezone = self.timetables.timezone_data(&timetable);
             let day = &trip.day;
-            let time = self.calendar.compose(day, &localtime_load.time, timezone);
-            TimeLoad::new(time, localtime_load.load)
+            let time = self.calendar.compose(day, &localtime, timezone);
+            (time, *load)
         })
     }
 
@@ -189,7 +156,7 @@ impl TimeLoadtables for PeriodicTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, TimeLoad)> {
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
 
@@ -197,25 +164,25 @@ impl TimeLoadtables for PeriodicTimetables {
         // and we return None
         let (earliest_board_time_in_day, latest_board_time_in_day) =
             has_earliest_and_latest_board_time
-            .map(|(earliest_timeload, latest_timeload)| (earliest_timeload.time, latest_timeload.time))?;
+            .map(|(earliest, latest)| (earliest, latest))?;
 
         let timezone = self.timetables.timezone_data(&mission);
 
         let decompositions = self.calendar.decompositions(
             waiting_time,
             timezone,
-            latest_board_time_in_day,
-            earliest_board_time_in_day,
+            *latest_board_time_in_day,
+            *earliest_board_time_in_day,
         );
         let mut best_vehicle_day_and_its_arrival_timeload_at_next_position: Option<(
             Vehicle,
             DaysSinceDatasetStart,
-            TimeLoad,
+            SecondsSinceDatasetUTCStart,
+            Load,
         )> = None;
         for (waiting_day, waiting_time_in_day) in decompositions {
-            let waiting_localtimeload = LocalTimeLoad::new(waiting_time_in_day, Load::Low);
             let has_vehicle = self.timetables.earliest_filtered_vehicle_to_board(
-                &waiting_localtimeload,
+                &waiting_time_in_day,
                 &mission,
                 &position,
                 |vehicle_data| {
@@ -223,72 +190,70 @@ impl TimeLoadtables for PeriodicTimetables {
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
                 },
             );
-            if let Some((vehicle, arrival_localtimeload_at_next_stop)) = has_vehicle {
+            if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
                 let arrival_time_at_next_stop = self.calendar.compose(
                     &waiting_day,
-                    &arrival_localtimeload_at_next_stop.time,
+                    &arrival_time_in_day_at_next_stop,
                     &timezone,
                 );
-                let arrival_timeload_at_next_stop = TimeLoad::new(arrival_time_at_next_stop, arrival_localtimeload_at_next_stop.load);
-                if let Some((_, _, best_arrival_timeload)) =
+
+                if let Some((_, _, best_arrival_time, best_load)) =
                     &best_vehicle_day_and_its_arrival_timeload_at_next_position
                 {
-                    if arrival_timeload_at_next_stop < *best_arrival_timeload {
+                    if arrival_time_at_next_stop < *best_arrival_time 
+                    || ( arrival_time_at_next_stop == *best_arrival_time 
+                        && load < best_load )
+                    {
                         best_vehicle_day_and_its_arrival_timeload_at_next_position =
-                            Some((vehicle, waiting_day, arrival_timeload_at_next_stop));
+                            Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
                     }
                 } else {
                     best_vehicle_day_and_its_arrival_timeload_at_next_position =
-                        Some((vehicle, waiting_day, arrival_timeload_at_next_stop));
+                    Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
                 }
             }
         }
 
         best_vehicle_day_and_its_arrival_timeload_at_next_position.map(
-            |(vehicle, day, arrival_timeload_at_next_stop)| {
+            |(vehicle, day, arrival_time_at_next_stop, load)| {
                 let trip = Trip { vehicle, day };
-                (trip, arrival_timeload_at_next_stop)
+                (trip, arrival_time_at_next_stop, load)
             },
         )
     }
 
-    fn insert<'date, NaiveDates>(
+    fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stop_flows: StopFlows,
-        board_debark_timezoned_times: &[(
-            SecondsSinceTimezonedDayStart,
-            SecondsSinceTimezonedDayStart,
-        )],
+        stops : Stops,
+        flows : Flows,
+        board_times : Times,
+        debark_times : Times,
         loads_data : & LoadsData,
-        valid_dates: NaiveDates,
+        valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
     ) -> Vec<Self::Mission>
     where
-        NaiveDates: Iterator<Item = &'date NaiveDate>,
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
 
         let mut load_patterns_dates : BTreeMap<& [Load], Vec<NaiveDate>>= BTreeMap::new();
-        let mut default_load_dates : Vec<NaiveDate> = Vec::new();
 
+        let nb_of_positions = stops.len();
+        let default_loads = if nb_of_positions > 0 {
+            vec![Load::default(); nb_of_positions - 1]
+        }
+        else {
+            vec![Load::default(); 0]
+        };
         for date in valid_dates {
-            let has_loads = loads_data.loads(&vehicle_journey_idx, date);
-            assert!(if let Some(loads) = has_loads {
-                board_debark_timezoned_times.len()  == loads.len() 
-                } 
-                else {
-                    true
-                }                      
-            );
-
-            if let Some(loads) = has_loads {
-                load_patterns_dates.entry(loads).or_insert_with(Vec::new)
-                    .push(*date);
-            }
-            else {
-                default_load_dates.push(*date)
-            }
+            let loads = loads_data.loads(&vehicle_journey_idx, date).unwrap_or(default_loads.as_slice());
+            load_patterns_dates.entry(loads).or_insert_with(Vec::new)
+                .push(*date);
 
         }
 
@@ -296,87 +261,34 @@ impl TimeLoadtables for PeriodicTimetables {
 
         for (loads, dates) in load_patterns_dates.into_iter() {
 
-            let board_debark_localtimeloads = board_debark_timezoned_times.iter().enumerate()
-            .map(|(idx, (board_time, debark_time))| {
-                let load_after_board = loads[idx].clone();
-                let board_timeload = LocalTimeLoad::new(*board_time, load_after_board);
-    
-                let load_before_debark = loads[max(idx - 1, 0)].clone();
-                let debark_timeload = LocalTimeLoad::new(*debark_time, load_before_debark);
-                (board_timeload, debark_timeload)
-            });
-
-            let insert_error = self._insert(
-                stop_flows.clone(), 
-                board_debark_localtimeloads, 
-                &dates,
-                 timezone, 
-                 vehicle_journey_idx
-                );
-            match insert_error {
-                Ok(mission) => {
-                    result.push(mission);
-                }
-                Err(error) => {
-                    handle_vehicletimes_error(vehicle_journey, &error, board_debark_timezoned_times);
-                }
-            }
-        }
-
-        {
-            let board_debark_localtimeloads = board_debark_timezoned_times.iter()
-                .map(|(board_time, debark_time)| {
-                    let board_timeload = LocalTimeLoad::new(*board_time, Load::Medium);
-                    let debark_timeload = LocalTimeLoad::new(*debark_time, Load::Medium);
-                    (board_timeload, debark_timeload)
-                } );
-            let insert_error = self._insert(
-                stop_flows.clone(), 
-                board_debark_localtimeloads, 
-                &default_load_dates,
-                timezone, 
-                vehicle_journey_idx
+            
+            let days_pattern = self
+                .days_patterns
+                .get_or_insert(dates.iter(), &self.calendar);
+            let vehicle_data = VehicleData {
+                days_pattern,
+                vehicle_journey_idx,
+            };
+            let insert_error = self.timetables.insert(
+                stops.clone(), 
+                flows.clone(),
+                board_times.clone(),
+                debark_times.clone(),
+                loads.iter().cloned(),
+                *timezone, 
+                vehicle_data
             );
             match insert_error {
                 Ok(mission) => {
                     result.push(mission);
                 }
                 Err(error) => {
-                    handle_vehicletimes_error(vehicle_journey, &error, board_debark_timezoned_times);
+                    handle_vehicletimes_error(vehicle_journey, &error);
                 }
             }
-
         }
         
         result
-    }
-}
-
-impl PeriodicTimetables {
-    fn _insert<BoardDebarkLocalTimeLoads>(& mut self, 
-        stop_flows : StopFlows,
-        board_debark_localtimeloads : BoardDebarkLocalTimeLoads,
-        dates : & [NaiveDate], 
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
-    ) -> Result<Timetable, VehicleTimesError>
-    where BoardDebarkLocalTimeLoads : Iterator<Item = (LocalTimeLoad, LocalTimeLoad)> + ExactSizeIterator + Clone
-    
-    {
-        let days_pattern = self
-                .days_patterns
-                .get_or_insert(dates.iter(), &self.calendar);
-        let vehicle_data = VehicleData {
-            days_pattern,
-            vehicle_journey_idx,
-        };
-        self.timetables.insert(
-            stop_flows.clone(),
-            board_debark_localtimeloads,
-            *timezone,
-            vehicle_data,
-        )
-        
     }
 }
 
@@ -384,62 +296,50 @@ impl PeriodicTimetables {
 fn handle_vehicletimes_error(
     vehicle_journey: &VehicleJourney,
     error: &VehicleTimesError,
-    board_debark_times: &[(SecondsSinceTimezonedDayStart, SecondsSinceTimezonedDayStart)],
 ) {
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let board = &board_debark_times[position_pair.upstream].0;
-            let debark = &board_debark_times[position_pair.downstream].1;
             warn!(
                 "Skipping vehicle journey {}  because its \
-                    debark time {} at sequence {}\
+                    debark time at : \n {:?} \n\
                     is earlier than its \
-                    board time {} upstream at sequence {}. ",
+                    board time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
-                debark,
-                downstream_stop_time.sequence,
-                board,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_board = &board_debark_times[position_pair.upstream].0;
-            let downstream_board = &board_debark_times[position_pair.downstream].0;
             warn!(
-                "Skipping vehicle journey {}  because its \
-                    board time {} at sequence {} \
+                "Skipping vehicle journey {} because its \
+                    board time at : \n {:?} \n \
                     is earlier than its \
-                    board time {} upstream at sequence {}. ",
+                    board time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
-                downstream_board,
-                downstream_stop_time.sequence,
-                upstream_board,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
             let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            let upstream_debark = &board_debark_times[position_pair.upstream].1;
-            let downstream_debark = &board_debark_times[position_pair.downstream].1;
             warn!(
                 "Skipping vehicle journey {}  because its \
-                    debark time {} at sequence {} \
+                    debark time at : \n {:?} \n \
                     is earlier than its \
-                    debark time {} upstream at sequence {}. ",
+                    debark time upstream at : \n {:?} \n. ",
                 vehicle_journey.id,
-                downstream_debark,
-                downstream_stop_time.sequence,
-                upstream_debark,
-                upstream_stop_time.sequence
+                downstream_stop_time,
+                upstream_stop_time
             );
         }
     }
 }
+
 
 impl<'a> TimetablesIter<'a> for PeriodicTimetables {
     type Positions = PositionsIter;

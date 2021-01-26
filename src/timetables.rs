@@ -1,11 +1,16 @@
-mod daily;
+
 mod generic_timetables;
 mod iters;
+mod daily;
 mod periodic;
-mod with_loads;
+mod loads_daily;
+mod loads_periodic;
 
 pub use daily::DailyTimetables;
 pub use periodic::PeriodicTimetables;
+
+pub use loads_daily::DailyTimetables as LoadsDailyTimetables;
+pub use loads_periodic::PeriodicTimetables as LoadsPeriodicTimetables;
 
 use std::hash::Hash;
 
@@ -14,7 +19,6 @@ pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 use crate::{loads_data::{Load, LoadsData}, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}};
 
 use chrono::NaiveDate;
-use chrono_tz::Tz as TimeZone;
 
 use std::fmt::Debug;
 
@@ -23,6 +27,7 @@ pub enum FlowDirection {
     BoardOnly,
     DebarkOnly,
     BoardAndDebark,
+    NoBoardDebark,
 }
 pub type StopFlows = Vec<(Stop, FlowDirection)>;
 
@@ -67,38 +72,43 @@ pub trait Timetables : Types {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> SecondsSinceDatasetUTCStart;
+    ) -> (SecondsSinceDatasetUTCStart, Load);
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart>;
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
+
     fn board_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart>;
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>;
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
-    fn insert<'date, NaiveDates>(
+    fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stop_flows: StopFlows,
-        board_debark_timezoned_times: &[(
-            SecondsSinceTimezonedDayStart,
-            SecondsSinceTimezonedDayStart,
-        )],
-        valid_dates: NaiveDates,
-        timezone: &TimeZone,
+        stops : Stops,
+        flows : Flows,
+        board_times : Times,
+        debark_times : Times,
+        loads_data : &LoadsData,
+        valid_dates: Dates,
+        timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
     ) -> Vec<Self::Mission>
     where
-        NaiveDates: Iterator<Item = &'date NaiveDate>;
+    Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+    Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+    Dates: Iterator<Item = &'date chrono::NaiveDate>,
+    Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+    ;
 }
 
 pub trait TimetablesIter<'a>: Types {
@@ -113,107 +123,4 @@ pub trait TimetablesIter<'a>: Types {
 }
 
 
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TimeLoad {
-    time : SecondsSinceDatasetUTCStart,
-    load : Load,
-}
-
-impl TimeLoad {
-    fn new(time : SecondsSinceDatasetUTCStart, load : Load) -> Self {
-        Self{
-            time,
-            load
-        }
-    }
-}
-
-use std::cmp::Ordering;
-
-impl Ord for TimeLoad {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Ordering::{Less, Equal, Greater};
-        match Ord::cmp(&self.time, &other.time) {
-            Less => Less, 
-            Greater => Greater,
-            Equal => self.load.cmp(&other.load)
-        }
-    }
-}
-
-impl PartialOrd for TimeLoad {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-
-pub trait TimeLoadtables : Types {
-
-    fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self;
-
-    fn calendar(&self) -> &Calendar;
-
-    fn nb_of_missions(&self) -> usize;
-    fn mission_id(&self, mission: &Self::Mission) -> usize;
-
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
-
-    fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
-    fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop;
-
-    fn is_upstream_in_mission(
-        &self,
-        upstream: &Self::Position,
-        downstream: &Self::Position,
-        mission: &Self::Mission,
-    ) -> bool;
-
-    fn next_position(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position>;
-
-    fn arrival_timeload_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> TimeLoad;
-    fn debark_timeload_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<TimeLoad>;
-    fn board_timeload_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<TimeLoad>;
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-    ) -> Option<(Self::Trip, TimeLoad)>;
-
-    fn insert<'date, NaiveDates>(
-        &mut self,
-        stop_flows: StopFlows,
-        board_debark_timezoned_times: &[(
-            SecondsSinceTimezonedDayStart,
-            SecondsSinceTimezonedDayStart,
-        )],
-        loads_data : & LoadsData,
-        valid_dates: NaiveDates,
-        timezone: &TimeZone,
-        vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
-    where
-        NaiveDates: Iterator<Item = &'date NaiveDate>;
-}
 

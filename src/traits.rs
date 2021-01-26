@@ -3,7 +3,7 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::{loads_data::{Load, LoadsData}, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -67,21 +67,21 @@ pub trait Data: TransitTypes {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart>;
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
     // Panics if `position` is not valid for `trip`
     // None if `trip` does not allows debark at `stop_idx`
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<SecondsSinceDatasetUTCStart>;
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
 
     // Panics if `trip` does not go through `position`
     fn arrival_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> SecondsSinceDatasetUTCStart;
+    ) -> (SecondsSinceDatasetUTCStart, Load);
 
     fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration);
 
@@ -90,7 +90,7 @@ pub trait Data: TransitTypes {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>;
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
@@ -105,7 +105,7 @@ pub trait Data: TransitTypes {
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
 
-    fn new(model: &Model, default_transfer_duration: PositiveDuration) -> Self;
+    fn new(model: &Model, loads_data : &LoadsData, default_transfer_duration: PositiveDuration) -> Self;
 
     fn calendar(&self) -> &crate::time::Calendar;
 

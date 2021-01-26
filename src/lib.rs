@@ -2,8 +2,7 @@ extern crate static_assertions;
 
 mod engine;
 mod request;
-// pub mod calendar_data;
-// pub mod daily_data;
+
 
 pub mod loads_data;
 
@@ -14,18 +13,22 @@ pub use transit_model;
 
 pub mod time;
 
-pub mod traits;
+pub mod traits; 
+
+
 
 mod timetables;
 
 mod transit_data;
 
-pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
+
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
+pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
 
-pub type DailyRequest<'data, 'model> = request::depart_after::Request<'data, DailyData>;
+pub type LoadsDailyData = transit_data::TransitData<timetables::LoadsDailyTimetables>;
+pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodicTimetables>;
 
-pub type PeriodicRequest<'data, 'model> = request::depart_after::Request<'data, PeriodicData>;
+pub use loads_data::LoadsData;
 
 pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
 

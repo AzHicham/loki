@@ -18,6 +18,12 @@ pub enum Load {
     High
 }
 
+impl Default for Load {
+    fn default() -> Self {
+        Load::Medium
+    }
+}
+
 use std::cmp::Ordering;
 
 fn load_to_int(load : & Load) -> u8 {
@@ -102,6 +108,12 @@ impl LoadsData {
     // pub fn default_loads(&self) -> std::iter::Repeat<Load> {
     //     std::iter::repeat(Load::Medium)
     // }
+
+    pub fn empty() -> Self {
+        LoadsData{
+            per_vehicle_journey : BTreeMap::new()
+        }
+    }
 
     pub fn new<P: AsRef<Path>>(
         csv_occupancys_filepath: P,

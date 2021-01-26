@@ -81,9 +81,9 @@ impl<'data, 'model, Data: traits::Data> RequestTrait for Request<'data, Data> {
         trip: &Self::Trip,
         waiting_criteria: &Self::Criteria,
     ) -> Option<Self::Criteria> {
-        let has_board_time = self.transit_data.board_time_of(trip, position);
-        if let Some(board_time) = has_board_time {
-            if waiting_criteria.arrival_time > board_time {
+        let has_board = self.transit_data.board_time_of(trip, position);
+        if let Some(board_timeload) = has_board {
+            if waiting_criteria.arrival_time > board_timeload.0 {
                 return None;
             }
         } else {
@@ -91,9 +91,9 @@ impl<'data, 'model, Data: traits::Data> RequestTrait for Request<'data, Data> {
         }
         let mission = self.transit_data.mission_of(trip);
         let next_position = self.transit_data.next_on_mission(position, &mission)?;
-        let arrival_time_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
+        let arrival_timeload_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
         let new_criteria = Criteria {
-            arrival_time: arrival_time_at_next_stop,
+            arrival_time: arrival_timeload_at_next_stop.0,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
@@ -110,7 +110,7 @@ impl<'data, 'model, Data: traits::Data> RequestTrait for Request<'data, Data> {
         let waiting_time = &waiting_criteria.arrival_time;
         self.transit_data
             .earliest_trip_to_board_at(waiting_time, mission, position)
-            .map(|(trip, arrival_time)| {
+            .map(|(trip, arrival_time, _arrival_load)| {
                 let new_criteria = Criteria {
                     arrival_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -129,12 +129,12 @@ impl<'data, 'model, Data: traits::Data> RequestTrait for Request<'data, Data> {
     ) -> Option<Self::Criteria> {
         debug_assert!({
             let arrival_time = &onboard_criteria.arrival_time;
-            self.transit_data.arrival_time_of(trip, position) == *arrival_time
+            self.transit_data.arrival_time_of(trip, position).0 == *arrival_time
         });
         self.transit_data
             .debark_time_of(trip, position)
-            .map(|debark_time| Criteria {
-                arrival_time: debark_time,
+            .map(|debark_timeload| Criteria {
+                arrival_time: debark_timeload.0,
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
@@ -152,9 +152,9 @@ impl<'data, 'model, Data: traits::Data> RequestTrait for Request<'data, Data> {
             .transit_data
             .next_on_mission(position, &mission)
             .unwrap();
-        let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
+        let arrival_timeload_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
         Criteria {
-            arrival_time: arrival_time_at_next_position,
+            arrival_time: arrival_timeload_at_next_position.0,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,

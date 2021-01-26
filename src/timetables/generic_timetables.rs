@@ -2,44 +2,49 @@ use std::{
     borrow::Borrow,
     cmp::{max, min, Ordering},
 };
-
+use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 use std::collections::BTreeMap;
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
 
 #[derive(Debug)]
-pub(super) struct Timetables<Time, TimezoneData, VehicleData> {
+pub(super) struct Timetables<Time, Load, TimezoneData, VehicleData> {
     pub(super) stop_flows_to_timetables: BTreeMap<StopFlows, Vec<Timetable>>,
-    pub(super) timetable_datas: Vec<TimetableData<Time, TimezoneData, VehicleData>>,
+    pub(super) timetable_datas: Vec<TimetableData<Time, Load, TimezoneData, VehicleData>>,
 }
 
 #[derive(Debug)]
-// TODO : document more explicitely !
-pub(super) struct TimetableData<Time, TimezoneData, VehicleData> {
+pub(super) struct TimetableData<Time, Load, TimezoneData, VehicleData> {
     pub(super) timezone_data: TimezoneData,
 
     pub(super) stop_flows: StopFlows,
 
-    // vehicle data, ordered by increasing times
-    // meaning that is vehicle_1 is before vehicle_2 in this vector,
-    // then for all `position` we have
-    //    debark_times_by_position[position][vehicle_1] <= debark_times_by_position[position][vehicle_2]
+    /// vehicle data, ordered by increasing times
+    /// meaning that if vehicle_1 is before vehicle_2 in this vector,
+    /// then for all `position` we have
+    ///    debark_times_by_position[position][vehicle_1] <= debark_times_by_position[position][vehicle_2]
     pub(super) vehicle_datas: Vec<VehicleData>,
 
-    // `board_times_by_position[position][vehicle]`
-    //   is the time at which a traveler waiting
-    //   at `position` can board `vehicle`
-    // Vehicles are ordered by increasing time
-    //  so for each `position` the vector
-    //  board_times_by_position[position] is sorted by increasing times
+
+    /// `vehicle_loads[vehicle][position]` is the load in vehicle 
+    /// between `position` and `position +1`
+    pub(super) vehicle_loads : Vec<Vec<Load>>,
+
+
+    /// `board_times_by_position[position][vehicle]`
+    ///   is the time at which a traveler waiting
+    ///   at `position` can board `vehicle`
+    /// Vehicles are ordered by increasing time
+    ///  so for each `position` the vector
+    ///  board_times_by_position[position] is sorted by increasing times
     pub(super) board_times_by_position: Vec<Vec<Time>>,
 
-    // `debark_times_by_position[position][vehicle]`
-    //   is the time at which a traveler being inside `vehicle`
-    //   will debark at `position`
-    // Vehicles are ordered by increasing time
-    //  so for each `position` the vector
-    //  debark_times_by_position[position] is sorted by increasing times
+    /// `debark_times_by_position[position][vehicle]`
+    ///   is the time at which a traveler being inside `vehicle`
+    ///   will debark at `position`
+    /// Vehicles are ordered by increasing time
+    ///  so for each `position` the vector
+    ///  debark_times_by_position[position] is sorted by increasing times
     pub(super) debark_times_by_position: Vec<Vec<Time>>,
 
     pub(super) earliest_and_latest_board_time_by_position: Vec<(Time, Time)>,
@@ -62,9 +67,10 @@ pub struct Vehicle {
     pub(super) idx: usize,
 }
 
-impl<Time, TimezoneData, VehicleData> Timetables<Time, TimezoneData, VehicleData>
+impl<Time, Load, TimezoneData, VehicleData> Timetables<Time, Load, TimezoneData, VehicleData>
 where
     Time: Ord + Clone,
+    Load: Ord + Clone,
     TimezoneData: PartialEq + Clone,
 {
     pub(super) fn new() -> Self {
@@ -85,7 +91,7 @@ where
     pub(super) fn timetable_data(
         &self,
         timetable: &Timetable,
-    ) -> &TimetableData<Time, TimezoneData, VehicleData> {
+    ) -> &TimetableData<Time, Load, TimezoneData, VehicleData> {
         &self.timetable_datas[timetable.idx]
     }
 
@@ -135,22 +141,28 @@ where
         }
     }
 
-    pub(super) fn debark_time(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+    pub(super) fn debark_time(&self, vehicle: &Vehicle, position: &Position) -> Option<(&Time, &Load)> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
-        timetable_data.debark_time(vehicle.idx, position.idx)
+        let time = timetable_data.debark_time(vehicle.idx, position.idx)?;
+        let load = timetable_data.load_before(vehicle.idx, position.idx);
+        Some((time, load))
     }
 
-    pub(super) fn board_time(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
+    pub(super) fn board_time(&self, vehicle: &Vehicle, position: &Position) -> Option<(&Time, &Load)> {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
-        timetable_data.board_time(vehicle.idx, position.idx)
+        let time = timetable_data.board_time(vehicle.idx, position.idx)?;
+        let load = timetable_data.load_after(vehicle.idx, position.idx);
+        Some((time, load))
     }
 
-    pub(super) fn arrival_time(&self, vehicle: &Vehicle, position: &Position) -> &Time {
+    pub(super) fn arrival_time(&self, vehicle: &Vehicle, position: &Position) -> (&Time, &Load) {
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
-        timetable_data.arrival_time(vehicle.idx, position.idx)
+        let time = timetable_data.arrival_time(vehicle.idx, position.idx);
+        let load = timetable_data.load_before(vehicle.idx, position.idx);
+        (time, load)
     }
 
     pub(super) fn earliest_and_latest_board_time(
@@ -166,7 +178,7 @@ where
         waiting_time: &Time,
         timetable: &Timetable,
         position: &Position,
-    ) -> Option<(Vehicle, &Time)> {
+    ) -> Option<(Vehicle, &Time, &Load)> {
         self.earliest_filtered_vehicle_to_board(waiting_time, timetable, position, |_| true)
     }
 
@@ -176,7 +188,7 @@ where
         timetable: &Timetable,
         position: &Position,
         filter: Filter,
-    ) -> Option<(Vehicle, &Time)>
+    ) -> Option<(Vehicle, &Time, &Load)>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -188,52 +200,96 @@ where
                     timetable: timetable.clone(),
                     idx,
                 };
-                (vehicle, time)
+                let load = self.timetable_data(timetable).load_after(timetable.idx, position.idx);
+                (vehicle, time, load)
             })
     }
 
     // Insert in the trip in a timetable if
     // the given debark_times and board_times are coherent.
     // Returns a VehicleTimesError otherwise.
-    pub fn insert<BoardDebarkTimes>(
+    pub fn insert<BoardTimes, DebarkTimes, Loads, Stops, Flows>(
         &mut self,
-        stop_flows: StopFlows,
-        board_debark_times: BoardDebarkTimes,
+        stops : Stops,
+        flows: Flows,
+        board_times : BoardTimes,
+        debark_times : DebarkTimes,
+        loads: Loads,
         timezone_data: TimezoneData,
         vehicle_data: VehicleData,
     ) -> Result<Timetable, VehicleTimesError>
     where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads: Iterator<Item = Load> + ExactSizeIterator + Clone,
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Time: Clone,
         VehicleData: Clone,
     {
-        inspect(&stop_flows, board_debark_times.clone())?;
+        let nb_of_positions = stops.len();
+        assert!(nb_of_positions == flows.len());
+        assert!(nb_of_positions == board_times.len());
+        assert!(nb_of_positions == debark_times.len());
+        assert!(nb_of_positions == loads.len() + 1);
+        inspect(flows.clone(), board_times.clone(), debark_times.clone())?;
 
-        let corrected_board_debark_times = board_debark_times.clone().zip(stop_flows.iter()).map(
-            |((board_time, debark_time), (_, flow_direction))| match flow_direction {
-                FlowDirection::BoardAndDebark => (board_time, debark_time),
-                FlowDirection::BoardOnly => (board_time.clone(), board_time),
-                FlowDirection::DebarkOnly => (debark_time.clone(), debark_time),
+
+        let corrected_flows = flows.enumerate()
+        .map(|(position_idx, flow)| {
+            if position_idx == 0 {
+                match flow {
+                    BoardAndDebark => BoardOnly,
+                    DebarkOnly => NoBoardDebark,
+                    _ => flow,
+                }
+            }
+            else if position_idx == nb_of_positions - 1 {
+                match flow {
+                    BoardAndDebark => DebarkOnly,
+                    BoardOnly => NoBoardDebark,
+                    _ => flow
+                }
+            }
+            else {
+                flow
+            }
+        });
+
+        let corrected_board_debark_times = 
+            board_times.clone()
+            .zip(debark_times.clone())
+            .zip(corrected_flows.clone())
+            .map(
+            |((board_time, debark_time), flow_direction)| match flow_direction {
+                BoardOnly => (board_time.clone(), board_time),
+                DebarkOnly => (debark_time.clone(), debark_time),
+                BoardAndDebark | NoBoardDebark => (board_time, debark_time),
             },
         );
+        let corrected_board_times = corrected_board_debark_times.clone().map(|(board,_)| board);
+        let corrected_debark_times = corrected_board_debark_times.map(|(_, debark)| debark);
+        let stop_flows : Vec<(Stop, FlowDirection)> = stops.zip(corrected_flows).collect();
         let stop_flows_timetables = self
             .stop_flows_to_timetables
             .entry(stop_flows.clone())
             .or_insert_with(Vec::new);
 
-        for mission in stop_flows_timetables.iter() {
-            let timetable_data = &mut self.timetable_datas[mission.idx];
-            let inserted = timetable_data.try_insert(
-                corrected_board_debark_times.clone(),
+        for timetable in stop_flows_timetables.iter() {
+            let timetable_data = &mut self.timetable_datas[timetable.idx];
+            let is_inserted = timetable_data.try_insert(
+                corrected_board_times.clone(),
+                corrected_debark_times.clone(),
+                loads.clone(),
                 timezone_data.clone(),
                 vehicle_data.clone(),
             );
-            if inserted {
-                return Ok(mission.clone());
+            if is_inserted {
+                return Ok(timetable.clone());
             }
         }
         let new_timetable_data =
-            TimetableData::new(stop_flows, board_debark_times, timezone_data, vehicle_data);
+            TimetableData::new(stop_flows, corrected_board_times, corrected_debark_times, loads, timezone_data, vehicle_data);
         let timetable = Timetable {
             idx: self.timetable_datas.len(),
         };
@@ -243,40 +299,41 @@ where
     }
 }
 
-impl<Time, TimezoneData, VehicleData> TimetableData<Time, TimezoneData, VehicleData>
+impl<Time, Load, TimezoneData, VehicleData> TimetableData<Time, Load, TimezoneData, VehicleData>
 where
     Time: Ord + Clone,
+    Load : Ord,
     TimezoneData: PartialEq,
 {
     fn can_board(&self, position_idx: usize) -> bool {
         match &self.stop_flows[position_idx].1 {
-            FlowDirection::BoardAndDebark | FlowDirection::BoardOnly => true,
-            FlowDirection::DebarkOnly => false,
+            BoardAndDebark | BoardOnly => true,
+            NoBoardDebark | DebarkOnly => false,
         }
     }
 
     fn can_debark(&self, position_idx: usize) -> bool {
         match &self.stop_flows[position_idx].1 {
-            FlowDirection::BoardAndDebark | FlowDirection::DebarkOnly => true,
-            FlowDirection::BoardOnly => false,
+            BoardAndDebark | DebarkOnly => true,
+            NoBoardDebark | BoardOnly => false,
         }
     }
 
-    fn arrival_time(&self, trip_idx: usize, position_idx: usize) -> &Time {
-        &self.debark_times_by_position[position_idx][trip_idx]
+    fn arrival_time(&self, vehicle_idx: usize, position_idx: usize) -> &Time {
+        &self.debark_times_by_position[position_idx][vehicle_idx]
     }
 
-    fn debark_time(&self, trip_idx: usize, position_idx: usize) -> Option<&Time> {
+    fn debark_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
         if self.can_debark(position_idx) {
-            Some(&self.debark_times_by_position[position_idx][trip_idx])
+            Some(&self.debark_times_by_position[position_idx][vehicle_idx])
         } else {
             None
         }
     }
 
-    fn board_time(&self, trip_idx: usize, position_idx: usize) -> Option<&Time> {
+    fn board_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
         if self.can_board(position_idx) {
-            Some(&self.board_times_by_position[position_idx][trip_idx])
+            Some(&self.board_times_by_position[position_idx][vehicle_idx])
         } else {
             None
         }
@@ -288,6 +345,16 @@ where
         } else {
             None
         }
+    }
+
+    fn load_after(&self, vehicle_idx : usize, position_idx : usize) -> & Load {
+        assert!(position_idx + 1 < self.nb_of_positions());
+        &self.vehicle_loads[vehicle_idx][position_idx]
+    }
+
+    fn load_before(&self, vehicle_idx : usize, position_idx : usize) -> & Load {
+        assert!(position_idx > 0);
+        &self.vehicle_loads[vehicle_idx][position_idx - 1]
     }
 
     fn stop_at(&self, position_idx: usize) -> &Stop {
@@ -359,77 +426,90 @@ where
         None
     }
 
-    fn new<BoardDebarkTimes>(
+    fn new<BoardTimes, DebarkTimes, Loads>(
         stop_flows: StopFlows,
-        board_debark_times: BoardDebarkTimes,
+        board_times: BoardTimes,
+        debark_times : DebarkTimes,
+        loads : Loads,
         timezone_data: TimezoneData,
         vehicle_data: VehicleData,
     ) -> Self
     where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
         Time: Clone,
     {
         let nb_of_positions = stop_flows.len();
         assert!(nb_of_positions >= 2);
-        assert!(board_debark_times.len() == nb_of_positions);
-        let earliest_and_latest_board_time_by_position: Vec<_> = board_debark_times
+        assert!(board_times.len() == nb_of_positions);
+        assert!(debark_times.len() == nb_of_positions);
+        assert!(loads.len() == nb_of_positions - 1);
+        let earliest_and_latest_board_time_by_position: Vec<_> = board_times
             .clone()
-            .map(|(board_time, _)| (board_time.clone(), board_time))
+            .map(|board_time| (board_time.clone(), board_time))
             .collect();
         let mut result = Self {
             timezone_data,
             stop_flows,
             vehicle_datas: Vec::new(),
+            vehicle_loads : Vec::new(),
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
             earliest_and_latest_board_time_by_position,
         };
-        result.do_insert(board_debark_times, vehicle_data, 0);
+        result.do_insert(board_times, debark_times, loads, vehicle_data, 0);
         result
     }
 
     // Try to insert the trip in this timetable
     // Returns `true` if insertion was succesfull, `false` otherwise
-    fn try_insert<BoardDebarkTimes>(
+    fn try_insert<BoardTimes, DebarkTimes, Loads>(
         &mut self,
-        board_debark_times: BoardDebarkTimes,
+        board_times: BoardTimes,
+        debark_times : DebarkTimes,
+        loads : Loads,
         timezone_data: TimezoneData,
-        trip_data: VehicleData,
+        vehicle_data: VehicleData,
     ) -> bool
     where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
+        Time: Clone,
     {
-        assert!(board_debark_times.len() == self.nb_of_positions());
+        assert!(board_times.len() == self.nb_of_positions());
+        assert!(debark_times.len() == self.nb_of_positions());
+        assert!(loads.len() + 1 == self.nb_of_positions());
         if self.timezone_data != timezone_data {
             return false;
         }
-        let has_insert_idx = self.find_insert_idx(board_debark_times.clone());
+        let has_insert_idx = self.find_insert_idx(board_times.clone(), debark_times.clone(), loads.clone());
         if let Some(insert_idx) = has_insert_idx {
-            self.do_insert(board_debark_times, trip_data, insert_idx);
+            self.do_insert(board_times, debark_times, loads, vehicle_data, insert_idx);
             true
         } else {
             false
         }
     }
 
-    fn find_insert_idx<BoardDebarkTimes>(
+    fn find_insert_idx<BoardTimes, DebarkTimes, Loads>(
         &self,
-        board_debark_times: BoardDebarkTimes,
+        board_times: BoardTimes,
+        debark_times : DebarkTimes,
+        loads : Loads,
     ) -> Option<usize>
     where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
     {
         let nb_of_vehicle = self.nb_of_vehicle();
         if nb_of_vehicle == 0 {
             return Some(0);
         }
 
-        let board_then_debark = board_debark_times
-            .clone()
-            .map(|(board, _)| board)
-            .chain(board_debark_times.clone().map(|(_, debark)| debark));
-
-        let first_board_time = board_debark_times.clone().next().unwrap().0;
+        let first_board_time = board_times.clone().next().unwrap();
         let first_board_time_binary_search =
             (&self.board_times_by_position[0]).binary_search(&first_board_time);
         match first_board_time_binary_search {
@@ -440,34 +520,30 @@ where
             //  first_board_time < &self.board_times_by_position[0][insert_idx]     if insert_idx < len
             //  first_board_time > &self.board_times_by_position[0][insert_idx -1]  if insert_idx > 0
             // so we are be able to insert the vehicle at insert_idx only if
-            //       board_then_debark <= vehicle_board_then_debark_times(insert_idx) if insert_idx < len
-            // and   board_then_debark >= vehicle_board_then_debark_times(insert_idx - 1) if insert_idx > 0
+            //       (board, debark, loads) <= vehicle_board_debark_loads(insert_idx) if insert_idx < len
+            // and   (board, debark, loads) >= vehicle_board_debark_loads(insert_idx - 1) if insert_idx > 0
             Err(insert_idx) => {
                 if insert_idx < self.nb_of_vehicle() {
-                    match partial_cmp(
-                        board_then_debark.clone(),
-                        self.vehicle_board_then_debark_times(insert_idx),
-                    ) {
+                    match self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), insert_idx)
+                    {
                         None => {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Greater) => {
-                            unreachable!();
+                            assert!(false);
                         }
                         Some(Ordering::Less) => (),
                     }
                 }
 
                 if insert_idx > 0 {
-                    match partial_cmp(
-                        board_then_debark,
-                        self.vehicle_board_then_debark_times(insert_idx - 1),
-                    ) {
+                    match self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), insert_idx - 1)
+                    {
                         None => {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Less) => {
-                            unreachable!();
+                            assert!(false);
                         }
                         Some(Ordering::Greater) => (),
                     }
@@ -484,10 +560,7 @@ where
                     refined_insert_idx -= 1;
                 }
                 if refined_insert_idx > 0 {
-                    match partial_cmp(
-                        board_then_debark,
-                        self.vehicle_board_then_debark_times(refined_insert_idx - 1),
-                    ) {
+                    match self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), insert_idx - 1) {
                         None => {
                             return None;
                         }
@@ -497,100 +570,86 @@ where
                         Some(Ordering::Greater) => (),
                     }
                 }
-                self.find_insert_idx_after(board_debark_times, refined_insert_idx)
+                self.find_insert_idx_after(board_times, debark_times, loads, refined_insert_idx)
             }
         }
     }
 
-    fn find_insert_idx_after<BoardDebarkTimes>(
+    fn find_insert_idx_after<BoardTimes, DebarkTimes, Loads>(
         &self,
-        board_debark_times: BoardDebarkTimes,
+        board_times: BoardTimes,
+        debark_times : DebarkTimes,
+        loads : Loads,
         start_search_idx: usize,
     ) -> Option<usize>
     where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
     {
         let nb_of_vehicle = self.nb_of_vehicle();
         assert!(start_search_idx < nb_of_vehicle);
 
-        let board_then_debark = board_debark_times
-            .clone()
-            .map(|(board, _)| board)
-            .chain(board_debark_times.map(|(_, debark)| debark));
 
-        let first_trip_idx = start_search_idx;
-        let has_first_trip_comp = partial_cmp(
-            board_then_debark.clone(),
-            self.vehicle_board_then_debark_times(first_trip_idx),
-        );
-        // if the candidate_times_vector is not comparable with first_trip_times_vector
+        let first_vehicle_idx = start_search_idx;
+        let has_first_vehicle_comp = self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), first_vehicle_idx);
+
+        // if the candidate is not comparable with first_vehicle
         // then we cannot add the candidate to this timetable
-        let first_trip_comp = has_first_trip_comp?;
-        // if first_vehicle_times_vector >= candidate_times_vector ,
+        let first_vehicle_comp = has_first_vehicle_comp?;
+        // if first_vehicle >= candidate ,
         // then we should insert the candidate at the first position
-        if first_trip_comp == Ordering::Less || first_trip_comp == Ordering::Equal {
-            return Some(first_trip_idx);
+        if first_vehicle_comp == Ordering::Less || first_vehicle_comp == Ordering::Equal {
+            return Some(first_vehicle_idx);
         }
-        assert!(first_trip_comp == Ordering::Greater);
+        assert!(first_vehicle_comp == Ordering::Greater);
         // otherwise, we look for a trip such that
-        // prev_trip_times_vector <= candidate_times_vector <= trip_times_vector
-        let second_trip_idx = first_trip_idx + 1;
-        for trip_idx in second_trip_idx..nb_of_vehicle {
-            let has_trip_comp = partial_cmp(
-                board_then_debark.clone(),
-                self.vehicle_board_then_debark_times(trip_idx),
-            );
-            // if the candidate_times_vector is not comparable with trip_times_vector
+        // prev_vehicle <= candidate <= vehicle
+        let second_vehicle_idx = first_vehicle_idx + 1;
+        for vehicle_idx in second_vehicle_idx..nb_of_vehicle {
+            let has_vehicle_comp = self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), vehicle_idx);
+            // if the candidate is not comparable with vehicle
             // then we cannot add the candidate to this timetable
-            let trip_comp = has_trip_comp?;
+            let vehicle_cmp = has_vehicle_comp?;
 
-            if trip_comp == Ordering::Less || trip_comp == Ordering::Equal {
-                return Some(trip_idx);
+            if vehicle_cmp == Ordering::Less || vehicle_cmp == Ordering::Equal {
+                return Some(vehicle_idx);
             }
-            assert!(trip_comp == Ordering::Greater);
+            assert!(vehicle_cmp == Ordering::Greater);
         }
 
-        // here  candidate_times_vector  >= vehicle_times_vector for all vehicles,
+        // here  candidate_  >= vehicle for all vehicles,
         // so we can insert the candidate as the last vehicle
         Some(nb_of_vehicle)
     }
 
-    fn do_insert<BoardDebarkTimes>(
+    fn do_insert<BoardTimes, DebarkTimes, Loads>(
         &mut self,
-        board_debark_times: BoardDebarkTimes,
+        board_times: BoardTimes,
+        debark_times : DebarkTimes,
+        loads : Loads,
         vehicle_data: VehicleData,
         insert_idx: usize,
     ) where
-        BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
     {
+ 
         if insert_idx < self.nb_of_vehicle() {
             assert!({
-                let board_then_debark = board_debark_times
-                    .clone()
-                    .map(|(board, _)| board)
-                    .chain(board_debark_times.clone().map(|(_, debark)| debark));
-                let insert_cmp = partial_cmp(
-                    board_then_debark,
-                    self.vehicle_board_then_debark_times(insert_idx),
-                );
+                let insert_cmp = self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), insert_idx);
                 insert_cmp == Some(Ordering::Less) || insert_cmp == Some(Ordering::Equal)
             });
         }
         if insert_idx > 0 {
             assert!({
-                let board_then_debark = board_debark_times
-                    .clone()
-                    .map(|(board, _)| board)
-                    .chain(board_debark_times.clone().map(|(_, debark)| debark));
-                let prev_insert_cmp = partial_cmp(
-                    board_then_debark,
-                    self.vehicle_board_then_debark_times(insert_idx - 1),
-                );
+                let prev_insert_cmp = self.partial_cmp_with_vehicle(board_times.clone(), debark_times.clone(), loads.clone(), insert_idx - 1);
                 prev_insert_cmp == Some(Ordering::Greater)
             });
         }
 
-        for (position, (board_time, debark_time)) in board_debark_times.enumerate() {
+        for (position, (board_time, debark_time)) in board_times.zip(debark_times).enumerate() {
             self.board_times_by_position[position].insert(insert_idx, board_time.clone());
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
 
@@ -599,8 +658,49 @@ where
             *latest = max(latest.clone(), board_time);
         }
         self.vehicle_datas.insert(insert_idx, vehicle_data);
+
+        let loads_vec : Vec<Load>= loads.collect();
+        self.vehicle_loads.insert(insert_idx, loads_vec);
+    }
+
+
+    fn partial_cmp_with_vehicle<BoardTimes, DebarkTimes,  Loads>(
+        &self,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads : Loads,
+        vehicle_idx : usize
+    ) -> Option<Ordering>
+    where
+        BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+        Loads : Iterator<Item = Load> + ExactSizeIterator + Clone,
+        Time: Clone,
+    {
+        let board_cmp = partial_cmp(board_times, self.vehicle_board_times(vehicle_idx))?;
+        let debark_cmp = partial_cmp(debark_times, self.vehicle_debark_times(vehicle_idx))?;
+
+        let board_debark_cmp = combine(board_cmp, debark_cmp)?;
+        let loads_cmp = partial_cmp(loads, self.vehicle_loads(vehicle_idx))?;
+        combine(board_debark_cmp, loads_cmp)
+
     }
 }
+
+fn combine(a : Ordering, b : Ordering) -> Option<Ordering> {
+    use Ordering::{Less, Equal, Greater};
+    match (a, b) {
+        (Less, Less)
+        | (Less, Equal)
+        | (Equal, Less) => Some(Less),
+        (Equal, Equal) => Some(Equal),
+         (Greater, Greater)
+        | (Greater, Equal)
+        |(Equal, Greater) => Some(Greater),
+        _ => None
+    }
+}
+
 
 // Retuns
 //    - Some(Equal)   if lower[i] == upper[i] for all i
@@ -668,26 +768,30 @@ where
     Ok(())
 }
 
-pub(super) fn inspect<BoardDebarkTimes, Time>(
-    stop_flows: &[(Stop, FlowDirection)],
-    board_debark_times: BoardDebarkTimes,
+pub(super) fn inspect<BoardTimes, DebarkTimes, Flows, Time>(
+    flows: Flows,
+    board_times: BoardTimes,
+    debark_times : DebarkTimes,
 ) -> Result<(), VehicleTimesError>
 where
-    BoardDebarkTimes: Iterator<Item = (Time, Time)> + ExactSizeIterator + Clone,
+    BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+    DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
+    Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
     Time: Ord + Clone,
 {
-    assert!(stop_flows.len() == board_debark_times.len());
+    assert!(flows.len() == board_times.len());
+    assert!(flows.len() == debark_times.len());
 
-    let valid_enumerated_board_times = board_debark_times
+    let valid_enumerated_board_times = board_times
         .clone()
-        .zip(stop_flows.iter())
+        .zip(flows.clone())
         .enumerate()
         .filter_map(
-            |(position, ((board_time, _), (_, flow_direction)))| match flow_direction {
-                FlowDirection::BoardOnly | FlowDirection::BoardAndDebark => {
+            |(position, (board_time, flow_direction))| match flow_direction {
+                BoardOnly | BoardAndDebark => {
                     Some((position, board_time))
                 }
-                FlowDirection::DebarkOnly => None,
+                NoBoardDebark | DebarkOnly => None,
             },
         );
 
@@ -699,16 +803,16 @@ where
         return Err(VehicleTimesError::DecreasingBoardTime(position_pair));
     }
 
-    let valid_enumerated_debark_times = board_debark_times
+    let valid_enumerated_debark_times = debark_times
         .clone()
-        .zip(stop_flows.iter())
+        .zip(flows.clone())
         .enumerate()
         .filter_map(
-            |(position, ((_, debark_time), (_, flow_direction)))| match flow_direction {
-                FlowDirection::DebarkOnly | FlowDirection::BoardAndDebark => {
+            |(position, (debark_time, flow_direction))| match flow_direction {
+                DebarkOnly | BoardAndDebark => {
                     Some((position, debark_time))
                 }
-                FlowDirection::BoardOnly => None,
+                NoBoardDebark | BoardOnly => None,
             },
         );
 
@@ -720,19 +824,18 @@ where
         return Err(VehicleTimesError::DecreasingDebarkTime(position_pair));
     }
 
-    let pair_iter = board_debark_times
-        .clone()
-        .zip(board_debark_times.skip(1))
+    let pair_iter = board_times.zip(flows.clone())
+        .zip(debark_times.zip(flows).skip(1))
         .enumerate();
-    for (board_idx, ((board_time, _), (_, debark_time))) in pair_iter {
+    for (board_idx, ((board_time, board_flow), (debark_time, debark_flow))) in pair_iter {
         let debark_idx = board_idx + 1;
-        let can_board = match &stop_flows[board_idx].1 {
-            FlowDirection::BoardAndDebark | FlowDirection::BoardOnly => true,
-            FlowDirection::DebarkOnly => false,
+        let can_board = match board_flow {
+            BoardAndDebark | BoardOnly => true,
+            NoBoardDebark | DebarkOnly => false,
         };
-        let can_debark = match &stop_flows[debark_idx].1 {
-            FlowDirection::BoardAndDebark | FlowDirection::DebarkOnly => true,
-            FlowDirection::BoardOnly => false,
+        let can_debark = match debark_flow {
+            BoardAndDebark | DebarkOnly => true,
+            NoBoardDebark | BoardOnly => false,
         };
         if can_board && can_debark && board_time > debark_time {
             let position_pair = PositionPair {

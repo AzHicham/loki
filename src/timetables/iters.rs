@@ -4,10 +4,11 @@ use std::ops::Range;
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
-impl<Time, TimezoneData, TripData> Timetables<Time, TimezoneData, TripData>
+impl<Time, Load, TimezoneData, TripData> Timetables<Time, Load, TimezoneData, TripData>
 where
     Time: Ord + Clone,
     TimezoneData: PartialEq + Clone,
+    Load : Ord + Clone,
 {
     pub fn timetables(&self) -> TimetableIter {
         (0..self.nb_of_timetables()).map(|idx| Timetable { idx })
@@ -75,7 +76,7 @@ impl Iterator for VehicleIter {
     }
 }
 
-impl<Time, TimezoneData, TripData> TimetableData<Time, TimezoneData, TripData>
+impl<Time, Load, TimezoneData, TripData> TimetableData<Time, Load, TimezoneData, TripData>
 // where Time
 {
     pub(super) fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
@@ -102,6 +103,11 @@ impl<Time, TimezoneData, TripData> TimetableData<Time, TimezoneData, TripData>
     ) -> Chain<VehicleTimes<'_, Time>, VehicleTimes<'_, Time>> {
         self.vehicle_board_times(vehicle_idx)
             .chain(self.vehicle_debark_times(vehicle_idx))
+    }
+
+    pub(super) fn vehicle_loads(&self, vehicle_idx : usize) -> std::slice::Iter<'_, Load> {
+        debug_assert!(vehicle_idx < self.vehicle_datas.len());
+        self.vehicle_loads[vehicle_idx].iter()
     }
 }
 

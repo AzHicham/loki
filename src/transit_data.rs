@@ -6,10 +6,7 @@ pub use transit_model::objects::Time as TransitModelTime;
 pub use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
 pub use typed_index_collection::Idx;
 
-use crate::{
-    time::{Calendar, PositiveDuration},
-    traits::{Data, DataIters, DataWithIters, TransitTypes},
-};
+use crate::{loads_data::{Load, LoadsData}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, traits::{Data, DataIters, DataWithIters, TransitTypes}};
 
 use std::collections::HashMap;
 
@@ -67,8 +64,11 @@ where
         self.stop_point_idx_to_stop.get(stop_point_idx).copied()
     }
 
-    fn new(model: &transit_model::Model, default_transfer_duration: PositiveDuration) -> Self {
-        Self::_new(model, default_transfer_duration)
+    fn new(model: &transit_model::Model, 
+        loads_data : &LoadsData,
+        default_transfer_duration: PositiveDuration
+    ) -> Self {
+        Self::_new(model, loads_data, default_transfer_duration)
     }
 
     fn calendar(&self) -> &Calendar {
@@ -105,7 +105,7 @@ where
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<crate::time::SecondsSinceDatasetUTCStart> {
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         self.timetables.board_time_of(trip, position)
     }
 
@@ -113,7 +113,7 @@ where
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<crate::time::SecondsSinceDatasetUTCStart> {
+    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         self.timetables.debark_time_of(trip, position)
     }
 
@@ -121,7 +121,7 @@ where
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> crate::time::SecondsSinceDatasetUTCStart {
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
         self.timetables.arrival_time_of(trip, position)
     }
 
@@ -136,7 +136,7 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, crate::time::SecondsSinceDatasetUTCStart)> {
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .earliest_trip_to_board_at(waiting_time, mission, position)
     }

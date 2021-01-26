@@ -1,4 +1,4 @@
-use laxatips::transit_model;
+use laxatips::{LoadsData, transit_model};
 use laxatips::{
     log::{debug, info, trace},
     transit_model::Model,
@@ -26,7 +26,11 @@ use structopt::StructOpt;
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
-    input: PathBuf,
+    ntfs_path: PathBuf,
+
+    /// path to the passengers loads file
+    #[structopt(short = "l", long = "loads_data", parse(from_os_str))]
+    loads_data_path: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = "00:02:00")]
@@ -174,7 +178,7 @@ fn launch<Data>(options: Options) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let input_dir = options.input;
+    let input_dir = options.ntfs_path;
     let model = transit_model::ntfs::read(input_dir)?;
     info!("Transit model loaded");
     info!(
@@ -183,9 +187,20 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
+    let loads_data_path = options.loads_data_path;
+    let loads_data = LoadsData::new(&loads_data_path, &model)
+        .unwrap_or_else(|err| {
+            warn!("Error while reading the passenger loads file at {:?} : {:?}", 
+                &loads_data_path,
+                err.source()
+            );
+            warn!("I'll use default loads.");
+            LoadsData::empty()
+        });
+
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let data = Data::new(&model, default_transfer_duration);
+    let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
     // info!("Number of timetables {} ", data.nb_of_timetables());

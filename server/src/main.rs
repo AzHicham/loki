@@ -5,7 +5,7 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::log::{debug, error, info, trace, warn};
+use laxatips::{LoadsData, log::{debug, error, info, trace, warn}};
 use laxatips::traits;
 use laxatips::transit_model;
 use laxatips::{
@@ -35,7 +35,11 @@ const DEFAULT_MAX_NB_LEGS: u8 = 10;
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
-    input: PathBuf,
+    ntfs_path: PathBuf,
+
+    /// path to the passengers loads file
+    #[structopt(short = "l", long = "loads_data", parse(from_os_str))]
+    loads_data_path: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(short = "s", long)]
@@ -46,11 +50,11 @@ struct Options {
     implem: String,
 }
 
-fn read_ntfs<Data>(ntfs_path: &Path) -> Result<(Data, Model), Error>
+fn read_ntfs<Data>(options: Options) -> Result<(Data, Model), Error>
 where
     Data: traits::Data,
 {
-    let model = transit_model::ntfs::read(ntfs_path)?;
+    let model = transit_model::ntfs::read(&options.ntfs_path)?;
     info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
@@ -58,9 +62,22 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
+
+    let loads_data_path = options.loads_data_path;
+    let loads_data = LoadsData::new(&loads_data_path, &model)
+        .unwrap_or_else(|err| {
+            warn!("Error while reading the passenger loads file at {:?} : {:?}", 
+                &loads_data_path,
+                err.source()
+            );
+            warn!("I'll use default loads.");
+            LoadsData::empty()
+        });
+
+
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let data = Data::new(&model, default_transfer_duration);
+    let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!(
@@ -334,9 +351,8 @@ where
         .bind(&options.socket)
         .map_err(|err| format_err!("Could not bind socket {}. Error : {}", options.socket, err))?;
 
-    let ntfs_path = options.input;
 
-    let (data, model) = read_ntfs::<Data>(&ntfs_path)?;
+    let (data, model) = read_ntfs::<Data>(options)?;
     let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(
         data.nb_of_stops(),
         data.nb_of_missions(),
