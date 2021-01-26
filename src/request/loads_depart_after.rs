@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::{loads_data::Load, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 
@@ -52,6 +54,26 @@ impl LoadsCount {
             low
         }
     }
+
+    fn is_lower(&self, other : &Self) -> bool {
+        use Ordering::{Less, Equal, Greater};
+        match self.high.cmp(&other.high) {
+            Less => true,
+            Greater => false,
+            Equal => {
+                match self.medium.cmp(&other.medium) {
+                    Less => true,
+                    Greater => false,
+                    Equal => {
+                        match self.low.cmp(&other.low) {
+                            Less | Equal => true,
+                            Greater => false,
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl<'data, Data: traits::Data> traits::TransitTypes for LoadsDepartAfter<'data, Data> {
@@ -77,6 +99,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for LoadsDepartAfter<'da
         && 
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
+        && lower.loads_count.is_lower(&upper.loads_count)
 
     }
 
