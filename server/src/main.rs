@@ -5,18 +5,18 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::{LoadsData, log::{debug, error, info, trace, warn}};
+use laxatips::{LoadsDailyData, LoadsData, LoadsPeriodicData, log::{debug, error, info, trace, warn}};
 use laxatips::traits;
 use laxatips::transit_model;
 use laxatips::{
-    DailyData, DepartAfterRequest, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
+    DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
 
 use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -45,7 +45,9 @@ struct Options {
     #[structopt(short = "s", long)]
     socket: String,
 
-    /// Timetable implementation to use : "periodic" (default) or "daily"
+    /// Timetable implementation to use : 
+    /// "periodic" (default) or "daily"
+    ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
     implem: String,
 }
@@ -95,7 +97,7 @@ fn make_engine_request_from_protobuf<'data, Data>(
     model: &Model,
     default_max_duration: &PositiveDuration,
     default_max_nb_of_legs: u8,
-) -> Result<DepartAfterRequest<'data, Data>, Error>
+) -> Result<DepartAfter<'data, Data>, Error>
 where
     Data: traits::Data,
 {
@@ -207,7 +209,7 @@ where
         default_max_nb_of_legs
     });
 
-    let engine_request = DepartAfterRequest::new(
+    let engine_request = DepartAfter::new(
         model,
         data,
         departure_datetime,
@@ -226,7 +228,7 @@ fn solve_protobuf<'data, Data>(
     model: &Model,
     proto_request: &navitia_proto::Request,
     data: &'data Data,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
 ) -> Result<navitia_proto::Response, Error>
 where
     Data: traits::DataWithIters,
@@ -271,7 +273,7 @@ where
 fn solve<'data, Data>(
     data: &'data Data,
     model: &Model,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
@@ -327,17 +329,16 @@ where
 
 fn server() -> Result<(), Error> {
     let options = Options::from_args();
-    if options.implem == "periodic" {
-        launch::<PeriodicData>(options)?;
-    } else if options.implem == "daily" {
-        launch::<DailyData>(options)?;
-    } else {
-        bail!(format!(
-            "Bad implem option : {} .\n Allowed options are `periodic` or  `daily`",
+    match options.implem.as_str() {
+        "periodic" => launch::<PeriodicData>(options),
+        "daily" => launch::<DailyData>(options),
+        "loads_periodic" => launch::<LoadsPeriodicData>(options),
+        "loads_daily" => launch::<LoadsDailyData>(options),
+        _ => bail!(format!(
+            "Bad implem option : {}.",
             options.implem
-        ));
+        ))
     }
-    Ok(())
 }
 
 fn launch<Data>(options: Options) -> Result<(), Error>
@@ -353,7 +354,7 @@ where
 
 
     let (data, model) = read_ntfs::<Data>(options)?;
-    let mut engine = MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(
+    let mut engine = MultiCriteriaRaptor::<DepartAfter<Data>>::new(
         data.nb_of_stops(),
         data.nb_of_missions(),
     );

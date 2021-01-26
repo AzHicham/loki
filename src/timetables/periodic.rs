@@ -219,7 +219,7 @@ impl TimetablesTrait for PeriodicTimetables {
         flows : Flows,
         board_times : Times,
         debark_times : Times,
-        loads_data : & LoadsData,
+        _loads_data : & LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,

@@ -8,7 +8,7 @@ use transit_model::{
 };
 use typed_index_collection::Idx;
 
-use log::{debug, info, warn};
+use log::{info, warn};
 
 impl<Timetables> TransitData<Timetables>
 where
@@ -209,67 +209,17 @@ where
             };
             result.push(to_push);
         }
-        Ok(result)
-    }
 
-    fn create_stop_flows(
-        &mut self,
-        vehicle_journey: &VehicleJourney,
-    ) -> Result<Vec<(Stop, FlowDirection)>, ()> {
-        let mut stop_flows = {
-            let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-            for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-                let stop_point_idx = stop_time.stop_point_idx;
-                let stop = self
-                    .stop_point_idx_to_stop
-                    .get(&stop_point_idx)
-                    .cloned()
-                    .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
-                let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
-                    (0, 0) => (stop, FlowDirection::BoardAndDebark),
-                    (1, 0) => (stop, FlowDirection::DebarkOnly),
-                    (0, 1) => (stop, FlowDirection::BoardOnly),
-                    _ => {
-                        warn!("Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
-                        because of unhandled pickup type {} or dropoff type {}. ",
-                        vehicle_journey.id,
-                        idx,
-                        stop_time,
-                        stop_time.pickup_type,
-                        stop_time.drop_off_type
-                        );
-                        return Err(());
-                    }
-                };
-                result.push(to_push);
-            }
-            result
-        };
-
-        if stop_flows.len() < 2 {
+        if result.len() < 2 {
             warn!(
                 "Skipping vehicle journey {} that has less than 2 stop times.",
                 vehicle_journey.id
             );
             return Err(());
         }
-        if stop_flows[0].1 != FlowDirection::BoardOnly {
-            debug!(
-                "First stop time of vehicle journey {} has debarked allowed. I ignore it.",
-                vehicle_journey.id
-            );
-            stop_flows[0].1 = FlowDirection::BoardOnly;
-        }
-        if stop_flows.last().unwrap().1 != FlowDirection::DebarkOnly {
-            debug!(
-                "Last stop time of vehicle journey {} has boarding allowed. I ignore it.",
-                vehicle_journey.id
-            );
-            stop_flows.last_mut().unwrap().1 = FlowDirection::DebarkOnly;
-        }
-
-        Ok(stop_flows)
+        Ok(result)
     }
+
 }
 
 fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {

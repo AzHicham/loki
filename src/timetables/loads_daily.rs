@@ -1,6 +1,6 @@
-use std::{cmp::max};
 
-use super::{FlowDirection, Stop, StopFlows, TimetablesIter, generic_timetables::{Timetables, Timetable, Position, Vehicle, VehicleTimesError}, iters::{PositionsIter, VehicleIter, TimetableIter}};
+
+use super::{FlowDirection, Stop, TimetablesIter, generic_timetables::{Timetables, Timetable, Position, Vehicle, VehicleTimesError}, iters::{PositionsIter, VehicleIter, TimetableIter}};
 
 use crate::{loads_data::LoadsData, time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,

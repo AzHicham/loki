@@ -34,6 +34,10 @@ pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, Vehicl
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 
-pub use request::depart_after::Request as DepartAfterRequest;
+pub use request::{ 
+    depart_after::DepartAfter,
+    loads_depart_after::LoadsDepartAfter
+
+};
 
 pub mod response;

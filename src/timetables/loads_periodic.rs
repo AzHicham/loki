@@ -1,6 +1,6 @@
-use std::{cmp::max, collections::BTreeMap};
+use std::{collections::BTreeMap};
 
-use super::{TimetablesIter, Stop, StopFlows, 
+use super::{TimetablesIter, Stop,  
     generic_timetables::{Timetables, Timetable, Position, Vehicle, VehicleTimesError}, 
     iters::{PositionsIter, VehicleIter, TimetableIter}
 };

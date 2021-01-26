@@ -1,5 +1,5 @@
 use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
-use std::iter::{Chain, Map};
+use std::iter::{Map};
 use std::ops::Range;
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
@@ -95,14 +95,6 @@ impl<Time, Load, TimezoneData, TripData> TimetableData<Time, Load, TimezoneData,
             position_idx: 0,
             vehicle_idx,
         }
-    }
-
-    pub(super) fn vehicle_board_then_debark_times(
-        &self,
-        vehicle_idx: usize,
-    ) -> Chain<VehicleTimes<'_, Time>, VehicleTimes<'_, Time>> {
-        self.vehicle_board_times(vehicle_idx)
-            .chain(self.vehicle_debark_times(vehicle_idx))
     }
 
     pub(super) fn vehicle_loads(&self, vehicle_idx : usize) -> std::slice::Iter<'_, Load> {

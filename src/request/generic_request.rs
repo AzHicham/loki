@@ -1,10 +1,21 @@
-use crate::time::PositiveDuration;
+use crate::{time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 
 use chrono::NaiveDateTime;
 use log::warn;
 
-use super::Request;
+pub struct GenericRequest<'data, Data: traits::Data> {
+    pub(super) transit_data: &'data Data,
+    pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
+    pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
+    pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
+    pub(super) leg_arrival_penalty: PositiveDuration,
+    pub(super) leg_walking_penalty: PositiveDuration,
+    pub(super) max_arrival_time: SecondsSinceDatasetUTCStart,
+    pub(super) max_nb_legs: u8,
+}
+
+
 
 #[derive(Debug)]
 pub enum BadRequest {
@@ -34,7 +45,7 @@ impl fmt::Display for BadRequest {
 
 impl std::error::Error for BadRequest {}
 
-impl<'data, Data> Request<'data, Data>
+impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
@@ -128,5 +139,112 @@ where
         };
 
         Ok(result)
+    }
+}
+ 
+// use crate::response;
+// use crate::traits::Journey as PTJourney;
+// impl<'data, 'model, Data> Request<'data, Data>
+// where
+//     Data: traits::Data,
+// {
+//     pub fn create_response(
+//         &self,
+//         data: &Data,
+//         pt_journey: &PTJourney<Self>,
+//     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> 
+//     {
+//         let departure_datetime = self.departure_datetime;
+//         let departure_idx = pt_journey.departure_leg.departure.idx;
+//         let departure_fallback_duration =
+//             &self.departures_stop_point_and_fallback_duration[departure_idx].1;
+
+//         let first_vehicle = response::VehicleLeg {
+//             trip: pt_journey.departure_leg.trip.clone(),
+//             board_position: pt_journey.departure_leg.board_position.clone(),
+//             debark_position: pt_journey.departure_leg.debark_position.clone(),
+//         };
+
+//         let arrival_fallback_duration =
+//             &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
+
+//         let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
+//             let transfer = connection_leg.transfer.clone();
+//             let vehicle_leg = response::VehicleLeg {
+//                 trip: connection_leg.trip.clone(),
+//                 board_position: connection_leg.board_position.clone(),
+//                 debark_position: connection_leg.debark_position.clone(),
+//             };
+//             (transfer, vehicle_leg)
+//         });
+
+//         response::Journey::new(
+//             departure_datetime,
+//             *departure_fallback_duration,
+//             first_vehicle,
+//             connections,
+//             *arrival_fallback_duration,
+//             data,
+//         )
+//     }
+// }
+
+
+use crate::traits::{
+    Data as DataTrait
+};
+
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Departure {
+    pub(super) idx: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Arrival {
+    pub(super) idx: usize,
+}
+
+
+
+impl<'data,  Data>  GenericRequest<'data, Data>
+where Data : DataTrait
+{
+    pub(super) fn departures(& self) -> Departures {
+        let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
+        Departures {
+            inner: 0..nb_of_departures,
+        }
+    }
+
+    pub(super) fn arrivals(& self) -> Arrivals {
+        let nb_of_arrivals = self.arrivals_stop_point_and_fallbrack_duration.len();
+        Arrivals {
+            inner: 0..nb_of_arrivals,
+        }
+    }
+}
+
+pub struct Departures {
+    pub(super) inner: std::ops::Range<usize>,
+}
+
+impl Iterator for Departures {
+    type Item = Departure;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|idx| Departure { idx })
+    }
+}
+
+pub struct Arrivals {
+    pub(super) inner: std::ops::Range<usize>,
+}
+
+impl Iterator for Arrivals {
+    type Item = Arrival;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|idx| Arrival { idx })
     }
 }

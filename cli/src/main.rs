@@ -1,10 +1,10 @@
-use laxatips::{LoadsData, transit_model};
+use laxatips::{LoadsDailyData, LoadsData, LoadsPeriodicData, transit_model};
 use laxatips::{
     log::{debug, info, trace},
     transit_model::Model,
 };
 use laxatips::{
-    DailyData, DepartAfterRequest, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
+    DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
 
 use laxatips::traits;
@@ -54,7 +54,9 @@ struct Options {
     #[structopt(long)]
     departure_datetime: Option<String>,
 
-    /// Timetable implementation to use : "periodic" (default) or "daily"
+    /// Timetable implementation to use : 
+    /// "periodic" (default) or "daily"
+    ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
     implem: String,
 
@@ -161,17 +163,16 @@ fn parse_duration(string_duration: &str) -> Result<PositiveDuration, Error> {
 
 fn run() -> Result<(), Error> {
     let options = Options::from_args();
-    if options.implem == "periodic" {
-        launch::<PeriodicData>(options)?;
-    } else if options.implem == "daily" {
-        launch::<DailyData>(options)?;
-    } else {
-        bail!(format!(
-            "Bad implem option : {} .\n Allowed options are `periodic` or  `daily`",
+    match options.implem.as_str() {
+        "periodic" => launch::<PeriodicData>(options),
+        "daily" => launch::<DailyData>(options),
+        "loads_periodic" => launch::<LoadsPeriodicData>(options),
+        "loads_daily" => launch::<LoadsDailyData>(options),
+        _ => bail!(format!(
+            "Bad implem option : {}.",
             options.implem
-        ));
+        ))
     }
-    Ok(())
 }
 
 fn launch<Data>(options: Options) -> Result<(), Error>
@@ -228,7 +229,7 @@ where
     let max_nb_of_legs: u8 = options.max_nb_of_legs;
 
     let mut raptor =
-        MultiCriteriaRaptor::<DepartAfterRequest<Data>>::new(nb_of_stops, nb_of_missions);
+        MultiCriteriaRaptor::<DepartAfter<Data>>::new(nb_of_stops, nb_of_missions);
 
     let compute_timer = SystemTime::now();
 
@@ -307,7 +308,7 @@ where
 fn solve<'data, Data>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<DepartAfterRequest<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
     model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
@@ -334,7 +335,7 @@ where
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request = DepartAfterRequest::<'data, Data>::new(
+    let request = DepartAfter::<'data, Data>::new(
         model,
         data,
         departure_datetime.clone(),
