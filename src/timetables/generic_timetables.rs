@@ -208,7 +208,7 @@ where
                 };
                 let load = self
                     .timetable_data(timetable)
-                    .load_after(timetable.idx, position.idx);
+                    .load_after(idx, position.idx);
                 (vehicle, time, load)
             })
     }
