@@ -177,7 +177,7 @@ impl TimetablesTrait for DailyTimetables {
 
                     let loads = loads_data
                         .loads(&vehicle_journey_idx, date)
-                        .unwrap_or(default_loads.as_slice());
+                        .unwrap_or_else(|| default_loads.as_slice());
                     let vehicle_data = VehicleData {
                         vehicle_journey_idx,
                         day,
@@ -187,7 +187,7 @@ impl TimetablesTrait for DailyTimetables {
                         flows.clone(),
                         board_times_utc,
                         debark_times_utc,
-                        loads.iter().map(|&load| load),
+                        loads.iter().copied(),
                         (),
                         vehicle_data,
                     );

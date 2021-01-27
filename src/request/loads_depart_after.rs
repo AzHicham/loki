@@ -46,13 +46,13 @@ impl LoadsCount {
         let mut low = self.low;
         match load {
             Load::High => {
-                high = high + 1;
+                high += 1;
             }
             Load::Medium => {
-                medium = medium + 1;
+                medium += 1;
             }
             Load::Low => {
-                low = low + 1;
+                low += 1;
             }
         }
         Self { high, medium, low }

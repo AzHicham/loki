@@ -261,8 +261,7 @@ where
         });
 
         let corrected_board_debark_times = board_times
-            .clone()
-            .zip(debark_times.clone())
+            .zip(debark_times)
             .zip(corrected_flows.clone())
             .map(
                 |((board_time, debark_time), flow_direction)| match flow_direction {
@@ -545,7 +544,7 @@ where
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Greater) => {
-                            assert!(false);
+                            unreachable!();
                         }
                         Some(Ordering::Less) => (),
                     }
@@ -553,16 +552,16 @@ where
 
                 if insert_idx > 0 {
                     match self.partial_cmp_with_vehicle(
-                        board_times.clone(),
-                        debark_times.clone(),
-                        loads.clone(),
+                        board_times,
+                        debark_times,
+                        loads,
                         insert_idx - 1,
                     ) {
                         None => {
                             return None;
                         }
                         Some(Ordering::Equal) | Some(Ordering::Less) => {
-                            assert!(false);
+                            unreachable!();
                         }
                         Some(Ordering::Greater) => (),
                     }
@@ -828,7 +827,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_board_times.clone()) {
+    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_board_times) {
         let position_pair = PositionPair {
             upstream,
             downstream,
@@ -847,7 +846,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_debark_times.clone()) {
+    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_debark_times) {
         let position_pair = PositionPair {
             upstream,
             downstream,
