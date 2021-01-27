@@ -1,4 +1,7 @@
-use crate::{loads_data::LoadsData, transit_data::{Stop, TransitData}};
+use crate::{
+    loads_data::LoadsData,
+    transit_data::{Stop, TransitData},
+};
 
 use crate::time::{PositiveDuration, SecondsSinceTimezonedDayStart};
 use crate::timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter};
@@ -14,9 +17,10 @@ impl<Timetables> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-    pub fn _new(transit_model: &Model,
-        loads_data : & LoadsData,
-        default_transfer_duration: PositiveDuration
+    pub fn _new(
+        transit_model: &Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
     ) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
 
@@ -34,19 +38,20 @@ where
         data
     }
 
-    fn init(&mut self, 
-        transit_model: &Model, 
-        loads_data : & LoadsData,
-        default_transfer_duration: PositiveDuration
+    fn init(
+        &mut self,
+        transit_model: &Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
     ) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            let _ =
-                self.insert_vehicle_journey(vehicle_journey_idx, 
-                    vehicle_journey, 
-                    transit_model,
-                    loads_data
-                );
+            let _ = self.insert_vehicle_journey(
+                vehicle_journey_idx,
+                vehicle_journey,
+                transit_model,
+                loads_data,
+            );
         }
         info!("Inserting transfers");
 
@@ -107,9 +112,8 @@ where
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
         transit_model: &Model,
-        loads_data : & LoadsData
+        loads_data: &LoadsData,
     ) -> Result<(), ()> {
-
         let stops = self.create_stops(vehicle_journey);
         let flows = self.create_flows(vehicle_journey)?;
 
@@ -122,7 +126,7 @@ where
                     vehicle_journey.id, vehicle_journey.service_id,
                 );
             })?;
- 
+
         let timezone = timezone_of(vehicle_journey, transit_model)?;
 
         let board_times = board_timezoned_times(vehicle_journey)?;
@@ -170,25 +174,21 @@ where
         stop
     }
 
-
-    fn create_stops(& mut self, vehicle_journey: &VehicleJourney) -> Vec<Stop>
-    {
+    fn create_stops(&mut self, vehicle_journey: &VehicleJourney) -> Vec<Stop> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for stop_time in vehicle_journey.stop_times.iter() {
             let stop_point_idx = &stop_time.stop_point_idx;
             let stop = self
-                    .stop_point_idx_to_stop
-                    .get(&stop_point_idx)
-                    .cloned()
-                    .unwrap_or_else(|| self.add_new_stop_point(*stop_point_idx));
+                .stop_point_idx_to_stop
+                .get(&stop_point_idx)
+                .cloned()
+                .unwrap_or_else(|| self.add_new_stop_point(*stop_point_idx));
             result.push(stop)
         }
         result
     }
 
-
-    fn create_flows(& self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()>
-    {
+    fn create_flows(&self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
             let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
@@ -196,13 +196,14 @@ where
                 (1, 0) => FlowDirection::DebarkOnly,
                 (0, 1) => FlowDirection::BoardOnly,
                 _ => {
-                    warn!("Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
+                    warn!(
+                        "Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
                     because of unhandled pickup type {} or dropoff type {}. ",
-                    vehicle_journey.id,
-                    idx,
-                    stop_time,
-                    stop_time.pickup_type,
-                    stop_time.drop_off_type
+                        vehicle_journey.id,
+                        idx,
+                        stop_time,
+                        stop_time.pickup_type,
+                        stop_time.drop_off_type
                     );
                     return Err(());
                 }
@@ -219,7 +220,6 @@ where
         }
         Ok(result)
     }
-
 }
 
 fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
@@ -284,7 +284,9 @@ fn timezone_of(
     Ok(timezone)
 }
 
-fn board_timezoned_times(vehicle_journey: &VehicleJourney) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
+fn board_timezoned_times(
+    vehicle_journey: &VehicleJourney,
+) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
     let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
     for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
         let board_time = board_time(stop_time).ok_or_else(|| {

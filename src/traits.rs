@@ -3,7 +3,11 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::{loads_data::{Load, LoadsData}, response, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    response,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -105,7 +109,11 @@ pub trait Data: TransitTypes {
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
 
-    fn new(model: &Model, loads_data : &LoadsData, default_transfer_duration: PositiveDuration) -> Self;
+    fn new(
+        model: &Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
+    ) -> Self;
 
     fn calendar(&self) -> &crate::time::Calendar;
 
@@ -148,19 +156,18 @@ pub trait DataIters<'a>: TransitTypes {
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
-pub trait RequestTypes : TransitTypes {
-        /// Identify a possible departure of a journey
-        type Departure: Clone;
+pub trait RequestTypes: TransitTypes {
+    /// Identify a possible departure of a journey
+    type Departure: Clone;
 
-        /// Identify a possible arrival of a journey
-        type Arrival: Clone;
-    
-        /// Stores data used to determine if a journey is better than another
-        type Criteria: Clone;
+    /// Identify a possible arrival of a journey
+    type Arrival: Clone;
+
+    /// Stores data used to determine if a journey is better than another
+    type Criteria: Clone;
 }
 
 pub trait Request: RequestTypes {
-
     /// Returns `true` if `lower` is better or equivalent to `upper`
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool;
 
@@ -342,7 +349,6 @@ pub trait Request: RequestTypes {
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
-
 }
 
 pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
@@ -357,10 +363,10 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     fn departures(&'a self) -> Self::Departures;
 }
 
-pub trait RequestIO<'data, D : Data> : Request {
+pub trait RequestIO<'data, D: Data>: Request {
     fn new<'a, 'b>(
         model: &transit_model::Model,
-        transit_data: & 'data D,
+        transit_data: &'data D,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
         arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
@@ -369,14 +375,16 @@ pub trait RequestIO<'data, D : Data> : Request {
         max_duration_to_arrival: PositiveDuration,
         max_nb_legs: u8,
     ) -> Result<Self, BadRequest>
-     where Self : Sized;
+    where
+        Self: Sized;
 
     fn create_response(
         &self,
         data: &D,
         pt_journey: &Journey<Self>,
-    ) -> Result<response::Journey<D>, response::BadJourney<D>> 
-    where Self : Sized;
+    ) -> Result<response::Journey<D>, response::BadJourney<D>>
+    where
+        Self: Sized;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
@@ -403,8 +411,6 @@ pub struct Journey<T: RequestTypes> {
     pub arrival: T::Arrival,
     pub criteria_at_arrival: T::Criteria,
 }
-
-
 
 #[derive(Debug)]
 pub enum BadRequest {

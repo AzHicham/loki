@@ -1,8 +1,8 @@
-use laxatips::{LoadsDailyData, LoadsData, LoadsPeriodicData, transit_model};
 use laxatips::{
     log::{debug, info, trace},
     transit_model::Model,
 };
+use laxatips::{transit_model, LoadsDailyData, LoadsData, LoadsPeriodicData};
 use laxatips::{
     DailyData, DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
@@ -13,8 +13,8 @@ use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
-use traits::{RequestIO, RequestWithIters};
 use std::path::PathBuf;
+use traits::{RequestIO, RequestWithIters};
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
@@ -55,7 +55,7 @@ struct Options {
     #[structopt(long)]
     departure_datetime: Option<String>,
 
-    /// Timetable implementation to use : 
+    /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
@@ -174,10 +174,7 @@ fn run() -> Result<(), Error> {
         "daily" => launch::<DailyData>(options),
         "loads_periodic" => launch::<LoadsPeriodicData>(options),
         "loads_daily" => launch::<LoadsDailyData>(options),
-        _ => bail!(format!(
-            "Bad implem option : {}.",
-            options.implem
-        ))
+        _ => bail!(format!("Bad implem option : {}.", options.implem)),
     }
 }
 
@@ -195,15 +192,15 @@ where
     info!("Number of routes : {}", model.routes.len());
 
     let loads_data_path = &options.loads_data_path;
-    let loads_data = LoadsData::new(&loads_data_path, &model)
-        .unwrap_or_else(|err| {
-            warn!("Error while reading the passenger loads file at {:?} : {:?}", 
-                &loads_data_path,
-                err.source()
-            );
-            warn!("I'll use default loads.");
-            LoadsData::empty()
-        });
+    let loads_data = LoadsData::new(&loads_data_path, &model).unwrap_or_else(|err| {
+        warn!(
+            "Error while reading the passenger loads file at {:?} : {:?}",
+            &loads_data_path,
+            err.source()
+        );
+        warn!("I'll use default loads.");
+        LoadsData::empty()
+    });
 
     let data_timer = SystemTime::now();
     let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
@@ -225,21 +222,22 @@ where
             bail!("Invalid request_type : {}", options.request_type)
         }
     }
-    
-
-
 }
 
 fn build_engine_and_solve<'data, Data, R>(
     model: &Model,
     data: &'data Data,
-    options : & Options,
-) ->Result<(), Error>
-where 
-R : RequestWithIters + RequestIO<'data, Data>,
-Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+    options: &Options,
+) -> Result<(), Error>
+where
+    R: RequestWithIters + RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
 {
-
     let nb_of_stops = data.nb_of_stops();
     let nb_of_missions = data.nb_of_missions();
 
@@ -255,8 +253,7 @@ Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop =
     let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
     let max_nb_of_legs: u8 = options.max_nb_of_legs;
-    let mut raptor =
-        MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
+    let mut raptor = MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
 
     let compute_timer = SystemTime::now();
 
@@ -280,7 +277,7 @@ Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop =
                     &leg_arrival_penalty,
                     &leg_walking_penalty,
                     &max_journey_duration,
-                    max_nb_of_legs
+                    max_nb_of_legs,
                 );
 
                 match solve_result {
@@ -324,7 +321,7 @@ Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop =
                 &leg_arrival_penalty,
                 &leg_walking_penalty,
                 &max_journey_duration,
-                max_nb_of_legs
+                max_nb_of_legs,
             )?;
         }
     };
@@ -342,12 +339,16 @@ fn solve<'data, Data, R>(
     leg_arrival_penalty: &PositiveDuration,
     leg_walking_penalty: &PositiveDuration,
     max_duration_to_arrival: &PositiveDuration,
-    max_nb_of_legs: u8
+    max_nb_of_legs: u8,
 ) -> Result<usize, Error>
 where
-    R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
-
+    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -375,8 +376,8 @@ where
         *max_duration_to_arrival,
         max_nb_of_legs,
     )?;
-    
-        debug!("Start computing journey");
+
+    debug!("Start computing journey");
     let request_timer = SystemTime::now();
     engine.compute(&request);
     debug!(
@@ -399,9 +400,7 @@ where
     // }
 
     Ok(engine.nb_of_rounds())
-
 }
-
 
 fn main() {
     let _log_guard = init_logger();

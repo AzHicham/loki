@@ -1,6 +1,6 @@
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
-use crate::traits::{Journey, RequestWithIters, RequestTypes};
+use crate::traits::{Journey, RequestTypes, RequestWithIters};
 use log::trace;
 
 pub struct MultiCriteriaRaptor<T: RequestTypes> {
@@ -28,9 +28,9 @@ pub struct MultiCriteriaRaptor<T: RequestTypes> {
     nb_of_rounds: usize,
 }
 
-impl<T> MultiCriteriaRaptor<T> 
-where T : RequestTypes,
-
+impl<T> MultiCriteriaRaptor<T>
+where
+    T: RequestTypes,
 {
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
@@ -74,8 +74,18 @@ where T : RequestTypes,
         self.mission_has_new_wait.resize(nb_of_missions, None);
     }
 
-    pub fn compute<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    pub fn compute<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
     {
         self.clear();
         self.resize(pt.nb_of_stops(), pt.nb_of_missions());
@@ -152,8 +162,18 @@ where T : RequestTypes,
     }
 
     // fill new_waiting_fronts with journeys departures
-    fn init_with_departures<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    fn init_with_departures<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
     {
         debug_assert!(self.journeys_tree.is_empty());
         debug_assert!(self
@@ -181,8 +201,17 @@ where T : RequestTypes,
     // identify missions that can be boarded from the new waiting pathes
     // - fill `mission_has_new_waiting` and `missions_with_new_waiting`
     // - reads `stops_with_new_waiting`
-    fn identify_missions_with_new_waits<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria>
+    fn identify_missions_with_new_waits<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+        >,
     {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         debug_assert!(self.missions_with_new_wait.is_empty());
@@ -228,8 +257,18 @@ where T : RequestTypes,
     // - uses `onboard_front` and `new_onboard_front` as local buffers
     // - reads `missions_with_new_waiting`, `mission_has_new_waiting`,
     //         `new_waiting_fronts`, `debarked_fronts`
-    fn ride<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer> 
+    fn ride<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
     {
         debug_assert!(!self.missions_with_new_wait.is_empty());
         debug_assert!(self.stops_with_new_debark.is_empty());
@@ -340,8 +379,17 @@ where T : RequestTypes,
     // tranfer `new_debarked_fronts` into `debarked_fronts`
     // - update `debarked_fronts` and clear `new_debarked_fronts`
     // - reads `stops_with_new_debarked` and `new_debarked_fronts`
-    fn save_and_clear_new_debarks<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria>
+    fn save_and_clear_new_debarks<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+        >,
     {
         debug_assert!(!self.stops_with_new_debark.is_empty());
         // TODO : check that new_debarked_front[stop] is empty for all
@@ -370,7 +418,17 @@ where T : RequestTypes,
     // - reads `stops_with_new_debarked`, `new_debarked_fronts`
     //         `waiting_fronts`, `new_waiting_fronts`
     fn perform_transfers_and_arrivals<R>(&mut self, pt: &R)
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
     {
         debug_assert!(self.new_wait_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_wait.is_empty());
@@ -431,8 +489,18 @@ where T : RequestTypes,
     // tranfer `new_waiting_fronts` into `waiting_fronts`
     // - update `waiting_fronts` and clear `new_waiting_fronts`
     // - reads `stops_with_new_waiting` and `new_waiting_fronts`
-    fn save_and_clear_new_waits<R>(&mut self, pt: &R) 
-    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    fn save_and_clear_new_waits<R>(&mut self, pt: &R)
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
     {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         // TODO : check that new_waiting_fronts[stop] is empty for all

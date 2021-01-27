@@ -1,4 +1,4 @@
-use crate::{time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 use crate::traits;
 
 use chrono::NaiveDateTime;
@@ -15,11 +15,6 @@ pub struct GenericRequest<'data, Data: traits::Data> {
     pub(super) max_arrival_time: SecondsSinceDatasetUTCStart,
     pub(super) max_nb_legs: u8,
 }
-
-
-
-
-
 
 impl<'data, Data> GenericRequest<'data, Data>
 where
@@ -117,7 +112,7 @@ where
         Ok(result)
     }
 }
- 
+
 use crate::response;
 use crate::traits::Journey as PTJourney;
 impl<'data, Data> GenericRequest<'data, Data>
@@ -128,8 +123,15 @@ where
         &self,
         data: &Data,
         pt_journey: &PTJourney<R>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>> 
-    where R : RequestTypes<Departure = Departure, Arrival = Arrival, Trip = Data::Trip, Position = Data::Position, Transfer = Data::Transfer>
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    where
+        R: RequestTypes<
+            Departure = Departure,
+            Arrival = Arrival,
+            Trip = Data::Trip,
+            Position = Data::Position,
+            Transfer = Data::Transfer,
+        >,
     {
         let departure_datetime = self.departure_datetime;
         let departure_idx = pt_journey.departure_leg.departure.idx;
@@ -166,11 +168,7 @@ where
     }
 }
 
-
-use crate::traits::{
-    Data as DataTrait
-};
-
+use crate::traits::Data as DataTrait;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Departure {
@@ -182,19 +180,18 @@ pub struct Arrival {
     pub(super) idx: usize,
 }
 
-
-
-impl<'data,  Data>  GenericRequest<'data, Data>
-where Data : DataTrait
+impl<'data, Data> GenericRequest<'data, Data>
+where
+    Data: DataTrait,
 {
-    pub(super) fn departures(& self) -> Departures {
+    pub(super) fn departures(&self) -> Departures {
         let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
         Departures {
             inner: 0..nb_of_departures,
         }
     }
 
-    pub(super) fn arrivals(& self) -> Arrivals {
+    pub(super) fn arrivals(&self) -> Arrivals {
         let nb_of_arrivals = self.arrivals_stop_point_and_fallbrack_duration.len();
         Arrivals {
             inner: 0..nb_of_arrivals,

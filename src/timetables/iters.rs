@@ -1,5 +1,5 @@
 use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
-use std::iter::{Map};
+use std::iter::Map;
 use std::ops::Range;
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
@@ -8,7 +8,7 @@ impl<Time, Load, TimezoneData, TripData> Timetables<Time, Load, TimezoneData, Tr
 where
     Time: Ord + Clone,
     TimezoneData: PartialEq + Clone,
-    Load : Ord + Clone,
+    Load: Ord + Clone,
 {
     pub fn timetables(&self) -> TimetableIter {
         (0..self.nb_of_timetables()).map(|idx| Timetable { idx })
@@ -97,7 +97,7 @@ impl<Time, Load, TimezoneData, TripData> TimetableData<Time, Load, TimezoneData,
         }
     }
 
-    pub(super) fn vehicle_loads(&self, vehicle_idx : usize) -> std::slice::Iter<'_, Load> {
+    pub(super) fn vehicle_loads(&self, vehicle_idx: usize) -> std::slice::Iter<'_, Load> {
         debug_assert!(vehicle_idx < self.vehicle_datas.len());
         self.vehicle_loads[vehicle_idx].iter()
     }

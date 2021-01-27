@@ -1,10 +1,9 @@
-
+mod daily;
 mod generic_timetables;
 mod iters;
-mod daily;
-mod periodic;
 mod loads_daily;
 mod loads_periodic;
+mod periodic;
 
 pub use daily::DailyTimetables;
 pub use periodic::PeriodicTimetables;
@@ -16,7 +15,10 @@ use std::hash::Hash;
 
 pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
-use crate::{loads_data::{Load, LoadsData}, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+};
 
 use chrono::NaiveDate;
 
@@ -31,16 +33,13 @@ pub enum FlowDirection {
 }
 pub type StopFlows = Vec<(Stop, FlowDirection)>;
 
-
 pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone;
     type Trip: Debug + Clone;
 }
 
-pub trait Timetables : Types {
-
-
+pub trait Timetables: Types {
     fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self;
 
     fn calendar(&self) -> &Calendar;
@@ -93,22 +92,21 @@ pub trait Timetables : Types {
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stops : Stops,
-        flows : Flows,
-        board_times : Times,
-        debark_times : Times,
-        loads_data : &LoadsData,
+        stops: Stops,
+        flows: Flows,
+        board_times: Times,
+        debark_times: Times,
+        loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
     ) -> Vec<Self::Mission>
     where
-    Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
-    Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-    Dates: Iterator<Item = &'date chrono::NaiveDate>,
-    Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    ;
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 }
 
 pub trait TimetablesIter<'a>: Types {
@@ -121,6 +119,3 @@ pub trait TimetablesIter<'a>: Types {
     type Missions: Iterator<Item = Self::Mission>;
     fn missions(&'a self) -> Self::Missions;
 }
-
-
-

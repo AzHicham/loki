@@ -172,7 +172,8 @@ where
 
     fn first_vehicle_board_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
         data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position)
-            .unwrap().0
+            .unwrap()
+            .0
     }
 
     pub fn last_vehicle_debark_datetime(&self, data: &Data) -> NaiveDateTime {
@@ -187,7 +188,8 @@ where
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle);
         data.debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
-            .unwrap().0 //unwrap is safe because of checks that happens during Self construction
+            .unwrap()
+            .0 //unwrap is safe because of checks that happens during Self construction
     }
 
     fn arrival(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
@@ -316,11 +318,13 @@ where
 
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
-            .unwrap().0;
+            .unwrap()
+            .0;
         let board_datetime = data.to_naive_datetime(&board_time);
         let debark_time = data
             .debark_time_of(trip, &vehicle_leg.debark_position)
-            .unwrap().0;
+            .unwrap()
+            .0;
         let debark_datetime = data.to_naive_datetime(&debark_time);
 
         let from_datetime = Self::write_date(&board_datetime);
@@ -411,10 +415,12 @@ impl<Data: traits::Data> Journey<Data> {
         //unwraps below are safe because of checks that happens during Self::new()
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
-            .unwrap().0;
+            .unwrap()
+            .0;
         let debark_time = data
             .debark_time_of(trip, &vehicle_leg.debark_position)
-            .unwrap().0;
+            .unwrap()
+            .0;
 
         let from_datetime = data.to_naive_datetime(&board_time);
         let to_datetime = data.to_naive_datetime(&debark_time);
@@ -440,7 +446,8 @@ impl<Data: traits::Data> Journey<Data> {
         let prev_trip = &prev_vehicle_leg.trip;
         let prev_debark_time = data
             .debark_time_of(prev_trip, &prev_vehicle_leg.debark_position)
-            .unwrap().0;
+            .unwrap()
+            .0;
         let from_datetime = data.to_naive_datetime(&prev_debark_time);
         let prev_mission = data.mission_of(&prev_trip);
         let prev_debark_stop = data.stop_of(&prev_vehicle_leg.debark_position, &prev_mission);

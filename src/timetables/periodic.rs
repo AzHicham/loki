@@ -1,4 +1,7 @@
-use crate::{loads_data::{Load, LoadsData}, time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
+};
 
 use super::{
     generic_timetables::{Timetables, Vehicle},
@@ -12,7 +15,9 @@ use crate::transit_data::{Idx, VehicleJourney};
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
 
-use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes, Stop, FlowDirection};
+use crate::timetables::{
+    FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
+};
 
 use crate::log::warn;
 
@@ -40,7 +45,6 @@ impl TimetablesTypes for PeriodicTimetables {
     type Position = super::generic_timetables::Position;
 
     type Trip = Trip;
-
 }
 
 impl TimetablesTrait for PeriodicTimetables {
@@ -143,8 +147,8 @@ impl TimetablesTrait for PeriodicTimetables {
             let timetable = self.timetables.timetable_of(&trip.vehicle);
             let timezone = self.timetables.timezone_data(&timetable);
             let day = &trip.day;
-            let time = self.calendar.compose(day, time_in_day, timezone);     
-            (time, Load::default())   
+            let time = self.calendar.compose(day, time_in_day, timezone);
+            (time, Load::default())
         })
     }
 
@@ -215,11 +219,11 @@ impl TimetablesTrait for PeriodicTimetables {
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stops : Stops,
-        flows : Flows,
-        board_times : Times,
-        debark_times : Times,
-        _loads_data : & LoadsData,
+        stops: Stops,
+        flows: Flows,
+        board_times: Times,
+        debark_times: Times,
+        _loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
@@ -229,7 +233,7 @@ impl TimetablesTrait for PeriodicTimetables {
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
         let days_pattern = self
             .days_patterns
@@ -241,8 +245,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let nb_of_positions = stops.len();
         let loads = if nb_of_positions > 0 {
             vec![(); nb_of_positions - 1]
-        }
-        else {
+        } else {
             vec![(); 0]
         };
         let insert_error = self.timetables.insert(
@@ -269,12 +272,7 @@ impl TimetablesTrait for PeriodicTimetables {
 
 use super::generic_timetables::VehicleTimesError;
 
-
-
-fn handle_vehicletimes_error(
-    vehicle_journey: &VehicleJourney,
-    error: &VehicleTimesError,
-) {
+fn handle_vehicletimes_error(vehicle_journey: &VehicleJourney, error: &VehicleTimesError) {
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
             let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
@@ -284,9 +282,7 @@ fn handle_vehicletimes_error(
                     debark time at : \n {:?} \n\
                     is earlier than its \
                     board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, downstream_stop_time, upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
@@ -297,9 +293,7 @@ fn handle_vehicletimes_error(
                     board time at : \n {:?} \n \
                     is earlier than its \
                     board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, downstream_stop_time, upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
@@ -310,14 +304,11 @@ fn handle_vehicletimes_error(
                     debark time at : \n {:?} \n \
                     is earlier than its \
                     debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, downstream_stop_time, upstream_stop_time
             );
         }
     }
 }
-
 
 impl<'a> TimetablesIter<'a> for PeriodicTimetables {
     type Positions = super::iters::PositionsIter;

@@ -3,7 +3,6 @@ extern crate static_assertions;
 mod engine;
 mod request;
 
-
 pub mod loads_data;
 
 pub use chrono::NaiveDateTime;
@@ -13,14 +12,11 @@ pub use transit_model;
 
 pub mod time;
 
-pub mod traits; 
-
-
+pub mod traits;
 
 mod timetables;
 
 mod transit_data;
-
 
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
@@ -34,10 +30,6 @@ pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, Vehicl
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 
-pub use request::{ 
-    depart_after::DepartAfter,
-    loads_depart_after::LoadsDepartAfter
-
-};
+pub use request::{depart_after::DepartAfter, loads_depart_after::LoadsDepartAfter};
 
 pub mod response;

@@ -1,12 +1,17 @@
 use super::{generic_timetables::Timetables, TimetablesIter};
 
-use crate::{loads_data::{Load, LoadsData}, time::{
-    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-}};
 use crate::transit_data::{Idx, VehicleJourney};
+use crate::{
+    loads_data::{Load, LoadsData},
+    time::{
+        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    },
+};
 use chrono::NaiveDate;
 
-use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes, Stop, FlowDirection};
+use crate::timetables::{
+    FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
+};
 
 use crate::log::warn;
 
@@ -26,7 +31,6 @@ impl TimetablesTypes for DailyTimetables {
     type Position = super::generic_timetables::Position;
 
     type Trip = super::generic_timetables::Vehicle;
-
 }
 
 impl TimetablesTrait for DailyTimetables {
@@ -94,7 +98,6 @@ impl TimetablesTrait for DailyTimetables {
     ) -> (SecondsSinceDatasetUTCStart, Load) {
         let time = self.timetables.arrival_time(trip, position).0;
         (*time, Load::default())
-            
     }
 
     fn debark_time_of(
@@ -102,7 +105,8 @@ impl TimetablesTrait for DailyTimetables {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.debark_time(trip, position)
+        self.timetables
+            .debark_time(trip, position)
             .map(|(time, _)| (*time, Load::default()))
     }
 
@@ -111,7 +115,8 @@ impl TimetablesTrait for DailyTimetables {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.board_time(trip, position)
+        self.timetables
+            .board_time(trip, position)
             .map(|(time, _)| (*time, Load::default()))
     }
 
@@ -128,11 +133,11 @@ impl TimetablesTrait for DailyTimetables {
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
-        stops : Stops,
-        flows : Flows,
-        board_times : Times,
-        debark_times : Times,
-        _loads_data : & LoadsData,
+        stops: Stops,
+        flows: Flows,
+        board_times: Times,
+        debark_times: Times,
+        _loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
@@ -142,15 +147,13 @@ impl TimetablesTrait for DailyTimetables {
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times : Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-
+        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
         let mut result = Vec::new();
         let nb_of_positions = stops.len();
         let loads = if nb_of_positions > 0 {
             vec![(); nb_of_positions - 1]
-        }
-        else {
+        } else {
             vec![(); 0]
         };
         for date in valid_dates {
@@ -170,12 +173,12 @@ impl TimetablesTrait for DailyTimetables {
                 }
                 Some(day) => {
                     let calendar = &self.calendar;
-                    let board_times_utc = board_times.clone().map(|time| {
-                        calendar.compose(&day, &time, timezone)
-                    });
-                    let debark_times_utc = debark_times.clone().map(|time|{
-                        calendar.compose(&day, &time, timezone)
-                    });
+                    let board_times_utc = board_times
+                        .clone()
+                        .map(|time| calendar.compose(&day, &time, timezone));
+                    let debark_times_utc = debark_times
+                        .clone()
+                        .map(|time| calendar.compose(&day, &time, timezone));
                     let vehicle_data = VehicleData {
                         vehicle_journey_idx,
                         day,
@@ -194,11 +197,7 @@ impl TimetablesTrait for DailyTimetables {
                             result.push(mission);
                         }
                         Err(error) => {
-                            handle_vehicletimes_error(
-                                vehicle_journey,
-                                date,
-                                &error
-                            );
+                            handle_vehicletimes_error(vehicle_journey, date, &error);
                         }
                     }
                 }
@@ -244,10 +243,7 @@ fn handle_vehicletimes_error(
                     debark time at : \n {:?} \n\
                     is earlier than its \
                     board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                date,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
@@ -258,10 +254,7 @@ fn handle_vehicletimes_error(
                     board time at : \n {:?} \n \
                     is earlier than its \
                     board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                date,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
@@ -272,10 +265,7 @@ fn handle_vehicletimes_error(
                     debark time at : \n {:?} \n \
                     is earlier than its \
                     debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id,
-                date,
-                downstream_stop_time,
-                upstream_stop_time
+                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
             );
         }
     }

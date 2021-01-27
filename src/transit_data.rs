@@ -6,7 +6,11 @@ pub use transit_model::objects::Time as TransitModelTime;
 pub use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
 pub use typed_index_collection::Idx;
 
-use crate::{loads_data::{Load, LoadsData}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, traits::{Data, DataIters, DataWithIters, TransitTypes}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    traits::{Data, DataIters, DataWithIters, TransitTypes},
+};
 
 use std::collections::HashMap;
 
@@ -64,9 +68,10 @@ where
         self.stop_point_idx_to_stop.get(stop_point_idx).copied()
     }
 
-    fn new(model: &transit_model::Model, 
-        loads_data : &LoadsData,
-        default_transfer_duration: PositiveDuration
+    fn new(
+        model: &transit_model::Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
     ) -> Self {
         Self::_new(model, loads_data, default_transfer_duration)
     }

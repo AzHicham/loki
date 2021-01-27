@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 use log::{debug, trace};
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::Path;
 use transit_model::objects::VehicleJourney;
@@ -14,8 +14,8 @@ type VehicleJourneyIdx = Idx<VehicleJourney>;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
     Low,
-    Medium, 
-    High
+    Medium,
+    High,
 }
 
 impl Default for Load {
@@ -26,7 +26,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-fn load_to_int(load : & Load) -> u8 {
+fn load_to_int(load: &Load) -> u8 {
     match load {
         Load::Low => 0,
         Load::Medium => 1,
@@ -46,36 +46,34 @@ impl PartialOrd for Load {
     }
 }
 
-fn occupancy_to_load(occupancy : Occupancy) -> Load {
+fn occupancy_to_load(occupancy: Occupancy) -> Load {
     debug_assert!(occupancy <= 100);
     if occupancy <= 30 {
         Load::Low
-    }
-    else if occupancy <= 70 {
+    } else if occupancy <= 70 {
         Load::Medium
-    }
-    else {
+    } else {
         Load::High
     }
 }
 
-
 pub struct LoadsData {
-    per_vehicle_journey : BTreeMap<VehicleJourneyIdx, VehicleJourneyLoads>
+    per_vehicle_journey: BTreeMap<VehicleJourneyIdx, VehicleJourneyLoads>,
 }
 
 struct VehicleJourneyLoads {
-    stop_sequence_to_idx : BTreeMap<StopSequence, usize>,
-    per_date : BTreeMap<NaiveDate, TripLoads>
+    stop_sequence_to_idx: BTreeMap<StopSequence, usize>,
+    per_date: BTreeMap<NaiveDate, TripLoads>,
 }
 
 struct TripLoads {
-    per_stop : Vec<Load>
+    per_stop: Vec<Load>,
 }
 
 impl VehicleJourneyLoads {
-    fn new<StopSequenceIter>(stop_sequence_iter : StopSequenceIter) -> Self 
-    where StopSequenceIter : Iterator<Item = StopSequence>
+    fn new<StopSequenceIter>(stop_sequence_iter: StopSequenceIter) -> Self
+    where
+        StopSequenceIter: Iterator<Item = StopSequence>,
     {
         let mut stop_sequence_to_idx = BTreeMap::new();
         for (idx, stop_sequence) in stop_sequence_iter.enumerate() {
@@ -83,23 +81,25 @@ impl VehicleJourneyLoads {
         }
         Self {
             stop_sequence_to_idx,
-            per_date : BTreeMap::new()
+            per_date: BTreeMap::new(),
         }
     }
-
 }
 
 impl TripLoads {
-    fn new(nb_of_stop : usize) -> Self {
+    fn new(nb_of_stop: usize) -> Self {
         Self {
-            per_stop : vec![Load::Medium; nb_of_stop]
+            per_stop: vec![Load::Medium; nb_of_stop],
         }
     }
 }
 
 impl LoadsData {
-
-    pub fn loads(&self, vehicle_journey_idx : & VehicleJourneyIdx,  date : & NaiveDate) -> Option<&[Load]> {
+    pub fn loads(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> Option<&[Load]> {
         let vehicle_journey_load = self.per_vehicle_journey.get(vehicle_journey_idx)?;
         let trip_load = vehicle_journey_load.per_date.get(date)?;
         Some(trip_load.per_stop.as_slice())
@@ -110,8 +110,8 @@ impl LoadsData {
     // }
 
     pub fn empty() -> Self {
-        LoadsData{
-            per_vehicle_journey : BTreeMap::new()
+        LoadsData {
+            per_vehicle_journey: BTreeMap::new(),
         }
     }
 
@@ -119,9 +119,8 @@ impl LoadsData {
         csv_occupancys_filepath: P,
         model: &Model,
     ) -> Result<Self, Box<dyn Error>> {
-
-        let mut loads_data = LoadsData{
-            per_vehicle_journey : BTreeMap::new()
+        let mut loads_data = LoadsData {
+            per_vehicle_journey: BTreeMap::new(),
         };
         let filepath = csv_occupancys_filepath.as_ref();
         let mut reader = csv::ReaderBuilder::new()
@@ -149,21 +148,23 @@ impl LoadsData {
             let load = occupancy_to_load(occupancy);
 
             let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
-            let stop_sequence_iter =  vehicle_journey
-                .stop_times.iter().map(|stop_time| {
-                    stop_time.sequence
-                });
+            let stop_sequence_iter = vehicle_journey
+                .stop_times
+                .iter()
+                .map(|stop_time| stop_time.sequence);
             let nb_of_stop = vehicle_journey.stop_times.len();
-
 
             let vehicle_journey_loads = loads_data
                 .per_vehicle_journey
                 .entry(vehicle_journey_idx)
-                .or_insert_with(||VehicleJourneyLoads::new(stop_sequence_iter));
+                .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter));
             let idx = {
-                let has_idx = vehicle_journey_loads.stop_sequence_to_idx.get(&stop_sequence);
+                let has_idx = vehicle_journey_loads
+                    .stop_sequence_to_idx
+                    .get(&stop_sequence);
                 if has_idx.is_none() {
-                    trace!("Error reading {:?} at line {}. \n 
+                    trace!(
+                        "Error reading {:?} at line {}. \n 
                         The provided stop_sequence {} is not valid for the vehicle_journey {}.
                         I'll skip this line.",
                         filepath,
@@ -176,7 +177,10 @@ impl LoadsData {
                 has_idx.unwrap()
             };
 
-            let trip_load = vehicle_journey_loads.per_date.entry(date).or_insert_with(||TripLoads::new(nb_of_stop));
+            let trip_load = vehicle_journey_loads
+                .per_date
+                .entry(date)
+                .or_insert_with(|| TripLoads::new(nb_of_stop));
             if trip_load.per_stop[*idx] != load {
                 trace!("Error reading {:?}. There is more than one occupancy values for trip {} at date {}. I'll keep the first value.",
                     filepath,
@@ -193,7 +197,7 @@ impl LoadsData {
         Ok(loads_data)
     }
 
-    fn check(&self, model : & Model)  {
+    fn check(&self, model: &Model) {
         // for each vehicle_journey, check that :
         //  - for each valid date, we have occupancy data for every stop_time
         for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
@@ -222,10 +226,9 @@ impl LoadsData {
                     );
                     continue;
                 }
-            }            
+            }
         }
     }
-
 }
 
 fn parse_record(
@@ -296,8 +299,6 @@ fn parse_record(
 
     Ok((vehicle_journey_idx, stop_sequence, occupancy, date))
 }
-
-
 
 #[cfg(test)]
 mod tests {

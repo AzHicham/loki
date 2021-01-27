@@ -1,15 +1,14 @@
-use crate::{time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 use crate::traits;
 
 use chrono::NaiveDateTime;
 use traits::{BadRequest, RequestIO};
 
-use super::generic_request::{Arrivals, Departures, GenericRequest}; 
+use super::generic_request::{Arrivals, Departures, GenericRequest};
 
 pub struct DepartAfter<'data, Data: traits::Data> {
-    generic : GenericRequest<'data, Data>
+    generic: GenericRequest<'data, Data>,
 }
-
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Criteria {
@@ -33,10 +32,7 @@ impl<'data, Data: traits::Data> traits::RequestTypes for DepartAfter<'data, Data
     type Criteria = Criteria;
 }
 
-
 impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, Data> {
-
-
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty;
         let walking_penalty = self.generic.leg_walking_penalty;
@@ -71,8 +67,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
     // }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
-        criteria.arrival_time <= self.generic.max_arrival_time 
-        && criteria.nb_of_legs <= self.generic.max_nb_legs
+        criteria.arrival_time <= self.generic.max_arrival_time
+            && criteria.nb_of_legs <= self.generic.max_nb_legs
     }
 
     fn board_and_ride(
@@ -90,8 +86,14 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             return None;
         }
         let mission = self.generic.transit_data.mission_of(trip);
-        let next_position = self.generic.transit_data.next_on_mission(position, &mission)?;
-        let arrival_timeload_at_next_stop = self.generic.transit_data.arrival_time_of(trip, &next_position);
+        let next_position = self
+            .generic
+            .transit_data
+            .next_on_mission(position, &mission)?;
+        let arrival_timeload_at_next_stop = self
+            .generic
+            .transit_data
+            .arrival_time_of(trip, &next_position);
         let new_criteria = Criteria {
             arrival_time: arrival_timeload_at_next_stop.0,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -108,7 +110,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         waiting_criteria: &Self::Criteria,
     ) -> Option<(Self::Trip, Self::Criteria)> {
         let waiting_time = &waiting_criteria.arrival_time;
-        self.generic.transit_data
+        self.generic
+            .transit_data
             .earliest_trip_to_board_at(waiting_time, mission, position)
             .map(|(trip, arrival_time, _arrival_load)| {
                 let new_criteria = Criteria {
@@ -131,7 +134,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             let arrival_time = &onboard_criteria.arrival_time;
             self.generic.transit_data.arrival_time_of(trip, position).0 == *arrival_time
         });
-        self.generic.transit_data
+        self.generic
+            .transit_data
             .debark_time_of(trip, position)
             .map(|debark_timeload| Criteria {
                 arrival_time: debark_timeload.0,
@@ -148,11 +152,15 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         criteria: &Self::Criteria,
     ) -> Self::Criteria {
         let mission = self.generic.transit_data.mission_of(trip);
-        let next_position = self.generic
+        let next_position = self
+            .generic
             .transit_data
             .next_on_mission(position, &mission)
             .unwrap();
-        let arrival_timeload_at_next_position = self.generic.transit_data.arrival_time_of(trip, &next_position);
+        let arrival_timeload_at_next_position = self
+            .generic
+            .transit_data
+            .arrival_time_of(trip, &next_position);
         Criteria {
             arrival_time: arrival_timeload_at_next_position.0,
             nb_of_legs: criteria.nb_of_legs,
@@ -197,7 +205,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
     }
 
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {
-        let arrival_duration = &self.generic.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
+        let arrival_duration =
+            &self.generic.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
         Criteria {
             arrival_time: criteria.arrival_time + *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
@@ -212,7 +221,9 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.generic.transit_data.is_upstream(upstream, downstream, mission)
+        self.generic
+            .transit_data
+            .is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -283,25 +294,23 @@ where
     }
 }
 
-
-impl<'data, Data> traits::RequestWithIters for DepartAfter<'data, Data> 
-where Data: traits::DataWithIters {}
-
-
+impl<'data, Data> traits::RequestWithIters for DepartAfter<'data, Data> where
+    Data: traits::DataWithIters
+{
+}
 
 use crate::response;
 use crate::traits::Journey as PTJourney;
 
 use super::generic_request::{Arrival, Departure};
 
-
-impl<'data,  Data> RequestIO<'data, Data> for DepartAfter<'data, Data>
+impl<'data, Data> RequestIO<'data, Data> for DepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
     fn new<'a, 'b>(
         model: &transit_model::Model,
-        transit_data: & 'data Data,
+        transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
         arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
@@ -310,7 +319,8 @@ where
         max_duration_to_arrival: PositiveDuration,
         max_nb_legs: u8,
     ) -> Result<Self, BadRequest> {
-        let generic_result = GenericRequest::new(model,
+        let generic_result = GenericRequest::new(
+            model,
             transit_data,
             departure_datetime,
             departures_stop_point_and_fallback_duration,
@@ -318,14 +328,9 @@ where
             leg_arrival_penalty,
             leg_walking_penalty,
             max_duration_to_arrival,
-            max_nb_legs
+            max_nb_legs,
         );
-        generic_result.map(|generic| {
-            Self {
-                generic
-            }
-        })
-
+        generic_result.map(|generic| Self { generic })
     }
     fn create_response(
         &self,

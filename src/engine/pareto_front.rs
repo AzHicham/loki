@@ -1,5 +1,5 @@
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
-use crate::traits::{Request, TransitTypes, RequestTypes};
+use crate::traits::{Request, RequestTypes, TransitTypes};
 
 use std::slice::Iter as SliceIter;
 
@@ -43,8 +43,9 @@ impl<ItemData: Clone, T: RequestTypes> ParetoFront<ItemData, T> {
         self.elements.is_empty()
     }
 
-    pub fn dominates<R>(&self, criteria: &T::Criteria, request: &R) -> bool 
-    where R : Request<Criteria = T::Criteria>
+    pub fn dominates<R>(&self, criteria: &T::Criteria, request: &R) -> bool
+    where
+        R: Request<Criteria = T::Criteria>,
     {
         for (_, ref old_criteria) in &self.elements {
             if request.is_lower(old_criteria, criteria) {
@@ -58,8 +59,9 @@ impl<ItemData: Clone, T: RequestTypes> ParetoFront<ItemData, T> {
         self.elements.push((item_data, criteria));
     }
 
-    pub fn remove_elements_dominated_by<R>(&mut self, criteria: &T::Criteria, request: &R) 
-    where R : Request<Criteria = T::Criteria>
+    pub fn remove_elements_dominated_by<R>(&mut self, criteria: &T::Criteria, request: &R)
+    where
+        R: Request<Criteria = T::Criteria>,
     {
         self.elements
             .retain(|(_, old_criteria)| !request.is_lower(&criteria, old_criteria));
@@ -69,16 +71,17 @@ impl<ItemData: Clone, T: RequestTypes> ParetoFront<ItemData, T> {
         &mut self,
         item_data: ItemData,
         criteria: T::Criteria,
-        request : &R
-    ) 
-    where R : Request<Criteria = T::Criteria>
+        request: &R,
+    ) where
+        R: Request<Criteria = T::Criteria>,
     {
         self.remove_elements_dominated_by(&criteria, request);
         self.add_unchecked(item_data, criteria);
     }
 
-    pub fn add<R>(&mut self, item_data: ItemData, criteria: T::Criteria, request : &R) 
-    where R : Request<Criteria = T::Criteria>
+    pub fn add<R>(&mut self, item_data: ItemData, criteria: T::Criteria, request: &R)
+    where
+        R: Request<Criteria = T::Criteria>,
     {
         if self.dominates(&criteria, request) {
             return;
