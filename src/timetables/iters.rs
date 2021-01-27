@@ -1,14 +1,14 @@
 use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
-use std::iter::Map;
+use std::{fmt::Debug, iter::Map};
 use std::ops::Range;
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
 impl<Time, Load, TimezoneData, TripData> Timetables<Time, Load, TimezoneData, TripData>
 where
-    Time: Ord + Clone,
+    Time: Ord + Clone + Debug,
     TimezoneData: PartialEq + Clone,
-    Load: Ord + Clone,
+    Load: Ord + Clone + Debug,
 {
     pub fn timetables(&self) -> TimetableIter {
         (0..self.nb_of_timetables()).map(|idx| Timetable { idx })

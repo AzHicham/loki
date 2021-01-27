@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Debug};
 use std::{
     borrow::Borrow,
     cmp::{max, min, Ordering},
@@ -67,8 +67,8 @@ pub struct Vehicle {
 
 impl<Time, Load, TimezoneData, VehicleData> Timetables<Time, Load, TimezoneData, VehicleData>
 where
-    Time: Ord + Clone,
-    Load: Ord + Clone,
+    Time: Ord + Clone + Debug,
+    Load: Ord + Clone + Debug,
     TimezoneData: PartialEq + Clone,
 {
     pub(super) fn new() -> Self {
@@ -310,8 +310,8 @@ where
 
 impl<Time, Load, TimezoneData, VehicleData> TimetableData<Time, Load, TimezoneData, VehicleData>
 where
-    Time: Ord + Clone,
-    Load: Ord,
+    Time: Ord + Clone + Debug,
+    Load: Ord + Debug,
     TimezoneData: PartialEq,
 {
     fn can_board(&self, position_idx: usize) -> bool {
@@ -513,6 +513,8 @@ where
         BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
         Loads: Iterator<Item = Load> + ExactSizeIterator + Clone,
+        Time : Debug,
+        Load : Debug
     {
         let nb_of_vehicle = self.nb_of_vehicle();
         if nb_of_vehicle == 0 {
@@ -582,7 +584,7 @@ where
                         board_times.clone(),
                         debark_times.clone(),
                         loads.clone(),
-                        insert_idx - 1,
+                        refined_insert_idx - 1,
                     ) {
                         None => {
                             return None;

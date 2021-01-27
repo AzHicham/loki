@@ -208,8 +208,8 @@ where
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
     info!("Data build duration {} ms", data_build_time);
-    // info!("Number of timetables {} ", data.nb_of_timetables());
-    // info!("Number of vehicles {} ", data.nb_of_vehicles());
+    info!("Number of missions {} ", data.nb_of_missions());
+    // info!("Number of trips {} ", data.nb_of_vehicles());
     info!(
         "Validity dates between {} and {}",
         data.calendar().first_date(),
