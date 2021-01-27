@@ -4,7 +4,7 @@ use laxatips::{
     transit_model::Model,
 };
 use laxatips::{
-    DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
+    DailyData, DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration,
 };
 
 use laxatips::traits;
@@ -13,6 +13,7 @@ use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
+use traits::{RequestIO, RequestWithIters};
 use std::path::PathBuf;
 
 use chrono::NaiveDateTime;
@@ -59,6 +60,11 @@ struct Options {
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
     implem: String,
+
+    /// Type of request to make :
+    /// "classic" or "loads"
+    #[structopt(long, default_value = "classic")]
+    request_type: String,
 
     #[structopt(subcommand)]
     command: Command,
@@ -179,7 +185,7 @@ fn launch<Data>(options: Options) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let input_dir = options.ntfs_path;
+    let input_dir = &options.ntfs_path;
     let model = transit_model::ntfs::read(input_dir)?;
     info!("Transit model loaded");
     info!(
@@ -188,7 +194,7 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
-    let loads_data_path = options.loads_data_path;
+    let loads_data_path = &options.loads_data_path;
     let loads_data = LoadsData::new(&loads_data_path, &model)
         .unwrap_or_else(|err| {
             warn!("Error while reading the passenger loads file at {:?} : {:?}", 
@@ -204,6 +210,7 @@ where
     let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_time = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed");
+    info!("Data build duration {} ms", data_build_time);
     // info!("Number of timetables {} ", data.nb_of_timetables());
     // info!("Number of vehicles {} ", data.nb_of_vehicles());
     info!(
@@ -211,11 +218,32 @@ where
         data.calendar().first_date(),
         data.calendar().last_date()
     );
+    match options.request_type.as_str() {
+        "classic" => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options),
+        "loads" => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+        _ => {
+            bail!("Invalid request_type : {}", options.request_type)
+        }
+    }
+    
+
+
+}
+
+fn build_engine_and_solve<'data, Data, R>(
+    model: &Model,
+    data: &'data Data,
+    options : & Options,
+) ->Result<(), Error>
+where 
+R : RequestWithIters + RequestIO<'data, Data>,
+Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+{
 
     let nb_of_stops = data.nb_of_stops();
     let nb_of_missions = data.nb_of_missions();
 
-    let departure_datetime = match options.departure_datetime {
+    let departure_datetime = match &options.departure_datetime {
         Some(string_datetime) => parse_datetime(&string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
@@ -227,13 +255,12 @@ where
     let leg_walking_penalty = parse_duration(&options.leg_walking_penalty).unwrap();
     let max_journey_duration = parse_duration(&options.max_journey_duration).unwrap();
     let max_nb_of_legs: u8 = options.max_nb_of_legs;
-
     let mut raptor =
-        MultiCriteriaRaptor::<DepartAfter<Data>>::new(nb_of_stops, nb_of_missions);
+        MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
 
     let compute_timer = SystemTime::now();
 
-    match options.command {
+    match &options.command {
         Command::Random(random) => {
             let mut total_nb_of_rounds = 0;
             let nb_queries = random.nb_queries;
@@ -247,13 +274,13 @@ where
                     start_stop_area_uri,
                     end_stop_area_uri,
                     &mut raptor,
-                    &model,
-                    &data,
+                    model,
+                    data,
                     &departure_datetime,
                     &leg_arrival_penalty,
                     &leg_walking_penalty,
                     &max_journey_duration,
-                    max_nb_of_legs,
+                    max_nb_of_legs
                 );
 
                 match solve_result {
@@ -272,7 +299,7 @@ where
                 }
             }
             let duration = compute_timer.elapsed().unwrap().as_millis();
-            info!("Data build duration {} ms", data_build_time);
+
             info!(
                 "Average duration per request : {} ms",
                 (duration as f64) / (nb_queries as f64)
@@ -291,13 +318,13 @@ where
                 start_stop_area_uri,
                 end_stop_area_uri,
                 &mut raptor,
-                &model,
-                &data,
+                model,
+                data,
                 &departure_datetime,
                 &leg_arrival_penalty,
                 &leg_walking_penalty,
                 &max_journey_duration,
-                max_nb_of_legs,
+                max_nb_of_legs
             )?;
         }
     };
@@ -305,20 +332,22 @@ where
     Ok(())
 }
 
-fn solve<'data, Data>(
+fn solve<'data, Data, R>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<R>, // &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
     model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
     leg_arrival_penalty: &PositiveDuration,
     leg_walking_penalty: &PositiveDuration,
     max_duration_to_arrival: &PositiveDuration,
-    max_nb_of_legs: u8,
+    max_nb_of_legs: u8
 ) -> Result<usize, Error>
 where
-    Data: traits::DataWithIters,
+    R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -335,7 +364,7 @@ where
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request = DepartAfter::<'data, Data>::new(
+    let request = R::new(
         model,
         data,
         departure_datetime.clone(),
@@ -346,8 +375,8 @@ where
         *max_duration_to_arrival,
         max_nb_of_legs,
     )?;
-
-    debug!("Start computing journey");
+    
+        debug!("Start computing journey");
     let request_timer = SystemTime::now();
     engine.compute(&request);
     debug!(
@@ -357,20 +386,22 @@ where
     );
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
-    for pt_journey in engine.responses() {
-        let response = request.create_response(data, pt_journey);
-        match response {
-            Ok(journey) => {
-                trace!("{}", journey.print(data, model)?);
-            }
-            Err(_) => {
-                trace!("An error occured while converting an engine journey to response.");
-            }
-        };
-    }
+    // for pt_journey in engine.responses() {
+    //     let response = request.create_response(data, pt_journey);
+    //     match response {
+    //         Ok(journey) => {
+    //             trace!("{}", journey.print(data, model)?);
+    //         }
+    //         Err(_) => {
+    //             trace!("An error occured while converting an engine journey to response.");
+    //         }
+    //     };
+    // }
 
     Ok(engine.nb_of_rounds())
+
 }
+
 
 fn main() {
     let _log_guard = init_logger();

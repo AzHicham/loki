@@ -3,6 +3,7 @@ use crate::traits;
 
 use chrono::NaiveDateTime;
 use log::warn;
+use traits::{BadRequest, RequestTypes};
 
 pub struct GenericRequest<'data, Data: traits::Data> {
     pub(super) transit_data: &'data Data,
@@ -17,33 +18,8 @@ pub struct GenericRequest<'data, Data: traits::Data> {
 
 
 
-#[derive(Debug)]
-pub enum BadRequest {
-    DepartureDatetime,
-    NoValidDepartureStop,
-    NoValidArrivalStop,
-}
 
-use std::fmt;
 
-impl fmt::Display for BadRequest {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            BadRequest::DepartureDatetime => write!(
-                f,
-                "The requested datetime is out of the validity period of the data."
-            ),
-            BadRequest::NoValidDepartureStop => {
-                write!(f, "No valid departure stop among the provided ones.")
-            }
-            BadRequest::NoValidArrivalStop => {
-                write!(f, "No valid arrival stop among the provided ones.")
-            }
-        }
-    }
-}
-
-impl std::error::Error for BadRequest {}
 
 impl<'data, Data> GenericRequest<'data, Data>
 where
@@ -142,52 +118,53 @@ where
     }
 }
  
-// use crate::response;
-// use crate::traits::Journey as PTJourney;
-// impl<'data, 'model, Data> Request<'data, Data>
-// where
-//     Data: traits::Data,
-// {
-//     pub fn create_response(
-//         &self,
-//         data: &Data,
-//         pt_journey: &PTJourney<Self>,
-//     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> 
-//     {
-//         let departure_datetime = self.departure_datetime;
-//         let departure_idx = pt_journey.departure_leg.departure.idx;
-//         let departure_fallback_duration =
-//             &self.departures_stop_point_and_fallback_duration[departure_idx].1;
+use crate::response;
+use crate::traits::Journey as PTJourney;
+impl<'data, Data> GenericRequest<'data, Data>
+where
+    Data: traits::Data,
+{
+    pub fn create_response<R>(
+        &self,
+        data: &Data,
+        pt_journey: &PTJourney<R>,
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>> 
+    where R : RequestTypes<Departure = Departure, Arrival = Arrival, Trip = Data::Trip, Position = Data::Position, Transfer = Data::Transfer>
+    {
+        let departure_datetime = self.departure_datetime;
+        let departure_idx = pt_journey.departure_leg.departure.idx;
+        let departure_fallback_duration =
+            &self.departures_stop_point_and_fallback_duration[departure_idx].1;
 
-//         let first_vehicle = response::VehicleLeg {
-//             trip: pt_journey.departure_leg.trip.clone(),
-//             board_position: pt_journey.departure_leg.board_position.clone(),
-//             debark_position: pt_journey.departure_leg.debark_position.clone(),
-//         };
+        let first_vehicle = response::VehicleLeg {
+            trip: pt_journey.departure_leg.trip.clone(),
+            board_position: pt_journey.departure_leg.board_position.clone(),
+            debark_position: pt_journey.departure_leg.debark_position.clone(),
+        };
 
-//         let arrival_fallback_duration =
-//             &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
+        let arrival_fallback_duration =
+            &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
 
-//         let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
-//             let transfer = connection_leg.transfer.clone();
-//             let vehicle_leg = response::VehicleLeg {
-//                 trip: connection_leg.trip.clone(),
-//                 board_position: connection_leg.board_position.clone(),
-//                 debark_position: connection_leg.debark_position.clone(),
-//             };
-//             (transfer, vehicle_leg)
-//         });
+        let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
+            let transfer = connection_leg.transfer.clone();
+            let vehicle_leg = response::VehicleLeg {
+                trip: connection_leg.trip.clone(),
+                board_position: connection_leg.board_position.clone(),
+                debark_position: connection_leg.debark_position.clone(),
+            };
+            (transfer, vehicle_leg)
+        });
 
-//         response::Journey::new(
-//             departure_datetime,
-//             *departure_fallback_duration,
-//             first_vehicle,
-//             connections,
-//             *arrival_fallback_duration,
-//             data,
-//         )
-//     }
-// }
+        response::Journey::new(
+            departure_datetime,
+            *departure_fallback_duration,
+            first_vehicle,
+            connections,
+            *arrival_fallback_duration,
+            data,
+        )
+    }
+}
 
 
 use crate::traits::{

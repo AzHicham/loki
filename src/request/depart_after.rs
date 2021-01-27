@@ -2,8 +2,9 @@ use crate::{time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 
 use chrono::NaiveDateTime;
+use traits::{BadRequest, RequestIO};
 
-use super::generic_request::{Arrivals, BadRequest, Departures, GenericRequest}; 
+use super::generic_request::{Arrivals, Departures, GenericRequest}; 
 
 pub struct DepartAfter<'data, Data: traits::Data> {
     generic : GenericRequest<'data, Data>
@@ -26,11 +27,15 @@ impl<'data, Data: traits::Data> traits::TransitTypes for DepartAfter<'data, Data
     type Position = Data::Position;
 }
 
-
-impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, Data> {
+impl<'data, Data: traits::Data> traits::RequestTypes for DepartAfter<'data, Data> {
     type Departure = Departure;
     type Arrival = Arrival;
     type Criteria = Criteria;
+}
+
+
+impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, Data> {
+
 
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty;
@@ -290,13 +295,13 @@ use crate::traits::Journey as PTJourney;
 use super::generic_request::{Arrival, Departure};
 
 
-impl<'data, 'model, Data> DepartAfter<'data, Data>
+impl<'data,  Data> RequestIO<'data, Data> for DepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<'a, 'b>(
+    fn new<'a, 'b>(
         model: &transit_model::Model,
-        transit_data: &'data Data,
+        transit_data: & 'data Data,
         departure_datetime: NaiveDateTime,
         departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
         arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
@@ -322,42 +327,11 @@ where
         })
 
     }
-    pub fn create_response(
+    fn create_response(
         &self,
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        let departure_datetime = self.generic.departure_datetime;
-        let departure_idx = pt_journey.departure_leg.departure.idx;
-        let departure_fallback_duration =
-            &self.generic.departures_stop_point_and_fallback_duration[departure_idx].1;
-
-        let first_vehicle = response::VehicleLeg {
-            trip: pt_journey.departure_leg.trip.clone(),
-            board_position: pt_journey.departure_leg.board_position.clone(),
-            debark_position: pt_journey.departure_leg.debark_position.clone(),
-        };
-
-        let arrival_fallback_duration =
-            &self.generic.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
-
-        let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
-            let transfer = connection_leg.transfer.clone();
-            let vehicle_leg = response::VehicleLeg {
-                trip: connection_leg.trip.clone(),
-                board_position: connection_leg.board_position.clone(),
-                debark_position: connection_leg.debark_position.clone(),
-            };
-            (transfer, vehicle_leg)
-        });
-
-        response::Journey::new(
-            departure_datetime,
-            *departure_fallback_duration,
-            first_vehicle,
-            connections,
-            *arrival_fallback_duration,
-            data,
-        )
+        self.generic.create_response(data, pt_journey)
     }
 }

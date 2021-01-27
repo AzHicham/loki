@@ -3,7 +3,7 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::{loads_data::{Load, LoadsData}, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::{loads_data::{Load, LoadsData}, response, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -148,15 +148,18 @@ pub trait DataIters<'a>: TransitTypes {
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
-pub trait Request: TransitTypes {
-    /// Identify a possible departure of a journey
-    type Departure: Clone;
+pub trait RequestTypes : TransitTypes {
+        /// Identify a possible departure of a journey
+        type Departure: Clone;
 
-    /// Identify a possible arrival of a journey
-    type Arrival: Clone;
+        /// Identify a possible arrival of a journey
+        type Arrival: Clone;
+    
+        /// Stores data used to determine if a journey is better than another
+        type Criteria: Clone;
+}
 
-    /// Stores data used to determine if a journey is better than another
-    type Criteria: Clone;
+pub trait Request: RequestTypes {
 
     /// Returns `true` if `lower` is better or equivalent to `upper`
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool;
@@ -339,9 +342,10 @@ pub trait Request: TransitTypes {
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
+
 }
 
-pub trait RequestIters<'a>: Request + DataIters<'a> {
+pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     /// Iterator for all possible arrivals of a journey
     type Arrivals: Iterator<Item = Self::Arrival>;
     /// Returns the identifiers of all possible arrivals of a journey
@@ -353,27 +357,78 @@ pub trait RequestIters<'a>: Request + DataIters<'a> {
     fn departures(&'a self) -> Self::Departures;
 }
 
+pub trait RequestIO<'data, D : Data> : Request {
+    fn new<'a, 'b>(
+        model: &transit_model::Model,
+        transit_data: & 'data D,
+        departure_datetime: NaiveDateTime,
+        departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
+        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
+        leg_arrival_penalty: PositiveDuration,
+        leg_walking_penalty: PositiveDuration,
+        max_duration_to_arrival: PositiveDuration,
+        max_nb_legs: u8,
+    ) -> Result<Self, BadRequest>
+     where Self : Sized;
+
+    fn create_response(
+        &self,
+        data: &D,
+        pt_journey: &Journey<Self>,
+    ) -> Result<response::Journey<D>, response::BadJourney<D>> 
+    where Self : Sized;
+}
+
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
 
 pub trait RequestWithIters: Request + for<'a> RequestIters<'a> {}
 
-pub struct DepartureLeg<T: Request> {
+pub struct DepartureLeg<T: RequestTypes> {
     pub departure: T::Departure,
     pub trip: T::Trip,
     pub board_position: T::Position,
     pub debark_position: T::Position,
 }
 
-pub struct ConnectionLeg<T: Request> {
+pub struct ConnectionLeg<T: RequestTypes> {
     pub transfer: T::Transfer,
     pub trip: T::Trip,
     pub board_position: T::Position,
     pub debark_position: T::Position,
 }
 
-pub struct Journey<T: Request> {
+pub struct Journey<T: RequestTypes> {
     pub departure_leg: DepartureLeg<T>,
     pub connection_legs: Vec<ConnectionLeg<T>>,
     pub arrival: T::Arrival,
     pub criteria_at_arrival: T::Criteria,
+}
+
+
+
+#[derive(Debug)]
+pub enum BadRequest {
+    DepartureDatetime,
+    NoValidDepartureStop,
+    NoValidArrivalStop,
+}
+impl std::error::Error for BadRequest {}
+
+use std::fmt;
+
+impl fmt::Display for BadRequest {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BadRequest::DepartureDatetime => write!(
+                f,
+                "The requested datetime is out of the validity period of the data."
+            ),
+            BadRequest::NoValidDepartureStop => {
+                write!(f, "No valid departure stop among the provided ones.")
+            }
+            BadRequest::NoValidArrivalStop => {
+                write!(f, "No valid arrival stop among the provided ones.")
+            }
+        }
+    }
 }

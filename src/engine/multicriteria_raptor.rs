@@ -1,53 +1,56 @@
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
-use crate::traits::{Journey, RequestWithIters};
+use crate::traits::{Journey, RequestWithIters, RequestTypes};
 use log::trace;
 
-pub struct MultiCriteriaRaptor<PT: RequestWithIters> {
-    journeys_tree: JourneysTree<PT>,
+pub struct MultiCriteriaRaptor<T: RequestTypes> {
+    journeys_tree: JourneysTree<T>,
 
-    wait_fronts: Vec<WaitFront<PT>>, // map a `stop` to a pareto front
-    new_wait_fronts: Vec<WaitFront<PT>>, // map a `stop` to a pareto front
-    stops_with_new_wait: Vec<PT::Stop>, // list of Stops
+    wait_fronts: Vec<WaitFront<T>>, // map a `stop` to a pareto front
+    new_wait_fronts: Vec<WaitFront<T>>, // map a `stop` to a pareto front
+    stops_with_new_wait: Vec<T::Stop>, // list of Stops
 
-    mission_has_new_wait: Vec<Option<PT::Position>>, // map a `mission` to a position
+    mission_has_new_wait: Vec<Option<T::Position>>, // map a `mission` to a position
 
-    missions_with_new_wait: Vec<PT::Mission>, // list of Missions
+    missions_with_new_wait: Vec<T::Mission>, // list of Missions
 
-    debark_fronts: Vec<DebarkFront<PT>>, // map a `stop` to a pareto front
-    new_debark_fronts: Vec<DebarkFront<PT>>, // map a `stop` to a pareto front
-    stops_with_new_debark: Vec<PT::Stop>, // list of Stops
+    debark_fronts: Vec<DebarkFront<T>>, // map a `stop` to a pareto front
+    new_debark_fronts: Vec<DebarkFront<T>>, // map a `stop` to a pareto front
+    stops_with_new_debark: Vec<T::Stop>, // list of Stops
 
-    board_front: BoardFront<PT>,
-    new_board_front: BoardFront<PT>,
+    board_front: BoardFront<T>,
+    new_board_front: BoardFront<T>,
 
-    arrive_front: ArriveFront<PT>,
+    arrive_front: ArriveFront<T>,
 
-    results: Vec<Journey<PT>>,
+    results: Vec<Journey<T>>,
 
     nb_of_rounds: usize,
 }
 
-impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
+impl<T> MultiCriteriaRaptor<T> 
+where T : RequestTypes,
+
+{
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             journeys_tree: JourneysTree::new(),
 
-            wait_fronts: vec![WaitFront::<PT>::new(); nb_of_stops],
-            new_wait_fronts: vec![WaitFront::<PT>::new(); nb_of_stops],
+            wait_fronts: vec![WaitFront::<T>::new(); nb_of_stops],
+            new_wait_fronts: vec![WaitFront::<T>::new(); nb_of_stops],
             stops_with_new_wait: Vec::new(),
 
             mission_has_new_wait: vec![None; nb_of_missions],
             missions_with_new_wait: Vec::new(),
 
-            debark_fronts: vec![DebarkFront::<PT>::new(); nb_of_stops],
-            new_debark_fronts: vec![DebarkFront::<PT>::new(); nb_of_stops],
+            debark_fronts: vec![DebarkFront::<T>::new(); nb_of_stops],
+            new_debark_fronts: vec![DebarkFront::<T>::new(); nb_of_stops],
             stops_with_new_debark: Vec::new(),
 
-            board_front: BoardFront::<PT>::new(),
-            new_board_front: BoardFront::<PT>::new(),
+            board_front: BoardFront::<T>::new(),
+            new_board_front: BoardFront::<T>::new(),
 
-            arrive_front: ArriveFront::<PT>::new(),
+            arrive_front: ArriveFront::<T>::new(),
 
             results: Vec::new(),
 
@@ -60,18 +63,20 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     }
 
     fn resize(&mut self, nb_of_stops: usize, nb_of_missions: usize) {
-        self.wait_fronts.resize(nb_of_stops, WaitFront::<PT>::new());
+        self.wait_fronts.resize(nb_of_stops, WaitFront::<T>::new());
         self.new_wait_fronts
-            .resize(nb_of_stops, WaitFront::<PT>::new());
+            .resize(nb_of_stops, WaitFront::<T>::new());
         self.debark_fronts
-            .resize(nb_of_stops, DebarkFront::<PT>::new());
+            .resize(nb_of_stops, DebarkFront::<T>::new());
         self.new_debark_fronts
-            .resize(nb_of_stops, DebarkFront::<PT>::new());
+            .resize(nb_of_stops, DebarkFront::<T>::new());
 
         self.mission_has_new_wait.resize(nb_of_missions, None);
     }
 
-    pub fn compute(&mut self, pt: &PT) {
+    pub fn compute<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    {
         self.clear();
         self.resize(pt.nb_of_stops(), pt.nb_of_missions());
 
@@ -147,7 +152,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     }
 
     // fill new_waiting_fronts with journeys departures
-    fn init_with_departures(&mut self, pt: &PT) {
+    fn init_with_departures<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    {
         debug_assert!(self.journeys_tree.is_empty());
         debug_assert!(self
             .new_wait_fronts
@@ -174,7 +181,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     // identify missions that can be boarded from the new waiting pathes
     // - fill `mission_has_new_waiting` and `missions_with_new_waiting`
     // - reads `stops_with_new_waiting`
-    fn identify_missions_with_new_waits(&mut self, pt: &PT) {
+    fn identify_missions_with_new_waits<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria>
+    {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         debug_assert!(self.missions_with_new_wait.is_empty());
 
@@ -219,7 +228,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     // - uses `onboard_front` and `new_onboard_front` as local buffers
     // - reads `missions_with_new_waiting`, `mission_has_new_waiting`,
     //         `new_waiting_fronts`, `debarked_fronts`
-    fn ride(&mut self, pt: &PT) {
+    fn ride<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer> 
+    {
         debug_assert!(!self.missions_with_new_wait.is_empty());
         debug_assert!(self.stops_with_new_debark.is_empty());
         debug_assert!(self
@@ -329,7 +340,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     // tranfer `new_debarked_fronts` into `debarked_fronts`
     // - update `debarked_fronts` and clear `new_debarked_fronts`
     // - reads `stops_with_new_debarked` and `new_debarked_fronts`
-    fn save_and_clear_new_debarks(&mut self, pt: &PT) {
+    fn save_and_clear_new_debarks<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria>
+    {
         debug_assert!(!self.stops_with_new_debark.is_empty());
         // TODO : check that new_debarked_front[stop] is empty for all
         //     stops not in stops_with_new_debarked
@@ -356,7 +369,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     // - update `new_waiting_fronts` and `arrived_front`
     // - reads `stops_with_new_debarked`, `new_debarked_fronts`
     //         `waiting_fronts`, `new_waiting_fronts`
-    fn perform_transfers_and_arrivals(&mut self, pt: &PT) {
+    fn perform_transfers_and_arrivals<R>(&mut self, pt: &R)
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    {
         debug_assert!(self.new_wait_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_wait.is_empty());
 
@@ -416,7 +431,9 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
     // tranfer `new_waiting_fronts` into `waiting_fronts`
     // - update `waiting_fronts` and clear `new_waiting_fronts`
     // - reads `stops_with_new_waiting` and `new_waiting_fronts`
-    fn save_and_clear_new_waits(&mut self, pt: &PT) {
+    fn save_and_clear_new_waits<R>(&mut self, pt: &R) 
+    where R : RequestWithIters<Position = T::Position, Mission = T::Mission, Stop = T::Stop, Trip = T::Trip, Departure = T::Departure, Arrival = T::Arrival, Criteria = T::Criteria, Transfer = T::Transfer>
+    {
         debug_assert!(!self.stops_with_new_wait.is_empty());
         // TODO : check that new_waiting_fronts[stop] is empty for all
         //     stops not in stops_with_new_waiting
@@ -455,7 +472,7 @@ impl<PT: RequestWithIters> MultiCriteriaRaptor<PT> {
         }
     }
 
-    pub fn responses(&self) -> impl Iterator<Item = &Journey<PT>> {
+    pub fn responses(&self) -> impl Iterator<Item = &Journey<T>> {
         let nb_of_journeys = self.nb_of_journeys();
         (0..nb_of_journeys).map(move |idx| &self.results[idx])
     }

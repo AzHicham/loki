@@ -5,7 +5,7 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::{LoadsDailyData, LoadsData, LoadsPeriodicData, log::{debug, error, info, trace, warn}};
+use laxatips::{LoadsDailyData, LoadsData, LoadsDepartAfter, LoadsPeriodicData, log::{debug, error, info, trace, warn}};
 use laxatips::traits;
 use laxatips::transit_model;
 use laxatips::{
@@ -45,6 +45,11 @@ struct Options {
     #[structopt(short = "s", long)]
     socket: String,
 
+    /// Type of request to make :
+    /// "classic" or "loads"
+    #[structopt(long, default_value = "classic")]
+    request_type: String,
+
     /// Timetable implementation to use : 
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
@@ -52,7 +57,7 @@ struct Options {
     implem: String,
 }
 
-fn read_ntfs<Data>(options: Options) -> Result<(Data, Model), Error>
+fn read_ntfs<Data>(options: &Options) -> Result<(Data, Model), Error>
 where
     Data: traits::Data,
 {
@@ -65,7 +70,7 @@ where
     info!("Number of routes : {}", model.routes.len());
 
 
-    let loads_data_path = options.loads_data_path;
+    let loads_data_path = &options.loads_data_path;
     let loads_data = LoadsData::new(&loads_data_path, &model)
         .unwrap_or_else(|err| {
             warn!("Error while reading the passenger loads file at {:?} : {:?}", 
@@ -91,15 +96,17 @@ where
     Ok((data, model))
 }
 
-fn make_engine_request_from_protobuf<'data, Data>(
+fn make_engine_request_from_protobuf<'data, Data, R>(
     proto_request: &navitia_proto::Request,
     data: &'data Data,
     model: &Model,
     default_max_duration: &PositiveDuration,
     default_max_nb_of_legs: u8,
-) -> Result<DepartAfter<'data, Data>, Error>
+) -> Result<R, Error>
 where
-    Data: traits::Data,
+R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
+Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+
 {
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
@@ -209,7 +216,7 @@ where
         default_max_nb_of_legs
     });
 
-    let engine_request = DepartAfter::new(
+    let engine_request = R::new(
         model,
         data,
         departure_datetime,
@@ -224,16 +231,18 @@ where
     Ok(engine_request)
 }
 
-fn solve_protobuf<'data, Data>(
+fn solve_protobuf<'data, Data, R>(
     model: &Model,
     proto_request: &navitia_proto::Request,
     data: &'data Data,
-    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<R>,
 ) -> Result<navitia_proto::Response, Error>
 where
-    Data: traits::DataWithIters,
+R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
+Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+
 {
-    let request = make_engine_request_from_protobuf(
+    let request : R = make_engine_request_from_protobuf(
         &proto_request,
         data,
         model,
@@ -270,16 +279,18 @@ where
     response::make_response(journeys_iter, data, model)
 }
 
-fn solve<'data, Data>(
+fn solve<'data, Data, R>(
     data: &'data Data,
     model: &Model,
-    engine: &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
+    engine: &mut MultiCriteriaRaptor<R>,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
 ) -> Result<(), Error>
 where
-    Data: traits::DataWithIters,
+    R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,
+
 {
     socket
         .recv(zmq_message, 0)
@@ -345,27 +356,43 @@ fn launch<Data>(options: Options) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
+
+    let (data, model) = read_ntfs::<Data>(&options)?;
+
+    match options.request_type.as_str() {
+        "classic" => server_loop::<Data, DepartAfter<Data>>(&model, &data, &options),
+        "loads" => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+        _ => {
+            bail!("Invalid request_type : {}", options.request_type)
+        }
+    }
+}
+
+fn server_loop<'data, Data, R>(
+    model : & Model,
+    data : &'data Data,
+    options : & Options
+)-> Result<(), Error>
+where 
+    R : traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<Position = R::Position, Mission = R::Mission, Stop = R::Stop, Trip = R::Trip>,    
+{
+    let mut engine = MultiCriteriaRaptor::<R>::new(
+        data.nb_of_stops(),
+        data.nb_of_missions(),
+    );
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
-
     responder
         .bind(&options.socket)
         .map_err(|err| format_err!("Could not bind socket {}. Error : {}", options.socket, err))?;
 
-
-    let (data, model) = read_ntfs::<Data>(options)?;
-    let mut engine = MultiCriteriaRaptor::<DepartAfter<Data>>::new(
-        data.nb_of_stops(),
-        data.nb_of_missions(),
-    );
-
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
-
     loop {
         let solve_result = solve(
-            &data,
-            &model,
+            data,
+            model,
             &mut engine,
             &responder,
             &mut zmq_message,

@@ -1,18 +1,18 @@
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
-use crate::traits::{Request, TransitTypes};
+use crate::traits::{Request, TransitTypes, RequestTypes};
 
 use std::slice::Iter as SliceIter;
 
-pub struct ParetoFront<ItemData, PT: Request> {
-    elements: Vec<(ItemData, PT::Criteria)>,
+pub struct ParetoFront<ItemData, T: RequestTypes> {
+    elements: Vec<(ItemData, T::Criteria)>,
 }
 
-pub type BoardFront<PT> = ParetoFront<(Board, <PT as TransitTypes>::Trip), PT>;
-pub type DebarkFront<PT> = ParetoFront<Debark, PT>;
-pub type WaitFront<PT> = ParetoFront<Wait, PT>;
-pub type ArriveFront<PT> = ParetoFront<Arrive, PT>;
+pub type BoardFront<T> = ParetoFront<(Board, <T as TransitTypes>::Trip), T>;
+pub type DebarkFront<T> = ParetoFront<Debark, T>;
+pub type WaitFront<T> = ParetoFront<Wait, T>;
+pub type ArriveFront<T> = ParetoFront<Arrive, T>;
 
-impl<ItemData: Clone, PT: Request> Clone for ParetoFront<ItemData, PT> {
+impl<ItemData: Clone, T: RequestTypes> Clone for ParetoFront<ItemData, T> {
     fn clone(&self) -> Self {
         ParetoFront {
             elements: self.elements.clone(),
@@ -20,7 +20,7 @@ impl<ItemData: Clone, PT: Request> Clone for ParetoFront<ItemData, PT> {
     }
 }
 
-impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
+impl<ItemData: Clone, T: RequestTypes> ParetoFront<ItemData, T> {
     pub fn new() -> Self {
         Self {
             elements: Vec::new(),
@@ -43,44 +43,52 @@ impl<ItemData: Clone, PT: Request> ParetoFront<ItemData, PT> {
         self.elements.is_empty()
     }
 
-    pub fn dominates(&self, criteria: &PT::Criteria, pt: &PT) -> bool {
+    pub fn dominates<R>(&self, criteria: &T::Criteria, request: &R) -> bool 
+    where R : Request<Criteria = T::Criteria>
+    {
         for (_, ref old_criteria) in &self.elements {
-            if pt.is_lower(old_criteria, criteria) {
+            if request.is_lower(old_criteria, criteria) {
                 return true;
             }
         }
         false
     }
 
-    pub fn add_unchecked(&mut self, item_data: ItemData, criteria: PT::Criteria) {
+    pub fn add_unchecked(&mut self, item_data: ItemData, criteria: T::Criteria) {
         self.elements.push((item_data, criteria));
     }
 
-    pub fn remove_elements_dominated_by(&mut self, criteria: &PT::Criteria, pt: &PT) {
+    pub fn remove_elements_dominated_by<R>(&mut self, criteria: &T::Criteria, request: &R) 
+    where R : Request<Criteria = T::Criteria>
+    {
         self.elements
-            .retain(|(_, old_criteria)| !pt.is_lower(&criteria, old_criteria));
+            .retain(|(_, old_criteria)| !request.is_lower(&criteria, old_criteria));
     }
 
-    pub fn add_and_remove_elements_dominated(
+    pub fn add_and_remove_elements_dominated<R>(
         &mut self,
         item_data: ItemData,
-        criteria: PT::Criteria,
-        pt: &PT,
-    ) {
-        self.remove_elements_dominated_by(&criteria, pt);
+        criteria: T::Criteria,
+        request : &R
+    ) 
+    where R : Request<Criteria = T::Criteria>
+    {
+        self.remove_elements_dominated_by(&criteria, request);
         self.add_unchecked(item_data, criteria);
     }
 
-    pub fn add(&mut self, item_data: ItemData, criteria: PT::Criteria, pt: &PT) {
-        if self.dominates(&criteria, pt) {
+    pub fn add<R>(&mut self, item_data: ItemData, criteria: T::Criteria, request : &R) 
+    where R : Request<Criteria = T::Criteria>
+    {
+        if self.dominates(&criteria, request) {
             return;
         }
 
-        self.remove_elements_dominated_by(&criteria, pt);
+        self.remove_elements_dominated_by(&criteria, request);
         self.add_unchecked(item_data, criteria);
     }
 
-    pub fn iter(&self) -> SliceIter<'_, (ItemData, PT::Criteria)> {
+    pub fn iter(&self) -> SliceIter<'_, (ItemData, T::Criteria)> {
         self.elements.iter()
     }
 }
