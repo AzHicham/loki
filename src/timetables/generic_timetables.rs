@@ -213,8 +213,12 @@ where
             })
     }
 
+    pub fn nb_of_trips(&self) -> usize {
+        self.timetable_datas.iter().map(|timetable| timetable.nb_of_vehicle()).sum()
+    }
+
     // Insert in the trip in a timetable if
-    // the given debark_times and board_times are coherent.
+    // the given debark_times, board_times and loads are coherent.
     // Returns a VehicleTimesError otherwise.
     pub fn insert<BoardTimes, DebarkTimes, Loads, Stops, Flows>(
         &mut self,

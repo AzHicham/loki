@@ -13,7 +13,7 @@ use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
 };
 
-use crate::log::warn;
+use crate::log::{warn, trace};
 
 pub struct DailyTimetables {
     timetables: Timetables<SecondsSinceDatasetUTCStart, (), (), VehicleData>,
@@ -160,7 +160,7 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    warn!(
+                    trace!(
                         "Skipping vehicle journey {} on day {} because  \
                         this day is not allowed by the calendar. \
                         Allowed day are between {} and {}",
@@ -204,6 +204,10 @@ impl TimetablesTrait for DailyTimetables {
             }
         }
         result
+    }
+
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
     }
 }
 

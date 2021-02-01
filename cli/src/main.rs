@@ -63,7 +63,7 @@ struct Options {
 
     /// Type of request to make :
     /// "classic" or "loads"
-    #[structopt(long, default_value = "classic")]
+    #[structopt(long ="request_type", default_value = "classic")]
     request_type: String,
 
     #[structopt(subcommand)]
@@ -209,7 +209,7 @@ where
     info!("Data constructed");
     info!("Data build duration {} ms", data_build_time);
     info!("Number of missions {} ", data.nb_of_missions());
-    // info!("Number of trips {} ", data.nb_of_vehicles());
+    info!("Number of trips {} ", data.nb_of_trips());
     info!(
         "Validity dates between {} and {}",
         data.calendar().first_date(),
@@ -263,7 +263,7 @@ where
             let nb_queries = random.nb_queries;
             use rand::prelude::{IteratorRandom, SeedableRng};
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
-            for request_id in 1..nb_queries {
+            for request_id in 0..nb_queries {
                 let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
                 let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
 
@@ -387,17 +387,17 @@ where
     );
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
-    // for pt_journey in engine.responses() {
-    //     let response = request.create_response(data, pt_journey);
-    //     match response {
-    //         Ok(journey) => {
-    //             trace!("{}", journey.print(data, model)?);
-    //         }
-    //         Err(_) => {
-    //             trace!("An error occured while converting an engine journey to response.");
-    //         }
-    //     };
-    // }
+    for pt_journey in engine.responses() {
+        let response = request.create_response(data, pt_journey);
+        match response {
+            Ok(journey) => {
+                trace!("{}", journey.print(data, model)?);
+            }
+            Err(_) => {
+                trace!("An error occured while converting an engine journey to response.");
+            }
+        };
+    }
 
     Ok(engine.nb_of_rounds())
 }

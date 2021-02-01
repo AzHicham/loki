@@ -120,7 +120,6 @@ impl<'a, Time> Clone for VehicleTimes<'a, Time> {
 }
 
 impl<'a, Time> Iterator for VehicleTimes<'a, Time>
-// where Time
 {
     type Item = &'a Time;
 

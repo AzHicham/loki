@@ -119,6 +119,8 @@ pub trait Data: TransitTypes {
 
     fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
 
+    fn nb_of_trips(&self) -> usize;
+
     /// An upper bound on the total number of `Stop`s.
     fn nb_of_stops(&self) -> usize;
 

@@ -146,6 +146,10 @@ where
             .earliest_trip_to_board_at(waiting_time, mission, position)
     }
 
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
+    }
+
     fn nb_of_stops(&self) -> usize {
         self.stops_data.len()
     }

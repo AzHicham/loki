@@ -195,6 +195,7 @@ where
                 (0, 0) => FlowDirection::BoardAndDebark,
                 (1, 0) => FlowDirection::DebarkOnly,
                 (0, 1) => FlowDirection::BoardOnly,
+                (1, 1) => FlowDirection::NoBoardDebark,
                 _ => {
                     warn!(
                         "Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \

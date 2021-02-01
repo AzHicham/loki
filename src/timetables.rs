@@ -54,6 +54,8 @@ pub trait Timetables: Types {
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
     fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop;
 
+    fn nb_of_trips(&self) -> usize;
+
     fn is_upstream_in_mission(
         &self,
         upstream: &Self::Position,

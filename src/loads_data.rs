@@ -102,7 +102,8 @@ impl LoadsData {
     ) -> Option<&[Load]> {
         let vehicle_journey_load = self.per_vehicle_journey.get(vehicle_journey_idx)?;
         let trip_load = vehicle_journey_load.per_date.get(date)?;
-        Some(trip_load.per_stop.as_slice())
+        let nb_of_stops = trip_load.per_stop.len();
+        Some(&trip_load.per_stop[..(nb_of_stops - 1)])
     }
 
     // pub fn default_loads(&self) -> std::iter::Repeat<Load> {

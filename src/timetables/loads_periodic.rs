@@ -96,6 +96,10 @@ impl TimetablesTrait for PeriodicTimetables {
         *self.timetables.stop_at(position, mission)
     }
 
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
+    }
+
     fn is_upstream_in_mission(
         &self,
         upstream: &Self::Position,

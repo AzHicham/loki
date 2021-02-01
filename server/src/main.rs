@@ -86,6 +86,8 @@ where
     let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
+    info!("Number of missions {} ", data.nb_of_missions());
+    info!("Number of trips {} ", data.nb_of_trips());
     info!(
         "Validity dates between {} and {}",
         data.calendar().first_date(),

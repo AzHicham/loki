@@ -15,7 +15,7 @@ use chrono::NaiveDate;
 
 use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
 
-use crate::log::warn;
+use crate::log::{warn, trace};
 
 use crate::loads_data::Load;
 
@@ -78,6 +78,10 @@ impl TimetablesTrait for DailyTimetables {
 
     fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop {
         *self.timetables.stop_at(position, mission)
+    }
+
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
     }
 
     fn is_upstream_in_mission(
@@ -155,7 +159,7 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    warn!(
+                    trace!(
                         "Skipping vehicle journey {} on day {} because  \
                         this day is not allowed by the calendar. \
                         Allowed day are between {} and {}",
