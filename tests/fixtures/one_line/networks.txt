@@ -1,0 +1,2 @@
+network_id,network_name,network_url,network_timezone,network_lang,network_phone,network_sort
+my_network,"My Network",http://my_network.fr/,Europe/Paris,fr,,
