@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::{
     loads_data::LoadsData,
     transit_data::{Stop, TransitData},
@@ -15,7 +17,7 @@ use log::{info, warn};
 
 impl<Timetables> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
     pub fn _new(
         transit_model: &Model,
@@ -34,6 +36,7 @@ where
         };
 
         data.init(transit_model, loads_data, default_transfer_duration);
+        // log::trace!("Timetables : {:#?}", data.timetables);
 
         data
     }

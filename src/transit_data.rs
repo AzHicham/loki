@@ -12,7 +12,7 @@ use crate::{
     traits::{Data, DataIters, DataWithIters, TransitTypes},
 };
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
@@ -62,7 +62,7 @@ impl<Timetables: TimetablesTrait> TransitTypes for TransitData<Timetables> {
 
 impl<Timetables: TimetablesTrait> Data for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
     fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx).copied()
@@ -231,7 +231,7 @@ where
 
 impl<Timetables> DataWithIters for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

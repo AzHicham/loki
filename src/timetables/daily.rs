@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use super::{generic_timetables::Timetables, TimetablesIter};
 
 use crate::transit_data::{Idx, VehicleJourney};
@@ -15,11 +17,13 @@ use crate::timetables::{
 
 use crate::log::{warn, trace};
 
+#[derive(Debug)]
 pub struct DailyTimetables {
     timetables: Timetables<SecondsSinceDatasetUTCStart, (), (), VehicleData>,
     calendar: Calendar,
 }
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 struct VehicleData {
     vehicle_journey_idx: Idx<VehicleJourney>,
     day: DaysSinceDatasetStart,

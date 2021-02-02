@@ -20,12 +20,12 @@ use crate::log::{warn, trace};
 use crate::loads_data::Load;
 
 pub type Time = SecondsSinceDatasetUTCStart;
-
+#[derive(Debug)]
 pub struct DailyTimetables {
     timetables: Timetables<Time, Load, (), VehicleData>,
     calendar: Calendar,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct VehicleData {
     vehicle_journey_idx: Idx<VehicleJourney>,
     day: DaysSinceDatasetStart,

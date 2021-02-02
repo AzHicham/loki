@@ -13,7 +13,7 @@ use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf};
 use traits::{RequestIO, RequestWithIters};
 
 use chrono::NaiveDateTime;
@@ -237,6 +237,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
+    R::Criteria : Debug
 {
     let nb_of_stops = data.nb_of_stops();
     let nb_of_missions = data.nb_of_missions();
@@ -347,8 +348,8 @@ where
         Position = R::Position,
         Mission = R::Mission,
         Stop = R::Stop,
-        Trip = R::Trip,
-    >,
+        Trip = R::Trip,>,
+    R::Criteria : Debug,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -388,6 +389,7 @@ where
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
+        trace!("Criteria : {:#?}", pt_journey.criteria_at_arrival);
         let response = request.create_response(data, pt_journey);
         match response {
             Ok(journey) => {

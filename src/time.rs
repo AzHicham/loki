@@ -13,7 +13,8 @@ pub struct SecondsSinceTimezonedDayStart {
     seconds: i32,
 }
 
-const MAX_SECONDS_SINCE_TIMEZONED_DAY_START: i32 = 48 * 60 * 60; // 48h
+const MAX_SECONDS_IN_DAY: i32 = 48 * 60 * 60; // 48h
+
 
 const MAX_TIMEZONE_OFFSET: i32 = 24 * 60 * 60; // 24h in seconds
 
@@ -33,6 +34,7 @@ pub struct DaysSinceDatasetStart {
 // we allow 36_600 days which is more than 100 years, and less than u16::MAX = 65_535 days
 const MAX_DAYS_IN_CALENDAR: u16 = 100 * 366;
 
+#[derive(Debug)]
 pub struct Calendar {
     first_date: NaiveDate, //first date which may be allowed
     last_date: NaiveDate,  //last date (included) which may be allowed
@@ -85,19 +87,19 @@ impl SecondsSinceTimezonedDayStart {
 
     pub fn max() -> Self {
         Self {
-            seconds: MAX_SECONDS_SINCE_TIMEZONED_DAY_START,
+            seconds: MAX_SECONDS_IN_DAY,
         }
     }
 
     pub fn min() -> Self {
         Self {
-            seconds: MAX_SECONDS_SINCE_TIMEZONED_DAY_START,
+            seconds: -MAX_SECONDS_IN_DAY,
         }
     }
 
     pub fn from_seconds(seconds: i32) -> Option<Self> {
-        if seconds > MAX_SECONDS_SINCE_TIMEZONED_DAY_START
-            || seconds < -MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+        if seconds > MAX_SECONDS_IN_DAY
+            || seconds < -MAX_SECONDS_IN_DAY
         {
             None
         } else {
@@ -107,7 +109,7 @@ impl SecondsSinceTimezonedDayStart {
     }
 
     pub fn from_seconds_i64(seconds_i64: i64) -> Option<Self> {
-        let max_i64 = i64::from(MAX_SECONDS_SINCE_TIMEZONED_DAY_START);
+        let max_i64 = i64::from(MAX_SECONDS_IN_DAY);
         if seconds_i64 > max_i64 || seconds_i64 < -max_i64 {
             None
         } else {

@@ -1,10 +1,21 @@
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
 use crate::traits::{Request, RequestTypes, TransitTypes};
 
-use std::slice::Iter as SliceIter;
+use std::{fmt::Debug, slice::Iter as SliceIter};
 
 pub struct ParetoFront<ItemData, T: RequestTypes> {
     elements: Vec<(ItemData, T::Criteria)>,
+}
+
+impl<ItemData, T: RequestTypes> Debug for ParetoFront<ItemData, T>
+where 
+ItemData : Debug, 
+T::Criteria : Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParetoFront")
+            .field("elements", &self.elements)
+            .finish()
+    }
 }
 
 pub type BoardFront<T> = ParetoFront<(Board, <T as TransitTypes>::Trip), T>;

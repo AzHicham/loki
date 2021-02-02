@@ -185,12 +185,12 @@ impl<'data, 'model, Data: traits::Data> traits::Request for LoadsDepartAfter<'da
         self.generic
             .transit_data
             .debark_time_of(trip, position)
-            .map(|(debark_time, load)| Criteria {
+            .map(|(debark_time, _load)| Criteria {
                 arrival_time: debark_time,
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
-                loads_count: onboard_criteria.loads_count.add(load),
+                loads_count: onboard_criteria.loads_count.clone(),
             })
     }
 

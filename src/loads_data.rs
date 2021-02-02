@@ -125,7 +125,7 @@ impl LoadsData {
         };
         let filepath = csv_occupancys_filepath.as_ref();
         let mut reader = csv::ReaderBuilder::new()
-            .delimiter(b';')
+            .delimiter(b',')
             .from_path(filepath)?;
 
         let mut record = csv::StringRecord::new();
@@ -182,14 +182,6 @@ impl LoadsData {
                 .per_date
                 .entry(date)
                 .or_insert_with(|| TripLoads::new(nb_of_stop));
-            if trip_load.per_stop[*idx] != load {
-                trace!("Error reading {:?}. There is more than one occupancy values for trip {} at date {}. I'll keep the first value.",
-                    filepath,
-                    &record[0],
-                    date
-                );
-                continue;
-            }
             trip_load.per_stop[*idx] = load;
         }
 

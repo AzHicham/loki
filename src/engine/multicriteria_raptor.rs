@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use crate::traits::{Journey, RequestTypes, RequestWithIters};
@@ -31,6 +33,7 @@ pub struct MultiCriteriaRaptor<T: RequestTypes> {
 impl<T> MultiCriteriaRaptor<T>
 where
     T: RequestTypes,
+    T::Criteria : Debug
 {
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
@@ -112,6 +115,7 @@ where
             self.save_and_clear_new_debarks(pt);
 
             self.ride(pt);
+            // trace!("{:#?}",&self.new_debark_fronts);
 
             self.save_and_clear_new_waits(pt);
 
@@ -278,9 +282,12 @@ where
             .all(|front| { front.is_empty() }));
 
         for mission in self.missions_with_new_wait.iter() {
+            
             let mut has_position = self.mission_has_new_wait[pt.mission_id(mission)].clone();
 
             self.board_front.clear();
+
+            // trace!("Riding {:?} from {:?}", mission, has_position);
 
             while let Some(position) = has_position {
                 let stop = pt.stop_of(&position, mission);
@@ -291,6 +298,7 @@ where
                     let debark_front = &mut self.debark_fronts[stop_id];
                     let new_debark_front = &mut self.new_debark_fronts[stop_id];
                     let current_stop_has_new_debark = !new_debark_front.is_empty();
+                    // trace!("At {:?} Board front : {:#?}", position, &self.board_front);
 
                     for ((ref board, ref trip), ref board_criteria) in self.board_front.iter() {
                         let has_new_debark_criteria = pt.debark(trip, &position, board_criteria);
@@ -329,9 +337,11 @@ where
                     self.new_board_front.clear();
                     let new_wait_front = &self.new_wait_fronts[stop_id];
                     for (ref wait, ref wait_criteria) in new_wait_front.iter() {
+                        // trace!("Trying to board");
                         if let Some((trip, new_board_criteria)) =
                             pt.best_trip_to_board(&position, &mission, &wait_criteria)
                         {
+                            // trace!("New Board : \n{:#?} \n {:#?}", trip, new_board_criteria);
                             if !pt.is_valid(&new_board_criteria) {
                                 continue;
                             }
@@ -391,7 +401,6 @@ where
             Criteria = T::Criteria,
         >,
     {
-        debug_assert!(!self.stops_with_new_debark.is_empty());
         // TODO : check that new_debarked_front[stop] is empty for all
         //     stops not in stops_with_new_debarked
         for stop in &self.stops_with_new_debark {

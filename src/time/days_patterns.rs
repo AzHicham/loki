@@ -3,12 +3,13 @@ use std::iter::Enumerate;
 use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::NaiveDate;
 
+#[derive(Debug)]
 pub struct DaysPatterns {
     days_patterns: Vec<DaysPatternData>,
 
     buffer: Vec<bool>,
 }
-
+#[derive(Debug)]
 struct DaysPatternData {
     allowed_dates: Vec<bool>,
 }

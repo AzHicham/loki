@@ -24,7 +24,7 @@ use crate::log::warn;
 use crate::loads_data::Load;
 
 pub type Time = SecondsSinceTimezonedDayStart;
-
+#[derive(Debug)]
 pub struct PeriodicTimetables {
     timetables: Timetables<Time, Load, TimeZone, VehicleData>,
     calendar: Calendar,
@@ -171,7 +171,7 @@ impl TimetablesTrait for PeriodicTimetables {
 
         // if there is no earliest/latest board time, it means that this position cannot be boarded
         // and we return None
-        let (earliest_board_time_in_day, latest_board_time_in_day) =
+        let (_earliest_board_time_in_day, _latest_board_time_in_day) =
             has_earliest_and_latest_board_time.map(|(earliest, latest)| (earliest, latest))?;
 
         let timezone = self.timetables.timezone_data(&mission);
@@ -179,8 +179,10 @@ impl TimetablesTrait for PeriodicTimetables {
         let decompositions = self.calendar.decompositions(
             waiting_time,
             timezone,
-            *latest_board_time_in_day,
-            *earliest_board_time_in_day,
+            SecondsSinceTimezonedDayStart::max(),
+            SecondsSinceTimezonedDayStart::min(),
+            // *latest_board_time_in_day,
+            // *earliest_board_time_in_day,
         );
         let mut best_vehicle_day_and_its_arrival_timeload_at_next_position: Option<(
             Vehicle,
