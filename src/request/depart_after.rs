@@ -1,4 +1,4 @@
-use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 
 use chrono::NaiveDateTime;
@@ -337,6 +337,6 @@ where
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        self.generic.create_response(data, pt_journey)
+        self.generic.create_response(data, pt_journey, LoadsCount::default())
     }
 }

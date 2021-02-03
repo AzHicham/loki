@@ -46,6 +46,68 @@ impl PartialOrd for Load {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct LoadsCount {
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+}
+
+
+impl LoadsCount {
+    pub fn zero() -> Self {
+        Self {
+            high: 0,
+            medium: 0,
+            low: 0,
+        }
+    }
+
+    pub fn add(&self, load: Load) -> Self {
+        let mut high = self.high;
+        let mut medium = self.medium;
+        let mut low = self.low;
+        match load {
+            Load::High => {
+                high += 1;
+            }
+            Load::Medium => {
+                medium += 1;
+            }
+            Load::Low => {
+                low += 1;
+            }
+        }
+        Self { high, medium, low }
+    }
+
+    pub fn total(&self) -> usize {
+        self.high + self.medium + self.low
+    }
+
+    pub fn is_lower(&self, other: &Self) -> bool {
+        use Ordering::{Equal, Greater, Less};
+        match self.high.cmp(&other.high) {
+            Less => true,
+            Greater => false,
+            Equal => match self.medium.cmp(&other.medium) {
+                Less => true,
+                Greater => false,
+                Equal => match self.low.cmp(&other.low) {
+                    Less | Equal => true,
+                    Greater => false,
+                },
+            },
+        }
+    }
+}
+
+impl Default for LoadsCount {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 fn occupancy_to_load(occupancy: Occupancy) -> Load {
     debug_assert!(occupancy <= 100);
     if occupancy <= 30 {
@@ -185,12 +247,12 @@ impl LoadsData {
             trip_load.per_stop[*idx] = load;
         }
 
-        loads_data.check(model);
+        // loads_data.check(model);
 
         Ok(loads_data)
     }
 
-    fn check(&self, model: &Model) {
+    fn _check(&self, model: &Model) {
         // for each vehicle_journey, check that :
         //  - for each valid date, we have occupancy data for every stop_time
         for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {

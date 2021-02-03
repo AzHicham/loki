@@ -1,8 +1,7 @@
-use std::cmp::Ordering;
 
-use crate::traits;
+
+use crate::{loads_data::LoadsCount, traits};
 use crate::{
-    loads_data::Load,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
@@ -15,12 +14,6 @@ pub struct LoadsDepartAfter<'data, Data: traits::Data> {
     generic: GenericRequest<'data, Data>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-struct LoadsCount {
-    high: usize,
-    medium: usize,
-    low: usize,
-}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Criteria {
@@ -31,49 +24,7 @@ pub struct Criteria {
     loads_count: LoadsCount,
 }
 
-impl LoadsCount {
-    fn zero() -> Self {
-        Self {
-            high: 0,
-            medium: 0,
-            low: 0,
-        }
-    }
 
-    fn add(&self, load: Load) -> Self {
-        let mut high = self.high;
-        let mut medium = self.medium;
-        let mut low = self.low;
-        match load {
-            Load::High => {
-                high += 1;
-            }
-            Load::Medium => {
-                medium += 1;
-            }
-            Load::Low => {
-                low += 1;
-            }
-        }
-        Self { high, medium, low }
-    }
-
-    fn is_lower(&self, other: &Self) -> bool {
-        use Ordering::{Equal, Greater, Less};
-        match self.high.cmp(&other.high) {
-            Less => true,
-            Greater => false,
-            Equal => match self.medium.cmp(&other.medium) {
-                Less => true,
-                Greater => false,
-                Equal => match self.low.cmp(&other.low) {
-                    Less | Equal => true,
-                    Greater => false,
-                },
-            },
-        }
-    }
-}
 
 impl<'data, Data: traits::Data> traits::TransitTypes for LoadsDepartAfter<'data, Data> {
     type Stop = Data::Stop;
@@ -390,6 +341,6 @@ where
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        self.generic.create_response(data, pt_journey)
+        self.generic.create_response(data, pt_journey, pt_journey.criteria_at_arrival.loads_count.clone())
     }
 }

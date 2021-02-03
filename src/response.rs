@@ -3,7 +3,7 @@
 //     data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
@@ -32,6 +32,7 @@ pub struct Journey<Data: traits::Data> {
     first_vehicle: VehicleLeg<Data>,
     connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     arrival_fallback_duration: PositiveDuration,
+    loads_count : LoadsCount,
 }
 #[derive(Debug, Clone)]
 pub enum VehicleLegIdx {
@@ -58,6 +59,7 @@ where
         first_vehicle: VehicleLeg<Data>,
         connections: impl Iterator<Item = (Data::Transfer, VehicleLeg<Data>)>,
         arrival_fallback_duration: PositiveDuration,
+        loads_count : LoadsCount,
         data: &Data,
     ) -> Result<Self, BadJourney<Data>> {
         let result = Self {
@@ -66,6 +68,7 @@ where
             first_vehicle,
             arrival_fallback_duration,
             connections: connections.collect(),
+            loads_count,
         };
 
         result.is_valid(data)?;
@@ -277,6 +280,12 @@ where
             self.total_fallback_duration(),
             self.departure_fallback_duration,
             self.arrival_fallback_duration
+        )?;
+        writeln!(writer, "Loads : High {}; Medium {}; Low {}; total {}", 
+            self.loads_count.high,
+            self.loads_count.medium,
+            self.loads_count.low,
+            self.loads_count.total()
         )?;
 
         let departure_datetime = data.to_naive_datetime(&self.departure_datetime);

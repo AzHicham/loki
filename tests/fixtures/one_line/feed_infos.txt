@@ -1,7 +1,7 @@
 feed_info_param,feed_info_value
 ntfs_version,0.3
 feed_start_date,20210101
-feed_end_date,20210108
+feed_end_date,20210101
 feed_creation_date,20210101
 feed_creation_time,12:00:00
 feed_publisher_name,"France - Ile-de-France"

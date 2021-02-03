@@ -1,4 +1,4 @@
-use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
 
 use chrono::NaiveDateTime;
@@ -123,6 +123,7 @@ where
         &self,
         data: &Data,
         pt_journey: &PTJourney<R>,
+        loads_count : LoadsCount,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
     where
         R: RequestTypes<
@@ -163,6 +164,7 @@ where
             first_vehicle,
             connections,
             *arrival_fallback_duration,
+            loads_count,
             data,
         )
     }

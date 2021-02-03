@@ -23,7 +23,7 @@ use std::time::SystemTime;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
-#[structopt(name = "laxatips_cli", about = "Run laxatips from the command line.")]
+#[structopt(name = "laxatips_cli", about = "Run laxatips from the command line.", rename_all = "snake_case")]
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -63,7 +63,7 @@ struct Options {
 
     /// Type of request to make :
     /// "classic" or "loads"
-    #[structopt(long ="request_type", default_value = "classic")]
+    #[structopt(long, default_value = "classic")]
     request_type: String,
 
     #[structopt(subcommand)]
@@ -71,6 +71,7 @@ struct Options {
 }
 
 #[derive(StructOpt)]
+#[structopt(rename_all = "snake_case")]
 enum Command {
     Random(Random),
     StopAreas(StopAreas),
@@ -114,23 +115,30 @@ fn make_query_stop_area(
     model: &transit_model::Model,
     from_stop_area: &str,
     to_stop_area: &str,
-) -> (Vec<String>, Vec<String>) {
+) -> Result<(Vec<String>, Vec<String>), Error> {
     use std::collections::BTreeSet;
     let mut start_sa_set = BTreeSet::new();
-    start_sa_set.insert(model.stop_areas.get_idx(from_stop_area).unwrap());
+    let from_stop_area_idx = model.stop_areas.get_idx(from_stop_area).ok_or_else( ||
+        failure::format_err!("No stop area named `{}` found.", from_stop_area)
+    )?;
+    start_sa_set.insert(from_stop_area_idx);
     let start_stop_points: Vec<String> = model
         .get_corresponding(&start_sa_set)
         .iter()
         .map(|idx| model.stop_points[*idx].id.clone())
         .collect();
     let mut end_sa_set = BTreeSet::new();
-    end_sa_set.insert(model.stop_areas.get_idx(to_stop_area).unwrap());
+
+    let to_stop_area_idx = model.stop_areas.get_idx(to_stop_area).ok_or_else( ||
+        failure::format_err!("No stop area named `{}` found.", to_stop_area)
+    )?;
+    end_sa_set.insert(to_stop_area_idx);
     let end_stop_points = model
         .get_corresponding(&end_sa_set)
         .iter()
         .map(|idx| model.stop_points[*idx].id.clone())
         .collect();
-    (start_stop_points, end_stop_points)
+    Ok((start_stop_points, end_stop_points))
 }
 
 fn parse_datetime(string_datetime: &str) -> Result<NaiveDateTime, Error> {
@@ -357,7 +365,7 @@ where
         end_stop_area_uri
     );
     let (start_stop_point_uris, end_stop_point_uris) =
-        make_query_stop_area(model, start_stop_area_uri, end_stop_area_uri);
+        make_query_stop_area(model, start_stop_area_uri, end_stop_area_uri)?;
     let start_stops = start_stop_point_uris
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
@@ -389,7 +397,7 @@ where
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
-        trace!("Criteria : {:#?}", pt_journey.criteria_at_arrival);
+        // trace!("Criteria : {:#?}", pt_journey.criteria_at_arrival);
         let response = request.create_response(data, pt_journey);
         match response {
             Ok(journey) => {

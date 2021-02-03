@@ -17,7 +17,7 @@ use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -32,7 +32,7 @@ const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0,
 const DEFAULT_MAX_NB_LEGS: u8 = 10;
 
 #[derive(StructOpt)]
-#[structopt(name = "laxatips_server", about = "Run laxatips server.")]
+#[structopt(name = "laxatips_server", about = "Run laxatips server.", rename_all = "snake_case")]
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -250,6 +250,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
+    R::Criteria : Debug,
 {
     let request: R = make_engine_request_from_protobuf(
         &proto_request,
@@ -304,6 +305,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
+    R::Criteria : Debug
 {
     socket
         .recv(zmq_message, 0)
@@ -390,6 +392,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
+    R::Criteria : Debug
 {
     let mut engine = MultiCriteriaRaptor::<R>::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
