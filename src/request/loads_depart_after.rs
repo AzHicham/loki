@@ -312,12 +312,12 @@ impl<'data, Data> RequestIO<'data, Data> for LoadsDepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
-    fn new<'a, 'b>(
+    fn new<S : AsRef<str>, T : AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
-        departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
-        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
+        departures_stop_point_and_fallback_duration: impl Iterator<Item = (S, PositiveDuration)>,
+        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (T, PositiveDuration)>,
         leg_arrival_penalty: PositiveDuration,
         leg_walking_penalty: PositiveDuration,
         max_duration_to_arrival: PositiveDuration,

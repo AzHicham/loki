@@ -20,12 +20,12 @@ impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<'a, 'b>(
+    pub fn new<S : AsRef<str>, T : AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
-        departures_stop_point_and_fallback_duration: impl Iterator<Item = (&'a str, PositiveDuration)>,
-        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (&'b str, PositiveDuration)>,
+        departures_stop_point_and_fallback_duration: impl Iterator<Item = (S, PositiveDuration)>,
+        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (T, PositiveDuration)>,
         leg_arrival_penalty: PositiveDuration,
         leg_walking_penalty: PositiveDuration,
         max_duration_to_arrival: PositiveDuration,
@@ -48,6 +48,7 @@ where
         let departures : Vec<_> = departures_stop_point_and_fallback_duration
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
+                let stop_point_uri = stop_point_uri.as_ref();
                 let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
                     warn!(
                         "The {}th departure stop point {} is not found in model. \
@@ -74,6 +75,7 @@ where
         let arrivals : Vec<_> = arrivals_stop_point_and_fallback_duration
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
+                let stop_point_uri = stop_point_uri.as_ref();
                 let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
                     warn!(
                         "The {}th arrival stop point {} is not found in model. \
