@@ -395,7 +395,7 @@ where
         engine.nb_of_rounds()
     );
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
-    debug!("Tree size : {}", engine.tree_size());
+    debug!("Tree size : {:#}", engine.tree_size());
     for pt_journey in engine.responses() {
         // trace!("Criteria : {:#?}", pt_journey.criteria_at_arrival);
         let response = request.create_response(data, pt_journey);

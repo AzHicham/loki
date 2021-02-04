@@ -142,8 +142,7 @@ where
         .filter_map(|(idx, location_context)| {
             let stop_point_uri = location_context
                 .place
-                .as_str()
-                .trim_start_matches("stop_point:");
+                .as_str();
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -166,8 +165,7 @@ where
         .filter_map(|(idx, location_context)| {
             let stop_point_uri = location_context
                 .place
-                .as_str()
-                .trim_start_matches("stop_point:");
+                .as_str();
 
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))

@@ -245,7 +245,7 @@ fn make_stop_point_pt_object(
 
     let mut proto = navitia_proto::PtObject {
         name: stop_point.name.clone(),
-        uri: format!("stop_point:{}", stop_point.id),
+        uri: stop_point.id.clone(), 
         stop_point: Some(make_stop_point(stop_point, model)?),
         ..Default::default()
     };
@@ -260,7 +260,7 @@ fn make_stop_point(
 ) -> Result<navitia_proto::StopPoint, Error> {
     let proto = navitia_proto::StopPoint {
         name: Some(stop_point.name.clone()),
-        uri: Some(format!("stop_point:{}", stop_point.id)),
+        uri: Some(stop_point.id.clone()), 
         coord: Some(navitia_proto::GeographicalCoord {
             lat: stop_point.coord.lat,
             lon: stop_point.coord.lon,
