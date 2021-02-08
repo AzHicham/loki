@@ -168,10 +168,6 @@ impl LoadsData {
         Some(&trip_load.per_stop[..(nb_of_stops - 1)])
     }
 
-    // pub fn default_loads(&self) -> std::iter::Repeat<Load> {
-    //     std::iter::repeat(Load::Medium)
-    // }
-
     pub fn empty() -> Self {
         LoadsData {
             per_vehicle_journey: BTreeMap::new(),
@@ -198,13 +194,13 @@ impl LoadsData {
                 Ok((vehicle_journey_idx, stop_sequence, occupancy, date)) => {
                     (vehicle_journey_idx, stop_sequence, occupancy, date)
                 }
-                Err(parse_error) => {
-                    debug!(
-                        "Error reading {:?} at line {} : {} \n. I'll skip this line. ",
-                        filepath,
-                        reader.position().line(),
-                        parse_error
-                    );
+                Err(_parse_error) => {
+                    // trace!(
+                    //     "Error reading {:?} at line {} : {} \n. I'll skip this line. ",
+                    //     filepath,
+                    //     reader.position().line(),
+                    //     parse_error
+                    // );
                     continue;
                 }
             };
@@ -247,7 +243,7 @@ impl LoadsData {
             trip_load.per_stop[*idx] = load;
         }
 
-        // loads_data.check(model);
+        // loads_data._check(model);
 
         Ok(loads_data)
     }
@@ -355,15 +351,3 @@ fn parse_record(
     Ok((vehicle_journey_idx, stop_sequence, occupancy, date))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::LoadsData;
-
-    #[test]
-    fn exploration() {
-        let input_dir = "/home/pascal/data/charge/ntfs/";
-        let model = transit_model::ntfs::read(input_dir).unwrap();
-        let occupancy_data_filepath = "/home/pascal/data/charge/stoptimes_load.csv";
-        let _ = LoadsData::new(occupancy_data_filepath, &model);
-    }
-}
