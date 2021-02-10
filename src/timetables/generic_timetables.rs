@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, fmt::Debug};
 use std::{
     borrow::Borrow,
     cmp::{max, min, Ordering},
 };
+use std::{collections::BTreeMap, fmt::Debug};
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
@@ -206,15 +206,16 @@ where
                     timetable: timetable.clone(),
                     idx,
                 };
-                let load = self
-                    .timetable_data(timetable)
-                    .load_after(idx, position.idx);
+                let load = self.timetable_data(timetable).load_after(idx, position.idx);
                 (vehicle, time, load)
             })
     }
 
     pub fn nb_of_trips(&self) -> usize {
-        self.timetable_datas.iter().map(|timetable| timetable.nb_of_vehicle()).sum()
+        self.timetable_datas
+            .iter()
+            .map(|timetable| timetable.nb_of_vehicle())
+            .sum()
     }
 
     // Insert in the trip in a timetable if
@@ -517,8 +518,8 @@ where
         BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
         Loads: Iterator<Item = Load> + ExactSizeIterator + Clone,
-        Time : Debug,
-        Load : Debug
+        Time: Debug,
+        Load: Debug,
     {
         let nb_of_vehicle = self.nb_of_vehicle();
         if nb_of_vehicle == 0 {

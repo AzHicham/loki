@@ -1,2 +1,0 @@
-route_id,route_name,is_forward,line_id,contributor_id,destination_id,geometry_id
-rer_b_nord,"Nord",1,rer_b,my_contributor,paris,

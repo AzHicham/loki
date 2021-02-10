@@ -1,5 +1,8 @@
-use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
+use crate::{
+    loads_data::LoadsCount,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+};
 
 use chrono::NaiveDateTime;
 use traits::{BadRequest, RequestIO};
@@ -41,11 +44,11 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         //     return true;
         // }
         // lower.arrival_time <= upper.arrival_time
-        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32) 
+        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
-        && 
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
+        &&
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
 
         // &&
@@ -308,7 +311,7 @@ impl<'data, Data> RequestIO<'data, Data> for DepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
-    fn new<S : AsRef<str>, T : AsRef<str>>(
+    fn new<S: AsRef<str>, T: AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
@@ -337,6 +340,7 @@ where
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        self.generic.create_response(data, pt_journey, LoadsCount::default())
+        self.generic
+            .create_response(data, pt_journey, LoadsCount::default())
     }
 }

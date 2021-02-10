@@ -32,7 +32,11 @@ const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0,
 const DEFAULT_MAX_NB_LEGS: u8 = 10;
 
 #[derive(StructOpt)]
-#[structopt(name = "laxatips_server", about = "Run laxatips server.", rename_all = "snake_case")]
+#[structopt(
+    name = "laxatips_server",
+    about = "Run laxatips server.",
+    rename_all = "snake_case"
+)]
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -140,9 +144,7 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context
-                .place
-                .as_str();
+            let stop_point_uri = location_context.place.as_str();
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -163,9 +165,7 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context
-                .place
-                .as_str();
+            let stop_point_uri = location_context.place.as_str();
 
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
@@ -248,7 +248,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
-    R::Criteria : Debug,
+    R::Criteria: Debug,
 {
     let request: R = make_engine_request_from_protobuf(
         &proto_request,
@@ -303,7 +303,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
-    R::Criteria : Debug
+    R::Criteria: Debug,
 {
     socket
         .recv(zmq_message, 0)
@@ -390,7 +390,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
-    R::Criteria : Debug
+    R::Criteria: Debug,
 {
     let mut engine = MultiCriteriaRaptor::<R>::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();

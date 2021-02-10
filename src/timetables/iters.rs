@@ -1,6 +1,6 @@
 use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
-use std::{fmt::Debug, iter::Map};
 use std::ops::Range;
+use std::{fmt::Debug, iter::Map};
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
@@ -119,8 +119,7 @@ impl<'a, Time> Clone for VehicleTimes<'a, Time> {
     }
 }
 
-impl<'a, Time> Iterator for VehicleTimes<'a, Time>
-{
+impl<'a, Time> Iterator for VehicleTimes<'a, Time> {
     type Item = &'a Time;
 
     fn next(&mut self) -> Option<Self::Item> {

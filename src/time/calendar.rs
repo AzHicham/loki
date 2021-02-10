@@ -2,7 +2,7 @@ use super::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
 };
-use chrono::{NaiveDate, NaiveDateTime, };
+use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
 use std::convert::TryFrom;
 
@@ -42,7 +42,7 @@ impl Calendar {
 
     /// The first datetime that can be obtained
     pub fn first_datetime(&self) -> NaiveDateTime {
-        self.first_date.and_hms(0,0,0) 
+        self.first_date.and_hms(0,0,0)
             - chrono::Duration::seconds(i64::from(MAX_TIMEZONE_OFFSET)) // in the west-most timezone, we are at UTC-12, with take some margin (day saving times...) and make it -24h
             - chrono::Duration::seconds(i64::from(MAX_SECONDS_IN_DAY))
     }
@@ -107,27 +107,19 @@ impl Calendar {
         }
     }
 
-    fn decompose<Timezone : chrono::offset::TimeZone>(&self, 
-        datetime_to_decompose: chrono::DateTime<Timezone>, 
-        reference_date : &chrono::Date<Timezone>
-    ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> 
-    {
-        let reference_datetime =
-                reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
-        let seconds_i64 =
-            (datetime_to_decompose - reference_datetime).num_seconds();
+    fn decompose<Timezone: chrono::offset::TimeZone>(
+        &self,
+        datetime_to_decompose: chrono::DateTime<Timezone>,
+        reference_date: &chrono::Date<Timezone>,
+    ) -> Option<(DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> {
+        let reference_datetime = reference_date.and_hms(12, 0, 0) - chrono::Duration::hours(12);
+        let seconds_i64 = (datetime_to_decompose - reference_datetime).num_seconds();
 
         let has_seconds = SecondsSinceTimezonedDayStart::from_seconds_i64(seconds_i64);
-        let has_reference_day = self
-            .date_to_days_since_start(&reference_date.naive_local());
+        let has_reference_day = self.date_to_days_since_start(&reference_date.naive_local());
         match (has_reference_day, has_seconds) {
-            (Some(reference_day), Some(seconds)) =>
-            {
-                Some((reference_day, seconds))
-            }
-            _ => {
-                None
-            }
+            (Some(reference_day), Some(seconds)) => Some((reference_day, seconds)),
+            _ => None,
         }
     }
 
@@ -142,7 +134,6 @@ impl Calendar {
         max_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
         min_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> + 'a {
-
         // will advance the date until `time_in_timezoned_day` becomes smaller than `min_seconds_since_timezoned_day_start`
         let forward_iter = ForwardDecompose::new(
             seconds_since_dataset_start,
@@ -296,7 +287,9 @@ impl<'calendar> Iterator for ForwardDecompose<'calendar> {
     type Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref reference_date) = self.has_reference_date {
-            let has_decomposition = self.calendar.decompose(self.datetime_timezoned_to_decompose, reference_date);
+            let has_decomposition = self
+                .calendar
+                .decompose(self.datetime_timezoned_to_decompose, reference_date);
             if let Some((day, seconds)) = has_decomposition {
                 if seconds >= self.min_seconds_since_timezoned_day_start {
                     self.has_reference_date = reference_date.succ_opt();
@@ -345,7 +338,9 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
     type Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref reference_date) = self.has_reference_date {
-            let has_decomposition = self.calendar.decompose(self.datetime_timezoned_to_decompose, reference_date);
+            let has_decomposition = self
+                .calendar
+                .decompose(self.datetime_timezoned_to_decompose, reference_date);
             if let Some((day, seconds)) = has_decomposition {
                 if seconds <= self.max_seconds_since_timezoned_day_start {
                     self.has_reference_date = reference_date.pred_opt();
@@ -354,6 +349,5 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
             }
         }
         None
-        
     }
 }

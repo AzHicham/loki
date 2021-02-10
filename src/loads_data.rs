@@ -53,7 +53,6 @@ pub struct LoadsCount {
     pub low: usize,
 }
 
-
 impl LoadsCount {
     pub fn zero() -> Self {
         Self {
@@ -350,4 +349,3 @@ fn parse_record(
 
     Ok((vehicle_journey_idx, stop_sequence, occupancy, date))
 }
-

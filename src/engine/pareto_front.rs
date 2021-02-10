@@ -8,9 +8,10 @@ pub struct ParetoFront<ItemData, T: RequestTypes> {
 }
 
 impl<ItemData, T: RequestTypes> Debug for ParetoFront<ItemData, T>
-where 
-ItemData : Debug, 
-T::Criteria : Debug {
+where
+    ItemData: Debug,
+    T::Criteria: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ParetoFront")
             .field("elements", &self.elements)

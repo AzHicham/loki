@@ -1,9 +1,5 @@
-
-
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
 use crate::{loads_data::LoadsCount, traits};
-use crate::{
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-};
 
 use chrono::NaiveDateTime;
 use traits::{BadRequest, RequestIO};
@@ -14,7 +10,6 @@ pub struct LoadsDepartAfter<'data, Data: traits::Data> {
     generic: GenericRequest<'data, Data>,
 }
 
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Criteria {
     arrival_time: SecondsSinceDatasetUTCStart,
@@ -23,8 +18,6 @@ pub struct Criteria {
     transfers_duration: PositiveDuration,
     loads_count: LoadsCount,
 }
-
-
 
 impl<'data, Data: traits::Data> traits::TransitTypes for LoadsDepartAfter<'data, Data> {
     type Stop = Data::Stop;
@@ -44,11 +37,11 @@ impl<'data, 'model, Data: traits::Data> traits::Request for LoadsDepartAfter<'da
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty;
         let walking_penalty = self.generic.leg_walking_penalty;
-        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32) 
+        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
-        && 
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
+        &&
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
         && lower.loads_count.is_lower(&upper.loads_count)
     }
@@ -312,7 +305,7 @@ impl<'data, Data> RequestIO<'data, Data> for LoadsDepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
-    fn new<S : AsRef<str>, T : AsRef<str>>(
+    fn new<S: AsRef<str>, T: AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
@@ -341,6 +334,10 @@ where
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        self.generic.create_response(data, pt_journey, pt_journey.criteria_at_arrival.loads_count.clone())
+        self.generic.create_response(
+            data,
+            pt_journey,
+            pt_journey.criteria_at_arrival.loads_count.clone(),
+        )
     }
 }

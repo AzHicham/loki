@@ -15,7 +15,6 @@ pub struct SecondsSinceTimezonedDayStart {
 
 const MAX_SECONDS_IN_DAY: i32 = 48 * 60 * 60; // 48h
 
-
 const MAX_TIMEZONE_OFFSET: i32 = 24 * 60 * 60; // 24h in seconds
 
 /// Duration since 00:00:00 UTC in the first allowed day of the data
@@ -98,9 +97,7 @@ impl SecondsSinceTimezonedDayStart {
     }
 
     pub fn from_seconds(seconds: i32) -> Option<Self> {
-        if seconds > MAX_SECONDS_IN_DAY
-            || seconds < -MAX_SECONDS_IN_DAY
-        {
+        if seconds > MAX_SECONDS_IN_DAY || seconds < -MAX_SECONDS_IN_DAY {
             None
         } else {
             let result = Self { seconds };

@@ -366,7 +366,7 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
 }
 
 pub trait RequestIO<'data, D: Data>: Request {
-    fn new<S : AsRef<str>, T : AsRef<str>>(
+    fn new<S: AsRef<str>, T: AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data D,
         departure_datetime: NaiveDateTime,

@@ -15,7 +15,7 @@ use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
 };
 
-use crate::log::{warn, trace};
+use crate::log::{trace, warn};
 
 #[derive(Debug)]
 pub struct DailyTimetables {

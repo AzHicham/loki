@@ -15,7 +15,7 @@ use chrono::NaiveDate;
 
 use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
 
-use crate::log::{warn, trace};
+use crate::log::{trace, warn};
 
 use crate::loads_data::Load;
 

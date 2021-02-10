@@ -1,5 +1,8 @@
-use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
+use crate::{
+    loads_data::LoadsCount,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+};
 
 use chrono::NaiveDateTime;
 use log::warn;
@@ -20,7 +23,7 @@ impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<S : AsRef<str>, T : AsRef<str>>(
+    pub fn new<S: AsRef<str>, T: AsRef<str>>(
         model: &transit_model::Model,
         transit_data: &'data Data,
         departure_datetime: NaiveDateTime,
@@ -125,7 +128,7 @@ where
         &self,
         data: &Data,
         pt_journey: &PTJourney<R>,
-        loads_count : LoadsCount,
+        loads_count: LoadsCount,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
     where
         R: RequestTypes<

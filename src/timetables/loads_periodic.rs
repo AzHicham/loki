@@ -260,7 +260,7 @@ impl TimetablesTrait for PeriodicTimetables {
         for date in valid_dates {
             let loads = loads_data
                 .loads(&vehicle_journey_idx, date)
-                .unwrap_or_else(||default_loads.as_slice());
+                .unwrap_or_else(|| default_loads.as_slice());
             load_patterns_dates
                 .entry(loads)
                 .or_insert_with(Vec::new)

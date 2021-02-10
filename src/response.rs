@@ -3,12 +3,63 @@
 //     data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use crate::traits;
+use crate::{
+    loads_data::LoadsCount,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
 
 use std::fmt::Debug;
+
+use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
+pub use typed_index_collection::Idx;
+
+pub struct Response {
+    pub departure: DepartureSection,
+    pub first_vehicle: VehicleSection,
+    pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
+}
+
+pub struct VehicleSection {
+    pub from_datetime: NaiveDateTime,
+    pub to_datetime: NaiveDateTime,
+    pub vehicle_journey: Idx<VehicleJourney>,
+    pub day_for_vehicle_journey: NaiveDate,
+    // the index (in vehicle_journey.stop_times) of the stop_time we board at
+    pub from_stoptime_idx: usize,
+    // the index (in vehicle_journey.stop_times) of the stop_time we debark at
+    pub to_stoptime_idx: usize,
+}
+
+pub struct TransferSection {
+    pub transfer: Idx<TransitModelTransfer>,
+    pub from_datetime: NaiveDateTime,
+    pub to_datetime: NaiveDateTime,
+    pub from_stop_point: Idx<StopPoint>,
+    pub to_stop_point: Idx<StopPoint>,
+}
+
+pub struct WaitingSection {
+    pub from_datetime: NaiveDateTime,
+    pub to_datetime: NaiveDateTime,
+    pub stop_point: Idx<StopPoint>,
+}
+
+pub struct DepartureSection {
+    pub from_datetime: NaiveDateTime,
+    pub to_datetime: NaiveDateTime,
+    pub to_stop_point: Idx<StopPoint>,
+}
+
+impl Response {
+    pub fn first_vj_uri<'model>(&self, model: &'model Model) -> &'model str {
+        let idx = self.first_vehicle.vehicle_journey;
+        &model.vehicle_journeys[idx].id
+    }
+}
+
 pub struct VehicleLeg<Data: traits::Data> {
     pub trip: Data::Trip,
     pub board_position: Data::Position,
@@ -32,7 +83,7 @@ pub struct Journey<Data: traits::Data> {
     first_vehicle: VehicleLeg<Data>,
     connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     arrival_fallback_duration: PositiveDuration,
-    loads_count : LoadsCount,
+    loads_count: LoadsCount,
 }
 #[derive(Debug, Clone)]
 pub enum VehicleLegIdx {
@@ -59,7 +110,7 @@ where
         first_vehicle: VehicleLeg<Data>,
         connections: impl Iterator<Item = (Data::Transfer, VehicleLeg<Data>)>,
         arrival_fallback_duration: PositiveDuration,
-        loads_count : LoadsCount,
+        loads_count: LoadsCount,
         data: &Data,
     ) -> Result<Self, BadJourney<Data>> {
         let result = Self {
@@ -281,7 +332,9 @@ where
             self.departure_fallback_duration,
             self.arrival_fallback_duration
         )?;
-        writeln!(writer, "Loads : High {}; Medium {}; Low {}; total {}", 
+        writeln!(
+            writer,
+            "Loads : High {}; Medium {}; Low {}; total {}",
             self.loads_count.high,
             self.loads_count.medium,
             self.loads_count.low,
@@ -347,49 +400,15 @@ where
     }
 }
 
-//use crate::laxatips_data::data::{StopPoint, Idx, VehicleJourney, TransitModelTransfer};
-
-use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
-pub use typed_index_collection::Idx;
-
-pub struct VehicleSection {
-    pub from_datetime: NaiveDateTime,
-    pub to_datetime: NaiveDateTime,
-    pub vehicle_journey: Idx<VehicleJourney>,
-    pub day_for_vehicle_journey: NaiveDate,
-    // the index (in vehicle_journey.stop_times) of the stop_time we board at
-    pub from_stoptime_idx: usize,
-    // the index (in vehicle_journey.stop_times) of the stop_time we debark at
-    pub to_stoptime_idx: usize,
-}
-
-pub struct TransferSection {
-    pub transfer: Idx<TransitModelTransfer>,
-    pub from_datetime: NaiveDateTime,
-    pub to_datetime: NaiveDateTime,
-    pub from_stop_point: Idx<StopPoint>,
-    pub to_stop_point: Idx<StopPoint>,
-}
-
-pub struct WaitingSection {
-    pub from_datetime: NaiveDateTime,
-    pub to_datetime: NaiveDateTime,
-    pub stop_point: Idx<StopPoint>,
-}
-
-pub struct DepartureSection {
-    pub from_datetime: NaiveDateTime,
-    pub to_datetime: NaiveDateTime,
-    pub to_stop_point: Idx<StopPoint>,
-}
-
-pub struct ArrivalSection {
-    pub from_datetime: NaiveDateTime,
-    pub to_datetime: NaiveDateTime,
-    pub from_stop_point: Idx<StopPoint>,
-}
-
 impl<Data: traits::Data> Journey<Data> {
+    pub fn to_response(&self, data: &Data) -> Response {
+        Response {
+            departure: self.departure_section(data),
+            first_vehicle: self.first_vehicle_section(data),
+            connections: self.connections(data).collect(),
+        }
+    }
+
     pub fn departure_section(&self, data: &Data) -> DepartureSection {
         let from_datetime = data.to_naive_datetime(&self.departure_datetime);
         let to_seconds = self.departure_datetime + self.departure_fallback_duration;
@@ -519,51 +538,3 @@ impl<'journey, 'data, Data: traits::Data> Iterator for ConnectionIter<'journey, 
         Some((transfer_section, waiting_section, vehicle_section))
     }
 }
-
-// fn debark_stop(
-//         vehicle_section : & VehicleSection,
-//         data : & TransitData
-//     ) -> Stop {
-//     let debark_position = &vehicle_section.debark_position;
-//     let trip = &vehicle_section.trip;
-//     let mission = data.mission_of(trip);
-//     data.stop_at_position_in_mission(debark_position, &mission)
-// }
-
-// fn board_stop(
-//         vehicle_section : & VehicleSection,
-//         data : & TransitData
-//     ) -> Stop {
-//     let board_position = &vehicle_section.board_position;
-//     let trip = &vehicle_section.trip;
-//     let mission = data.mission_of(trip);
-//     data.stop_at_position_in_mission(board_position, &mission)
-// }
-
-// fn check_vehicle_section(
-//     vehicle_section : & VehicleSection,
-//     vehicle_section_idx : ODataion<usize>,
-//     data : & TransitData
-// ) -> Result<(), BadJourney> {
-//     let board_position = &vehicle_section.board_position;
-//     let debark_position = &vehicle_section.debark_position;
-//     let trip = &vehicle_section.trip;
-//     let mission = data.mission_of(trip);
-//     if data.is_upstream_in_mission(
-//         debark_position,
-//         board_position,
-//         &mission
-//     ) {
-//         return Err(BadJourney::DebarkIsUpstreamBoard(vehicle_section.clone(), vehicle_section_idx))
-//     }
-
-//     if data.board_time_of(trip, board_position).is_none() {
-//         return Err(BadJourney::NoBoardTime(vehicle_section.clone(), vehicle_section_idx))
-//     }
-
-//     if data.debark_time_of(trip, debark_position).is_none() {
-//         return Err(BadJourney::NoDebarkTime(vehicle_section.clone(), vehicle_section_idx))
-//     }
-
-//     Ok(())
-// }

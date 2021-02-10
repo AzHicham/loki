@@ -33,7 +33,7 @@ pub struct MultiCriteriaRaptor<T: RequestTypes> {
 impl<T> MultiCriteriaRaptor<T>
 where
     T: RequestTypes,
-    T::Criteria : Debug
+    T::Criteria: Debug,
 {
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
@@ -112,17 +112,17 @@ where
                 self.tree_size(),
                 self.arrive_front.len()
             );
+
             self.save_and_clear_new_debarks(pt);
 
             self.ride(pt);
-            // trace!("{:#?}",&self.new_debark_fronts);
 
             self.save_and_clear_new_waits(pt);
 
             self.perform_transfers_and_arrivals(pt);
 
             self.identify_missions_with_new_waits(pt);
-
+            
             self.nb_of_rounds += 1;
         }
 
@@ -217,7 +217,6 @@ where
             Criteria = T::Criteria,
         >,
     {
-        debug_assert!(!self.stops_with_new_wait.is_empty());
         debug_assert!(self.missions_with_new_wait.is_empty());
 
         for stop in self.stops_with_new_wait.iter() {
@@ -282,7 +281,6 @@ where
             .all(|front| { front.is_empty() }));
 
         for mission in self.missions_with_new_wait.iter() {
-            
             let mut has_position = self.mission_has_new_wait[pt.mission_id(mission)].clone();
 
             self.board_front.clear();
