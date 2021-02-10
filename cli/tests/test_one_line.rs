@@ -4,10 +4,27 @@ use laxatips::LoadsPeriodicData;
 use laxatips_cli::stop_areas::{launch, Options};
 use laxatips_cli::{BaseOptions, RequestConfig};
 
-#[test]
-fn test_1() -> Result<(), Error> {
-    let request_config = RequestConfig::default();
+// The data consists of  a single line from `massy` to `paris`
+// with three trips. The first and last trip area heavily loaded
+//  while the second trip has a light load.
+//
+// trips                 | `matin`   | `midi`   |  `soir`
+// leave `massy` at      | 08:00:00  | 12:00:00 | 18:00:00
+// arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
+// load                  |  80%      |  20%     | 80%
 
+
+
+#[test]
+fn test_loads_matin() -> Result<(), Error> {
+    // Here we make a request from `massy` to `paris` at 08:00:00 
+    // We use the loads as criteria.
+    // We should obtain two journeys :
+    //  - one with `matin` as it arrives the earliest in `paris`
+    //  - one with `midi` as it has a lighter load than `matin`
+    // The `soir` trip arrives later and has a high load, and thus should
+    //  not be present.
+    let request_config = RequestConfig::default();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
@@ -34,9 +51,13 @@ fn test_1() -> Result<(), Error> {
 }
 
 #[test]
-fn test_2() -> Result<(), Error> {
+fn test_loads_midi() -> Result<(), Error> {
+    // Here we make a request from `massy` to `paris` at 10:00:00 
+    // We use the loads as criteria.
+    // We should obtain only one journey with the `midi` trip.
+    // Indeed, `matin` cannot be boarded, and `soir` arrives
+    // later than `midi` with a higher load
     let request_config = RequestConfig::default();
-
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
@@ -62,9 +83,12 @@ fn test_2() -> Result<(), Error> {
 }
 
 #[test]
-fn test_3() -> Result<(), Error> {
+fn test_without_loads_matin() -> Result<(), Error> {
+    // Here we make a request from `massy` to `paris` at 08:00:00 
+    // We do NOT use the loads as criteria.
+    // We should obtain only one journey with the `matin` trip.
+    // Indeed, `midi` and `soir` arrives later than `matin`.
     let request_config = RequestConfig::default();
-
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
