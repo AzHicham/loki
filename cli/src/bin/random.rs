@@ -1,16 +1,11 @@
-use laxatips::{
-    log::{info},
-    transit_model::Model,
-};
-use laxatips::{ LoadsDailyData,  LoadsPeriodicData};
-use laxatips::{
-    DailyData, DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor, PeriodicData, 
-};
+use laxatips::{log::info, transit_model::Model};
+use laxatips::{DailyData, DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor, PeriodicData};
+use laxatips::{LoadsDailyData, LoadsPeriodicData};
 
 use laxatips::traits;
 
-use log::warn;
-use std::{fmt::Debug};
+use log::{trace, warn};
+use std::fmt::Debug;
 use traits::{RequestIO, RequestWithIters};
 
 use failure::{bail, Error};
@@ -18,7 +13,7 @@ use std::time::SystemTime;
 
 use structopt::StructOpt;
 
-use laxatips_cli::{init_logger, parse_datetime, parse_duration, solve, build, BaseOptions};
+use laxatips_cli::{build, init_logger, parse_datetime, parse_duration, solve, BaseOptions};
 
 fn main() {
     let _log_guard = init_logger();
@@ -30,13 +25,15 @@ fn main() {
     }
 }
 
-
 #[derive(StructOpt)]
-#[structopt(name = "laxatips_cli", about = "Run laxatips from the command line.", rename_all = "snake_case")]
+#[structopt(
+    name = "laxatips_cli",
+    about = "Run laxatips from the command line.",
+    rename_all = "snake_case"
+)]
 pub struct Options {
-    
     #[structopt(flatten)]
-    base : BaseOptions,
+    base: BaseOptions,
 
     /// Type of request to make :
     /// "classic" or "loads"
@@ -46,8 +43,6 @@ pub struct Options {
     #[structopt(short = "n", long, default_value = "10")]
     nb_queries: u32,
 }
-
-
 
 fn run() -> Result<(), Error> {
     let options = Options::from_args();
@@ -87,7 +82,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
-    R::Criteria : Debug
+    R::Criteria: Debug,
 {
     let nb_of_stops = data.nb_of_stops();
     let nb_of_missions = data.nb_of_missions();
@@ -100,7 +95,6 @@ where
         }
     };
 
-
     let request_config = &options.base.request_config;
 
     let leg_arrival_penalty = parse_duration(&request_config.leg_arrival_penalty).unwrap();
@@ -110,7 +104,6 @@ where
     let mut raptor = MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
 
     let compute_timer = SystemTime::now();
-
 
     let mut total_nb_of_rounds = 0;
     let nb_queries = options.nb_queries;
@@ -134,8 +127,11 @@ where
         );
 
         match solve_result {
-            Ok(_responses) => {
+            Ok(responses) => {
                 total_nb_of_rounds += raptor.nb_of_rounds();
+                for response in responses.iter() {
+                    trace!("{}", response.print(data, model)?);
+                }
             }
             Err(err) => {
                 warn!(
@@ -159,8 +155,6 @@ where
         (total_nb_of_rounds as f64) / (nb_queries as f64)
     );
     info!("Nb of requests : {}", nb_queries);
-    
- 
+
     Ok(())
 }
-

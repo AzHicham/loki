@@ -1,7 +1,10 @@
-use laxatips::{log::{debug, info, trace}, response, transit_model::Model};
-use laxatips::{transit_model, LoadsData};
-use laxatips::{ MultiCriteriaRaptor, PositiveDuration,
+use laxatips::{
+    log::{debug, info, trace},
+    response,
+    transit_model::Model,
 };
+use laxatips::{transit_model, LoadsData};
+use laxatips::{MultiCriteriaRaptor, PositiveDuration};
 
 use laxatips::traits;
 
@@ -9,8 +12,11 @@ use log::warn;
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
-use std::{fmt::Debug, str::FromStr};
 
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
@@ -20,50 +26,59 @@ use structopt::StructOpt;
 
 pub mod stop_areas;
 
-const DEFAULT_LEG_ARRIVAL_PENALTY : & str = "00:02:00";
-const DEFAULT_LEG_WALKING_PENALTY : & str = "00:02:00";
-const DEFAULT_MAX_NB_LEGS : & str = "10";
-const DEFAULT_MAX_JOURNEY_DURATION : & str = "24:00:00";
+const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
+const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
+const DEFAULT_MAX_NB_LEGS: &str = "10";
+const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
 
 #[derive(StructOpt, Debug)]
+#[structopt(rename_all = "snake_case")]
 pub struct RequestConfig {
-  /// penalty to apply to arrival time for each vehicle leg in a journey
-  #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
-  pub leg_arrival_penalty: String,
+    /// penalty to apply to arrival time for each vehicle leg in a journey
+    #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
+    pub leg_arrival_penalty: String,
 
-  /// penalty to apply to walking time for each vehicle leg in a journey
-  #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
-  pub leg_walking_penalty: String,
+    /// penalty to apply to walking time for each vehicle leg in a journey
+    #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
+    pub leg_walking_penalty: String,
 
-  /// maximum number of vehicle legs in a journey
-  #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
-  pub max_nb_of_legs: u8,
+    /// maximum number of vehicle legs in a journey
+    #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
+    pub max_nb_of_legs: u8,
 
-  /// maximum duration of a journey
-  #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
-  pub max_journey_duration: String,
-
+    /// maximum duration of a journey
+    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
+    pub max_journey_duration: String,
 }
 
 impl Default for RequestConfig {
     fn default() -> Self {
-        let max_nb_of_legs : u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
+        let max_nb_of_legs: u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
         Self {
             leg_arrival_penalty: DEFAULT_LEG_ARRIVAL_PENALTY.to_string(),
             leg_walking_penalty: DEFAULT_LEG_WALKING_PENALTY.to_string(),
             max_nb_of_legs,
             max_journey_duration: DEFAULT_MAX_JOURNEY_DURATION.to_string(),
-
         }
+    }
+}
+
+impl Display for RequestConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "--leg_arrival_penalty {} --leg_walking_penalty {} --max_nb_of_legs {} --max_journey_duration {}",
+                self.leg_arrival_penalty,
+                self.leg_walking_penalty,
+                self.max_nb_of_legs,
+                self.max_journey_duration
+        )
     }
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct BaseOptions {
-
     #[structopt(flatten)]
-    pub request_config : RequestConfig,
+    pub request_config: RequestConfig,
 
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs")]
@@ -72,7 +87,7 @@ pub struct BaseOptions {
     /// path to the passengers loads file
     #[structopt(short = "l", long = "loads_data")]
     pub loads_data_path: String,
-  
+
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
@@ -89,10 +104,26 @@ pub struct BaseOptions {
     /// "classic" or "loads"
     #[structopt(long, default_value = "classic")]
     pub request_type: String,
-
 }
 
-
+impl Display for BaseOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let departure_option = match &self.departure_datetime {
+            Some(datetime) => format!("--departure_datetime {}", datetime),
+            None => String::new(),
+        };
+        write!(
+            f,
+            "--ntfs {} --loads_data {} {} --implem {} --request_type {} {}",
+            self.ntfs_path,
+            self.loads_data_path,
+            departure_option,
+            self.implem,
+            self.request_type,
+            self.request_config.to_string()
+        )
+    }
+}
 
 pub fn init_logger() -> slog_scope::GlobalLoggerGuard {
     let decorator = slog_term::TermDecorator::new().stdout().build();
@@ -120,9 +151,10 @@ pub fn make_query_stop_area(
 ) -> Result<(Vec<String>, Vec<String>), Error> {
     use std::collections::BTreeSet;
     let mut start_sa_set = BTreeSet::new();
-    let from_stop_area_idx = model.stop_areas.get_idx(from_stop_area).ok_or_else( ||
-        failure::format_err!("No stop area named `{}` found.", from_stop_area)
-    )?;
+    let from_stop_area_idx = model
+        .stop_areas
+        .get_idx(from_stop_area)
+        .ok_or_else(|| failure::format_err!("No stop area named `{}` found.", from_stop_area))?;
     start_sa_set.insert(from_stop_area_idx);
     let start_stop_points: Vec<String> = model
         .get_corresponding(&start_sa_set)
@@ -131,9 +163,10 @@ pub fn make_query_stop_area(
         .collect();
     let mut end_sa_set = BTreeSet::new();
 
-    let to_stop_area_idx = model.stop_areas.get_idx(to_stop_area).ok_or_else( ||
-        failure::format_err!("No stop area named `{}` found.", to_stop_area)
-    )?;
+    let to_stop_area_idx = model
+        .stop_areas
+        .get_idx(to_stop_area)
+        .ok_or_else(|| failure::format_err!("No stop area named `{}` found.", to_stop_area))?;
     end_sa_set.insert(to_stop_area_idx);
     let end_stop_points = model
         .get_corresponding(&end_sa_set)
@@ -177,9 +210,7 @@ pub fn parse_duration(string_duration: &str) -> Result<PositiveDuration, Error> 
     Ok(PositiveDuration::from_hms(hours, minutes, seconds))
 }
 
-
-
-pub fn build<Data>(ntfs_path : & str, loads_data_path : & str) -> Result<(Data, Model), Error>
+pub fn build<Data>(ntfs_path: &str, loads_data_path: &str) -> Result<(Data, Model), Error>
 where
     Data: traits::Data,
 {
@@ -217,9 +248,6 @@ where
     Ok((data, model))
 }
 
-
-
-
 pub fn solve<'data, Data, R>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
@@ -231,15 +259,16 @@ pub fn solve<'data, Data, R>(
     leg_walking_penalty: &PositiveDuration,
     max_duration_to_arrival: &PositiveDuration,
     max_nb_of_legs: u8,
-) -> Result<Vec<response::Journey<Data> >, Error>
+) -> Result<Vec<response::Journey<Data>>, Error>
 where
     R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
     Data: traits::DataWithIters<
         Position = R::Position,
         Mission = R::Mission,
         Stop = R::Stop,
-        Trip = R::Trip,>,
-    R::Criteria : Debug,
+        Trip = R::Trip,
+    >,
+    R::Criteria: Debug,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",

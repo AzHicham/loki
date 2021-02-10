@@ -1,12 +1,11 @@
-use laxatips::{response, transit_model::Model, log::info};
+use laxatips::{log::info, response, transit_model::Model};
 
-use laxatips::{
-     DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor,
-};
+use laxatips::{DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor};
 
 use laxatips::traits;
+use log::trace;
 
-use std::{fmt::Debug,};
+use std::fmt::{Debug, Display};
 use traits::{RequestIO, RequestWithIters};
 
 use failure::{bail, Error};
@@ -14,47 +13,53 @@ use std::time::SystemTime;
 
 use structopt::StructOpt;
 
-use crate::{parse_datetime, parse_duration, solve, build, BaseOptions};
-
+use crate::{build, parse_datetime, parse_duration, solve, BaseOptions};
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct Options {
-   
     #[structopt(flatten)]
-    pub base : BaseOptions,
+    pub base: BaseOptions,
 
     #[structopt(long)]
     pub start: String,
 
     #[structopt(long)]
     pub end: String,
-
 }
 
+impl Display for Options {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "laxatips_cli {} --start {} --end {}",
+            self.base.to_string(),
+            self.start,
+            self.end
+        )
+    }
+}
 
-
-
-pub fn launch<Data>(options: Options) -> Result<Vec<response::Journey<Data>>, Error>
+pub fn launch<Data>(options: Options) -> Result<(Model, Vec<response::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
     let (data, model) = build(&options.base.ntfs_path, &options.base.loads_data_path)?;
-    match options.base.request_type.as_str() {
-        "classic" => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options),
-        "loads" => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+    let responses = match options.base.request_type.as_str() {
+        "classic" => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options)?,
+        "loads" => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options)?,
         _ => {
             bail!("Invalid request_type : {}", options.base.request_type)
         }
-    }
+    };
+    Ok((model, responses))
 }
-
 
 fn build_engine_and_solve<'data, Data, R>(
     model: &Model,
     data: &'data Data,
     options: &Options,
-) -> Result< Vec<response::Journey<Data>>, Error>
+) -> Result<Vec<response::Response>, Error>
 where
     R: RequestWithIters + RequestIO<'data, Data>,
     Data: traits::DataWithIters<
@@ -63,7 +68,7 @@ where
         Stop = R::Stop,
         Trip = R::Trip,
     >,
-    R::Criteria : Debug
+    R::Criteria: Debug,
 {
     let nb_of_stops = data.nb_of_stops();
     let nb_of_missions = data.nb_of_missions();
@@ -89,7 +94,7 @@ where
     let start_stop_area_uri = &options.start;
     let end_stop_area_uri = &options.end;
 
-    let responses = solve(
+    let journeys = solve(
         start_stop_area_uri,
         end_stop_area_uri,
         &mut raptor,
@@ -104,6 +109,15 @@ where
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
     info!("Duration : {} ms", duration as f64);
+
+    for journey in journeys.iter() {
+        trace!("{}", journey.print(data, model)?);
+    }
+
+    let responses = journeys
+        .into_iter()
+        .map(|journey| journey.to_response(data))
+        .collect();
 
     Ok(responses)
 }
