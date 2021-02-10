@@ -26,3 +26,8 @@ jobs:
         sudo apt install libzmq3-dev
     - name: Check compilation
       run: cargo check --workspace --verbose
+    - name: Run tests in debug mode
+      run: cargo test --workspace 
+    - name: Run tests in release mode
+      run: cargo test --release --workspace 
+
