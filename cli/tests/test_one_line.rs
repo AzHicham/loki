@@ -13,11 +13,9 @@ use laxatips_cli::{BaseOptions, RequestConfig};
 // arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
 // load                  |  80%      |  20%     | 80%
 
-
-
 #[test]
 fn test_loads_matin() -> Result<(), Error> {
-    // Here we make a request from `massy` to `paris` at 08:00:00 
+    // Here we make a request from `massy` to `paris` at 08:00:00
     // We use the loads as criteria.
     // We should obtain two journeys :
     //  - one with `matin` as it arrives the earliest in `paris`
@@ -52,7 +50,7 @@ fn test_loads_matin() -> Result<(), Error> {
 
 #[test]
 fn test_loads_midi() -> Result<(), Error> {
-    // Here we make a request from `massy` to `paris` at 10:00:00 
+    // Here we make a request from `massy` to `paris` at 10:00:00
     // We use the loads as criteria.
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
@@ -84,7 +82,7 @@ fn test_loads_midi() -> Result<(), Error> {
 
 #[test]
 fn test_without_loads_matin() -> Result<(), Error> {
-    // Here we make a request from `massy` to `paris` at 08:00:00 
+    // Here we make a request from `massy` to `paris` at 08:00:00
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.

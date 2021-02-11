@@ -26,6 +26,8 @@ use structopt::StructOpt;
 
 pub mod stop_areas;
 
+pub mod random;
+
 const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
 const DEFAULT_MAX_NB_LEGS: &str = "10";
@@ -288,11 +290,11 @@ where
     let request = R::new(
         model,
         data,
-        departure_datetime.clone(),
+        *departure_datetime,
         start_stops,
         end_stops,
-        leg_arrival_penalty.clone(),
-        leg_walking_penalty.clone(),
+        *leg_arrival_penalty,
+        *leg_walking_penalty,
         *max_duration_to_arrival,
         max_nb_of_legs,
     )?;
