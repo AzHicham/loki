@@ -16,7 +16,11 @@ use structopt::StructOpt;
 use crate::{build, parse_datetime, parse_duration, solve, BaseOptions};
 
 #[derive(StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
+#[structopt(
+    name = "laxatips_stop_areas",
+    about = "Perform a public transport request between two stop areas.",
+    rename_all = "snake_case"
+)]
 pub struct Options {
     #[structopt(flatten)]
     pub base: BaseOptions,

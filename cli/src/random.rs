@@ -16,8 +16,8 @@ use crate::{build, parse_datetime, parse_duration, solve, BaseOptions};
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "laxatips_cli",
-    about = "Run laxatips from the command line.",
+    name = "laxatips_random",
+    about = "Perform random public transport requests.",
     rename_all = "snake_case"
 )]
 pub struct Options {
