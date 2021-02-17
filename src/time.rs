@@ -45,6 +45,50 @@ pub struct Calendar {
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }
+#[derive(Debug)]
+pub enum PositiveDurationError {
+    ParseIntError(std::num::ParseIntError),
+    IncorrectFormat(String),
+}
+impl std::convert::From<std::num::ParseIntError> for PositiveDurationError {
+    fn from(parse_int_error: std::num::ParseIntError) -> Self {
+        PositiveDurationError::ParseIntError(parse_int_error)
+    }
+}
+impl std::fmt::Display for PositiveDurationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use PositiveDurationError::*;
+        match self {
+            ParseIntError(parse_int_error) => write!(f, "{}", parse_int_error),
+            IncorrectFormat(incorrect_format) => {
+                write!(
+                    f,
+                    "Unable to parse {} as a duration. Expected format is 14:35:12",
+                    incorrect_format
+                )
+            }
+        }
+    }
+}
+impl std::str::FromStr for PositiveDuration {
+    type Err = PositiveDurationError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut t = s.split(':');
+        let (hours, minutes, seconds) = match (t.next(), t.next(), t.next(), t.next()) {
+            (Some(h), Some(m), Some(s), None) => (h, m, s),
+            _ => {
+                return Err(PositiveDurationError::IncorrectFormat(s.to_owned()));
+            }
+        };
+        let hours: u32 = hours.parse()?;
+        let minutes: u32 = minutes.parse()?;
+        let seconds: u32 = seconds.parse()?;
+        if minutes > 59 || seconds > 59 {
+            return Err(PositiveDurationError::IncorrectFormat(s.to_owned()));
+        }
+        Ok(PositiveDuration::from_hms(hours, minutes, seconds))
+    }
+}
 
 impl PositiveDuration {
     pub fn zero() -> Self {

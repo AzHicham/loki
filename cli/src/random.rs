@@ -12,7 +12,7 @@ use std::time::SystemTime;
 
 use structopt::StructOpt;
 
-use crate::{build, parse_datetime, parse_duration, solve, BaseOptions};
+use crate::{build, parse_datetime, solve, BaseOptions};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -75,9 +75,9 @@ where
 
     let request_config = &options.base.request_config;
 
-    let leg_arrival_penalty = parse_duration(&request_config.leg_arrival_penalty).unwrap();
-    let leg_walking_penalty = parse_duration(&request_config.leg_walking_penalty).unwrap();
-    let max_journey_duration = parse_duration(&request_config.max_journey_duration).unwrap();
+    let leg_arrival_penalty = &request_config.leg_arrival_penalty;
+    let leg_walking_penalty = &request_config.leg_walking_penalty;
+    let max_journey_duration = &request_config.max_journey_duration;
     let max_nb_of_legs: u8 = request_config.max_nb_of_legs;
     let mut raptor = MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
 
