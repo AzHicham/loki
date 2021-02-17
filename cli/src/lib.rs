@@ -81,6 +81,40 @@ impl Display for RequestConfig {
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
+pub enum Implem {
+    Periodic,
+    Daily,
+    LoadsPeriodic,
+    LoadsDaily,
+}
+impl std::str::FromStr for Implem {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use Implem::*;
+        let implem = match s {
+            "periodic" => Periodic,
+            "daily" => Daily,
+            "loads_periodic" => LoadsPeriodic,
+            "loads_daily" => LoadsDaily,
+            i => bail!("incorrect implem name {}", i),
+        };
+        Ok(implem)
+    }
+}
+impl std::fmt::Display for Implem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Implem::*;
+        match self {
+            Periodic => write!(f, "periodic"),
+            Daily => write!(f, "daily"),
+            LoadsPeriodic => write!(f, "loads_periodic"),
+            LoadsDaily => write!(f, "loads_daily"),
+        }
+    }
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "snake_case")]
 pub struct BaseOptions {
     #[structopt(flatten)]
     pub request_config: RequestConfig,
@@ -103,7 +137,7 @@ pub struct BaseOptions {
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
-    pub implem: String,
+    pub implem: Implem,
 
     /// Type of request to make :
     /// "classic" or "loads"
