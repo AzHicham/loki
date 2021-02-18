@@ -18,7 +18,7 @@ use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
-use std::{fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -29,9 +29,13 @@ use std::time::SystemTime;
 
 use std::convert::TryFrom;
 
+use serde::Deserialize;
+
+
 const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
 const DEFAULT_TRANSFER_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 0, 60);
 const DEFAULT_MAX_NB_LEGS: u8 = 10;
+
 
 #[derive(StructOpt)]
 #[structopt(
@@ -39,7 +43,26 @@ const DEFAULT_MAX_NB_LEGS: u8 = 10;
     about = "Run laxatips server.",
     rename_all = "snake_case"
 )]
-struct Options {
+pub enum Options {
+    Cli(Config),
+    ConfigFile(ConfigFile)
+}
+
+#[structopt(
+    name = "laxatips_server",
+    about = "Run laxatips server.",
+    rename_all = "snake_case"
+)]
+#[derive(StructOpt)]
+pub struct ConfigFile {
+    /// path to the json config file
+    #[structopt(parse(from_os_str))]
+    file : PathBuf
+}
+
+#[derive(StructOpt, Deserialize)]
+
+pub struct Config {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
     ntfs_path: PathBuf,
@@ -48,7 +71,7 @@ struct Options {
     #[structopt(short = "l", long = "loads_data", parse(from_os_str))]
     loads_data_path: PathBuf,
 
-    /// penalty to apply to arrival time for each vehicle leg in a journey
+    /// zmq socket to listen for protobuf requests
     #[structopt(short = "s", long)]
     socket: String,
 
@@ -64,11 +87,11 @@ struct Options {
     implem: config::Implem,
 }
 
-fn read_ntfs<Data>(options: &Options) -> Result<(Data, Model), Error>
+fn read_ntfs<Data>(config: &Config) -> Result<(Data, Model), Error>
 where
     Data: traits::Data,
 {
-    let model = transit_model::ntfs::read(&options.ntfs_path)?;
+    let model = transit_model::ntfs::read(&config.ntfs_path)?;
     info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
@@ -76,7 +99,7 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
-    let loads_data_path = &options.loads_data_path;
+    let loads_data_path = &config.loads_data_path;
     let loads_data = LoadsData::new(&loads_data_path, &model).unwrap_or_else(|err| {
         warn!(
             "Error while reading the passenger loads file at {:?} : {:?}",
@@ -355,25 +378,37 @@ where
 
 fn server() -> Result<(), Error> {
     let options = Options::from_args();
-    match options.implem {
-        config::Implem::Periodic=> launch::<PeriodicData>(options),
-        config::Implem::Daily => launch::<DailyData>(options),
-        config::Implem::LoadsPeriodic => launch::<LoadsPeriodicData>(options),
-        config::Implem::LoadsDaily => launch::<LoadsDailyData>(options),
+    let config = match options {
+        Options::Cli(config) => config,
+        Options::ConfigFile(config_file) => {
+            let file = File::open(&config_file.file)?;
+            let reader = BufReader::new(file);
+            let result = serde_json::from_reader(reader);
+            match result {
+                Ok(config) => config,
+                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e)
+            }
+        }
+    };
+    match config.implem {
+        config::Implem::Periodic=> launch::<PeriodicData>(config),
+        config::Implem::Daily => launch::<DailyData>(config),
+        config::Implem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
+        config::Implem::LoadsDaily => launch::<LoadsDailyData>(config),
     }
 }
 
-fn launch<Data>(options: Options) -> Result<(), Error>
+fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = read_ntfs::<Data>(&options)?;
+    let (data, model) = read_ntfs::<Data>(&config)?;
 
-    match options.request_type.as_str() {
-        "classic" => server_loop::<Data, DepartAfter<Data>>(&model, &data, &options),
-        "loads" => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+    match config.request_type.as_str() {
+        "classic" => server_loop::<Data, DepartAfter<Data>>(&model, &data, &config),
+        "loads" => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &config),
         _ => {
-            bail!("Invalid request_type : {}", options.request_type)
+            bail!("Invalid request_type : {}", config.request_type)
         }
     }
 }
@@ -381,7 +416,7 @@ where
 fn server_loop<'data, Data, R>(
     model: &Model,
     data: &'data Data,
-    options: &Options,
+    config: &Config,
 ) -> Result<(), Error>
 where
     R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
@@ -397,8 +432,8 @@ where
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
     responder
-        .bind(&options.socket)
-        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", options.socket, err))?;
+        .bind(&config.socket)
+        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.socket, err))?;
 
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();

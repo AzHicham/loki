@@ -1,5 +1,7 @@
+use serde::Deserialize;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Implem {
     Periodic,
     Daily,
@@ -7,7 +9,7 @@ pub enum Implem {
     LoadsDaily,
 }
 impl std::str::FromStr for Implem {
-    type Err = ImplConfigError;
+    type Err = ImplemConfigError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use Implem::*;
         let implem = match s {
@@ -15,13 +17,14 @@ impl std::str::FromStr for Implem {
             "daily" => Daily,
             "loads_periodic" => LoadsPeriodic,
             "loads_daily" => LoadsDaily,
-            _ => Err(ImplConfigError{ implem_name : s.to_string() })?,
+            _ => Err(ImplemConfigError{ implem_name : s.to_string() })?,
         };
         Ok(implem)
     }
 }
+
 #[derive(Debug)]
-pub struct ImplConfigError {
+pub struct ImplemConfigError {
     implem_name : String
 }
 
@@ -38,7 +41,7 @@ impl std::fmt::Display for Implem {
     }
 }
 
-impl std::fmt::Display for ImplConfigError {
+impl std::fmt::Display for ImplemConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Bad implem configuration given : `{}`", self.implem_name)
     }
