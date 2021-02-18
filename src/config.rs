@@ -1,8 +1,5 @@
-use structopt::StructOpt;
 
-
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
+#[derive(Debug)]
 pub enum Implem {
     Periodic,
     Daily,
