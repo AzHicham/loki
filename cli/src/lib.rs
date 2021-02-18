@@ -30,37 +30,40 @@ pub mod random;
 
 const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
+const DEFAULT_LEG_ARRIVAL_PENALTY_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 2, 0);
+const DEFAULT_LEG_WALKING_PENALTY_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 2, 0);
 const DEFAULT_MAX_NB_LEGS: &str = "10";
-const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
+const DEFAULT_MAX_JOURNEY: &str = "24:00:00";
+const DEFAULT_MAX_JOURNEY_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct RequestConfig {
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
-    pub leg_arrival_penalty: String,
+    pub leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
     #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
-    pub leg_walking_penalty: String,
+    pub leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
     #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
-    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
-    pub max_journey_duration: String,
+    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY)]
+    pub max_journey_duration: PositiveDuration,
 }
 
 impl Default for RequestConfig {
     fn default() -> Self {
         let max_nb_of_legs: u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
         Self {
-            leg_arrival_penalty: DEFAULT_LEG_ARRIVAL_PENALTY.to_string(),
-            leg_walking_penalty: DEFAULT_LEG_WALKING_PENALTY.to_string(),
+            leg_arrival_penalty: DEFAULT_LEG_ARRIVAL_PENALTY_DURATION,
+            leg_walking_penalty: DEFAULT_LEG_WALKING_PENALTY_DURATION,
             max_nb_of_legs,
-            max_journey_duration: DEFAULT_MAX_JOURNEY_DURATION.to_string(),
+            max_journey_duration: DEFAULT_MAX_JOURNEY_DURATION,
         }
     }
 }
@@ -73,6 +76,40 @@ impl Display for RequestConfig {
                 self.max_nb_of_legs,
                 self.max_journey_duration
         )
+    }
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "snake_case")]
+pub enum Implem {
+    Periodic,
+    Daily,
+    LoadsPeriodic,
+    LoadsDaily,
+}
+impl std::str::FromStr for Implem {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use Implem::*;
+        let implem = match s {
+            "periodic" => Periodic,
+            "daily" => Daily,
+            "loads_periodic" => LoadsPeriodic,
+            "loads_daily" => LoadsDaily,
+            i => bail!("incorrect implem name {}", i),
+        };
+        Ok(implem)
+    }
+}
+impl std::fmt::Display for Implem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Implem::*;
+        match self {
+            Periodic => write!(f, "periodic"),
+            Daily => write!(f, "daily"),
+            LoadsPeriodic => write!(f, "loads_periodic"),
+            LoadsDaily => write!(f, "loads_daily"),
+        }
     }
 }
 
@@ -100,7 +137,7 @@ pub struct BaseOptions {
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
-    pub implem: String,
+    pub implem: Implem,
 
     /// Type of request to make :
     /// "classic" or "loads"
@@ -187,29 +224,6 @@ pub fn parse_datetime(string_datetime: &str) -> Result<NaiveDateTime, Error> {
             string_datetime
         ),
     }
-}
-
-pub fn parse_duration(string_duration: &str) -> Result<PositiveDuration, Error> {
-    let mut t = string_duration.split(':');
-    let (hours, minutes, seconds) = match (t.next(), t.next(), t.next(), t.next()) {
-        (Some(h), Some(m), Some(s), None) => (h, m, s),
-        _ => {
-            bail!(
-                "Unable to parse {} as a duration. Expected format is 14:35:12",
-                string_duration
-            );
-        }
-    };
-    let hours: u32 = hours.parse()?;
-    let minutes: u32 = minutes.parse()?;
-    let seconds: u32 = seconds.parse()?;
-    if minutes > 59 || seconds > 59 {
-        bail!(
-            "Unable to parse {} as a duration. Expected format is 14:35:12",
-            string_duration
-        );
-    }
-    Ok(PositiveDuration::from_hms(hours, minutes, seconds))
 }
 
 pub fn build<Data>(ntfs_path: &str, loads_data_path: &str) -> Result<(Data, Model), Error>

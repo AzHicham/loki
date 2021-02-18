@@ -1,7 +1,7 @@
 use laxatips::{DailyData, PeriodicData};
 use laxatips::{LoadsDailyData, LoadsPeriodicData};
 
-use failure::{bail, Error};
+use failure::Error;
 
 use structopt::StructOpt;
 
@@ -22,20 +22,20 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     let options = Options::from_args();
-    match options.base.implem.as_str() {
-        "periodic" => {
+    use laxatips_cli::Implem::*;
+    match options.base.implem {
+        Periodic => {
             launch::<PeriodicData>(options)?;
         }
-        "daily" => {
+        Daily => {
             launch::<DailyData>(options)?;
         }
-        "loads_periodic" => {
+        LoadsPeriodic => {
             launch::<LoadsPeriodicData>(options)?;
         }
-        "loads_daily" => {
+        LoadsDaily => {
             launch::<LoadsDailyData>(options)?;
         }
-        _ => bail!(format!("Bad implem option : {}.", options.base.implem)),
     };
     Ok(())
 }
