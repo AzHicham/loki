@@ -1,0 +1,15 @@
+FROM rust:latest as builder
+WORKDIR /usr/src/myapp
+COPY . .
+RUN apt-get update && apt-get install -y libzmq3-dev
+RUN cd server && cargo install --path .
+
+FROM debian:10-slim
+RUN apt-get update && apt-get install -y libzmq3-dev && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/cargo/bin/laxatips_server /usr/local/bin/laxatips_server
+
+
+VOLUME /data
+CMD ["laxatips_server", "--ntfs, "/data/ntfs", "--loads_data", "/data/loads.csv", "--socket", ""]
+
+

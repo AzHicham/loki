@@ -1,0 +1,32 @@
+FROM debian:10-slim
+
+
+COPY navitia-common_*.deb ./
+COPY navitia-jormungandr_*.deb ./
+
+# install navitia-common package
+RUN apt-get update
+RUN apt-get install -y ./navitia-common_*.deb 
+
+
+# install navitia-jormun package
+RUN apt-get install -y ./navitia-jormungandr_*.deb 
+
+# install jormungandr requirements
+RUN apt-get install -y python python-pip git libpq-dev libgeos-c1v5
+RUN pip install --no-cache-dir -r /usr/share/jormungandr/requirements.txt
+
+# install uwsgi
+RUN pip install uwsgi
+
+WORKDIR /usr/src/app/
+
+HEALTHCHECK CMD curl -f http://localhost/v1/coverage || exit 1
+
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION=2
+VOLUME /data
+CMD ["uwsgi", "--master", "--lazy-apps", "--mount", "/=jormungandr:app", "--http", "0.0.0.0:80"]
+
+
+
