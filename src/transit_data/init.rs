@@ -36,7 +36,6 @@ where
         };
 
         data.init(transit_model, loads_data, default_transfer_duration);
-        // log::trace!("Timetables : {:#?}", data.timetables);
 
         data
     }

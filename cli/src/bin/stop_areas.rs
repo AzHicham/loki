@@ -1,5 +1,6 @@
 use laxatips::{DailyData, PeriodicData};
 use laxatips::{LoadsDailyData, LoadsPeriodicData};
+use laxatips::config;
 
 use failure::Error;
 
@@ -22,18 +23,17 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     let options = Options::from_args();
-    use laxatips_cli::Implem::*;
     match options.base.implem {
-        Periodic => {
+        config::Implem::Periodic => {
             launch::<PeriodicData>(options)?;
         }
-        Daily => {
+        config::Implem::Daily => {
             launch::<DailyData>(options)?;
         }
-        LoadsPeriodic => {
+        config::Implem::LoadsPeriodic => {
             launch::<LoadsPeriodicData>(options)?;
         }
-        LoadsDaily => {
+        config::Implem::LoadsDaily => {
             launch::<LoadsDailyData>(options)?;
         }
     };

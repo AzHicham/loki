@@ -5,6 +5,7 @@ use laxatips::{
 };
 use laxatips::{transit_model, LoadsData};
 use laxatips::{MultiCriteriaRaptor, PositiveDuration};
+use laxatips::config::Implem;
 
 use laxatips::traits;
 
@@ -30,11 +31,8 @@ pub mod random;
 
 const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
-const DEFAULT_LEG_ARRIVAL_PENALTY_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 2, 0);
-const DEFAULT_LEG_WALKING_PENALTY_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 2, 0);
 const DEFAULT_MAX_NB_LEGS: &str = "10";
-const DEFAULT_MAX_JOURNEY: &str = "24:00:00";
-const DEFAULT_MAX_JOURNEY_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
+const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
@@ -52,7 +50,7 @@ pub struct RequestConfig {
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
-    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY)]
+    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
     pub max_journey_duration: PositiveDuration,
 }
 
@@ -60,10 +58,10 @@ impl Default for RequestConfig {
     fn default() -> Self {
         let max_nb_of_legs: u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
         Self {
-            leg_arrival_penalty: DEFAULT_LEG_ARRIVAL_PENALTY_DURATION,
-            leg_walking_penalty: DEFAULT_LEG_WALKING_PENALTY_DURATION,
+            leg_arrival_penalty: FromStr::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap(),
+            leg_walking_penalty: FromStr::from_str(DEFAULT_LEG_WALKING_PENALTY).unwrap(),
             max_nb_of_legs,
-            max_journey_duration: DEFAULT_MAX_JOURNEY_DURATION,
+            max_journey_duration: FromStr::from_str(DEFAULT_MAX_JOURNEY_DURATION).unwrap(),
         }
     }
 }
@@ -79,39 +77,6 @@ impl Display for RequestConfig {
     }
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
-pub enum Implem {
-    Periodic,
-    Daily,
-    LoadsPeriodic,
-    LoadsDaily,
-}
-impl std::str::FromStr for Implem {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use Implem::*;
-        let implem = match s {
-            "periodic" => Periodic,
-            "daily" => Daily,
-            "loads_periodic" => LoadsPeriodic,
-            "loads_daily" => LoadsDaily,
-            i => bail!("incorrect implem name {}", i),
-        };
-        Ok(implem)
-    }
-}
-impl std::fmt::Display for Implem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Implem::*;
-        match self {
-            Periodic => write!(f, "periodic"),
-            Daily => write!(f, "daily"),
-            LoadsPeriodic => write!(f, "loads_periodic"),
-            LoadsDaily => write!(f, "loads_daily"),
-        }
-    }
-}
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]

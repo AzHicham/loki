@@ -12,6 +12,7 @@ use laxatips::{
     LoadsDailyData, LoadsData, LoadsDepartAfter, LoadsPeriodicData,
 };
 use laxatips::{DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration};
+use laxatips::config;
 
 use prost::Message;
 use structopt::StructOpt;
@@ -29,6 +30,7 @@ use std::time::SystemTime;
 use std::convert::TryFrom;
 
 const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
+const DEFAULT_TRANSFER_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 0, 60);
 const DEFAULT_MAX_NB_LEGS: u8 = 10;
 
 #[derive(StructOpt)]
@@ -59,7 +61,7 @@ struct Options {
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
-    implem: String,
+    implem: config::Implem,
 }
 
 fn read_ntfs<Data>(options: &Options) -> Result<(Data, Model), Error>
@@ -86,7 +88,7 @@ where
     });
 
     let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
+    let default_transfer_duration = DEFAULT_TRANSFER_DURATION;
     let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
@@ -353,12 +355,11 @@ where
 
 fn server() -> Result<(), Error> {
     let options = Options::from_args();
-    match options.implem.as_str() {
-        "periodic" => launch::<PeriodicData>(options),
-        "daily" => launch::<DailyData>(options),
-        "loads_periodic" => launch::<LoadsPeriodicData>(options),
-        "loads_daily" => launch::<LoadsDailyData>(options),
-        _ => bail!(format!("Bad implem option : {}.", options.implem)),
+    match options.implem {
+        config::Implem::Periodic=> launch::<PeriodicData>(options),
+        config::Implem::Daily => launch::<DailyData>(options),
+        config::Implem::LoadsPeriodic => launch::<LoadsPeriodicData>(options),
+        config::Implem::LoadsDaily => launch::<LoadsDailyData>(options),
     }
 }
 

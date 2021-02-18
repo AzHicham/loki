@@ -33,3 +33,5 @@ pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 pub use request::{depart_after::DepartAfter, loads_depart_after::LoadsDepartAfter};
 
 pub mod response;
+
+pub mod config;

@@ -1,8 +1,9 @@
 use failure::Error;
 use laxatips::LoadsPeriodicData;
+use laxatips::config;
 
 use laxatips_cli::stop_areas::{launch, Options};
-use laxatips_cli::{BaseOptions, Implem, RequestConfig};
+use laxatips_cli::{BaseOptions, RequestConfig};
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded
@@ -28,7 +29,7 @@ fn test_loads_matin() -> Result<(), Error> {
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
-        implem: Implem::LoadsDaily,
+        implem: config::Implem::LoadsDaily,
         request_type: "loads".to_string(),
     };
 
@@ -61,7 +62,7 @@ fn test_loads_midi() -> Result<(), Error> {
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T100000".to_string()),
         request_config,
-        implem: Implem::LoadsDaily,
+        implem: config::Implem::LoadsDaily,
         request_type: "loads".to_string(),
     };
 
@@ -92,7 +93,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
-        implem: Implem::LoadsDaily,
+        implem: config::Implem::LoadsDaily,
         request_type: "classic".to_string(),
     };
 
