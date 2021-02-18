@@ -135,9 +135,6 @@ rm -rf ./core_team_ci_tools/
 git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
 
 # we setup the right python environnement to use core_team_ci_tools
-#pip install virtualenv -U
-#virtualenv -py python3 ci_tools
-#. ci_tools/bin/activate
 pip install -r ./tmp/core_team_ci_tools/github_artifacts/requirements.txt --user
 
 # let's download the navitia packages
@@ -149,8 +146,9 @@ unzip -q ./tmp/${archive} -d ./tmp/
 # let's unzip (again) to obtain the packages
 unzip -q ./tmp/${inside_archive} -d ./tmp/
 
-# we need the bina.sh file to build the bina docker
+# we need some files to build the dockers
 cp docker/bina.sh ./tmp/
+cp docker/launch.sh ./tmp/
 
 # build the docker for binarisation
 run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia_bina  ./tmp/
@@ -159,7 +157,7 @@ run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia_bina  ./tmp/
 run docker build --no-cache -f docker/kraken_dockerfile -t mc_navitia_kraken  ./tmp/
 
 # build the docker for server
-run docker build --no-cache -f docker/loki_dockerfile -t mc_navitia_laxatips  .
+run docker build --no-cache -f docker/laxatips_dockerfile -t mc_navitia_laxatips  .
 
 
 # push image to docker registry if required with -r
