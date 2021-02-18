@@ -2,7 +2,7 @@ FROM rust:buster as builder
 WORKDIR /usr/src/myapp
 COPY . .
 RUN apt-get update && apt-get install -y libzmq3-dev
-RUN ccargo install --path server
+RUN cargo install --path server
 
 FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libzmq3-dev && rm -rf /var/lib/apt/lists/*
