@@ -2,12 +2,13 @@ use laxatips::{log::info, transit_model::Model};
 use laxatips::{DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor};
 
 use laxatips::traits;
+use laxatips::config;
 
 use log::{trace, warn};
 use std::fmt::Debug;
 use traits::{RequestIO, RequestWithIters};
 
-use failure::{bail, Error};
+use failure::{Error};
 use std::time::SystemTime;
 
 use structopt::StructOpt;
@@ -27,7 +28,7 @@ pub struct Options {
     /// Type of request to make :
     /// "classic" or "loads"
     #[structopt(long, default_value = "classic")]
-    pub request_type: String,
+    pub request_type: config::RequestType,
 
     #[structopt(short = "n", long, default_value = "10")]
     pub nb_queries: u32,
@@ -38,12 +39,9 @@ where
     Data: traits::DataWithIters,
 {
     let (data, model) = build(&options.base.ntfs_path, &options.base.loads_data_path)?;
-    match options.request_type.as_str() {
-        "classic" => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options),
-        "loads" => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
-        _ => {
-            bail!("Invalid request_type : {}", options.request_type)
-        }
+    match options.request_type {
+        config::RequestType::Classic => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options),
+        config::RequestType::Loads => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
     }
 }
 

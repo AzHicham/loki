@@ -8,6 +8,7 @@ use laxatips::{MultiCriteriaRaptor, PositiveDuration};
 use laxatips::config::Implem;
 
 use laxatips::traits;
+use laxatips::config;
 
 use log::warn;
 use slog::slog_o;
@@ -107,7 +108,7 @@ pub struct BaseOptions {
     /// Type of request to make :
     /// "classic" or "loads"
     #[structopt(long, default_value = "classic")]
-    pub request_type: String,
+    pub request_type: config::RequestType,
 }
 
 impl Display for BaseOptions {

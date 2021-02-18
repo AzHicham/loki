@@ -159,7 +159,7 @@ run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia_bina  ./tmp/
 run docker build --no-cache -f docker/kraken_dockerfile -t mc_navitia_kraken  ./tmp/
 
 # build the docker for server
-run docker build --no-cache -f docker/loki_dockerfile -t mc_navitia_loki  .
+run docker build --no-cache -f docker/loki_dockerfile -t mc_navitia_laxatips  .
 
 
 # push image to docker registry if required with -r

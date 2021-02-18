@@ -18,6 +18,7 @@ use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
+
 use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use slog::slog_o;
@@ -48,11 +49,6 @@ pub enum Options {
     ConfigFile(ConfigFile)
 }
 
-#[structopt(
-    name = "laxatips_server",
-    about = "Run laxatips server.",
-    rename_all = "snake_case"
-)]
 #[derive(StructOpt)]
 pub struct ConfigFile {
     /// path to the json config file
@@ -61,7 +57,6 @@ pub struct ConfigFile {
 }
 
 #[derive(StructOpt, Deserialize)]
-
 pub struct Config {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -78,7 +73,7 @@ pub struct Config {
     /// Type of request to make :
     /// "classic" or "loads"
     #[structopt(long, default_value = "classic")]
-    request_type: String,
+    request_type: config::RequestType,
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
@@ -404,12 +399,10 @@ where
 {
     let (data, model) = read_ntfs::<Data>(&config)?;
 
-    match config.request_type.as_str() {
-        "classic" => server_loop::<Data, DepartAfter<Data>>(&model, &data, &config),
-        "loads" => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &config),
-        _ => {
-            bail!("Invalid request_type : {}", config.request_type)
-        }
+    match config.request_type{
+        config::RequestType::Classic => server_loop::<Data, DepartAfter<Data>>(&model, &data, &config),
+        config::RequestType::Loads => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &config),
+
     }
 }
 

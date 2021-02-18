@@ -47,3 +47,45 @@ impl std::fmt::Display for ImplemConfigError {
     }
 }
 
+
+
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequestType {
+    Loads,
+    Classic,
+}
+impl std::str::FromStr for RequestType {
+    type Err = RequestTypeError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let request_type = match s {
+            "loads" => RequestType::Loads,
+            "classic" => RequestType::Classic,
+            _ => Err(RequestTypeError{ request_type_name : s.to_string() })?,
+        };
+        Ok(request_type)
+    }
+}
+
+impl std::fmt::Display for RequestType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestType::Loads => write!(f, "loads"),
+            RequestType::Classic => write!(f, "classic"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RequestTypeError {
+    request_type_name : String
+}
+
+
+impl std::fmt::Display for RequestTypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad request_type given : `{}`", self.request_type_name)
+    }
+}
+

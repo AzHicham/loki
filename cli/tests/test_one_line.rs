@@ -30,7 +30,7 @@ fn test_loads_matin() -> Result<(), Error> {
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
         implem: config::Implem::LoadsDaily,
-        request_type: "loads".to_string(),
+        request_type: config::RequestType::Loads,
     };
 
     let options = Options {
@@ -63,7 +63,7 @@ fn test_loads_midi() -> Result<(), Error> {
         departure_datetime: Some("20210101T100000".to_string()),
         request_config,
         implem: config::Implem::LoadsDaily,
-        request_type: "loads".to_string(),
+        request_type: config::RequestType::Loads,
     };
 
     let options = Options {
@@ -94,7 +94,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
         implem: config::Implem::LoadsDaily,
-        request_type: "classic".to_string(),
+        request_type: config::RequestType::Classic,
     };
 
     let options = Options {
