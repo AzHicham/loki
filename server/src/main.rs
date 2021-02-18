@@ -376,7 +376,12 @@ fn server() -> Result<(), Error> {
     let config = match options {
         Options::Cli(config) => config,
         Options::ConfigFile(config_file) => {
-            let file = File::open(&config_file.file)?;
+            let file =  match File::open(&config_file.file) {
+                Ok(file) => file,
+                Err(e) => {
+                    bail!("Error opening config file {:?} : {}", &config_file.file, e)
+                }
+            };
             let reader = BufReader::new(file);
             let result = serde_json::from_reader(reader);
             match result {
