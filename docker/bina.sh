@@ -1,21 +1,22 @@
 #!/bin/bash
 set -e
 
-dir=$PWD
+dir="/data"
 
 # tranform gtfs into ntfs
-gtfs2ntfs --input $dit/gtfs --output $dir/ntfs
+# gtfs2ntfs --input $dir/gtfs --output $dir/ntfs
 
 # binarize
-python3 ./navitia/source/eitri/eitri.py -d /data -e /usr/bin -o /data/data.nav.lz4
+rm -f $dir/data.nav.lz4
+python3 ./navitia/source/eitri/eitri.py -d $dir/ntfs -e /usr/bin -o $dir/data.nav.lz4
 
 # let's now write all config files
 
 instance="mon_instance"
 
-krakenSocket="ipc:///tmp/kraken"
-loadsSocket="ipc:///tmp/laxatips_loads"
-classicSocket="ipc:///tmp/laxatips_classic"
+krakenSocket="tcp://kraken:30000"
+loadsSocket="tcp://laxatips:30001"
+classicSocket="tcp://laxatips:30002"
 
 
 mkdir -p $dir/jormun_conf/
@@ -44,7 +45,7 @@ jq -n --arg instance "${instance}_laxatips_loads" --arg krakenSocket "${krakenSo
 echo "{[GENERAL]
 instance_name = ${instance}_kraken
 database = /data/data.nav.lz4
-zmq_socket = $krakenSocket " > kraken.ini
+zmq_socket = $krakenSocket " > $dir/kraken.ini
 
 # Laxatips config files
 # one for the coverage with loads criteria

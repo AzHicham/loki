@@ -151,13 +151,16 @@ cp docker/bina.sh ./tmp/
 cp docker/launch.sh ./tmp/
 
 # build the docker for binarisation
-run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia_bina  ./tmp/
+run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
 
 # build the docker for kraken
-run docker build --no-cache -f docker/kraken_dockerfile -t mc_navitia_kraken  ./tmp/
+run docker build --no-cache -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
+
+# build the docker for jormun
+run docker build --no-cache -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
 
 # build the docker for server
-run docker build --no-cache -f docker/laxatips_dockerfile -t mc_navitia_laxatips  .
+run docker build --no-cache -f docker/laxatips_dockerfile -t mc_navitia/laxatips  .
 
 
 # push image to docker registry if required with -r
