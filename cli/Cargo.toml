@@ -1,5 +1,5 @@
 [package]
-name = "laxatips-cli"
+name = "laxatips_cli"
 version = "0.1.0"
 authors = ["Pascal Benchimol <pascal.benchimol@kisio.com>"]
 edition = "2018"

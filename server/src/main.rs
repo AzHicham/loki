@@ -5,16 +5,20 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::log::{debug, error, info, trace, warn};
+use laxatips::traits;
 use laxatips::transit_model;
 use laxatips::{
-    DepartAfterRequest as EngineRequest, MultiCriteriaRaptor, PositiveDuration, 
-    LaxatipsData,
+    log::{debug, error, info, trace, warn},
+    LoadsDailyData, LoadsData, LoadsDepartAfter, LoadsPeriodicData,
 };
+use laxatips::{DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration};
+use laxatips::config;
+
 use prost::Message;
 use structopt::StructOpt;
+use transit_model::Model;
 
-use std::path::{Path, PathBuf};
+use std::{fmt::Debug, path::PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -26,22 +30,45 @@ use std::time::SystemTime;
 use std::convert::TryFrom;
 
 const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
+const DEFAULT_TRANSFER_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 0, 60);
 const DEFAULT_MAX_NB_LEGS: u8 = 10;
 
 #[derive(StructOpt)]
-#[structopt(name = "laxatips_server", about = "Run laxatips server.")]
+#[structopt(
+    name = "laxatips_server",
+    about = "Run laxatips server.",
+    rename_all = "snake_case"
+)]
 struct Options {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
-    input: PathBuf,
+    ntfs_path: PathBuf,
+
+    /// path to the passengers loads file
+    #[structopt(short = "l", long = "loads_data", parse(from_os_str))]
+    loads_data_path: PathBuf,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(short = "s", long)]
     socket: String,
+
+    /// Type of request to make :
+    /// "classic" or "loads"
+    #[structopt(long, default_value = "classic")]
+    request_type: String,
+
+    /// Timetable implementation to use :
+    /// "periodic" (default) or "daily"
+    ///  or "loads_periodic" or "loads_daily"
+    #[structopt(long, default_value = "periodic")]
+    implem: config::Implem,
 }
 
-fn read_ntfs(ntfs_path: &Path) -> Result<LaxatipsData, Error> {
-    let model = transit_model::ntfs::read(ntfs_path)?;
+fn read_ntfs<Data>(options: &Options) -> Result<(Data, Model), Error>
+where
+    Data: traits::Data,
+{
+    let model = transit_model::ntfs::read(&options.ntfs_path)?;
     info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
@@ -49,29 +76,49 @@ fn read_ntfs(ntfs_path: &Path) -> Result<LaxatipsData, Error> {
     );
     info!("Number of routes : {}", model.routes.len());
 
+    let loads_data_path = &options.loads_data_path;
+    let loads_data = LoadsData::new(&loads_data_path, &model).unwrap_or_else(|err| {
+        warn!(
+            "Error while reading the passenger loads file at {:?} : {:?}",
+            &loads_data_path,
+            err.source()
+        );
+        warn!("I'll use default loads.");
+        LoadsData::empty()
+    });
+
     let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let laxatips_data = LaxatipsData::new(model, default_transfer_duration);
+    let default_transfer_duration = DEFAULT_TRANSFER_DURATION;
+    let data = Data::new(&model, &loads_data, default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
-    let transit_data = &laxatips_data.transit_data;
     info!("Data constructed in {} ms", data_build_duration);
-    info!("Number of timetables {} ", transit_data.nb_of_timetables());
-    info!("Number of vehicles {} ", transit_data.nb_of_vehicles());
+    info!("Number of missions {} ", data.nb_of_missions());
+    info!("Number of trips {} ", data.nb_of_trips());
     info!(
         "Validity dates between {} and {}",
-        transit_data.calendar.first_date(),
-        transit_data.calendar.last_date()
+        data.calendar().first_date(),
+        data.calendar().last_date()
     );
 
-    Ok(laxatips_data)
+    Ok((data, model))
 }
 
-fn make_engine_request_from_protobuf<'data>(
+fn make_engine_request_from_protobuf<'data, Data, R>(
     proto_request: &navitia_proto::Request,
-    laxatips_data : & 'data LaxatipsData,
+    data: &'data Data,
+    model: &Model,
     default_max_duration: &PositiveDuration,
     default_max_nb_of_legs: u8,
-) -> Result<EngineRequest<'data>, Error> {
+) -> Result<R, Error>
+where
+    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
+{
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
         if let Some(api) = has_api {
@@ -99,10 +146,7 @@ fn make_engine_request_from_protobuf<'data>(
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context
-                .place
-                .as_str()
-                .trim_start_matches("stop_point:");            
+            let stop_point_uri = location_context.place.as_str();
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -123,10 +167,7 @@ fn make_engine_request_from_protobuf<'data>(
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context
-                .place
-                .as_str()
-                .trim_start_matches("stop_point:");
+            let stop_point_uri = location_context.place.as_str();
 
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
@@ -154,7 +195,6 @@ fn make_engine_request_from_protobuf<'data>(
     })?;
     let departure_datetime = chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
-
     info!(
         "Requested timestamp {}, datetime {}",
         departure_timestamp_u64,
@@ -181,34 +221,48 @@ fn make_engine_request_from_protobuf<'data>(
         default_max_nb_of_legs
     });
 
-    let engine_request = EngineRequest::new(laxatips_data, 
-        departure_datetime, 
-        departures_stop_point_and_fallback_duration, 
-        arrivals_stop_point_and_fallback_duration, 
+    let engine_request = R::new(
+        model,
+        data,
+        departure_datetime,
+        departures_stop_point_and_fallback_duration,
+        arrivals_stop_point_and_fallback_duration,
         PositiveDuration::from_hms(0, 2, 0), //leg_arrival_penalty
         PositiveDuration::from_hms(0, 2, 0), //leg_walking_penalty,
-        max_duration_to_arrival, 
-        max_nb_legs
+        max_duration_to_arrival,
+        max_nb_legs,
     )?;
 
     Ok(engine_request)
 }
 
-fn solve_protobuf<'data>(
+fn solve_protobuf<'data, Data, R>(
+    model: &Model,
     proto_request: &navitia_proto::Request,
-    laxatips_data : & 'data LaxatipsData,
-    engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
-) -> Result<navitia_proto::Response, Error> {
-    let engine_request = make_engine_request_from_protobuf(
+    data: &'data Data,
+    engine: &mut MultiCriteriaRaptor<R>,
+) -> Result<navitia_proto::Response, Error>
+where
+    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
+    R::Criteria: Debug,
+{
+    let request: R = make_engine_request_from_protobuf(
         &proto_request,
-        laxatips_data,
+        data,
+        model,
         &DEFAULT_MAX_DURATION,
         DEFAULT_MAX_NB_LEGS,
     )?;
 
     debug!("Start computing journey");
     let request_timer = SystemTime::now();
-    engine.compute(&engine_request);
+    engine.compute(&request);
     debug!(
         "Journeys computed in {} ms with {} rounds",
         request_timer.elapsed().unwrap().as_millis(),
@@ -217,31 +271,42 @@ fn solve_protobuf<'data>(
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
     for pt_journey in engine.responses() {
-        let response = engine_request
-            .create_response(pt_journey)
-            .unwrap();
-        trace!("{}", response.print(&laxatips_data)?);
+        let response = request.create_response(data, pt_journey);
+        match response {
+            Ok(journey) => {
+                trace!("{}", journey.print(data, model)?);
+            }
+            Err(_) => {
+                trace!("An error occured while converting an engine journey to response.");
+            }
+        };
     }
 
+    let journeys_iter = engine
+        .responses()
+        .filter_map(|pt_journey| request.create_response(data, pt_journey).ok());
 
-
-    let journeys_iter = engine.responses().filter_map(|pt_journey| {
-        engine_request
-            .create_response(pt_journey)
-            .ok()
-    });
-
-    response::make_response(journeys_iter, laxatips_data)
-
+    response::make_response(journeys_iter, data, model)
 }
 
-fn solve<'data>(
-    laxatips_data : & 'data LaxatipsData,
-    engine: &mut MultiCriteriaRaptor<EngineRequest<'data>>,
+fn solve<'data, Data, R>(
+    data: &'data Data,
+    model: &Model,
+    engine: &mut MultiCriteriaRaptor<R>,
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     response_bytes: &mut Vec<u8>,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
+    R::Criteria: Debug,
+{
     socket
         .recv(zmq_message, 0)
         .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
@@ -251,11 +316,7 @@ fn solve<'data>(
 
     info!("Received request {:?}", proto_request.request_id);
 
-    let solve_result = solve_protobuf(
-        &proto_request,
-        laxatips_data,
-        engine,
-    );
+    let solve_result = solve_protobuf(model, &proto_request, data, engine);
 
     let proto_response = match solve_result {
         Result::Err(err) => {
@@ -271,10 +332,8 @@ fn solve<'data>(
             proto_error.message = Some(format!("{}", err));
             proto_response.error = Some(proto_error);
             proto_response
-        },
-        Ok(proto_response) => {
-            proto_response
         }
+        Ok(proto_response) => proto_response,
     };
     response_bytes.clear();
 
@@ -296,25 +355,57 @@ fn solve<'data>(
 
 fn server() -> Result<(), Error> {
     let options = Options::from_args();
+    match options.implem {
+        config::Implem::Periodic=> launch::<PeriodicData>(options),
+        config::Implem::Daily => launch::<DailyData>(options),
+        config::Implem::LoadsPeriodic => launch::<LoadsPeriodicData>(options),
+        config::Implem::LoadsDaily => launch::<LoadsDailyData>(options),
+    }
+}
 
+fn launch<Data>(options: Options) -> Result<(), Error>
+where
+    Data: traits::DataWithIters,
+{
+    let (data, model) = read_ntfs::<Data>(&options)?;
+
+    match options.request_type.as_str() {
+        "classic" => server_loop::<Data, DepartAfter<Data>>(&model, &data, &options),
+        "loads" => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+        _ => {
+            bail!("Invalid request_type : {}", options.request_type)
+        }
+    }
+}
+
+fn server_loop<'data, Data, R>(
+    model: &Model,
+    data: &'data Data,
+    options: &Options,
+) -> Result<(), Error>
+where
+    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
+    Data: traits::DataWithIters<
+        Position = R::Position,
+        Mission = R::Mission,
+        Stop = R::Stop,
+        Trip = R::Trip,
+    >,
+    R::Criteria: Debug,
+{
+    let mut engine = MultiCriteriaRaptor::<R>::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
     let responder = context.socket(zmq::REP).unwrap();
-
     responder
         .bind(&options.socket)
         .map_err(|err| format_err!("Could not bind socket {}. Error : {}", options.socket, err))?;
 
-    let ntfs_path = options.input;
-
-    let laxatips_data = read_ntfs(&ntfs_path)?;
-    let mut engine = MultiCriteriaRaptor::<EngineRequest>::new(laxatips_data.transit_data.nb_of_stops());
-
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
-
     loop {
         let solve_result = solve(
-            &laxatips_data,
+            data,
+            model,
             &mut engine,
             &responder,
             &mut zmq_message,

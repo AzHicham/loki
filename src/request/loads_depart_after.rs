@@ -1,15 +1,12 @@
-use crate::traits;
-use crate::{
-    loads_data::LoadsCount,
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-};
+use crate::time::{PositiveDuration, SecondsSinceDatasetUTCStart};
+use crate::{loads_data::LoadsCount, traits};
 
 use chrono::NaiveDateTime;
 use traits::{BadRequest, RequestIO};
 
 use super::generic_request::{Arrivals, Departures, GenericRequest};
 
-pub struct DepartAfter<'data, Data: traits::Data> {
+pub struct LoadsDepartAfter<'data, Data: traits::Data> {
     generic: GenericRequest<'data, Data>,
 }
 
@@ -19,9 +16,10 @@ pub struct Criteria {
     nb_of_legs: u8,
     fallback_duration: PositiveDuration,
     transfers_duration: PositiveDuration,
+    loads_count: LoadsCount,
 }
 
-impl<'data, Data: traits::Data> traits::TransitTypes for DepartAfter<'data, Data> {
+impl<'data, Data: traits::Data> traits::TransitTypes for LoadsDepartAfter<'data, Data> {
     type Stop = Data::Stop;
     type Mission = Data::Mission;
     type Trip = Data::Trip;
@@ -29,34 +27,23 @@ impl<'data, Data: traits::Data> traits::TransitTypes for DepartAfter<'data, Data
     type Position = Data::Position;
 }
 
-impl<'data, Data: traits::Data> traits::RequestTypes for DepartAfter<'data, Data> {
+impl<'data, Data: traits::Data> traits::RequestTypes for LoadsDepartAfter<'data, Data> {
     type Departure = Departure;
     type Arrival = Arrival;
     type Criteria = Criteria;
 }
 
-impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, Data> {
+impl<'data, 'model, Data: traits::Data> traits::Request for LoadsDepartAfter<'data, Data> {
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty;
         let walking_penalty = self.generic.leg_walking_penalty;
-        // let two_hours = PositiveDuration{ seconds: 2*60*60};
-        // if lower.arrival_time.clone() + two_hours < upper.arrival_time.clone() {
-        //     return true;
-        // }
-        // lower.arrival_time <= upper.arrival_time
         lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
-
-        // &&
-        // lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration
-        //      <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
-
-        // && lower.arrival_time.clone() + lower.fallback_duration + lower.transfers_duration <= upper.arrival_time.clone() + upper.fallback_duration + upper.transfers_duration
-        // && lower.fallback_duration + lower.transfers_duration <= upper.fallback_duration + upper.transfers_duration
+        && lower.loads_count.is_lower(&upper.loads_count)
     }
 
     // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
@@ -93,15 +80,16 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             .generic
             .transit_data
             .next_on_mission(position, &mission)?;
-        let arrival_timeload_at_next_stop = self
+        let (arrival_time_at_next_stop, load) = self
             .generic
             .transit_data
             .arrival_time_of(trip, &next_position);
         let new_criteria = Criteria {
-            arrival_time: arrival_timeload_at_next_stop.0,
+            arrival_time: arrival_time_at_next_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
+            loads_count: waiting_criteria.loads_count.add(load),
         };
         Some(new_criteria)
     }
@@ -116,12 +104,13 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         self.generic
             .transit_data
             .earliest_trip_to_board_at(waiting_time, mission, position)
-            .map(|(trip, arrival_time, _arrival_load)| {
+            .map(|(trip, arrival_time, load)| {
                 let new_criteria = Criteria {
                     arrival_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
+                    loads_count: waiting_criteria.loads_count.add(load),
                 };
                 (trip, new_criteria)
             })
@@ -140,11 +129,12 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
         self.generic
             .transit_data
             .debark_time_of(trip, position)
-            .map(|debark_timeload| Criteria {
-                arrival_time: debark_timeload.0,
+            .map(|(debark_time, _load)| Criteria {
+                arrival_time: debark_time,
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
+                loads_count: onboard_criteria.loads_count.clone(),
             })
     }
 
@@ -160,15 +150,16 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             .transit_data
             .next_on_mission(position, &mission)
             .unwrap();
-        let arrival_timeload_at_next_position = self
+        let (arrival_time_at_next_position, load) = self
             .generic
             .transit_data
             .arrival_time_of(trip, &next_position);
         Criteria {
-            arrival_time: arrival_timeload_at_next_position.0,
+            arrival_time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
+            loads_count: criteria.loads_count.add(load),
         }
     }
 
@@ -184,6 +175,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration + transfer_duration,
+            loads_count: criteria.loads_count.clone(),
         };
         (arrival_stop, new_criteria)
     }
@@ -197,6 +189,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             nb_of_legs: 0,
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
+            loads_count: LoadsCount::zero(),
         };
         (stop.clone(), criteria)
     }
@@ -215,6 +208,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
+            loads_count: criteria.loads_count.clone(),
         }
     }
 
@@ -262,7 +256,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for DepartAfter<'data, D
     }
 }
 
-impl<'data, 'outer, Data> traits::RequestIters<'outer> for DepartAfter<'data, Data>
+impl<'data, 'outer, Data> traits::RequestIters<'outer> for LoadsDepartAfter<'data, Data>
 where
     Data: traits::Data + traits::DataIters<'outer>,
 {
@@ -277,7 +271,7 @@ where
     }
 }
 
-impl<'data, 'outer, Data> traits::DataIters<'outer> for DepartAfter<'data, Data>
+impl<'data, 'outer, Data> traits::DataIters<'outer> for LoadsDepartAfter<'data, Data>
 where
     Data: traits::Data + traits::DataIters<'outer>,
 {
@@ -297,7 +291,7 @@ where
     }
 }
 
-impl<'data, Data> traits::RequestWithIters for DepartAfter<'data, Data> where
+impl<'data, Data> traits::RequestWithIters for LoadsDepartAfter<'data, Data> where
     Data: traits::DataWithIters
 {
 }
@@ -307,7 +301,7 @@ use crate::traits::Journey as PTJourney;
 
 use super::generic_request::{Arrival, Departure};
 
-impl<'data, Data> RequestIO<'data, Data> for DepartAfter<'data, Data>
+impl<'data, Data> RequestIO<'data, Data> for LoadsDepartAfter<'data, Data>
 where
     Data: traits::Data,
 {
@@ -340,7 +334,10 @@ where
         data: &Data,
         pt_journey: &PTJourney<Self>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
-        self.generic
-            .create_response(data, pt_journey, LoadsCount::default())
+        self.generic.create_response(
+            data,
+            pt_journey,
+            pt_journey.criteria_at_arrival.loads_count.clone(),
+        )
     }
 }

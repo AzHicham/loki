@@ -20,6 +20,15 @@ The library can be used as :
 - command line interface with the [cli][1] subcrate, where you can provides the origin and destination as command line arguments, or perform benchmarks by generating random requests
 - as a server with the [server][3] subcrate, which process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) sent to a zmq socket, call the `laxatips` engine, and return protobuf responses on the zmq socket.
 
+## Development
+
+To be able to compile this project, you'll need to have libraries for zmq and initialize the submodule that brings protobuf description for Navitia.
+
+```shell
+git submodule update --init --recursive
+sudo apt install libzmq3-dev
+```
+
 ## Laxatips library Architecture
 
 ### Overview

@@ -1,5 +1,4 @@
-use crate::public_transit::{ConnectionLeg, DepartureLeg, Journey, PublicTransit};
-
+use crate::traits::{ConnectionLeg, DepartureLeg, Journey, RequestTypes};
 type Id = usize;
 
 #[derive(Clone, Copy, Debug)]
@@ -41,12 +40,12 @@ pub struct Arrive {
 ///           between two vehicles.
 ///  - Arrive -> an Arrival
 
-enum WaitData<PT: PublicTransit> {
+enum WaitData<PT: RequestTypes> {
     Transfer(PT::Transfer, Debark),
     Departure(PT::Departure),
 }
 
-pub struct JourneysTree<PT: PublicTransit> {
+pub struct JourneysTree<PT: RequestTypes> {
     // data associated to each moment
     boards: Vec<(PT::Trip, PT::Position, Wait)>,
     debarks: Vec<(PT::Position, Board)>,
@@ -54,7 +53,7 @@ pub struct JourneysTree<PT: PublicTransit> {
     arrives: Vec<(PT::Arrival, Debark)>,
 }
 
-impl<PT: PublicTransit> JourneysTree<PT> {
+impl<PT: RequestTypes> JourneysTree<PT> {
     pub fn new() -> Self {
         Self {
             boards: Vec::new(),
@@ -73,8 +72,7 @@ impl<PT: PublicTransit> JourneysTree<PT> {
 
     pub fn board(&mut self, wait: &Wait, trip: &PT::Trip, position: &PT::Position) -> Board {
         let id = self.boards.len();
-        self.boards
-            .push((trip.clone(), position.clone(), *wait));
+        self.boards.push((trip.clone(), position.clone(), *wait));
 
         Board { id }
     }
@@ -165,7 +163,6 @@ impl<PT: PublicTransit> JourneysTree<PT> {
             }
         }
     }
-
 
     pub fn clear(&mut self) {
         self.boards.clear();

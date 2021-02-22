@@ -37,8 +37,10 @@ You need to setup :
 ```
 - a kraken configured with 
 ```
+[GENERAL]
+instance_name = "mycoverage"
 database = /path/to/data.nav.lz4
-zmq_socket = "ipc:///tmp/kraken"
+zmq_socket = ipc:///tmp/kraken
 ```
 
 - a laxatips server launched with
