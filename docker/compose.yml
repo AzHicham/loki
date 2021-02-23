@@ -1,12 +1,10 @@
-version: "2"
+version: "3"
 services: 
 
   kraken:
     image: mc_navitia/kraken:latest
     volumes:
       - ./data:/data
-    expose:
-      - "30000"
 
   jormungandr:
     image: mc_navitia/jormun
@@ -22,8 +20,5 @@ services:
     image: mc_navitia/laxatips
     volumes:
       - ./data:/data
-    expose:
-      - "30001"
-      - "30002"
-    environment:
-    - RUST_LOG=debug
+
+
