@@ -1,5 +1,5 @@
-use laxatips::{log::info, transit_model::Model};
-use laxatips::{DepartAfter, LoadsDepartAfter, MultiCriteriaRaptor};
+use laxatips::{log::info, request, transit_model::Model};
+use laxatips::{MultiCriteriaRaptor};
 
 use laxatips::traits;
 use laxatips::config;
@@ -40,8 +40,8 @@ where
 {
     let (data, model) = build(&options.base.ntfs_path, &options.base.loads_data_path)?;
     match options.request_type {
-        config::RequestType::Classic => build_engine_and_solve::<Data, DepartAfter<Data>>(&model, &data, &options),
-        config::RequestType::Loads => build_engine_and_solve::<Data, LoadsDepartAfter<Data>>(&model, &data, &options),
+        config::RequestType::Classic => build_engine_and_solve::<Data, request::basic_criteria::depart_after::classic_comparator::Request<Data>>(&model, &data, &options),
+        config::RequestType::Loads => build_engine_and_solve::<Data, request::loads_criteria::depart_after::loads_comparator::Request<Data> >(&model, &data, &options),
     }
 }
 

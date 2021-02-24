@@ -1,7 +1,7 @@
 extern crate static_assertions;
 
 mod engine;
-mod request;
+pub mod request;
 
 pub mod loads_data;
 
@@ -29,8 +29,6 @@ pub use loads_data::LoadsData;
 pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub use request::{depart_after::DepartAfter, loads_depart_after::LoadsDepartAfter};
 
 pub mod response;
 

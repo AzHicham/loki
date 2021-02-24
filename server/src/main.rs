@@ -5,13 +5,13 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::traits;
+use laxatips::{request, traits};
 use laxatips::transit_model;
 use laxatips::{
     log::{debug, error, info, trace, warn},
-    LoadsDailyData, LoadsData, LoadsDepartAfter, LoadsPeriodicData,
+    LoadsDailyData, LoadsData, LoadsPeriodicData,
 };
-use laxatips::{DailyData, DepartAfter, MultiCriteriaRaptor, PeriodicData, PositiveDuration};
+use laxatips::{DailyData, MultiCriteriaRaptor, PeriodicData, PositiveDuration};
 use laxatips::config;
 
 use prost::Message;
@@ -405,8 +405,8 @@ where
     let (data, model) = read_ntfs::<Data>(&config)?;
 
     match config.request_type{
-        config::RequestType::Classic => server_loop::<Data, DepartAfter<Data>>(&model, &data, &config),
-        config::RequestType::Loads => server_loop::<Data, LoadsDepartAfter<Data>>(&model, &data, &config),
+        config::RequestType::Classic => server_loop::<Data, request::basic_criteria::depart_after::classic_comparator::Request<Data> >(&model, &data, &config),
+        config::RequestType::Loads => server_loop::<Data, request::loads_criteria::depart_after::loads_comparator::Request<Data> >(&model, &data, &config),
 
     }
 }
