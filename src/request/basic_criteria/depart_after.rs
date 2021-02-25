@@ -26,7 +26,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
     }
 
     pub fn leg_walking_penalty(&self) ->  PositiveDuration {
-        self.generic.leg_arrival_penalty
+        self.generic.leg_walking_penalty
     }
 
 
