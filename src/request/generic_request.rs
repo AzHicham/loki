@@ -23,32 +23,34 @@ impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<S: AsRef<str>, T: AsRef<str>>(
+    pub fn new<Departures, Arrivals, D, A>
+    (
         model: &transit_model::Model,
-        transit_data: &'data Data,
-        departure_datetime: NaiveDateTime,
-        departures_stop_point_and_fallback_duration: impl Iterator<Item = (S, PositiveDuration)>,
-        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (T, PositiveDuration)>,
-        leg_arrival_penalty: PositiveDuration,
-        leg_walking_penalty: PositiveDuration,
-        max_duration_to_arrival: PositiveDuration,
-        max_nb_legs: u8,
-    ) -> Result<Self, BadRequest> {
+        transit_data: & 'data Data,
+        request_input : traits::RequestInput<Departures, Arrivals, D, A>
+    ) -> Result<Self, BadRequest>
+    where
+        Arrivals : Iterator<Item = (A, PositiveDuration)>,
+        Departures : Iterator<Item = (D, PositiveDuration)>,
+        A : AsRef<str>,
+        D : AsRef<str>,
+        Self: Sized
+    {
         let departure_datetime = transit_data
             .calendar()
-            .from_naive_datetime(&departure_datetime)
+            .from_naive_datetime(&request_input.departure_datetime)
             .ok_or_else(|| {
                 warn!(
                     "The departure datetime {:?} is out of bound of the allowed dates. \
                     Allowed dates are between {:?} and {:?}.",
-                    departure_datetime,
+                    request_input.departure_datetime,
                     transit_data.calendar().first_datetime(),
                     transit_data.calendar().last_datetime(),
                 );
                 BadRequest::DepartureDatetime
             })?;
 
-        let departures : Vec<_> = departures_stop_point_and_fallback_duration
+        let departures : Vec<_> = request_input.departures_stop_point_and_fallback_duration
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
                 let stop_point_uri = stop_point_uri.as_ref();
@@ -75,7 +77,7 @@ where
             return Err(BadRequest::NoValidDepartureStop);
         }
 
-        let arrivals : Vec<_> = arrivals_stop_point_and_fallback_duration
+        let arrivals : Vec<_> = request_input.arrivals_stop_point_and_fallback_duration
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
                 let stop_point_uri = stop_point_uri.as_ref();
@@ -108,10 +110,10 @@ where
             departure_datetime,
             departures_stop_point_and_fallback_duration: departures,
             arrivals_stop_point_and_fallbrack_duration: arrivals,
-            leg_arrival_penalty,
-            leg_walking_penalty,
-            max_arrival_time: departure_datetime + max_duration_to_arrival,
-            max_nb_legs,
+            leg_arrival_penalty : request_input.params.leg_arrival_penalty,
+            leg_walking_penalty : request_input.params.leg_walking_penalty,
+            max_arrival_time: departure_datetime + request_input.params.max_journey_duration,
+            max_nb_legs : request_input.params.max_nb_of_legs,
         };
 
         Ok(result)
@@ -126,7 +128,6 @@ where
 {
     pub fn create_response<R>(
         &self,
-        data: &Data,
         pt_journey: &PTJourney<R>,
         loads_count: LoadsCount,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
@@ -170,7 +171,7 @@ where
             connections,
             *arrival_fallback_duration,
             loads_count,
-            data,
+            &self.transit_data,
         )
     }
 }

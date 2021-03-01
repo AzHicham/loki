@@ -5,7 +5,7 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::{request, traits};
+use laxatips::{config::RequestParams, request, solver, traits::{self,  RequestInput}};
 use laxatips::transit_model;
 use laxatips::{
     log::{debug, error, info, trace, warn},
@@ -19,7 +19,7 @@ use structopt::StructOpt;
 use transit_model::Model;
 
 
-use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 use slog::slog_o;
 use slog::Drain;
@@ -31,6 +31,11 @@ use std::time::SystemTime;
 use std::convert::TryFrom;
 
 use serde::Deserialize;
+
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 
 const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
@@ -67,20 +72,172 @@ pub struct Config {
     loads_data_path: PathBuf,
 
     /// zmq socket to listen for protobuf requests
+    /// that will be handled with "classic" comparator
     #[structopt(short = "s", long)]
-    socket: String,
+    classic_requests_socket: String,
+
+    /// zmq socket to listen for protobuf requests
+    /// that will be handled with "loads" comparator
+    #[structopt(short = "s", long)]
+    loads_requests_socket: Option<String>,
+    
 
     /// Type of request to make :
     /// "classic" or "loads"
     #[structopt(long, default_value = "classic")]
-    request_type: config::RequestType,
+    criteria_implem: config::CriteriaImplem,
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value = "periodic")]
-    implem: config::Implem,
+    data_implem: config::DataImplem,
+
+    /// penalty to apply to arrival time for each vehicle leg in a journey
+    #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
+    pub leg_arrival_penalty: PositiveDuration,
+
+    /// penalty to apply to walking time for each vehicle leg in a journey
+    #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
+    pub leg_walking_penalty: PositiveDuration,
+
+    /// maximum number of vehicle legs in a journey
+    #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
+    pub max_nb_of_legs: u8,
+
+    /// maximum duration of a journey
+    #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
+    pub max_journey_duration: PositiveDuration,
 }
+
+
+fn main() {
+    let _log_guard = init_logger();
+    if let Err(err) = launch_server() {
+        for cause in err.iter_chain() {
+            eprintln!("{}", cause);
+        }
+        std::process::exit(1);
+    }
+}
+
+fn init_logger() -> slog_scope::GlobalLoggerGuard {
+    let decorator = slog_term::TermDecorator::new().stdout().build();
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let mut builder = slog_envlogger::LogBuilder::new(drain).filter(None, slog::FilterLevel::Info);
+    if let Ok(s) = std::env::var("RUST_LOG") {
+        builder = builder.parse(&s);
+    }
+    let drain = slog_async::Async::new(builder.build())
+        .chan_size(256) // Double the default size
+        .overflow_strategy(OverflowStrategy::Block)
+        .build()
+        .fuse();
+    let logger = slog::Logger::root(drain, slog_o!());
+
+    let scope_guard = slog_scope::set_global_logger(logger);
+    slog_stdlog::init().unwrap();
+    scope_guard
+}
+
+
+
+fn launch_server() -> Result<(), Error> {
+    let options = Options::from_args();
+    let config = match options {
+        Options::Cli(config) => config,
+        Options::ConfigFile(config_file) => {
+            let file =  match File::open(&config_file.file) {
+                Ok(file) => file,
+                Err(e) => {
+                    bail!("Error opening config file {:?} : {}", &config_file.file, e)
+                }
+            };
+            let reader = BufReader::new(file);
+            let result = serde_json::from_reader(reader);
+            match result {
+                Ok(config) => config,
+                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e)
+            }
+        }
+    };
+    match config.data_implem {
+        config::DataImplem::Periodic=> launch::<PeriodicData>(config),
+        config::DataImplem::Daily => launch::<DailyData>(config),
+        config::DataImplem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
+        config::DataImplem::LoadsDaily => launch::<LoadsDailyData>(config),
+    }
+}
+
+fn launch<Data>(config: Config) -> Result<(), Error>
+where
+    Data: traits::DataWithIters,
+{
+    let (data, model) = read_ntfs::<Data>(&config)?;
+
+    match config.criteria_implem{
+        config::CriteriaImplem::Basic => server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config),
+        config::CriteriaImplem::Loads => server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data> >(&model, &data, &config),
+
+    }
+}
+
+
+
+fn server_loop<'data, Data, Solver>(
+    model: &Model,
+    data: &'data Data,
+    config: &Config,
+) -> Result<(), Error>
+where
+    Data: traits::DataWithIters,
+    Solver : traits::Solver<'data, Data> 
+{
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+    let context = zmq::Context::new();
+    let classic_requests_socket = context.socket(zmq::REP)
+        .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
+
+    classic_requests_socket
+        .bind(&config.classic_requests_socket)
+        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.classic_requests_socket, err))?;
+
+    let loads_requests_socket = context.socket(zmq::REP)
+        .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
+
+    if let Some(socket) = &config.loads_requests_socket {
+        loads_requests_socket
+            .bind(socket)
+            .map_err(|err| format_err!("Could not bind socket {}. Error : {}", socket, err))?;
+    }
+
+
+
+    let mut zmq_message = zmq::Message::new();
+    let mut response_bytes: Vec<u8> = Vec::new();
+    loop {
+        let mut items = [
+            classic_requests_socket.as_poll_item(zmq::POLLIN),
+            loads_requests_socket.as_poll_item(zmq::POLLIN),
+        ];
+        zmq::poll(&mut items, -1)
+            .map_err(|err| format_err!("Error while polling zmq sockets : {}", err))?;
+
+        if items[0].is_readable()  {
+
+            let responses = solve(&classic_requests_socket, & mut zmq_message, data, model, & mut solver, config, config::RequestType::BasicDepartAfter)?;
+
+        }
+        
+        if items[1].is_readable()  {
+            let proto_request = decode_zmq_message(&classic_requests_socket, & mut zmq_message)?;
+
+            info!("Received loads request {:?}", proto_request.request_id);
+            let responses = solve_proto_request(&proto_request, data, model, & mut solver, config, config::RequestType::LoadsDepartAfter)?;
+        }
+    }
+}
+
 
 fn read_ntfs<Data>(config: &Config) -> Result<(Data, Model), Error>
 where
@@ -121,22 +278,24 @@ where
     Ok((data, model))
 }
 
-fn make_engine_request_from_protobuf<'data, Data, R>(
-    proto_request: &navitia_proto::Request,
+
+fn solve<'data, Data, Solver : traits::Solver<'data, Data>>(
+    socket : & zmq::Socket,
+    zmq_message : & mut zmq::Message,
     data: &'data Data,
     model: &Model,
-    default_max_duration: &PositiveDuration,
-    default_max_nb_of_legs: u8,
-) -> Result<R, Error>
+    solver : & mut Solver,
+    config : & Config,
+    request_type : config::RequestType,
+) -> Result<Vec<laxatips::response::Response>, Error>
 where
-    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
+    Data: traits::DataWithIters
 {
+
+    let proto_request = decode_zmq_message(socket, zmq_message)?;
+
+    info!("Received request {:?}", proto_request.request_id);
+
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
         if let Some(api) = has_api {
@@ -158,7 +317,6 @@ where
         .ok_or_else(|| format_err!("request.journey should not be empty for api PtPlanner."))?;
 
     // println!("{:#?}", journey_request);
-
     let departures_stop_point_and_fallback_duration = journey_request
         .origin
         .iter()
@@ -178,7 +336,7 @@ where
                 })?;
 
             Some((stop_point_uri, duration))
-        });
+    });
 
     let arrivals_stop_point_and_fallback_duration = journey_request
         .destination
@@ -219,123 +377,58 @@ where
         chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0)
     );
 
-    let max_duration_to_arrival = u32::try_from(journey_request.max_duration)
+    let max_journey_duration = u32::try_from(journey_request.max_duration)
         .map(|duration| PositiveDuration::from_hms(0, 0, duration))
         .unwrap_or_else(|_| {
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, default_max_duration
+                journey_request.max_duration, config.max_journey_duration
             );
-            default_max_duration.clone()
+            config.max_journey_duration.clone()
         });
 
-    let max_nb_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
+    let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, default_max_duration
+            journey_request.max_transfers, config.max_nb_of_legs
         );
-        default_max_nb_of_legs
+        config.max_nb_of_legs
     });
 
-    let engine_request = R::new(
-        model,
-        data,
+    let params = RequestParams {
+        leg_arrival_penalty: config.leg_arrival_penalty,
+        leg_walking_penalty: config.leg_walking_penalty,
+        max_nb_of_legs,
+        max_journey_duration,
+
+    };
+
+    let request_input = RequestInput {
         departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        PositiveDuration::from_hms(0, 2, 0), //leg_arrival_penalty
-        PositiveDuration::from_hms(0, 2, 0), //leg_walking_penalty,
-        max_duration_to_arrival,
-        max_nb_legs,
-    )?;
+        params
+    };
 
-    Ok(engine_request)
+    let responses = solver.solve_request(data, model, request_input, request_type);
+    Ok(responses)
 }
 
-fn solve_protobuf<'data, Data, R>(
-    model: &Model,
-    proto_request: &navitia_proto::Request,
-    data: &'data Data,
-    engine: &mut MultiCriteriaRaptor<R>,
-) -> Result<navitia_proto::Response, Error>
-where
-    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
-    R::Criteria: Debug,
-{
-    let request: R = make_engine_request_from_protobuf(
-        &proto_request,
-        data,
-        model,
-        &DEFAULT_MAX_DURATION,
-        DEFAULT_MAX_NB_LEGS,
-    )?;
 
-    debug!("Start computing journey");
-    let request_timer = SystemTime::now();
-    engine.compute(&request);
-    debug!(
-        "Journeys computed in {} ms with {} rounds",
-        request_timer.elapsed().unwrap().as_millis(),
-        engine.nb_of_rounds()
-    );
-    debug!("Nb of journeys found : {}", engine.nb_of_journeys());
-    debug!("Tree size : {}", engine.tree_size());
-    for pt_journey in engine.responses() {
-        let response = request.create_response(data, pt_journey);
-        match response {
-            Ok(journey) => {
-                trace!("{}", journey.print(data, model)?);
-            }
-            Err(_) => {
-                trace!("An error occured while converting an engine journey to response.");
-            }
-        };
-    }
 
-    let journeys_iter = engine
-        .responses()
-        .filter_map(|pt_journey| request.create_response(data, pt_journey).ok());
 
-    response::make_response(journeys_iter, data, model)
-}
 
-fn solve<'data, Data, R>(
-    data: &'data Data,
-    model: &Model,
-    engine: &mut MultiCriteriaRaptor<R>,
-    socket: &zmq::Socket,
-    zmq_message: &mut zmq::Message,
-    response_bytes: &mut Vec<u8>,
+fn respond<Data>(
+    solve_result : Result<Vec<laxatips::Response>, Error>,
+    proto_request : & navitia_proto::Request,
+    data : & Data,
+    model : & Model,
+    response_bytes : & mut Vec<u8>,
+    socket : & zmq::Socket
 ) -> Result<(), Error>
-where
-    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
-    R::Criteria: Debug,
 {
-    socket
-        .recv(zmq_message, 0)
-        .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
-    use std::ops::Deref;
-    let proto_request = navitia_proto::Request::decode((*zmq_message).deref())
-        .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))?;
-
-    info!("Received request {:?}", proto_request.request_id);
-
-    let solve_result = solve_protobuf(model, &proto_request, data, engine);
-
     let proto_response = match solve_result {
         Result::Err(err) => {
             error!(
@@ -351,7 +444,9 @@ where
             proto_response.error = Some(proto_error);
             proto_response
         }
-        Ok(proto_response) => proto_response,
+        Ok(journeys) => {
+            response::make_response(journeys.iter(), data, model)
+        }
     };
     response_bytes.clear();
 
@@ -371,113 +466,20 @@ where
     Ok(())
 }
 
-fn server() -> Result<(), Error> {
-    let options = Options::from_args();
-    let config = match options {
-        Options::Cli(config) => config,
-        Options::ConfigFile(config_file) => {
-            let file =  match File::open(&config_file.file) {
-                Ok(file) => file,
-                Err(e) => {
-                    bail!("Error opening config file {:?} : {}", &config_file.file, e)
-                }
-            };
-            let reader = BufReader::new(file);
-            let result = serde_json::from_reader(reader);
-            match result {
-                Ok(config) => config,
-                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e)
-            }
-        }
-    };
-    match config.implem {
-        config::Implem::Periodic=> launch::<PeriodicData>(config),
-        config::Implem::Daily => launch::<DailyData>(config),
-        config::Implem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
-        config::Implem::LoadsDaily => launch::<LoadsDailyData>(config),
-    }
-}
 
-fn launch<Data>(config: Config) -> Result<(), Error>
-where
-    Data: traits::DataWithIters,
+fn decode_zmq_message(socket: &zmq::Socket,
+                    zmq_message: & mut zmq::Message,
+                ) -> Result<navitia_proto::Request, Error>
 {
-    let (data, model) = read_ntfs::<Data>(&config)?;
-
-    match config.request_type{
-        config::RequestType::Classic => server_loop::<Data, request::basic_criteria::depart_after::classic_comparator::Request<Data> >(&model, &data, &config),
-        config::RequestType::Loads => server_loop::<Data, request::loads_criteria::depart_after::loads_comparator::Request<Data> >(&model, &data, &config),
-
-    }
+    
+    socket
+        .recv(zmq_message, 0)
+        .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
+    use std::ops::Deref;
+    navitia_proto::Request::decode((*zmq_message).deref())
+        .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))
 }
 
-fn server_loop<'data, Data, R>(
-    model: &Model,
-    data: &'data Data,
-    config: &Config,
-) -> Result<(), Error>
-where
-    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
-    R::Criteria: Debug,
-{
-    let mut engine = MultiCriteriaRaptor::<R>::new(data.nb_of_stops(), data.nb_of_missions());
-    let context = zmq::Context::new();
-    let responder = context.socket(zmq::REP).unwrap();
-    responder
-        .bind(&config.socket)
-        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.socket, err))?;
 
-    let mut zmq_message = zmq::Message::new();
-    let mut response_bytes: Vec<u8> = Vec::new();
-    loop {
-        let solve_result = solve(
-            data,
-            model,
-            &mut engine,
-            &responder,
-            &mut zmq_message,
-            &mut response_bytes,
-        );
-        if let Err(err) = solve_result {
-            error!("Failed to solve request : ");
-            for cause in err.iter_chain() {
-                error!("{}", cause);
-            }
-        }
-    }
-}
 
-fn init_logger() -> slog_scope::GlobalLoggerGuard {
-    let decorator = slog_term::TermDecorator::new().stdout().build();
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let mut builder = slog_envlogger::LogBuilder::new(drain).filter(None, slog::FilterLevel::Info);
-    if let Ok(s) = std::env::var("RUST_LOG") {
-        builder = builder.parse(&s);
-    }
-    let drain = slog_async::Async::new(builder.build())
-        .chan_size(256) // Double the default size
-        .overflow_strategy(OverflowStrategy::Block)
-        .build()
-        .fuse();
-    let logger = slog::Logger::root(drain, slog_o!());
 
-    let scope_guard = slog_scope::set_global_logger(logger);
-    slog_stdlog::init().unwrap();
-    scope_guard
-}
-
-fn main() {
-    let _log_guard = init_logger();
-    if let Err(err) = server() {
-        for cause in err.iter_chain() {
-            eprintln!("{}", cause);
-        }
-        std::process::exit(1);
-    }
-}

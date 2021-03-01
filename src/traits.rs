@@ -3,11 +3,7 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::{
-    loads_data::{Load, LoadsData},
-    response,
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-};
+use crate::{MultiCriteriaRaptor, config, loads_data::{Load, LoadsData}, response, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -365,28 +361,52 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     fn departures(&'a self) -> Self::Departures;
 }
 
-pub trait RequestIO<'data, D: Data>: Request {
-    fn new<S: AsRef<str>, T: AsRef<str>>(
+pub struct RequestInput<Departures, Arrivals, D, A> 
+where 
+Arrivals : Iterator<Item = (A, PositiveDuration)>,
+Departures : Iterator<Item = (D, PositiveDuration)>,
+A : AsRef<str>,
+D : AsRef<str>
+{
+    pub departure_datetime: NaiveDateTime,
+    pub departures_stop_point_and_fallback_duration: Departures,
+    pub arrivals_stop_point_and_fallback_duration: Arrivals,
+    pub params : config::RequestParams
+}
+
+pub trait RequestIO<'data, Data: self::Data>: Request {
+    fn new<Departures, Arrivals, D, A>
+    (
         model: &transit_model::Model,
-        transit_data: &'data D,
-        departure_datetime: NaiveDateTime,
-        departures_stop_point_and_fallback_duration: impl Iterator<Item = (S, PositiveDuration)>,
-        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (T, PositiveDuration)>,
-        leg_arrival_penalty: PositiveDuration,
-        leg_walking_penalty: PositiveDuration,
-        max_duration_to_arrival: PositiveDuration,
-        max_nb_legs: u8,
+        transit_data: & 'data Data,
+        request_input : RequestInput<Departures, Arrivals, D, A>
     ) -> Result<Self, BadRequest>
     where
+        Arrivals : Iterator<Item = (A, PositiveDuration)>,
+        Departures : Iterator<Item = (D, PositiveDuration)>,
+        A : AsRef<str>,
+        D : AsRef<str>,
         Self: Sized;
 
-    fn create_response(
+    fn data(&self) -> &  Data;
+
+    fn create_response<T>(
         &self,
-        data: &D,
-        pt_journey: &Journey<Self>,
-    ) -> Result<response::Journey<D>, response::BadJourney<D>>
+        pt_journey: &Journey<T>,
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
     where
-        Self: Sized;
+        Self: Sized,
+        T : RequestTypes<
+            Stop = Self::Stop,
+            Mission = Self::Mission,
+            Position = Self::Position,
+            Trip = Self::Trip,
+            Transfer = Self::Transfer,
+            Arrival = Self::Arrival,
+            Departure = Self::Departure,
+            Criteria = Self::Criteria,
+        >
+        ;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
@@ -439,4 +459,26 @@ impl fmt::Display for BadRequest {
             }
         }
     }
+}
+
+
+pub trait Solver<'data, Data> {
+
+
+    fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self;
+
+    fn solve_request<Departures, Arrivals, D, A>(
+        & mut self,
+        data : & 'data Data,
+        model : & transit_model::Model,
+        request_input : RequestInput<Departures, Arrivals, D, A>,
+        request_type : config::RequestType,
+    ) -> Vec<response::Response>
+    where Self : Sized,
+    Arrivals : Iterator<Item = (A, PositiveDuration)>,
+    Departures : Iterator<Item = (D, PositiveDuration)>,
+    A : AsRef<str>,
+    D : AsRef<str>,
+    Data : self::DataWithIters;
+
 }

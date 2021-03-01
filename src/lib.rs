@@ -33,3 +33,7 @@ pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 pub mod response;
 
 pub mod config;
+
+pub mod solver;
+
+pub type Response = response::Response;

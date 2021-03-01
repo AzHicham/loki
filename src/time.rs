@@ -41,7 +41,7 @@ pub struct Calendar {
                            // we allow at most MAX_DAYS_IN_CALENDAR days
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, serde::Deserialize)]
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }

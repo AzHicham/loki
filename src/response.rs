@@ -8,7 +8,7 @@ use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use transit_model::Model;
 
 use std::fmt::Debug;
@@ -537,4 +537,45 @@ impl<'journey, 'data, Data: traits::Data> Iterator for ConnectionIter<'journey, 
         self.connection_idx += 1;
         Some((transfer_section, waiting_section, vehicle_section))
     }
+}
+
+
+impl VehicleSection {
+    fn duration_in_seconds(&self) -> i64 {
+        let duration = self.to_datetime - self.from_datetime;
+        duration.num_seconds()
+    }
+}
+
+impl Response {
+    fn nb_of_sections(&self) -> usize {
+        1 + 3 * self.connections.len()
+    }
+
+    fn total_duration_in_pt(&self) -> i64 {
+        let first_vehicle_duration = self.first_vehicle.duration_in_seconds();
+        let remaining_duration : i64 = self.connections.iter()
+                .map(|(_,_,vehicle_section)| vehicle_section.duration_in_seconds())
+                .sum();
+        first_vehicle_duration + remaining_duration
+    }
+
+    fn nb_of_transfers(&self) -> usize {
+        self.connections.len()
+    }
+
+    fn first_vehicle_board_datetime(&self) -> NaiveDateTime {
+        self.first_vehicle.from_datetime
+    }
+
+    fn last_vehicle_debark_datetime(&self) -> NaiveDateTime {
+        let last_vehicle_section = self
+            .connections
+            .last()
+            .map(|(_, _, vehicle_section)| vehicle_section)
+            .unwrap_or(&self.first_vehicle);
+        last_vehicle_section.to_datetime
+
+    }
+
 }

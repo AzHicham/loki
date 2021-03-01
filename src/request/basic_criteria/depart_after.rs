@@ -222,33 +222,33 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
         self.generic.transit_data.mission_id(mission)
     }
 
-    fn new<S: AsRef<str>, T: AsRef<str>>(
+    fn new<Departures, Arrivals, D, A>
+    (
         model: &transit_model::Model,
-        transit_data: &'data Data,
-        departure_datetime: NaiveDateTime,
-        departures_stop_point_and_fallback_duration: impl Iterator<Item = (S, PositiveDuration)>,
-        arrivals_stop_point_and_fallback_duration: impl Iterator<Item = (T, PositiveDuration)>,
-        leg_arrival_penalty: PositiveDuration,
-        leg_walking_penalty: PositiveDuration,
-        max_duration_to_arrival: PositiveDuration,
-        max_nb_legs: u8,
-    ) -> Result<Self, BadRequest> {
+        transit_data: & 'data Data,
+        request_input : traits::RequestInput<Departures, Arrivals, D, A>
+    ) -> Result<Self, BadRequest>
+    where
+        Arrivals : Iterator<Item = (A, PositiveDuration)>,
+        Departures : Iterator<Item = (D, PositiveDuration)>,
+        A : AsRef<str>,
+        D : AsRef<str>,
+        Self: Sized
+    {
         let generic_result = GenericRequest::new(
             model,
             transit_data,
-            departure_datetime,
-            departures_stop_point_and_fallback_duration,
-            arrivals_stop_point_and_fallback_duration,
-            leg_arrival_penalty,
-            leg_walking_penalty,
-            max_duration_to_arrival,
-            max_nb_legs,
+            request_input
         );
         generic_result.map(|generic| Self { generic })
     }
+
+    pub fn data(&self) -> & Data {
+        &self.generic.transit_data
+    }
+
     pub fn create_response<R>(
         &self,
-        data: &Data,
         pt_journey: &PTJourney<R>,
         loads_count: LoadsCount,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
@@ -261,7 +261,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
             Transfer = Data::Transfer,
         >,
     {
-        self.generic.create_response(data, pt_journey, loads_count)
+        self.generic.create_response(pt_journey, loads_count)
     }
 }
 

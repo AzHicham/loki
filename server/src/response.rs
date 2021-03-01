@@ -13,19 +13,17 @@ use transit_model::Model;
 
 use std::convert::TryFrom;
 
-pub fn make_response<Journeys, Data>(
+pub fn make_response<Journeys>(
     journeys: Journeys,
-    data: &Data,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error>
 where
-    Journeys: Iterator<Item = Journey<Data>>,
-    Data: DataWithIters,
+    Journeys: Iterator<Item = laxatips::Response>,
 {
     let mut proto = navitia_proto::Response {
         journeys: journeys
             .enumerate()
-            .map(|(idx, journey)| make_journey(&journey, idx, data, model))
+            .map(|(idx, journey)| make_journey(&journey, idx,  model))
             .collect::<Result<Vec<_>, _>>()?,
 
         ..Default::default()
@@ -37,9 +35,8 @@ where
 }
 
 fn make_journey<Data>(
-    journey: &Journey<Data>,
+    journey: &laxatips::Response,
     journey_id: usize,
-    data: &Data,
     model: &Model,
 ) -> Result<navitia_proto::Journey, Error>
 where
@@ -47,18 +44,18 @@ where
 {
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
-    let nb_of_sections = 1 + 3 * journey.nb_of_connections();
+    let nb_of_sections = 1 + 3 * journey.nb_of_sections();
 
     let mut proto = navitia_proto::Journey {
         duration: Some(i32::try_from(
-            journey.total_duration_in_pt(data).total_seconds(),
+            journey.total_duration_in_pt(),
         )?),
         nb_transfers: Some(i32::try_from(journey.nb_of_transfers())?),
         departure_date_time: Some(to_u64_timestamp(
-            &journey.first_vehicle_board_datetime(data),
+            &journey.first_vehicle_board_datetime(),
         )?),
         arrival_date_time: Some(to_u64_timestamp(
-            &journey.last_vehicle_debark_datetime(data),
+            &journey.last_vehicle_debark_datetime(),
         )?),
         sections: Vec::with_capacity(nb_of_sections), // to be filled below
         sn_dur: Some(journey.total_fallback_duration().total_seconds()),
