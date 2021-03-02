@@ -224,16 +224,23 @@ where
             .map_err(|err| format_err!("Error while polling zmq sockets : {}", err))?;
 
         if items[0].is_readable()  {
-
-            let responses = solve(&classic_requests_socket, & mut zmq_message, data, model, & mut solver, config, config::RequestType::BasicDepartAfter)?;
-
+            let socket = &classic_requests_socket;
+            let request_type = config::RequestType::BasicDepartAfter;
+            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, request_type);
+            let result = respond(solve_result, model, & mut response_bytes, socket);
+            result.err().map(|err|{
+                error!("Error while sending zmq response : {}", err)
+            });
         }
         
         if items[1].is_readable()  {
-            let proto_request = decode_zmq_message(&classic_requests_socket, & mut zmq_message)?;
-
-            info!("Received loads request {:?}", proto_request.request_id);
-            let responses = solve_proto_request(&proto_request, data, model, & mut solver, config, config::RequestType::LoadsDepartAfter)?;
+            let socket = &loads_requests_socket;
+            let request_type = config::RequestType::LoadsDepartAfter;
+            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, request_type);
+            let result = respond(solve_result, model, & mut response_bytes, socket);
+            result.err().map(|err|{
+                error!("Error while sending zmq response : {}", err)
+            });
         }
     }
 }
@@ -291,9 +298,7 @@ fn solve<'data, Data, Solver : traits::Solver<'data, Data>>(
 where
     Data: traits::DataWithIters
 {
-
     let proto_request = decode_zmq_message(socket, zmq_message)?;
-
     info!("Received request {:?}", proto_request.request_id);
 
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
@@ -420,50 +425,63 @@ where
 
 
 
-fn respond<Data>(
+fn respond(
     solve_result : Result<Vec<laxatips::Response>, Error>,
-    proto_request : & navitia_proto::Request,
-    data : & Data,
     model : & Model,
     response_bytes : & mut Vec<u8>,
     socket : & zmq::Socket
 ) -> Result<(), Error>
 {
+
     let proto_response = match solve_result {
         Result::Err(err) => {
             error!(
-                "Error while solving request {:?} : \n {}",
-                proto_request.request_id, err
+                "Error while solving request : {}", err
             );
-
-            let mut proto_response = navitia_proto::Response::default();
-            proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
-            let mut proto_error = navitia_proto::Error::default();
-            proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
-            proto_error.message = Some(format!("{}", err));
-            proto_response.error = Some(proto_error);
-            proto_response
+            make_error_response(err)
         }
         Ok(journeys) => {
-            response::make_response(journeys.iter(), data, model)
+            let response_result = response::make_response(journeys, model);
+            match response_result {
+                Result::Err(err) => {
+                    error!(
+                        "Error while encoding protobuf response for request : {}", err
+                    );
+                    make_error_response(err)
+                }
+                Ok(resp) => {
+                    resp
+                }
+            }
         }
     };
     response_bytes.clear();
 
-    proto_response
-        .encode(response_bytes)
-        .map_err(|err| format_err!("Could not encode protobuf into zmq message: \n {}", err))?;
 
-    info!(
-        "Sending response for request {:?}",
-        proto_request.request_id
-    );
+    proto_response.encode(response_bytes)
+        .map_err(|err| format_err!("Could not encode protobuf response into a zmq message: \n {}", err))?;
+    
+    info!("Sending protobuf response. ");
 
     socket
         .send(&*response_bytes, 0)
         .map_err(|err| format_err!("Could not send zmq response : \n {}", err))?;
 
     Ok(())
+
+    
+
+}
+
+
+fn make_error_response(error : Error) -> navitia_proto::Response {
+    let mut proto_response = navitia_proto::Response::default();
+    proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
+    let mut proto_error = navitia_proto::Error::default();
+    proto_error.set_id(navitia_proto::error::ErrorId::InternalError);
+    proto_error.message = Some(format!("{}", error));
+    proto_response.error = Some(proto_error);
+    proto_response
 }
 
 

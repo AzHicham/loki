@@ -79,6 +79,7 @@ impl Display for RequestConfig {
 }
 
 
+
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct BaseOptions {

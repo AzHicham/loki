@@ -13,15 +13,14 @@ use transit_model::Model;
 
 use std::convert::TryFrom;
 
-pub fn make_response<Journeys>(
-    journeys: Journeys,
+pub fn make_response(
+    journeys: Vec<laxatips::Response>,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error>
-where
-    Journeys: Iterator<Item = laxatips::Response>,
 {
     let mut proto = navitia_proto::Response {
         journeys: journeys
+            .iter()
             .enumerate()
             .map(|(idx, journey)| make_journey(&journey, idx,  model))
             .collect::<Result<Vec<_>, _>>()?,
@@ -34,21 +33,19 @@ where
     Ok(proto)
 }
 
-fn make_journey<Data>(
+fn make_journey(
     journey: &laxatips::Response,
     journey_id: usize,
     model: &Model,
 ) -> Result<navitia_proto::Journey, Error>
-where
-    Data: DataWithIters,
 {
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
-    let nb_of_sections = 1 + 3 * journey.nb_of_sections();
+    let nb_of_sections =  journey.nb_of_sections();
 
     let mut proto = navitia_proto::Journey {
         duration: Some(i32::try_from(
-            journey.total_duration_in_pt(),
+            journey.total_duration(),
         )?),
         nb_transfers: Some(i32::try_from(journey.nb_of_transfers())?),
         departure_date_time: Some(to_u64_timestamp(
@@ -58,20 +55,12 @@ where
             &journey.last_vehicle_debark_datetime(),
         )?),
         sections: Vec::with_capacity(nb_of_sections), // to be filled below
-        sn_dur: Some(journey.total_fallback_duration().total_seconds()),
-        transfer_dur: Some(journey.total_transfer_duration(data).total_seconds()),
-        nb_sections: Some(u32::try_from(journey.nb_of_legs())?),
+        sn_dur: Some(u64::try_from(journey.total_fallback_duration())?),
+        transfer_dur: Some(u64::try_from(journey.total_transfer_duration())?),
+        nb_sections: Some(u32::try_from(journey.nb_of_sections())?),
         durations: Some(navitia_proto::Durations {
-            total: Some(i32::try_from(
-                journey.total_duration_in_pt(data).total_seconds(),
-            )?),
-            walking: Some(i32::try_from(
-                (
-                    //journey.total_fallback_duration() +
-                    journey.total_transfer_duration(data)
-                )
-                .total_seconds(),
-            )?),
+            total: Some(i32::try_from(journey.total_duration())?),
+            walking: Some(i32::try_from(journey.total_walking_duration())?),              
             bike: Some(0),
             car: Some(0),
             ridesharing: Some(0),
@@ -82,12 +71,12 @@ where
 
     let section_id = format!("section_{}_{}", journey_id, 0);
     proto.sections.push(make_public_transport_section(
-        &journey.first_vehicle_section(data),
+        &journey.first_vehicle,
         model,
         section_id,
     )?);
 
-    for (connection_idx, connection) in journey.connections(data).enumerate() {
+    for (connection_idx, connection) in journey.connections.iter().enumerate() {
         {
             let section_id = format!("section_{}_{}", journey_id, 1 + 3 * connection_idx);
             let transfer_section = &connection.0;

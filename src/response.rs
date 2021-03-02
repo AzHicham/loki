@@ -20,6 +20,7 @@ pub struct Response {
     pub departure: DepartureSection,
     pub first_vehicle: VehicleSection,
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
+    pub arrival : ArrivalSection,
 }
 
 pub struct VehicleSection {
@@ -51,6 +52,12 @@ pub struct DepartureSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
     pub to_stop_point: Idx<StopPoint>,
+}
+
+pub struct ArrivalSection {
+    pub from_datetime: NaiveDateTime,
+    pub to_datetime: NaiveDateTime,
+    pub from_stop_point: Idx<StopPoint>,
 }
 
 impl Response {
@@ -230,20 +237,24 @@ where
             .0
     }
 
-    pub fn last_vehicle_debark_datetime(&self, data: &Data) -> NaiveDateTime {
-        let seconds = self.last_vehicle_debark_time(data);
-        data.to_naive_datetime(&seconds)
-    }
-
-    fn last_vehicle_debark_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
-        let last_vehicle_leg = self
+    fn last_vehicle_leg(&self) -> & VehicleLeg<Data> {
+        self
             .connections
             .last()
             .map(|(_, vehicle_leg)| vehicle_leg)
-            .unwrap_or(&self.first_vehicle);
+            .unwrap_or(&self.first_vehicle)
+    }
+
+    fn last_vehicle_debark_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
+        let last_vehicle_leg = self.last_vehicle_leg();
         data.debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
             .unwrap()
             .0 //unwrap is safe because of checks that happens during Self construction
+    }
+
+    pub fn last_vehicle_debark_datetime(&self, data: &Data) -> NaiveDateTime {
+        let seconds = self.last_vehicle_debark_time(data);
+        data.to_naive_datetime(&seconds)
     }
 
     fn arrival(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
@@ -406,6 +417,7 @@ impl<Data: traits::Data> Journey<Data> {
             departure: self.departure_section(data),
             first_vehicle: self.first_vehicle_section(data),
             connections: self.connections(data).collect(),
+            arrival : self.arrival_section(data),
         }
     }
 
@@ -423,6 +435,24 @@ impl<Data: traits::Data> Journey<Data> {
             to_datetime,
             to_stop_point,
         }
+    }
+
+    pub fn arrival_section(&self, data: & Data) -> ArrivalSection {
+        let from_time = self.last_vehicle_debark_time(data);
+        let to_time = from_time + self.arrival_fallback_duration;
+        let last_vehicle_leg = self.last_vehicle_leg();
+        let position = &last_vehicle_leg.debark_position;
+        let trip = &last_vehicle_leg.trip;
+        let mission = data.mission_of(&trip);
+        let stop = data.stop_of(&position, &mission);
+        let stop_point = data.stop_point_idx(&stop);
+        ArrivalSection {
+            from_datetime: data.to_naive_datetime(&from_time),
+            to_datetime: data.to_naive_datetime(&to_time),
+            from_stop_point: stop_point,
+
+        }
+
     }
 
     pub fn first_vehicle_section(&self, data: &Data) -> VehicleSection {
@@ -547,12 +577,34 @@ impl VehicleSection {
     }
 }
 
+impl TransferSection {
+    fn duration_in_seconds(&self) -> i64 {
+        let duration = self.to_datetime - self.from_datetime;
+        duration.num_seconds()
+    }
+}
+
+impl ArrivalSection {
+    fn duration_in_seconds(&self) -> i64 {
+        let duration = self.to_datetime - self.from_datetime;
+        duration.num_seconds()
+    }
+}
+
+impl DepartureSection {
+    fn duration_in_seconds(&self) -> i64 {
+        let duration = self.to_datetime - self.from_datetime;
+        duration.num_seconds()
+    }
+}
+
 impl Response {
-    fn nb_of_sections(&self) -> usize {
+    pub fn nb_of_sections(&self) -> usize {
         1 + 3 * self.connections.len()
     }
 
-    fn total_duration_in_pt(&self) -> i64 {
+    /// number of seconds spent in public transport
+    pub fn total_duration_in_pt(&self) -> i64 {
         let first_vehicle_duration = self.first_vehicle.duration_in_seconds();
         let remaining_duration : i64 = self.connections.iter()
                 .map(|(_,_,vehicle_section)| vehicle_section.duration_in_seconds())
@@ -560,15 +612,15 @@ impl Response {
         first_vehicle_duration + remaining_duration
     }
 
-    fn nb_of_transfers(&self) -> usize {
+    pub fn nb_of_transfers(&self) -> usize {
         self.connections.len()
     }
 
-    fn first_vehicle_board_datetime(&self) -> NaiveDateTime {
+    pub fn first_vehicle_board_datetime(&self) -> NaiveDateTime {
         self.first_vehicle.from_datetime
     }
 
-    fn last_vehicle_debark_datetime(&self) -> NaiveDateTime {
+    pub fn last_vehicle_debark_datetime(&self) -> NaiveDateTime {
         let last_vehicle_section = self
             .connections
             .last()
@@ -577,5 +629,25 @@ impl Response {
         last_vehicle_section.to_datetime
 
     }
+
+    pub fn total_transfer_duration(&self) -> i64 {
+        self.connections.iter()
+            .map(|(transfer_section, _, _)| transfer_section.duration_in_seconds())
+            .sum()
+    }
+
+    pub fn total_fallback_duration(&self) -> i64 {
+        self.departure.duration_in_seconds() + self.arrival.duration_in_seconds()
+    }
+
+    pub fn total_walking_duration(&self) -> i64 {
+        self.total_fallback_duration() + self.total_transfer_duration()
+    }
+
+    pub fn total_duration(&self) -> i64 {
+        let duration = self.arrival.to_datetime - self.departure.from_datetime;
+        duration.num_seconds()
+    }
+
 
 }
