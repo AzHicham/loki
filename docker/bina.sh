@@ -16,8 +16,8 @@ python3 ./navitia/source/eitri/eitri.py -d $dir/ntfs -e /usr/bin -o $dir/data.na
 instance="mon_instance"
 
 krakenPort="30000"
-loadsPort="30001"
-classicPort="30002"
+laxatipsBasicPort="30001"
+laxatipsLoadsPort="30002"
 
 
 mkdir -p $dir/jormun_conf/
@@ -29,14 +29,14 @@ jq -n --arg instance "${instance}_kraken" --arg krakenSocket "tcp://kraken:${kra
     key: $instance, 
     zmq_socket: $krakenSocket
 }'  > $dir/jormun_conf/$instance.json
-# one for "laxatips" with loads criteria
-jq -n --arg instance "${instance}_laxatips_loads" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${loadsPort}" '{ 
+# one for "laxatips" with loads comparator
+jq -n --arg instance "${instance}_laxatips_loads" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${laxatipsLoadsPort}" '{ 
     key: $instance, 
     zmq_socket: $krakenSocket, 
     pt_zmq_socket : $laxatipsSocket 
 }'  > $dir/jormun_conf/${instance}_loads.json
-# one for "laxatips" with classic criteria
-jq -n --arg instance "${instance}_laxatips_classic" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${classicPort}" '{ 
+# one for "laxatips" with basic comparator
+jq -n --arg instance "${instance}_laxatips_basic" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${laxatipsBasicPort}" '{ 
     key: $instance, 
     zmq_socket: $krakenSocket, 
     pt_zmq_socket : $laxatipsSocket 
@@ -57,20 +57,14 @@ password = guest
 
 # Laxatips config files
 # one for the coverage with loads criteria
-jq -n --arg laxatipsSocket "tcp://*:$loadsPort" '{
+jq -n --arg basicSocket "tcp://*:$basicPort" --arg loadsSocket "tcp://*:*$loadsPort" '{
   ntfs_path: "/data/ntfs/",
   loads_data_path: "/data/stoptimes_loads.csv",
-  socket: $laxatipsSocket,
-  request_type: "loads",
-  implem: "loads_periodic"
-}' > $dir/laxatips_conf/loads.json
-# one for the coverage with classic criteria
-jq -n --arg laxatipsSocket "tcp://*:$classicPort"  '{
-  ntfs_path: "/data/ntfs/",
-  loads_data_path: "/data/stoptimes_loads.csv",
-  socket: $laxatipsSocket,
-  request_type: "classic",
-  implem: "periodic"
-}' > $dir/laxatips_conf/classic.json
+  basic_requests_socket: $basicSocket,
+  loads_requests_socket: $loadsSocket,
+  data_implem: "loads_periodic",
+  criteria_implem: "loads"
+}' > $dir/laxatips_conf/config.json
+
 
 chmod -R 777 $dir

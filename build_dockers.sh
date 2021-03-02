@@ -148,7 +148,6 @@ unzip -q ./tmp/${inside_archive} -d ./tmp/
 
 # we need some files to build the dockers
 cp docker/bina.sh ./tmp/
-cp docker/launch.sh ./tmp/
 
 # build the docker for binarisation
 run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/

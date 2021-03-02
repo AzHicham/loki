@@ -8,11 +8,8 @@ FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libzmq3-dev && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/laxatips_server /usr/local/bin/laxatips_server
 
-COPY ./docker/launch.sh /launch.sh
-RUN chmod +x /launch.sh
-
 VOLUME /data
-CMD ["/usr/local/bin/laxatips_server", "config_file", "/data/laxatips_conf/classic.json"]
-# CMD ["/launch.sh"]
+CMD ["/usr/local/bin/laxatips_server", "config_file", "/data/laxatips_conf/config.json"]
+
 
 
