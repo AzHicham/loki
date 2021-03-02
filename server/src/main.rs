@@ -54,7 +54,6 @@ pub struct ConfigFile {
 }
 
 #[derive(StructOpt, Deserialize)]
-
 pub struct Config {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -65,9 +64,9 @@ pub struct Config {
     loads_data_path: PathBuf,
 
     /// zmq socket to listen for protobuf requests
-    /// that will be handled with "classic" comparator
+    /// that will be handled with "basic" comparator
     #[structopt(long)]
-    classic_requests_socket: String,
+    basic_requests_socket: String,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "loads" comparator
@@ -88,22 +87,27 @@ pub struct Config {
 
     /// The default transfer duration between a stop point and itself
     #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
+    #[serde(default ="config::default_transfer_duration")]
     default_transfer_duration : PositiveDuration,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
+    #[serde(default ="config::default_leg_arrival_penalty")]
     leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
+    #[serde(default ="config::default_leg_walking_penalty")]
     leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
+    #[serde(default ="config::default_max_nb_of_legs")]
     max_nb_of_legs: u8,
 
     /// maximum duration of a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
+    #[serde(default ="config::default_max_journey_duration")]
     max_journey_duration: PositiveDuration,
 }
 
@@ -192,12 +196,12 @@ where
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
-    let classic_requests_socket = context.socket(zmq::REP)
+    let basic_requests_socket = context.socket(zmq::REP)
         .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
 
-    classic_requests_socket
-        .bind(&config.classic_requests_socket)
-        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.classic_requests_socket, err))?;
+    basic_requests_socket
+        .bind(&config.basic_requests_socket)
+        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.basic_requests_socket, err))?;
 
     let loads_requests_socket = context.socket(zmq::REP)
         .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
@@ -214,14 +218,14 @@ where
     let mut response_bytes: Vec<u8> = Vec::new();
     loop {
         let mut items = [
-            classic_requests_socket.as_poll_item(zmq::POLLIN),
+            basic_requests_socket.as_poll_item(zmq::POLLIN),
             loads_requests_socket.as_poll_item(zmq::POLLIN),
         ];
         zmq::poll(&mut items, -1)
             .map_err(|err| format_err!("Error while polling zmq sockets : {}", err))?;
 
         if items[0].is_readable()  {
-            let socket = &classic_requests_socket;
+            let socket = &basic_requests_socket;
             let comparator_type = config::ComparatorType::Basic;
             let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, comparator_type);
             let result = respond(solve_result, model, & mut response_bytes, socket);

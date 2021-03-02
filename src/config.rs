@@ -6,6 +6,10 @@ use crate::PositiveDuration;
 
 pub const DEFAULT_TRANSFER_DURATION : & str = "00:01:00";
 
+pub fn default_transfer_duration() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DataImplem {
@@ -142,6 +146,22 @@ pub const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 pub const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
 pub const DEFAULT_MAX_NB_LEGS: &str = "10";
 pub const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
+
+pub fn default_leg_arrival_penalty() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap()
+}
+
+pub fn default_leg_walking_penalty() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_LEG_WALKING_PENALTY).unwrap()
+}
+
+pub fn default_max_nb_of_legs() -> u8 {
+    u8::from_str(DEFAULT_MAX_NB_LEGS).unwrap()
+}
+
+pub fn default_max_journey_duration() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_MAX_JOURNEY_DURATION).unwrap()
+}
 
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey

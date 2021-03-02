@@ -41,7 +41,7 @@ pub struct Calendar {
                            // we allow at most MAX_DAYS_IN_CALENDAR days
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, serde::Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }
@@ -90,7 +90,20 @@ impl std::str::FromStr for PositiveDuration {
     }
 }
 
+
+impl<'de> serde::Deserialize<'de> for PositiveDuration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+            let s = String::deserialize(deserializer)?;
+    
+            use std::str::FromStr;
+            Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 impl PositiveDuration {
+
     pub fn zero() -> Self {
         Self { seconds: 0 }
     }
