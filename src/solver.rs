@@ -25,7 +25,7 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for BasicCriteriaSolver<'d
         data : & 'data Data,
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
-        request_type : config::RequestType,
+        comparator_type : & config::ComparatorType,
     ) -> Vec<response::Response>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,
@@ -34,12 +34,12 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for BasicCriteriaSolver<'d
     D : AsRef<str>,
     Data : traits::DataWithIters,
     {
-        match request_type {
-            config::RequestType::LoadsDepartAfter => {
+        match comparator_type {
+            config::ComparatorType::Loads => {
                 let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
                 solve_request_inner(& mut self.engine, &request, data, model)
             }
-            config::RequestType::BasicDepartAfter => {
+            config::ComparatorType::Basic => {
                 let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
                 solve_request_inner(& mut self.engine, &request, data, model)
             }
@@ -69,7 +69,7 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for LoadsCriteriaSolver<'d
         data : & 'data Data,
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
-        request_type : config::RequestType,
+        comparator_type : & config::ComparatorType,
     ) -> Vec<response::Response>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,
@@ -78,12 +78,12 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for LoadsCriteriaSolver<'d
     D : AsRef<str>,
     Data : traits::DataWithIters,
     {
-        match request_type {
-            config::RequestType::LoadsDepartAfter => {
+        match comparator_type {
+            config::ComparatorType::Loads => {
                 let request = loads_criteria::depart_after::loads_comparator::Request::new(model, data, request_input).unwrap();
                 solve_request_inner(& mut self.engine, &request, data, model)
             }
-            config::RequestType::BasicDepartAfter => {
+            config::ComparatorType::Basic => {
                 let request = loads_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
                 solve_request_inner(& mut self.engine, &request, data, model)
             }

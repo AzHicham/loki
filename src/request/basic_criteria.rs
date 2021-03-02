@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{PositiveDuration, solver, time::SecondsSinceDatasetUTCStart, traits::{self, DataWithIters}};
+use crate::{PositiveDuration,  time::SecondsSinceDatasetUTCStart, traits::{self}};
 
 pub mod depart_after;
 

@@ -1,16 +1,11 @@
-use laxatips::{
-    log::{debug, info, trace},
-    response,
-    transit_model::Model,
-};
-use laxatips::{transit_model, LoadsData};
-use laxatips::{MultiCriteriaRaptor, PositiveDuration};
-use laxatips::config::Implem;
-
-use laxatips::traits;
+use laxatips::{config::RequestParams, log::{  trace}, response, traits::RequestInput, transit_model::Model};
+use laxatips::{transit_model, };
+use laxatips::{PositiveDuration};
 use laxatips::config;
 
-use log::warn;
+use laxatips::traits;
+
+
 use slog::slog_o;
 use slog::Drain;
 use slog_async::OverflowStrategy;
@@ -22,7 +17,7 @@ use std::{
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
-use std::time::SystemTime;
+
 
 use structopt::StructOpt;
 
@@ -30,39 +25,35 @@ pub mod stop_areas;
 
 pub mod random;
 
-const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
-const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
-const DEFAULT_MAX_NB_LEGS: &str = "10";
-const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct RequestConfig {
     /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
+    #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
     pub leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
-    #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
+    #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
     pub leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
-    #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
+    #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
-    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
+    #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
     pub max_journey_duration: PositiveDuration,
 }
 
 impl Default for RequestConfig {
     fn default() -> Self {
-        let max_nb_of_legs: u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
+        let max_nb_of_legs: u8 = FromStr::from_str(config::DEFAULT_MAX_NB_LEGS).unwrap();
         Self {
-            leg_arrival_penalty: FromStr::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap(),
-            leg_walking_penalty: FromStr::from_str(DEFAULT_LEG_WALKING_PENALTY).unwrap(),
+            leg_arrival_penalty: FromStr::from_str(config::DEFAULT_LEG_ARRIVAL_PENALTY).unwrap(),
+            leg_walking_penalty: FromStr::from_str(config::DEFAULT_LEG_WALKING_PENALTY).unwrap(),
             max_nb_of_legs,
-            max_journey_duration: FromStr::from_str(DEFAULT_MAX_JOURNEY_DURATION).unwrap(),
+            max_journey_duration: FromStr::from_str(config::DEFAULT_MAX_JOURNEY_DURATION).unwrap(),
         }
     }
 }
@@ -94,6 +85,10 @@ pub struct BaseOptions {
     #[structopt(short = "l", long = "loads_data")]
     pub loads_data_path: String,
 
+    /// The default transfer duration between a stop point and itself
+    #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
+    pub default_transfer_duration : PositiveDuration,
+
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
@@ -103,13 +98,18 @@ pub struct BaseOptions {
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
-    #[structopt(long, default_value = "periodic")]
-    pub implem: Implem,
+    #[structopt(long, default_value = "loads_periodic")]
+    pub data_implem: config::DataImplem,
 
-    /// Type of request to make :
+    /// Type used for storage of criteria
     /// "classic" or "loads"
-    #[structopt(long, default_value = "classic")]
-    pub request_type: config::RequestType,
+    #[structopt(long, default_value = "loads")]
+    pub criteria_implem: config::CriteriaImplem,
+
+    /// Which comparator to use for the request
+    /// "basic" or "loads"
+    #[structopt(long, default_value = "loads")]
+    pub comparator_type: config::ComparatorType,
 }
 
 impl Display for BaseOptions {
@@ -120,12 +120,13 @@ impl Display for BaseOptions {
         };
         write!(
             f,
-            "--ntfs {} --loads_data {} {} --implem {} --request_type {} {}",
+            "--ntfs {} --loads_data {} {} --data_implem {} --criteria_implem {} --comparator_type {} {}",
             self.ntfs_path,
             self.loads_data_path,
             departure_option,
-            self.implem,
-            self.request_type,
+            self.data_implem,
+            self.criteria_implem,
+            self.comparator_type,
             self.request_config.to_string()
         )
     }
@@ -193,65 +194,18 @@ pub fn parse_datetime(string_datetime: &str) -> Result<NaiveDateTime, Error> {
     }
 }
 
-pub fn build<Data>(ntfs_path: &str, loads_data_path: &str) -> Result<(Data, Model), Error>
-where
-    Data: traits::Data,
-{
-    let model = transit_model::ntfs::read(ntfs_path)?;
-    info!("Transit model loaded");
-    info!(
-        "Number of vehicle journeys : {}",
-        model.vehicle_journeys.len()
-    );
-    info!("Number of routes : {}", model.routes.len());
-
-    let loads_data = LoadsData::new(&loads_data_path, &model).unwrap_or_else(|err| {
-        warn!(
-            "Error while reading the passenger loads file at {:?} : {:?}",
-            &loads_data_path,
-            err.source()
-        );
-        warn!("I'll use default loads.");
-        LoadsData::empty()
-    });
-
-    let data_timer = SystemTime::now();
-    let default_transfer_duration = PositiveDuration::from_hms(0, 0, 60);
-    let data = Data::new(&model, &loads_data, default_transfer_duration);
-    let data_build_time = data_timer.elapsed().unwrap().as_millis();
-    info!("Data constructed");
-    info!("Data build duration {} ms", data_build_time);
-    info!("Number of missions {} ", data.nb_of_missions());
-    info!("Number of trips {} ", data.nb_of_trips());
-    info!(
-        "Validity dates between {} and {}",
-        data.calendar().first_date(),
-        data.calendar().last_date()
-    );
-    Ok((data, model))
-}
-
-pub fn solve<'data, Data, R>(
+pub fn solve<'data, Data, Solver>(
     start_stop_area_uri: &str,
     end_stop_area_uri: &str,
-    engine: &mut MultiCriteriaRaptor<R>, // &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
+    solver: &mut Solver, // &mut MultiCriteriaRaptor<DepartAfter<'data, Data>>,
     model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
-    leg_arrival_penalty: &PositiveDuration,
-    leg_walking_penalty: &PositiveDuration,
-    max_duration_to_arrival: &PositiveDuration,
-    max_nb_of_legs: u8,
-) -> Result<Vec<response::Journey<Data>>, Error>
+    options : &BaseOptions,
+) -> Result<Vec<response::Response>, Error>
 where
-    R: traits::RequestWithIters + traits::RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
-    R::Criteria: Debug,
+    Solver : traits::Solver<'data, Data>,
+    Data : traits::DataWithIters,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -260,48 +214,30 @@ where
     );
     let (start_stop_point_uris, end_stop_point_uris) =
         make_query_stop_area(model, start_stop_area_uri, end_stop_area_uri)?;
-    let start_stops = start_stop_point_uris
+    let departures_stop_point_and_fallback_duration = start_stop_point_uris
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let end_stops = end_stop_point_uris
+    let arrivals_stop_point_and_fallback_duration = end_stop_point_uris
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request = R::new(
-        model,
-        data,
-        *departure_datetime,
-        start_stops,
-        end_stops,
-        *leg_arrival_penalty,
-        *leg_walking_penalty,
-        *max_duration_to_arrival,
-        max_nb_of_legs,
-    )?;
+    let request_config = &options.request_config;
+    let params = RequestParams {
+        leg_arrival_penalty: request_config.leg_arrival_penalty,
+        leg_walking_penalty: request_config.leg_walking_penalty,
+        max_nb_of_legs : request_config.max_nb_of_legs,
+        max_journey_duration : request_config.max_journey_duration,
+    };
 
-    debug!("Start computing journey");
-    let request_timer = SystemTime::now();
-    engine.compute(&request);
-    debug!(
-        "Journeys computed in {} ms with {} rounds",
-        request_timer.elapsed().unwrap().as_millis(),
-        engine.nb_of_rounds()
-    );
-    debug!("Nb of journeys found : {}", engine.nb_of_journeys());
-    debug!("Tree size : {:#}", engine.tree_size());
-    let mut responses = Vec::new();
-    for pt_journey in engine.responses() {
-        let response = request.create_response(data, pt_journey);
-        match response {
-            Ok(journey) => {
-                responses.push(journey);
-            }
-            Err(_) => {
-                trace!("An error occured while converting an engine journey to response.");
-            }
-        };
-    }
+    let request_input = RequestInput {
+        departure_datetime : *departure_datetime,
+        departures_stop_point_and_fallback_duration,
+        arrivals_stop_point_and_fallback_duration,
+        params
+    };
+
+    let responses = solver.solve_request(data, model, request_input, &options.comparator_type);
 
     Ok(responses)
 }

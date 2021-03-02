@@ -36,4 +36,6 @@ pub mod config;
 
 pub mod solver;
 
+pub mod launch_utils;
+
 pub type Response = response::Response;

@@ -3,7 +3,7 @@
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };
-use crate::{MultiCriteriaRaptor, config, loads_data::{Load, LoadsData}, response, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::{config, loads_data::{Load, LoadsData}, response, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -472,7 +472,7 @@ pub trait Solver<'data, Data> {
         data : & 'data Data,
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
-        request_type : config::RequestType,
+        comparator : & config::ComparatorType,
     ) -> Vec<response::Response>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,

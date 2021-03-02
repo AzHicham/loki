@@ -23,17 +23,17 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     let options = Options::from_args();
-    match options.base.implem {
-        config::Implem::Periodic => {
+    match options.base.data_implem {
+        config::DataImplem::Periodic => {
             launch::<PeriodicData>(options)?;
         }
-        config::Implem::Daily => {
+        config::DataImplem::Daily => {
             launch::<DailyData>(options)?;
         }
-        config::Implem::LoadsPeriodic => {
+        config::DataImplem::LoadsPeriodic => {
             launch::<LoadsPeriodicData>(options)?;
         }
-        config::Implem::LoadsDaily => {
+        config::DataImplem::LoadsDaily => {
             launch::<LoadsDailyData>(options)?;
         }
     };

@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use failure::Error;
-use laxatips::LoadsPeriodicData;
+use laxatips::{LoadsPeriodicData, PositiveDuration};
 use laxatips::config;
 
 use laxatips_cli::stop_areas::{launch, Options};
@@ -23,14 +25,17 @@ fn test_loads_matin() -> Result<(), Error> {
     //  - one with `midi` as it has a lighter load than `matin`
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
+    let default_transfer_duration = PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
     let request_config = RequestConfig::default();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
-        implem: config::Implem::LoadsDaily,
-        request_type: config::RequestType::Loads,
+        default_transfer_duration,
+        data_implem: config::DataImplem::LoadsDaily,
+        criteria_implem: config::CriteriaImplem::Loads,
+        comparator_type: config::ComparatorType::Loads,
     };
 
     let options = Options {
@@ -56,14 +61,17 @@ fn test_loads_midi() -> Result<(), Error> {
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
+    let default_transfer_duration = PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
     let request_config = RequestConfig::default();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T100000".to_string()),
         request_config,
-        implem: config::Implem::LoadsDaily,
-        request_type: config::RequestType::Loads,
+        default_transfer_duration,
+        data_implem: config::DataImplem::LoadsDaily,
+        criteria_implem: config::CriteriaImplem::Loads,
+        comparator_type: config::ComparatorType::Loads,
     };
 
     let options = Options {
@@ -88,13 +96,16 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
     let request_config = RequestConfig::default();
+    let default_transfer_duration = PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
         loads_data_path: "tests/one_line/loads.csv".to_string(),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
-        implem: config::Implem::LoadsDaily,
-        request_type: config::RequestType::Classic,
+        default_transfer_duration,
+        data_implem: config::DataImplem::LoadsDaily,
+        criteria_implem: config::CriteriaImplem::Loads,
+        comparator_type: config::ComparatorType::Basic,
     };
 
     let options = Options {

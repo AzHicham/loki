@@ -8,7 +8,7 @@ use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
 
 use std::fmt::Debug;
@@ -21,6 +21,7 @@ pub struct Response {
     pub first_vehicle: VehicleSection,
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
     pub arrival : ArrivalSection,
+    pub loads_count : LoadsCount,
 }
 
 pub struct VehicleSection {
@@ -418,6 +419,7 @@ impl<Data: traits::Data> Journey<Data> {
             first_vehicle: self.first_vehicle_section(data),
             connections: self.connections(data).collect(),
             arrival : self.arrival_section(data),
+            loads_count : self.loads_count.clone(),
         }
     }
 
@@ -575,6 +577,39 @@ impl VehicleSection {
         let duration = self.to_datetime - self.from_datetime;
         duration.num_seconds()
     }
+
+
+    fn write<Writer: std::fmt::Write>(
+        &self,
+        model: &Model,
+        writer: &mut Writer,
+    ) -> Result<(), std::fmt::Error> {
+        let vehicle_journey_idx = self.vehicle_journey;
+        let route_id = &model.vehicle_journeys[vehicle_journey_idx].route_id;
+        let route = &model.routes.get(route_id).unwrap();
+        let line = &model.lines.get(&route.line_id).unwrap();
+
+
+
+        let from_stoptime = &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
+        let to_stoptime = &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
+
+        let from_stop_idx = &from_stoptime.stop_point_idx;
+        let to_stop_idx = &to_stoptime.stop_point_idx;
+        let from_stop_id = &model.stop_points[*from_stop_idx].id;
+        let to_stop_id = &model.stop_points[*to_stop_idx].id;
+
+
+        let from_datetime = write_date(&self.from_datetime);
+        let to_datetime = write_date(&self.to_datetime);
+        writeln!(
+            writer,
+            "{} from {} at {} to {} at {} ",
+            line.id, from_stop_id, from_datetime, to_stop_id, to_datetime
+        )?;
+        Ok(())
+    }
+
 }
 
 impl TransferSection {
@@ -649,5 +684,81 @@ impl Response {
         duration.num_seconds()
     }
 
+    pub fn nb_of_vehicles(&self) -> usize {
+        self.connections.len() + 1
+    }
 
+
+    pub fn print(&self, model: &Model) -> Result<String, std::fmt::Error> {
+        let mut result = String::new();
+        self.write(model, &mut result)?;
+        Ok(result)
+    }
+
+
+    pub fn write<Writer: std::fmt::Write>(
+        &self,
+        model: &Model,
+        writer: &mut Writer,
+    ) -> Result<(), std::fmt::Error> {
+        writeln!(writer, "*** New journey ***")?;
+        let arrival_datetime = self.arrival.to_datetime;
+        writeln!(writer, "Arrival : {}", write_date(&arrival_datetime))?;
+        writeln!(writer, "Transfer duration : {}", write_duration(self.total_transfer_duration()))?;
+        writeln!(writer, "Nb of vehicles : {}", self.nb_of_vehicles())?;
+        writeln!(
+            writer,
+            "Fallback total: {}, start {}, end {}",
+            write_duration(self.total_fallback_duration()),
+            write_duration(self.departure.duration_in_seconds()),
+            write_duration(self.arrival.duration_in_seconds())
+        )?;
+        writeln!(
+            writer,
+            "Loads : High {}; Medium {}; Low {}; total {}",
+            self.loads_count.high,
+            self.loads_count.medium,
+            self.loads_count.low,
+            self.loads_count.total()
+        )?;
+
+        writeln!(
+            writer,
+            "Departure : {}",
+            write_date(&self.departure.from_datetime)
+        )?;
+
+        self.first_vehicle.write(model, writer)?;
+        for (_, _, vehicle) in self.connections.iter() {
+            vehicle.write(model, writer)?;
+
+        }
+
+        Ok(())
+    }
+
+    
+
+}
+
+fn write_date(date: &NaiveDateTime) -> String {
+    date.format("%H:%M:%S %d-%b-%y").to_string()
+}
+
+
+
+fn write_duration(seconds : i64) -> String
+  {
+    let hours = seconds / (60 * 60);
+    let minutes_in_secs = seconds % (60 * 60);
+    let minutes = minutes_in_secs / 60;
+    let seconds = minutes_in_secs % 60;
+    if hours != 0 {
+        format!("{}h{:02}m{:02}s", hours, minutes, seconds)
+    } else if minutes != 0 {
+        format!("{}m{:02}s", minutes, seconds)
+    } else {
+        format!("{}s", seconds)
+    }
+    
 }

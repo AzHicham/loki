@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 use crate::PositiveDuration;
 
+pub const DEFAULT_TRANSFER_DURATION : & str = "00:01:00";
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DataImplem {
@@ -99,27 +101,27 @@ impl std::fmt::Display for CriteriaImplemConfigError {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RequestType {
-    LoadsDepartAfter,
-    BasicDepartAfter,
+pub enum ComparatorType {
+    Loads,
+    Basic,
 }
-impl std::str::FromStr for RequestType {
+impl std::str::FromStr for ComparatorType {
     type Err = RequestTypeConfigError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let request_type = match s {
-            "loads" => RequestType::LoadsDepartAfter,
-            "classic" => RequestType::BasicDepartAfter,
+            "loads" => ComparatorType::Loads,
+            "basic" => ComparatorType::Basic,
             _ => Err(RequestTypeConfigError{ request_type_name : s.to_string() })?,
         };
         Ok(request_type)
     }
 }
 
-impl std::fmt::Display for RequestType {
+impl std::fmt::Display for ComparatorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RequestType::LoadsDepartAfter => write!(f, "loads"),
-            RequestType::BasicDepartAfter => write!(f, "basic"),
+            ComparatorType::Loads => write!(f, "loads"),
+            ComparatorType::Basic => write!(f, "basic"),
         }
     }
 }
@@ -135,7 +137,6 @@ impl std::fmt::Display for RequestTypeConfigError {
         write!(f, "Bad request type given : `{}`", self.request_type_name)
     }
 }
-
 
 pub const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 pub const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";

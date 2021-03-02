@@ -1,19 +1,17 @@
-use laxatips::{log::info, request, response, transit_model::Model};
+use laxatips::{  solver, transit_model::Model};
 
-use laxatips::{MultiCriteriaRaptor};
 
 use laxatips::{traits, config};
-use log::trace;
+use log::{trace, info, error};
 
 use std::fmt::{Debug, Display};
-use traits::{RequestIO, RequestWithIters};
 
 use failure::{Error};
 use std::time::SystemTime;
 
 use structopt::StructOpt;
 
-use crate::{build, parse_datetime, solve, BaseOptions};
+use crate::{parse_datetime, solve, BaseOptions};
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -44,35 +42,33 @@ impl Display for Options {
     }
 }
 
-pub fn launch<Data>(options: Options) -> Result<(Model, Vec<response::Response>), Error>
+pub fn launch<Data>(options: Options) -> Result<(Model, Vec<laxatips::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = build(&options.base.ntfs_path, &options.base.loads_data_path)?;
-    let responses = match options.base.request_type {
-        config::RequestType::Classic => build_engine_and_solve::<Data, request::basic_criteria::depart_after::classic_comparator::Request<Data> >(&model, &data, &options)?,
-        config::RequestType::Loads => build_engine_and_solve::<Data, request::loads_criteria::depart_after::loads_comparator::Request<Data> >(&model, &data, &options)?,
+    let (data, model) = laxatips::launch_utils::read_ntfs(
+        &options.base.ntfs_path, 
+        &options.base.loads_data_path,
+        &options.base.default_transfer_duration
+    )?;
+    let responses = match options.base.criteria_implem {
+        config::CriteriaImplem::Basic => build_engine_and_solve::<Data, solver::BasicCriteriaSolver<'_, Data> >(&model, &data, &options),
+        config::CriteriaImplem::Loads => build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<'_, Data>  >(&model, &data, &options),
     };
-    Ok((model, responses))
+    responses.map(|responses| (model, responses))
 }
 
-fn build_engine_and_solve<'data, Data, R>(
+fn build_engine_and_solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
     options: &Options,
-) -> Result<Vec<response::Response>, Error>
+) -> Result<Vec<laxatips::Response>, Error>
 where
-    R: RequestWithIters + RequestIO<'data, Data>,
-    Data: traits::DataWithIters<
-        Position = R::Position,
-        Mission = R::Mission,
-        Stop = R::Stop,
-        Trip = R::Trip,
-    >,
-    R::Criteria: Debug,
+    Data: traits::DataWithIters,
+    Solver : traits::Solver<'data, Data> 
 {
-    let nb_of_stops = data.nb_of_stops();
-    let nb_of_missions = data.nb_of_missions();
+
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let departure_datetime = match &options.base.departure_datetime {
         Some(string_datetime) => parse_datetime(&string_datetime)?,
@@ -82,43 +78,35 @@ where
         }
     };
 
-    let request_config = &options.base.request_config;
-
-    let leg_arrival_penalty = &request_config.leg_arrival_penalty;
-    let leg_walking_penalty = &request_config.leg_walking_penalty;
-    let max_journey_duration = &request_config.max_journey_duration;
-    let max_nb_of_legs: u8 = request_config.max_nb_of_legs;
-    let mut raptor = MultiCriteriaRaptor::<R>::new(nb_of_stops, nb_of_missions);
-
     let compute_timer = SystemTime::now();
 
     let start_stop_area_uri = &options.start;
     let end_stop_area_uri = &options.end;
 
-    let journeys = solve(
+    let solve_result = solve(
         start_stop_area_uri,
         end_stop_area_uri,
-        &mut raptor,
+        &mut solver,
         model,
         data,
         &departure_datetime,
-        &leg_arrival_penalty,
-        &leg_walking_penalty,
-        &max_journey_duration,
-        max_nb_of_legs,
-    )?;
+        &options.base,
+    );
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
     info!("Duration : {} ms", duration as f64);
 
-    for journey in journeys.iter() {
-        trace!("{}", journey.print(data, model)?);
+    match &solve_result {
+        Err(err) => {
+            error!("Error while solving request : {}", err);
+        },
+        Ok(responses) => {
+            for response in responses.iter() {
+                trace!("{}", response.print(model)?);
+            }
+
+        }
     }
 
-    let responses = journeys
-        .into_iter()
-        .map(|journey| journey.to_response(data))
-        .collect();
-
-    Ok(responses)
+    solve_result
 }

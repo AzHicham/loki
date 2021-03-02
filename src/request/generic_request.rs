@@ -4,7 +4,6 @@ use crate::{
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
-use chrono::NaiveDateTime;
 use log::warn;
 use traits::{BadRequest, RequestTypes};
 

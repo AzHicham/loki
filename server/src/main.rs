@@ -5,13 +5,13 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::{config::RequestParams, request, solver, traits::{self,  RequestInput}};
+use laxatips::{config::RequestParams,  solver, traits::{self,  RequestInput}};
 use laxatips::transit_model;
 use laxatips::{
-    log::{debug, error, info, trace, warn},
-    LoadsDailyData, LoadsData, LoadsPeriodicData,
+    log::{error, info,  warn},
+    LoadsDailyData,  LoadsPeriodicData,
 };
-use laxatips::{DailyData, MultiCriteriaRaptor, PeriodicData, PositiveDuration};
+use laxatips::{DailyData, PeriodicData, PositiveDuration};
 use laxatips::config;
 
 use prost::Message;
@@ -26,21 +26,13 @@ use slog::Drain;
 use slog_async::OverflowStrategy;
 
 use failure::{bail, format_err, Error};
-use std::time::SystemTime;
+
 
 use std::convert::TryFrom;
 
 use serde::Deserialize;
 
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
 
-
-const DEFAULT_MAX_DURATION: PositiveDuration = PositiveDuration::from_hms(24, 0, 0);
-const DEFAULT_TRANSFER_DURATION: PositiveDuration = PositiveDuration::from_hms(0, 0, 60);
-const DEFAULT_MAX_NB_LEGS: u8 = 10;
 
 
 #[derive(StructOpt)]
@@ -62,6 +54,7 @@ pub struct ConfigFile {
 }
 
 #[derive(StructOpt, Deserialize)]
+
 pub struct Config {
     /// directory of ntfs files to load
     #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
@@ -73,41 +66,45 @@ pub struct Config {
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "classic" comparator
-    #[structopt(short = "s", long)]
+    #[structopt(long)]
     classic_requests_socket: String,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "loads" comparator
-    #[structopt(short = "s", long)]
+    #[structopt(long)]
     loads_requests_socket: Option<String>,
     
 
-    /// Type of request to make :
+    /// Type used for storage of criteria
     /// "classic" or "loads"
-    #[structopt(long, default_value = "classic")]
+    #[structopt(long, default_value = "loads")]
     criteria_implem: config::CriteriaImplem,
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
-    #[structopt(long, default_value = "periodic")]
+    #[structopt(long, default_value = "loads_periodic")]
     data_implem: config::DataImplem,
+
+    /// The default transfer duration between a stop point and itself
+    #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
+    default_transfer_duration : PositiveDuration,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
-    pub leg_arrival_penalty: PositiveDuration,
+    leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
-    pub leg_walking_penalty: PositiveDuration,
+    leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
-    pub max_nb_of_legs: u8,
+    max_nb_of_legs: u8,
 
     /// maximum duration of a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
-    pub max_journey_duration: PositiveDuration,
+    max_journey_duration: PositiveDuration,
 }
 
 
@@ -173,10 +170,10 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = read_ntfs::<Data>(&config)?;
+    let (data, model) = laxatips::launch_utils::read_ntfs::<Data, _, _>(&config.ntfs_path, &config.loads_data_path, &config.default_transfer_duration)?;
 
     match config.criteria_implem{
-        config::CriteriaImplem::Basic => server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config),
+        config::CriteriaImplem::Basic => server_loop::<Data, solver::BasicCriteriaSolver<'_, Data> >(&model, &data, &config),
         config::CriteriaImplem::Loads => server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data> >(&model, &data, &config),
 
     }
@@ -225,8 +222,8 @@ where
 
         if items[0].is_readable()  {
             let socket = &classic_requests_socket;
-            let request_type = config::RequestType::BasicDepartAfter;
-            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, request_type);
+            let comparator_type = config::ComparatorType::Basic;
+            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, comparator_type);
             let result = respond(solve_result, model, & mut response_bytes, socket);
             result.err().map(|err|{
                 error!("Error while sending zmq response : {}", err)
@@ -235,8 +232,8 @@ where
         
         if items[1].is_readable()  {
             let socket = &loads_requests_socket;
-            let request_type = config::RequestType::LoadsDepartAfter;
-            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, request_type);
+            let comparator_type = config::ComparatorType::Loads;
+            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, comparator_type);
             let result = respond(solve_result, model, & mut response_bytes, socket);
             result.err().map(|err|{
                 error!("Error while sending zmq response : {}", err)
@@ -246,45 +243,6 @@ where
 }
 
 
-fn read_ntfs<Data>(config: &Config) -> Result<(Data, Model), Error>
-where
-    Data: traits::Data,
-{
-    let model = transit_model::ntfs::read(&config.ntfs_path)?;
-    info!("Transit model loaded");
-    info!(
-        "Number of vehicle journeys : {}",
-        model.vehicle_journeys.len()
-    );
-    info!("Number of routes : {}", model.routes.len());
-
-    let loads_data_path = &config.loads_data_path;
-    let loads_data = LoadsData::new(&loads_data_path, &model).unwrap_or_else(|err| {
-        warn!(
-            "Error while reading the passenger loads file at {:?} : {:?}",
-            &loads_data_path,
-            err.source()
-        );
-        warn!("I'll use default loads.");
-        LoadsData::empty()
-    });
-
-    let data_timer = SystemTime::now();
-    let default_transfer_duration = DEFAULT_TRANSFER_DURATION;
-    let data = Data::new(&model, &loads_data, default_transfer_duration);
-    let data_build_duration = data_timer.elapsed().unwrap().as_millis();
-    info!("Data constructed in {} ms", data_build_duration);
-    info!("Number of missions {} ", data.nb_of_missions());
-    info!("Number of trips {} ", data.nb_of_trips());
-    info!(
-        "Validity dates between {} and {}",
-        data.calendar().first_date(),
-        data.calendar().last_date()
-    );
-
-    Ok((data, model))
-}
-
 
 fn solve<'data, Data, Solver : traits::Solver<'data, Data>>(
     socket : & zmq::Socket,
@@ -293,7 +251,7 @@ fn solve<'data, Data, Solver : traits::Solver<'data, Data>>(
     model: &Model,
     solver : & mut Solver,
     config : & Config,
-    request_type : config::RequestType,
+    comparator_type : config::ComparatorType,
 ) -> Result<Vec<laxatips::response::Response>, Error>
 where
     Data: traits::DataWithIters
@@ -417,7 +375,7 @@ where
         params
     };
 
-    let responses = solver.solve_request(data, model, request_input, request_type);
+    let responses = solver.solve_request(data, model, request_input, &comparator_type);
     Ok(responses)
 }
 
