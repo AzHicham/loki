@@ -237,7 +237,7 @@ where
         params
     };
 
-    let responses = solver.solve_request(data, model, request_input, &options.comparator_type);
+    let responses = solver.solve_request(data, model, request_input, &options.comparator_type)?;
 
     Ok(responses)
 }

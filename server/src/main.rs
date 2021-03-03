@@ -213,6 +213,7 @@ where
     }
 
 
+    info!("Ready to receive requests");
 
     let mut zmq_message = zmq::Message::new();
     let mut response_bytes: Vec<u8> = Vec::new();
@@ -261,7 +262,7 @@ where
     Data: traits::DataWithIters
 {
     let proto_request = decode_zmq_message(socket, zmq_message)?;
-    info!("Received request {:?}", proto_request.request_id);
+    info!("Received request {:?} of type {:?}", proto_request.request_id, comparator_type);
 
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
@@ -289,7 +290,7 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
+            
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -297,12 +298,13 @@ where
                     warn!(
                         "The {}th departure stop point {} has a fallback duration {} \
                         that cannot be converted to u32. I ignore it",
-                        idx, stop_point_uri, location_context.access_duration
+                        idx, location_context.place, location_context.access_duration
                     );
                     None
                 })?;
-
-            Some((stop_point_uri, duration))
+            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
+            let prefixed = format!("StopPoint:{}", stop_point_uri);
+            Some((prefixed, duration))
     });
 
     let arrivals_stop_point_and_fallback_duration = journey_request
@@ -310,8 +312,7 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
-
+            
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -319,11 +320,13 @@ where
                     warn!(
                         "The {}th arrival stop point {} has a fallback duration {}\
                         that cannot be converted to u32. I ignore it",
-                        idx, stop_point_uri, location_context.access_duration
+                        idx, location_context.place, location_context.access_duration
                     );
                     None
                 })?;
-            Some((stop_point_uri, duration))
+            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
+            let prefixed = format!("StopPoint:{}", stop_point_uri);
+            Some((prefixed, duration))
         });
 
     let departure_timestamp_u64 = journey_request
@@ -379,7 +382,7 @@ where
         params
     };
 
-    let responses = solver.solve_request(data, model, request_input, &comparator_type);
+    let responses = solver.solve_request(data, model, request_input, &comparator_type)?;
     Ok(responses)
 }
 

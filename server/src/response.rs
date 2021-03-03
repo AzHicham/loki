@@ -228,10 +228,10 @@ fn make_stop_point_pt_object(
     model: &transit_model::Model,
 ) -> Result<navitia_proto::PtObject, Error> {
     let stop_point = &model.stop_points[stop_point_idx];
-
+    let stop_point_uri = stop_point.id.trim_start_matches("StopPoint:");
     let mut proto = navitia_proto::PtObject {
         name: stop_point.name.clone(),
-        uri: format!("stop_point:{}",stop_point.id.clone()),
+        uri: format!("stop_point:{}", stop_point_uri),
         stop_point: Some(make_stop_point(stop_point, model)?),
         ..Default::default()
     };

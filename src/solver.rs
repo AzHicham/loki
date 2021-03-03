@@ -2,7 +2,7 @@ use std::{fmt::Debug, time::SystemTime};
 
 use log::{debug, trace};
 
-use crate::{MultiCriteriaRaptor, PositiveDuration, config, response, traits::{self, RequestIO, RequestInput, RequestTypes, RequestWithIters, Solver}};
+use crate::{MultiCriteriaRaptor, PositiveDuration, config, response, traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters, Solver}};
 
 
 use crate::request::basic_criteria;
@@ -26,7 +26,7 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for BasicCriteriaSolver<'d
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
         comparator_type : & config::ComparatorType,
-    ) -> Vec<response::Response>
+    ) -> Result<Vec<response::Response>, BadRequest>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,
     Departures : Iterator<Item = (D, PositiveDuration)>,
@@ -36,12 +36,14 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for BasicCriteriaSolver<'d
     {
         match comparator_type {
             config::ComparatorType::Loads => {
-                let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
-                solve_request_inner(& mut self.engine, &request, data, model)
+                let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input)?;
+                let responses = solve_request_inner(& mut self.engine, &request, data, model);
+                Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
-                solve_request_inner(& mut self.engine, &request, data, model)
+                let request = basic_criteria::depart_after::classic_comparator::Request::new(model, data, request_input)?;
+                let responses = solve_request_inner(& mut self.engine, &request, data, model);
+                Ok(responses)
             }
         }
     }
@@ -70,7 +72,7 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for LoadsCriteriaSolver<'d
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
         comparator_type : & config::ComparatorType,
-    ) -> Vec<response::Response>
+    ) -> Result<Vec<response::Response>, BadRequest>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,
     Departures : Iterator<Item = (D, PositiveDuration)>,
@@ -80,12 +82,14 @@ impl<'data, Data : traits::Data > Solver<'data, Data> for LoadsCriteriaSolver<'d
     {
         match comparator_type {
             config::ComparatorType::Loads => {
-                let request = loads_criteria::depart_after::loads_comparator::Request::new(model, data, request_input).unwrap();
-                solve_request_inner(& mut self.engine, &request, data, model)
+                let request = loads_criteria::depart_after::loads_comparator::Request::new(model, data, request_input)?;
+                let responses = solve_request_inner(& mut self.engine, &request, data, model);
+                Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = loads_criteria::depart_after::classic_comparator::Request::new(model, data, request_input).unwrap();
-                solve_request_inner(& mut self.engine, &request, data, model)
+                let request = loads_criteria::depart_after::classic_comparator::Request::new(model, data, request_input)?;
+                let responses = solve_request_inner(& mut self.engine, &request, data, model);
+                Ok(responses)
             }
         }
     }

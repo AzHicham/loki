@@ -473,7 +473,7 @@ pub trait Solver<'data, Data> {
         model : & transit_model::Model,
         request_input : RequestInput<Departures, Arrivals, D, A>,
         comparator : & config::ComparatorType,
-    ) -> Vec<response::Response>
+    ) -> Result<Vec<response::Response>, BadRequest>
     where Self : Sized,
     Arrivals : Iterator<Item = (A, PositiveDuration)>,
     Departures : Iterator<Item = (D, PositiveDuration)>,
