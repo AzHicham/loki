@@ -1,12 +1,11 @@
-use laxatips::{  solver, transit_model::Model};
+use laxatips::{solver, transit_model::Model};
 
-
-use laxatips::{traits, config};
-use log::{trace, info, error};
+use laxatips::{config, traits};
+use log::{error, info, trace};
 
 use std::fmt::{Debug, Display};
 
-use failure::{Error};
+use failure::Error;
 use std::time::SystemTime;
 
 use structopt::StructOpt;
@@ -47,13 +46,19 @@ where
     Data: traits::DataWithIters,
 {
     let (data, model) = laxatips::launch_utils::read_ntfs(
-        &options.base.ntfs_path, 
+        &options.base.ntfs_path,
         &options.base.loads_data_path,
-        &options.base.default_transfer_duration
+        &options.base.default_transfer_duration,
     )?;
     let responses = match options.base.criteria_implem {
-        config::CriteriaImplem::Basic => build_engine_and_solve::<Data, solver::BasicCriteriaSolver<'_, Data> >(&model, &data, &options),
-        config::CriteriaImplem::Loads => build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<'_, Data>  >(&model, &data, &options),
+        config::CriteriaImplem::Basic => build_engine_and_solve::<
+            Data,
+            solver::BasicCriteriaSolver<'_, Data>,
+        >(&model, &data, &options),
+        config::CriteriaImplem::Loads => build_engine_and_solve::<
+            Data,
+            solver::LoadsCriteriaSolver<'_, Data>,
+        >(&model, &data, &options),
     };
     responses.map(|responses| (model, responses))
 }
@@ -65,9 +70,8 @@ fn build_engine_and_solve<'data, Data, Solver>(
 ) -> Result<Vec<laxatips::Response>, Error>
 where
     Data: traits::DataWithIters,
-    Solver : traits::Solver<'data, Data> 
+    Solver: traits::Solver<'data, Data>,
 {
-
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let departure_datetime = match &options.base.departure_datetime {
@@ -99,12 +103,11 @@ where
     match &solve_result {
         Err(err) => {
             error!("Error while solving request : {}", err);
-        },
+        }
         Ok(responses) => {
             for response in responses.iter() {
                 trace!("{}", response.print(model)?);
             }
-
         }
     }
 

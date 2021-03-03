@@ -1,6 +1,6 @@
+use laxatips::config;
 use laxatips::{DailyData, PeriodicData};
 use laxatips::{LoadsDailyData, LoadsPeriodicData};
-use laxatips::config;
 
 use failure::Error;
 

@@ -5,19 +5,22 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::{config::RequestParams,  solver, traits::{self,  RequestInput}};
+use laxatips::config;
 use laxatips::transit_model;
 use laxatips::{
-    log::{error, info,  warn},
-    LoadsDailyData,  LoadsPeriodicData,
+    config::RequestParams,
+    solver,
+    traits::{self, RequestInput},
+};
+use laxatips::{
+    log::{error, info, warn},
+    LoadsDailyData, LoadsPeriodicData,
 };
 use laxatips::{DailyData, PeriodicData, PositiveDuration};
-use laxatips::config;
 
 use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
-
 
 use std::{fs::File, io::BufReader, path::PathBuf};
 
@@ -27,13 +30,9 @@ use slog_async::OverflowStrategy;
 
 use failure::{bail, format_err, Error};
 
-
 use std::convert::TryFrom;
 
 use serde::Deserialize;
-
-
-
 
 #[derive(StructOpt)]
 #[structopt(
@@ -43,14 +42,14 @@ use serde::Deserialize;
 )]
 pub enum Options {
     Cli(Config),
-    ConfigFile(ConfigFile)
+    ConfigFile(ConfigFile),
 }
 
 #[derive(StructOpt)]
 pub struct ConfigFile {
     /// path to the json config file
     #[structopt(parse(from_os_str))]
-    file : PathBuf
+    file: PathBuf,
 }
 
 #[derive(StructOpt, Deserialize)]
@@ -72,7 +71,6 @@ pub struct Config {
     /// that will be handled with "loads" comparator
     #[structopt(long)]
     loads_requests_socket: Option<String>,
-    
 
     /// Type used for storage of criteria
     /// "classic" or "loads"
@@ -87,30 +85,29 @@ pub struct Config {
 
     /// The default transfer duration between a stop point and itself
     #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
-    #[serde(default ="config::default_transfer_duration")]
-    default_transfer_duration : PositiveDuration,
+    #[serde(default = "config::default_transfer_duration")]
+    default_transfer_duration: PositiveDuration,
 
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
-    #[serde(default ="config::default_leg_arrival_penalty")]
+    #[serde(default = "config::default_leg_arrival_penalty")]
     leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
     #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
-    #[serde(default ="config::default_leg_walking_penalty")]
+    #[serde(default = "config::default_leg_walking_penalty")]
     leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
-    #[serde(default ="config::default_max_nb_of_legs")]
+    #[serde(default = "config::default_max_nb_of_legs")]
     max_nb_of_legs: u8,
 
     /// maximum duration of a journey
     #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
-    #[serde(default ="config::default_max_journey_duration")]
+    #[serde(default = "config::default_max_journey_duration")]
     max_journey_duration: PositiveDuration,
 }
-
 
 fn main() {
     let _log_guard = init_logger();
@@ -141,14 +138,12 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
     scope_guard
 }
 
-
-
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
     let config = match options {
         Options::Cli(config) => config,
         Options::ConfigFile(config_file) => {
-            let file =  match File::open(&config_file.file) {
+            let file = match File::open(&config_file.file) {
                 Ok(file) => file,
                 Err(e) => {
                     bail!("Error opening config file {:?} : {}", &config_file.file, e)
@@ -158,12 +153,12 @@ fn launch_server() -> Result<(), Error> {
             let result = serde_json::from_reader(reader);
             match result {
                 Ok(config) => config,
-                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e)
+                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e),
             }
         }
     };
     match config.data_implem {
-        config::DataImplem::Periodic=> launch::<PeriodicData>(config),
+        config::DataImplem::Periodic => launch::<PeriodicData>(config),
         config::DataImplem::Daily => launch::<DailyData>(config),
         config::DataImplem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
         config::DataImplem::LoadsDaily => launch::<LoadsDailyData>(config),
@@ -174,16 +169,21 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = laxatips::launch_utils::read_ntfs::<Data, _, _>(&config.ntfs_path, &config.loads_data_path, &config.default_transfer_duration)?;
+    let (data, model) = laxatips::launch_utils::read_ntfs::<Data, _, _>(
+        &config.ntfs_path,
+        &config.loads_data_path,
+        &config.default_transfer_duration,
+    )?;
 
-    match config.criteria_implem{
-        config::CriteriaImplem::Basic => server_loop::<Data, solver::BasicCriteriaSolver<'_, Data> >(&model, &data, &config),
-        config::CriteriaImplem::Loads => server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data> >(&model, &data, &config),
-
+    match config.criteria_implem {
+        config::CriteriaImplem::Basic => {
+            server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config)
+        }
+        config::CriteriaImplem::Loads => {
+            server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data>>(&model, &data, &config)
+        }
     }
 }
-
-
 
 fn server_loop<'data, Data, Solver>(
     model: &Model,
@@ -192,18 +192,26 @@ fn server_loop<'data, Data, Solver>(
 ) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
-    Solver : traits::Solver<'data, Data> 
+    Solver: traits::Solver<'data, Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
-    let basic_requests_socket = context.socket(zmq::REP)
+    let basic_requests_socket = context
+        .socket(zmq::REP)
         .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
 
     basic_requests_socket
         .bind(&config.basic_requests_socket)
-        .map_err(|err| format_err!("Could not bind socket {}. Error : {}", config.basic_requests_socket, err))?;
+        .map_err(|err| {
+            format_err!(
+                "Could not bind socket {}. Error : {}",
+                config.basic_requests_socket,
+                err
+            )
+        })?;
 
-    let loads_requests_socket = context.socket(zmq::REP)
+    let loads_requests_socket = context
+        .socket(zmq::REP)
         .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
 
     if let Some(socket) = &config.loads_requests_socket {
@@ -211,7 +219,6 @@ where
             .bind(socket)
             .map_err(|err| format_err!("Could not bind socket {}. Error : {}", socket, err))?;
     }
-
 
     info!("Ready to receive requests");
 
@@ -225,44 +232,61 @@ where
         zmq::poll(&mut items, -1)
             .map_err(|err| format_err!("Error while polling zmq sockets : {}", err))?;
 
-        if items[0].is_readable()  {
+        if items[0].is_readable() {
             let socket = &basic_requests_socket;
             let comparator_type = config::ComparatorType::Basic;
-            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, comparator_type);
-            let result = respond(solve_result, model, & mut response_bytes, socket);
-            result.err().map(|err|{
-                error!("Error while sending zmq response : {}", err)
-            });
+            let solve_result = solve(
+                socket,
+                &mut zmq_message,
+                data,
+                model,
+                &mut solver,
+                config,
+                comparator_type,
+            );
+            let result = respond(solve_result, model, &mut response_bytes, socket);
+            result
+                .err()
+                .map(|err| error!("Error while sending zmq response : {}", err));
         }
-        
-        if items[1].is_readable()  {
+
+        if items[1].is_readable() {
             let socket = &loads_requests_socket;
             let comparator_type = config::ComparatorType::Loads;
-            let solve_result = solve(socket, & mut zmq_message, data, model, & mut solver, config, comparator_type);
-            let result = respond(solve_result, model, & mut response_bytes, socket);
-            result.err().map(|err|{
-                error!("Error while sending zmq response : {}", err)
-            });
+            let solve_result = solve(
+                socket,
+                &mut zmq_message,
+                data,
+                model,
+                &mut solver,
+                config,
+                comparator_type,
+            );
+            let result = respond(solve_result, model, &mut response_bytes, socket);
+            result
+                .err()
+                .map(|err| error!("Error while sending zmq response : {}", err));
         }
     }
 }
 
-
-
-fn solve<'data, Data, Solver : traits::Solver<'data, Data>>(
-    socket : & zmq::Socket,
-    zmq_message : & mut zmq::Message,
+fn solve<'data, Data, Solver: traits::Solver<'data, Data>>(
+    socket: &zmq::Socket,
+    zmq_message: &mut zmq::Message,
     data: &'data Data,
     model: &Model,
-    solver : & mut Solver,
-    config : & Config,
-    comparator_type : config::ComparatorType,
+    solver: &mut Solver,
+    config: &Config,
+    comparator_type: config::ComparatorType,
 ) -> Result<Vec<laxatips::response::Response>, Error>
 where
-    Data: traits::DataWithIters
+    Data: traits::DataWithIters,
 {
     let proto_request = decode_zmq_message(socket, zmq_message)?;
-    info!("Received request {:?} of type {:?}", proto_request.request_id, comparator_type);
+    info!(
+        "Received request {:?} of type {:?}",
+        proto_request.request_id, comparator_type
+    );
 
     if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
         let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
@@ -290,7 +314,6 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -305,14 +328,13 @@ where
             let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
             let prefixed = format!("StopPoint:{}", stop_point_uri);
             Some((prefixed, duration))
-    });
+        });
 
     let arrivals_stop_point_and_fallback_duration = journey_request
         .destination
         .iter()
         .enumerate()
         .filter_map(|(idx, location_context)| {
-            
             let duration = u32::try_from(location_context.access_duration)
                 .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
                 .ok()
@@ -372,37 +394,28 @@ where
         leg_walking_penalty: config.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
-
     };
 
     let request_input = RequestInput {
         departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params
+        params,
     };
 
     let responses = solver.solve_request(data, model, request_input, &comparator_type)?;
     Ok(responses)
 }
 
-
-
-
-
 fn respond(
-    solve_result : Result<Vec<laxatips::Response>, Error>,
-    model : & Model,
-    response_bytes : & mut Vec<u8>,
-    socket : & zmq::Socket
-) -> Result<(), Error>
-{
-
+    solve_result: Result<Vec<laxatips::Response>, Error>,
+    model: &Model,
+    response_bytes: &mut Vec<u8>,
+    socket: &zmq::Socket,
+) -> Result<(), Error> {
     let proto_response = match solve_result {
         Result::Err(err) => {
-            error!(
-                "Error while solving request : {}", err
-            );
+            error!("Error while solving request : {}", err);
             make_error_response(err)
         }
         Ok(journeys) => {
@@ -410,22 +423,24 @@ fn respond(
             match response_result {
                 Result::Err(err) => {
                     error!(
-                        "Error while encoding protobuf response for request : {}", err
+                        "Error while encoding protobuf response for request : {}",
+                        err
                     );
                     make_error_response(err)
                 }
-                Ok(resp) => {
-                    resp
-                }
+                Ok(resp) => resp,
             }
         }
     };
     response_bytes.clear();
 
+    proto_response.encode(response_bytes).map_err(|err| {
+        format_err!(
+            "Could not encode protobuf response into a zmq message: \n {}",
+            err
+        )
+    })?;
 
-    proto_response.encode(response_bytes)
-        .map_err(|err| format_err!("Could not encode protobuf response into a zmq message: \n {}", err))?;
-    
     info!("Sending protobuf response. ");
 
     socket
@@ -433,13 +448,9 @@ fn respond(
         .map_err(|err| format_err!("Could not send zmq response : \n {}", err))?;
 
     Ok(())
-
-    
-
 }
 
-
-fn make_error_response(error : Error) -> navitia_proto::Response {
+fn make_error_response(error: Error) -> navitia_proto::Response {
     let mut proto_response = navitia_proto::Response::default();
     proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
     let mut proto_error = navitia_proto::Error::default();
@@ -449,12 +460,10 @@ fn make_error_response(error : Error) -> navitia_proto::Response {
     proto_response
 }
 
-
-fn decode_zmq_message(socket: &zmq::Socket,
-                    zmq_message: & mut zmq::Message,
-                ) -> Result<navitia_proto::Request, Error>
-{
-    
+fn decode_zmq_message(
+    socket: &zmq::Socket,
+    zmq_message: &mut zmq::Message,
+) -> Result<navitia_proto::Request, Error> {
     socket
         .recv(zmq_message, 0)
         .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
@@ -462,7 +471,3 @@ fn decode_zmq_message(socket: &zmq::Socket,
     navitia_proto::Request::decode((*zmq_message).deref())
         .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))
 }
-
-
-
-

@@ -1,14 +1,13 @@
-use crate::{response, traits::{self, RequestTypes}};
+use crate::{loads_data::LoadsCount, time::PositiveDuration};
 use crate::{
-    loads_data::LoadsCount,
-    time::{PositiveDuration},
+    response,
+    traits::{self, RequestTypes},
 };
 
-
-use traits::{BadRequest};
 use crate::traits::Journey as PTJourney;
+use traits::BadRequest;
 
-use super::super::generic_request::{Arrivals, Departures, GenericRequest, Arrival, Departure};
+use super::super::generic_request::{Arrival, Arrivals, Departure, Departures, GenericRequest};
 use super::Criteria;
 
 pub mod classic_comparator;
@@ -17,18 +16,14 @@ pub struct GenericBasicDepartAfter<'data, Data: traits::Data> {
     generic: GenericRequest<'data, Data>,
 }
 
-
-
 impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
-   
-    pub fn leg_arrival_penalty(&self) ->  PositiveDuration {
+    pub fn leg_arrival_penalty(&self) -> PositiveDuration {
         self.generic.leg_arrival_penalty
     }
 
-    pub fn leg_walking_penalty(&self) ->  PositiveDuration {
+    pub fn leg_walking_penalty(&self) -> PositiveDuration {
         self.generic.leg_walking_penalty
     }
-
 
     fn is_valid(&self, criteria: &Criteria) -> bool {
         criteria.arrival_time <= self.generic.max_arrival_time
@@ -109,12 +104,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
             })
     }
 
-    fn ride(
-        &self,
-        trip: &Data::Trip,
-        position: &Data::Position,
-        criteria: &Criteria,
-    ) -> Criteria {
+    fn ride(&self, trip: &Data::Trip, position: &Data::Position, criteria: &Criteria) -> Criteria {
         let mission = self.generic.transit_data.mission_of(trip);
         let next_position = self
             .generic
@@ -222,28 +212,23 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
         self.generic.transit_data.mission_id(mission)
     }
 
-    fn new<Departures, Arrivals, D, A>
-    (
+    fn new<Departures, Arrivals, D, A>(
         model: &transit_model::Model,
-        transit_data: & 'data Data,
-        request_input : traits::RequestInput<Departures, Arrivals, D, A>
+        transit_data: &'data Data,
+        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals : Iterator<Item = (A, PositiveDuration)>,
-        Departures : Iterator<Item = (D, PositiveDuration)>,
-        A : AsRef<str>,
-        D : AsRef<str>,
-        Self: Sized
+        Arrivals: Iterator<Item = (A, PositiveDuration)>,
+        Departures: Iterator<Item = (D, PositiveDuration)>,
+        A: AsRef<str>,
+        D: AsRef<str>,
+        Self: Sized,
     {
-        let generic_result = GenericRequest::new(
-            model,
-            transit_data,
-            request_input
-        );
+        let generic_result = GenericRequest::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 
-    pub fn data(&self) -> & Data {
+    pub fn data(&self) -> &Data {
         &self.generic.transit_data
     }
 
@@ -265,26 +250,22 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
     }
 }
 
-impl<'data, 'outer, Data>  GenericBasicDepartAfter<'data, Data>
+impl<'data, 'outer, Data> GenericBasicDepartAfter<'data, Data>
 where
     Data: traits::Data + traits::DataIters<'outer>,
 {
-
     fn departures(&'outer self) -> Departures {
         self.generic.departures()
     }
-
 
     fn arrivals(&'outer self) -> Arrivals {
         self.generic.arrivals()
     }
 
-
-
     fn boardable_missions_at(&'outer self, stop: &Data::Stop) -> Data::MissionsAtStop {
         self.generic.transit_data.boardable_missions_at(stop)
     }
- 
+
     fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::TransfersAtStop {
         self.generic.transit_data.transfers_at(from_stop)
     }
@@ -293,4 +274,3 @@ where
         self.generic.transit_data.trips_of(mission)
     }
 }
-

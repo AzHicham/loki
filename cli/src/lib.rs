@@ -1,10 +1,11 @@
-use laxatips::{config::RequestParams, log::{  trace}, response, traits::RequestInput, transit_model::Model};
-use laxatips::{transit_model, };
-use laxatips::{PositiveDuration};
 use laxatips::config;
+use laxatips::transit_model;
+use laxatips::PositiveDuration;
+use laxatips::{
+    config::RequestParams, log::trace, response, traits::RequestInput, transit_model::Model,
+};
 
 use laxatips::traits;
-
 
 use slog::slog_o;
 use slog::Drain;
@@ -18,13 +19,11 @@ use std::{
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
 
-
 use structopt::StructOpt;
 
 pub mod stop_areas;
 
 pub mod random;
-
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
@@ -69,8 +68,6 @@ impl Display for RequestConfig {
     }
 }
 
-
-
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct BaseOptions {
@@ -87,7 +84,7 @@ pub struct BaseOptions {
 
     /// The default transfer duration between a stop point and itself
     #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
-    pub default_transfer_duration : PositiveDuration,
+    pub default_transfer_duration: PositiveDuration,
 
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
@@ -201,11 +198,11 @@ pub fn solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
-    options : &BaseOptions,
+    options: &BaseOptions,
 ) -> Result<Vec<response::Response>, Error>
 where
-    Solver : traits::Solver<'data, Data>,
-    Data : traits::DataWithIters,
+    Solver: traits::Solver<'data, Data>,
+    Data: traits::DataWithIters,
 {
     trace!(
         "Request start stop area : {}, end stop_area : {}",
@@ -226,15 +223,15 @@ where
     let params = RequestParams {
         leg_arrival_penalty: request_config.leg_arrival_penalty,
         leg_walking_penalty: request_config.leg_walking_penalty,
-        max_nb_of_legs : request_config.max_nb_of_legs,
-        max_journey_duration : request_config.max_journey_duration,
+        max_nb_of_legs: request_config.max_nb_of_legs,
+        max_journey_duration: request_config.max_journey_duration,
     };
 
     let request_input = RequestInput {
-        departure_datetime : *departure_datetime,
+        departure_datetime: *departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params
+        params,
     };
 
     let responses = solver.solve_request(data, model, request_input, &options.comparator_type)?;

@@ -1,29 +1,31 @@
-use crate::{PositiveDuration, loads_data::LoadsCount, response, traits::{self, BadRequest, RequestTypes}};
 use crate::traits::Journey as PTJourney;
+use crate::{
+    loads_data::LoadsCount,
+    response,
+    traits::{self, BadRequest, RequestTypes},
+    PositiveDuration,
+};
 
-use super::super::generic_request::{GenericRequest, Arrival, Arrivals, Departure, Departures};
+use super::super::generic_request::{Arrival, Arrivals, Departure, Departures, GenericRequest};
 use super::Criteria;
 
-pub mod loads_comparator;
 pub mod classic_comparator;
+pub mod loads_comparator;
 
 pub struct GenericLoadsDepartAfter<'data, Data: traits::Data> {
     generic: GenericRequest<'data, Data>,
 }
 
-impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
-
-    pub fn leg_arrival_penalty(&self) ->  PositiveDuration {
+impl<'data, 'model, Data: traits::Data> GenericLoadsDepartAfter<'data, Data> {
+    pub fn leg_arrival_penalty(&self) -> PositiveDuration {
         self.generic.leg_arrival_penalty
     }
 
-    pub fn leg_walking_penalty(&self) ->  PositiveDuration {
+    pub fn leg_walking_penalty(&self) -> PositiveDuration {
         self.generic.leg_walking_penalty
     }
 
-
-
-    pub fn is_valid(&self, criteria: & Criteria) -> bool {
+    pub fn is_valid(&self, criteria: &Criteria) -> bool {
         criteria.arrival_time <= self.generic.max_arrival_time
             && criteria.nb_of_legs <= self.generic.max_nb_legs
     }
@@ -32,7 +34,7 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
         &self,
         position: &Data::Position,
         trip: &Data::Trip,
-        waiting_criteria: & Criteria,
+        waiting_criteria: &Criteria,
     ) -> Option<Criteria> {
         let has_board = self.generic.transit_data.board_time_of(trip, position);
         if let Some(board_timeload) = has_board {
@@ -61,7 +63,6 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
         Some(new_criteria)
     }
 
-
     pub fn best_trip_to_board(
         &self,
         position: &Data::Position,
@@ -83,7 +84,6 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
                 (trip, new_criteria)
             })
     }
-
 
     pub fn debark(
         &self,
@@ -107,13 +107,7 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
             })
     }
 
-
-    fn ride(
-        &self,
-        trip: &Data::Trip,
-        position: &Data::Position,
-        criteria: &Criteria,
-    ) -> Criteria {
+    fn ride(&self, trip: &Data::Trip, position: &Data::Position, criteria: &Criteria) -> Criteria {
         let mission = self.generic.transit_data.mission_of(trip);
         let next_position = self
             .generic
@@ -225,29 +219,23 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
         self.generic.transit_data.mission_id(mission)
     }
 
-
-    fn new<Departures, Arrivals, D, A>
-    (
+    fn new<Departures, Arrivals, D, A>(
         model: &transit_model::Model,
-        transit_data: & 'data Data,
-        request_input : traits::RequestInput<Departures, Arrivals, D, A>
+        transit_data: &'data Data,
+        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals : Iterator<Item = (A, PositiveDuration)>,
-        Departures : Iterator<Item = (D, PositiveDuration)>,
-        A : AsRef<str>,
-        D : AsRef<str>,
-        Self: Sized
+        Arrivals: Iterator<Item = (A, PositiveDuration)>,
+        Departures: Iterator<Item = (D, PositiveDuration)>,
+        A: AsRef<str>,
+        D: AsRef<str>,
+        Self: Sized,
     {
-        let generic_result = GenericRequest::new(
-            model,
-            transit_data,
-            request_input
-        );
+        let generic_result = GenericRequest::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 
-    pub fn data(&self) -> & Data {
+    pub fn data(&self) -> &Data {
         &self.generic.transit_data
     }
 
@@ -267,19 +255,16 @@ impl<'data, 'model, Data: traits::Data>  GenericLoadsDepartAfter<'data, Data> {
     {
         self.generic.create_response(pt_journey, loads_count)
     }
-
 }
 
 impl<'data, 'outer, Data> GenericLoadsDepartAfter<'data, Data>
 where
     Data: traits::Data + traits::DataIters<'outer>,
 {
-
     fn departures(&'outer self) -> Departures {
         self.generic.departures()
     }
 
- 
     fn arrivals(&'outer self) -> Arrivals {
         self.generic.arrivals()
     }
@@ -292,9 +277,7 @@ where
         self.generic.transit_data.transfers_at(from_stop)
     }
 
-
     fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {
         self.generic.transit_data.trips_of(mission)
     }
 }
-

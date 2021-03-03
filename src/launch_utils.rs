@@ -1,17 +1,16 @@
 use std::{path::Path, time::SystemTime};
 
 use crate::traits;
-use transit_model::Model;
-use log::{info, warn};
 use crate::LoadsData;
 use crate::PositiveDuration;
+use log::{info, warn};
+use transit_model::Model;
 
-pub fn read_ntfs<Data, NtfsPath : AsRef<Path>, LoadsPath : AsRef<Path>>(
-    ntfs_path : NtfsPath, 
-    loads_data_path : LoadsPath,
-    default_transfer_duration : &PositiveDuration,
-)
-     -> Result<(Data, Model), transit_model::Error>
+pub fn read_ntfs<Data, NtfsPath: AsRef<Path>, LoadsPath: AsRef<Path>>(
+    ntfs_path: NtfsPath,
+    loads_data_path: LoadsPath,
+    default_transfer_duration: &PositiveDuration,
+) -> Result<(Data, Model), transit_model::Error>
 where
     Data: traits::Data,
 {

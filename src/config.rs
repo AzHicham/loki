@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::PositiveDuration;
 
-pub const DEFAULT_TRANSFER_DURATION : & str = "00:01:00";
+pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
 
 pub fn default_transfer_duration() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
@@ -27,7 +27,11 @@ impl std::str::FromStr for DataImplem {
             "daily" => Daily,
             "loads_periodic" => LoadsPeriodic,
             "loads_daily" => LoadsDaily,
-            _ => Err(DataImplemConfigError{ implem_name : s.to_string() })?,
+            _ => {
+                return Err(DataImplemConfigError {
+                    implem_name: s.to_string(),
+                })
+            }
         };
         Ok(implem)
     }
@@ -35,9 +39,8 @@ impl std::str::FromStr for DataImplem {
 
 #[derive(Debug)]
 pub struct DataImplemConfigError {
-    implem_name : String
+    implem_name: String,
 }
-
 
 impl std::fmt::Display for DataImplem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -57,9 +60,6 @@ impl std::fmt::Display for DataImplemConfigError {
     }
 }
 
-
-
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CriteriaImplem {
@@ -72,7 +72,11 @@ impl std::str::FromStr for CriteriaImplem {
         let request_type = match s {
             "loads" => CriteriaImplem::Loads,
             "classic" => CriteriaImplem::Basic,
-            _ => Err(CriteriaImplemConfigError{ criteria_implem_name : s.to_string() })?,
+            _ => {
+                return Err(CriteriaImplemConfigError {
+                    criteria_implem_name: s.to_string(),
+                })
+            }
         };
         Ok(request_type)
     }
@@ -89,19 +93,18 @@ impl std::fmt::Display for CriteriaImplem {
 
 #[derive(Debug)]
 pub struct CriteriaImplemConfigError {
-    criteria_implem_name : String
+    criteria_implem_name: String,
 }
-
 
 impl std::fmt::Display for CriteriaImplemConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad criteria_implem given : `{}`", self.criteria_implem_name)
+        write!(
+            f,
+            "Bad criteria_implem given : `{}`",
+            self.criteria_implem_name
+        )
     }
 }
-
-
-
-
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -115,7 +118,11 @@ impl std::str::FromStr for ComparatorType {
         let request_type = match s {
             "loads" => ComparatorType::Loads,
             "basic" => ComparatorType::Basic,
-            _ => Err(RequestTypeConfigError{ request_type_name : s.to_string() })?,
+            _ => {
+                return Err(RequestTypeConfigError {
+                    request_type_name: s.to_string(),
+                })
+            }
         };
         Ok(request_type)
     }
@@ -132,9 +139,8 @@ impl std::fmt::Display for ComparatorType {
 
 #[derive(Debug)]
 pub struct RequestTypeConfigError {
-    request_type_name : String
+    request_type_name: String,
 }
-
 
 impl std::fmt::Display for RequestTypeConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

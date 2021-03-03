@@ -1,14 +1,12 @@
-use crate::time::{PositiveDuration};
-use crate::{ traits};
-
+use crate::time::PositiveDuration;
+use crate::traits;
 
 use traits::{BadRequest, RequestIO};
 
-use super::{Criteria, Arrivals, Departures, GenericLoadsDepartAfter, Arrival, Departure};
+use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericLoadsDepartAfter};
 pub struct Request<'data, Data: traits::Data> {
     generic: GenericLoadsDepartAfter<'data, Data>,
 }
-
 
 impl<'data, Data: traits::Data> traits::TransitTypes for Request<'data, Data> {
     type Stop = Data::Stop;
@@ -46,7 +44,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, Data>
         trip: &Self::Trip,
         waiting_criteria: &Self::Criteria,
     ) -> Option<Self::Criteria> {
-        self.generic.board_and_ride(position, trip, waiting_criteria)
+        self.generic
+            .board_and_ride(position, trip, waiting_criteria)
     }
 
     fn best_trip_to_board(
@@ -55,7 +54,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, Data>
         mission: &Self::Mission,
         waiting_criteria: &Self::Criteria,
     ) -> Option<(Self::Trip, Self::Criteria)> {
-        self.generic.best_trip_to_board(position, mission, waiting_criteria)
+        self.generic
+            .best_trip_to_board(position, mission, waiting_criteria)
     }
 
     fn debark(
@@ -103,8 +103,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, Data>
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.generic
-            .is_upstream(upstream, downstream, mission)
+        self.generic.is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -175,14 +174,11 @@ where
     }
 }
 
-impl<'data, Data> traits::RequestWithIters for Request<'data, Data> where
-    Data: traits::DataWithIters
-{
-}
+impl<'data, Data> traits::RequestWithIters for Request<'data, Data> where Data: traits::DataWithIters
+{}
 
 use crate::response;
 use crate::traits::Journey as PTJourney;
-
 
 impl<'data, Data> RequestIO<'data, Data> for Request<'data, Data>
 where
@@ -190,25 +186,21 @@ where
 {
     fn new<Departures, Arrivals, D, A>(
         model: &transit_model::Model,
-        transit_data: & 'data Data,
-        request_input : traits::RequestInput<Departures, Arrivals, D, A>
-    ) -> Result<Self, BadRequest> 
+        transit_data: &'data Data,
+        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
+    ) -> Result<Self, BadRequest>
     where
-        Arrivals : Iterator<Item = (A, PositiveDuration)>,
-        Departures : Iterator<Item = (D, PositiveDuration)>,
-        A : AsRef<str>,
-        D : AsRef<str>,
-        Self: Sized
+        Arrivals: Iterator<Item = (A, PositiveDuration)>,
+        Departures: Iterator<Item = (D, PositiveDuration)>,
+        A: AsRef<str>,
+        D: AsRef<str>,
+        Self: Sized,
     {
-        let generic_result = GenericLoadsDepartAfter::new(
-            model,
-            transit_data,
-            request_input
-        );
+        let generic_result = GenericLoadsDepartAfter::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 
-    fn data(&self) -> & Data {
+    fn data(&self) -> &Data {
         self.generic.data()
     }
 
@@ -218,7 +210,7 @@ where
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
     where
         Self: Sized,
-        T : traits::RequestTypes<
+        T: traits::RequestTypes<
             Stop = Self::Stop,
             Mission = Self::Mission,
             Position = Self::Position,
@@ -227,8 +219,8 @@ where
             Arrival = Self::Arrival,
             Departure = Self::Departure,
             Criteria = Self::Criteria,
-        >
-         {
+        >,
+    {
         self.generic.create_response(
             pt_journey,
             pt_journey.criteria_at_arrival.loads_count.clone(),

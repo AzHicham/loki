@@ -1,9 +1,9 @@
 use crate::navitia_proto;
+use laxatips::transit_model;
 use laxatips::{
     response::{TransferSection, VehicleSection, WaitingSection},
     Idx, StopPoint, VehicleJourney,
 };
-use laxatips::{transit_model};
 
 use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
@@ -16,13 +16,12 @@ use std::convert::TryFrom;
 pub fn make_response(
     journeys: Vec<laxatips::Response>,
     model: &Model,
-) -> Result<navitia_proto::Response, Error>
-{
+) -> Result<navitia_proto::Response, Error> {
     let mut proto = navitia_proto::Response {
         journeys: journeys
             .iter()
             .enumerate()
-            .map(|(idx, journey)| make_journey(&journey, idx,  model))
+            .map(|(idx, journey)| make_journey(&journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
 
         ..Default::default()
@@ -37,30 +36,23 @@ fn make_journey(
     journey: &laxatips::Response,
     journey_id: usize,
     model: &Model,
-) -> Result<navitia_proto::Journey, Error>
-{
+) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
-    let nb_of_sections =  journey.nb_of_sections();
+    let nb_of_sections = journey.nb_of_sections();
 
     let mut proto = navitia_proto::Journey {
-        duration: Some(i32::try_from(
-            journey.total_duration(),
-        )?),
+        duration: Some(i32::try_from(journey.total_duration())?),
         nb_transfers: Some(i32::try_from(journey.nb_of_transfers())?),
-        departure_date_time: Some(to_u64_timestamp(
-            &journey.first_vehicle_board_datetime(),
-        )?),
-        arrival_date_time: Some(to_u64_timestamp(
-            &journey.last_vehicle_debark_datetime(),
-        )?),
+        departure_date_time: Some(to_u64_timestamp(&journey.first_vehicle_board_datetime())?),
+        arrival_date_time: Some(to_u64_timestamp(&journey.last_vehicle_debark_datetime())?),
         sections: Vec::with_capacity(nb_of_sections), // to be filled below
         sn_dur: Some(u64::try_from(journey.total_fallback_duration())?),
         transfer_dur: Some(u64::try_from(journey.total_transfer_duration())?),
         nb_sections: Some(u32::try_from(journey.nb_of_sections())?),
         durations: Some(navitia_proto::Durations {
             total: Some(i32::try_from(journey.total_duration())?),
-            walking: Some(i32::try_from(journey.total_walking_duration())?),              
+            walking: Some(i32::try_from(journey.total_walking_duration())?),
             bike: Some(0),
             car: Some(0),
             ridesharing: Some(0),

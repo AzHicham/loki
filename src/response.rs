@@ -20,8 +20,8 @@ pub struct Response {
     pub departure: DepartureSection,
     pub first_vehicle: VehicleSection,
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
-    pub arrival : ArrivalSection,
-    pub loads_count : LoadsCount,
+    pub arrival: ArrivalSection,
+    pub loads_count: LoadsCount,
 }
 
 pub struct VehicleSection {
@@ -238,9 +238,8 @@ where
             .0
     }
 
-    fn last_vehicle_leg(&self) -> & VehicleLeg<Data> {
-        self
-            .connections
+    fn last_vehicle_leg(&self) -> &VehicleLeg<Data> {
+        self.connections
             .last()
             .map(|(_, vehicle_leg)| vehicle_leg)
             .unwrap_or(&self.first_vehicle)
@@ -418,8 +417,8 @@ impl<Data: traits::Data> Journey<Data> {
             departure: self.departure_section(data),
             first_vehicle: self.first_vehicle_section(data),
             connections: self.connections(data).collect(),
-            arrival : self.arrival_section(data),
-            loads_count : self.loads_count.clone(),
+            arrival: self.arrival_section(data),
+            loads_count: self.loads_count.clone(),
         }
     }
 
@@ -439,7 +438,7 @@ impl<Data: traits::Data> Journey<Data> {
         }
     }
 
-    pub fn arrival_section(&self, data: & Data) -> ArrivalSection {
+    pub fn arrival_section(&self, data: &Data) -> ArrivalSection {
         let from_time = self.last_vehicle_debark_time(data);
         let to_time = from_time + self.arrival_fallback_duration;
         let last_vehicle_leg = self.last_vehicle_leg();
@@ -452,9 +451,7 @@ impl<Data: traits::Data> Journey<Data> {
             from_datetime: data.to_naive_datetime(&from_time),
             to_datetime: data.to_naive_datetime(&to_time),
             from_stop_point: stop_point,
-
         }
-
     }
 
     pub fn first_vehicle_section(&self, data: &Data) -> VehicleSection {
@@ -571,13 +568,11 @@ impl<'journey, 'data, Data: traits::Data> Iterator for ConnectionIter<'journey, 
     }
 }
 
-
 impl VehicleSection {
     fn duration_in_seconds(&self) -> i64 {
         let duration = self.to_datetime - self.from_datetime;
         duration.num_seconds()
     }
-
 
     fn write<Writer: std::fmt::Write>(
         &self,
@@ -589,16 +584,15 @@ impl VehicleSection {
         let route = &model.routes.get(route_id).unwrap();
         let line = &model.lines.get(&route.line_id).unwrap();
 
-
-
-        let from_stoptime = &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
-        let to_stoptime = &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
+        let from_stoptime =
+            &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
+        let to_stoptime =
+            &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
 
         let from_stop_idx = &from_stoptime.stop_point_idx;
         let to_stop_idx = &to_stoptime.stop_point_idx;
         let from_stop_id = &model.stop_points[*from_stop_idx].id;
         let to_stop_id = &model.stop_points[*to_stop_idx].id;
-
 
         let from_datetime = write_date(&self.from_datetime);
         let to_datetime = write_date(&self.to_datetime);
@@ -609,7 +603,6 @@ impl VehicleSection {
         )?;
         Ok(())
     }
-
 }
 
 impl TransferSection {
@@ -641,9 +634,11 @@ impl Response {
     /// number of seconds spent in public transport
     pub fn total_duration_in_pt(&self) -> i64 {
         let first_vehicle_duration = self.first_vehicle.duration_in_seconds();
-        let remaining_duration : i64 = self.connections.iter()
-                .map(|(_,_,vehicle_section)| vehicle_section.duration_in_seconds())
-                .sum();
+        let remaining_duration: i64 = self
+            .connections
+            .iter()
+            .map(|(_, _, vehicle_section)| vehicle_section.duration_in_seconds())
+            .sum();
         first_vehicle_duration + remaining_duration
     }
 
@@ -662,11 +657,11 @@ impl Response {
             .map(|(_, _, vehicle_section)| vehicle_section)
             .unwrap_or(&self.first_vehicle);
         last_vehicle_section.to_datetime
-
     }
 
     pub fn total_transfer_duration(&self) -> i64 {
-        self.connections.iter()
+        self.connections
+            .iter()
             .map(|(transfer_section, _, _)| transfer_section.duration_in_seconds())
             .sum()
     }
@@ -688,13 +683,11 @@ impl Response {
         self.connections.len() + 1
     }
 
-
     pub fn print(&self, model: &Model) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
         self.write(model, &mut result)?;
         Ok(result)
     }
-
 
     pub fn write<Writer: std::fmt::Write>(
         &self,
@@ -704,7 +697,11 @@ impl Response {
         writeln!(writer, "*** New journey ***")?;
         let arrival_datetime = self.arrival.to_datetime;
         writeln!(writer, "Arrival : {}", write_date(&arrival_datetime))?;
-        writeln!(writer, "Transfer duration : {}", write_duration(self.total_transfer_duration()))?;
+        writeln!(
+            writer,
+            "Transfer duration : {}",
+            write_duration(self.total_transfer_duration())
+        )?;
         writeln!(writer, "Nb of vehicles : {}", self.nb_of_vehicles())?;
         writeln!(
             writer,
@@ -731,24 +728,17 @@ impl Response {
         self.first_vehicle.write(model, writer)?;
         for (_, _, vehicle) in self.connections.iter() {
             vehicle.write(model, writer)?;
-
         }
 
         Ok(())
     }
-
-    
-
 }
 
 fn write_date(date: &NaiveDateTime) -> String {
     date.format("%H:%M:%S %d-%b-%y").to_string()
 }
 
-
-
-fn write_duration(seconds : i64) -> String
-  {
+fn write_duration(seconds: i64) -> String {
     let hours = seconds / (60 * 60);
     let minutes_in_secs = seconds % (60 * 60);
     let minutes = minutes_in_secs / 60;
@@ -760,5 +750,4 @@ fn write_duration(seconds : i64) -> String
     } else {
         format!("{}s", seconds)
     }
-    
 }

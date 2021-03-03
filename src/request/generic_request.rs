@@ -22,18 +22,17 @@ impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<Departures, Arrivals, D, A>
-    (
+    pub fn new<Departures, Arrivals, D, A>(
         model: &transit_model::Model,
-        transit_data: & 'data Data,
-        request_input : traits::RequestInput<Departures, Arrivals, D, A>
+        transit_data: &'data Data,
+        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals : Iterator<Item = (A, PositiveDuration)>,
-        Departures : Iterator<Item = (D, PositiveDuration)>,
-        A : AsRef<str>,
-        D : AsRef<str>,
-        Self: Sized
+        Arrivals: Iterator<Item = (A, PositiveDuration)>,
+        Departures: Iterator<Item = (D, PositiveDuration)>,
+        A: AsRef<str>,
+        D: AsRef<str>,
+        Self: Sized,
     {
         let departure_datetime = transit_data
             .calendar()
@@ -109,10 +108,10 @@ where
             departure_datetime,
             departures_stop_point_and_fallback_duration: departures,
             arrivals_stop_point_and_fallbrack_duration: arrivals,
-            leg_arrival_penalty : request_input.params.leg_arrival_penalty,
-            leg_walking_penalty : request_input.params.leg_walking_penalty,
+            leg_arrival_penalty: request_input.params.leg_arrival_penalty,
+            leg_walking_penalty: request_input.params.leg_walking_penalty,
             max_arrival_time: departure_datetime + request_input.params.max_journey_duration,
-            max_nb_legs : request_input.params.max_nb_of_legs,
+            max_nb_legs: request_input.params.max_nb_of_legs,
         };
 
         Ok(result)
