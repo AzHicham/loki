@@ -57,7 +57,7 @@ password = guest
 
 # Laxatips config files
 # one for the coverage with loads criteria
-jq -n --arg basicSocket "tcp://*:$basicPort" --arg loadsSocket "tcp://*:*$loadsPort" '{
+jq -n --arg basicSocket "tcp://*:$laxatipsBasicPort" --arg loadsSocket "tcp://*:$laxatipsLoadsPort" '{
   ntfs_path: "/data/ntfs/",
   loads_data_path: "/data/stoptimes_loads.csv",
   basic_requests_socket: $basicSocket,
