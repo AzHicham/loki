@@ -18,6 +18,8 @@ services:
 
   laxatips:
     image: mc_navitia/laxatips
+    environment: 
+      - RUST_LOG=debug
     volumes:
       - ./data:/data
 

@@ -5,7 +5,9 @@ dir="/data"
 
 
 # tranform gtfs into ntfs
-# gtfs2ntfs --input $dir/gtfs --output $dir/ntfs
+rm -f $dir/ntfs/*
+mkdir -p $dir/ntfs
+gtfs2ntfs --input $dir/gtfs --output $dir/ntfs
 
 # binarize
 rm -f $dir/data.nav.lz4
