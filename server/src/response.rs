@@ -220,10 +220,13 @@ fn make_stop_point_pt_object(
     model: &transit_model::Model,
 ) -> Result<navitia_proto::PtObject, Error> {
     let stop_point = &model.stop_points[stop_point_idx];
-    let stop_point_uri = stop_point.id.trim_start_matches("StopPoint:");
+    // let trimmed = stop_point.id.trim_start_matches("StopPoint:");
+    // let stop_point_uri = format!("stop_point:{}", trimmed);
+    // let stop_point_uri = stop_point.id.clone();
+    let stop_point_uri = format!("stop_point:{}", stop_point.id);
     let mut proto = navitia_proto::PtObject {
         name: stop_point.name.clone(),
-        uri: format!("stop_point:{}", stop_point_uri),
+        uri: stop_point_uri,
         stop_point: Some(make_stop_point(stop_point, model)?),
         ..Default::default()
     };
@@ -238,6 +241,7 @@ fn make_stop_point(
 ) -> Result<navitia_proto::StopPoint, Error> {
     let proto = navitia_proto::StopPoint {
         name: Some(stop_point.name.clone()),
+        // uri: Some(stop_point.id.clone()),
         uri: Some(format!("stop_point:{}", stop_point.id)),
         coord: Some(navitia_proto::GeographicalCoord {
             lat: stop_point.coord.lat,

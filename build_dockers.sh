@@ -127,39 +127,39 @@ fi
 # clone navitia source code
 rm -rf ./tmp/
 mkdir -p ./tmp/
-git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
+run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
 
 # let's dowload the navitia package built on gihub actions
 # for that we need the submodule core_team_ci_tools
 rm -rf ./core_team_ci_tools/
-git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
+run git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
 
 # we setup the right python environnement to use core_team_ci_tools
-pip install -r ./tmp/core_team_ci_tools/github_artifacts/requirements.txt --user
+run pip install -r ./tmp/core_team_ci_tools/github_artifacts/requirements.txt --user
 
 # let's download the navitia packages
-python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o CanalTP -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/
+run python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o CanalTP -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/
 
 # let's unzip what we received
-unzip -q ./tmp/${archive} -d ./tmp/
+run unzip -q ./tmp/${archive} -d ./tmp/
 
 # let's unzip (again) to obtain the packages
-unzip -q ./tmp/${inside_archive} -d ./tmp/
+run unzip -q ./tmp/${inside_archive} -d ./tmp/
 
 # we need some files to build the dockers
 cp docker/bina.sh ./tmp/
 
 # build the docker for binarisation
-run docker build --no-cache -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
+run docker build  -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
 
 # build the docker for kraken
-run docker build --no-cache -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
+run docker build  -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
 
 # build the docker for jormun
-run docker build --no-cache -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
+run docker build  -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
 
 # build the docker for server
-run docker build --no-cache -f docker/laxatips_dockerfile -t mc_navitia/laxatips  .
+run docker build  -f docker/laxatips_dockerfile -t mc_navitia/laxatips  .
 
 
 # push image to docker registry if required with -r

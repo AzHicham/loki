@@ -1,52 +1,95 @@
 #!/bin/bash
 set -e
 
-dir="/data"
+input="/storage/data"
+output="/storage/mc_navitia"
+
+rm -rf ${output}
+mkdir -p ${output}
+chmod -R 777 ${output}
+
+#we want to be able to interupt the build, see: http://veithen.github.io/2014/11/16/sigterm-propagation.html
+function run() {
+    trap 'kill -TERM $PID' TERM INT
+    $@ &
+    PID=$!
+    wait $PID
+    trap - TERM INT
+    wait $PID
+    return $?
+}
 
 
-# tranform gtfs into ntfs
-rm -f $dir/ntfs/*
-mkdir -p $dir/ntfs
-gtfs2ntfs --input $dir/gtfs --output $dir/ntfs
+# we initialize the docker-compose.yml with the 
+# services used for all coverages
+echo """
+version: \"3\"
+services: 
+  jormungandr:
+    image: mc_navitia/jormun
+    volumes:
+      - .:/data
+    ports:
+      - 9191:80
+  
+  rabbitmq:
+    image: rabbitmq:management
+""" > ${output}/docker-compose.yml
 
-# binarize
-rm -f $dir/data.nav.lz4
-python3 ./navitia/source/eitri/eitri.py -d $dir/ntfs -e /usr/bin -o $dir/data.nav.lz4
+mkdir -p ${output}/jormun_conf/
 
-# let's now write all config files
+cd ${input}
+for folder in $(ls -d */); do
+    coverage=${folder%%/}
+    echo "Configuring ${coverage}"
 
-instance="mon_instance"
+    mkdir -p ${output}/${coverage}
 
-krakenPort="30000"
-laxatipsBasicPort="30001"
-laxatipsLoadsPort="30002"
+    # add kraken and laxatips services for this coverage
+    echo """
+  laxatips-${coverage}:
+    image: mc_navitia/laxatips
+    environment: 
+      - RUST_LOG=debug
+    volumes:
+      - ./${coverage}/:/data
+
+  kraken-${coverage}:
+    image: mc_navitia/kraken:latest
+    volumes:
+      - ./${coverage}:/data
+""" >> ${output}/docker-compose.yml
 
 
-mkdir -p $dir/jormun_conf/
-mkdir -p $dir/laxatips_conf/
 
-# Jormun config files
-# one for the "kraken" coverage
-jq -n --arg instance "${instance}_kraken" --arg krakenSocket "tcp://kraken:${krakenPort}" '{ 
+    krakenPort="30000"
+    laxatipsBasicPort="30001"
+    laxatipsLoadsPort="30002"
+
+    # Jormun config files
+    # one for the "kraken" coverage
+    jq -n --arg instance "${coverage}-kraken" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{ 
     key: $instance, 
     zmq_socket: $krakenSocket
-}'  > $dir/jormun_conf/$instance.json
-# one for "laxatips" with loads comparator
-jq -n --arg instance "${instance}_laxatips_loads" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${laxatipsLoadsPort}" '{ 
-    key: $instance, 
-    zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $laxatipsSocket 
-}'  > $dir/jormun_conf/${instance}_loads.json
-# one for "laxatips" with basic comparator
-jq -n --arg instance "${instance}_laxatips_basic" --arg krakenSocket "tcp://kraken:${krakenPort}" --arg laxatipsSocket "tcp://laxatips:${laxatipsBasicPort}" '{ 
-    key: $instance, 
-    zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $laxatipsSocket 
-}'  > $dir/jormun_conf/${instance}_classic.json
+}'  > ${output}/jormun_conf/$coverage.json
 
-# kraken config file
-echo "[GENERAL]
-instance_name = ${instance}_kraken
+    # one for "laxatips" with loads comparator
+    jq -n --arg instance "${coverage}-laxatips-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg laxatipsSocket "tcp://laxatips-${coverage}:${laxatipsLoadsPort}" '{ 
+    key: $instance, 
+    zmq_socket: $krakenSocket, 
+    pt_zmq_socket : $laxatipsSocket 
+}'  > ${output}/jormun_conf/${coverage}_loads.json
+
+    # one for "laxatips" with basic comparator
+    jq -n --arg instance "${coverage}-laxatips-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg laxatipsSocket "tcp://laxatips-${coverage}:${laxatipsBasicPort}" '{ 
+    key: $instance, 
+    zmq_socket: $krakenSocket, 
+    pt_zmq_socket : $laxatipsSocket 
+}'  > ${output}/jormun_conf/${coverage}_classic.json
+
+    # kraken config file
+    echo "[GENERAL]
+instance_name = ${coverage}-kraken
 database = /data/data.nav.lz4
 zmq_socket = tcp://*:${krakenPort}
 
@@ -55,18 +98,35 @@ host = rabbitmq
 port = 5672
 username = guest
 password = guest
-" > $dir/kraken.ini
+" > ${output}/${coverage}/kraken.ini
 
-# Laxatips config files
-# one for the coverage with loads criteria
-jq -n --arg basicSocket "tcp://*:$laxatipsBasicPort" --arg loadsSocket "tcp://*:$laxatipsLoadsPort" '{
-  ntfs_path: "/data/ntfs/",
-  loads_data_path: "/data/stoptimes_loads.csv",
-  basic_requests_socket: $basicSocket,
-  loads_requests_socket: $loadsSocket,
-  data_implem: "loads_periodic",
-  criteria_implem: "loads"
-}' > $dir/laxatips_conf/config.json
+    # Laxatips config files
+    # one for the coverage with loads criteria
+    jq -n --arg basicSocket "tcp://*:$laxatipsBasicPort" --arg loadsSocket "tcp://*:$laxatipsLoadsPort" '{
+    ntfs_path: "/data/ntfs/",
+    loads_data_path: "/data/stoptimes_loads.csv",
+    basic_requests_socket: $basicSocket,
+    loads_requests_socket: $loadsSocket,
+    data_implem: "loads_periodic",
+    criteria_implem: "loads"
+}' > ${output}/${coverage}/laxatips_config.json
+
+    #tranform gtfs into ntfs
+    echo "Launch gtfs2ntfs"
+    rm -f ${output}/${coverage}/ntfs/*
+    mkdir -p ${output}/${coverage}/ntfs
+    run gtfs2ntfs --input ${input}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
+
+    # binarize
+    echo "Launch binarisation"
+    rm -f ${output}/${coverage}/data.nav.lz4
+    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
+
+    # copy stoptime_loads
+    cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+
+    echo "${coverage} done"
+done
 
 
-chmod -R 777 $dir
+chmod -R 777 ${output}

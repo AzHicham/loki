@@ -325,9 +325,19 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
-            let prefixed = format!("StopPoint:{}", stop_point_uri);
-            Some((prefixed, duration))
+            let stop_point_uri = location_context.place.strip_prefix("stop_point:")
+                .or_else( || {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
+                        that doesn't start with `stop_point:`. I ignore it",
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
+            // let trimmed = location_context.place.trim_start_matches("stop_point:");
+            // let stop_point_uri = format!("StopPoint:{}", trimmed);
+            // let stop_point_uri = location_context.place.clone();
+            Some((stop_point_uri, duration))
         });
 
     let arrivals_stop_point_and_fallback_duration = journey_request
@@ -346,9 +356,19 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri = location_context.place.trim_start_matches("stop_point:");
-            let prefixed = format!("StopPoint:{}", stop_point_uri);
-            Some((prefixed, duration))
+            let stop_point_uri = location_context.place.strip_prefix("stop_point:")
+                .or_else( || {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
+                        that doesn't start with `stop_point:`. I ignore it",
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
+            // let trimmed = location_context.place.trim_start_matches("stop_point:");
+            // let stop_point_uri = format!("StopPoint:{}", trimmed);
+            // let stop_point_uri = location_context.place.clone();
+            Some((stop_point_uri, duration))
         });
 
     let departure_timestamp_u64 = journey_request
