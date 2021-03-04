@@ -28,4 +28,4 @@ jobs:
       run: sudo apt install -y httpie
     - name: tests
       run: |
-        http 'http://localhost:9191/v1/coverage/auvergne-laxatips-loads/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&'
+        http 'http://0.0.0.0:9191/v1/coverage/auvergne-laxatips-loads/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&'
