@@ -127,7 +127,7 @@ fi
 # clone navitia source code with submodules
 rm -rf ./tmp/
 mkdir -p ./tmp/
-run git clone --recursive https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
+run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
 
 # clone laxatips source code with submodules
 run git clone --recursive https://x-token-auth:${token}@github.com/CanalTP/laxatips.git ./tmp/laxatips/
