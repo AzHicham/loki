@@ -63,8 +63,8 @@ fi
 
 if [[ -z $branch ]];
 then
-    echo "No branch given. I'll use branch = dev  "
-    branch="dev"
+    echo "No branch given. I'll use branch = release  "
+    branch="release"
 fi
 
 if [[ -z $event ]];
