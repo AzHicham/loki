@@ -149,6 +149,9 @@ run unzip -q ./tmp/${inside_archive} -d ./tmp/
 # we need some files to build the dockers
 cp docker/bina.sh ./tmp/
 
+# recover the submodules
+git submodule update --init --recursive
+
 # build the docker for binarisation
 run docker build  -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
 
