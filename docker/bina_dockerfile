@@ -10,7 +10,7 @@ FROM debian:buster-slim
 # copy package from context inside the docker
 COPY navitia-ed_*.deb /
 COPY navitia/source/ /navitia/source/
-COPY bina.sh /bina.sh
+COPY laxatips/docker/bina.sh /bina.sh
 
 # install dependencies
 RUN apt-get update

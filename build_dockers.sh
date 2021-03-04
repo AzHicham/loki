@@ -124,14 +124,16 @@ if [[ $push -eq 1 ]]; then
     fi  
 fi
 
-# clone navitia source code
+# clone navitia source code with submodules
 rm -rf ./tmp/
 mkdir -p ./tmp/
-run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
+run git clone --recursive https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
+
+# clone laxatips source code with submodules
+run git clone --recursive https://x-token-auth:${token}@github.com/CanalTP/laxatips.git ./tmp/laxatips/
 
 # let's dowload the navitia package built on gihub actions
-# for that we need the submodule core_team_ci_tools
-rm -rf ./core_team_ci_tools/
+# for that we need the repo core_team_ci_tools
 run git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
 
 # we setup the right python environnement to use core_team_ci_tools
@@ -146,9 +148,6 @@ run unzip -q ./tmp/${archive} -d ./tmp/
 # let's unzip (again) to obtain the packages
 run unzip -q ./tmp/${inside_archive} -d ./tmp/
 
-# we need some files to build the dockers
-cp docker/bina.sh ./tmp/
-
 # build the docker for binarisation
 run docker build  -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
 
@@ -159,7 +158,7 @@ run docker build  -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
 run docker build  -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
 
 # build the docker for server
-run docker build  -f docker/laxatips_dockerfile -t mc_navitia/laxatips  .
+run docker build  -f docker/laxatips_dockerfile -t mc_navitia/laxatips  ./tmp/
 
 
 # push image to docker registry if required with -r
