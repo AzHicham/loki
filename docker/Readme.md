@@ -13,18 +13,17 @@ from the root directory of this repository, where `my_github_token` is a OAuth t
 
 # Binarize
 
-Put a gtfs datasets in `./docker/data/` with one folder per instance :
-docker/
-Then from `.docker` run  :
+Put gtfs datasets in `./data/` with one folder per instance.
+Then run  :
 ```bash
 docker run -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
 ```
 
-This will create a folder `./docker/mc_navitia` containing everything needed to launch navitia.
+This will create a folder `./mc_navitia` containing everything needed to launch navitia.
 
 # Launch
 
-In `./docker/mc_navitia` run 
+In `./mc_navitia` run 
 ```bash
 docker-compose -f compose.yml up
 ```
