@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build dockers
       run: |
-        build_dockers.sh -o ${{ secrets.OAUTH_TOKEN }}
+        bash ./build_dockers.sh -o ${{ secrets.OAUTH_TOKEN }}
     - name: Binarize
       run: docker run -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
     - name: Launch dockers
