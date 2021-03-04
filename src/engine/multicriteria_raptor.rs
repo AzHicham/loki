@@ -122,7 +122,7 @@ where
             self.perform_transfers_and_arrivals(pt);
 
             self.identify_missions_with_new_waits(pt);
-            
+
             self.nb_of_rounds += 1;
         }
 

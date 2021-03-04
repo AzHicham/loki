@@ -1,0 +1,26 @@
+version: "3"
+services: 
+
+  kraken:
+    image: mc_navitia/kraken:latest
+    volumes:
+      - ./data:/data
+
+  jormungandr:
+    image: mc_navitia/jormun
+    volumes:
+      - ./data:/data
+    ports:
+      - "9191:80"
+  
+  rabbitmq:
+    image: rabbitmq:management
+
+  laxatips:
+    image: mc_navitia/laxatips
+    environment: 
+      - RUST_LOG=debug
+    volumes:
+      - ./data:/data
+
+

@@ -1,0 +1,15 @@
+FROM rust:buster as builder
+WORKDIR /usr/src/myapp
+COPY . .
+RUN apt-get update && apt-get install -y libzmq3-dev
+RUN cargo install --path server
+
+FROM debian:buster-slim
+RUN apt-get update && apt-get install -y libzmq3-dev && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/cargo/bin/laxatips_server /usr/local/bin/laxatips_server
+
+VOLUME /data
+CMD ["/usr/local/bin/laxatips_server", "config_file", "/data/laxatips_config.json"]
+
+
+
