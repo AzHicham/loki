@@ -1,5 +1,8 @@
 
 ## Dockers
+Provides dockers to run a fully featured navitia, where laxatips_server 
+will solve the "public transport" part of the request, instead of kraken.
+
 
 # Build
 You can build the dockers by launching 
@@ -10,15 +13,18 @@ from the root directory of this repository, where `my_github_token` is a OAuth t
 
 # Binarize
 
-Put a gtfs dataset in `./docker/data/gtfs`
-Then run  :
+Put a gtfs datasets in `./docker/data/` with one folder per instance :
+docker/
+Then from `.docker` run  :
 ```bash
-docker run -v "$PWD/data":/data -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
+docker run -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
 ```
+
+This will create a folder `./docker/mc_navitia` containing everything needed to launch navitia.
 
 # Launch
 
-In `./docker` run 
+In `./docker/mc_navitia` run 
 ```bash
 docker-compose -f compose.yml up
 ```
