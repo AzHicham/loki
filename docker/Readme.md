@@ -14,7 +14,33 @@ from the root directory of this repository, where `my_github_token` is a OAuth t
 # Binarize
 
 Put gtfs datasets in `./data/` with one folder per instance.
-Then run  :
+For example : 
+```
+data/
+├── auvergne
+│   ├── gtfs
+│   │   ├── agency.txt
+│   │   ├── calendar.txt
+│   │   ├── routes.txt
+│   │   ├── stop_extensions.txt
+│   │   ├── stops.txt
+│   │   ├── stop_times.txt
+│   │   └── trips.txt
+│   └── stoptimes_loads.csv
+└── idfm
+    ├── gtfs
+    │   ├── agency.txt
+    │   ├── calendar.txt
+    │   ├── routes.txt
+    │   ├── stop_extensions.txt
+    │   ├── stops.txt
+    │   ├── stop_times.txt
+    │   └── trips.txt
+    └── stoptimes_loads.csv
+```
+
+Then, from the root directory of this repository, run :
+
 ```bash
 docker run -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
 ```
@@ -25,7 +51,7 @@ This will create a folder `./mc_navitia` containing everything needed to launch 
 
 In `./mc_navitia` run 
 ```bash
-docker-compose -f compose.yml up
+docker-compose up
 ```
 
 Then you can send http requests to the jormun server on http://localhost:9191 !
