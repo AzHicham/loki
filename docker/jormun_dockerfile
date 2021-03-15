@@ -21,8 +21,6 @@ RUN pip install uwsgi
 
 WORKDIR /usr/src/app/
 
-HEALTHCHECK CMD curl -f http://localhost/v1/coverage || exit 1
-
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION=2
 ENV JORMUNGANDR_INSTANCES_DIR=/data/jormun_conf/
