@@ -1,7 +1,7 @@
-use laxatips::{log::info, solver, transit_model::Model};
+use loki::{log::info, solver, transit_model::Model};
 
-use laxatips::config;
-use laxatips::traits;
+use loki::config;
+use loki::traits;
 
 use log::{error, trace};
 
@@ -14,7 +14,7 @@ use crate::{parse_datetime, solve, BaseOptions};
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "laxatips_random",
+    name = "loki_random",
     about = "Perform random public transport requests.",
     rename_all = "snake_case"
 )]
@@ -30,7 +30,7 @@ pub fn launch<Data>(options: Options) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = laxatips::launch_utils::read_ntfs(
+    let (data, model) = loki::launch_utils::read_ntfs(
         &options.base.ntfs_path,
         &options.base.loads_data_path,
         &options.base.default_transfer_duration,

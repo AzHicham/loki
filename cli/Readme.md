@@ -1,10 +1,10 @@
-# Laxatips - Command Line Interface
+# Loki - Command Line Interface
 
 Command Line Interface to obtain Tips and tricks to fluidify your (public) transit !
 
 ## Description
 
-Reads a [ntfs][1] and performs journey queries on it with `laxatips` from the command line.
+Reads a [ntfs][1] and performs journey queries on it with `loki` from the command line.
 
 Launch
 
@@ -43,7 +43,7 @@ You can disable a log level at compile time by specifying features for the [log]
 # Profile with flamegraph
 Install [flamegraph-rs][5] and launch 
 ```bash
-cargo flamegraph --bin laxatips-cli -- --ntfs /path/to/ntfs random --nb-queries 1000
+cargo flamegraph --bin loki-cli -- --ntfs /path/to/ntfs random --nb-queries 1000
 ```
 
 [1]: https://github.com/CanalTP/ntfs-specification

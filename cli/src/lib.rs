@@ -1,11 +1,11 @@
-use laxatips::config;
-use laxatips::transit_model;
-use laxatips::PositiveDuration;
-use laxatips::{
+use loki::config;
+use loki::transit_model;
+use loki::PositiveDuration;
+use loki::{
     config::RequestParams, log::trace, response, traits::RequestInput, transit_model::Model,
 };
 
-use laxatips::traits;
+use loki::traits;
 
 use slog::slog_o;
 use slog::Drain;

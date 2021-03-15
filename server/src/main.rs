@@ -5,18 +5,18 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use laxatips::config;
-use laxatips::transit_model;
-use laxatips::{
+use loki::config;
+use loki::transit_model;
+use loki::{
     config::RequestParams,
     solver,
     traits::{self, RequestInput},
 };
-use laxatips::{
+use loki::{
     log::{error, info, warn},
     LoadsDailyData, LoadsPeriodicData,
 };
-use laxatips::{DailyData, PeriodicData, PositiveDuration};
+use loki::{DailyData, PeriodicData, PositiveDuration};
 
 use prost::Message;
 use structopt::StructOpt;
@@ -36,8 +36,8 @@ use serde::Deserialize;
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "laxatips_server",
-    about = "Run laxatips server.",
+    name = "loki_server",
+    about = "Run loki server.",
     rename_all = "snake_case"
 )]
 pub enum Options {
@@ -169,7 +169,7 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = laxatips::launch_utils::read_ntfs::<Data, _, _>(
+    let (data, model) = loki::launch_utils::read_ntfs::<Data, _, _>(
         &config.ntfs_path,
         &config.loads_data_path,
         &config.default_transfer_duration,
@@ -278,7 +278,7 @@ fn solve<'data, Data, Solver: traits::Solver<'data, Data>>(
     solver: &mut Solver,
     config: &Config,
     comparator_type: config::ComparatorType,
-) -> Result<Vec<laxatips::response::Response>, Error>
+) -> Result<Vec<loki::response::Response>, Error>
 where
     Data: traits::DataWithIters,
 {
@@ -428,7 +428,7 @@ where
 }
 
 fn respond(
-    solve_result: Result<Vec<laxatips::Response>, Error>,
+    solve_result: Result<Vec<loki::Response>, Error>,
     model: &Model,
     response_bytes: &mut Vec<u8>,
     socket: &zmq::Socket,

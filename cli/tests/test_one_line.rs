@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
 use failure::Error;
-use laxatips::config;
-use laxatips::{LoadsPeriodicData, PositiveDuration};
+use loki::config;
+use loki::{LoadsPeriodicData, PositiveDuration};
 
-use laxatips_cli::stop_areas::{launch, Options};
-use laxatips_cli::{BaseOptions, RequestConfig};
+use loki_cli::stop_areas::{launch, Options};
+use loki_cli::{BaseOptions, RequestConfig};
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded

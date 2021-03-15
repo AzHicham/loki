@@ -45,10 +45,10 @@ for folder in $(ls -d */); do
 
     mkdir -p ${output}/${coverage}
 
-    # add kraken and laxatips services for this coverage
+    # add kraken and loki services for this coverage
     echo """
-  laxatips-${coverage}:
-    image: mc_navitia/laxatips
+  loki-${coverage}:
+    image: mc_navitia/loki
     environment: 
       - RUST_LOG=debug
     volumes:
@@ -63,8 +63,8 @@ for folder in $(ls -d */); do
 
 
     krakenPort="30000"
-    laxatipsBasicPort="30001"
-    laxatipsLoadsPort="30002"
+    lokiBasicPort="30001"
+    lokiLoadsPort="30002"
 
     # Jormun config files
     # one for the "kraken" coverage
@@ -73,18 +73,18 @@ for folder in $(ls -d */); do
     zmq_socket: $krakenSocket
 }'  > ${output}/jormun_conf/$coverage.json
 
-    # one for "laxatips" with loads comparator
-    jq -n --arg instance "${coverage}-laxatips-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg laxatipsSocket "tcp://laxatips-${coverage}:${laxatipsLoadsPort}" '{ 
+    # one for "loki" with loads comparator
+    jq -n --arg instance "${coverage}-loki-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiLoadsPort}" '{ 
     key: $instance, 
     zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $laxatipsSocket 
+    pt_zmq_socket : $lokiSocket 
 }'  > ${output}/jormun_conf/${coverage}_loads.json
 
-    # one for "laxatips" with basic comparator
-    jq -n --arg instance "${coverage}-laxatips-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg laxatipsSocket "tcp://laxatips-${coverage}:${laxatipsBasicPort}" '{ 
+    # one for "loki" with basic comparator
+    jq -n --arg instance "${coverage}-loki-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{ 
     key: $instance, 
     zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $laxatipsSocket 
+    pt_zmq_socket : $lokiSocket 
 }'  > ${output}/jormun_conf/${coverage}_classic.json
 
     # kraken config file
@@ -100,16 +100,16 @@ username = guest
 password = guest
 " > ${output}/${coverage}/kraken.ini
 
-    # Laxatips config files
+    # Loki config files
     # one for the coverage with loads criteria
-    jq -n --arg basicSocket "tcp://*:$laxatipsBasicPort" --arg loadsSocket "tcp://*:$laxatipsLoadsPort" '{
+    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" --arg loadsSocket "tcp://*:$lokiLoadsPort" '{
     ntfs_path: "/data/ntfs/",
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,
     data_implem: "loads_periodic",
     criteria_implem: "loads"
-}' > ${output}/${coverage}/laxatips_config.json
+}' > ${output}/${coverage}/loki_config.json
 
     #tranform gtfs into ntfs
     echo "Launch gtfs2ntfs"
