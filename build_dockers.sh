@@ -129,8 +129,8 @@ rm -rf ./tmp/
 mkdir -p ./tmp/
 run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
 
-# clone laxatips source code with submodules
-run git clone --recursive https://x-token-auth:${token}@github.com/CanalTP/laxatips.git ./tmp/laxatips/
+# clone loki source code with submodules
+run git clone --recursive https://x-token-auth:${token}@github.com/CanalTP/loki.git ./tmp/loki/
 
 # let's dowload the navitia package built on gihub actions
 # for that we need the repo core_team_ci_tools
@@ -158,7 +158,7 @@ run docker build  -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
 run docker build  -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
 
 # build the docker for server
-run docker build  -f docker/laxatips_dockerfile -t mc_navitia/laxatips  ./tmp/
+run docker build  -f docker/loki_dockerfile -t mc_navitia/loki  ./tmp/
 
 
 # push image to docker registry if required with -r

@@ -1,5 +1,5 @@
-// use crate::laxatips_data::{
-//     LaxatipsData,
+// use crate::loki_data::{
+//     LokiData,
 //     transit_data::{Transfer, Trip, TransitData},
 //     timetables::timetables_data::Position,
 // };

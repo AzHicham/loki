@@ -1,10 +1,10 @@
-# Laxatips - Server
+# Loki - Server
 
 Serve you Tips and tricks to fluidify your (public) transit !
 
 ## Description
 
-Reads a [ntfs][1] dataset and then process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) send to a zmq socket, call the `laxatips` engine, and returns the protobuf response on the zmq socket.
+Reads a [ntfs][1] dataset and then process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) send to a zmq socket, call the `loki` engine, and returns the protobuf response on the zmq socket.
 
 ## How to compile 
 
@@ -22,18 +22,18 @@ cargo build --release
 
 ## How to use
 
-Laxatips-server can be used to answer the "public transit" part of distributed journey request. 
+Loki-server can be used to answer the "public transit" part of distributed journey request. 
 The setup is as follow :
 - a jormun server will receive the distributed journey request, and create several subrequest to be handled by backends, before
   serving the response 
-- a laxatips-server backend will answer all "pt_journey" subrequests
+- a loki-server backend will answer all "pt_journey" subrequests
 - a kraken backend will answer all other subrequests
 
 You should have a ntfs dataset in `/path/to/ntfs` which has been binarized to `/path/to/data.nav.lz4` (you can use [eitry][8] for generating a `data.nav.lz4` from a ntfs dataset).
 You need to setup :
 - a jormun server from [this branch][7] which should be configured with 
 ```json
-{"key": "mycoverage", "zmq_socket": "ipc:///tmp/kraken", "pt_zmq_socket" : "ipc:///tmp/laxatips"}
+{"key": "mycoverage", "zmq_socket": "ipc:///tmp/kraken", "pt_zmq_socket" : "ipc:///tmp/loki"}
 ```
 - a kraken configured with 
 ```
@@ -43,9 +43,9 @@ database = /path/to/data.nav.lz4
 zmq_socket = ipc:///tmp/kraken
 ```
 
-- a laxatips server launched with
+- a loki server launched with
   ```bash
-  cargo run --release -- --ntfs /path/to/ntfs --socket ipc:///tmp/laxatips
+  cargo run --release -- --ntfs /path/to/ntfs --socket ipc:///tmp/loki
   ```
 
 Then you can send http requests to the jormun server !
@@ -62,7 +62,7 @@ cargo build --release -vv
 ```
 And you should see a line like the following in the output :
 ```bash
-[server 0.1.0] Writing protobuf code in /home/pascal/laxatips/target/release/build/server-52f917f3d3486970/out/pbnavitia.rs
+[server 0.1.0] Writing protobuf code in /home/pascal/loki/target/release/build/server-52f917f3d3486970/out/pbnavitia.rs
 ```
 
 See [this page][6] for more information on build scripts.

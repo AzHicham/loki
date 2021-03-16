@@ -1,6 +1,6 @@
-use laxatips::{solver, transit_model::Model};
+use loki::{solver, transit_model::Model};
 
-use laxatips::{config, traits};
+use loki::{config, traits};
 use log::{error, info, trace};
 
 use std::fmt::{Debug, Display};
@@ -14,7 +14,7 @@ use crate::{parse_datetime, solve, BaseOptions};
 
 #[derive(StructOpt, Debug)]
 #[structopt(
-    name = "laxatips_stop_areas",
+    name = "loki_stop_areas",
     about = "Perform a public transport request between two stop areas.",
     rename_all = "snake_case"
 )]
@@ -33,7 +33,7 @@ impl Display for Options {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "laxatips_cli {} --start {} --end {}",
+            "loki_cli {} --start {} --end {}",
             self.base.to_string(),
             self.start,
             self.end
@@ -41,11 +41,11 @@ impl Display for Options {
     }
 }
 
-pub fn launch<Data>(options: Options) -> Result<(Model, Vec<laxatips::Response>), Error>
+pub fn launch<Data>(options: Options) -> Result<(Model, Vec<loki::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = laxatips::launch_utils::read_ntfs(
+    let (data, model) = loki::launch_utils::read_ntfs(
         &options.base.ntfs_path,
         &options.base.loads_data_path,
         &options.base.default_transfer_duration,
@@ -67,7 +67,7 @@ fn build_engine_and_solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
     options: &Options,
-) -> Result<Vec<laxatips::Response>, Error>
+) -> Result<Vec<loki::Response>, Error>
 where
     Data: traits::DataWithIters,
     Solver: traits::Solver<'data, Data>,

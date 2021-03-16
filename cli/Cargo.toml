@@ -1,5 +1,5 @@
 [package]
-name = "laxatips_cli"
+name = "loki_cli"
 version = "0.1.0"
 authors = ["Pascal Benchimol <pascal.benchimol@kisio.com>"]
 edition = "2018"
@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-laxatips = { path = "../"}
+loki = { path = "../"}
 structopt = "0.3"
 chrono = "0.4"
 failure = "0.1"

@@ -1,6 +1,6 @@
 use crate::navitia_proto;
-use laxatips::transit_model;
-use laxatips::{
+use loki::transit_model;
+use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
     Idx, StopPoint, VehicleJourney,
 };
@@ -14,7 +14,7 @@ use transit_model::Model;
 use std::convert::TryFrom;
 
 pub fn make_response(
-    journeys: Vec<laxatips::Response>,
+    journeys: Vec<loki::Response>,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error> {
     let mut proto = navitia_proto::Response {
@@ -33,7 +33,7 @@ pub fn make_response(
 }
 
 fn make_journey(
-    journey: &laxatips::Response,
+    journey: &loki::Response,
     journey_id: usize,
     model: &Model,
 ) -> Result<navitia_proto::Journey, Error> {

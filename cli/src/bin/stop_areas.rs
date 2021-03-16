@@ -1,12 +1,12 @@
-use laxatips::config;
-use laxatips::{DailyData, PeriodicData};
-use laxatips::{LoadsDailyData, LoadsPeriodicData};
+use loki::config;
+use loki::{DailyData, PeriodicData};
+use loki::{LoadsDailyData, LoadsPeriodicData};
 
 use failure::Error;
 
 use structopt::StructOpt;
 
-use laxatips_cli::{
+use loki_cli::{
     init_logger,
     stop_areas::{launch, Options},
 };

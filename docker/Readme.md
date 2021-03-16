@@ -1,6 +1,6 @@
 
 ## Dockers
-Provides dockers to run a fully featured navitia, where laxatips_server 
+Provides dockers to run a fully featured navitia, where loki_server 
 will solve the "public transport" part of the request, instead of kraken.
 
 
