@@ -1,6 +1,6 @@
 FROM rust:buster as builder
 WORKDIR /usr/src/myapp
-COPY ./loki/ .
+COPY . .
 RUN apt-get update && apt-get install -y libzmq3-dev
 RUN cargo install --path server
 

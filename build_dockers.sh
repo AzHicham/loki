@@ -129,8 +129,6 @@ rm -rf ./tmp/
 mkdir -p ./tmp/
 run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
 
-# clone loki source code with submodules
-run git clone --recursive https://x-token-auth:${token}@github.com/CanalTP/loki.git ./tmp/loki/
 
 # let's dowload the navitia package built on gihub actions
 # for that we need the repo core_team_ci_tools
@@ -149,16 +147,16 @@ run unzip -q ./tmp/${archive} -d ./tmp/
 run unzip -q ./tmp/${inside_archive} -d ./tmp/
 
 # build the docker for binarisation
-run docker build  -f docker/bina_dockerfile -t mc_navitia/bina  ./tmp/
+run docker build -f docker/bina_dockerfile -t mc_navitia/bina  .
 
 # build the docker for kraken
-run docker build  -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
+run docker build -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
 
 # build the docker for jormun
-run docker build  -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
+run docker build -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
 
 # build the docker for server
-run docker build  -f docker/loki_dockerfile -t mc_navitia/loki  ./tmp/
+run docker build -f docker/loki_dockerfile -t mc_navitia/loki  .
 
 
 # push image to docker registry if required with -r
