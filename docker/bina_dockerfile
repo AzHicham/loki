@@ -8,9 +8,9 @@ RUN cd transit_model && cargo install --path gtfs2ntfs
 FROM debian:buster-slim
 
 # copy package from context inside the docker
-COPY navitia-ed_*.deb /
-COPY navitia/source/ /navitia/source/
-COPY loki/docker/bina.sh /bina.sh
+COPY ./tmp/navitia-ed_*.deb /
+COPY ./tmp/navitia/source/ /navitia/source/
+COPY ./docker/bina.sh /bina.sh
 
 # install dependencies
 RUN apt-get update

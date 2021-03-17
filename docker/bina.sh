@@ -117,6 +117,13 @@ password = guest
     mkdir -p ${output}/${coverage}/ntfs
     run gtfs2ntfs --input ${input}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
 
+    #copy osm data
+    if [[ -e ${input}/${coverage}/osm/ ]]; then
+        rm -f ${output}/${coverage}/osm/*
+        mkdir -p ${output}/${coverage}/osm/
+        cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
+    fi    
+
     # binarize
     echo "Launch binarisation"
     rm -f ${output}/${coverage}/data.nav.lz4
