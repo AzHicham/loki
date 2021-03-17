@@ -16,6 +16,8 @@ from the root directory of this repository, where `my_github_token` is a OAuth t
 Put gtfs datasets in `./data/` with one folder per instance.
 You can also add osm data.
 In the following example, we have two datasets (auvergne and idfm), with osm data provided only for idfm.
+
+```
 ├── auvergne
 │   ├── gtfs
 │   │   ├── agency.txt
@@ -38,6 +40,7 @@ In the following example, we have two datasets (auvergne and idfm), with osm dat
     ├── osm
     │   └── paris.osm.pbf
     └── stoptimes_loads.csv
+```
 
 Then, from the root directory of this repository, run :
 
