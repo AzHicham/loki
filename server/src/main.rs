@@ -386,7 +386,7 @@ where
     info!(
         "Requested timestamp {}, datetime {}",
         departure_timestamp_u64,
-        chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0)
+        departure_datetime
     );
 
     let max_journey_duration = u32::try_from(journey_request.max_duration)
