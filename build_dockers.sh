@@ -124,11 +124,13 @@ if [[ $push -eq 1 ]]; then
     fi  
 fi
 
+# fetch loki submodules
+run git submodule update --init --recursive
+
 # clone navitia source code with submodules
 rm -rf ./tmp/
 mkdir -p ./tmp/
 run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --branch $branch ./tmp/navitia/
-
 
 # let's dowload the navitia package built on gihub actions
 # for that we need the repo core_team_ci_tools
