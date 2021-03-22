@@ -68,7 +68,9 @@ for folder in $(ls -d */); do
       # remove "StopPoint:" prefix on stop point uris'
       sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stops.txt
       sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stop_times.txt
-      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/transfers.txt
+      if [[ -e ${input}/${coverage}/gtfs/transfers.txt ]]; then
+        sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/transfers.txt
+      fi
     fi
 
     # copy ntfs data to output if present
@@ -91,8 +93,10 @@ for folder in $(ls -d */); do
     rm -f ${output}/${coverage}/data.nav.lz4
     run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
 
-    # copy stoptime_loads
-    cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+    # copy stoptime_loads if present
+    if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
+      cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+    fi
 
     # if gtfs was given as input, we transform it into gtfs for feeding loki
     if [[ -e ${output}/${coverage}/gtfs/ ]]; then
