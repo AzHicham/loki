@@ -65,7 +65,7 @@ jobs:
         test $result != null
     - name: Test idfm basic
       run: |
-        result=$( http GET 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed& | jq .journeys[0].duration)
+        result=$( http GET 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
         test $result != null
     - name: Test idfm kraken
       run: |
