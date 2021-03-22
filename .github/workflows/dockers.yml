@@ -33,6 +33,7 @@ jobs:
     - name: Test corse loads
       run: |
         result=$( http 'http://localhost:9191/v1/coverage/corse-loki-loads/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
+        echo $result
         test $result != null
     - name: Test corse basic
       run: |
