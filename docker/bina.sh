@@ -60,6 +60,8 @@ for folder in $(ls -d */); do
 
     # copy gtfs data to output if present
     if [[ -e ${input}/${coverage}/gtfs/ ]]; then
+
+      inputType="gtfs"
       
       rm -f ${output}/${coverage}/gtfs/*
       mkdir -p ${output}/${coverage}/gtfs/
@@ -75,7 +77,7 @@ for folder in $(ls -d */); do
 
     # copy ntfs data to output if present
     if [[ -e ${input}/${coverage}/ntfs/ ]]; then
-      
+      inputType="ntfs"
       rm -f ${output}/${coverage}/ntfs/*
       mkdir -p ${output}/${coverage}/ntfs/
       cp  ${input}/${coverage}/ntfs/* ${output}/${coverage}/ntfs/
@@ -98,14 +100,7 @@ for folder in $(ls -d */); do
       cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
     fi
 
-    # if gtfs was given as input, we transform it into gtfs for feeding loki
-    if [[ -e ${output}/${coverage}/gtfs/ ]]; then
-      #tranform gtfs into ntfs
-      echo "Launch gtfs2ntfs"
-      rm -f ${output}/${coverage}/ntfs/*
-      mkdir -p ${output}/${coverage}/ntfs
-      run gtfs2ntfs --input ${output}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
-    fi
+
 
     # add kraken and loki services for this coverage
     echo """
@@ -164,8 +159,13 @@ password = guest
 
     # Loki config files
     # one for the coverage with loads criteria
-    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" --arg loadsSocket "tcp://*:$lokiLoadsPort" '{
-    ntfs_path: "/data/ntfs/",
+    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" \
+          --arg loadsSocket "tcp://*:$lokiLoadsPort" \
+          --arg inputType "$inputType" \
+          --arg inputPath "/data/$inputType/" \
+          '{
+    input_path: $inputPath,
+    input_type: $inputType,
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,

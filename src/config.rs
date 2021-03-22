@@ -205,3 +205,50 @@ impl Display for RequestParams {
         )
     }
 }
+
+
+
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputType {
+    Gtfs,
+    Ntfs
+}
+
+impl FromStr for InputType {
+    type Err = InputTypeConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let result = match s {
+            "ntfs" => InputType::Ntfs,
+            "gtfs" => InputType::Gtfs,
+            _ => {
+                return Err(InputTypeConfigError {
+                    input_type_name: s.to_string(),
+                })
+            }
+        };
+        Ok(result)
+    }    
+}
+
+impl std::fmt::Display for InputType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InputType::Gtfs => write!(f, "gtfs"),
+            InputType::Ntfs => write!(f, "ntfs"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct InputTypeConfigError {
+    input_type_name : String
+}
+
+impl std::fmt::Display for InputTypeConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad input data type give : `{}`", self.input_type_name)
+    }
+}

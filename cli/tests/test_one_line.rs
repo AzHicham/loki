@@ -30,7 +30,7 @@ fn test_loads_matin() -> Result<(), Error> {
     let request_config = RequestConfig::default();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: "tests/one_line/loads.csv".to_string(),
+        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
         default_transfer_duration,
@@ -67,7 +67,7 @@ fn test_loads_midi() -> Result<(), Error> {
     let request_config = RequestConfig::default();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: "tests/one_line/loads.csv".to_string(),
+        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
         departure_datetime: Some("20210101T100000".to_string()),
         request_config,
         default_transfer_duration,
@@ -102,7 +102,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
         PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
     let base = BaseOptions {
         ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: "tests/one_line/loads.csv".to_string(),
+        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
         departure_datetime: Some("20210101T080000".to_string()),
         request_config,
         default_transfer_duration,

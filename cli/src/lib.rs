@@ -80,7 +80,7 @@ pub struct BaseOptions {
 
     /// path to the passengers loads file
     #[structopt(short = "l", long = "loads_data")]
-    pub loads_data_path: String,
+    pub loads_data_path: Option<String>,
 
     /// The default transfer duration between a stop point and itself
     #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
@@ -115,11 +115,15 @@ impl Display for BaseOptions {
             Some(datetime) => format!("--departure_datetime {}", datetime),
             None => String::new(),
         };
+        let loads_data_option = match & self.loads_data_path {
+            Some(path) => format!("--loads_data {}", path),
+            None => String::new(),
+        };
         write!(
             f,
-            "--ntfs {} --loads_data {} {} --data_implem {} --criteria_implem {} --comparator_type {} {}",
+            "--ntfs {}  {} {} --data_implem {} --criteria_implem {} --comparator_type {} {}",
             self.ntfs_path,
-            self.loads_data_path,
+            loads_data_option,
             departure_option,
             self.data_implem,
             self.criteria_implem,
