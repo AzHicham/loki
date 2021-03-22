@@ -32,8 +32,6 @@ services:
     ports:
       - 9191:80
   
-  rabbitmq:
-    image: rabbitmq:management
 """ > ${output}/docker-compose.yml
 
 mkdir -p ${output}/jormun_conf/
@@ -150,11 +148,6 @@ instance_name = ${coverage}-kraken
 database = /data/data.nav.lz4
 zmq_socket = tcp://*:${krakenPort}
 
-[BROKER]
-host = rabbitmq
-port = 5672
-username = guest
-password = guest
 " > ${output}/${coverage}/kraken.ini
 
     # Loki config files
