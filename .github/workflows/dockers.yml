@@ -22,7 +22,7 @@ jobs:
       run: |
         ./build_dockers.sh -o ${{secrets.oauth_token}}
     - name: Binarize
-      run: docker run -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
+      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
     - name: Launch dockers
       working-directory: ./mc_navitia
       run: |
@@ -74,3 +74,15 @@ jobs:
       run: |
         result=$( http 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
         test $result != null
+
+    - name: logs
+      working-directory: ./mc_navitia
+      if: failure()
+      run: |
+        docker-compose logs
+
+    - name: cleanup
+      working-directory: ./mc_navitia
+      run: |
+        docker-compose down --rmi all -v
+          
