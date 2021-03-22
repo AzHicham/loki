@@ -1,6 +1,10 @@
 FROM rust:buster as builder
 WORKDIR /usr/src/myapp
-COPY . .
+COPY ./Cargo.toml .
+COPY ./src/ ./src/
+COPY ./server/ ./server/
+COPY ./cli/ ./cli/
+
 RUN apt-get update && apt-get install -y libzmq3-dev
 RUN cargo install --path server
 

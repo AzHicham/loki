@@ -43,7 +43,65 @@ for folder in $(ls -d */); do
     coverage=${folder%%/}
     echo "Configuring ${coverage}"
 
+    if [[ ! -e ${input}/${coverage}/gtfs/ ]] && [[ ! -e ${input}/${coverage}/ntfs/ ]]; then
+      echo "No gtfs/ nor ntfs/ subdirectory found in ${input}/${coverage}."
+      echo "I skip coverage ${coverage}."
+      continue
+    fi
+
+    if [[ -e ${input}/${coverage}/gtfs/ ]] && [[ -e ${input}/${coverage}/ntfs/ ]]; then
+      echo "Found both gtfs/ nor ntfs/ subdirectory in ${input}/${coverage}."
+      echo "I don't know which one to use so I skip the coverage ${coverage}."
+      continue
+    fi
+
+
     mkdir -p ${output}/${coverage}
+
+    # copy gtfs data to output if present
+    if [[ -e ${input}/${coverage}/gtfs/ ]]; then
+      
+      rm -f ${output}/${coverage}/gtfs/*
+      mkdir -p ${output}/${coverage}/gtfs/
+      cp  ${input}/${coverage}/gtfs/* ${output}/${coverage}/gtfs/
+
+      # remove "StopPoint:" prefix on stop point uris'
+      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stops.txt
+      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stop_times.txt
+      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/transfers.txt
+    fi
+
+    # copy ntfs data to output if present
+    if [[ -e ${input}/${coverage}/ntfs/ ]]; then
+      
+      rm -f ${output}/${coverage}/ntfs/*
+      mkdir -p ${output}/${coverage}/ntfs/
+      cp  ${input}/${coverage}/ntfs/* ${output}/${coverage}/ntfs/
+    fi
+
+    # copy osm data to output if present
+    if [[ -e ${input}/${coverage}/osm/ ]]; then
+        rm -f ${output}/${coverage}/osm/*
+        mkdir -p ${output}/${coverage}/osm/
+        cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
+    fi    
+
+    # binarize
+    echo "Launch binarisation"
+    rm -f ${output}/${coverage}/data.nav.lz4
+    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
+
+    # copy stoptime_loads
+    cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+
+    # if gtfs was given as input, we transform it into gtfs for feeding loki
+    if [[ -e ${output}/${coverage}/gtfs/ ]]; then
+      #tranform gtfs into ntfs
+      echo "Launch gtfs2ntfs"
+      rm -f ${output}/${coverage}/ntfs/*
+      mkdir -p ${output}/${coverage}/ntfs
+      run gtfs2ntfs --input ${output}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
+    fi
 
     # add kraken and loki services for this coverage
     echo """
@@ -111,26 +169,7 @@ password = guest
     criteria_implem: "loads"
 }' > ${output}/${coverage}/loki_config.json
 
-    #tranform gtfs into ntfs
-    echo "Launch gtfs2ntfs"
-    rm -f ${output}/${coverage}/ntfs/*
-    mkdir -p ${output}/${coverage}/ntfs
-    run gtfs2ntfs --input ${input}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
 
-    #copy osm data
-    if [[ -e ${input}/${coverage}/osm/ ]]; then
-        rm -f ${output}/${coverage}/osm/*
-        mkdir -p ${output}/${coverage}/osm/
-        cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
-    fi    
-
-    # binarize
-    echo "Launch binarisation"
-    rm -f ${output}/${coverage}/data.nav.lz4
-    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
-
-    # copy stoptime_loads
-    cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
 
     echo "${coverage} done"
 done
