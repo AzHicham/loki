@@ -1,0 +1,2323 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id
+22,1,7650,Hopital Castelluccio,0,TAD-1,575
+22,1,7689,Gare CFC,1,TAD-1,578
+22,1,7690,Hopital Castelluccio,0,TAD-1,575
+22,1,7691,Gare CFC,1,TAD-1,578
+22,1,7692,Hopital Castelluccio,0,TAD-1,575
+22,1,7693,Gare CFC,1,TAD-1,578
+22,1,7694,Hopital Castelluccio,0,TAD-1,575
+22,1,7695,Gare CFC,1,TAD-1,578
+22,1,7696,Hopital Castelluccio,0,TAD-2,575
+22,1,7697,Gare CFC,1,TAD-2,578
+22,1,7698,Hopital Castelluccio,0,TAD-2,575
+22,1,7699,Gare CFC,1,TAD-2,578
+22,1,7700,Hopital Castelluccio,0,TAD-2,575
+22,1,7701,Gare CFC,1,TAD-2,578
+22,1,7702,Hopital Castelluccio,0,TAD-2,575
+22,1,7703,Gare CFC,1,TAD-2,578
+22,1,7704,Hopital Castelluccio,0,TAD-2,575
+22,1,7705,Gare CFC,1,TAD-2,578
+1,1,6248,Place de Gaulle,0,1-A2,359
+1,1,6249,Place de Gaulle,0,1-A2,359
+1,1,6250,Place de Gaulle,0,1-A2,359
+1,1,6251,Hauts du Vazzio,1,1-A2,360
+1,1,6252,Hauts du Vazzio,1,1-A2,360
+1,1,6253,Hauts du Vazzio,1,1-A2,360
+1,1,6254,Place de Gaulle,0,1-A2,359
+1,1,6255,Hauts du Vazzio,1,1-A2,360
+1,1,6256,Place de Gaulle,0,1-A2,359
+1,1,6257,Hauts du Vazzio,1,1-A2,360
+1,1,6258,Place de Gaulle,0,1-A3,359
+1,1,6259,Hauts du Vazzio,1,1-A3,360
+1,1,6260,Place de Gaulle,0,1-A3,359
+1,1,6261,Hauts du Vazzio,1,1-A3,360
+1,1,6262,Place de Gaulle,0,1-A3,359
+1,1,6263,Hauts du Vazzio,1,1-A3,360
+1,1,6264,Place de Gaulle,0,1-A3,359
+1,1,6265,Hauts du Vazzio,1,1-A3,360
+1,1,6266,Place de Gaulle,0,1-A3,359
+1,1,6267,Hauts du Vazzio,1,1-A3,360
+1,1,6268,Place de Gaulle,0,1-A3,359
+1,1,6269,Hauts du Vazzio,1,1-A3,360
+1,1,6270,Place de Gaulle,0,1-A4,359
+1,1,6271,Hauts du Vazzio,1,1-A4,360
+1,1,6272,Place de Gaulle,0,1-A4,359
+1,1,6273,Hauts du Vazzio,1,1-A4,360
+1,1,6274,Place de Gaulle,0,1-A4,359
+1,1,6275,Hauts du Vazzio,1,1-A4,360
+1,1,6276,Place de Gaulle,0,1-A4,359
+1,1,6277,Hauts du Vazzio,1,1-A4,360
+1,1,6278,Hauts du Vazzio,1,1-A5,360
+1,1,6279,Place de Gaulle,0,1-A5,359
+1,1,6280,Hauts du Vazzio,1,1-A5,360
+1,1,6281,Place de Gaulle,0,1-A5,359
+1,1,6282,Hauts du Vazzio,1,1-A5,360
+1,1,6283,Place de Gaulle,0,1-A5,359
+1,1,6284,Hauts du Vazzio,1,1-A5,360
+1,1,6285,Place de Gaulle,0,1-A5,359
+1,1,6286,Hauts du Vazzio,1,1-A5,360
+1,1,6287,Place de Gaulle,0,1-A5,359
+1,1,6288,Hauts du Vazzio,1,1-A5,360
+1,1,7208,Place de Gaulle,0,1-A5,359
+3,1,6314,Place de Gaulle,0,2-B6/B7,373
+3,1,6318,Place de Gaulle,0,2-B6/B7,373
+3,1,6322,Place de Gaulle,0,2-B6/B7,373
+3,1,6326,Place de Gaulle,0,2-B6/B7,373
+3,1,6330,Place de Gaulle,0,2-B6/B7,373
+3,1,6334,Place de Gaulle,0,2-B6/B7,373
+3,1,6338,Place de Gaulle,0,2-B6/B7,373
+3,1,6342,Place de Gaulle,0,2-B6/B7,373
+3,1,6347,Les Crêtes,0,2-B6/B7,374
+3,1,6350,Confina,1,2-B6/B7,375
+3,1,6356,Confina,1,2-B6/B7,376
+3,1,6360,Confina,1,2-B6/B7,376
+3,1,6364,Confina,1,2-B6/B7,376
+3,1,6368,Confina,1,2-B6/B7,376
+3,1,6372,Confina,1,2-B6/B7,376
+3,1,6376,Confina,1,2-B6/B7,376
+3,1,6380,Confina,1,2-B6/B7,376
+3,1,6384,Confina,1,2-B6/B7,376
+3,1,6316,Place de Gaulle,0,2-B4/B5,373
+3,1,6319,Place de Gaulle,0,2-B4/B5,373
+3,1,6323,Place de Gaulle,0,2-B4/B5,373
+3,1,6327,Place de Gaulle,0,2-B4/B5,373
+3,1,6331,Place de Gaulle,0,2-B4/B5,373
+3,1,6335,Place de Gaulle,0,2-B4/B5,373
+3,1,6339,Place de Gaulle,0,2-B4/B5,373
+3,1,6343,Place de Gaulle,0,2-B4/B5,373
+3,1,6348,Place de Gaulle,0,2-B4/B5,371
+3,1,6353,Confina,1,2-B4/B5,376
+3,1,6357,Confina,1,2-B4/B5,376
+3,1,6361,Confina,1,2-B4/B5,376
+3,1,6365,Confina,1,2-B4/B5,376
+3,1,6369,Confina,1,2-B4/B5,376
+3,1,6373,Confina,1,2-B4/B5,376
+3,1,6377,Confina,1,2-B4/B5,376
+3,1,6381,Confina,1,2-B4/B5,376
+3,1,6385,Confina,1,2-B4/B5,376
+3,1,6312,Place de Gaulle,0,2-B2/B3,373
+3,1,6317,Place de Gaulle,0,2-B2/B3,373
+3,1,6320,Place de Gaulle,0,2-B2/B3,373
+3,1,6324,Place de Gaulle,0,2-B2/B3,373
+3,1,6328,Place de Gaulle,0,2-B2/B3,373
+3,1,6332,Place de Gaulle,0,2-B2/B3,373
+3,1,6336,Place de Gaulle,0,2-B2/B3,373
+3,1,6340,Place de Gaulle,0,2-B2/B3,373
+3,1,6345,Les Crêtes,0,2-B2/B3,372
+3,1,6346,Les Crêtes,0,2-B2/B3,374
+3,1,6349,Confina,1,2-B2/B3,375
+3,1,6351,Confina,1,2-B2/B3,375
+3,1,6354,Confina,1,2-B2/B3,376
+3,1,6358,Confina,1,2-B2/B3,376
+3,1,6362,Confina,1,2-B2/B3,376
+3,1,6366,Confina,1,2-B2/B3,376
+3,1,6370,Confina,1,2-B2/B3,376
+3,1,6374,Confina,1,2-B2/B3,376
+3,1,6378,Confina,1,2-B2/B3,376
+3,1,6382,Confina,1,2-B2/B3,376
+3,1,6311,Place de Gaulle,0,2-B/B1,373
+3,1,6313,Place de Gaulle,0,2-B/B1,373
+3,1,6315,Place de Gaulle,0,2-B/B1,373
+3,1,6321,Place de Gaulle,0,2-B/B1,373
+3,1,6325,Place de Gaulle,0,2-B/B1,373
+3,1,6329,Place de Gaulle,0,2-B/B1,373
+3,1,6333,Place de Gaulle,0,2-B/B1,373
+3,1,6337,Place de Gaulle,0,2-B/B1,373
+3,1,6341,Place de Gaulle,0,2-B/B1,373
+3,1,6344,Place de Gaulle,0,2-B/B1,373
+3,1,6352,Confina,1,2-B/B1,376
+3,1,6355,Confina,1,2-B/B1,376
+3,1,6359,Confina,1,2-B/B1,376
+3,1,6363,Confina,1,2-B/B1,376
+3,1,6367,Confina,1,2-B/B1,376
+3,1,6371,Confina,1,2-B/B1,376
+3,1,6375,Confina,1,2-B/B1,376
+3,1,6379,Confina,1,2-B/B1,376
+3,1,6383,Confina,1,2-B/B1,376
+4,1,6386,Confina,1,2BIS-B8/B9,381
+4,1,6388,Gare CFC,1,2BIS-B8/B9,382
+4,1,6389,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6390,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6391,Gare CFC,1,2BIS-B8/B9,382
+4,1,6392,Gare CFC,1,2BIS-B8/B9,382
+4,1,6393,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6394,Gare CFC,1,2BIS-B8/B9,382
+4,1,6395,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6396,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6397,Gare CFC,1,2BIS-B8/B9,382
+4,1,6398,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6399,Gare CFC,1,2BIS-B8/B9,382
+4,1,6400,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6401,Gare CFC,1,2BIS-B8/B9,382
+4,1,6402,Gare CFC,1,2BIS-B8/B9,382
+4,1,6403,Les Crêtes,0,2BIS-B8/B9,380
+4,1,6404,Les Crêtes,0,2BIS-B8/B9,379
+4,1,6405,Gare CFC,1,2BIS-B8/B9,382
+4,1,6406,Les Crêtes,0,2BIS-B8/B9,380
+5,1,6415,Place de Gaulle,0,3-C2/C3,383
+5,1,6416,Place de Gaulle,0,3-C2/C3,383
+5,1,6417,Place de Gaulle,0,3-C2/C3,383
+5,1,6418,Place de Gaulle,0,3-C2/C3,383
+5,1,6419,Place de Gaulle,0,3-C2/C3,383
+5,1,6420,Place de Gaulle,0,3-C2/C3,383
+5,1,6421,Place de Gaulle,0,3-C2/C3,383
+5,1,6422,Place de Gaulle,0,3-C2/C3,383
+5,1,6423,Place de Gaulle,0,3-C2/C3,383
+5,1,6424,Place de Gaulle,0,3-C2/C3,383
+5,1,6436,Pietralba,1,3-C2/C3,384
+5,1,6439,Pietralba,1,3-C2/C3,384
+5,1,6442,Pietralba,1,3-C2/C3,384
+5,1,6445,Pietralba,1,3-C2/C3,384
+5,1,6448,Pietralba,1,3-C2/C3,384
+5,1,6451,Pietralba,1,3-C2/C3,384
+5,1,6454,Pietralba,1,3-C2/C3,384
+5,1,6457,Pietralba,1,3-C2/C3,384
+5,1,6460,Pietralba,1,3-C2/C3,384
+5,1,6463,Pietralba,1,3-C2/C3,384
+5,1,6387,Place de Gaulle,0,3-C/C1,383
+5,1,6407,Place de Gaulle,0,3-C/C1,383
+5,1,6408,Place de Gaulle,0,3-C/C1,383
+5,1,6409,Place de Gaulle,0,3-C/C1,383
+5,1,6410,Place de Gaulle,0,3-C/C1,383
+5,1,6411,Place de Gaulle,0,3-C/C1,383
+5,1,6412,Place de Gaulle,0,3-C/C1,383
+5,1,6413,Place de Gaulle,0,3-C/C1,383
+5,1,6414,Place de Gaulle,0,3-C/C1,383
+5,1,6435,Pietralba,1,3-C/C1,384
+5,1,6438,Pietralba,1,3-C/C1,384
+5,1,6441,Pietralba,1,3-C/C1,384
+5,1,6444,Pietralba,1,3-C/C1,384
+5,1,6447,Pietralba,1,3-C/C1,384
+5,1,6450,Pietralba,1,3-C/C1,384
+5,1,6453,Pietralba,1,3-C/C1,384
+5,1,6456,Pietralba,1,3-C/C1,384
+5,1,6459,Pietralba,1,3-C/C1,384
+5,1,6462,Pietralba,1,3-C/C1,384
+5,1,6425,Place de Gaulle,0,3-C4/C5,383
+5,1,6426,Place de Gaulle,0,3-C4/C5,383
+5,1,6427,Place de Gaulle,0,3-C4/C5,383
+5,1,6428,Place de Gaulle,0,3-C4/C5,383
+5,1,6429,Place de Gaulle,0,3-C4/C5,383
+5,1,6430,Place de Gaulle,0,3-C4/C5,383
+5,1,6431,Place de Gaulle,0,3-C4/C5,383
+5,1,6432,Place de Gaulle,0,3-C4/C5,383
+5,1,6433,Place de Gaulle,0,3-C4/C5,383
+5,1,6434,Place de Gaulle,0,3-C4/C5,383
+5,1,6437,Pietralba,1,3-C4/C5,384
+5,1,6440,Pietralba,1,3-C4/C5,384
+5,1,6443,Pietralba,1,3-C4/C5,384
+5,1,6446,Pietralba,1,3-C4/C5,384
+5,1,6449,Pietralba,1,3-C4/C5,384
+5,1,6452,Pietralba,1,3-C4/C5,384
+5,1,6455,Pietralba,1,3-C4/C5,384
+5,1,6458,Pietralba,1,3-C4/C5,384
+5,1,6461,Pietralba,1,3-C4/C5,384
+5,1,6464,Pietralba,1,3-C4/C5,384
+6,1,6466,Centre Hospitalier,0,4-D/D1,387
+6,1,6468,Centre Hospitalier,0,4-D/D1,387
+6,1,6470,Centre Hospitalier,0,4-D/D1,387
+6,1,6472,Centre Hospitalier,0,4-D/D1,387
+6,1,6474,Centre Hospitalier,0,4-D/D1,387
+6,1,6476,Centre Hospitalier,0,4-D/D1,387
+6,1,6478,Centre Hospitalier,0,4-D/D1,387
+6,1,6480,Centre Hospitalier,0,4-D/D1,387
+6,1,6482,Centre Hospitalier,0,4-D/D1,387
+6,1,6484,Centre Hospitalier,0,4-D/D1,387
+6,1,6485,Budiccione,1,4-D/D1,388
+6,1,6487,Budiccione,1,4-D/D1,388
+6,1,6489,Budiccione,1,4-D/D1,388
+6,1,6491,Budiccione,1,4-D/D1,388
+6,1,6493,Budiccione,1,4-D/D1,388
+6,1,6495,Budiccione,1,4-D/D1,388
+6,1,6497,Budiccione,1,4-D/D1,388
+6,1,6499,Budiccione,1,4-D/D1,388
+6,1,6501,Budiccione,1,4-D/D1,388
+6,1,6503,Budiccione,1,4-D/D1,388
+6,1,6465,Centre Hospitalier,0,4-D2/D3,387
+6,1,6467,Centre Hospitalier,0,4-D2/D3,387
+6,1,6469,Centre Hospitalier,0,4-D2/D3,387
+6,1,6471,Centre Hospitalier,0,4-D2/D3,387
+6,1,6473,Centre Hospitalier,0,4-D2/D3,387
+6,1,6475,Centre Hospitalier,0,4-D2/D3,387
+6,1,6477,Centre Hospitalier,0,4-D2/D3,387
+6,1,6479,Centre Hospitalier,0,4-D2/D3,387
+6,1,6481,Centre Hospitalier,0,4-D2/D3,387
+6,1,6483,Centre Hospitalier,0,4-D2/D3,387
+6,1,6486,Budiccione,1,4-D2/D3,388
+6,1,6488,Budiccione,1,4-D2/D3,388
+6,1,6490,Budiccione,1,4-D2/D3,388
+6,1,6492,Budiccione,1,4-D2/D3,388
+6,1,6494,Budiccione,1,4-D2/D3,388
+6,1,6496,Budiccione,1,4-D2/D3,388
+6,1,6498,Budiccione,1,4-D2/D3,388
+6,1,6500,Budiccione,1,4-D2/D3,388
+6,1,6502,Budiccione,1,4-D2/D3,388
+6,1,6504,Budiccione,1,4-D2/D3,388
+7,1,6781,Place de Gaulle,0,5-E/E1,391
+7,1,6782,Parata,0,5-E/E1,392
+7,1,6783,Place de Gaulle,1,5-E/E1,393
+7,1,6784,Parata,0,5-E/E1,392
+7,1,6785,Place de Gaulle,1,5-E/E1,393
+7,1,6786,Parata,0,5-E/E1,392
+7,1,6787,Place de Gaulle,1,5-E/E1,393
+7,1,6788,Parata,0,5-E/E1,392
+7,1,6789,Place de Gaulle,1,5-E/E1,393
+7,1,6790,Parata,0,5-E/E1,392
+7,1,6791,Place de Gaulle,1,5-E/E1,393
+7,1,6792,Parata,0,5-E/E1,392
+7,1,6793,Cathédrale,1,5-E/E1,394
+7,1,6806,Place de Gaulle,0,5-E2/E3,391
+7,1,6807,Parata,0,5-E2/E3,392
+7,1,6808,Place de Gaulle,1,5-E2/E3,393
+7,1,6809,Parata,0,5-E2/E3,392
+7,1,6810,Place de Gaulle,1,5-E2/E3,393
+7,1,6811,Parata,0,5-E2/E3,392
+7,1,6812,Place de Gaulle,1,5-E2/E3,393
+7,1,6813,Parata,0,5-E2/E3,392
+7,1,6814,Place de Gaulle,1,5-E2/E3,393
+7,1,6815,Parata,0,5-E2/E3,392
+7,1,6816,Cathédrale,1,5-E2/E3,394
+7,1,6817,Parata,0,5-3,392
+7,1,6818,Place de Gaulle,1,5-3,393
+7,1,6819,Parata,0,5-3,392
+7,1,6820,Place de Gaulle,1,5-3,393
+7,1,6821,Parata,0,5-3,392
+7,1,6822,Place de Gaulle,1,5-3,393
+7,1,6823,Parata,0,5-3,392
+7,1,6824,Place de Gaulle,1,5-3,393
+7,1,6825,Parata,0,5-3,392
+7,1,6826,Place de Gaulle,1,5-3,393
+7,1,6827,Parata,0,5-3,392
+7,1,6828,Cathédrale,1,5-3,394
+7,1,6794,Parata,0,5-4,392
+7,1,6795,Place de Gaulle,1,5-4,393
+7,1,6796,Parata,0,5-4,392
+7,1,6797,Place de Gaulle,1,5-4,393
+7,1,6798,Parata,0,5-4,392
+7,1,6799,Place de Gaulle,1,5-4,393
+7,1,6800,Parata,0,5-4,392
+7,1,6801,Place de Gaulle,1,5-4,393
+7,1,6802,Parata,0,5-4,392
+7,1,6803,Place de Gaulle,1,5-4,393
+7,1,6804,Parata,0,5-4,392
+7,1,6805,Cathédrale,1,5-4,394
+22,1,7706,Saint Pierre de Cardo,1,TAD-3,577
+22,1,7707,Gare CFC,0,TAD-3,576
+22,1,7708,Saint Pierre de Cardo,1,TAD-3,577
+22,1,7709,Gare CFC,0,TAD-3,576
+22,1,7710,Saint Pierre de Cardo,1,TAD-3,577
+22,1,7711,Gare CFC,0,TAD-3,576
+22,1,7712,Saint Pierre de Cardo,1,TAD-3,577
+22,1,7713,Gare CFC,0,TAD-3,576
+22,1,7714,Saint Pierre de Cardo,1,TAD-4,577
+22,1,7715,Gare CFC,0,TAD-4,576
+22,1,7716,Saint Pierre de Cardo,1,TAD-4,577
+22,1,7717,Gare CFC,0,TAD-4,576
+22,1,7718,Saint Pierre de Cardo,1,TAD-4,577
+22,1,7719,Gare CFC,0,TAD-4,576
+22,1,7720,Saint Pierre de Cardo,1,TAD-4,577
+22,1,7756,Gare CFC,0,TAD-4,576
+22,1,7758,Saint Pierre de Cardo,1,TAD-4,577
+22,1,7786,Gare CFC,0,TAD-4,576
+15,1,11539,Gare CFC,0,A-P,584
+15,1,11540,Vazzio,1,A-P,583
+15,1,11541,Gare CFC,0,A-P,581
+15,1,11542,Hopital Castelluccio,0,A-P,589
+15,1,11543,Gare CFC,1,A-P,590
+15,1,11544,Saint Joseph,1,A-P,585
+15,1,11545,Gare CFC,0,A-P,584
+15,1,11546,Saint Joseph,1,A-P,585
+15,1,11547,Gare CFC,0,A-P,584
+15,1,11548,Saint Joseph,1,A-P,585
+15,1,11549,Gare CFC,0,A-P,584
+15,1,11550,Institut Consulaire,1,A-P,579
+15,1,11551,Gare CFC,0,A-P,580
+15,1,11552,Saint Joseph,1,A-P,585
+15,1,11553,Gare CFC,0,A-P,584
+15,1,11554,Institut Consulaire,1,A-P,579
+15,1,11555,Gare CFC,0,A-P,580
+15,1,11556,Saint Joseph,1,A-P,585
+15,1,11557,Gare CFC,0,A-P,584
+15,1,11558,Hauts d'Aspretto,1,A-P,588
+13,1,6516,Empereur Maillot,0,7-G2/G3,416
+13,1,6517,Empereur Maillot,0,7-G2/G3,416
+13,1,6518,Empereur Maillot,0,7-G2/G3,416
+13,1,6519,Empereur Maillot,0,7-G2/G3,416
+13,1,6520,Empereur Maillot,0,7-G2/G3,416
+13,1,6521,Empereur Maillot,0,7-G2/G3,416
+13,1,6522,Empereur Maillot,0,7-G2/G3,416
+13,1,6523,Empereur Maillot,0,7-G2/G3,416
+13,1,6524,Empereur Maillot,0,7-G2/G3,416
+13,1,6525,Empereur Maillot,0,7-G2/G3,416
+13,1,6526,Empereur Maillot,0,7-G2/G3,416
+13,1,6538,Loreto,1,7-G2/G3,417
+13,1,6539,Loreto,1,7-G2/G3,417
+13,1,6540,Loreto,1,7-G2/G3,417
+13,1,6541,Loreto,1,7-G2/G3,417
+13,1,6542,Loreto,1,7-G2/G3,417
+13,1,6543,Loreto,1,7-G2/G3,417
+13,1,6544,Loreto,1,7-G2/G3,417
+13,1,6545,Loreto,1,7-G2/G3,417
+13,1,6546,Loreto,1,7-G2/G3,417
+13,1,6547,Loreto,1,7-G2/G3,417
+13,1,6548,Loreto,1,7-G2/G3,417
+13,1,6505,Empereur Maillot,0,7-G/G1,416
+13,1,6506,Empereur Maillot,0,7-G/G1,416
+13,1,6507,Empereur Maillot,0,7-G/G1,416
+13,1,6508,Empereur Maillot,0,7-G/G1,416
+13,1,6509,Empereur Maillot,0,7-G/G1,416
+13,1,6510,Empereur Maillot,0,7-G/G1,416
+13,1,6511,Empereur Maillot,0,7-G/G1,416
+13,1,6512,Empereur Maillot,0,7-G/G1,416
+13,1,6513,Empereur Maillot,0,7-G/G1,416
+13,1,6514,Empereur Maillot,0,7-G/G1,416
+13,1,6515,Empereur Maillot,0,7-G/G1,416
+13,1,6527,Loreto,1,7-G/G1,417
+13,1,6528,Loreto,1,7-G/G1,417
+13,1,6529,Loreto,1,7-G/G1,417
+13,1,6530,Loreto,1,7-G/G1,417
+13,1,6531,Loreto,1,7-G/G1,417
+13,1,6532,Loreto,1,7-G/G1,417
+13,1,6533,Loreto,1,7-G/G1,417
+13,1,6534,Loreto,1,7-G/G1,417
+13,1,6535,Loreto,1,7-G/G1,417
+13,1,6536,Loreto,1,7-G/G1,417
+13,1,6537,Loreto,1,7-G/G1,417
+9,1,17716,Aeroport,1,8-1,401
+9,1,17748,Gare CFC,0,8-1,400
+9,1,17749,Aeroport,1,8-1,401
+9,1,17750,Gare CFC,0,8-1,400
+9,1,17751,Aeroport,1,8-1,401
+9,1,17752,Gare CFC,0,8-1,400
+9,1,17753,Aeroport,1,8-1,401
+9,1,17754,Gare CFC,0,8-1,400
+9,1,17757,Aeroport,1,8-1,401
+9,1,17758,Gare CFC,0,8-1,400
+9,1,17759,Aeroport,1,8-1,401
+9,1,17760,Gare CFC,0,8-2,400
+9,1,17767,Aeroport,1,8-2,401
+9,1,17769,Gare CFC,0,8-2,400
+9,1,17777,Aeroport,1,8-2,401
+9,1,17778,Gare CFC,0,8-2,400
+9,1,21159,Aeroport,1,8-2,401
+9,1,21160,Gare CFC,0,8-2,400
+9,1,21161,Aeroport,1,8-2,401
+9,1,21162,Gare CFC,0,8-2,400
+9,1,21163,Aeroport,1,8-2,401
+9,1,21164,Gare CFC,0,8-2,400
+9,1,21165,Aeroport,1,8-2,401
+9,1,21166,Gare CFC,0,8-2,400
+9,1,21167,Aeroport,1,8-2,401
+14,1,7781,Saint Pierre de Cardo,1,N-3,420
+14,1,7782,Gare CFC,0,N-3,421
+10,1,6563,Cathédrale,1,9-K,405
+10,1,6564,Hôpital Miséricorde,0,9-K,404
+10,1,6565,Cathédrale,1,9-K,405
+10,1,6566,Hôpital Miséricorde,0,9-K,404
+10,1,6567,Cathédrale,1,9-K,405
+10,1,6568,Hôpital Miséricorde,0,9-K,404
+10,1,6569,Cathédrale,1,9-K,405
+10,1,6570,Hôpital Miséricorde,0,9-K,404
+10,1,6571,Cathédrale,1,9-K,405
+10,1,6572,Hôpital Miséricorde,0,9-K,404
+10,1,6573,Cathédrale,1,9-K,405
+10,1,6574,Hôpital Miséricorde,0,9-K,404
+10,1,6575,Cathédrale,1,9-K,405
+10,1,6576,Hôpital Miséricorde,0,9-K,404
+10,1,6577,Cathédrale,1,9-K,405
+10,1,6578,Hôpital Miséricorde,0,9-K,404
+10,1,6579,Cathédrale,1,9-K,405
+10,1,6580,Hôpital Miséricorde,0,9-K,404
+10,1,6581,Cathédrale,1,9-K,405
+10,1,6582,Hôpital Miséricorde,0,9-K,404
+10,1,6583,Cathédrale,1,9-K,405
+10,1,6584,Hôpital Miséricorde,0,9-K,404
+10,1,6585,Cathédrale,1,9-K,405
+10,1,6586,Hôpital Miséricorde,0,9-K,404
+10,1,6587,Cathédrale,1,9-K,405
+10,1,6588,Hôpital Miséricorde,0,9-K,404
+10,1,6589,Cathédrale,1,9-K,405
+10,1,6590,Hôpital Miséricorde,0,9-K,404
+10,1,6591,Hôpital Miséricorde,0,9-K1,404
+10,1,6592,Cathédrale,1,9-K1,405
+10,1,6593,Hôpital Miséricorde,0,9-K1,404
+10,1,6594,Cathédrale,1,9-K1,405
+10,1,6595,Hôpital Miséricorde,0,9-K1,404
+10,1,6596,Cathédrale,1,9-K1,405
+10,1,6597,Hôpital Miséricorde,0,9-K1,404
+10,1,6598,Cathédrale,1,9-K1,405
+10,1,6599,Hôpital Miséricorde,0,9-K1,404
+10,1,6600,Cathédrale,1,9-K1,405
+10,1,6601,Hôpital Miséricorde,0,9-K1,404
+10,1,6602,Cathédrale,1,9-K1,405
+10,1,6603,Hôpital Miséricorde,0,9-K1,404
+10,1,6604,Cathédrale,1,9-K1,405
+10,1,6605,Hôpital Miséricorde,0,9-K1,404
+10,1,6606,Cathédrale,1,9-K1,405
+10,1,6607,Hôpital Miséricorde,0,9-K1,404
+10,1,6608,Cathédrale,1,9-K1,405
+10,1,6609,Hôpital Miséricorde,0,9-K1,404
+10,1,6610,Cathédrale,1,9-K1,405
+10,1,6611,Hôpital Miséricorde,0,9-K1,404
+10,1,6612,Cathédrale,1,9-K1,405
+10,1,6613,Hôpital Miséricorde,0,9-K1,404
+10,1,6614,Cathédrale,1,9-K1,405
+10,1,6615,Hôpital Miséricorde,0,9-K1,404
+10,1,6616,Cathédrale,1,9-K1,405
+10,1,6617,Hôpital Miséricorde,0,9-K1,404
+10,1,6618,Cathédrale,1,9-K1,405
+10,1,6619,Hôpital Miséricorde,0,9-K1,404
+10,1,6620,Cathédrale,1,9-K1,405
+10,1,6621,Hôpital Miséricorde,0,9-K1,404
+15,1,11559,Gare CFC,0,A-P1,580
+15,1,11560,Hauts d'Aspretto,1,A-P1,588
+15,1,11561,Gare CFC,0,A-P1,587
+15,1,11562,Saint Joseph,1,A-P1,585
+15,1,11563,Gare CFC,0,A-P1,584
+15,1,11564,Institut Consulaire,1,A-P1,579
+15,1,11565,Gare CFC,0,A-P1,580
+15,1,11566,Saint Joseph,1,A-P1,585
+15,1,11567,Gare CFC,0,A-P1,584
+15,1,11568,Institut Consulaire,1,A-P1,579
+15,1,11569,Gare CFC,0,A-P1,580
+15,1,11570,Saint Joseph,1,A-P1,585
+15,1,11571,Gare CFC,0,A-P1,584
+15,1,11572,Saint Joseph,1,A-P1,585
+15,1,11573,Gare CFC,0,A-P1,584
+15,1,11574,Hopital Castelluccio,0,A-P1,589
+15,1,11575,Gare CFC,1,A-P1,590
+15,1,11576,Hauts d'Aspretto,1,A-P1,588
+15,1,11577,Gare CFC,0,A-P2,587
+15,1,11578,Saint Joseph,1,A-P2,585
+15,1,11579,Gare CFC,0,A-P2,584
+15,1,11580,Saint Joseph,1,A-P2,585
+15,1,11581,Gare CFC,0,A-P2,584
+15,1,11582,Saint Joseph,1,A-P2,585
+15,1,11583,Gare CFC,0,A-P2,584
+15,1,11584,Saint Joseph,1,A-P2,585
+15,1,11585,Gare CFC,0,A-P2,584
+15,1,11586,Institut Consulaire,1,A-P2,579
+15,1,11587,Gare CFC,0,A-P2,580
+15,1,11588,Saint Joseph,1,A-P2,585
+15,1,11589,Gare CFC,0,A-P2,584
+15,1,11590,Institut Consulaire,1,A-P2,579
+15,1,11591,Gare CFC,0,A-P2,580
+15,1,11592,Saint Joseph,1,A-P2,585
+15,1,11593,Gare CFC,0,A-P2,584
+15,1,11594,Institut Consulaire,1,A-P2,579
+15,1,11595,Gare CFC,0,A-P3,580
+15,1,11596,Hauts d'Aspretto,1,A-P3,588
+15,1,11597,Gare CFC,0,A-P3,587
+15,1,11598,Institut Consulaire,1,A-P3,579
+15,1,11599,Gare CFC,0,A-P3,580
+15,1,11600,Institut Consulaire,1,A-P3,579
+15,1,11601,Gare CFC,0,A-P3,580
+15,1,11602,Saint Joseph,1,A-P3,585
+15,1,11603,Gare CFC,0,A-P3,584
+15,1,11604,Saint Joseph,1,A-P3,585
+15,1,11605,Gare CFC,0,A-P3,584
+15,1,11606,Saint Joseph,1,A-P3,585
+15,1,11607,Gare CFC,0,A-P3,584
+15,1,11608,Saint Joseph,1,A-P3,585
+15,1,11609,Gare CFC,0,A-P3,584
+15,1,11610,Hauts d'Aspretto,1,A-P3,588
+15,1,11611,Gare CFC,0,A-P3,587
+15,1,11612,Saint Pierre de Cardo,1,A-P3,582
+12,1,13428,Confina,0,B-O,412
+12,1,13429,Confina,0,B-O,412
+12,1,13430,Place Noel Sarrola,1,B-O,413
+12,1,13431,Confina,0,B-O,412
+12,1,13432,Confina,0,B-O,569
+12,1,13433,Confina,0,B-O,411
+12,1,13434,Confina,0,B-O,412
+12,1,13435,Confina,0,B-O,411
+12,1,13442,Confina,0,B-O,411
+12,1,13446,Confina,0,B-O,411
+12,1,13447,Place Noel Sarrola,1,B-O,413
+12,1,13448,Baléone,1,B-O,570
+12,1,13450,Atrium 1,1,B-O,414
+12,1,13451,Atrium 1,1,B-O,414
+12,1,13453,Baléone,1,B-O,570
+12,1,13454,Atrium 1,1,B-O,414
+12,1,13455,Place Noel Sarrola,1,B-O,413
+12,1,13456,Atrium 1,1,B-O,414
+12,1,13462,Place Noel Sarrola,1,B-O,413
+12,1,13464,Atrium 1,0,B-O,448
+12,1,13465,Confina,0,B-O,412
+12,1,13436,Confina,0,B-O1,411
+12,1,13437,Confina,0,B-O1,569
+12,1,13438,Confina,0,B-O1,412
+12,1,13439,Confina,0,B-O1,569
+12,1,13440,Atrium 1,1,B-O1,414
+12,1,13441,Confina,0,B-O1,411
+12,1,13443,Confina,0,B-O1,412
+12,1,13444,Place Noel Sarrola,1,B-O1,413
+12,1,13445,Confina,0,B-O1,411
+12,1,13449,Confina,0,B-O1,569
+12,1,13452,Baléone,1,B-O1,570
+12,1,13457,Baléone,1,B-O1,570
+12,1,13458,Atrium 1,1,B-O1,414
+12,1,13459,Baléone,1,B-O1,570
+12,1,13460,Baléone,1,B-O1,570
+12,1,13461,Place Noel Sarrola,1,B-O1,413
+12,1,13463,Baléone,1,B-O1,570
+12,1,13466,Atrium 1,1,B-O1,414
+12,1,13467,Confina,0,B-O1,412
+12,1,13468,Atrium 1,1,B-O1,414
+12,1,13469,Confina,0,B-O1,412
+12,1,13470,Confina,0,B-O1,569
+14,1,7774,Aeroport,1,N-1,424
+14,1,7775,Gare CFC,0,N-1,425
+9,1,21175,Gare Routiere,0,8-h5,449
+9,1,21176,Aeroport,1,8-h5,450
+9,1,21177,Gare Routiere,0,8-h5,449
+9,1,21178,Aeroport,1,8-h5,450
+9,1,21179,Gare Routiere,0,8-h5,449
+9,1,21180,Aeroport,1,8-h5,450
+9,1,21181,Gare Routiere,0,8-h5,449
+1,2,6692,Place de Gaulle,0,1-A8,361
+1,2,6693,Place de Gaulle,0,1-A8,361
+1,2,6696,Place de Gaulle,0,1-A8,362
+1,2,6700,Hauts du Vazzio,1,1-A8,363
+1,2,6704,Institut Consulaire,1,1-A8,364
+1,2,6705,Institut Consulaire,1,1-A8,364
+1,2,6694,Place de Gaulle,0,1-A9,361
+1,2,6695,Place de Gaulle,0,1-A9,361
+1,2,6697,Place de Gaulle,0,1-A9,362
+1,2,6698,Place de Gaulle,0,1-A9,362
+1,2,6699,Place de Gaulle,0,1-A9,362
+1,2,6701,Hauts du Vazzio,1,1-A9,363
+1,2,6702,Hauts du Vazzio,1,1-A9,363
+1,2,6703,Hauts du Vazzio,1,1-A9,363
+1,2,6706,Institut Consulaire,1,1-A9,364
+1,2,6707,Institut Consulaire,1,1-A9,364
+3,2,6678,Les Crêtes,0,2-B10,377
+3,2,6679,Les Crêtes,0,2-B10,377
+3,2,6680,Les Crêtes,0,2-B10,377
+3,2,6685,Confina,1,2-B10,378
+3,2,6686,Confina,1,2-B10,378
+3,2,6687,Confina,1,2-B10,378
+3,2,6681,Les Crêtes,0,2-B11,377
+3,2,6682,Les Crêtes,0,2-B11,377
+3,2,6683,Les Crêtes,0,2-B11,377
+3,2,6684,Les Crêtes,0,2-B11,377
+3,2,6688,Confina,1,2-B11,378
+3,2,6689,Confina,1,2-B11,378
+3,2,6690,Confina,1,2-B11,378
+3,2,6691,Confina,1,2-B11,378
+5,2,6708,Place de Gaulle,0,3-C8,385
+5,2,6709,Pietralba,1,3-C8,386
+5,2,6710,Place de Gaulle,0,3-C8,385
+5,2,6711,Pietralba,1,3-C8,386
+5,2,6712,Place de Gaulle,0,3-C8,385
+5,2,6713,Pietralba,1,3-C8,386
+5,2,6714,Place de Gaulle,0,3-C8,385
+5,2,6715,Pietralba,1,3-C8,386
+5,2,6716,Place de Gaulle,0,3-C9,385
+5,2,6717,Pietralba,1,3-C9,386
+5,2,6718,Place de Gaulle,0,3-C9,385
+5,2,6719,Pietralba,1,3-C9,386
+5,2,6720,Place de Gaulle,0,3-C9,385
+5,2,6721,Pietralba,1,3-C9,386
+5,2,6722,Place de Gaulle,0,3-C9,385
+5,2,6723,Pietralba,1,3-C9,386
+5,2,6724,Place de Gaulle,0,3-C9,385
+5,2,6725,Pietralba,1,3-C9,386
+6,2,6726,Centre Hospitalier,0,4-D8,390
+6,2,6727,Budiccione,1,4-D8,389
+6,2,6728,Centre Hospitalier,0,4-D8,390
+6,2,6729,Budiccione,1,4-D8,389
+6,2,6730,Centre Hospitalier,0,4-D8,390
+6,2,6731,Budiccione,1,4-D8,389
+6,2,6732,Centre Hospitalier,0,4-D8,390
+6,2,6733,Budiccione,1,4-D8,389
+6,2,6734,Centre Hospitalier,0,4-D8,390
+6,2,6735,Budiccione,1,4-D9,389
+6,2,6736,Centre Hospitalier,0,4-D9,390
+6,2,6737,Budiccione,1,4-D9,389
+6,2,6738,Centre Hospitalier,0,4-D9,390
+6,2,6739,Budiccione,1,4-D9,389
+6,2,6740,Centre Hospitalier,0,4-D9,390
+6,2,6741,Budiccione,1,4-D9,389
+6,2,6742,Centre Hospitalier,0,4-D9,390
+6,2,6743,Budiccione,1,4-D9,389
+6,2,6744,Centre Hospitalier,0,4-D9,390
+7,2,6829,Parata,0,5-E8,397
+7,2,6830,Place de Gaulle,1,5-E8,395
+7,2,6831,Parata,0,5-E8,397
+7,2,6832,Place de Gaulle,1,5-E8,395
+7,2,6833,Parata,0,5-E8,397
+7,2,6834,Place de Gaulle,1,5-E8,395
+7,2,6835,Parata,0,5-E8,397
+7,2,6836,Cathédrale,1,5-E8,396
+7,2,6837,Parata,0,5-E9,397
+7,2,6838,Place de Gaulle,1,5-E9,395
+7,2,6839,Parata,0,5-E9,397
+7,2,6840,Place de Gaulle,1,5-E9,395
+7,2,6841,Parata,0,5-E9,397
+7,2,6842,Place de Gaulle,1,5-E9,395
+7,2,6843,Parata,0,5-E9,397
+7,2,6844,Place de Gaulle,1,5-E9,395
+7,2,6845,Parata,0,5-E9,397
+7,2,6846,Place de Gaulle,1,5-E9,395
+7,2,6847,Parata,0,5-E9,397
+7,2,6848,Cathédrale,1,5-E9,394
+13,2,6745,Loreto,1,7-G8,419
+13,2,6746,Empereur Maillot,0,7-G8,418
+13,2,6747,Loreto,1,7-G8,419
+13,2,6748,Empereur Maillot,0,7-G8,418
+13,2,6749,Loreto,1,7-G8,419
+13,2,6750,Empereur Maillot,0,7-G8,418
+13,2,6751,Loreto,1,7-G8,419
+13,2,6752,Empereur Maillot,0,7-G8,418
+13,2,6753,Empereur Maillot,0,7-G9,418
+13,2,6754,Loreto,1,7-G9,419
+13,2,6755,Empereur Maillot,0,7-G9,418
+13,2,6756,Loreto,1,7-G9,419
+13,2,6757,Empereur Maillot,0,7-G9,418
+13,2,6758,Loreto,1,7-G9,419
+13,2,6759,Empereur Maillot,0,7-G9,418
+13,2,6760,Loreto,1,7-G9,419
+13,2,6761,Empereur Maillot,0,7-G9,418
+13,2,6762,Loreto,1,7-G9,419
+9,2,6891,Gare CFC,0,8-H9,403
+9,2,6892,Aeroport,1,8-H9,402
+9,2,6893,Gare CFC,0,8-H9,403
+9,2,6894,Aeroport,1,8-H9,402
+9,2,6895,Gare CFC,0,8-H9,403
+9,2,6896,Aeroport,1,8-H9,402
+9,2,6897,Gare CFC,0,8-H9,403
+9,2,6898,Aeroport,1,8-H9,402
+9,2,6899,Gare CFC,0,8-H9,403
+9,2,6900,Aeroport,1,8-H9,402
+9,2,6901,Gare CFC,0,8-H9,403
+9,2,6902,Aeroport,1,8-H9,402
+9,2,6903,Gare CFC,0,8-H9,403
+9,2,6904,Aeroport,1,8-H9,402
+9,2,6876,Aeroport,1,8-H8,402
+9,2,6877,Gare CFC,0,8-H8,403
+9,2,6878,Aeroport,1,8-H8,402
+9,2,6879,Gare CFC,0,8-H8,403
+9,2,6880,Aeroport,1,8-H8,402
+9,2,6881,Gare CFC,0,8-H8,403
+9,2,6882,Aeroport,1,8-H8,402
+9,2,6883,Gare CFC,0,8-H8,403
+9,2,6884,Aeroport,1,8-H8,402
+9,2,6885,Gare CFC,0,8-H8,403
+9,2,6886,Aeroport,1,8-H8,402
+9,2,6887,Gare CFC,0,8-H8,403
+9,2,6888,Aeroport,1,8-H8,402
+9,2,6889,Gare CFC,0,8-H8,403
+9,2,6890,Aeroport,1,8-H8,402
+9,2,21168,Gare Routiere,0,8-h10,449
+9,2,21169,Aeroport,1,8-h10,450
+9,2,21170,Gare Routiere,0,8-h10,449
+9,2,21171,Aeroport,1,8-h10,450
+9,2,21172,Gare Routiere,0,8-h10,449
+9,2,21173,Aeroport,1,8-h10,450
+9,2,21174,Gare Routiere,0,8-h10,449
+10,2,6763,Hôpital Miséricorde,0,9-K9,407
+10,2,6764,Cathédrale,1,9-K9,406
+10,2,6765,Hôpital Miséricorde,0,9-K9,407
+10,2,6766,Cathédrale,1,9-K9,406
+10,2,6767,Hôpital Miséricorde,0,9-K9,407
+10,2,6768,Cathédrale,1,9-K9,406
+10,2,6769,Hôpital Miséricorde,0,9-K9,407
+10,2,6770,Cathédrale,1,9-K9,406
+10,2,6771,Hôpital Miséricorde,0,9-K9,407
+10,2,6772,Cathédrale,1,9-K9,406
+10,2,6773,Hôpital Miséricorde,0,9-K9,407
+10,2,6774,Cathédrale,1,9-K9,406
+10,2,6775,Hôpital Miséricorde,0,9-K9,407
+10,2,6776,Cathédrale,1,9-K9,406
+10,2,6777,Hôpital Miséricorde,0,9-K9,407
+10,2,6778,Cathédrale,1,9-K9,406
+10,2,6779,Hôpital Miséricorde,0,9-K9,407
+10,2,6780,Cathédrale,1,9-K9,406
+22,3,15600,Hopital Castelluccio,0,TAD-1,725
+22,3,15601,Gare CFC,1,TAD-1,728
+22,3,15602,Hopital Castelluccio,0,TAD-1,725
+22,3,15603,Gare CFC,1,TAD-1,728
+22,3,15604,Hopital Castelluccio,0,TAD-1,725
+22,3,15605,Gare CFC,1,TAD-1,728
+22,3,15606,Hopital Castelluccio,0,TAD-1,725
+22,3,15607,Gare CFC,1,TAD-1,728
+22,3,15608,Hopital Castelluccio,0,TAD-2,725
+22,3,15609,Gare CFC,1,TAD-2,728
+22,3,15610,Hopital Castelluccio,0,TAD-2,725
+22,3,15611,Gare CFC,1,TAD-2,728
+22,3,15612,Hopital Castelluccio,0,TAD-2,725
+22,3,15613,Gare CFC,1,TAD-2,728
+22,3,15614,Hopital Castelluccio,0,TAD-2,725
+22,3,15615,Gare CFC,1,TAD-2,728
+22,3,15616,Hopital Castelluccio,0,TAD-2,725
+22,3,15617,Gare CFC,1,TAD-2,728
+22,3,15618,Saint Pierre de Cardo,1,TAD-3,727
+22,3,15619,Gare CFC,0,TAD-3,726
+22,3,15620,Saint Pierre de Cardo,1,TAD-3,727
+22,3,15621,Gare CFC,0,TAD-3,726
+22,3,15622,Saint Pierre de Cardo,1,TAD-3,727
+22,3,15623,Gare CFC,0,TAD-3,726
+22,3,15624,Saint Pierre de Cardo,1,TAD-3,727
+22,3,15625,Gare CFC,0,TAD-3,726
+22,3,15626,Saint Pierre de Cardo,1,TAD-4,727
+22,3,15627,Gare CFC,0,TAD-4,726
+22,3,15628,Saint Pierre de Cardo,1,TAD-4,727
+22,3,15629,Gare CFC,0,TAD-4,726
+22,3,15630,Saint Pierre de Cardo,1,TAD-4,727
+22,3,15631,Gare CFC,0,TAD-4,726
+22,3,15632,Saint Pierre de Cardo,1,TAD-4,727
+22,3,15633,Gare CFC,0,TAD-4,726
+22,3,15634,Saint Pierre de Cardo,1,TAD-4,727
+22,3,15635,Gare CFC,0,TAD-4,726
+15,3,15715,Gare CFC,0,A-P,707
+15,3,15716,Vazzio,1,A-P,718
+15,3,15717,Gare CFC,0,A-P,716
+15,3,15718,Hopital Castelluccio,0,A-P,713
+15,3,15719,Gare CFC,1,A-P,714
+15,3,15720,Saint Joseph,1,A-P,708
+15,3,15721,Gare CFC,0,A-P,707
+15,3,15722,Saint Joseph,1,A-P,708
+15,3,15723,Gare CFC,0,A-P,707
+15,3,15724,Saint Joseph,1,A-P,708
+15,3,15725,Gare CFC,0,A-P,707
+15,3,15726,Institut Consulaire,1,A-P,710
+15,3,15727,Gare CFC,0,A-P,715
+15,3,15728,Saint Joseph,1,A-P,708
+15,3,15729,Gare CFC,0,A-P,707
+15,3,15730,Institut Consulaire,1,A-P,710
+15,3,15731,Gare CFC,0,A-P,715
+15,3,15732,Saint Joseph,1,A-P,708
+15,3,15733,Gare CFC,0,A-P,707
+15,3,15734,Hauts d'Aspretto,1,A-P,712
+14,3,17862,Saint Pierre de Cardo,1,N-3,699
+14,3,17863,Gare CFC,0,N-3,700
+15,3,15735,Gare CFC,0,A-P1,715
+15,3,15736,Hauts d'Aspretto,1,A-P1,712
+15,3,15737,Gare CFC,0,A-P1,711
+15,3,15738,Saint Joseph,1,A-P1,708
+15,3,15739,Gare CFC,0,A-P1,707
+15,3,15740,Institut Consulaire,1,A-P1,710
+15,3,15741,Gare CFC,0,A-P1,715
+15,3,15742,Saint Joseph,1,A-P1,708
+15,3,15743,Gare CFC,0,A-P1,707
+15,3,15744,Institut Consulaire,1,A-P1,710
+15,3,15745,Gare CFC,0,A-P1,715
+15,3,15746,Saint Joseph,1,A-P1,708
+15,3,15747,Gare CFC,0,A-P1,707
+15,3,15748,Saint Joseph,1,A-P1,708
+15,3,15749,Gare CFC,0,A-P1,707
+15,3,15750,Hopital Castelluccio,0,A-P1,713
+15,3,15751,Gare CFC,1,A-P1,714
+15,3,15752,Hauts d'Aspretto,1,A-P1,712
+15,3,15753,Gare CFC,0,A-P2,711
+15,3,15754,Saint Joseph,1,A-P2,708
+15,3,15755,Gare CFC,0,A-P2,707
+15,3,15756,Saint Joseph,1,A-P2,708
+15,3,15757,Gare CFC,0,A-P2,707
+15,3,15758,Saint Joseph,1,A-P2,708
+15,3,15759,Gare CFC,0,A-P2,707
+15,3,15760,Saint Joseph,1,A-P2,708
+15,3,15761,Gare CFC,0,A-P2,707
+15,3,15762,Institut Consulaire,1,A-P2,710
+15,3,15763,Gare CFC,0,A-P2,715
+15,3,15764,Saint Joseph,1,A-P2,708
+15,3,15765,Gare CFC,0,A-P2,707
+15,3,15766,Institut Consulaire,1,A-P2,710
+15,3,15767,Gare CFC,0,A-P2,715
+15,3,15768,Saint Joseph,1,A-P2,708
+15,3,15769,Gare CFC,0,A-P2,707
+15,3,15770,Institut Consulaire,1,A-P2,710
+15,3,15771,Gare CFC,0,A-P3,715
+15,3,15772,Hauts d'Aspretto,1,A-P3,712
+15,3,15773,Gare CFC,0,A-P3,711
+15,3,15774,Institut Consulaire,1,A-P3,710
+15,3,15775,Gare CFC,0,A-P3,715
+15,3,15776,Institut Consulaire,1,A-P3,710
+15,3,15777,Gare CFC,0,A-P3,715
+15,3,15778,Saint Joseph,1,A-P3,708
+15,3,15779,Gare CFC,0,A-P3,707
+15,3,15780,Saint Joseph,1,A-P3,708
+15,3,15781,Gare CFC,0,A-P3,707
+15,3,15782,Saint Joseph,1,A-P3,708
+15,3,15783,Gare CFC,0,A-P3,707
+15,3,15784,Saint Joseph,1,A-P3,708
+15,3,15785,Gare CFC,0,A-P3,707
+15,3,15786,Hauts d'Aspretto,1,A-P3,712
+15,3,15787,Gare CFC,0,A-P3,711
+15,3,15788,Saint Pierre de Cardo,1,A-P3,717
+1,3,16724,Place de Gaulle,0,1-A2,628
+1,3,16725,Place de Gaulle,0,1-A2,628
+1,3,16726,Place de Gaulle,0,1-A2,628
+1,3,16727,Hauts du Vazzio,1,1-A2,629
+1,3,16728,Hauts du Vazzio,1,1-A2,629
+1,3,16729,Hauts du Vazzio,1,1-A2,629
+1,3,16730,Place de Gaulle,0,1-A2,628
+1,3,16731,Hauts du Vazzio,1,1-A2,629
+1,3,16732,Place de Gaulle,0,1-A2,628
+1,3,16733,Hauts du Vazzio,1,1-A2,629
+1,3,16734,Place de Gaulle,0,1-A3,628
+1,3,16735,Hauts du Vazzio,1,1-A3,629
+1,3,16736,Place de Gaulle,0,1-A3,628
+1,3,16737,Hauts du Vazzio,1,1-A3,629
+1,3,16738,Place de Gaulle,0,1-A3,628
+1,3,16739,Hauts du Vazzio,1,1-A3,629
+1,3,16740,Place de Gaulle,0,1-A3,628
+1,3,16741,Hauts du Vazzio,1,1-A3,629
+1,3,16742,Place de Gaulle,0,1-A3,628
+1,3,16743,Hauts du Vazzio,1,1-A3,629
+1,3,16744,Place de Gaulle,0,1-A3,628
+1,3,16745,Hauts du Vazzio,1,1-A3,629
+1,3,16746,Place de Gaulle,0,1-A4,628
+1,3,16747,Hauts du Vazzio,1,1-A4,629
+1,3,16748,Place de Gaulle,0,1-A4,628
+1,3,16749,Hauts du Vazzio,1,1-A4,629
+1,3,16750,Place de Gaulle,0,1-A4,628
+1,3,16751,Hauts du Vazzio,1,1-A4,629
+1,3,16752,Place de Gaulle,0,1-A4,628
+1,3,16753,Hauts du Vazzio,1,1-A4,629
+1,3,16754,Hauts du Vazzio,1,1-A5,629
+1,3,16755,Place de Gaulle,0,1-A5,628
+1,3,16756,Hauts du Vazzio,1,1-A5,629
+1,3,16757,Place de Gaulle,0,1-A5,628
+1,3,16758,Hauts du Vazzio,1,1-A5,629
+1,3,16759,Place de Gaulle,0,1-A5,628
+1,3,16760,Hauts du Vazzio,1,1-A5,629
+1,3,16761,Place de Gaulle,0,1-A5,628
+1,3,16762,Hauts du Vazzio,1,1-A5,629
+1,3,16763,Place de Gaulle,0,1-A5,628
+1,3,16764,Hauts du Vazzio,1,1-A5,629
+1,3,17684,Place de Gaulle,0,1-A5,628
+3,3,16790,Place de Gaulle,0,2-B6/B7,641
+3,3,16794,Place de Gaulle,0,2-B6/B7,641
+3,3,16798,Place de Gaulle,0,2-B6/B7,641
+3,3,16802,Place de Gaulle,0,2-B6/B7,641
+3,3,16806,Place de Gaulle,0,2-B6/B7,641
+3,3,16810,Place de Gaulle,0,2-B6/B7,641
+3,3,16814,Place de Gaulle,0,2-B6/B7,641
+3,3,16818,Place de Gaulle,0,2-B6/B7,641
+3,3,16823,Les Crêtes,0,2-B6/B7,642
+3,3,16826,Confina,1,2-B6/B7,643
+3,3,16832,Confina,1,2-B6/B7,644
+3,3,16836,Confina,1,2-B6/B7,644
+3,3,16840,Confina,1,2-B6/B7,644
+3,3,16844,Confina,1,2-B6/B7,644
+3,3,16848,Confina,1,2-B6/B7,644
+3,3,16852,Confina,1,2-B6/B7,644
+3,3,16856,Confina,1,2-B6/B7,644
+3,3,16860,Confina,1,2-B6/B7,644
+3,3,16792,Place de Gaulle,0,2-B4/B5,641
+3,3,16795,Place de Gaulle,0,2-B4/B5,641
+3,3,16799,Place de Gaulle,0,2-B4/B5,641
+3,3,16803,Place de Gaulle,0,2-B4/B5,641
+3,3,16807,Place de Gaulle,0,2-B4/B5,641
+3,3,16811,Place de Gaulle,0,2-B4/B5,641
+3,3,16815,Place de Gaulle,0,2-B4/B5,641
+3,3,16819,Place de Gaulle,0,2-B4/B5,641
+3,3,16824,Place de Gaulle,0,2-B4/B5,647
+3,3,16829,Confina,1,2-B4/B5,644
+3,3,16833,Confina,1,2-B4/B5,644
+3,3,16837,Confina,1,2-B4/B5,644
+3,3,16841,Confina,1,2-B4/B5,644
+3,3,16845,Confina,1,2-B4/B5,644
+3,3,16849,Confina,1,2-B4/B5,644
+3,3,16853,Confina,1,2-B4/B5,644
+3,3,16857,Confina,1,2-B4/B5,644
+3,3,16861,Confina,1,2-B4/B5,644
+3,3,16788,Place de Gaulle,0,2-B2/B3,641
+3,3,16793,Place de Gaulle,0,2-B2/B3,641
+3,3,16796,Place de Gaulle,0,2-B2/B3,641
+3,3,16800,Place de Gaulle,0,2-B2/B3,641
+3,3,16804,Place de Gaulle,0,2-B2/B3,641
+3,3,16808,Place de Gaulle,0,2-B2/B3,641
+3,3,16812,Place de Gaulle,0,2-B2/B3,641
+3,3,16816,Place de Gaulle,0,2-B2/B3,641
+3,3,16821,Les Crêtes,0,2-B2/B3,640
+3,3,16822,Les Crêtes,0,2-B2/B3,642
+3,3,16825,Confina,1,2-B2/B3,643
+3,3,16827,Confina,1,2-B2/B3,643
+3,3,16830,Confina,1,2-B2/B3,644
+3,3,16834,Confina,1,2-B2/B3,644
+3,3,16838,Confina,1,2-B2/B3,644
+3,3,16842,Confina,1,2-B2/B3,644
+3,3,16846,Confina,1,2-B2/B3,644
+3,3,16850,Confina,1,2-B2/B3,644
+3,3,16854,Confina,1,2-B2/B3,644
+3,3,16858,Confina,1,2-B2/B3,644
+3,3,16787,Place de Gaulle,0,2-B/B1,641
+3,3,16789,Place de Gaulle,0,2-B/B1,641
+3,3,16791,Place de Gaulle,0,2-B/B1,641
+3,3,16797,Place de Gaulle,0,2-B/B1,641
+3,3,16801,Place de Gaulle,0,2-B/B1,641
+3,3,16805,Place de Gaulle,0,2-B/B1,641
+3,3,16809,Place de Gaulle,0,2-B/B1,641
+3,3,16813,Place de Gaulle,0,2-B/B1,641
+3,3,16817,Place de Gaulle,0,2-B/B1,641
+3,3,16820,Place de Gaulle,0,2-B/B1,641
+3,3,16828,Confina,1,2-B/B1,644
+3,3,16831,Confina,1,2-B/B1,644
+3,3,16835,Confina,1,2-B/B1,644
+3,3,16839,Confina,1,2-B/B1,644
+3,3,16843,Confina,1,2-B/B1,644
+3,3,16847,Confina,1,2-B/B1,644
+3,3,16851,Confina,1,2-B/B1,644
+3,3,16855,Confina,1,2-B/B1,644
+3,3,16859,Confina,1,2-B/B1,644
+4,3,16862,Confina,1,2BIS-B8/B9,650
+4,3,16864,Gare CFC,1,2BIS-B8/B9,651
+4,3,16865,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16866,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16867,Gare CFC,1,2BIS-B8/B9,651
+4,3,16868,Gare CFC,1,2BIS-B8/B9,651
+4,3,16869,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16870,Gare CFC,1,2BIS-B8/B9,651
+4,3,16871,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16872,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16873,Gare CFC,1,2BIS-B8/B9,651
+4,3,16874,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16875,Gare CFC,1,2BIS-B8/B9,651
+4,3,16876,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16877,Gare CFC,1,2BIS-B8/B9,651
+4,3,16878,Gare CFC,1,2BIS-B8/B9,651
+4,3,16879,Les Crêtes,0,2BIS-B8/B9,649
+4,3,16880,Les Crêtes,0,2BIS-B8/B9,648
+4,3,16881,Gare CFC,1,2BIS-B8/B9,651
+4,3,16882,Les Crêtes,0,2BIS-B8/B9,649
+5,3,16891,Place de Gaulle,0,3-C2/C3,652
+5,3,16892,Place de Gaulle,0,3-C2/C3,652
+5,3,16893,Place de Gaulle,0,3-C2/C3,652
+5,3,16894,Place de Gaulle,0,3-C2/C3,652
+5,3,16895,Place de Gaulle,0,3-C2/C3,652
+5,3,16896,Place de Gaulle,0,3-C2/C3,652
+5,3,16897,Place de Gaulle,0,3-C2/C3,652
+5,3,16898,Place de Gaulle,0,3-C2/C3,652
+5,3,16899,Place de Gaulle,0,3-C2/C3,652
+5,3,16900,Place de Gaulle,0,3-C2/C3,652
+5,3,16912,Pietralba,1,3-C2/C3,653
+5,3,16915,Pietralba,1,3-C2/C3,653
+5,3,16918,Pietralba,1,3-C2/C3,653
+5,3,16921,Pietralba,1,3-C2/C3,653
+5,3,16924,Pietralba,1,3-C2/C3,653
+5,3,16927,Pietralba,1,3-C2/C3,653
+5,3,16930,Pietralba,1,3-C2/C3,653
+5,3,16933,Pietralba,1,3-C2/C3,653
+5,3,16936,Pietralba,1,3-C2/C3,653
+5,3,16939,Pietralba,1,3-C2/C3,653
+5,3,16863,Place de Gaulle,0,3-C/C1,652
+5,3,16883,Place de Gaulle,0,3-C/C1,652
+5,3,16884,Place de Gaulle,0,3-C/C1,652
+5,3,16885,Place de Gaulle,0,3-C/C1,652
+5,3,16886,Place de Gaulle,0,3-C/C1,652
+5,3,16887,Place de Gaulle,0,3-C/C1,652
+5,3,16888,Place de Gaulle,0,3-C/C1,652
+5,3,16889,Place de Gaulle,0,3-C/C1,652
+5,3,16890,Place de Gaulle,0,3-C/C1,652
+5,3,16911,Pietralba,1,3-C/C1,653
+5,3,16914,Pietralba,1,3-C/C1,653
+5,3,16917,Pietralba,1,3-C/C1,653
+5,3,16920,Pietralba,1,3-C/C1,653
+5,3,16923,Pietralba,1,3-C/C1,653
+5,3,16926,Pietralba,1,3-C/C1,653
+5,3,16929,Pietralba,1,3-C/C1,653
+5,3,16932,Pietralba,1,3-C/C1,653
+5,3,16935,Pietralba,1,3-C/C1,653
+5,3,16938,Pietralba,1,3-C/C1,653
+5,3,16901,Place de Gaulle,0,3-C4/C5,652
+5,3,16902,Place de Gaulle,0,3-C4/C5,652
+5,3,16903,Place de Gaulle,0,3-C4/C5,652
+5,3,16904,Place de Gaulle,0,3-C4/C5,652
+5,3,16905,Place de Gaulle,0,3-C4/C5,652
+5,3,16906,Place de Gaulle,0,3-C4/C5,652
+5,3,16907,Place de Gaulle,0,3-C4/C5,652
+5,3,16908,Place de Gaulle,0,3-C4/C5,652
+5,3,16909,Place de Gaulle,0,3-C4/C5,652
+5,3,16910,Place de Gaulle,0,3-C4/C5,652
+5,3,16913,Pietralba,1,3-C4/C5,653
+5,3,16916,Pietralba,1,3-C4/C5,653
+5,3,16919,Pietralba,1,3-C4/C5,653
+5,3,16922,Pietralba,1,3-C4/C5,653
+5,3,16925,Pietralba,1,3-C4/C5,653
+5,3,16928,Pietralba,1,3-C4/C5,653
+5,3,16931,Pietralba,1,3-C4/C5,653
+5,3,16934,Pietralba,1,3-C4/C5,653
+5,3,16937,Pietralba,1,3-C4/C5,653
+5,3,16940,Pietralba,1,3-C4/C5,653
+6,3,16942,Centre Hospitalier,0,4-D/D1,656
+6,3,16944,Centre Hospitalier,0,4-D/D1,656
+6,3,16946,Centre Hospitalier,0,4-D/D1,656
+6,3,16948,Centre Hospitalier,0,4-D/D1,656
+6,3,16950,Centre Hospitalier,0,4-D/D1,656
+6,3,16952,Centre Hospitalier,0,4-D/D1,656
+6,3,16954,Centre Hospitalier,0,4-D/D1,656
+6,3,16956,Centre Hospitalier,0,4-D/D1,656
+6,3,16958,Centre Hospitalier,0,4-D/D1,656
+6,3,16960,Centre Hospitalier,0,4-D/D1,656
+6,3,16961,Budiccione,1,4-D/D1,657
+6,3,16963,Budiccione,1,4-D/D1,657
+6,3,16965,Budiccione,1,4-D/D1,657
+6,3,16967,Budiccione,1,4-D/D1,657
+6,3,16969,Budiccione,1,4-D/D1,657
+6,3,16971,Budiccione,1,4-D/D1,657
+6,3,16973,Budiccione,1,4-D/D1,657
+6,3,16975,Budiccione,1,4-D/D1,657
+6,3,16977,Budiccione,1,4-D/D1,657
+6,3,16979,Budiccione,1,4-D/D1,657
+6,3,16941,Centre Hospitalier,0,4-D2/D3,656
+6,3,16943,Centre Hospitalier,0,4-D2/D3,656
+6,3,16945,Centre Hospitalier,0,4-D2/D3,656
+6,3,16947,Centre Hospitalier,0,4-D2/D3,656
+6,3,16949,Centre Hospitalier,0,4-D2/D3,656
+6,3,16951,Centre Hospitalier,0,4-D2/D3,656
+6,3,16953,Centre Hospitalier,0,4-D2/D3,656
+6,3,16955,Centre Hospitalier,0,4-D2/D3,656
+6,3,16957,Centre Hospitalier,0,4-D2/D3,656
+6,3,16959,Centre Hospitalier,0,4-D2/D3,656
+6,3,16962,Budiccione,1,4-D2/D3,657
+6,3,16964,Budiccione,1,4-D2/D3,657
+6,3,16966,Budiccione,1,4-D2/D3,657
+6,3,16968,Budiccione,1,4-D2/D3,657
+6,3,16970,Budiccione,1,4-D2/D3,657
+6,3,16972,Budiccione,1,4-D2/D3,657
+6,3,16974,Budiccione,1,4-D2/D3,657
+6,3,16976,Budiccione,1,4-D2/D3,657
+6,3,16978,Budiccione,1,4-D2/D3,657
+6,3,16980,Budiccione,1,4-D2/D3,657
+7,3,17257,Place de Gaulle,0,5-E/E1,660
+7,3,17258,Parata,0,5-E/E1,661
+7,3,17259,Place de Gaulle,1,5-E/E1,662
+7,3,17260,Parata,0,5-E/E1,661
+7,3,17261,Place de Gaulle,1,5-E/E1,662
+7,3,17262,Parata,0,5-E/E1,661
+7,3,17263,Place de Gaulle,1,5-E/E1,662
+7,3,17264,Parata,0,5-E/E1,661
+7,3,17265,Place de Gaulle,1,5-E/E1,662
+7,3,17266,Parata,0,5-E/E1,661
+7,3,17267,Place de Gaulle,1,5-E/E1,662
+7,3,17268,Parata,0,5-E/E1,661
+7,3,17269,Cathédrale,1,5-E/E1,663
+7,3,17282,Place de Gaulle,0,5-E2/E3,660
+7,3,17283,Parata,0,5-E2/E3,661
+7,3,17284,Place de Gaulle,1,5-E2/E3,662
+7,3,17285,Parata,0,5-E2/E3,661
+7,3,17286,Place de Gaulle,1,5-E2/E3,662
+7,3,17287,Parata,0,5-E2/E3,661
+7,3,17288,Place de Gaulle,1,5-E2/E3,662
+7,3,17289,Parata,0,5-E2/E3,661
+7,3,17290,Place de Gaulle,1,5-E2/E3,662
+7,3,17291,Parata,0,5-E2/E3,661
+7,3,17292,Cathédrale,1,5-E2/E3,663
+7,3,17293,Parata,0,5-3,661
+7,3,17294,Place de Gaulle,1,5-3,662
+7,3,17295,Parata,0,5-3,661
+7,3,17296,Place de Gaulle,1,5-3,662
+7,3,17297,Parata,0,5-3,661
+7,3,17298,Place de Gaulle,1,5-3,662
+7,3,17299,Parata,0,5-3,661
+7,3,17300,Place de Gaulle,1,5-3,662
+7,3,17301,Parata,0,5-3,661
+7,3,17302,Place de Gaulle,1,5-3,662
+7,3,17303,Parata,0,5-3,661
+7,3,17304,Cathédrale,1,5-3,663
+7,3,17270,Parata,0,5-4,661
+7,3,17271,Place de Gaulle,1,5-4,662
+7,3,17272,Parata,0,5-4,661
+7,3,17273,Place de Gaulle,1,5-4,662
+7,3,17274,Parata,0,5-4,661
+7,3,17275,Place de Gaulle,1,5-4,662
+7,3,17276,Parata,0,5-4,661
+7,3,17277,Place de Gaulle,1,5-4,662
+7,3,17278,Parata,0,5-4,661
+7,3,17279,Place de Gaulle,1,5-4,662
+7,3,17280,Parata,0,5-4,661
+7,3,17281,Cathédrale,1,5-4,663
+13,3,16992,Empereur Maillot,0,7-G2/G3,689
+13,3,16993,Empereur Maillot,0,7-G2/G3,689
+13,3,16994,Empereur Maillot,0,7-G2/G3,689
+13,3,16995,Empereur Maillot,0,7-G2/G3,689
+13,3,16996,Empereur Maillot,0,7-G2/G3,689
+13,3,16997,Empereur Maillot,0,7-G2/G3,689
+13,3,16998,Empereur Maillot,0,7-G2/G3,689
+13,3,16999,Empereur Maillot,0,7-G2/G3,689
+13,3,17000,Empereur Maillot,0,7-G2/G3,689
+13,3,17001,Empereur Maillot,0,7-G2/G3,689
+13,3,17002,Empereur Maillot,0,7-G2/G3,689
+13,3,17014,Loreto,1,7-G2/G3,690
+13,3,17015,Loreto,1,7-G2/G3,690
+13,3,17016,Loreto,1,7-G2/G3,690
+13,3,17017,Loreto,1,7-G2/G3,690
+13,3,17018,Loreto,1,7-G2/G3,690
+13,3,17019,Loreto,1,7-G2/G3,690
+13,3,17020,Loreto,1,7-G2/G3,690
+13,3,17021,Loreto,1,7-G2/G3,690
+13,3,17022,Loreto,1,7-G2/G3,690
+13,3,17023,Loreto,1,7-G2/G3,690
+13,3,17024,Loreto,1,7-G2/G3,690
+13,3,16981,Empereur Maillot,0,7-G/G1,689
+13,3,16982,Empereur Maillot,0,7-G/G1,689
+13,3,16983,Empereur Maillot,0,7-G/G1,689
+13,3,16984,Empereur Maillot,0,7-G/G1,689
+13,3,16985,Empereur Maillot,0,7-G/G1,689
+13,3,16986,Empereur Maillot,0,7-G/G1,689
+13,3,16987,Empereur Maillot,0,7-G/G1,689
+13,3,16988,Empereur Maillot,0,7-G/G1,689
+13,3,16989,Empereur Maillot,0,7-G/G1,689
+13,3,16990,Empereur Maillot,0,7-G/G1,689
+13,3,16991,Empereur Maillot,0,7-G/G1,689
+13,3,17003,Loreto,1,7-G/G1,690
+13,3,17004,Loreto,1,7-G/G1,690
+13,3,17005,Loreto,1,7-G/G1,690
+13,3,17006,Loreto,1,7-G/G1,690
+13,3,17007,Loreto,1,7-G/G1,690
+13,3,17008,Loreto,1,7-G/G1,690
+13,3,17009,Loreto,1,7-G/G1,690
+13,3,17010,Loreto,1,7-G/G1,690
+13,3,17011,Loreto,1,7-G/G1,690
+13,3,17012,Loreto,1,7-G/G1,690
+13,3,17013,Loreto,1,7-G/G1,690
+9,3,18671,Aeroport,1,8-1,670
+9,3,18672,Gare CFC,0,8-1,669
+9,3,18673,Aeroport,1,8-1,670
+9,3,21214,Gare CFC,0,8-1,669
+9,3,21215,Aeroport,1,8-1,670
+9,3,21216,Gare CFC,0,8-1,669
+9,3,21217,Aeroport,1,8-1,670
+9,3,21218,Gare CFC,0,8-1,669
+9,3,21219,Aeroport,1,8-1,670
+9,3,21220,Gare CFC,0,8-1,669
+9,3,21221,Aeroport,1,8-1,670
+9,3,21222,Gare CFC,0,8-2,669
+9,3,21223,Aeroport,1,8-2,670
+9,3,21224,Gare CFC,0,8-2,669
+9,3,21225,Aeroport,1,8-2,670
+9,3,21226,Gare CFC,0,8-2,669
+9,3,21227,Aeroport,1,8-2,670
+9,3,21228,Gare CFC,0,8-2,669
+9,3,21229,Aeroport,1,8-2,670
+9,3,21230,Gare CFC,0,8-2,669
+9,3,21231,Aeroport,1,8-2,670
+9,3,21232,Gare CFC,0,8-2,669
+9,3,21233,Aeroport,1,8-2,670
+9,3,21234,Gare CFC,0,8-2,669
+9,3,21235,Aeroport,1,8-2,670
+10,3,17039,Cathédrale,1,9-K,674
+10,3,17040,Hôpital Miséricorde,0,9-K,673
+10,3,17041,Cathédrale,1,9-K,674
+10,3,17042,Hôpital Miséricorde,0,9-K,673
+10,3,17043,Cathédrale,1,9-K,674
+10,3,17044,Hôpital Miséricorde,0,9-K,673
+10,3,17045,Cathédrale,1,9-K,674
+10,3,17046,Hôpital Miséricorde,0,9-K,673
+10,3,17047,Cathédrale,1,9-K,674
+10,3,17048,Hôpital Miséricorde,0,9-K,673
+10,3,17049,Cathédrale,1,9-K,674
+10,3,17050,Hôpital Miséricorde,0,9-K,673
+10,3,17051,Cathédrale,1,9-K,674
+10,3,17052,Hôpital Miséricorde,0,9-K,673
+10,3,17053,Cathédrale,1,9-K,674
+10,3,17054,Hôpital Miséricorde,0,9-K,673
+10,3,17055,Cathédrale,1,9-K,674
+10,3,17056,Hôpital Miséricorde,0,9-K,673
+10,3,17057,Cathédrale,1,9-K,674
+10,3,17058,Hôpital Miséricorde,0,9-K,673
+10,3,17059,Cathédrale,1,9-K,674
+10,3,17060,Hôpital Miséricorde,0,9-K,673
+10,3,17061,Cathédrale,1,9-K,674
+10,3,17062,Hôpital Miséricorde,0,9-K,673
+10,3,17063,Cathédrale,1,9-K,674
+10,3,17064,Hôpital Miséricorde,0,9-K,673
+10,3,17065,Cathédrale,1,9-K,674
+10,3,17066,Hôpital Miséricorde,0,9-K,673
+10,3,17067,Hôpital Miséricorde,0,9-K1,673
+10,3,17068,Cathédrale,1,9-K1,674
+10,3,17069,Hôpital Miséricorde,0,9-K1,673
+10,3,17070,Cathédrale,1,9-K1,674
+10,3,17071,Hôpital Miséricorde,0,9-K1,673
+10,3,17072,Cathédrale,1,9-K1,674
+10,3,17073,Hôpital Miséricorde,0,9-K1,673
+10,3,17074,Cathédrale,1,9-K1,674
+10,3,17075,Hôpital Miséricorde,0,9-K1,673
+10,3,17076,Cathédrale,1,9-K1,674
+10,3,17077,Hôpital Miséricorde,0,9-K1,673
+10,3,17078,Cathédrale,1,9-K1,674
+10,3,17079,Hôpital Miséricorde,0,9-K1,673
+10,3,17080,Cathédrale,1,9-K1,674
+10,3,17081,Hôpital Miséricorde,0,9-K1,673
+10,3,17082,Cathédrale,1,9-K1,674
+10,3,17083,Hôpital Miséricorde,0,9-K1,673
+10,3,17084,Cathédrale,1,9-K1,674
+10,3,17085,Hôpital Miséricorde,0,9-K1,673
+10,3,17086,Cathédrale,1,9-K1,674
+10,3,17087,Hôpital Miséricorde,0,9-K1,673
+10,3,17088,Cathédrale,1,9-K1,674
+10,3,17089,Hôpital Miséricorde,0,9-K1,673
+10,3,17090,Cathédrale,1,9-K1,674
+10,3,17091,Hôpital Miséricorde,0,9-K1,673
+10,3,17092,Cathédrale,1,9-K1,674
+10,3,17093,Hôpital Miséricorde,0,9-K1,673
+10,3,17094,Cathédrale,1,9-K1,674
+10,3,17095,Hôpital Miséricorde,0,9-K1,673
+10,3,17096,Cathédrale,1,9-K1,674
+10,3,17097,Hôpital Miséricorde,0,9-K1,673
+12,3,15951,Confina,0,B-O,684
+12,3,15952,Confina,0,B-O,684
+12,3,15953,Place Noel Sarrola,1,B-O,685
+12,3,15954,Confina,0,B-O,684
+12,3,15955,Confina,0,B-O,681
+12,3,15956,Confina,0,B-O,683
+12,3,15957,Confina,0,B-O,684
+12,3,15958,Confina,0,B-O,683
+12,3,15965,Confina,0,B-O,683
+12,3,15969,Confina,0,B-O,683
+12,3,15970,Place Noel Sarrola,1,B-O,685
+12,3,15971,Baléone,1,B-O,682
+12,3,15973,Atrium 1,1,B-O,686
+12,3,15974,Atrium 1,1,B-O,686
+12,3,15976,Baléone,1,B-O,682
+12,3,15977,Atrium 1,1,B-O,686
+12,3,15978,Place Noel Sarrola,1,B-O,685
+12,3,15979,Atrium 1,1,B-O,686
+12,3,15985,Place Noel Sarrola,1,B-O,685
+12,3,15987,Atrium 1,0,B-O,680
+12,3,15988,Confina,0,B-O,684
+12,3,15959,Confina,0,B-O1,683
+12,3,15960,Confina,0,B-O1,681
+12,3,15961,Confina,0,B-O1,684
+12,3,15962,Confina,0,B-O1,681
+12,3,15963,Atrium 1,1,B-O1,686
+12,3,15964,Confina,0,B-O1,683
+12,3,15966,Confina,0,B-O1,684
+12,3,15967,Place Noel Sarrola,1,B-O1,685
+12,3,15968,Confina,0,B-O1,683
+12,3,15972,Confina,0,B-O1,681
+12,3,15975,Baléone,1,B-O1,682
+12,3,15980,Baléone,1,B-O1,682
+12,3,15981,Atrium 1,1,B-O1,686
+12,3,15982,Baléone,1,B-O1,682
+12,3,15983,Baléone,1,B-O1,682
+12,3,15984,Place Noel Sarrola,1,B-O1,685
+12,3,15986,Baléone,1,B-O1,682
+12,3,15989,Atrium 1,1,B-O1,686
+12,3,15990,Confina,0,B-O1,684
+12,3,15991,Atrium 1,1,B-O1,686
+12,3,15992,Confina,0,B-O1,684
+12,3,15993,Confina,0,B-O1,681
+14,3,17855,Aeroport,1,N-1,695
+14,3,17856,Gare CFC,0,N-1,696
+9,3,21236,Gare Routiere,0,8-h5,534
+9,3,21237,Aeroport,1,8-h5,535
+9,3,21238,Gare Routiere,0,8-h5,534
+9,3,21239,Aeroport,1,8-h5,535
+9,3,21240,Gare Routiere,0,8-h5,534
+9,3,21241,Aeroport,1,8-h5,535
+9,3,21242,Gare Routiere,0,8-h5,534
+1,4,17168,Place de Gaulle,0,1-A8,630
+1,4,17169,Place de Gaulle,0,1-A8,630
+1,4,17172,Place de Gaulle,0,1-A8,631
+1,4,17176,Hauts du Vazzio,1,1-A8,632
+1,4,17180,Institut Consulaire,1,1-A8,633
+1,4,17181,Institut Consulaire,1,1-A8,633
+1,4,17170,Place de Gaulle,0,1-A9,630
+1,4,17171,Place de Gaulle,0,1-A9,630
+1,4,17173,Place de Gaulle,0,1-A9,631
+1,4,17174,Place de Gaulle,0,1-A9,631
+1,4,17175,Place de Gaulle,0,1-A9,631
+1,4,17177,Hauts du Vazzio,1,1-A9,632
+1,4,17178,Hauts du Vazzio,1,1-A9,632
+1,4,17179,Hauts du Vazzio,1,1-A9,632
+1,4,17182,Institut Consulaire,1,1-A9,633
+1,4,17183,Institut Consulaire,1,1-A9,633
+3,4,17154,Les Crêtes,0,2-B10,645
+3,4,17155,Les Crêtes,0,2-B10,645
+3,4,17156,Les Crêtes,0,2-B10,645
+3,4,17161,Confina,1,2-B10,646
+3,4,17162,Confina,1,2-B10,646
+3,4,17163,Confina,1,2-B10,646
+3,4,17157,Les Crêtes,0,2-B11,645
+3,4,17158,Les Crêtes,0,2-B11,645
+3,4,17159,Les Crêtes,0,2-B11,645
+3,4,17160,Les Crêtes,0,2-B11,645
+3,4,17164,Confina,1,2-B11,646
+3,4,17165,Confina,1,2-B11,646
+3,4,17166,Confina,1,2-B11,646
+3,4,17167,Confina,1,2-B11,646
+5,4,17184,Place de Gaulle,0,3-C8,654
+5,4,17185,Pietralba,1,3-C8,655
+5,4,17186,Place de Gaulle,0,3-C8,654
+5,4,17187,Pietralba,1,3-C8,655
+5,4,17188,Place de Gaulle,0,3-C8,654
+5,4,17189,Pietralba,1,3-C8,655
+5,4,17190,Place de Gaulle,0,3-C8,654
+5,4,17191,Pietralba,1,3-C8,655
+5,4,17192,Place de Gaulle,0,3-C9,654
+5,4,17193,Pietralba,1,3-C9,655
+5,4,17194,Place de Gaulle,0,3-C9,654
+5,4,17195,Pietralba,1,3-C9,655
+5,4,17196,Place de Gaulle,0,3-C9,654
+5,4,17197,Pietralba,1,3-C9,655
+5,4,17198,Place de Gaulle,0,3-C9,654
+5,4,17199,Pietralba,1,3-C9,655
+5,4,17200,Place de Gaulle,0,3-C9,654
+5,4,17201,Pietralba,1,3-C9,655
+6,4,17202,Centre Hospitalier,0,4-D8,659
+6,4,17203,Budiccione,1,4-D8,658
+6,4,17204,Centre Hospitalier,0,4-D8,659
+6,4,17205,Budiccione,1,4-D8,658
+6,4,17206,Centre Hospitalier,0,4-D8,659
+6,4,17207,Budiccione,1,4-D8,658
+6,4,17208,Centre Hospitalier,0,4-D8,659
+6,4,17209,Budiccione,1,4-D8,658
+6,4,17210,Centre Hospitalier,0,4-D8,659
+6,4,17211,Budiccione,1,4-D9,658
+6,4,17212,Centre Hospitalier,0,4-D9,659
+6,4,17213,Budiccione,1,4-D9,658
+6,4,17214,Centre Hospitalier,0,4-D9,659
+6,4,17215,Budiccione,1,4-D9,658
+6,4,17216,Centre Hospitalier,0,4-D9,659
+6,4,17217,Budiccione,1,4-D9,658
+6,4,17218,Centre Hospitalier,0,4-D9,659
+6,4,17219,Budiccione,1,4-D9,658
+6,4,17220,Centre Hospitalier,0,4-D9,659
+7,4,17305,Parata,0,5-E8,666
+7,4,17306,Place de Gaulle,1,5-E8,664
+7,4,17307,Parata,0,5-E8,666
+7,4,17308,Place de Gaulle,1,5-E8,664
+7,4,17309,Parata,0,5-E8,666
+7,4,17310,Place de Gaulle,1,5-E8,664
+7,4,17311,Parata,0,5-E8,666
+7,4,17312,Cathédrale,1,5-E8,665
+7,4,17313,Parata,0,5-E9,666
+7,4,17314,Place de Gaulle,1,5-E9,664
+7,4,17315,Parata,0,5-E9,666
+7,4,17316,Place de Gaulle,1,5-E9,664
+7,4,17317,Parata,0,5-E9,666
+7,4,17318,Place de Gaulle,1,5-E9,664
+7,4,17319,Parata,0,5-E9,666
+7,4,17320,Place de Gaulle,1,5-E9,664
+7,4,17321,Parata,0,5-E9,666
+7,4,17322,Place de Gaulle,1,5-E9,664
+7,4,17323,Parata,0,5-E9,666
+7,4,17324,Cathédrale,1,5-E9,663
+13,4,17221,Loreto,1,7-G8,692
+13,4,17222,Empereur Maillot,0,7-G8,691
+13,4,17223,Loreto,1,7-G8,692
+13,4,17224,Empereur Maillot,0,7-G8,691
+13,4,17225,Loreto,1,7-G8,692
+13,4,17226,Empereur Maillot,0,7-G8,691
+13,4,17227,Loreto,1,7-G8,692
+13,4,17228,Empereur Maillot,0,7-G8,691
+13,4,17229,Empereur Maillot,0,7-G9,691
+13,4,17230,Loreto,1,7-G9,692
+13,4,17231,Empereur Maillot,0,7-G9,691
+13,4,17232,Loreto,1,7-G9,692
+13,4,17233,Empereur Maillot,0,7-G9,691
+13,4,17234,Loreto,1,7-G9,692
+13,4,17235,Empereur Maillot,0,7-G9,691
+13,4,17236,Loreto,1,7-G9,692
+13,4,17237,Empereur Maillot,0,7-G9,691
+13,4,17238,Loreto,1,7-G9,692
+10,4,17239,Hôpital Miséricorde,0,9-K9,676
+10,4,17240,Cathédrale,1,9-K9,675
+10,4,17241,Hôpital Miséricorde,0,9-K9,676
+10,4,17242,Cathédrale,1,9-K9,675
+10,4,17243,Hôpital Miséricorde,0,9-K9,676
+10,4,17244,Cathédrale,1,9-K9,675
+10,4,17245,Hôpital Miséricorde,0,9-K9,676
+10,4,17246,Cathédrale,1,9-K9,675
+10,4,17247,Hôpital Miséricorde,0,9-K9,676
+10,4,17248,Cathédrale,1,9-K9,675
+10,4,17249,Hôpital Miséricorde,0,9-K9,676
+10,4,17250,Cathédrale,1,9-K9,675
+10,4,17251,Hôpital Miséricorde,0,9-K9,676
+10,4,17252,Cathédrale,1,9-K9,675
+10,4,17253,Hôpital Miséricorde,0,9-K9,676
+10,4,17254,Cathédrale,1,9-K9,675
+10,4,17255,Hôpital Miséricorde,0,9-K9,676
+10,4,17256,Cathédrale,1,9-K9,675
+7,5,18552,Parata,0,5-6,777
+7,5,18553,Place de Gaulle,1,5-6,778
+7,5,18554,Parata,0,5-6,777
+7,5,18555,Place de Gaulle,1,5-6,778
+7,5,18556,Parata,0,5-6,777
+7,5,18557,Place de Gaulle,1,5-6,778
+7,5,18558,Parata,0,5-6,777
+7,5,18559,Place de Gaulle,1,5-6,778
+7,5,18560,Parata,0,5-6,777
+7,5,18561,Cathédrale,1,5-6,779
+12,5,18904,Confina,0,B-O,798
+12,5,18905,Confina,0,B-O,798
+12,5,18906,Place Noel Sarrola,1,B-O,794
+12,5,18907,Confina,0,B-O,795
+12,5,18908,Confina,0,B-O,795
+12,5,18909,Confina,0,B-O,797
+12,5,18910,Confina,0,B-O,798
+12,5,18911,Confina,0,B-O,797
+12,5,18918,Confina,0,B-O,797
+12,5,18921,Confina,0,B-O,797
+12,5,18922,Place Noel Sarrola,1,B-O,794
+12,5,18923,Baléone,1,B-O,796
+12,5,18925,Atrium 1,1,B-O,800
+12,5,18926,Atrium 1,1,B-O,800
+12,5,18928,Baléone,1,B-O,796
+12,5,18929,Atrium 1,1,B-O,800
+12,5,18930,Place Noel Sarrola,1,B-O,794
+12,5,18931,Baléone,1,B-O,796
+12,5,18937,Place Noel Sarrola,1,B-O,794
+12,5,18939,Atrium 1,0,B-O,793
+12,5,18941,Confina,0,B-O,798
+15,5,18669,Gare CFC,0,A-P,825
+15,5,18674,Vazzio,1,A-P,818
+15,5,18675,Gare CFC,0,A-P,816
+15,5,18676,Hopital Castelluccio,0,A-P,830
+15,5,18677,Gare CFC,1,A-P,831
+15,5,18678,Saint Joseph,1,A-P,826
+15,5,18679,Gare CFC,0,A-P,825
+15,5,18680,Saint Joseph,1,A-P,826
+15,5,18681,Gare CFC,0,A-P,825
+15,5,18682,Saint Joseph,1,A-P,826
+15,5,18683,Gare CFC,0,A-P,825
+15,5,18684,Gare CFC,0,A-P,815
+15,5,18686,Saint Joseph,1,A-P,826
+15,5,18687,Gare CFC,0,A-P,825
+15,5,18688,Institut Consulaire,1,A-P,814
+15,5,18689,Gare CFC,0,A-P,815
+15,5,18690,Saint Joseph,1,A-P,826
+15,5,18691,Gare CFC,0,A-P,825
+15,5,18692,Hauts d'Aspretto,1,A-P,829
+15,5,18746,Institut Consulaire,1,A-P,814
+15,5,18685,Institut Consulaire,1,A-P1,814
+15,5,18693,Gare CFC,0,A-P1,815
+15,5,18694,Hauts d'Aspretto,1,A-P1,829
+15,5,18695,Gare CFC,0,A-P1,828
+15,5,18696,Saint Joseph,1,A-P1,826
+15,5,18697,Gare CFC,0,A-P1,825
+15,5,18700,Saint Joseph,1,A-P1,826
+15,5,18701,Gare CFC,0,A-P1,825
+15,5,18702,Institut Consulaire,1,A-P1,814
+15,5,18703,Gare CFC,0,A-P1,815
+15,5,18704,Saint Joseph,1,A-P1,826
+15,5,18705,Gare CFC,0,A-P1,825
+15,5,18706,Saint Joseph,1,A-P1,826
+15,5,18707,Gare CFC,0,A-P1,825
+15,5,18708,Hopital Castelluccio,0,A-P1,830
+15,5,18709,Gare CFC,1,A-P1,831
+15,5,18710,Hauts d'Aspretto,1,A-P1,829
+15,5,18747,Gare CFC,0,A-P1,815
+15,5,18711,Gare CFC,0,A-P2,828
+15,5,18712,Saint Joseph,1,A-P2,826
+15,5,18713,Gare CFC,0,A-P2,825
+15,5,18714,Saint Joseph,1,A-P2,826
+15,5,18715,Gare CFC,0,A-P2,825
+15,5,18716,Saint Joseph,1,A-P2,826
+15,5,18717,Gare CFC,0,A-P2,825
+15,5,18718,Saint Joseph,1,A-P2,826
+15,5,18719,Gare CFC,0,A-P2,825
+15,5,18720,Institut Consulaire,1,A-P2,814
+15,5,18721,Gare CFC,0,A-P2,815
+15,5,18722,Saint Joseph,1,A-P2,826
+15,5,18723,Gare CFC,0,A-P2,825
+15,5,18724,Institut Consulaire,1,A-P2,814
+15,5,18725,Gare CFC,0,A-P2,815
+15,5,18726,Saint Joseph,1,A-P2,826
+15,5,18727,Gare CFC,0,A-P2,825
+15,5,18728,Institut Consulaire,1,A-P2,814
+15,5,18698,Institut Consulaire,1,A-P3,814
+15,5,18699,Gare CFC,0,A-P3,815
+15,5,18729,Gare CFC,0,A-P3,815
+15,5,18730,Hauts d'Aspretto,1,A-P3,829
+15,5,18731,Gare CFC,0,A-P3,828
+15,5,18732,Institut Consulaire,1,A-P3,814
+15,5,18733,Gare CFC,0,A-P3,815
+15,5,18735,Saint Joseph,1,A-P3,826
+15,5,18736,Gare CFC,0,A-P3,825
+15,5,18737,Saint Joseph,1,A-P3,826
+15,5,18738,Gare CFC,0,A-P3,825
+15,5,18739,Saint Joseph,1,A-P3,826
+15,5,18740,Gare CFC,0,A-P3,825
+15,5,18741,Saint Joseph,1,A-P3,826
+15,5,18742,Gare CFC,0,A-P3,825
+15,5,18743,Hauts d'Aspretto,1,A-P3,829
+15,5,18744,Gare CFC,0,A-P3,828
+15,5,18745,Saint Pierre de Cardo,1,A-P3,817
+14,5,18339,Gare CFC,0,N-2,807
+14,5,18340,Saint Pierre de Cardo,1,N-2,806
+22,5,18152,Hopital Castelluccio,0,TAD-1,832
+22,5,18153,Gare CFC,1,TAD-1,835
+22,5,18154,Hopital Castelluccio,0,TAD-1,832
+22,5,18155,Gare CFC,1,TAD-1,835
+22,5,18156,Hopital Castelluccio,0,TAD-1,832
+22,5,18157,Gare CFC,1,TAD-1,835
+22,5,18158,Hopital Castelluccio,0,TAD-1,832
+22,5,18159,Gare CFC,1,TAD-1,835
+22,5,18160,Hopital Castelluccio,0,TAD-2,832
+22,5,18161,Gare CFC,1,TAD-2,835
+22,5,18162,Hopital Castelluccio,0,TAD-2,832
+22,5,18163,Gare CFC,1,TAD-2,835
+22,5,18164,Hopital Castelluccio,0,TAD-2,832
+22,5,18165,Gare CFC,1,TAD-2,835
+22,5,18166,Hopital Castelluccio,0,TAD-2,832
+22,5,18167,Gare CFC,1,TAD-2,835
+22,5,18168,Hopital Castelluccio,0,TAD-2,832
+22,5,18169,Gare CFC,1,TAD-2,835
+22,5,18170,Saint Pierre de Cardo,1,TAD-3,834
+22,5,18171,Gare CFC,0,TAD-3,833
+22,5,18172,Saint Pierre de Cardo,1,TAD-3,834
+22,5,18173,Gare CFC,0,TAD-3,833
+22,5,18174,Saint Pierre de Cardo,1,TAD-3,834
+22,5,18175,Gare CFC,0,TAD-3,833
+22,5,18176,Saint Pierre de Cardo,1,TAD-3,834
+22,5,18177,Gare CFC,0,TAD-3,833
+22,5,18178,Saint Pierre de Cardo,1,TAD-3,834
+22,5,18179,Saint Pierre de Cardo,1,TAD-4,834
+22,5,18180,Gare CFC,0,TAD-4,833
+22,5,18181,Saint Pierre de Cardo,1,TAD-4,834
+22,5,18182,Gare CFC,0,TAD-4,833
+22,5,18183,Saint Pierre de Cardo,1,TAD-4,834
+22,5,18184,Gare CFC,0,TAD-4,833
+22,5,18185,Saint Pierre de Cardo,1,TAD-4,834
+22,5,18186,Gare CFC,0,TAD-4,833
+22,5,18187,Saint Pierre de Cardo,1,TAD-4,834
+22,5,18188,Gare CFC,0,TAD-4,833
+1,5,19715,Place de Gaulle,0,1-A2,744
+1,5,19716,Place de Gaulle,0,1-A2,744
+1,5,19717,Place de Gaulle,0,1-A2,744
+1,5,19718,Hauts du Vazzio,1,1-A2,745
+1,5,19719,Hauts du Vazzio,1,1-A2,745
+1,5,19720,Hauts du Vazzio,1,1-A2,745
+1,5,19721,Place de Gaulle,0,1-A2,744
+1,5,19722,Hauts du Vazzio,1,1-A2,745
+1,5,19723,Place de Gaulle,0,1-A2,744
+1,5,19724,Hauts du Vazzio,1,1-A2,745
+1,5,19725,Place de Gaulle,0,1-A3,744
+1,5,19726,Hauts du Vazzio,1,1-A3,745
+1,5,19727,Place de Gaulle,0,1-A3,744
+1,5,19728,Hauts du Vazzio,1,1-A3,745
+1,5,19729,Place de Gaulle,0,1-A3,744
+1,5,19730,Hauts du Vazzio,1,1-A3,745
+1,5,19731,Place de Gaulle,0,1-A3,744
+1,5,19732,Hauts du Vazzio,1,1-A3,745
+1,5,19733,Place de Gaulle,0,1-A3,744
+1,5,19734,Hauts du Vazzio,1,1-A3,745
+1,5,19735,Place de Gaulle,0,1-A3,744
+1,5,19736,Hauts du Vazzio,1,1-A3,745
+1,5,19737,Place de Gaulle,0,1-A4,744
+1,5,19738,Hauts du Vazzio,1,1-A4,745
+1,5,19739,Place de Gaulle,0,1-A4,744
+1,5,19740,Hauts du Vazzio,1,1-A4,745
+1,5,19741,Place de Gaulle,0,1-A4,744
+1,5,19742,Hauts du Vazzio,1,1-A4,745
+1,5,19743,Place de Gaulle,0,1-A4,744
+1,5,19744,Hauts du Vazzio,1,1-A4,745
+1,5,19745,Hauts du Vazzio,1,1-A5,745
+1,5,19746,Place de Gaulle,0,1-A5,744
+1,5,19747,Hauts du Vazzio,1,1-A5,745
+1,5,19748,Place de Gaulle,0,1-A5,744
+1,5,19749,Hauts du Vazzio,1,1-A5,745
+1,5,19750,Place de Gaulle,0,1-A5,744
+1,5,19751,Hauts du Vazzio,1,1-A5,745
+1,5,19752,Place de Gaulle,0,1-A5,744
+1,5,19753,Hauts du Vazzio,1,1-A5,745
+1,5,19754,Place de Gaulle,0,1-A5,744
+1,5,19755,Hauts du Vazzio,1,1-A5,745
+1,5,20771,Place de Gaulle,0,1-A5,744
+3,5,19781,Place de Gaulle,0,2-B6/B7,757
+3,5,19785,Place de Gaulle,0,2-B6/B7,757
+3,5,19789,Place de Gaulle,0,2-B6/B7,757
+3,5,19793,Place de Gaulle,0,2-B6/B7,757
+3,5,19797,Place de Gaulle,0,2-B6/B7,757
+3,5,19801,Place de Gaulle,0,2-B6/B7,757
+3,5,19805,Place de Gaulle,0,2-B6/B7,757
+3,5,19809,Place de Gaulle,0,2-B6/B7,757
+3,5,19814,Les Crêtes,0,2-B6/B7,758
+3,5,19817,Confina,1,2-B6/B7,759
+3,5,19823,Confina,1,2-B6/B7,760
+3,5,19827,Confina,1,2-B6/B7,760
+3,5,19831,Confina,1,2-B6/B7,760
+3,5,19835,Confina,1,2-B6/B7,760
+3,5,19839,Confina,1,2-B6/B7,760
+3,5,19843,Confina,1,2-B6/B7,760
+3,5,19847,Confina,1,2-B6/B7,760
+3,5,19851,Confina,1,2-B6/B7,760
+3,5,19783,Place de Gaulle,0,2-B4/B5,757
+3,5,19786,Place de Gaulle,0,2-B4/B5,757
+3,5,19790,Place de Gaulle,0,2-B4/B5,757
+3,5,19794,Place de Gaulle,0,2-B4/B5,757
+3,5,19798,Place de Gaulle,0,2-B4/B5,757
+3,5,19802,Place de Gaulle,0,2-B4/B5,757
+3,5,19806,Place de Gaulle,0,2-B4/B5,757
+3,5,19810,Place de Gaulle,0,2-B4/B5,757
+3,5,19815,Place de Gaulle,0,2-B4/B5,763
+3,5,19820,Confina,1,2-B4/B5,760
+3,5,19824,Confina,1,2-B4/B5,760
+3,5,19828,Confina,1,2-B4/B5,760
+3,5,19832,Confina,1,2-B4/B5,760
+3,5,19836,Confina,1,2-B4/B5,760
+3,5,19840,Confina,1,2-B4/B5,760
+3,5,19844,Confina,1,2-B4/B5,760
+3,5,19848,Confina,1,2-B4/B5,760
+3,5,19852,Confina,1,2-B4/B5,760
+3,5,19779,Place de Gaulle,0,2-B2/B3,757
+3,5,19784,Place de Gaulle,0,2-B2/B3,757
+3,5,19787,Place de Gaulle,0,2-B2/B3,757
+3,5,19791,Place de Gaulle,0,2-B2/B3,757
+3,5,19795,Place de Gaulle,0,2-B2/B3,757
+3,5,19799,Place de Gaulle,0,2-B2/B3,757
+3,5,19803,Place de Gaulle,0,2-B2/B3,757
+3,5,19807,Place de Gaulle,0,2-B2/B3,757
+3,5,19812,Les Crêtes,0,2-B2/B3,756
+3,5,19813,Les Crêtes,0,2-B2/B3,758
+3,5,19816,Confina,1,2-B2/B3,759
+3,5,19818,Confina,1,2-B2/B3,759
+3,5,19821,Confina,1,2-B2/B3,760
+3,5,19825,Confina,1,2-B2/B3,760
+3,5,19829,Confina,1,2-B2/B3,760
+3,5,19833,Confina,1,2-B2/B3,760
+3,5,19837,Confina,1,2-B2/B3,760
+3,5,19841,Confina,1,2-B2/B3,760
+3,5,19845,Confina,1,2-B2/B3,760
+3,5,19849,Confina,1,2-B2/B3,760
+3,5,19778,Place de Gaulle,0,2-B/B1,757
+3,5,19780,Place de Gaulle,0,2-B/B1,757
+3,5,19782,Place de Gaulle,0,2-B/B1,757
+3,5,19788,Place de Gaulle,0,2-B/B1,757
+3,5,19792,Place de Gaulle,0,2-B/B1,757
+3,5,19796,Place de Gaulle,0,2-B/B1,757
+3,5,19800,Place de Gaulle,0,2-B/B1,757
+3,5,19804,Place de Gaulle,0,2-B/B1,757
+3,5,19808,Place de Gaulle,0,2-B/B1,757
+3,5,19811,Place de Gaulle,0,2-B/B1,757
+3,5,19819,Confina,1,2-B/B1,760
+3,5,19822,Confina,1,2-B/B1,760
+3,5,19826,Confina,1,2-B/B1,760
+3,5,19830,Confina,1,2-B/B1,760
+3,5,19834,Confina,1,2-B/B1,760
+3,5,19838,Confina,1,2-B/B1,760
+3,5,19842,Confina,1,2-B/B1,760
+3,5,19846,Confina,1,2-B/B1,760
+3,5,19850,Confina,1,2-B/B1,760
+4,5,19853,Confina,1,2BIS-B8/B9,766
+4,5,19855,Gare CFC,1,2BIS-B8/B9,767
+4,5,19856,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19857,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19858,Gare CFC,1,2BIS-B8/B9,767
+4,5,19859,Gare CFC,1,2BIS-B8/B9,767
+4,5,19860,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19861,Gare CFC,1,2BIS-B8/B9,767
+4,5,19862,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19863,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19864,Gare CFC,1,2BIS-B8/B9,767
+4,5,19865,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19866,Gare CFC,1,2BIS-B8/B9,767
+4,5,19867,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19868,Gare CFC,1,2BIS-B8/B9,767
+4,5,19869,Gare CFC,1,2BIS-B8/B9,767
+4,5,19870,Les Crêtes,0,2BIS-B8/B9,765
+4,5,19871,Les Crêtes,0,2BIS-B8/B9,764
+4,5,19872,Gare CFC,1,2BIS-B8/B9,767
+4,5,19873,Les Crêtes,0,2BIS-B8/B9,765
+5,5,19882,Place de Gaulle,0,3-C2/C3,768
+5,5,19883,Place de Gaulle,0,3-C2/C3,768
+5,5,19884,Place de Gaulle,0,3-C2/C3,768
+5,5,19885,Place de Gaulle,0,3-C2/C3,768
+5,5,19886,Place de Gaulle,0,3-C2/C3,768
+5,5,19887,Place de Gaulle,0,3-C2/C3,768
+5,5,19888,Place de Gaulle,0,3-C2/C3,768
+5,5,19889,Place de Gaulle,0,3-C2/C3,768
+5,5,19890,Place de Gaulle,0,3-C2/C3,768
+5,5,19891,Place de Gaulle,0,3-C2/C3,768
+5,5,19903,PIETRALBA,1,3-C2/C3,769
+5,5,19906,PIETRALBA,1,3-C2/C3,769
+5,5,19909,PIETRALBA,1,3-C2/C3,769
+5,5,19912,PIETRALBA,1,3-C2/C3,769
+5,5,19915,PIETRALBA,1,3-C2/C3,769
+5,5,19918,PIETRALBA,1,3-C2/C3,769
+5,5,19921,PIETRALBA,1,3-C2/C3,769
+5,5,19924,PIETRALBA,1,3-C2/C3,769
+5,5,19927,PIETRALBA,1,3-C2/C3,769
+5,5,19930,PIETRALBA,1,3-C2/C3,769
+5,5,19854,Place de Gaulle,0,3-C/C1,768
+5,5,19874,Place de Gaulle,0,3-C/C1,768
+5,5,19875,Place de Gaulle,0,3-C/C1,768
+5,5,19876,Place de Gaulle,0,3-C/C1,768
+5,5,19877,Place de Gaulle,0,3-C/C1,768
+5,5,19878,Place de Gaulle,0,3-C/C1,768
+5,5,19879,Place de Gaulle,0,3-C/C1,768
+5,5,19880,Place de Gaulle,0,3-C/C1,768
+5,5,19881,Place de Gaulle,0,3-C/C1,768
+5,5,19902,PIETRALBA,1,3-C/C1,769
+5,5,19905,PIETRALBA,1,3-C/C1,769
+5,5,19908,PIETRALBA,1,3-C/C1,769
+5,5,19911,PIETRALBA,1,3-C/C1,769
+5,5,19914,PIETRALBA,1,3-C/C1,769
+5,5,19917,PIETRALBA,1,3-C/C1,769
+5,5,19920,PIETRALBA,1,3-C/C1,769
+5,5,19923,PIETRALBA,1,3-C/C1,769
+5,5,19926,PIETRALBA,1,3-C/C1,769
+5,5,19929,PIETRALBA,1,3-C/C1,769
+5,5,19892,Place de Gaulle,0,3-C4/C5,768
+5,5,19893,Place de Gaulle,0,3-C4/C5,768
+5,5,19894,Place de Gaulle,0,3-C4/C5,768
+5,5,19895,Place de Gaulle,0,3-C4/C5,768
+5,5,19896,Place de Gaulle,0,3-C4/C5,768
+5,5,19897,Place de Gaulle,0,3-C4/C5,768
+5,5,19898,Place de Gaulle,0,3-C4/C5,768
+5,5,19899,Place de Gaulle,0,3-C4/C5,768
+5,5,19900,Place de Gaulle,0,3-C4/C5,768
+5,5,19901,Place de Gaulle,0,3-C4/C5,768
+5,5,19904,PIETRALBA,1,3-C4/C5,769
+5,5,19907,PIETRALBA,1,3-C4/C5,769
+5,5,19910,PIETRALBA,1,3-C4/C5,769
+5,5,19913,PIETRALBA,1,3-C4/C5,769
+5,5,19916,PIETRALBA,1,3-C4/C5,769
+5,5,19919,PIETRALBA,1,3-C4/C5,769
+5,5,19922,PIETRALBA,1,3-C4/C5,769
+5,5,19925,PIETRALBA,1,3-C4/C5,769
+5,5,19928,PIETRALBA,1,3-C4/C5,769
+5,5,19931,PIETRALBA,1,3-C4/C5,769
+6,5,19933,Centre Hospitalier,0,4-D/D1,772
+6,5,19935,Centre Hospitalier,0,4-D/D1,772
+6,5,19937,Centre Hospitalier,0,4-D/D1,772
+6,5,19939,Centre Hospitalier,0,4-D/D1,772
+6,5,19941,Centre Hospitalier,0,4-D/D1,772
+6,5,19943,Centre Hospitalier,0,4-D/D1,772
+6,5,19945,Centre Hospitalier,0,4-D/D1,772
+6,5,19947,Centre Hospitalier,0,4-D/D1,772
+6,5,19949,Centre Hospitalier,0,4-D/D1,772
+6,5,19951,Centre Hospitalier,0,4-D/D1,772
+6,5,19952,Budiccione,1,4-D/D1,773
+6,5,19954,Budiccione,1,4-D/D1,773
+6,5,19956,Budiccione,1,4-D/D1,773
+6,5,19958,Budiccione,1,4-D/D1,773
+6,5,19960,Budiccione,1,4-D/D1,773
+6,5,19962,Budiccione,1,4-D/D1,773
+6,5,19964,Budiccione,1,4-D/D1,773
+6,5,19966,Budiccione,1,4-D/D1,773
+6,5,19968,Budiccione,1,4-D/D1,773
+6,5,19970,Budiccione,1,4-D/D1,773
+6,5,19932,Centre Hospitalier,0,4-D2/D3,772
+6,5,19934,Centre Hospitalier,0,4-D2/D3,772
+6,5,19936,Centre Hospitalier,0,4-D2/D3,772
+6,5,19938,Centre Hospitalier,0,4-D2/D3,772
+6,5,19940,Centre Hospitalier,0,4-D2/D3,772
+6,5,19942,Centre Hospitalier,0,4-D2/D3,772
+6,5,19944,Centre Hospitalier,0,4-D2/D3,772
+6,5,19946,Centre Hospitalier,0,4-D2/D3,772
+6,5,19948,Centre Hospitalier,0,4-D2/D3,772
+6,5,19950,Centre Hospitalier,0,4-D2/D3,772
+6,5,19953,Budiccione,1,4-D2/D3,773
+6,5,19955,Budiccione,1,4-D2/D3,773
+6,5,19957,Budiccione,1,4-D2/D3,773
+6,5,19959,Budiccione,1,4-D2/D3,773
+6,5,19961,Budiccione,1,4-D2/D3,773
+6,5,19963,Budiccione,1,4-D2/D3,773
+6,5,19965,Budiccione,1,4-D2/D3,773
+6,5,19967,Budiccione,1,4-D2/D3,773
+6,5,19969,Budiccione,1,4-D2/D3,773
+6,5,19971,Budiccione,1,4-D2/D3,773
+7,5,18501,Parata,0,5-E,777
+7,5,18502,Place de Gaulle,1,5-E,778
+7,5,18503,Parata,0,5-E,777
+7,5,18504,Place de Gaulle,1,5-E,778
+7,5,18505,Parata,0,5-E,777
+7,5,18506,Place de Gaulle,1,5-E,778
+7,5,18507,Parata,0,5-E,777
+7,5,18508,Place de Gaulle,1,5-E,778
+7,5,18509,Parata,0,5-E,777
+7,5,18510,Cathédrale,1,5-E,779
+7,5,18522,Parata,0,5-E2,777
+7,5,18523,Place de Gaulle,1,5-E2,778
+7,5,18524,Parata,0,5-E2,777
+7,5,18525,Place de Gaulle,1,5-E2,778
+7,5,18526,Parata,0,5-E2,777
+7,5,18527,Place de Gaulle,1,5-E2,778
+7,5,18528,Parata,0,5-E2,777
+7,5,18529,Place de Gaulle,1,5-E2,778
+7,5,18530,Parata,0,5-E2,777
+7,5,18531,Cathédrale,1,5-E2,779
+7,5,18541,Parata,0,5-E7,777
+7,5,18542,Place de Gaulle,1,5-E7,778
+7,5,18543,Parata,0,5-E7,777
+7,5,18544,Place de Gaulle,1,5-E7,778
+7,5,18545,Parata,0,5-E7,777
+7,5,18546,Place de Gaulle,1,5-E7,778
+7,5,18547,Parata,0,5-E7,777
+7,5,18548,Place de Gaulle,1,5-E7,778
+7,5,18549,Parata,0,5-E7,777
+7,5,18550,Cathédrale,1,5-E7,779
+7,5,18511,Parata,0,5-E1,777
+7,5,18512,Place de Gaulle,1,5-E1,778
+7,5,18513,Parata,0,5-E1,777
+7,5,18514,Place de Gaulle,1,5-E1,778
+7,5,18515,Parata,0,5-E1,777
+7,5,18516,Place de Gaulle,1,5-E1,778
+7,5,18517,Parata,0,5-E1,777
+7,5,18518,Place de Gaulle,1,5-E1,778
+7,5,18519,Parata,0,5-E1,777
+7,5,18520,Cathédrale,1,5-E1,779
+7,5,18532,Parata,0,5-E3,777
+7,5,18533,Place de Gaulle,1,5-E3,778
+7,5,18534,Parata,0,5-E3,777
+7,5,18535,Place de Gaulle,1,5-E3,778
+7,5,18536,Parata,0,5-E3,777
+7,5,18537,Place de Gaulle,1,5-E3,778
+7,5,18538,Parata,0,5-E3,777
+7,5,18539,Cathédrale,1,5-E3,779
+13,5,19983,Empereur Maillot,0,7-G2/G3,802
+13,5,19984,Empereur Maillot,0,7-G2/G3,802
+13,5,19985,Empereur Maillot,0,7-G2/G3,802
+13,5,19986,Empereur Maillot,0,7-G2/G3,802
+13,5,19987,Empereur Maillot,0,7-G2/G3,802
+13,5,19988,Empereur Maillot,0,7-G2/G3,802
+13,5,19989,Empereur Maillot,0,7-G2/G3,802
+13,5,19990,Empereur Maillot,0,7-G2/G3,802
+13,5,19991,Empereur Maillot,0,7-G2/G3,802
+13,5,19992,Empereur Maillot,0,7-G2/G3,802
+13,5,19993,Empereur Maillot,0,7-G2/G3,802
+13,5,20005,Loreto,1,7-G2/G3,803
+13,5,20006,Loreto,1,7-G2/G3,803
+13,5,20007,Loreto,1,7-G2/G3,803
+13,5,20008,Loreto,1,7-G2/G3,803
+13,5,20009,Loreto,1,7-G2/G3,803
+13,5,20010,Loreto,1,7-G2/G3,803
+13,5,20011,Loreto,1,7-G2/G3,803
+13,5,20012,Loreto,1,7-G2/G3,803
+13,5,20013,Loreto,1,7-G2/G3,803
+13,5,20014,Loreto,1,7-G2/G3,803
+13,5,20015,Loreto,1,7-G2/G3,803
+13,5,19972,Empereur Maillot,0,7-G/G1,802
+13,5,19973,Empereur Maillot,0,7-G/G1,802
+13,5,19974,Empereur Maillot,0,7-G/G1,802
+13,5,19975,Empereur Maillot,0,7-G/G1,802
+13,5,19976,Empereur Maillot,0,7-G/G1,802
+13,5,19977,Empereur Maillot,0,7-G/G1,802
+13,5,19978,Empereur Maillot,0,7-G/G1,802
+13,5,19979,Empereur Maillot,0,7-G/G1,802
+13,5,19980,Empereur Maillot,0,7-G/G1,802
+13,5,19981,Empereur Maillot,0,7-G/G1,802
+13,5,19982,Empereur Maillot,0,7-G/G1,802
+13,5,19994,Loreto,1,7-G/G1,803
+13,5,19995,Loreto,1,7-G/G1,803
+13,5,19996,Loreto,1,7-G/G1,803
+13,5,19997,Loreto,1,7-G/G1,803
+13,5,19998,Loreto,1,7-G/G1,803
+13,5,19999,Loreto,1,7-G/G1,803
+13,5,20000,Loreto,1,7-G/G1,803
+13,5,20001,Loreto,1,7-G/G1,803
+13,5,20002,Loreto,1,7-G/G1,803
+13,5,20003,Loreto,1,7-G/G1,803
+13,5,20004,Loreto,1,7-G/G1,803
+10,5,20030,Cathédrale,1,9-K,786
+10,5,20031,Hôpital Miséricorde,0,9-K,785
+10,5,20032,Cathédrale,1,9-K,786
+10,5,20033,Hôpital Miséricorde,0,9-K,785
+10,5,20034,Cathédrale,1,9-K,786
+10,5,20035,Hôpital Miséricorde,0,9-K,785
+10,5,20036,Cathédrale,1,9-K,786
+10,5,20037,Hôpital Miséricorde,0,9-K,785
+10,5,20038,Cathédrale,1,9-K,786
+10,5,20039,Hôpital Miséricorde,0,9-K,785
+10,5,20040,Cathédrale,1,9-K,786
+10,5,20041,Hôpital Miséricorde,0,9-K,785
+10,5,20042,Cathédrale,1,9-K,786
+10,5,20043,Hôpital Miséricorde,0,9-K,785
+10,5,20044,Cathédrale,1,9-K,786
+10,5,20045,Hôpital Miséricorde,0,9-K,785
+10,5,20046,Cathédrale,1,9-K,786
+10,5,20047,Hôpital Miséricorde,0,9-K,785
+10,5,20048,Cathédrale,1,9-K,786
+10,5,20049,Hôpital Miséricorde,0,9-K,785
+10,5,20050,Cathédrale,1,9-K,786
+10,5,20051,Hôpital Miséricorde,0,9-K,785
+10,5,20052,Cathédrale,1,9-K,786
+10,5,20053,Hôpital Miséricorde,0,9-K,785
+10,5,20054,Cathédrale,1,9-K,786
+10,5,20055,Hôpital Miséricorde,0,9-K,785
+10,5,20056,Cathédrale,1,9-K,786
+10,5,20057,Hôpital Miséricorde,0,9-K,785
+10,5,20058,Hôpital Miséricorde,0,9-K1,785
+10,5,20059,Cathédrale,1,9-K1,786
+10,5,20060,Hôpital Miséricorde,0,9-K1,785
+10,5,20061,Cathédrale,1,9-K1,786
+10,5,20062,Hôpital Miséricorde,0,9-K1,785
+10,5,20063,Cathédrale,1,9-K1,786
+10,5,20064,Hôpital Miséricorde,0,9-K1,785
+10,5,20065,Cathédrale,1,9-K1,786
+10,5,20066,Hôpital Miséricorde,0,9-K1,785
+10,5,20067,Cathédrale,1,9-K1,786
+10,5,20068,Hôpital Miséricorde,0,9-K1,785
+10,5,20069,Cathédrale,1,9-K1,786
+10,5,20070,Hôpital Miséricorde,0,9-K1,785
+10,5,20071,Cathédrale,1,9-K1,786
+10,5,20072,Hôpital Miséricorde,0,9-K1,785
+10,5,20073,Cathédrale,1,9-K1,786
+10,5,20074,Hôpital Miséricorde,0,9-K1,785
+10,5,20075,Cathédrale,1,9-K1,786
+10,5,20076,Hôpital Miséricorde,0,9-K1,785
+10,5,20077,Cathédrale,1,9-K1,786
+10,5,20078,Hôpital Miséricorde,0,9-K1,785
+10,5,20079,Cathédrale,1,9-K1,786
+10,5,20080,Hôpital Miséricorde,0,9-K1,785
+10,5,20081,Cathédrale,1,9-K1,786
+10,5,20082,Hôpital Miséricorde,0,9-K1,785
+10,5,20083,Cathédrale,1,9-K1,786
+10,5,20084,Hôpital Miséricorde,0,9-K1,785
+10,5,20085,Cathédrale,1,9-K1,786
+10,5,20086,Hôpital Miséricorde,0,9-K1,785
+10,5,20087,Cathédrale,1,9-K1,786
+10,5,20088,Hôpital Miséricorde,0,9-K1,785
+12,5,18912,Confina,0,B-O1,797
+12,5,18913,Confina,0,B-O1,795
+12,5,18914,Baléone,1,B-O1,796
+12,5,18915,Atrium 1,0,B-O1,792
+12,5,18916,Confina,0,B-O1,798
+12,5,18917,Confina,0,B-O1,797
+12,5,18919,Confina,0,B-O1,798
+12,5,18920,Place Noel Sarrola,1,B-O1,794
+12,5,18924,Confina,0,B-O1,795
+12,5,18927,Baléone,1,B-O1,796
+12,5,18932,Baléone,1,B-O1,796
+12,5,18933,Atrium 1,1,B-O1,800
+12,5,18934,Baléone,1,B-O1,796
+12,5,18935,Confina,0,B-O1,795
+12,5,18936,Place Noel Sarrola,1,B-O1,794
+12,5,18938,Baléone,1,B-O1,796
+12,5,18940,Confina,0,B-O1,791
+14,5,20484,Aeroport,1,N-1,810
+14,5,20485,Gare CFC,0,N-1,811
+9,5,21101,Aeroport,1,8-H,783
+9,5,21102,Gare CFC,0,8-H,784
+9,5,21103,Aeroport,1,8-H,783
+9,5,21104,Gare CFC,0,8-H,784
+9,5,21105,Aeroport,1,8-H,783
+9,5,21106,Gare CFC,0,8-H,784
+9,5,21107,Aeroport,1,8-H,783
+9,5,21108,Gare CFC,0,8-H,784
+9,5,21109,Aeroport,1,8-H,783
+9,5,21110,Gare CFC,0,8-H,784
+9,5,21111,Aeroport,1,8-H,783
+9,5,21112,Gare CFC,0,8-H,784
+9,5,21113,Aeroport,1,8-H,783
+9,5,21128,Gare CFC,0,8-H2,784
+9,5,21129,Aeroport,1,8-H2,783
+9,5,21130,Gare CFC,0,8-H2,784
+9,5,21131,Aeroport,1,8-H2,783
+9,5,21132,Gare CFC,0,8-H2,784
+9,5,21133,Aeroport,1,8-H2,783
+9,5,21134,Gare CFC,0,8-H2,784
+9,5,21135,Aeroport,1,8-H2,783
+9,5,21136,Gare CFC,0,8-H2,784
+9,5,21137,Aeroport,1,8-H2,783
+9,5,21138,Gare CFC,0,8-H2,784
+9,5,21139,Aeroport,1,8-H2,783
+9,5,21140,Gare CFC,0,8-H2,784
+9,5,21141,Aeroport,1,8-H2,783
+9,5,21114,Gare CFC,0,8-H1,784
+9,5,21115,Aeroport,1,8-H1,783
+9,5,21116,Gare CFC,0,8-H1,784
+9,5,21117,Aeroport,1,8-H1,783
+9,5,21118,Gare CFC,0,8-H1,784
+9,5,21119,Aeroport,1,8-H1,783
+9,5,21120,Gare CFC,0,8-H1,784
+9,5,21121,Aeroport,1,8-H1,783
+9,5,21122,Gare CFC,0,8-H1,784
+9,5,21123,Aeroport,1,8-H1,783
+9,5,21124,Gare CFC,0,8-H1,784
+9,5,21125,Aeroport,1,8-H1,783
+9,5,21126,Gare CFC,0,8-H1,784
+9,5,21127,Aeroport,1,8-H1,783
+9,5,21142,Gare CFC,0,8-H3,784
+9,5,21143,Aeroport,1,8-H3,783
+9,5,21144,Gare CFC,0,8-H3,784
+9,5,21145,Aeroport,1,8-H3,783
+9,5,21146,Gare CFC,0,8-H3,784
+9,5,21147,Aeroport,1,8-H3,783
+9,5,21200,Gare Routiere,0,8-H3,836
+9,5,21201,Aeroport,1,8-H3,533
+9,5,21202,Gare Routiere,0,8-H3,836
+9,5,21203,Aeroport,1,8-H3,533
+9,5,21204,Gare Routiere,0,8-H3,836
+9,5,21205,Aeroport,1,8-H3,533
+9,5,21206,Gare Routiere,0,8-H3,836
+7,6,18610,Parata,0,5-6,777
+7,6,18611,Place de Gaulle,1,5-6,778
+7,6,18612,Parata,0,5-6,777
+7,6,18613,Place de Gaulle,1,5-6,778
+7,6,18614,Parata,0,5-6,777
+7,6,18615,Place de Gaulle,1,5-6,778
+7,6,18616,Parata,0,5-6,777
+7,6,18617,Place de Gaulle,1,5-6,778
+7,6,18618,Parata,0,5-6,777
+7,6,18619,Cathédrale,1,5-6,779
+9,6,18500,Aeroport,1,8-H,783
+9,6,18579,Gare CFC,0,8-H,784
+9,6,18598,Aeroport,1,8-H,783
+9,6,18609,Gare CFC,0,8-H,784
+9,6,18620,Aeroport,1,8-H,783
+9,6,18621,Gare CFC,0,8-H,784
+9,6,18622,Aeroport,1,8-H,783
+9,6,18623,Gare CFC,0,8-H,784
+9,6,18624,Aeroport,1,8-H,783
+9,6,18625,Gare CFC,0,8-H,784
+9,6,18626,Aeroport,1,8-H,783
+9,6,18627,Gare CFC,0,8-H,784
+9,6,18628,Aeroport,1,8-H,783
+9,6,18643,Gare CFC,0,8-H2,784
+9,6,18644,Aeroport,1,8-H2,783
+9,6,18645,Gare CFC,0,8-H2,784
+9,6,18646,Aeroport,1,8-H2,783
+9,6,18647,Gare CFC,0,8-H2,784
+9,6,18648,Aeroport,1,8-H2,783
+9,6,18649,Gare CFC,0,8-H2,784
+9,6,18650,Aeroport,1,8-H2,783
+9,6,18651,Gare CFC,0,8-H2,784
+9,6,18652,Aeroport,1,8-H2,783
+9,6,18653,Gare CFC,0,8-H2,784
+9,6,18654,Aeroport,1,8-H2,783
+9,6,18655,Gare CFC,0,8-H2,784
+9,6,18656,Aeroport,1,8-H2,783
+9,6,18629,Gare CFC,0,8-H1,784
+9,6,18630,Aeroport,1,8-H1,783
+9,6,18631,Gare CFC,0,8-H1,784
+9,6,18632,Aeroport,1,8-H1,783
+9,6,18633,Gare CFC,0,8-H1,784
+9,6,18634,Aeroport,1,8-H1,783
+9,6,18635,Gare CFC,0,8-H1,784
+9,6,18636,Aeroport,1,8-H1,783
+9,6,18637,Gare CFC,0,8-H1,784
+9,6,18638,Aeroport,1,8-H1,783
+9,6,18639,Gare CFC,0,8-H1,784
+9,6,18640,Aeroport,1,8-H1,783
+9,6,18641,Gare CFC,0,8-H1,784
+9,6,18642,Aeroport,1,8-H1,783
+9,6,18657,Gare CFC,0,8-H3,784
+9,6,18658,Aeroport,1,8-H3,783
+9,6,18659,Gare CFC,0,8-H3,784
+9,6,18660,Aeroport,1,8-H3,783
+9,6,18661,Gare CFC,0,8-H3,784
+9,6,18662,Aeroport,1,8-H3,783
+9,6,21148,Gare Routiere,0,8-H3,836
+9,6,21149,Aeroport,1,8-H3,533
+9,6,21150,Gare Routiere,0,8-H3,836
+9,6,21151,Aeroport,1,8-H3,533
+9,6,21152,Gare Routiere,0,8-H3,836
+9,6,21153,Aeroport,1,8-H3,533
+9,6,21154,Gare Routiere,0,8-H3,836
+1,6,20159,Place de Gaulle,0,1-A8,746
+1,6,20160,Place de Gaulle,0,1-A8,746
+1,6,20163,Place de Gaulle,0,1-A8,747
+1,6,20167,Hauts du Vazzio,1,1-A8,748
+1,6,20171,Institut Consulaire,1,1-A8,749
+1,6,20172,Institut Consulaire,1,1-A8,749
+1,6,20161,Place de Gaulle,0,1-A9,746
+1,6,20162,Place de Gaulle,0,1-A9,746
+1,6,20164,Place de Gaulle,0,1-A9,747
+1,6,20165,Place de Gaulle,0,1-A9,747
+1,6,20166,Place de Gaulle,0,1-A9,747
+1,6,20168,Hauts du Vazzio,1,1-A9,748
+1,6,20169,Hauts du Vazzio,1,1-A9,748
+1,6,20170,Hauts du Vazzio,1,1-A9,748
+1,6,20173,Institut Consulaire,1,1-A9,749
+1,6,20174,Institut Consulaire,1,1-A9,749
+3,7,20145,Les Crêtes,0,2-B10,761
+3,7,20146,Les Crêtes,0,2-B10,761
+3,7,20147,Les Crêtes,0,2-B10,761
+3,7,20152,Confina,1,2-B10,762
+3,7,20153,Confina,1,2-B10,762
+3,7,20154,Confina,1,2-B10,762
+3,7,20148,Les Crêtes,0,2-B11,761
+3,7,20149,Les Crêtes,0,2-B11,761
+3,7,20150,Les Crêtes,0,2-B11,761
+3,7,20151,Les Crêtes,0,2-B11,761
+3,7,20155,Confina,1,2-B11,762
+3,7,20156,Confina,1,2-B11,762
+3,7,20157,Confina,1,2-B11,762
+3,7,20158,Confina,1,2-B11,762
+5,6,20175,Place de Gaulle,0,3-C8,770
+5,6,20176,PIETRALBA,1,3-C8,771
+5,6,20177,Place de Gaulle,0,3-C8,770
+5,6,20178,PIETRALBA,1,3-C8,771
+5,6,20179,Place de Gaulle,0,3-C8,770
+5,6,20180,PIETRALBA,1,3-C8,771
+5,6,20181,Place de Gaulle,0,3-C8,770
+5,6,20182,PIETRALBA,1,3-C8,771
+5,6,20183,Place de Gaulle,0,3-C9,770
+5,6,20184,PIETRALBA,1,3-C9,771
+5,6,20185,Place de Gaulle,0,3-C9,770
+5,6,20186,PIETRALBA,1,3-C9,771
+5,6,20187,Place de Gaulle,0,3-C9,770
+5,6,20188,PIETRALBA,1,3-C9,771
+5,6,20189,Place de Gaulle,0,3-C9,770
+5,6,20190,PIETRALBA,1,3-C9,771
+5,6,20191,Place de Gaulle,0,3-C9,770
+5,6,20192,PIETRALBA,1,3-C9,771
+6,7,20193,Centre Hospitalier,0,4-D8,775
+6,7,20194,Budiccione,1,4-D8,774
+6,7,20195,Centre Hospitalier,0,4-D8,775
+6,7,20196,Budiccione,1,4-D8,774
+6,7,20197,Centre Hospitalier,0,4-D8,775
+6,7,20198,Budiccione,1,4-D8,774
+6,7,20199,Centre Hospitalier,0,4-D8,775
+6,7,20200,Budiccione,1,4-D8,774
+6,7,20201,Centre Hospitalier,0,4-D8,775
+6,7,20202,Budiccione,1,4-D9,774
+6,7,20203,Centre Hospitalier,0,4-D9,775
+6,7,20204,Budiccione,1,4-D9,774
+6,7,20205,Centre Hospitalier,0,4-D9,775
+6,7,20206,Budiccione,1,4-D9,774
+6,7,20207,Centre Hospitalier,0,4-D9,775
+6,7,20208,Budiccione,1,4-D9,774
+6,7,20209,Centre Hospitalier,0,4-D9,775
+6,7,20210,Budiccione,1,4-D9,774
+6,7,20211,Centre Hospitalier,0,4-D9,775
+7,6,18521,Parata,0,5-E10,777
+7,6,18540,Place de Gaulle,1,5-E10,778
+7,6,18551,Parata,0,5-E10,777
+7,6,18562,Place de Gaulle,1,5-E10,778
+7,6,18563,Parata,0,5-E10,777
+7,6,18564,Place de Gaulle,1,5-E10,778
+7,6,18565,Parata,0,5-E10,777
+7,6,18566,Place de Gaulle,1,5-E10,778
+7,6,18567,Parata,0,5-E10,777
+7,6,18568,Cathédrale,1,5-E10,779
+7,6,18580,Parata,0,5-E12,777
+7,6,18581,Place de Gaulle,1,5-E12,778
+7,6,18582,Parata,0,5-E12,777
+7,6,18583,Place de Gaulle,1,5-E12,778
+7,6,18584,Parata,0,5-E12,777
+7,6,18585,Place de Gaulle,1,5-E12,778
+7,6,18586,Parata,0,5-E12,777
+7,6,18587,Place de Gaulle,1,5-E12,778
+7,6,18588,Parata,0,5-E12,777
+7,6,18589,Cathédrale,1,5-E12,779
+7,6,18599,Parata,0,5-E7,777
+7,6,18600,Place de Gaulle,1,5-E7,778
+7,6,18601,Parata,0,5-E7,777
+7,6,18602,Place de Gaulle,1,5-E7,778
+7,6,18603,Parata,0,5-E7,777
+7,6,18604,Place de Gaulle,1,5-E7,778
+7,6,18605,Parata,0,5-E7,777
+7,6,18606,Place de Gaulle,1,5-E7,778
+7,6,18607,Parata,0,5-E7,777
+7,6,18608,Cathédrale,1,5-E7,779
+7,6,18569,Parata,0,5-E13,777
+7,6,18570,Place de Gaulle,1,5-E13,778
+7,6,18571,Parata,0,5-E13,777
+7,6,18572,Place de Gaulle,1,5-E13,778
+7,6,18573,Parata,0,5-E13,777
+7,6,18574,Place de Gaulle,1,5-E13,778
+7,6,18575,Parata,0,5-E13,777
+7,6,18576,Place de Gaulle,1,5-E13,778
+7,6,18577,Parata,0,5-E13,777
+7,6,18578,Cathédrale,1,5-E13,779
+7,6,18590,Parata,0,5-E11,777
+7,6,18591,Place de Gaulle,1,5-E11,778
+7,6,18592,Parata,0,5-E11,777
+7,6,18593,Place de Gaulle,1,5-E11,778
+7,6,18594,Parata,0,5-E11,777
+7,6,18595,Place de Gaulle,1,5-E11,778
+7,6,18596,Parata,0,5-E11,777
+7,6,18597,Cathédrale,1,5-E11,779
+13,7,20212,Loreto,1,7-1,805
+13,7,20213,Empereur Maillot,0,7-1,804
+13,7,20214,Loreto,1,7-1,805
+13,7,20215,Empereur Maillot,0,7-1,804
+13,7,20216,Loreto,1,7-1,805
+13,7,20217,Empereur Maillot,0,7-1,804
+13,7,20218,Loreto,1,7-1,805
+13,7,20219,Empereur Maillot,0,7-1,804
+13,7,20220,Empereur Maillot,0,7-2,804
+13,7,20221,Loreto,1,7-2,805
+13,7,20222,Empereur Maillot,0,7-2,804
+13,7,20223,Loreto,1,7-2,805
+13,7,20224,Empereur Maillot,0,7-2,804
+13,7,20225,Loreto,1,7-2,805
+13,7,20226,Empereur Maillot,0,7-2,804
+13,7,20227,Loreto,1,7-2,805
+13,7,20228,Empereur Maillot,0,7-2,804
+13,7,20229,Loreto,1,7-2,805
+10,6,20230,Hôpital Miséricorde,0,9-K9,788
+10,6,20231,Cathédrale,1,9-K9,787
+10,6,20232,Hôpital Miséricorde,0,9-K9,788
+10,6,20233,Cathédrale,1,9-K9,787
+10,6,20234,Hôpital Miséricorde,0,9-K9,788
+10,6,20235,Cathédrale,1,9-K9,787
+10,6,20236,Hôpital Miséricorde,0,9-K9,788
+10,6,20237,Cathédrale,1,9-K9,787
+10,6,20238,Hôpital Miséricorde,0,9-K9,788
+10,6,20239,Cathédrale,1,9-K9,787
+10,6,20240,Hôpital Miséricorde,0,9-K9,788
+10,6,20241,Cathédrale,1,9-K9,787
+10,6,20242,Hôpital Miséricorde,0,9-K9,788
+10,6,20243,Cathédrale,1,9-K9,787
+10,6,20244,Hôpital Miséricorde,0,9-K9,788
+10,6,20245,Cathédrale,1,9-K9,787
+10,6,20246,Hôpital Miséricorde,0,9-K9,788
+10,6,20247,Cathédrale,1,9-K9,787
+3,8,20586,Confina,1,2-3,762
+3,8,20587,Les Crêtes,0,2-3,761
+3,8,20588,Confina,1,2-3,762
+3,8,20589,Les Crêtes,0,2-3,761
+3,8,20590,Confina,1,2-3,762
+3,8,20591,Les Crêtes,0,2-3,761
+6,8,20647,Budiccione,1,4-3,774
+6,8,20648,Centre Hospitalier,0,4-3,775
+6,8,20649,Budiccione,1,4-3,774
+6,8,20650,Centre Hospitalier,0,4-3,775
+6,8,20651,Budiccione,1,4-3,774
+6,8,20652,Centre Hospitalier,0,4-3,775
+6,8,20653,Budiccione,1,4-3,774
+6,8,20654,Centre Hospitalier,0,4-3,775
+6,8,20655,Budiccione,1,4-3,774
+6,8,20656,Centre Hospitalier,0,4-3,775
+13,8,20731,Empereur Maillot,0,7-3,804
+13,8,20732,Loreto,1,7-3,805
+13,8,20733,Empereur Maillot,0,7-3,804
+13,8,20734,Loreto,1,7-3,805
+13,8,20735,Empereur Maillot,0,7-3,804
+13,8,20736,Loreto,1,7-3,805
+3,8,20572,Les Crêtes,0,2-1,761
+3,8,20573,Les Crêtes,0,2-1,761
+3,8,20574,Les Crêtes,0,2-1,761
+3,8,20579,Confina,1,2-1,762
+3,8,20580,Confina,1,2-1,762
+3,8,20581,Confina,1,2-1,762
+3,8,20575,Les Crêtes,0,2-2,761
+3,8,20576,Les Crêtes,0,2-2,761
+3,8,20577,Les Crêtes,0,2-2,761
+3,8,20578,Les Crêtes,0,2-2,761
+3,8,20582,Confina,1,2-2,762
+3,8,20583,Confina,1,2-2,762
+3,8,20584,Confina,1,2-2,762
+3,8,20585,Confina,1,2-2,762
+6,8,20638,Centre Hospitalier,0,4-1,775
+6,8,20639,Budiccione,1,4-1,774
+6,8,20640,Centre Hospitalier,0,4-1,775
+6,8,20641,Budiccione,1,4-1,774
+6,8,20642,Centre Hospitalier,0,4-1,775
+6,8,20643,Budiccione,1,4-1,774
+6,8,20644,Centre Hospitalier,0,4-1,775
+6,8,20645,Budiccione,1,4-1,774
+6,8,20646,Centre Hospitalier,0,4-1,775
+6,8,20657,Centre Hospitalier,0,4-2,775
+6,8,20658,Budiccione,1,4-2,774
+6,8,20659,Centre Hospitalier,0,4-2,775
+6,8,20660,Budiccione,1,4-2,774
+6,8,20661,Centre Hospitalier,0,4-2,775
+6,8,20662,Budiccione,1,4-2,774
+13,8,20713,Loreto,1,7-G8,805
+13,8,20714,Empereur Maillot,0,7-G8,804
+13,8,20715,Loreto,1,7-G8,805
+13,8,20716,Empereur Maillot,0,7-G8,804
+13,8,20717,Loreto,1,7-G8,805
+13,8,20718,Empereur Maillot,0,7-G8,804
+13,8,20719,Loreto,1,7-G8,805
+13,8,20720,Empereur Maillot,0,7-G8,804
+13,8,20721,Empereur Maillot,0,7-G9,804
+13,8,20722,Loreto,1,7-G9,805
+13,8,20723,Empereur Maillot,0,7-G9,804
+13,8,20724,Loreto,1,7-G9,805
+13,8,20725,Empereur Maillot,0,7-G9,804
+13,8,20726,Loreto,1,7-G9,805
+13,8,20727,Empereur Maillot,0,7-G9,804
+13,8,20728,Loreto,1,7-G9,805
+13,8,20729,Empereur Maillot,0,7-G9,804
+13,8,20730,Loreto,1,7-G9,805

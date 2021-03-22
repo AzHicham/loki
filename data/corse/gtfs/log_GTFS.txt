@@ -1,0 +1,38 @@
+[2020-01-31 10:35:47] 	[Info]		Les fichiers vont être générés dans le répertoire '/heures/documents/Test/'.
+
+[2020-01-31 10:35:47] 	[Info]		Sites = deflt
+[2020-01-31 10:35:47] 	[Info]		Période de génération = 01/02/2020 - 31/12/2020
+
+[2020-01-31 10:35:47] 	[Info]		Les fichiers suivants vont être générés :
+[2020-01-31 10:35:47] 	[Info]			- Fichier des arrêts
+[2020-01-31 10:35:47] 	[Info]			- Fichier des calendriers
+[2020-01-31 10:35:47] 	[Info]			- Fichier des courses
+[2020-01-31 10:35:47] 	[Info]			- Fichier des exceptions de calendrier
+[2020-01-31 10:35:47] 	[Info]			- Fichier des horaires
+[2020-01-31 10:35:47] 	[Info]			- Fichier des itinéraires
+[2020-01-31 10:35:47] 	[Info]			- Fichier des lignes
+[2020-01-31 10:35:47] 	[Info]			- Fichier des sociétés
+ 
+***********************************************************************************
+ 
+[2020-01-31 10:35:47] 	[Info]		Génération des fichiers pour la période du 01/02/2020 au 31/12/2020
+ 
+***********************************************************************************
+ 
+[2020-01-31 10:35:47] 	[Info]		Traitement des données...
+[2020-01-31 10:35:52] 	[Info]		Il y a 7 habillages différents sur la période.
+[2020-01-31 10:35:55] 	[Info]		Il y a 2322 courses différentes sur la période.
+[2020-01-31 10:35:55] 	[Info]		Il y a 8 calendrier différents sur la période.
+[2020-01-31 10:35:55] 	[Info]		Génération du fichier 'agency.txt'...
+[2020-01-31 10:35:55] 	[Info]		Génération du fichier 'calendar.txt'...
+[2020-01-31 10:35:55] 	[Info]		Génération du fichier 'calendar_dates.txt'...
+[2020-01-31 10:35:55] 	[Info]		Génération du fichier 'trips.txt'...
+[2020-01-31 10:35:56] 	[Info]		Génération du fichier 'routes.txt'...
+[2020-01-31 10:35:56] 	[Info]		Génération du fichier 'stop_times.txt'...
+[2020-01-31 10:35:56] 	[Info]		Génération du fichier 'stops.txt'...
+[2020-01-31 10:35:57] 	[Info]		Génération du fichier 'shapes.txt'...
+[2020-01-31 10:35:57] 	[Info]		Durée de la génération : 10.5022s
+ 
+***********************************************************************************
+ 
+[2020-01-31 10:35:57] 	[Info]		La génération des fichiers est terminée.

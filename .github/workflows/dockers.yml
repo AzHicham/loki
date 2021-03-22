@@ -29,28 +29,45 @@ jobs:
         docker-compose up --detach
     - name: install test depedencies
       run: sudo apt install -y httpie jq
-    - name: Test auvergne loads
+
+    - name: Test corse loads
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/auvergne-loki-loads/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
-    - name: Test auvergne basic
+        result=$( http 'http://localhost:9191/v1/coverage/corse-loki-loads/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+    - name: Test corse basic
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/auvergne-loki-basic/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
-    - name: Test auvergne kraken
+        result=$( http 'http://localhost:9191/v1/coverage/corse-loki-basic/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+    - name: Test corse kraken
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/auvergne-kraken/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
+        result=$( http 'http://localhost:9191/v1/coverage/corse-kraken/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+
+
+    - name: Test transilien loads
+      run: |
+        result=$( http 'http://localhost:9191/v1/coverage/transilien-loki-loads/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+    - name: Test transilien basic
+      run: |
+        result=$( http 'http://localhost:9191/v1/coverage/transilien-loki-basic/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+    - name: Test transilien kraken
+      run: |
+        result=$( http 'http://localhost:9191/v1/coverage/transilien-kraken/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
+
+
 
     - name: Test idfm loads
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
+        result=$( http 'http://localhost:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null
     - name: Test idfm basic
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/idfm-loki-basic/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
+        result=$( http 'http://localhost:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed& | jq .journeys[0].duration)
+        test $result != null
     - name: Test idfm kraken
       run: |
-        result=$( http 'http://127.0.0.1:9191/v1/coverage/idfm-kraken/journeys?from=stop_area:stop_area:8739357&to=stop_area:stop_area:8775860&_override_scenario=distributed&datetime=20200505T080000&' | jq .error )
-        test $result = null
+        result=$( http 'http://localhost:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
+        test $result != null

@@ -1,0 +1,42 @@
+route_id,route_name,direction_type,line_id,geometry_id,destination_id
+100110001:1,Château de Vincennes - Gare de La Défense (Grande Arche),forward,100110001:1,,stop_area:8738221
+100110001:1_R,Gare de La Défense (Grande Arche) - Château de Vincennes,backward,100110001:1,,stop_area:59595
+100110010:10,Boulogne Pont de Saint-Cloud - Gare d'Austerlitz,forward,100110010:10,,stop_area:8754700
+100110010:10_R,Gare d'Austerlitz - Boulogne Pont de Saint-Cloud,backward,100110010:10,,stop_area:59400
+100110011:11,Mairie des Lilas - Châtelet,forward,100110011:11,,stop_area:59566
+100110011:11_R,Châtelet - Mairie des Lilas,backward,100110011:11,,stop_area:59408
+100110012:12,Mairie d'Issy - Front Populaire,forward,100110012:12,,stop_area:59774
+100110012:12_R,Front Populaire - Mairie d'Issy,backward,100110012:12,,stop_area:59522
+100110013:13,Châtillon Montrouge - Saint-Denis-Université,forward,100110013:13,,stop_area:59540
+100110013:13_R,Asnières-Gennevilliers Les Courtilles - Châtillon Montrouge,backward,100110013:13,,stop_area:59614
+100110014:14,Saint-Lazare - Olympiades,forward,100110014:14,,stop_area:59552
+100110014:14_R,Olympiades - Saint-Lazare,backward,100110014:14,,stop_area:59220
+100110002:2,Nation - Porte Dauphine (Maréchal de Lattre de Tassigny),forward,100110002:2,,stop_area:59213
+100110002:2_R,Porte Dauphine (Maréchal de Lattre de Tassigny) - Nation,backward,100110002:2,,stop_area:8775810
+100110003:3,Gallieni (Parc de Bagnolet) - Pont de Levallois-Bécon,forward,100110003:3,,stop_area:59589
+100110003:3_R,Pont de Levallois-Bécon - Gallieni (Parc de Bagnolet),backward,100110003:3,,stop_area:59448
+100110103:3B,Porte des Lilas - Gambetta,forward,100110103:3B,,stop_area:59325
+100110103:3B_R,Gambetta - Porte des Lilas,backward,100110103:3B,,stop_area:59327
+100110004:4,Porte de Clignancourt - Mairie de Montrouge,forward,100110004:4,,stop_area:59776
+100110004:4_R,Mairie de Montrouge - Porte de Clignancourt,backward,100110004:4,,stop_area:59258
+100110005:5,Bobigny-Pablo-Picasso - Place d'Italie,forward,100110005:5,,stop_area:59275
+100110005:5_R,Place d'Italie - Bobigny-Pablo-Picasso,backward,100110005:5,,stop_area:59342
+100110006:6,Nation - Charles de Gaulle-Etoile,forward,100110006:6,,stop_area:59236
+100110006:6_R,Charles de Gaulle-Etoile - Nation,backward,100110006:6,,stop_area:8775810
+100110007:7,La Courneuve - 8 Mai 1945 - Mairie d'Ivry,forward,100110007:7,,stop_area:59322
+100110007:7_R,Mairie d'Ivry - La Courneuve - 8 Mai 1945,backward,100110007:7,,stop_area:59320
+100110107:7B,Pré-Saint-Gervais - Louis Blanc,forward,100110107:7B,,stop_area:59296
+100110107:7B_R,Louis Blanc - Pré-Saint-Gervais,backward,100110107:7B,,stop_area:59645
+100110008:8,Balard - Pointe du Lac,forward,100110008:8,,stop_area:59686
+100110008:8_R,Pointe du Lac - Balard,backward,100110008:8,,stop_area:59477
+100110009:9,Pont de Sèvres - Mairie de Montreuil,forward,100110009:9,,stop_area:59507
+100110009:9_R,Mairie de Montreuil - Pont de Sèvres,backward,100110009:9,,stop_area:59621
+810:A,A,forward,810:A,,stop_area:8775820
+810:A:Bus,A,forward,810:A,,stop_area:8738265
+810:B,B,forward,810:B,,stop_area:8700147
+810:B:Bus,B,forward,810:B,,stop_area:8727146
+800:C,C,forward,800:C,,stop_area:8739315
+800:C:Bus,C,forward,800:C,,stop_area:8754619
+800:D,D,forward,800:D,,stop_area:8768100
+800:D:Bus,D,forward,800:D,,stop_area:8768182
+800:E,E,forward,800:E,,stop_area:8728189
