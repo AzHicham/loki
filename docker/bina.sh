@@ -32,8 +32,6 @@ services:
     ports:
       - 9191:80
   
-  rabbitmq:
-    image: rabbitmq:management
 """ > ${output}/docker-compose.yml
 
 mkdir -p ${output}/jormun_conf/
@@ -43,7 +41,64 @@ for folder in $(ls -d */); do
     coverage=${folder%%/}
     echo "Configuring ${coverage}"
 
+    if [[ ! -e ${input}/${coverage}/gtfs/ ]] && [[ ! -e ${input}/${coverage}/ntfs/ ]]; then
+      echo "No gtfs/ nor ntfs/ subdirectory found in ${input}/${coverage}."
+      echo "I skip coverage ${coverage}."
+      continue
+    fi
+
+    if [[ -e ${input}/${coverage}/gtfs/ ]] && [[ -e ${input}/${coverage}/ntfs/ ]]; then
+      echo "Found both gtfs/ nor ntfs/ subdirectory in ${input}/${coverage}."
+      echo "I don't know which one to use so I skip the coverage ${coverage}."
+      continue
+    fi
+
+
     mkdir -p ${output}/${coverage}
+
+    # copy gtfs data to output if present
+    if [[ -e ${input}/${coverage}/gtfs/ ]]; then
+
+      inputType="gtfs"
+      
+      rm -f ${output}/${coverage}/gtfs/*
+      mkdir -p ${output}/${coverage}/gtfs/
+      cp  ${input}/${coverage}/gtfs/* ${output}/${coverage}/gtfs/
+
+      # remove "StopPoint:" prefix on stop point uris'
+      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stops.txt
+      sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/stop_times.txt
+      if [[ -e ${input}/${coverage}/gtfs/transfers.txt ]]; then
+        sed -i 's/StopPoint://g' ${output}/${coverage}/gtfs/transfers.txt
+      fi
+    fi
+
+    # copy ntfs data to output if present
+    if [[ -e ${input}/${coverage}/ntfs/ ]]; then
+      inputType="ntfs"
+      rm -f ${output}/${coverage}/ntfs/*
+      mkdir -p ${output}/${coverage}/ntfs/
+      cp  ${input}/${coverage}/ntfs/* ${output}/${coverage}/ntfs/
+    fi
+
+    # copy osm data to output if present
+    if [[ -e ${input}/${coverage}/osm/ ]]; then
+        rm -f ${output}/${coverage}/osm/*
+        mkdir -p ${output}/${coverage}/osm/
+        cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
+    fi    
+
+    # binarize
+    echo "Launch binarisation"
+    rm -f ${output}/${coverage}/data.nav.lz4
+    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
+
+    # copy stoptime_loads if present
+    if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
+      cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+    fi
+
+
 
     # add kraken and loki services for this coverage
     echo """
@@ -93,17 +148,17 @@ instance_name = ${coverage}-kraken
 database = /data/data.nav.lz4
 zmq_socket = tcp://*:${krakenPort}
 
-[BROKER]
-host = rabbitmq
-port = 5672
-username = guest
-password = guest
 " > ${output}/${coverage}/kraken.ini
 
     # Loki config files
     # one for the coverage with loads criteria
-    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" --arg loadsSocket "tcp://*:$lokiLoadsPort" '{
-    ntfs_path: "/data/ntfs/",
+    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" \
+          --arg loadsSocket "tcp://*:$lokiLoadsPort" \
+          --arg inputType "$inputType" \
+          --arg inputPath "/data/$inputType/" \
+          '{
+    input_path: $inputPath,
+    input_type: $inputType,
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,
@@ -111,26 +166,7 @@ password = guest
     criteria_implem: "loads"
 }' > ${output}/${coverage}/loki_config.json
 
-    #tranform gtfs into ntfs
-    echo "Launch gtfs2ntfs"
-    rm -f ${output}/${coverage}/ntfs/*
-    mkdir -p ${output}/${coverage}/ntfs
-    run gtfs2ntfs --input ${input}/${coverage}/gtfs --output ${output}/${coverage}/ntfs
 
-    #copy osm data
-    if [[ -e ${input}/${coverage}/osm/ ]]; then
-        rm -f ${output}/${coverage}/osm/*
-        mkdir -p ${output}/${coverage}/osm/
-        cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
-    fi    
-
-    # binarize
-    echo "Launch binarisation"
-    rm -f ${output}/${coverage}/data.nav.lz4
-    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
-
-    # copy stoptime_loads
-    cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
 
     echo "${coverage} done"
 done

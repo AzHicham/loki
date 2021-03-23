@@ -1,0 +1,4 @@
+comment_id,comment_type,comment_label,comment_name,comment_url
+stop:stop_point:59220,information,,Gare ou arrêt accessible en toute autonomie,
+stop:stop_point:8727124:800:C,information,,Accessible par rampe. Réservation avant la veille au 0970 824 142 (lundi au vendredi de 7h à 20h),
+stop:stop_point:8775837:810:A,information,,Train accessible par rampe amovible sans réservation. Demander sa mise en place au guichet.,

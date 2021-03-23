@@ -5,7 +5,7 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use loki::config;
+use loki::config::{self, InputType};
 use loki::transit_model;
 use loki::{
     config::RequestParams,
@@ -22,7 +22,7 @@ use prost::Message;
 use structopt::StructOpt;
 use transit_model::Model;
 
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::PathBuf, str::FromStr};
 
 use slog::slog_o;
 use slog::Drain;
@@ -52,15 +52,19 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
+
+
 #[derive(StructOpt, Deserialize)]
 pub struct Config {
     /// directory of ntfs files to load
-    #[structopt(short = "n", long = "ntfs", parse(from_os_str))]
-    ntfs_path: PathBuf,
+    #[structopt(parse(from_os_str))]
+    input_path: PathBuf,
+
+    input_type : InputType,
 
     /// path to the passengers loads file
-    #[structopt(short = "l", long = "loads_data", parse(from_os_str))]
-    loads_data_path: PathBuf,
+    #[structopt(parse(from_os_str))]
+    loads_data_path: Option<PathBuf>,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "basic" comparator
@@ -169,9 +173,10 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read_ntfs::<Data, _, _>(
-        &config.ntfs_path,
-        &config.loads_data_path,
+    let (data, model) = loki::launch_utils::read::<Data, _, _>(
+        &config.input_path,
+        &config.input_type,
+        config.loads_data_path.as_ref(),
         &config.default_transfer_duration,
     )?;
 

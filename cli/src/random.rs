@@ -30,9 +30,10 @@ pub fn launch<Data>(options: Options) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read_ntfs(
+    let (data, model) = loki::launch_utils::read(
         &options.base.ntfs_path,
-        &options.base.loads_data_path,
+        & loki::config::InputType::Ntfs,
+        options.base.loads_data_path.clone(),
         &options.base.default_transfer_duration,
     )?;
     match options.base.criteria_implem {
