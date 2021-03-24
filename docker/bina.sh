@@ -41,6 +41,12 @@ for folder in $(ls -d */); do
     coverage=${folder%%/}
     echo "Configuring ${coverage}"
 
+    if [[ $coverage =~ "_" ]]; then
+      echo "I can't handle a coverage name containing a '_' "
+      echo "I'll skip coverage ${coverage}"
+      continue
+    fi
+
     if [[ ! -e ${input}/${coverage}/gtfs/ ]] && [[ ! -e ${input}/${coverage}/ntfs/ ]]; then
       echo "No gtfs/ nor ntfs/ subdirectory found in ${input}/${coverage}."
       echo "I skip coverage ${coverage}."
