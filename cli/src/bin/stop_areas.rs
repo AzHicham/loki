@@ -1,4 +1,4 @@
-// Copyright  2020-2021, Kisio Digital and/or its affiliates. All rights reserved.
+// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.

@@ -6,44 +6,52 @@ Command Line Interface to obtain Tips and tricks to fluidify your (public) trans
 
 Reads a [ntfs][1] and performs journey queries on it with `loki` from the command line.
 
-Launch
+Two binaries are provided : `stop_areas` and `random`.
 
-Two usages for now :
-- you can specify an origin and destination stop_areas with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs stop-areas --start start_stop_area_uri --end end_stop_area_uri
-  ```
-  where `start_stop_area_uri` and `end_stop_area_uri` are uri of stop areas occuring in the ntfs dataset located in the directory `/path/to/ntfs/`.
+## Usage 
 
-  You can obtain more logs by specifying the log level as follows
-   ```bash
-    RUST_LOG=TRACE cargo run --release -- --ntfs /path/to/ntfs stop-areas --start start_stop_area_uri --end end_stop_area_uri
-  ```
-  where the allows log levels are `TRACE, DEBUG, INFO, WARN, ERROR`.
+### stop_areas
+The `stop_areas` binary perform a journey query between two stop areas :
 
-- you can perform random queries on a ntfs dataset with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs random
-  ```
-  This will perform 10 queries between stop_areas chosen at random in the ntfs dataset.
-  You can specify the number of queries to perform with
-  ```bash
-  cargo run --release -- --ntfs /path/to/ntfs random --nb-queries 100
-  ```
-
-In both cases you can change some parameters (e.g. the maximum duration of a journey, the maximum number of public transit leg, etc.) with command line options. To obtain a list, launch :
 ```bash
-cargo run --release -- help
+cargo run --release --bin stop_areas -- --ntfs /path/to/ntfs  --start start_stop_area_uri --end end_stop_area_uri
 ```
 
+where `start_stop_area_uri` and `end_stop_area_uri` are uri of stop areas occuring in the ntfs dataset located in the directory `/path/to/ntfs/`.
 
-# Disable logs at compile-time
+
+### random 
+The `random` binary perform random queries on a provided ntfs dataset. 
+It is useful for benchmarking.
+For exemple :
+
+```bash
+cargo run --release --bin random-- --ntfs /path/to/ntfs random
+```
+
+will perform 10 queries between stop_areas chosen at random in the ntfs dataset.
+
+## More options 
+
+Call with each binary with  `--help` to see more options.
+
+## Log level
+You can obtain more logs by setting the environment variable `RUST_LOG` the appropriate log level.
+For example :
+
+```bash
+  RUST_LOG=TRACE cargo run --release --bin random-- --ntfs /path/to/ntfs 
+```
+
+The allowed log levels are `TRACE, DEBUG, INFO, WARN, ERROR`.
+
+## Disable logs at compile-time
 You can disable a log level at compile time by specifying features for the [log][2] crate in [Cargo.toml][3], see the [log documentation][4] for more details.
 
-# Profile with flamegraph
+## Profile with flamegraph
 Install [flamegraph-rs][5] and launch 
 ```bash
-cargo flamegraph --bin loki-cli -- --ntfs /path/to/ntfs random --nb-queries 1000
+cargo flamegraph  --bin random -- --ntfs /path/to/ntfs 
 ```
 
 [1]: https://github.com/CanalTP/ntfs-specification
