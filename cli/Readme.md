@@ -33,7 +33,7 @@ will perform 10 queries between stop_areas chosen at random in the ntfs dataset.
 
 ## More options 
 
-Call with each binary with  `--help` to see more options.
+Call each binary with  `--help` to see more options.
 
 ## Log level
 You can obtain more logs by setting the environment variable `RUST_LOG` the appropriate log level.

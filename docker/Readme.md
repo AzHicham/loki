@@ -13,33 +13,48 @@ from the root directory of this repository, where `my_github_token` is a OAuth t
 
 # Binarize
 
-Put gtfs datasets in `./data/` with one folder per instance.
+Put gtfs or ntfs datasets in `./data/` with one folder per instance.
 You can also add osm data.
-In the following example, we have two datasets (auvergne and idfm), with osm data provided only for idfm.
+In the following example, we have two datasets (corsese and idfm), with osm data provided only for corse.
 
 ```
-├── auvergne
+.
+├── corse
 │   ├── gtfs
 │   │   ├── agency.txt
+│   │   ├── calendar_dates.txt
 │   │   ├── calendar.txt
+│   │   ├── log_GTFS.txt
 │   │   ├── routes.txt
-│   │   ├── stop_extensions.txt
+│   │   ├── shapes.txt
 │   │   ├── stops.txt
 │   │   ├── stop_times.txt
 │   │   └── trips.txt
+│   ├── osm
+│   │   └── corse-latest.osm.pbf
 │   └── stoptimes_loads.csv
-└── idfm
-    ├── gtfs
-    │   ├── agency.txt
-    │   ├── calendar.txt
-    │   ├── routes.txt
-    │   ├── stop_extensions.txt
-    │   ├── stops.txt
-    │   ├── stop_times.txt
-    │   └── trips.txt
-    ├── osm
-    │   └── paris.osm.pbf
-    └── stoptimes_loads.csv
+├── idfm
+│   ├── ntfs
+│   │   ├── calendar.txt
+│   │   ├── comment_links.txt
+│   │   ├── comments.txt
+│   │   ├── commercial_modes.txt
+│   │   ├── companies.txt
+│   │   ├── contributors.txt
+│   │   ├── datasets.txt
+│   │   ├── equipments.txt
+│   │   ├── feed_infos.txt
+│   │   ├── lines.txt
+│   │   ├── networks.txt
+│   │   ├── object_codes.txt
+│   │   ├── physical_modes.txt
+│   │   ├── routes.txt
+│   │   ├── stops.txt
+│   │   ├── stop_times.txt
+│   │   ├── transfers.txt
+│   │   ├── trip_properties.txt
+│   │   └── trips.txt
+│   └── stoptimes_loads.csv
 ```
 
 Then, from the root directory of this repository, run :
@@ -58,3 +73,6 @@ docker-compose up
 ```
 
 Then you can send http requests to the jormun server on http://localhost:9191 !
+
+Don't forget to add "_override_scenario=distributed" to your requests !
+Otherwise you won't be using the loki server.
