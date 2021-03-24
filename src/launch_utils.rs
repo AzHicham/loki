@@ -1,18 +1,18 @@
 // Copyright  2020-2021, Kisio Digital and/or its affiliates. All rights reserved.
-// 
+//
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
 //
-// Hope you'll enjoy and contribute to this project, 
+// Hope you'll enjoy and contribute to this project,
 // powered by Kisio Digital (www.kisio.com).
-// Help us simplify mobility and open public transport: 
+// Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
 //
-// This contribution is a part of the research and development work of the 
-// IVA Project which aims to enhance traveler information and is carried out 
-// under the leadership of the Technological Research Institute SystemX, 
-// with the partnership and support of the transport organization authority 
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds 
+// This contribution is a part of the research and development work of the
+// IVA Project which aims to enhance traveler information and is carried out
+// under the leadership of the Technological Research Institute SystemX,
+// with the partnership and support of the transport organization authority
+// Ile-De-France Mobilités (IDFM), SNCF, and public funds
 // under the scope of the French Program "Investissements d’Avenir".
 //
 // LICENCE: This program is free software; you can redistribute it and/or modify
@@ -34,17 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{collections::BTreeMap, path::Path, time::SystemTime};
+use crate::config;
 use crate::traits;
 use crate::LoadsData;
 use crate::PositiveDuration;
-use crate::config;
 use log::{info, warn};
+use std::{collections::BTreeMap, path::Path, time::SystemTime};
 use transit_model::Model;
 
 pub fn read<Data, InputPath: AsRef<Path>, LoadsPath: AsRef<Path>>(
     ntfs_path: InputPath,
-    input_type : & config::InputType,
+    input_type: &config::InputType,
     loads_data_path: Option<LoadsPath>,
     default_transfer_duration: &PositiveDuration,
 ) -> Result<(Data, Model), transit_model::Error>
@@ -55,19 +55,18 @@ where
         config::InputType::Ntfs => transit_model::ntfs::read(ntfs_path)?,
         config::InputType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
-                contributor : transit_model::objects::Contributor::default(),
-                dataset : transit_model::objects::Dataset::default(),
-                feed_infos : BTreeMap::new(),
+                contributor: transit_model::objects::Contributor::default(),
+                dataset: transit_model::objects::Dataset::default(),
+                feed_infos: BTreeMap::new(),
                 prefix_conf: None,
                 on_demand_transport: false,
                 on_demand_transport_comment: None,
             };
-        
+
             transit_model::gtfs::read_from_path(ntfs_path, configuration)?
         }
     };
-    
-    
+
     info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
@@ -75,18 +74,19 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
-    let loads_data = loads_data_path.map(|path| {
-        LoadsData::new(&path, &model).unwrap_or_else(|err| {
-            warn!(
-                "Error while reading the passenger loads file at {:?} : {:?}",
-                &path.as_ref(),
-                err.source()
-            );
-            warn!("I'll use default loads.");
-            LoadsData::empty()
+    let loads_data = loads_data_path
+        .map(|path| {
+            LoadsData::new(&path, &model).unwrap_or_else(|err| {
+                warn!(
+                    "Error while reading the passenger loads file at {:?} : {:?}",
+                    &path.as_ref(),
+                    err.source()
+                );
+                warn!("I'll use default loads.");
+                LoadsData::empty()
+            })
         })
-    })
-    .unwrap_or_else( || LoadsData::empty());
+        .unwrap_or_else(LoadsData::empty);
 
     let data_timer = SystemTime::now();
     let data = Data::new(&model, &loads_data, *default_transfer_duration);

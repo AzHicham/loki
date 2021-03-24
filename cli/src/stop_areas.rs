@@ -1,18 +1,18 @@
 // Copyright  2020-2021, Kisio Digital and/or its affiliates. All rights reserved.
-// 
+//
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
 //
-// Hope you'll enjoy and contribute to this project, 
+// Hope you'll enjoy and contribute to this project,
 // powered by Kisio Digital (www.kisio.com).
-// Help us simplify mobility and open public transport: 
+// Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
 //
-// This contribution is a part of the research and development work of the 
-// IVA Project which aims to enhance traveler information and is carried out 
-// under the leadership of the Technological Research Institute SystemX, 
-// with the partnership and support of the transport organization authority 
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds 
+// This contribution is a part of the research and development work of the
+// IVA Project which aims to enhance traveler information and is carried out
+// under the leadership of the Technological Research Institute SystemX,
+// with the partnership and support of the transport organization authority
+// Ile-De-France Mobilités (IDFM), SNCF, and public funds
 // under the scope of the French Program "Investissements d’Avenir".
 //
 // LICENCE: This program is free software; you can redistribute it and/or modify
@@ -36,8 +36,8 @@
 
 use loki::{solver, transit_model::Model};
 
-use loki::{config, traits};
 use log::{error, info, trace};
+use loki::{config, traits};
 
 use std::fmt::{Debug, Display};
 
@@ -83,7 +83,7 @@ where
 {
     let (data, model) = loki::launch_utils::read(
         &options.base.ntfs_path,
-        & loki::config::InputType::Ntfs,
+        &loki::config::InputType::Ntfs,
         options.base.loads_data_path.clone(),
         &options.base.default_transfer_duration,
     )?;

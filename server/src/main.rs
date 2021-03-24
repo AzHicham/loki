@@ -1,18 +1,18 @@
 // Copyright  2020-2021, Kisio Digital and/or its affiliates. All rights reserved.
-// 
+//
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
 //
-// Hope you'll enjoy and contribute to this project, 
+// Hope you'll enjoy and contribute to this project,
 // powered by Kisio Digital (www.kisio.com).
-// Help us simplify mobility and open public transport: 
+// Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
 //
-// This contribution is a part of the research and development work of the 
-// IVA Project which aims to enhance traveler information and is carried out 
-// under the leadership of the Technological Research Institute SystemX, 
-// with the partnership and support of the transport organization authority 
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds 
+// This contribution is a part of the research and development work of the
+// IVA Project which aims to enhance traveler information and is carried out
+// under the leadership of the Technological Research Institute SystemX,
+// with the partnership and support of the transport organization authority
+// Ile-De-France Mobilités (IDFM), SNCF, and public funds
 // under the scope of the French Program "Investissements d’Avenir".
 //
 // LICENCE: This program is free software; you can redistribute it and/or modify
@@ -88,15 +88,13 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-
-
 #[derive(StructOpt, Deserialize)]
 pub struct Config {
     /// directory of ntfs files to load
     #[structopt(parse(from_os_str))]
     input_path: PathBuf,
 
-    input_type : InputType,
+    input_type: InputType,
 
     /// path to the passengers loads file
     #[structopt(parse(from_os_str))]
@@ -366,15 +364,18 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri = location_context.place.strip_prefix("stop_point:")
-                .or_else( || {
-                    warn!(
-                        "The {}th arrival stop point has an uri {} \
+            let stop_point_uri =
+                location_context
+                    .place
+                    .strip_prefix("stop_point:")
+                    .or_else(|| {
+                        warn!(
+                            "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                        idx, location_context.place,
-                    );
-                    None
-                })?;
+                            idx, location_context.place,
+                        );
+                        None
+                    })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
@@ -397,15 +398,18 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri = location_context.place.strip_prefix("stop_point:")
-                .or_else( || {
-                    warn!(
-                        "The {}th arrival stop point has an uri {} \
+            let stop_point_uri =
+                location_context
+                    .place
+                    .strip_prefix("stop_point:")
+                    .or_else(|| {
+                        warn!(
+                            "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                        idx, location_context.place,
-                    );
-                    None
-                })?;
+                            idx, location_context.place,
+                        );
+                        None
+                    })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
@@ -426,8 +430,7 @@ where
 
     info!(
         "Requested timestamp {}, datetime {}",
-        departure_timestamp_u64,
-        departure_datetime
+        departure_timestamp_u64, departure_datetime
     );
 
     let max_journey_duration = u32::try_from(journey_request.max_duration)
