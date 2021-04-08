@@ -5,15 +5,11 @@ set -e
 
 function show_help() {
     cat << EOF
-Usage: ${0##*/}  -o oauth_token [-t tag] [-r -u dockerhub_user -p dockerhub_password]
+Usage: ${0##*/}  -o oauth_token 
     -e      [push|pull_request]
     -b      [dev|release] if -e push, or the branch name if -e pull_request
     -f      navitia pull_request fork owner, needed only if -e pull_request
     -o      oauth token for github
-    -t      tag images with the given string
-    -r      push images to a registry
-    -u      username for authentication on dockerhub
-    -p      password for authentication on dockerhub
 
 EOF
 }
@@ -34,13 +30,7 @@ while getopts "o:t:b:rp:u:e:f:h" opt; do
     case $opt in
         o) token=$OPTARG
             ;;
-        t) tag=$OPTARG
-            ;;
         b) branch=$OPTARG
-            ;;
-        r) push=1
-            ;;
-        p) password=$OPTARG
             ;;
         u) user=$OPTARG
             ;;
@@ -110,19 +100,6 @@ else
     exit 1
 fi
 
-if [[ $push -eq 1 ]]; then
-    if [ -z $user ];
-    then 
-        echo """Cannot push to docker registry without a "-u user." """
-        show_help
-        exit 1
-    fi
-    if [ -z $password ]; then 
-    echo """Cannot push to docker registry without a "-p password." """
-        show_help
-        exit 1
-    fi  
-fi
 
 # fetch loki submodules
 run git submodule update --init --recursive
@@ -149,30 +126,16 @@ run unzip -q ./tmp/${archive} -d ./tmp/
 run unzip -q ./tmp/${inside_archive} -d ./tmp/
 
 # build the docker for binarisation
-run docker build -f docker/bina_dockerfile -t mc_navitia/bina  .
+run docker build -f docker/bina_dockerfile -t navitia/mc_bina  .
 
 # build the docker for kraken
-run docker build -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
+run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken  ./tmp/
 
 # build the docker for jormun
-run docker build -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
+run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun  ./tmp/
 
 # build the docker for server
-run docker build -f docker/loki_dockerfile -t mc_navitia/loki  .
-
-
-# push image to docker registry if required with -r
-# if [[ $push -eq 1 ]]; then
-#     docker login -u $user -p $password
-#     for component in $components; do
-#         docker push navitia/$component:$version
-#         # also push tagged image if -t tag was given
-#         if [ -n "${tag}" ]; then
-#             docker push navitia/$component:$tag
-#         fi
-#     done
-#     docker logout
-# fi
+run docker build -f docker/loki_dockerfile -t navitia/mc_loki  .
 
 
 # clean up
