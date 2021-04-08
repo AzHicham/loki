@@ -5,7 +5,7 @@ set -e
 
 function show_help() {
     cat << EOF
-Usage: ${0##*/}  -o oauth_token [-t tag] [-r -u dockerhub_user -p dockerhub_password]
+Usage: ${0##*/}  -o oauth_token 
     -e      [push|pull_request]
     -b      [dev|release] if -e push, or the branch name if -e pull_request
     -f      navitia pull_request fork owner, needed only if -e pull_request
