@@ -60,7 +60,7 @@ In the following example, we have two datasets (corsese and idfm), with osm data
 Then, from the root directory of this repository, run :
 
 ```bash
-docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   mc_navitia/bina 
+docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina 
 ```
 
 This will create a folder `./mc_navitia` containing everything needed to launch navitia.

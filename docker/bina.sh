@@ -26,7 +26,7 @@ echo """
 version: \"3\"
 services: 
   jormungandr:
-    image: mc_navitia/jormun
+    image: navitia/mc_jormun
     volumes:
       - .:/data
     ports:
@@ -109,14 +109,14 @@ for folder in $(ls -d */); do
     # add kraken and loki services for this coverage
     echo """
   loki-${coverage}:
-    image: mc_navitia/loki
+    image: navitia/mc_loki
     environment: 
       - RUST_LOG=debug
     volumes:
       - ./${coverage}/:/data
 
   kraken-${coverage}:
-    image: mc_navitia/kraken:latest
+    image: navitia/mc_kraken
     volumes:
       - ./${coverage}:/data
 """ >> ${output}/docker-compose.yml

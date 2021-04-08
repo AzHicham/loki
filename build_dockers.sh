@@ -149,16 +149,16 @@ run unzip -q ./tmp/${archive} -d ./tmp/
 run unzip -q ./tmp/${inside_archive} -d ./tmp/
 
 # build the docker for binarisation
-run docker build -f docker/bina_dockerfile -t mc_navitia/bina  .
+run docker build -f docker/bina_dockerfile -t navitia/mc_bina  .
 
 # build the docker for kraken
-run docker build -f docker/kraken_dockerfile -t mc_navitia/kraken  ./tmp/
+run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken  ./tmp/
 
 # build the docker for jormun
-run docker build -f docker/jormun_dockerfile -t mc_navitia/jormun  ./tmp/
+run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun  ./tmp/
 
 # build the docker for server
-run docker build -f docker/loki_dockerfile -t mc_navitia/loki  .
+run docker build -f docker/loki_dockerfile -t navitia/mc_loki  .
 
 
 # push image to docker registry if required with -r
