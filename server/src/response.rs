@@ -359,8 +359,22 @@ fn make_pt_display_info(
         )
     })?;
 
+
+    let network_id = &line.network_id;
+
+    let network = model.networks.get(network_id).ok_or_else(|| {
+        format_err!(
+            "Could not find network with id {},\
+                 referenced by line {},\
+                 referenced by vehicle journey {}.",
+            network_id,
+            line_id,
+            vehicle_journey.id
+        )
+    })?;
+
     let proto = navitia_proto::PtDisplayInfo {
-        network: Some(line.network_id.clone()),
+        network: Some(network.name.clone()),
         code: line.code.clone(),
         headsign: vehicle_journey.headsign.clone(),
         direction: route.destination_id.clone(),
