@@ -34,15 +34,54 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod comparator_type;
-pub mod criteria_implem;
-pub mod data_implem;
-pub mod input_data_type;
-pub mod request_params;
-pub mod launch_params;
+use serde::Deserialize;
 
-pub use comparator_type::ComparatorType;
-pub use criteria_implem::CriteriaImplem;
-pub use data_implem::DataImplem;
-pub use input_data_type::InputDataType;
-pub use request_params::RequestParams;
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataImplem {
+    Periodic,
+    Daily,
+    LoadsPeriodic,
+    LoadsDaily,
+}
+impl std::str::FromStr for DataImplem {
+    type Err = DataImplemConfigError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use DataImplem::*;
+        let implem = match s {
+            "periodic" => Periodic,
+            "daily" => Daily,
+            "loads_periodic" => LoadsPeriodic,
+            "loads_daily" => LoadsDaily,
+            _ => {
+                return Err(DataImplemConfigError {
+                    implem_name: s.to_string(),
+                })
+            }
+        };
+        Ok(implem)
+    }
+}
+
+#[derive(Debug)]
+pub struct DataImplemConfigError {
+    implem_name: String,
+}
+
+impl std::fmt::Display for DataImplem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use DataImplem::*;
+        match self {
+            Periodic => write!(f, "periodic"),
+            Daily => write!(f, "daily"),
+            LoadsPeriodic => write!(f, "loads_periodic"),
+            LoadsDaily => write!(f, "loads_daily"),
+        }
+    }
+}
+
+impl std::fmt::Display for DataImplemConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad implem configuration : `{}`", self.implem_name)
+    }
+}

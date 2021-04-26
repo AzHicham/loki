@@ -34,15 +34,26 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod comparator_type;
-pub mod criteria_implem;
-pub mod data_implem;
-pub mod input_data_type;
-pub mod request_params;
-pub mod launch_params;
 
-pub use comparator_type::ComparatorType;
-pub use criteria_implem::CriteriaImplem;
-pub use data_implem::DataImplem;
-pub use input_data_type::InputDataType;
-pub use request_params::RequestParams;
+
+use super::InputDataType;
+
+use crate::PositiveDuration;
+
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct LaunchParams
+{
+    input_data_path : std::path::PathBuf,
+    input_type : InputDataType,
+    loads_data_path : Option<std::path::PathBuf>,
+    default_transfer_duration : PositiveDuration,
+}
+
+pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
+
+pub fn default_transfer_duration() -> PositiveDuration {
+    use std::str::FromStr;
+    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+}

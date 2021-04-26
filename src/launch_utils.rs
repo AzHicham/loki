@@ -44,7 +44,7 @@ use transit_model::Model;
 
 pub fn read<Data, InputPath: AsRef<Path>, LoadsPath: AsRef<Path>>(
     ntfs_path: InputPath,
-    input_type: &config::InputType,
+    input_type: &config::InputDataType,
     loads_data_path: Option<LoadsPath>,
     default_transfer_duration: &PositiveDuration,
 ) -> Result<(Data, Model), transit_model::Error>
@@ -52,8 +52,8 @@ where
     Data: traits::Data,
 {
     let model = match input_type {
-        config::InputType::Ntfs => transit_model::ntfs::read(ntfs_path)?,
-        config::InputType::Gtfs => {
+        config::InputDataType::Ntfs => transit_model::ntfs::read(ntfs_path)?,
+        config::InputDataType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
                 contributor: transit_model::objects::Contributor::default(),
                 dataset: transit_model::objects::Dataset::default(),

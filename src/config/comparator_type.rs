@@ -34,15 +34,47 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod comparator_type;
-pub mod criteria_implem;
-pub mod data_implem;
-pub mod input_data_type;
-pub mod request_params;
-pub mod launch_params;
 
-pub use comparator_type::ComparatorType;
-pub use criteria_implem::CriteriaImplem;
-pub use data_implem::DataImplem;
-pub use input_data_type::InputDataType;
-pub use request_params::RequestParams;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComparatorType {
+    Loads,
+    Basic,
+}
+impl std::str::FromStr for ComparatorType {
+    type Err = ComparatorTypeConfigError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let request_type = match s {
+            "loads" => ComparatorType::Loads,
+            "basic" => ComparatorType::Basic,
+            _ => {
+                return Err(ComparatorTypeConfigError {
+                    comparator_type_name: s.to_string(),
+                })
+            }
+        };
+        Ok(request_type)
+    }
+}
+
+impl std::fmt::Display for ComparatorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComparatorType::Loads => write!(f, "loads"),
+            ComparatorType::Basic => write!(f, "basic"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ComparatorTypeConfigError {
+    comparator_type_name: String,
+}
+
+impl std::fmt::Display for ComparatorTypeConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad comparator type : `{}`", self.comparator_type_name)
+    }
+}
