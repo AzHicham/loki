@@ -41,7 +41,7 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use loki::config::{self, InputType};
+use loki::config;
 use loki::transit_model;
 use loki::{
     config::RequestParams,
@@ -77,7 +77,6 @@ use serde::Deserialize;
     rename_all = "snake_case"
 )]
 pub enum Options {
-    Cli(Config),
     ConfigFile(ConfigFile),
 }
 
@@ -88,63 +87,38 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-#[derive(StructOpt, Deserialize)]
+#[derive(Deserialize)]
 pub struct Config {
-    /// directory of ntfs files to load
-    #[structopt(parse(from_os_str))]
-    input_path: PathBuf,
 
-    input_type: InputType,
-
-    /// path to the passengers loads file
-    #[structopt(parse(from_os_str))]
-    loads_data_path: Option<PathBuf>,
+    #[serde(flatten)]
+    launch_params : config::LaunchParams,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "basic" comparator
-    #[structopt(long)]
     basic_requests_socket: String,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "loads" comparator
-    #[structopt(long)]
     loads_requests_socket: Option<String>,
 
     /// Type used for storage of criteria
     /// "classic" or "loads"
-    #[structopt(long, default_value = "loads")]
+    #[serde(default)]
     criteria_implem: config::CriteriaImplem,
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
-    #[structopt(long, default_value = "loads_periodic")]
+    #[serde(default)]
     data_implem: config::DataImplem,
 
-    /// The default transfer duration between a stop point and itself
-    #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
-    #[serde(default = "config::default_transfer_duration")]
-    default_transfer_duration: PositiveDuration,
+    #[serde(default)]
+    #[serde(flatten)]
+    request_params : config::RequestParams,
 
-    /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
-    #[serde(default = "config::default_leg_arrival_penalty")]
-    leg_arrival_penalty: PositiveDuration,
 
-    /// penalty to apply to walking time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
-    #[serde(default = "config::default_leg_walking_penalty")]
-    leg_walking_penalty: PositiveDuration,
 
-    /// maximum number of vehicle legs in a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
-    #[serde(default = "config::default_max_nb_of_legs")]
-    max_nb_of_legs: u8,
 
-    /// maximum duration of a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
-    #[serde(default = "config::default_max_journey_duration")]
-    max_journey_duration: PositiveDuration,
 }
 
 fn main() {
@@ -178,8 +152,7 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
-    let config = match options {
-        Options::Cli(config) => config,
+    let config : Config = match options {
         Options::ConfigFile(config_file) => {
             let file = match File::open(&config_file.file) {
                 Ok(file) => file,
@@ -207,11 +180,8 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read::<Data, _, _>(
-        &config.input_path,
-        &config.input_type,
-        config.loads_data_path.as_ref(),
-        &config.default_transfer_duration,
+    let (data, model) = loki::launch_utils::read::<Data>(
+        &config.launch_params
     )?;
 
     match config.criteria_implem {
@@ -439,23 +409,23 @@ where
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, config.max_journey_duration
+                journey_request.max_duration, config.request_params.max_journey_duration
             );
-            config.max_journey_duration.clone()
+            config.request_params.max_journey_duration.clone()
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, config.max_nb_of_legs
+            journey_request.max_transfers, config.request_params.max_nb_of_legs
         );
-        config.max_nb_of_legs
+        config.request_params.max_nb_of_legs
     });
 
     let params = RequestParams {
-        leg_arrival_penalty: config.leg_arrival_penalty,
-        leg_walking_penalty: config.leg_walking_penalty,
+        leg_arrival_penalty: config.request_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_params.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
     };

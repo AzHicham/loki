@@ -35,9 +35,10 @@
 // www.navitia.io
 
 use std::{fmt::Display, str::FromStr};
+use serde::Deserialize;
 
 use crate::PositiveDuration;
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey
     pub leg_arrival_penalty: PositiveDuration,

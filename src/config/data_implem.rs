@@ -44,6 +44,15 @@ pub enum DataImplem {
     LoadsPeriodic,
     LoadsDaily,
 }
+
+impl Default for DataImplem {
+    fn default() -> Self {
+        Self::LoadsPeriodic
+    }
+}
+
+
+
 impl std::str::FromStr for DataImplem {
     type Err = DataImplemConfigError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -62,6 +71,7 @@ impl std::str::FromStr for DataImplem {
         Ok(implem)
     }
 }
+
 
 #[derive(Debug)]
 pub struct DataImplemConfigError {

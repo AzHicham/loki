@@ -42,6 +42,13 @@ pub enum CriteriaImplem {
     Loads,
     Basic,
 }
+
+impl Default for CriteriaImplem {
+    fn default() -> Self {
+        Self::Basic
+    }
+}
+
 impl std::str::FromStr for CriteriaImplem {
     type Err = CriteriaImplemConfigError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

@@ -37,22 +37,18 @@
 use crate::config;
 use crate::traits;
 use crate::LoadsData;
-use crate::PositiveDuration;
 use log::{info, warn};
-use std::{collections::BTreeMap, path::Path, time::SystemTime};
+use std::{collections::BTreeMap, time::SystemTime};
 use transit_model::Model;
 
-pub fn read<Data, InputPath: AsRef<Path>, LoadsPath: AsRef<Path>>(
-    ntfs_path: InputPath,
-    input_type: &config::InputDataType,
-    loads_data_path: Option<LoadsPath>,
-    default_transfer_duration: &PositiveDuration,
+pub fn read<Data>(
+    launch_params : & config::LaunchParams,
 ) -> Result<(Data, Model), transit_model::Error>
 where
     Data: traits::Data,
 {
-    let model = match input_type {
-        config::InputDataType::Ntfs => transit_model::ntfs::read(ntfs_path)?,
+    let model = match launch_params.input_type {
+        config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
         config::InputDataType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
                 contributor: transit_model::objects::Contributor::default(),
@@ -63,7 +59,7 @@ where
                 on_demand_transport_comment: None,
             };
 
-            transit_model::gtfs::read_from_path(ntfs_path, configuration)?
+            transit_model::gtfs::read_from_path(&launch_params.input_data_path, configuration)?
         }
     };
 
@@ -74,12 +70,12 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
-    let loads_data = loads_data_path
+    let loads_data = launch_params.loads_data_path.as_ref()
         .map(|path| {
             LoadsData::new(&path, &model).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
-                    &path.as_ref(),
+                    &path,
                     err.source()
                 );
                 warn!("I'll use default loads.");
@@ -89,7 +85,7 @@ where
         .unwrap_or_else(LoadsData::empty);
 
     let data_timer = SystemTime::now();
-    let data = Data::new(&model, &loads_data, *default_transfer_duration);
+    let data = Data::new(&model, &loads_data, launch_params.default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());

@@ -45,10 +45,18 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct LaunchParams
 {
-    input_data_path : std::path::PathBuf,
-    input_type : InputDataType,
-    loads_data_path : Option<std::path::PathBuf>,
-    default_transfer_duration : PositiveDuration,
+    /// directory containing ntfs/gtfs files to load
+    pub input_data_path : std::path::PathBuf, 
+
+    /// type of input data given (ntfs/gtfs)
+    pub input_type : InputDataType, 
+
+    /// path to the passengers loads file
+    pub loads_data_path : Option<std::path::PathBuf>,
+
+    /// the transfer duration between a stop point and itself
+    #[serde(default = "default_transfer_duration")]
+    pub default_transfer_duration : PositiveDuration,
 }
 
 pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
