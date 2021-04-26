@@ -40,16 +40,16 @@ use super::InputDataType;
 
 use crate::PositiveDuration;
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LaunchParams
 {
     /// directory containing ntfs/gtfs files to load
     pub input_data_path : std::path::PathBuf, 
 
     /// type of input data given (ntfs/gtfs)
-    pub input_type : InputDataType, 
+    pub input_data_type : InputDataType, 
 
     /// path to the passengers loads file
     pub loads_data_path : Option<std::path::PathBuf>,
@@ -57,6 +57,17 @@ pub struct LaunchParams
     /// the transfer duration between a stop point and itself
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration : PositiveDuration,
+
+    /// Type used for storage of criteria
+    /// "classic" or "loads"
+    #[serde(default)]
+    pub criteria_implem: super::CriteriaImplem,
+
+    /// Timetable implementation to use :
+    /// "periodic" (default) or "daily"
+    ///  or "loads_periodic" or "loads_daily"
+    #[serde(default)]
+    pub data_implem: super::DataImplem,
 }
 
 pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
@@ -64,4 +75,18 @@ pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
 pub fn default_transfer_duration() -> PositiveDuration {
     use std::str::FromStr;
     PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+}
+
+
+impl LaunchParams {
+ 
+    pub fn minimal_json_input(input_data_path : & str, input_data_type : InputDataType) -> String {
+        format!(r#" {{ 
+            "input_data_path" : "{}", 
+            "input_data_type" : "{}" 
+            }} "#,
+            input_data_path,
+            input_data_type
+        )
+    }
 }

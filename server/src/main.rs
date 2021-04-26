@@ -101,20 +101,9 @@ pub struct Config {
     /// that will be handled with "loads" comparator
     loads_requests_socket: Option<String>,
 
-    /// Type used for storage of criteria
-    /// "classic" or "loads"
-    #[serde(default)]
-    criteria_implem: config::CriteriaImplem,
-
-    /// Timetable implementation to use :
-    /// "periodic" (default) or "daily"
-    ///  or "loads_periodic" or "loads_daily"
-    #[serde(default)]
-    data_implem: config::DataImplem,
-
     #[serde(default)]
     #[serde(flatten)]
-    request_params : config::RequestParams,
+    request_default_params : config::RequestParams,
 
 
 
@@ -168,7 +157,7 @@ fn launch_server() -> Result<(), Error> {
             }
         }
     };
-    match config.data_implem {
+    match config.launch_params.data_implem {
         config::DataImplem::Periodic => launch::<PeriodicData>(config),
         config::DataImplem::Daily => launch::<DailyData>(config),
         config::DataImplem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
@@ -184,7 +173,7 @@ where
         &config.launch_params
     )?;
 
-    match config.criteria_implem {
+    match config.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => {
             server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config)
         }
@@ -409,23 +398,23 @@ where
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, config.request_params.max_journey_duration
+                journey_request.max_duration, config.request_default_params.max_journey_duration
             );
-            config.request_params.max_journey_duration.clone()
+            config.request_default_params.max_journey_duration.clone()
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, config.request_params.max_nb_of_legs
+            journey_request.max_transfers, config.request_default_params.max_nb_of_legs
         );
-        config.request_params.max_nb_of_legs
+        config.request_default_params.max_nb_of_legs
     });
 
     let params = RequestParams {
-        leg_arrival_penalty: config.request_params.leg_arrival_penalty,
-        leg_walking_penalty: config.request_params.leg_walking_penalty,
+        leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_default_params.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
     };

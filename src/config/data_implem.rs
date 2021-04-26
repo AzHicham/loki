@@ -34,9 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DataImplem {
     Periodic,

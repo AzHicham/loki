@@ -35,21 +35,25 @@
 // www.navitia.io
 
 use std::{fmt::Display, str::FromStr};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 use crate::PositiveDuration;
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey
+    #[serde(default="default_leg_arrival_penalty")]
     pub leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
+    #[serde(default="default_leg_walking_penalty")]
     pub leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
+    #[serde(default="default_max_nb_of_legs")]
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
+    #[serde(default="default_max_journey_duration")]
     pub max_journey_duration: PositiveDuration,
 }
 

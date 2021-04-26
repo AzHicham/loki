@@ -37,8 +37,7 @@
 use loki::config;
 use loki::transit_model;
 use loki::PositiveDuration;
-use loki::{
-    config::RequestParams, log::trace, response, traits::RequestInput, transit_model::Model,
+use loki::{log::trace, response, traits::RequestInput, transit_model::Model,
 };
 
 use loki::traits;
@@ -48,126 +47,42 @@ use slog::Drain;
 use slog_async::OverflowStrategy;
 
 use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
+    fmt::{Debug, },
 };
 
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
 
-use structopt::StructOpt;
-
-pub mod stop_areas;
+// pub mod stop_areas;
 
 pub mod random;
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
-pub struct RequestConfig {
-    /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
-    pub leg_arrival_penalty: PositiveDuration,
+use serde::{Serialize, Deserialize};
 
-    /// penalty to apply to walking time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
-    pub leg_walking_penalty: PositiveDuration,
 
-    /// maximum number of vehicle legs in a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
-    pub max_nb_of_legs: u8,
 
-    /// maximum duration of a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
-    pub max_journey_duration: PositiveDuration,
-}
 
-impl Default for RequestConfig {
-    fn default() -> Self {
-        let max_nb_of_legs: u8 = FromStr::from_str(config::DEFAULT_MAX_NB_LEGS).unwrap();
-        Self {
-            leg_arrival_penalty: FromStr::from_str(config::DEFAULT_LEG_ARRIVAL_PENALTY).unwrap(),
-            leg_walking_penalty: FromStr::from_str(config::DEFAULT_LEG_WALKING_PENALTY).unwrap(),
-            max_nb_of_legs,
-            max_journey_duration: FromStr::from_str(config::DEFAULT_MAX_JOURNEY_DURATION).unwrap(),
-        }
-    }
-}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BaseConfig {
 
-impl Display for RequestConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "--leg_arrival_penalty {} --leg_walking_penalty {} --max_nb_of_legs {} --max_journey_duration {}",
-                self.leg_arrival_penalty,
-                self.leg_walking_penalty,
-                self.max_nb_of_legs,
-                self.max_journey_duration
-        )
-    }
-}
+    #[serde(flatten)]
+    pub launch_params : config::LaunchParams,
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
-pub struct BaseOptions {
-    #[structopt(flatten)]
-    pub request_config: RequestConfig,
-
-    /// directory of ntfs files to load
-    #[structopt(short = "n", long = "ntfs")]
-    pub ntfs_path: String,
-
-    /// path to the passengers loads file
-    #[structopt(short = "l", long = "loads_data")]
-    pub loads_data_path: Option<String>,
-
-    /// The default transfer duration between a stop point and itself
-    #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
-    pub default_transfer_duration: PositiveDuration,
+    #[serde(flatten)]
+    pub request_params: config::RequestParams,
 
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
-    #[structopt(long)]
     pub departure_datetime: Option<String>,
-
-    /// Timetable implementation to use :
-    /// "periodic" (default) or "daily"
-    ///  or "loads_periodic" or "loads_daily"
-    #[structopt(long, default_value = "loads_periodic")]
-    pub data_implem: config::DataImplem,
-
-    /// Type used for storage of criteria
-    /// "classic" or "loads"
-    #[structopt(long, default_value = "loads")]
-    pub criteria_implem: config::CriteriaImplem,
 
     /// Which comparator to use for the request
     /// "basic" or "loads"
-    #[structopt(long, default_value = "loads")]
+    #[serde(default)]
     pub comparator_type: config::ComparatorType,
 }
 
-impl Display for BaseOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let departure_option = match &self.departure_datetime {
-            Some(datetime) => format!("--departure_datetime {}", datetime),
-            None => String::new(),
-        };
-        let loads_data_option = match &self.loads_data_path {
-            Some(path) => format!("--loads_data {}", path),
-            None => String::new(),
-        };
-        write!(
-            f,
-            "--ntfs {}  {} {} --data_implem {} --criteria_implem {} --comparator_type {} {}",
-            self.ntfs_path,
-            loads_data_option,
-            departure_option,
-            self.data_implem,
-            self.criteria_implem,
-            self.comparator_type,
-            self.request_config.to_string()
-        )
-    }
-}
+
 
 pub fn init_logger() -> slog_scope::GlobalLoggerGuard {
     let decorator = slog_term::TermDecorator::new().stdout().build();
@@ -238,7 +153,7 @@ pub fn solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
     departure_datetime: &NaiveDateTime,
-    options: &BaseOptions,
+    config: &BaseConfig,
 ) -> Result<Vec<response::Response>, Error>
 where
     Solver: traits::Solver<'data, Data>,
@@ -259,22 +174,15 @@ where
         .iter()
         .map(|uri| (uri.as_str(), PositiveDuration::zero()));
 
-    let request_config = &options.request_config;
-    let params = RequestParams {
-        leg_arrival_penalty: request_config.leg_arrival_penalty,
-        leg_walking_penalty: request_config.leg_walking_penalty,
-        max_nb_of_legs: request_config.max_nb_of_legs,
-        max_journey_duration: request_config.max_journey_duration,
-    };
 
     let request_input = RequestInput {
         departure_datetime: *departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params,
+        params : config.request_params.clone(),
     };
 
-    let responses = solver.solve_request(data, model, request_input, &options.comparator_type)?;
+    let responses = solver.solve_request(data, model, request_input, &config.comparator_type)?;
 
     Ok(responses)
 }

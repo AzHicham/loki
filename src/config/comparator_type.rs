@@ -34,10 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use serde::{Serialize, Deserialize};
 
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComparatorType {
     Loads,
@@ -56,6 +55,12 @@ impl std::str::FromStr for ComparatorType {
             }
         };
         Ok(request_type)
+    }
+}
+
+impl Default for ComparatorType {
+    fn default() -> Self {
+        Self::Loads
     }
 }
 

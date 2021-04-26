@@ -45,8 +45,14 @@ use failure::Error;
 use std::time::SystemTime;
 
 use structopt::StructOpt;
+use serde::{Serialize, Deserialize};
+use loki::{DailyData, PeriodicData};
+use loki::{LoadsDailyData, LoadsPeriodicData};
 
-use crate::{parse_datetime, solve, BaseOptions};
+use std::{fs::File, io::BufReader};
+use failure::{bail};
+
+use crate::{parse_datetime, solve, BaseConfig};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -54,40 +60,124 @@ use crate::{parse_datetime, solve, BaseOptions};
     about = "Perform random public transport requests.",
     rename_all = "snake_case"
 )]
-pub struct Options {
-    #[structopt(flatten)]
-    pub base: BaseOptions,
+pub enum Options {
+    /// Create a config file from cli arguments
+    CreateConfig(ConfigCreator),
+    /// Launch from a config file
+    ConfigFile(ConfigFile)
+}
 
-    #[structopt(short = "n", long, default_value = "10")]
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
+pub struct ConfigCreator {
+    /// type of input data given (ntfs/gtfs)
+    pub input_type : config::InputDataType, 
+
+    /// directory containing ntfs/gtfs files to load
+    pub input_path : String, 
+
+}
+
+#[derive(StructOpt)]
+pub struct ConfigFile {
+    /// path to the json config file
+    #[structopt(parse(from_os_str))]
+    file: std::path::PathBuf,
+}
+#[derive(Serialize, Deserialize)]
+pub struct Config {
+    #[serde(flatten)]
+    pub base: BaseConfig,
+
+    #[serde(default = "default_nb_of_queries")]
     pub nb_queries: u32,
 }
 
-pub fn launch<Data>(options: Options) -> Result<(), Error>
+pub fn default_nb_of_queries() -> u32 {
+    10
+}
+
+
+pub fn run() -> Result<(), Error> {
+    let options = Options::from_args(); 
+    match options {
+        Options::ConfigFile(config_file) => {
+            read_config_and_launch(&config_file)
+        },
+        Options::CreateConfig(mandatory_args) => {
+            let minimal_string = format!(r#" {{ 
+                "input_data_path" : "{}", 
+                "input_data_type" : "{}" 
+                }} "#,
+                mandatory_args.input_path,
+                mandatory_args.input_type
+            );
+            let config : Config = serde_json::from_str(&minimal_string)?;
+            let json_string = serde_json::to_string_pretty(&config)?;
+
+            println!("{}", json_string);
+
+            Ok(())
+        }
+    }
+
+}
+
+pub fn read_config_and_launch(config_file : & ConfigFile) -> Result<(), Error> {
+    let file = match File::open(&config_file.file) {
+        Ok(file) => file,
+        Err(e) => {
+            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+        }
+    };
+    let reader = BufReader::new(file);
+    let result = serde_json::from_reader(reader);
+    let config : Config = match result {
+        Ok(config) => config,
+        Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e),
+    };
+
+    match config.base.launch_params.data_implem {
+        config::DataImplem::Periodic => {
+            launch::<PeriodicData>(config)
+        }
+        config::DataImplem::Daily => {
+            launch::<DailyData>(config)
+        }
+        config::DataImplem::LoadsPeriodic => {
+            launch::<LoadsPeriodicData>(config)
+        }
+        config::DataImplem::LoadsDaily => {
+            launch::<LoadsDailyData>(config)
+        }
+    }
+}
+
+pub fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
     let (data, model) = loki::launch_utils::read(
-        &options.base.ntfs_path,
-        &loki::config::InputType::Ntfs,
-        options.base.loads_data_path.clone(),
-        &options.base.default_transfer_duration,
+        &config.base.launch_params,
     )?;
-    match options.base.criteria_implem {
+    match config.base.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => build_engine_and_solve::<
             Data,
             solver::BasicCriteriaSolver<'_, Data>,
-        >(&model, &data, &options),
+        >(&model, &data, &config),
         config::CriteriaImplem::Loads => build_engine_and_solve::<
             Data,
             solver::LoadsCriteriaSolver<'_, Data>,
-        >(&model, &data, &options),
+        >(&model, &data, &config),
     }
 }
 
 fn build_engine_and_solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
-    options: &Options,
+    config: &Config,
 ) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
@@ -95,7 +185,7 @@ where
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let departure_datetime = match &options.base.departure_datetime {
+    let departure_datetime = match &config.base.departure_datetime {
         Some(string_datetime) => parse_datetime(&string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
@@ -105,7 +195,7 @@ where
 
     let compute_timer = SystemTime::now();
 
-    let nb_queries = options.nb_queries;
+    let nb_queries = config.nb_queries;
     use rand::prelude::{IteratorRandom, SeedableRng};
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
     for _ in 0..nb_queries {
@@ -119,7 +209,7 @@ where
             model,
             data,
             &departure_datetime,
-            &options.base,
+            &config.base,
         );
         match solve_result {
             Err(err) => {

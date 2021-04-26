@@ -138,6 +138,15 @@ impl<'de> serde::Deserialize<'de> for PositiveDuration {
     }
 }
 
+impl serde::Serialize for PositiveDuration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_hms_string())
+    }
+}
+
 impl PositiveDuration {
     pub fn zero() -> Self {
         Self { seconds: 0 }
@@ -152,6 +161,14 @@ impl PositiveDuration {
 
     pub fn total_seconds(&self) -> u64 {
         self.seconds as u64
+    }
+
+    pub fn to_hms_string(&self) -> String {
+        let hours = self.seconds / (60 * 60);
+        let minutes_in_secs = self.seconds % (60 * 60);
+        let minutes = minutes_in_secs / 60;
+        let seconds = minutes_in_secs % 60;
+        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
     }
 }
 
