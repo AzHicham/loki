@@ -34,14 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::str::FromStr;
+
 
 use failure::Error;
-use loki::config;
-use loki::{LoadsPeriodicData, PositiveDuration};
 
-use loki_cli::stop_areas::{launch, Options};
-use loki_cli::{BaseOptions, RequestConfig};
+use loki_cli::stop_areas::{launch, Config, };
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded
@@ -61,27 +58,20 @@ fn test_loads_matin() -> Result<(), Error> {
     //  - one with `midi` as it has a lighter load than `matin`
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
-    let default_transfer_duration =
-        PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
-    let request_config = RequestConfig::default();
-    let base = BaseOptions {
-        ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
-        departure_datetime: Some("20210101T080000".to_string()),
-        request_config,
-        default_transfer_duration,
-        data_implem: config::DataImplem::LoadsDaily,
-        criteria_implem: config::CriteriaImplem::Loads,
-        comparator_type: config::ComparatorType::Loads,
-    };
 
-    let options = Options {
-        base,
-        start: "stop_area:massy".to_string(),
-        end: "stop_area:paris".to_string(),
-    };
-    println!("Launching : \n {}", options);
-    let (model, mut responses) = launch::<LoadsPeriodicData>(options)?;
+    let config : Config = serde_json::from_str(r#" {
+            "input_data_path" : "tests/one_line",
+            "input_data_type" : "ntfs",
+            "loads_data_path" : "tests/one_line/loads.csv",
+            "criteria_implem" : "loads",
+            "data_implem" : "loads_periodic",
+            "departure_datetime" : "20210101T080000",
+            "comparator_type" : "loads",
+            "start" : "stop_area:massy",
+            "end" : "stop_area:paris"
+          } "# )?;
+
+    let (model, mut responses) = launch(config)?;
 
     assert!(responses.len() == 2);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
@@ -98,27 +88,22 @@ fn test_loads_midi() -> Result<(), Error> {
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
-    let default_transfer_duration =
-        PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
-    let request_config = RequestConfig::default();
-    let base = BaseOptions {
-        ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
-        departure_datetime: Some("20210101T100000".to_string()),
-        request_config,
-        default_transfer_duration,
-        data_implem: config::DataImplem::LoadsDaily,
-        criteria_implem: config::CriteriaImplem::Loads,
-        comparator_type: config::ComparatorType::Loads,
-    };
 
-    let options = Options {
-        base,
-        start: "stop_area:massy".to_string(),
-        end: "stop_area:paris".to_string(),
-    };
-    println!("Launching : \n {}", options);
-    let (model, mut responses) = launch::<LoadsPeriodicData>(options)?;
+    let config : Config = serde_json::from_str(r#" {
+        "input_data_path": "tests/one_line",
+        "input_data_type": "ntfs",
+        "loads_data_path": "tests/one_line/loads.csv",
+        "criteria_implem": "loads",
+        "data_implem": "loads_periodic",
+        "departure_datetime": "20210101T100000",
+        "comparator_type": "loads",
+        "start" : "stop_area:massy",
+        "end" : "stop_area:paris"
+      } "# )?;
+
+
+
+    let (model, mut responses) = launch(config)?;
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
@@ -133,27 +118,21 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
-    let request_config = RequestConfig::default();
-    let default_transfer_duration =
-        PositiveDuration::from_str(config::DEFAULT_TRANSFER_DURATION).unwrap();
-    let base = BaseOptions {
-        ntfs_path: "tests/one_line".to_string(),
-        loads_data_path: Some("tests/one_line/loads.csv".to_string()),
-        departure_datetime: Some("20210101T080000".to_string()),
-        request_config,
-        default_transfer_duration,
-        data_implem: config::DataImplem::LoadsDaily,
-        criteria_implem: config::CriteriaImplem::Loads,
-        comparator_type: config::ComparatorType::Basic,
-    };
+    let config : Config = serde_json::from_str(r#" {
+        "input_data_path": "tests/one_line",
+        "input_data_type": "ntfs",
+        "loads_data_path": "tests/one_line/loads.csv",
+        "criteria_implem": "loads",
+        "data_implem": "loads_periodic",
+        "departure_datetime": "20210101T080000",
+        "comparator_type": "basic",
+        "start" : "stop_area:massy",
+        "end" : "stop_area:paris"
+      } "# )?;
 
-    let options = Options {
-        base,
-        start: "stop_area:massy".to_string(),
-        end: "stop_area:paris".to_string(),
-    };
-    println!("Launching : \n {}", options);
-    let (model, mut responses) = launch::<LoadsPeriodicData>(options)?;
+
+
+    let (model, mut responses) = launch(config)?;
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);

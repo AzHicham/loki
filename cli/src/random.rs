@@ -99,22 +99,16 @@ pub fn default_nb_of_queries() -> u32 {
     10
 }
 
-
 pub fn run() -> Result<(), Error> {
     let options = Options::from_args(); 
     match options {
         Options::ConfigFile(config_file) => {
-            read_config_and_launch(&config_file)
+            let config = read_config(&config_file)?;
+            launch(config)?;
+            Ok(())
         },
-        Options::CreateConfig(mandatory_args) => {
-            let minimal_string = format!(r#" {{ 
-                "input_data_path" : "{}", 
-                "input_data_type" : "{}" 
-                }} "#,
-                mandatory_args.input_path,
-                mandatory_args.input_type
-            );
-            let config : Config = serde_json::from_str(&minimal_string)?;
+        Options::CreateConfig(config_creator) => {
+            let config = create_config(config_creator)?;
             let json_string = serde_json::to_string_pretty(&config)?;
 
             println!("{}", json_string);
@@ -125,7 +119,19 @@ pub fn run() -> Result<(), Error> {
 
 }
 
-pub fn read_config_and_launch(config_file : & ConfigFile) -> Result<(), Error> {
+pub fn create_config(config_creator : ConfigCreator) -> Result<Config, Error> {
+    let minimal_string = format!(r#" {{ 
+        "input_data_path" : "{}", 
+        "input_data_type" : "{}" 
+        }} "#,
+        config_creator.input_path,
+        config_creator.input_type
+    );
+    let config : Config = serde_json::from_str(&minimal_string)?;
+    Ok(config)
+}
+
+pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
     let file = match File::open(&config_file.file) {
         Ok(file) => file,
         Err(e) => {
@@ -133,29 +139,31 @@ pub fn read_config_and_launch(config_file : & ConfigFile) -> Result<(), Error> {
         }
     };
     let reader = BufReader::new(file);
-    let result = serde_json::from_reader(reader);
-    let config : Config = match result {
-        Ok(config) => config,
-        Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e),
-    };
+    let config : Config = serde_json::from_reader(reader)?;
+    Ok(config)
+}
+
+
+pub fn launch(config :  Config) -> Result<(), Error> {
+
 
     match config.base.launch_params.data_implem {
         config::DataImplem::Periodic => {
-            launch::<PeriodicData>(config)
+            config_launch::<PeriodicData>(config)
         }
         config::DataImplem::Daily => {
-            launch::<DailyData>(config)
+            config_launch::<DailyData>(config)
         }
         config::DataImplem::LoadsPeriodic => {
-            launch::<LoadsPeriodicData>(config)
+            config_launch::<LoadsPeriodicData>(config)
         }
         config::DataImplem::LoadsDaily => {
-            launch::<LoadsDailyData>(config)
+            config_launch::<LoadsDailyData>(config)
         }
     }
 }
 
-pub fn launch<Data>(config: Config) -> Result<(), Error>
+pub fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {

@@ -34,13 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::config;
-use loki::{DailyData, PeriodicData};
-use loki::{LoadsDailyData, LoadsPeriodicData};
-
-use failure::Error;
-
-use structopt::StructOpt;
 
 use loki_cli::{
     init_logger,

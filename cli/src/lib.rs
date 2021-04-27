@@ -53,7 +53,7 @@ use std::{
 use chrono::NaiveDateTime;
 use failure::{bail, Error};
 
-// pub mod stop_areas;
+pub mod stop_areas;
 
 pub mod random;
 

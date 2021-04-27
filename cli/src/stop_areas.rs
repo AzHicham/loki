@@ -39,71 +39,170 @@ use loki::{solver, transit_model::Model};
 use log::{error, info, trace};
 use loki::{config, traits};
 
-use std::fmt::{Debug, Display};
-
+use serde::{Serialize, Deserialize};
+use std::{fs::File, io::BufReader};
 use failure::Error;
+use failure::{bail, format_err};
 use std::time::SystemTime;
 
 use structopt::StructOpt;
 
-use crate::{parse_datetime, solve, BaseOptions};
+use loki::{DailyData, PeriodicData};
+use loki::{LoadsDailyData, LoadsPeriodicData};
 
-#[derive(StructOpt, Debug)]
+use crate::{parse_datetime, solve, BaseConfig};
+
+#[derive(StructOpt)]
 #[structopt(
     name = "loki_stop_areas",
     about = "Perform a public transport request between two stop areas.",
     rename_all = "snake_case"
 )]
-pub struct Options {
-    #[structopt(flatten)]
-    pub base: BaseOptions,
+pub enum Options {
+    /// Create a config file from cli arguments
+    CreateConfig(ConfigCreator),
+    /// Launch from a config file
+    ConfigFile(ConfigFile)
+}
 
-    #[structopt(long)]
+#[derive(StructOpt, Debug)]
+#[structopt(
+    rename_all = "snake_case"
+)]
+pub struct ConfigCreator {
+    /// type of input data given (ntfs/gtfs)
+    pub input_type : config::InputDataType, 
+
+    /// directory containing ntfs/gtfs files to load
+    pub input_path : String, 
+  
+    /// name of the start stop_area
     pub start: String,
 
-    #[structopt(long)]
+    /// name of the end stop_area
+    pub end: String,
+
+}
+
+#[derive(StructOpt)]
+pub struct ConfigFile {
+    /// path to the json config file
+    #[structopt(parse(from_os_str))]
+    file: std::path::PathBuf,
+}
+#[derive(Serialize, Deserialize)]
+pub struct Config {
+    #[serde(flatten)]
+    pub base: BaseConfig,
+
+    /// name of the start stop_area
+    pub start: String,
+
+    /// name of the end stop_area
     pub end: String,
 }
 
-impl Display for Options {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "loki_cli {} --start {} --end {}",
-            self.base.to_string(),
-            self.start,
-            self.end
-        )
+pub fn run() -> Result<(), Error> {
+    let options = Options::from_args(); 
+    match options {
+        Options::ConfigFile(config_file) => {
+            let config = read_config(&config_file)?;
+            launch(config)?;
+            Ok(())
+        },
+        Options::CreateConfig(config_creator) => {
+            let config = create_config(config_creator)?;
+            let json_string = serde_json::to_string_pretty(&config)?;
+
+            println!("{}", json_string);
+
+            Ok(())
+        }
+    }
+
+}
+
+pub fn create_config(config_creator : ConfigCreator) -> Result<Config, Error> {
+    let minimal_string = format!(r#" {{ 
+        "input_data_path" : "{}", 
+        "input_data_type" : "{}",
+        "start" : "{}",
+        "end" : "{}"
+        }} "#,
+        config_creator.input_path,
+        config_creator.input_type,
+        config_creator.start,
+        config_creator.end,
+    );
+    let config : Config
+     = serde_json::from_str(&minimal_string)?;
+    Ok(config)
+}
+
+
+
+
+
+
+pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
+    let file = match File::open(&config_file.file) {
+        Ok(file) => file,
+        Err(e) => {
+            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+        }
+    };
+    let reader = BufReader::new(file);
+    let config : Config = serde_json::from_reader(reader).map_err(|err| {
+        format_err!("Could not read config file {:?} : {}", config_file.file, err)
+    })?;
+    Ok(config)
+}
+
+pub fn launch(config :  Config) -> Result<(Model, Vec<loki::Response>), Error> {
+
+    match config.base.launch_params.data_implem {
+        config::DataImplem::Periodic => {
+            config_launch::<PeriodicData>(config)
+        }
+        config::DataImplem::Daily => {
+            config_launch::<DailyData>(config)
+        }
+        config::DataImplem::LoadsPeriodic => {
+            config_launch::<LoadsPeriodicData>(config)
+        }
+        config::DataImplem::LoadsDaily => {
+            config_launch::<LoadsDailyData>(config)
+        }
     }
 }
 
-pub fn launch<Data>(options: Options) -> Result<(Model, Vec<loki::Response>), Error>
+fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
     let (data, model) = loki::launch_utils::read(
-        &options.base.ntfs_path,
-        &loki::config::InputType::Ntfs,
-        options.base.loads_data_path.clone(),
-        &options.base.default_transfer_duration,
+        &config.base.launch_params
     )?;
-    let responses = match options.base.criteria_implem {
-        config::CriteriaImplem::Basic => build_engine_and_solve::<
-            Data,
-            solver::BasicCriteriaSolver<'_, Data>,
-        >(&model, &data, &options),
-        config::CriteriaImplem::Loads => build_engine_and_solve::<
-            Data,
-            solver::LoadsCriteriaSolver<'_, Data>,
-        >(&model, &data, &options),
+    let result = match config.base.launch_params.criteria_implem {
+        config::CriteriaImplem::Basic => 
+        {
+            build_engine_and_solve::<Data,solver::BasicCriteriaSolver<'_, Data>>
+                (&model, &data, &config)
+        },
+        config::CriteriaImplem::Loads => 
+        {
+            build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<'_, Data>>
+                (&model, &data, &config)
+        },
     };
-    responses.map(|responses| (model, responses))
+
+    result.map(|responses| (model, responses))
 }
 
 fn build_engine_and_solve<'data, Data, Solver>(
     model: &Model,
     data: &'data Data,
-    options: &Options,
+    config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
 where
     Data: traits::DataWithIters,
@@ -111,7 +210,7 @@ where
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let departure_datetime = match &options.base.departure_datetime {
+    let departure_datetime = match &config.base.departure_datetime {
         Some(string_datetime) => parse_datetime(&string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
@@ -121,8 +220,8 @@ where
 
     let compute_timer = SystemTime::now();
 
-    let start_stop_area_uri = &options.start;
-    let end_stop_area_uri = &options.end;
+    let start_stop_area_uri = &config.start;
+    let end_stop_area_uri = &config.end;
 
     let solve_result = solve(
         start_stop_area_uri,
@@ -131,7 +230,7 @@ where
         model,
         data,
         &departure_datetime,
-        &options.base,
+        &config.base,
     );
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
