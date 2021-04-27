@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 prost = "0.6"
 zmq = "0.9"
-loki = { path = "../"}
+launch = { path = "../launch"}
 structopt = "0.3"
 chrono = "0.4"
 chrono-tz = "0.5"

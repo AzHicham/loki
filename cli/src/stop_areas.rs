@@ -34,10 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{solver, transit_model::Model};
+use launch::config;
+use launch::loki;
+use launch::solver;
+
+
+use loki::{transit_model::Model};
 
 use log::{error, info, trace};
-use loki::{config, traits};
+use loki::{traits};
 
 use serde::{Serialize, Deserialize};
 use std::{fs::File, io::BufReader};
@@ -180,7 +185,7 @@ fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), E
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read(
+    let (data, model) = launch::read(
         &config.base.launch_params
     )?;
     let result = match config.base.launch_params.criteria_implem {
@@ -206,7 +211,7 @@ fn build_engine_and_solve<'data, Data, Solver>(
 ) -> Result<Vec<loki::Response>, Error>
 where
     Data: traits::DataWithIters,
-    Solver: traits::Solver<'data, Data>,
+    Solver: solver::Solver<'data, Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

@@ -37,7 +37,7 @@
 use std::{fmt::Display, str::FromStr};
 use serde::{Serialize, Deserialize};
 
-use crate::PositiveDuration;
+use loki::PositiveDuration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey

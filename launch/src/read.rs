@@ -34,12 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::config;
-use crate::traits;
-use crate::LoadsData;
-use log::{info, warn};
+use super::config;
+use loki::traits;
+use loki::LoadsData;
+use loki::log::{info, warn};
 use std::{collections::BTreeMap, time::SystemTime};
-use transit_model::Model;
+use loki::transit_model::{self, Model};
 
 pub fn read<Data>(
     launch_params : & config::LaunchParams,

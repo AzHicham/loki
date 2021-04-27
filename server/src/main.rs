@@ -41,11 +41,11 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use loki::config;
+use launch::{config, solver};
+use launch::loki;
+
 use loki::transit_model;
 use loki::{
-    config::RequestParams,
-    solver,
     traits::{self, RequestInput},
 };
 use loki::{
@@ -169,7 +169,7 @@ fn launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read::<Data>(
+    let (data, model) = launch::read::<Data>(
         &config.launch_params
     )?;
 
@@ -190,7 +190,7 @@ fn server_loop<'data, Data, Solver>(
 ) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
-    Solver: traits::Solver<'data, Data>,
+    Solver: solver::Solver<'data, Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
@@ -268,7 +268,7 @@ where
     }
 }
 
-fn solve<'data, Data, Solver: traits::Solver<'data, Data>>(
+fn solve<'data, Data, Solver: solver::Solver<'data, Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     data: &'data Data,
@@ -412,18 +412,15 @@ where
         config.request_default_params.max_nb_of_legs
     });
 
-    let params = RequestParams {
-        leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
-        leg_walking_penalty: config.request_default_params.leg_walking_penalty,
-        max_nb_of_legs,
-        max_journey_duration,
-    };
 
     let request_input = RequestInput {
         departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params,
+        leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_default_params.leg_walking_penalty,
+        max_nb_of_legs,
+        max_journey_duration,
     };
 
     let responses = solver.solve_request(data, model, request_input, &comparator_type)?;

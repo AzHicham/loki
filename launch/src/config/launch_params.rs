@@ -34,38 +34,59 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
 
-mod engine;
-pub mod request;
 
-pub mod loads_data;
+use super::InputDataType;
 
-pub use chrono::NaiveDateTime;
-pub use log;
-pub use time::PositiveDuration;
-pub use transit_model;
+use loki::PositiveDuration;
 
-pub mod time;
+use serde::{Serialize, Deserialize};
 
-pub mod traits;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LaunchParams
+{
+    /// directory containing ntfs/gtfs files to load
+    pub input_data_path : std::path::PathBuf, 
 
-mod timetables;
+    /// type of input data given (ntfs/gtfs)
+    pub input_data_type : InputDataType, 
 
-mod transit_data;
+    /// path to the passengers loads file
+    pub loads_data_path : Option<std::path::PathBuf>,
 
-pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
-pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
+    /// the transfer duration between a stop point and itself
+    #[serde(default = "default_transfer_duration")]
+    pub default_transfer_duration : PositiveDuration,
 
-pub type LoadsDailyData = transit_data::TransitData<timetables::LoadsDailyTimetables>;
-pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodicTimetables>;
+    /// Type used for storage of criteria
+    /// "classic" or "loads"
+    #[serde(default)]
+    pub criteria_implem: super::CriteriaImplem,
 
-pub use loads_data::LoadsData;
+    /// Timetable implementation to use :
+    /// "periodic" (default) or "daily"
+    ///  or "loads_periodic" or "loads_daily"
+    #[serde(default)]
+    pub data_implem: super::DataImplem,
+}
 
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
+pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
 
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
+pub fn default_transfer_duration() -> PositiveDuration {
+    use std::str::FromStr;
+    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+}
 
-pub mod response;
 
-pub type Response = response::Response;
+impl LaunchParams {
+ 
+    pub fn minimal_json_input(input_data_path : & str, input_data_type : InputDataType) -> String {
+        format!(r#" {{ 
+            "input_data_path" : "{}", 
+            "input_data_type" : "{}" 
+            }} "#,
+            input_data_path,
+            input_data_type
+        )
+    }
+}

@@ -144,10 +144,10 @@ where
             departure_datetime,
             departures_stop_point_and_fallback_duration: departures,
             arrivals_stop_point_and_fallbrack_duration: arrivals,
-            leg_arrival_penalty: request_input.params.leg_arrival_penalty,
-            leg_walking_penalty: request_input.params.leg_walking_penalty,
-            max_arrival_time: departure_datetime + request_input.params.max_journey_duration,
-            max_nb_legs: request_input.params.max_nb_of_legs,
+            leg_arrival_penalty: request_input.leg_arrival_penalty,
+            leg_walking_penalty: request_input.leg_walking_penalty,
+            max_arrival_time: departure_datetime + request_input.max_journey_duration,
+            max_nb_legs: request_input.max_nb_of_legs,
         };
 
         Ok(result)

@@ -36,15 +36,36 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
-use log::{debug, trace};
+use loki::log::{debug, trace};
 
-use crate::{
-    config, response,
-    traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters, Solver},
+use loki::{
+    response, transit_model,
+    traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters},
     MultiCriteriaRaptor, PositiveDuration,
 };
 
-use crate::request::basic_criteria;
+use loki::request::basic_criteria;
+
+use super::config;
+
+pub trait Solver<'data, Data> {
+    fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self;
+
+    fn solve_request<Departures, Arrivals, D, A>(
+        &mut self,
+        data: &'data Data,
+        model: &transit_model::Model,
+        request_input: RequestInput<Departures, Arrivals, D, A>,
+        comparator: &config::ComparatorType,
+    ) -> Result<Vec<response::Response>, BadRequest>
+    where
+        Self: Sized,
+        Arrivals: Iterator<Item = (A, PositiveDuration)>,
+        Departures: Iterator<Item = (D, PositiveDuration)>,
+        A: AsRef<str>,
+        D: AsRef<str>,
+        Data: traits::DataWithIters;
+}
 
 pub struct BasicCriteriaSolver<'data, Data: traits::Data> {
     engine: MultiCriteriaRaptor<basic_criteria::Types<'data, Data>>,
@@ -95,7 +116,7 @@ impl<'data, Data: traits::Data> Solver<'data, Data> for BasicCriteriaSolver<'dat
     }
 }
 
-use crate::request::loads_criteria;
+use loki::request::loads_criteria;
 
 pub struct LoadsCriteriaSolver<'data, Data: traits::Data> {
     engine: MultiCriteriaRaptor<loads_criteria::Types<'data, Data>>,

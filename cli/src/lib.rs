@@ -34,7 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::config;
+use launch::config;
+use launch::loki;
+use launch::solver::{ Solver as SolverTrait};
+
 use loki::transit_model;
 use loki::PositiveDuration;
 use loki::{log::trace, response, traits::RequestInput, transit_model::Model,
@@ -156,7 +159,7 @@ pub fn solve<'data, Data, Solver>(
     config: &BaseConfig,
 ) -> Result<Vec<response::Response>, Error>
 where
-    Solver: traits::Solver<'data, Data>,
+    Solver: SolverTrait<'data, Data>,
     Data: traits::DataWithIters,
 {
     trace!(
@@ -179,7 +182,11 @@ where
         departure_datetime: *departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params : config.request_params.clone(),
+        leg_arrival_penalty: config.request_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_params.leg_walking_penalty,
+        max_nb_of_legs: config.request_params.max_nb_of_legs,
+        max_journey_duration: config.request_params.max_journey_duration,
+        
     };
 
     let responses = solver.solve_request(data, model, request_input, &config.comparator_type)?;

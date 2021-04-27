@@ -34,7 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+
 use crate::navitia_proto;
+
+use launch::loki;
+
 use loki::transit_model;
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
