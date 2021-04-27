@@ -36,23 +36,30 @@
 
 use std::{fmt::Display, str::FromStr};
 use serde::{Serialize, Deserialize};
+use structopt::StructOpt;
 
 use loki::PositiveDuration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(StructOpt)]
+#[structopt(rename_all = "snake_case")]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey
+    #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
     #[serde(default="default_leg_arrival_penalty")]
     pub leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
+    #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
     #[serde(default="default_leg_walking_penalty")]
     pub leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
+    #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
     #[serde(default="default_max_nb_of_legs")]
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
+    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
     #[serde(default="default_max_journey_duration")]
     pub max_journey_duration: PositiveDuration,
 }

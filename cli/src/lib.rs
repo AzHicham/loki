@@ -61,27 +61,35 @@ pub mod stop_areas;
 pub mod random;
 
 use serde::{Serialize, Deserialize};
-
+use structopt::StructOpt;
 
 
 
 #[derive(Serialize, Deserialize, Debug)]
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
 pub struct BaseConfig {
 
     #[serde(flatten)]
+    #[structopt(flatten)]
     pub launch_params : config::LaunchParams,
 
     #[serde(flatten)]
+    #[structopt(flatten)]
     pub request_params: config::RequestParams,
 
     /// Departure datetime of the query, formatted like 20190628T163215
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
+    #[structopt(long)]
     pub departure_datetime: Option<String>,
 
     /// Which comparator to use for the request
     /// "basic" or "loads"
     #[serde(default)]
+    #[structopt(long, default_value)]
     pub comparator_type: config::ComparatorType,
 }
 

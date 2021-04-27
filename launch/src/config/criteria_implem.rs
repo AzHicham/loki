@@ -54,7 +54,7 @@ impl std::str::FromStr for CriteriaImplem {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let request_type = match s {
             "loads" => CriteriaImplem::Loads,
-            "classic" => CriteriaImplem::Basic,
+            "basic" => CriteriaImplem::Basic,
             _ => {
                 return Err(CriteriaImplemConfigError {
                     criteria_implem_name: s.to_string(),

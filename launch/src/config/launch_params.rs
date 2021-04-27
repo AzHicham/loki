@@ -37,35 +37,43 @@
 
 
 use super::InputDataType;
-
+use structopt::StructOpt;
 use loki::PositiveDuration;
 
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[derive(StructOpt)]
+#[structopt(rename_all = "snake_case")]
 pub struct LaunchParams
 {
     /// directory containing ntfs/gtfs files to load
+    #[structopt(long)]
     pub input_data_path : std::path::PathBuf, 
 
     /// type of input data given (ntfs/gtfs)
+    #[structopt(long)]
     pub input_data_type : InputDataType, 
 
     /// path to the passengers loads file
+    #[structopt(long)]
     pub loads_data_path : Option<std::path::PathBuf>,
 
     /// the transfer duration between a stop point and itself
+    #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration : PositiveDuration,
 
     /// Type used for storage of criteria
     /// "classic" or "loads"
+    #[structopt(long, default_value)]
     #[serde(default)]
     pub criteria_implem: super::CriteriaImplem,
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
     ///  or "loads_periodic" or "loads_daily"
+    #[structopt(long, default_value)]
     #[serde(default)]
     pub data_implem: super::DataImplem,
 }

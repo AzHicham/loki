@@ -78,11 +78,8 @@ pub enum Options {
     rename_all = "snake_case"
 )]
 pub struct ConfigCreator {
-    /// type of input data given (ntfs/gtfs)
-    pub input_type : config::InputDataType, 
-
-    /// directory containing ntfs/gtfs files to load
-    pub input_path : String, 
+    #[structopt(flatten)]
+    pub base: BaseConfig,
 
 }
 
@@ -93,13 +90,20 @@ pub struct ConfigFile {
     file: std::path::PathBuf,
 }
 #[derive(Serialize, Deserialize)]
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
 pub struct Config {
     #[serde(flatten)]
+    #[structopt(flatten)]
     pub base: BaseConfig,
 
     #[serde(default = "default_nb_of_queries")]
+    #[structopt(long, default_value = "10")]
     pub nb_queries: u32,
 }
+
 
 pub fn default_nb_of_queries() -> u32 {
     10
@@ -114,8 +118,7 @@ pub fn run() -> Result<(), Error> {
             Ok(())
         },
         Options::CreateConfig(config_creator) => {
-            let config = create_config(config_creator)?;
-            let json_string = serde_json::to_string_pretty(&config)?;
+            let json_string = serde_json::to_string_pretty(&config_creator.base)?;
 
             println!("{}", json_string);
 
@@ -125,17 +128,6 @@ pub fn run() -> Result<(), Error> {
 
 }
 
-pub fn create_config(config_creator : ConfigCreator) -> Result<Config, Error> {
-    let minimal_string = format!(r#" {{ 
-        "input_data_path" : "{}", 
-        "input_data_type" : "{}" 
-        }} "#,
-        config_creator.input_path,
-        config_creator.input_type
-    );
-    let config : Config = serde_json::from_str(&minimal_string)?;
-    Ok(config)
-}
 
 pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
     let file = match File::open(&config_file.file) {
