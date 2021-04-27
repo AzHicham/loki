@@ -48,12 +48,12 @@ use loki::request::basic_criteria;
 
 use super::config;
 
-pub trait Solver<'data, Data> {
+pub trait Solver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self;
 
     fn solve_request<Departures, Arrivals, D, A>(
         &mut self,
-        data: &'data Data,
+        data: & Data,
         model: &transit_model::Model,
         request_input: RequestInput<Departures, Arrivals, D, A>,
         comparator: &config::ComparatorType,
@@ -67,11 +67,11 @@ pub trait Solver<'data, Data> {
         Data: traits::DataWithIters;
 }
 
-pub struct BasicCriteriaSolver<'data, Data: traits::Data> {
-    engine: MultiCriteriaRaptor<basic_criteria::Types<'data, Data>>,
+pub struct BasicCriteriaSolver< Data: traits::Data> {
+    engine: MultiCriteriaRaptor<basic_criteria::Types<Data>>,
 }
 
-impl<'data, Data: traits::Data> Solver<'data, Data> for BasicCriteriaSolver<'data, Data> {
+impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -80,7 +80,7 @@ impl<'data, Data: traits::Data> Solver<'data, Data> for BasicCriteriaSolver<'dat
 
     fn solve_request<Departures, Arrivals, D, A>(
         &mut self,
-        data: &'data Data,
+        data: & Data,
         model: &transit_model::Model,
         request_input: RequestInput<Departures, Arrivals, D, A>,
         comparator_type: &config::ComparatorType,
@@ -118,11 +118,11 @@ impl<'data, Data: traits::Data> Solver<'data, Data> for BasicCriteriaSolver<'dat
 
 use loki::request::loads_criteria;
 
-pub struct LoadsCriteriaSolver<'data, Data: traits::Data> {
-    engine: MultiCriteriaRaptor<loads_criteria::Types<'data, Data>>,
+pub struct LoadsCriteriaSolver<Data: traits::Data> {
+    engine: MultiCriteriaRaptor<loads_criteria::Types<Data>>,
 }
 
-impl<'data, Data: traits::Data> Solver<'data, Data> for LoadsCriteriaSolver<'data, Data> {
+impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -131,7 +131,7 @@ impl<'data, Data: traits::Data> Solver<'data, Data> for LoadsCriteriaSolver<'dat
 
     fn solve_request<Departures, Arrivals, D, A>(
         &mut self,
-        data: &'data Data,
+        data: & Data,
         model: &transit_model::Model,
         request_input: RequestInput<Departures, Arrivals, D, A>,
         comparator_type: &config::ComparatorType,

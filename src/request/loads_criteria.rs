@@ -49,11 +49,11 @@ pub struct Criteria {
     loads_count: LoadsCount,
 }
 
-pub struct Types<'data, Data> {
-    _phantom: PhantomData<&'data Data>,
+pub struct Types<Data> {
+    _phantom: PhantomData<Data>,
 }
 
-impl<'data, Data: traits::Data> traits::TransitTypes for Types<'data, Data> {
+impl<'data, Data: traits::Data> traits::TransitTypes for Types<Data> {
     type Stop = Data::Stop;
 
     type Mission = Data::Mission;
@@ -65,7 +65,7 @@ impl<'data, Data: traits::Data> traits::TransitTypes for Types<'data, Data> {
     type Transfer = Data::Transfer;
 }
 
-impl<'data, Data: traits::Data> traits::RequestTypes for Types<'data, Data> {
+impl<'data, Data: traits::Data> traits::RequestTypes for Types<Data> {
     type Departure = super::generic_request::Departure;
 
     type Arrival = super::generic_request::Arrival;

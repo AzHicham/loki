@@ -159,7 +159,7 @@ pub fn solve<'data, Data, Solver>(
     config: &BaseConfig,
 ) -> Result<Vec<response::Response>, Error>
 where
-    Solver: SolverTrait<'data, Data>,
+    Solver: SolverTrait<Data>,
     Data: traits::DataWithIters,
 {
     trace!(

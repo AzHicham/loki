@@ -191,12 +191,12 @@ where
     let result = match config.base.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => 
         {
-            build_engine_and_solve::<Data,solver::BasicCriteriaSolver<'_, Data>>
+            build_engine_and_solve::<Data,solver::BasicCriteriaSolver<Data>>
                 (&model, &data, &config)
         },
         config::CriteriaImplem::Loads => 
         {
-            build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<'_, Data>>
+            build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<Data>>
                 (&model, &data, &config)
         },
     };
@@ -204,14 +204,14 @@ where
     result.map(|responses| (model, responses))
 }
 
-fn build_engine_and_solve<'data, Data, Solver>(
+fn build_engine_and_solve< Data, Solver>(
     model: &Model,
-    data: &'data Data,
+    data: & Data,
     config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
 where
     Data: traits::DataWithIters,
-    Solver: solver::Solver<'data, Data>,
+    Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

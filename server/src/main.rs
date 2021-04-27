@@ -175,22 +175,22 @@ where
 
     match config.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => {
-            server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config)
+            server_loop::<Data, solver::BasicCriteriaSolver<Data>>(&model, &data, &config)
         }
         config::CriteriaImplem::Loads => {
-            server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data>>(&model, &data, &config)
+            server_loop::<Data, solver::LoadsCriteriaSolver<Data>>(&model, &data, &config)
         }
     }
 }
 
-fn server_loop<'data, Data, Solver>(
+fn server_loop< Data, Solver>(
     model: &Model,
-    data: &'data Data,
+    data: &Data,
     config: &Config,
 ) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
-    Solver: solver::Solver<'data, Data>,
+    Solver: solver::Solver< Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
@@ -268,10 +268,10 @@ where
     }
 }
 
-fn solve<'data, Data, Solver: solver::Solver<'data, Data>>(
+fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
-    data: &'data Data,
+    data: & Data,
     model: &Model,
     solver: &mut Solver,
     config: &Config,
