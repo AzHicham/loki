@@ -68,7 +68,7 @@ use failure::{bail, format_err, Error};
 
 use std::convert::TryFrom;
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -77,7 +77,21 @@ use serde::Deserialize;
     rename_all = "snake_case"
 )]
 pub enum Options {
-    ConfigFile(ConfigFile),
+    /// Create a config file from cli arguments
+    CreateConfig(ConfigCreator),
+    /// Launch from a config file
+    ConfigFile(ConfigFile)
+}
+
+
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
+pub struct ConfigCreator {
+    #[structopt(flatten)]
+    pub config: Config,
+
 }
 
 #[derive(StructOpt)]
@@ -87,22 +101,29 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
 pub struct Config {
 
     #[serde(flatten)]
+    #[structopt(flatten)]
     launch_params : config::LaunchParams,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "basic" comparator
+    #[structopt(long)]
     basic_requests_socket: String,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "loads" comparator
+    #[structopt(long)]
     loads_requests_socket: Option<String>,
 
-    #[serde(default)]
     #[serde(flatten)]
+    #[structopt(flatten)]
     request_default_params : config::RequestParams,
 
 
@@ -141,31 +162,46 @@ fn init_logger() -> slog_scope::GlobalLoggerGuard {
 
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
-    let config : Config = match options {
+    match options {
         Options::ConfigFile(config_file) => {
-            let file = match File::open(&config_file.file) {
-                Ok(file) => file,
-                Err(e) => {
-                    bail!("Error opening config file {:?} : {}", &config_file.file, e)
-                }
-            };
-            let reader = BufReader::new(file);
-            let result = serde_json::from_reader(reader);
-            match result {
-                Ok(config) => config,
-                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e),
-            }
+            let config = read_config(&config_file)?;
+            launch(config)?;
+            Ok(())
         }
-    };
-    match config.launch_params.data_implem {
-        config::DataImplem::Periodic => launch::<PeriodicData>(config),
-        config::DataImplem::Daily => launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => launch::<LoadsDailyData>(config),
+        Options::CreateConfig(config_creator) => {
+            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
+
+            println!("{}", json_string);
+
+            Ok(())
+        }
     }
 }
 
-fn launch<Data>(config: Config) -> Result<(), Error>
+pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
+    let file = match File::open(&config_file.file) {
+        Ok(file) => file,
+        Err(e) => {
+            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+        }
+    };
+    let reader = BufReader::new(file);
+    let config : Config = serde_json::from_reader(reader)?;
+    Ok(config)
+}
+
+fn launch(config: Config) -> Result<(), Error>
+{
+
+    match config.launch_params.data_implem {
+        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
+        config::DataImplem::Daily => config_launch::<DailyData>(config),
+        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
+        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
+    }
+}
+
+fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
