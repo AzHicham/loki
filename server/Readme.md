@@ -45,7 +45,7 @@ zmq_socket = ipc:///tmp/kraken
 
 - a loki server launched with
   ```bash
-  cargo run --release -- --ntfs /path/to/ntfs --socket ipc:///tmp/loki
+  cargo run --release -- launch --input_data_path /path/to/ntfs  --input_data_type ntfs --basic_requests_socket ipc:///tmp/loki
   ```
 
 Then you can send http requests to the jormun server !

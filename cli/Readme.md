@@ -14,7 +14,7 @@ Two binaries are provided : `stop_areas` and `random`.
 The `stop_areas` binary perform a journey query between two stop areas :
 
 ```bash
-cargo run --release --bin stop_areas -- --ntfs /path/to/ntfs  --start start_stop_area_uri --end end_stop_area_uri
+cargo run --release --bin stop_areas -- launch --input_data_path /path/to/ntfs  --input_data_type ntfs --start start_stop_area_uri --end end_stop_area_uri
 ```
 
 where `start_stop_area_uri` and `end_stop_area_uri` are uri of stop areas occuring in the ntfs dataset located in the directory `/path/to/ntfs/`.
@@ -26,7 +26,7 @@ It is useful for benchmarking.
 For exemple :
 
 ```bash
-cargo run --release --bin random-- --ntfs /path/to/ntfs random
+cargo run --release --bin random -- launch --input_data_path /path/to/ntfs  --input_data_type ntfs
 ```
 
 will perform 10 queries between stop_areas chosen at random in the ntfs dataset.
