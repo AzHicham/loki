@@ -60,9 +60,6 @@ use transit_model::Model;
 
 use std::{fs::File, io::BufReader, path::PathBuf};
 
-use slog::slog_o;
-use slog::Drain;
-use slog_async::OverflowStrategy;
 
 use failure::{bail, format_err, Error};
 
@@ -134,7 +131,7 @@ pub struct Config {
 }
 
 fn main() {
-    let _log_guard = init_logger();
+    let _log_guard = launch::logger::init_logger();
     if let Err(err) = launch_server() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
@@ -143,24 +140,6 @@ fn main() {
     }
 }
 
-fn init_logger() -> slog_scope::GlobalLoggerGuard {
-    let decorator = slog_term::TermDecorator::new().stdout().build();
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let mut builder = slog_envlogger::LogBuilder::new(drain).filter(None, slog::FilterLevel::Info);
-    if let Ok(s) = std::env::var("RUST_LOG") {
-        builder = builder.parse(&s);
-    }
-    let drain = slog_async::Async::new(builder.build())
-        .chan_size(256) // Double the default size
-        .overflow_strategy(OverflowStrategy::Block)
-        .build()
-        .fuse();
-    let logger = slog::Logger::root(drain, slog_o!());
-
-    let scope_guard = slog_scope::set_global_logger(logger);
-    slog_stdlog::init().unwrap();
-    scope_guard
-}
 
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
@@ -431,7 +410,7 @@ where
             departure_timestamp_u64
         )
     })?;
-    let departure_datetime = chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
+    let departure_datetime = loki::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
     info!(
         "Requested timestamp {}, datetime {}",

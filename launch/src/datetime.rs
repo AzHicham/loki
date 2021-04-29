@@ -34,59 +34,32 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CriteriaImplem {
-    Loads,
-    Basic,
-}
-
-impl Default for CriteriaImplem {
-    fn default() -> Self {
-        Self::Basic
-    }
-}
-
-impl std::str::FromStr for CriteriaImplem {
-    type Err = CriteriaImplemConfigError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let request_type = match s {
-            "loads" => CriteriaImplem::Loads,
-            "basic" => CriteriaImplem::Basic,
-            _ => {
-                return Err(CriteriaImplemConfigError {
-                    criteria_implem_name: s.to_string(),
-                })
-            }
-        };
-        Ok(request_type)
-    }
-}
-
-impl std::fmt::Display for CriteriaImplem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CriteriaImplem::Loads => write!(f, "loads"),
-            CriteriaImplem::Basic => write!(f, "basic"),
-        }
+pub fn parse_datetime(string_datetime: &str) -> Result<loki::NaiveDateTime, BadDateTime> {
+    let try_datetime = loki::NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
+    match try_datetime {
+        Ok(datetime) => Ok(datetime),
+        Err(_) => { 
+            let err = BadDateTime {
+                string_datetime : string_datetime.to_string()
+            };
+            Err(err)
+        },
     }
 }
 
 #[derive(Debug)]
-pub struct CriteriaImplemConfigError {
-    criteria_implem_name: String,
+pub struct BadDateTime {
+    string_datetime : String
 }
 
-impl std::error::Error for CriteriaImplemConfigError {}
+impl std::error::Error for BadDateTime {}
 
-impl std::fmt::Display for CriteriaImplemConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Bad criteria_implem : `{}`",
-            self.criteria_implem_name
+impl std::fmt::Display for BadDateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f,
+            "Unable to parse {} as a datetime. Expected format is 20190628T163215",
+            self.string_datetime
         )
     }
 }

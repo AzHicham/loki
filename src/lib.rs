@@ -36,23 +36,25 @@
 
 extern crate static_assertions;
 
+mod timetables;
+mod transit_data;
 mod engine;
 pub mod request;
-
 pub mod loads_data;
+pub mod time;
+pub mod traits;
 
+
+
+
+pub use chrono;
+pub use chrono_tz;
 pub use chrono::NaiveDateTime;
 pub use log;
 pub use time::PositiveDuration;
 pub use transit_model;
 
-pub mod time;
 
-pub mod traits;
-
-mod timetables;
-
-mod transit_data;
 
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;

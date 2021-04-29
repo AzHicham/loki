@@ -45,8 +45,8 @@ use loki::{
     Idx, StopPoint, VehicleJourney,
 };
 
-use chrono::{NaiveDate, NaiveDateTime};
-use chrono_tz::Tz as Timezone;
+use loki::chrono::{self, NaiveDate, NaiveDateTime};
+use loki::chrono_tz::{ self, Tz as Timezone};
 
 use failure::{format_err, Error};
 use transit_model::Model;
