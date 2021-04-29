@@ -1,3 +1,4 @@
 /target
-/mc_navitia
+/mc_navitia*
 **/*.rs.bk
+/tmp
