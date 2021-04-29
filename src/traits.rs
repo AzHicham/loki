@@ -397,16 +397,11 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     fn departures(&'a self) -> Self::Departures;
 }
 
-pub struct RequestInput<Departures, Arrivals, D, A>
-where
-    Arrivals: Iterator<Item = (A, PositiveDuration)>,
-    Departures: Iterator<Item = (D, PositiveDuration)>,
-    A: AsRef<str>,
-    D: AsRef<str>,
+pub struct RequestInput
 {
     pub departure_datetime: NaiveDateTime,
-    pub departures_stop_point_and_fallback_duration: Departures,
-    pub arrivals_stop_point_and_fallback_duration: Arrivals,
+    pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
+    pub arrivals_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
     pub leg_arrival_penalty: PositiveDuration,
     pub leg_walking_penalty: PositiveDuration,
     pub max_nb_of_legs: u8,
@@ -414,16 +409,12 @@ where
 }
 
 pub trait RequestIO<'data, Data: self::Data>: Request {
-    fn new<Departures, Arrivals, D, A>(
+    fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: RequestInput<Departures, Arrivals, D, A>,
+        request_input: RequestInput,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Self: Sized;
 
     fn data(&self) -> &Data;

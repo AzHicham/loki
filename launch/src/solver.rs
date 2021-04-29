@@ -41,7 +41,7 @@ use loki::log::{debug, trace};
 use loki::{
     response, transit_model,
     traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters},
-    MultiCriteriaRaptor, PositiveDuration,
+    MultiCriteriaRaptor,
 };
 
 use loki::request::basic_criteria;
@@ -51,19 +51,15 @@ use super::config;
 pub trait Solver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self;
 
-    fn solve_request<Departures, Arrivals, D, A>(
+    fn solve_request(
         &mut self,
         data: & Data,
         model: &transit_model::Model,
-        request_input: RequestInput<Departures, Arrivals, D, A>,
+        request_input: RequestInput,
         comparator: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Data: traits::DataWithIters;
 }
 
@@ -78,19 +74,15 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
         }
     }
 
-    fn solve_request<Departures, Arrivals, D, A>(
+    fn solve_request(
         &mut self,
         data: & Data,
         model: &transit_model::Model,
-        request_input: RequestInput<Departures, Arrivals, D, A>,
+        request_input: RequestInput,
         comparator_type: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Data: traits::DataWithIters,
     {
         match comparator_type {
@@ -129,19 +121,15 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
         }
     }
 
-    fn solve_request<Departures, Arrivals, D, A>(
+    fn solve_request(
         &mut self,
         data: & Data,
         model: &transit_model::Model,
-        request_input: RequestInput<Departures, Arrivals, D, A>,
+        request_input: RequestInput,
         comparator_type: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Data: traits::DataWithIters,
     {
         match comparator_type {

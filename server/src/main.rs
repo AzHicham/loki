@@ -369,6 +369,7 @@ where
                 location_context
                     .place
                     .strip_prefix("stop_point:")
+                    .map(|uri| uri.to_string())
                     .or_else(|| {
                         warn!(
                             "The {}th arrival stop point has an uri {} \
@@ -381,7 +382,8 @@ where
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
             Some((stop_point_uri, duration))
-        });
+        })
+        .collect();
 
     let arrivals_stop_point_and_fallback_duration = journey_request
         .destination
@@ -403,6 +405,7 @@ where
                 location_context
                     .place
                     .strip_prefix("stop_point:")
+                    .map(|uri| uri.to_string())
                     .or_else(|| {
                         warn!(
                             "The {}th arrival stop point has an uri {} \
@@ -415,7 +418,8 @@ where
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
             Some((stop_point_uri, duration))
-        });
+        })
+        .collect();
 
     let departure_timestamp_u64 = journey_request
         .datetimes

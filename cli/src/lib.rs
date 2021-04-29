@@ -178,12 +178,14 @@ where
     let (start_stop_point_uris, end_stop_point_uris) =
         make_query_stop_area(model, start_stop_area_uri, end_stop_area_uri)?;
     let departures_stop_point_and_fallback_duration = start_stop_point_uris
-        .iter()
-        .map(|uri| (uri.as_str(), PositiveDuration::zero()));
+        .into_iter()
+        .map(|uri| (uri, PositiveDuration::zero()))
+        .collect();
 
     let arrivals_stop_point_and_fallback_duration = end_stop_point_uris
-        .iter()
-        .map(|uri| (uri.as_str(), PositiveDuration::zero()));
+        .into_iter()
+        .map(|uri| (uri, PositiveDuration::zero()))
+        .collect();
 
 
     let request_input = RequestInput {

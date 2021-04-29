@@ -248,16 +248,12 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
         self.generic.transit_data.mission_id(mission)
     }
 
-    fn new<Departures, Arrivals, D, A>(
+    fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
+        request_input: traits::RequestInput,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Self: Sized,
     {
         let generic_result = GenericRequest::new(model, transit_data, request_input);

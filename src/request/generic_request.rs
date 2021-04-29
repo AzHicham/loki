@@ -58,16 +58,12 @@ impl<'data, Data> GenericRequest<'data, Data>
 where
     Data: traits::Data,
 {
-    pub fn new<Departures, Arrivals, D, A>(
+    pub fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
+        request_input: traits::RequestInput,
     ) -> Result<Self, BadRequest>
     where
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Self: Sized,
     {
         let departure_datetime = transit_data
@@ -85,6 +81,7 @@ where
             })?;
 
         let departures : Vec<_> = request_input.departures_stop_point_and_fallback_duration
+            .into_iter()
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
                 let stop_point_uri = stop_point_uri.as_ref();
@@ -112,6 +109,7 @@ where
         }
 
         let arrivals : Vec<_> = request_input.arrivals_stop_point_and_fallback_duration
+            .into_iter()
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
                 let stop_point_uri = stop_point_uri.as_ref();

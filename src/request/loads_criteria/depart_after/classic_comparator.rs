@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::time::PositiveDuration;
+
 use crate::traits;
 
 use traits::{BadRequest, RequestIO};
@@ -220,16 +220,12 @@ impl<'data, Data> RequestIO<'data, Data> for Request<'data, Data>
 where
     Data: traits::Data,
 {
-    fn new<Departures, Arrivals, D, A>(
+    fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: traits::RequestInput<Departures, Arrivals, D, A>,
+        request_input: traits::RequestInput
     ) -> Result<Self, BadRequest>
     where
-        Arrivals: Iterator<Item = (A, PositiveDuration)>,
-        Departures: Iterator<Item = (D, PositiveDuration)>,
-        A: AsRef<str>,
-        D: AsRef<str>,
         Self: Sized,
     {
         let generic_result = GenericLoadsDepartAfter::new(model, transit_data, request_input);
