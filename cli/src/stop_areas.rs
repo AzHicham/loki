@@ -67,7 +67,9 @@ pub enum Options {
     /// Create a config file from cli arguments
     CreateConfig(ConfigCreator),
     /// Launch from a config file
-    ConfigFile(ConfigFile)
+    ConfigFile(ConfigFile),
+    /// Launch from cli arguments
+    Launch(Config),
 }
 
 #[derive(StructOpt, Debug)]
@@ -96,14 +98,21 @@ pub struct ConfigFile {
     file: std::path::PathBuf,
 }
 #[derive(Serialize, Deserialize)]
+#[derive(StructOpt)]
+#[structopt(
+    rename_all = "snake_case"
+)]
 pub struct Config {
     #[serde(flatten)]
+    #[structopt(flatten)]
     pub base: BaseConfig,
 
     /// name of the start stop_area
+    #[structopt(long)]
     pub start: String,
 
     /// name of the end stop_area
+    #[structopt(long)]
     pub end: String,
 }
 
@@ -121,6 +130,10 @@ pub fn run() -> Result<(), Error> {
 
             println!("{}", json_string);
 
+            Ok(())
+        }
+        Options::Launch(config) => {
+            launch(config)?;
             Ok(())
         }
     }

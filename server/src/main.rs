@@ -80,7 +80,9 @@ pub enum Options {
     /// Create a config file from cli arguments
     CreateConfig(ConfigCreator),
     /// Launch from a config file
-    ConfigFile(ConfigFile)
+    ConfigFile(ConfigFile),
+    /// Launch from cli arguments
+    Launch(Config),
 }
 
 
@@ -173,6 +175,10 @@ fn launch_server() -> Result<(), Error> {
 
             println!("{}", json_string);
 
+            Ok(())
+        }
+        Options::Launch(config) => {
+            launch(config)?;
             Ok(())
         }
     }
