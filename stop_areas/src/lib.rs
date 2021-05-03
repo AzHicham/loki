@@ -34,36 +34,31 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
-use launch::config;
+use launch::{config, loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData}, solver};
 use launch::loki;
-use launch::solver;
 
-use loki::{log::info, transit_model::Model};
+use loki::log;
 
 
-use loki::traits;
+use loki::{log::trace, traits, transit_model::Model};
 
-use log::{error, trace};
 
-use failure::Error;
-use std::time::SystemTime;
+use std::{ fs::File, io::BufReader, time::SystemTime};
 
-use structopt::StructOpt;
+
+use failure::{bail, Error};
+
+
+
 use serde::{Serialize, Deserialize};
-use loki::{DailyData, PeriodicData};
-use loki::{LoadsDailyData, LoadsPeriodicData};
+use structopt::StructOpt;
 
-use std::{fs::File, io::BufReader};
-use failure::{bail};
 
-use crate::{parse_datetime, solve, BaseConfig};
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "loki_random",
-    about = "Perform random public transport requests.",
+    name = "loki_stop_areas",
+    about = "Perform a public transport request between two stop areas.",
     rename_all = "snake_case"
 )]
 pub enum Options {
@@ -81,7 +76,7 @@ pub enum Options {
 )]
 pub struct ConfigCreator {
     #[structopt(flatten)]
-    pub base: BaseConfig,
+    pub config: Config,
 
 }
 
@@ -99,17 +94,34 @@ pub struct ConfigFile {
 pub struct Config {
     #[serde(flatten)]
     #[structopt(flatten)]
-    pub base: BaseConfig,
+    pub launch_params : config::LaunchParams,
 
-    #[serde(default = "default_nb_of_queries")]
-    #[structopt(long, default_value = "10")]
-    pub nb_queries: u32,
+    #[serde(flatten)]
+    #[structopt(flatten)]
+    pub request_params: config::RequestParams,
+
+    /// Departure datetime of the query, formatted like 20190628T163215
+    /// If none is given, all queries will be made at 08:00:00 on the first
+    /// valid day of the dataset
+    #[structopt(long)]
+    pub departure_datetime: Option<String>,
+
+    /// Which comparator to use for the request
+    /// "basic" or "loads"
+    #[serde(default)]
+    #[structopt(long, default_value)]
+    pub comparator_type: config::ComparatorType,
+
+    /// name of the start stop_area
+    #[structopt(long)]
+    pub start: String,
+
+    /// name of the end stop_area
+    #[structopt(long)]
+    pub end: String,
 }
 
 
-pub fn default_nb_of_queries() -> u32 {
-    10
-}
 
 pub fn run() -> Result<(), Error> {
     let options = Options::from_args(); 
@@ -120,7 +132,7 @@ pub fn run() -> Result<(), Error> {
             Ok(())
         },
         Options::CreateConfig(config_creator) => {
-            let json_string = serde_json::to_string_pretty(&config_creator.base)?;
+            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
 
             println!("{}", json_string);
 
@@ -135,6 +147,9 @@ pub fn run() -> Result<(), Error> {
 }
 
 
+
+
+
 pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
     let file = match File::open(&config_file.file) {
         Ok(file) => file,
@@ -143,15 +158,15 @@ pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
         }
     };
     let reader = BufReader::new(file);
-    let config : Config = serde_json::from_reader(reader)?;
+    let config : Config = serde_json::from_reader(reader).map_err(|err| {
+        failure::format_err!("Could not read config file {:?} : {}", config_file.file, err)
+    })?;
     Ok(config)
 }
 
+pub fn launch(config :  Config) -> Result<(Model, Vec<loki::Response>), Error> {
 
-pub fn launch(config :  Config) -> Result<(), Error> {
-
-
-    match config.base.launch_params.data_implem {
+    match config.launch_params.data_implem {
         config::DataImplem::Periodic => {
             config_launch::<PeriodicData>(config)
         }
@@ -167,38 +182,42 @@ pub fn launch(config :  Config) -> Result<(), Error> {
     }
 }
 
-pub fn config_launch<Data>(config: Config) -> Result<(), Error>
+fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
     let (data, model) = launch::read(
-        &config.base.launch_params,
+        &config.launch_params
     )?;
-    match config.base.launch_params.criteria_implem {
-        config::CriteriaImplem::Basic => build_engine_and_solve::<
-            Data,
-            solver::BasicCriteriaSolver<Data>,
-        >(&model, &data, &config),
-        config::CriteriaImplem::Loads => build_engine_and_solve::<
-            Data,
-            solver::LoadsCriteriaSolver<Data>,
-        >(&model, &data, &config),
-    }
+    let result = match config.launch_params.criteria_implem {
+        config::CriteriaImplem::Basic => 
+        {
+            build_engine_and_solve::<Data,solver::BasicCriteriaSolver<Data>>
+                (&model, &data, &config)
+        },
+        config::CriteriaImplem::Loads => 
+        {
+            build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<Data>>
+                (&model, &data, &config)
+        },
+    };
+
+    result.map(|responses| (model, responses))
 }
 
-fn build_engine_and_solve<Data, Solver>(
+fn build_engine_and_solve< Data, Solver>(
     model: &Model,
-    data: &Data,
+    data: & Data,
     config: &Config,
-) -> Result<(), Error>
+) -> Result<Vec<loki::Response>, Error>
 where
     Data: traits::DataWithIters,
     Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let departure_datetime = match &config.base.departure_datetime {
-        Some(string_datetime) => parse_datetime(&string_datetime)?,
+    let departure_datetime = match &config.departure_datetime {
+        Some(string_datetime) => launch::datetime::parse_datetime(&string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
             naive_date.and_hms(8, 0, 0)
@@ -207,44 +226,28 @@ where
 
     let compute_timer = SystemTime::now();
 
-    let nb_queries = config.nb_queries;
-    use rand::prelude::{IteratorRandom, SeedableRng};
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
-    for _ in 0..nb_queries {
-        let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
-        let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
+    let start_stop_area_uri = &config.start;
+    let end_stop_area_uri = &config.end;
 
-        let solve_result = solve(
-            start_stop_area_uri,
-            end_stop_area_uri,
-            &mut solver,
-            model,
-            data,
-            &departure_datetime,
-            &config.base,
-        );
-        match solve_result {
-            Err(err) => {
-                error!("Error while solving request : {}", err);
-            }
-            Ok(responses) => {
-                for response in responses.iter() {
-                    trace!("{}", response.print(model)?);
-                }
+    let request_input = launch::stop_areas::make_query_stop_areas(model, &departure_datetime, start_stop_area_uri, end_stop_area_uri, &config.request_params)?;
+    let solve_result = solver.solve_request(data, model, request_input, &config.comparator_type);
+
+
+    let duration = compute_timer.elapsed().unwrap().as_millis();
+    log::info!("Duration : {} ms", duration as f64);
+
+    match &solve_result {
+        Err(err) => {
+            log::error!("Error while solving request : {}", err);
+        }
+        Ok(responses) => {
+            for response in responses.iter() {
+                trace!("{}", response.print(model)?);
             }
         }
     }
-    let duration = compute_timer.elapsed().unwrap().as_millis();
 
-    info!(
-        "Average duration per request : {} ms",
-        (duration as f64) / (nb_queries as f64)
-    );
-    // info!(
-    //     "Average nb of rounds : {}",
-    //     (total_nb_of_rounds as f64) / (nb_queries as f64)
-    // );
-    info!("Nb of requests : {}", nb_queries);
-
-    Ok(())
+    let responses = solve_result?;
+    Ok(responses)
 }
+
