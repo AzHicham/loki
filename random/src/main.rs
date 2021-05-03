@@ -60,12 +60,27 @@ pub struct Config {
     #[structopt(long, default_value)]
     pub comparator_type: config::ComparatorType,
 
+    /// Number of queries to perform 
     #[serde(default = "default_nb_of_queries")]
     #[structopt(long, default_value = "10")]
     pub nb_queries: u32,
+
+    /// Seed for random generator
+    #[serde(default = "default_seed")]
+    #[structopt(long, default_value = "0")]
+    pub seed: u64,
+
+
+
 }
 
+pub fn default_nb_of_queries() -> u32 {
+    10
+}
 
+pub fn default_seed() -> u64 {
+    0
+}
 
 #[derive(StructOpt)]
 #[structopt(
@@ -100,9 +115,7 @@ pub struct ConfigFile {
 }
 
 
-pub fn default_nb_of_queries() -> u32 {
-    10
-}
+
 
 pub fn run() -> Result<(), Error> {
     let options = Options::from_args(); 
@@ -202,7 +215,7 @@ where
 
     let nb_queries = config.nb_queries;
     use rand::prelude::{IteratorRandom, SeedableRng};
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(config.seed);
     for _ in 0..nb_queries {
         let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
         let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;

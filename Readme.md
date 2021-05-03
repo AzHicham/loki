@@ -16,8 +16,9 @@ that the fallbacks (from the actual starting point to the entrance of the public
 The root of the repository provides the `loki` library, 
 which allow to perform public transit requests on a ntfs/gtfs dataset (read with `transit_model`).
 
-The library can be used as :
-- command line interface with the [cli][1] subcrate, where you can provides the origin and destination as command line arguments, or perform benchmarks by generating random requests. 
+The library can be used with :
+- the [stop_areas][1] subcrate, where you can provides the origin and destination as command line arguments,
+- the [random][6] to perform benchmarks by generating random requests. 
 - as a server with the [server][3] subcrate, which process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) sent to a zmq socket, call the `loki` engine, and return protobuf responses on the zmq socket. 
 
 In order to provide a fully-fledged multimodal journey planner, the `server` needs other [Navitia][4] components as well as data.
@@ -43,8 +44,9 @@ with the partnership and support of the transport organization authority
 Ile-De-France Mobilités (IDFM), SNCF, and public funds
 under the scope of the French Program "Investissements d’Avenir".
 
-[1]: ./cli/Readme.md
+[1]: ./stop_areas/Readme.md
 [2]: https://github.com/CanalTP/navitia-proto
 [3]: ./server/Readme.md
 [4]: https://github.com/CanalTP/navitia
 [5]: ./docker/Readme.md
+[6]: ./random/Readme.md
