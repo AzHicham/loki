@@ -397,8 +397,7 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     fn departures(&'a self) -> Self::Departures;
 }
 
-pub struct RequestInput
-{
+pub struct RequestInput {
     pub departure_datetime: NaiveDateTime,
     pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
     pub arrivals_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
@@ -488,5 +487,3 @@ impl fmt::Display for BadRequest {
         }
     }
 }
-
-

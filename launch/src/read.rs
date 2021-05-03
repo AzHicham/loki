@@ -35,14 +35,14 @@
 // www.navitia.io
 
 use super::config;
-use loki::traits;
-use loki::LoadsData;
 use loki::log::{info, warn};
-use std::{collections::BTreeMap, time::SystemTime};
+use loki::traits;
 use loki::transit_model::{self, Model};
+use loki::LoadsData;
+use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Data>(
-    launch_params : & config::LaunchParams,
+    launch_params: &config::LaunchParams,
 ) -> Result<(Data, Model), transit_model::Error>
 where
     Data: traits::Data,
@@ -70,7 +70,9 @@ where
     );
     info!("Number of routes : {}", model.routes.len());
 
-    let loads_data = launch_params.loads_data_path.as_ref()
+    let loads_data = launch_params
+        .loads_data_path
+        .as_ref()
         .map(|path| {
             LoadsData::new(&path, &model).unwrap_or_else(|err| {
                 warn!(

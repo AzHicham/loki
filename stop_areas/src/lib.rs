@@ -34,26 +34,23 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::{config, loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData}, solver};
 use launch::loki;
+use launch::{
+    config,
+    loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
+    solver,
+};
 
 use loki::log;
 
-
 use loki::{log::trace, traits, transit_model::Model};
 
-
-use std::{ fs::File, io::BufReader, time::SystemTime};
-
+use std::{fs::File, io::BufReader, time::SystemTime};
 
 use failure::{bail, Error};
 
-
-
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
-
-
 
 #[derive(StructOpt)]
 #[structopt(
@@ -71,13 +68,10 @@ pub enum Options {
 }
 
 #[derive(StructOpt)]
-#[structopt(
-    rename_all = "snake_case"
-)]
+#[structopt(rename_all = "snake_case")]
 pub struct ConfigCreator {
     #[structopt(flatten)]
     pub config: Config,
-
 }
 
 #[derive(StructOpt)]
@@ -86,15 +80,12 @@ pub struct ConfigFile {
     #[structopt(parse(from_os_str))]
     file: std::path::PathBuf,
 }
-#[derive(Serialize, Deserialize)]
-#[derive(StructOpt)]
-#[structopt(
-    rename_all = "snake_case"
-)]
+#[derive(Serialize, Deserialize, StructOpt)]
+#[structopt(rename_all = "snake_case")]
 pub struct Config {
     #[serde(flatten)]
     #[structopt(flatten)]
-    pub launch_params : config::LaunchParams,
+    pub launch_params: config::LaunchParams,
 
     #[serde(flatten)]
     #[structopt(flatten)]
@@ -121,16 +112,14 @@ pub struct Config {
     pub end: String,
 }
 
-
-
 pub fn run() -> Result<(), Error> {
-    let options = Options::from_args(); 
+    let options = Options::from_args();
     match options {
         Options::ConfigFile(config_file) => {
             let config = read_config(&config_file)?;
             launch(config)?;
             Ok(())
-        },
+        }
         Options::CreateConfig(config_creator) => {
             let json_string = serde_json::to_string_pretty(&config_creator.config)?;
 
@@ -143,14 +132,9 @@ pub fn run() -> Result<(), Error> {
             Ok(())
         }
     }
-
 }
 
-
-
-
-
-pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
+pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     let file = match File::open(&config_file.file) {
         Ok(file) => file,
         Err(e) => {
@@ -158,27 +142,22 @@ pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
         }
     };
     let reader = BufReader::new(file);
-    let config : Config = serde_json::from_reader(reader).map_err(|err| {
-        failure::format_err!("Could not read config file {:?} : {}", config_file.file, err)
+    let config: Config = serde_json::from_reader(reader).map_err(|err| {
+        failure::format_err!(
+            "Could not read config file {:?} : {}",
+            config_file.file,
+            err
+        )
     })?;
     Ok(config)
 }
 
-pub fn launch(config :  Config) -> Result<(Model, Vec<loki::Response>), Error> {
-
+pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
-        config::DataImplem::Periodic => {
-            config_launch::<PeriodicData>(config)
-        }
-        config::DataImplem::Daily => {
-            config_launch::<DailyData>(config)
-        }
-        config::DataImplem::LoadsPeriodic => {
-            config_launch::<LoadsPeriodicData>(config)
-        }
-        config::DataImplem::LoadsDaily => {
-            config_launch::<LoadsDailyData>(config)
-        }
+        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
+        config::DataImplem::Daily => config_launch::<DailyData>(config),
+        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
+        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
     }
 }
 
@@ -186,28 +165,24 @@ fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), E
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = launch::read(
-        &config.launch_params
-    )?;
+    let (data, model) = launch::read(&config.launch_params)?;
     let result = match config.launch_params.criteria_implem {
-        config::CriteriaImplem::Basic => 
-        {
-            build_engine_and_solve::<Data,solver::BasicCriteriaSolver<Data>>
-                (&model, &data, &config)
-        },
-        config::CriteriaImplem::Loads => 
-        {
-            build_engine_and_solve::<Data, solver::LoadsCriteriaSolver<Data>>
-                (&model, &data, &config)
-        },
+        config::CriteriaImplem::Basic => build_engine_and_solve::<
+            Data,
+            solver::BasicCriteriaSolver<Data>,
+        >(&model, &data, &config),
+        config::CriteriaImplem::Loads => build_engine_and_solve::<
+            Data,
+            solver::LoadsCriteriaSolver<Data>,
+        >(&model, &data, &config),
     };
 
     result.map(|responses| (model, responses))
 }
 
-fn build_engine_and_solve< Data, Solver>(
+fn build_engine_and_solve<Data, Solver>(
     model: &Model,
-    data: & Data,
+    data: &Data,
     config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
 where
@@ -229,9 +204,14 @@ where
     let start_stop_area_uri = &config.start;
     let end_stop_area_uri = &config.end;
 
-    let request_input = launch::stop_areas::make_query_stop_areas(model, &departure_datetime, start_stop_area_uri, end_stop_area_uri, &config.request_params)?;
+    let request_input = launch::stop_areas::make_query_stop_areas(
+        model,
+        &departure_datetime,
+        start_stop_area_uri,
+        end_stop_area_uri,
+        &config.request_params,
+    )?;
     let solve_result = solver.solve_request(data, model, request_input, &config.comparator_type);
-
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
     log::info!("Duration : {} ms", duration as f64);
@@ -250,4 +230,3 @@ where
     let responses = solve_result?;
     Ok(responses)
 }
-

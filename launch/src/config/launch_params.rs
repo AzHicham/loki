@@ -34,35 +34,31 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
 use super::InputDataType;
-use structopt::StructOpt;
 use loki::PositiveDuration;
+use structopt::StructOpt;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-#[derive(StructOpt)]
+#[derive(Debug, Serialize, Deserialize, StructOpt)]
 #[structopt(rename_all = "snake_case")]
-pub struct LaunchParams
-{
+pub struct LaunchParams {
     /// directory containing ntfs/gtfs files to load
     #[structopt(long)]
-    pub input_data_path : std::path::PathBuf, 
+    pub input_data_path: std::path::PathBuf,
 
     /// type of input data given (ntfs/gtfs)
     #[structopt(long)]
-    pub input_data_type : InputDataType, 
+    pub input_data_type: InputDataType,
 
     /// path to the passengers loads file
     #[structopt(long)]
-    pub loads_data_path : Option<std::path::PathBuf>,
+    pub loads_data_path: Option<std::path::PathBuf>,
 
     /// the transfer duration between a stop point and itself
     #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
     #[serde(default = "default_transfer_duration")]
-    pub default_transfer_duration : PositiveDuration,
+    pub default_transfer_duration: PositiveDuration,
 
     /// Type used for storage of criteria
     /// "classic" or "loads"
@@ -85,16 +81,14 @@ pub fn default_transfer_duration() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
 }
 
-
 impl LaunchParams {
- 
-    pub fn minimal_json_input(input_data_path : & str, input_data_type : InputDataType) -> String {
-        format!(r#" {{ 
+    pub fn minimal_json_input(input_data_path: &str, input_data_type: InputDataType) -> String {
+        format!(
+            r#" {{ 
             "input_data_path" : "{}", 
             "input_data_type" : "{}" 
             }} "#,
-            input_data_path,
-            input_data_type
+            input_data_path, input_data_type
         )
     }
 }

@@ -34,11 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
 use failure::Error;
 
-use loki_stop_areas::{launch, Config, };
+use loki_stop_areas::{launch, Config};
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded
@@ -59,7 +57,8 @@ fn test_loads_matin() -> Result<(), Error> {
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
 
-    let config : Config = serde_json::from_str(r#" {
+    let config: Config = serde_json::from_str(
+        r#" {
             "input_data_path" : "tests/one_line",
             "input_data_type" : "ntfs",
             "loads_data_path" : "tests/one_line/loads.csv",
@@ -69,7 +68,8 @@ fn test_loads_matin() -> Result<(), Error> {
             "comparator_type" : "loads",
             "start" : "stop_area:massy",
             "end" : "stop_area:paris"
-          } "# )?;
+          } "#,
+    )?;
 
     let (model, mut responses) = launch(config)?;
 
@@ -89,7 +89,8 @@ fn test_loads_midi() -> Result<(), Error> {
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
 
-    let config : Config = serde_json::from_str(r#" {
+    let config: Config = serde_json::from_str(
+        r#" {
         "input_data_path": "tests/one_line",
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
@@ -99,9 +100,8 @@ fn test_loads_midi() -> Result<(), Error> {
         "comparator_type": "loads",
         "start" : "stop_area:massy",
         "end" : "stop_area:paris"
-      } "# )?;
-
-
+      } "#,
+    )?;
 
     let (model, mut responses) = launch(config)?;
 
@@ -118,7 +118,8 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
-    let config : Config = serde_json::from_str(r#" {
+    let config: Config = serde_json::from_str(
+        r#" {
         "input_data_path": "tests/one_line",
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
@@ -128,9 +129,8 @@ fn test_without_loads_matin() -> Result<(), Error> {
         "comparator_type": "basic",
         "start" : "stop_area:massy",
         "end" : "stop_area:paris"
-      } "# )?;
-
-
+      } "#,
+    )?;
 
     let (model, mut responses) = launch(config)?;
 

@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -83,10 +83,6 @@ impl std::error::Error for CriteriaImplemConfigError {}
 
 impl std::fmt::Display for CriteriaImplemConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Bad criteria_implem : `{}`",
-            self.criteria_implem_name
-        )
+        write!(f, "Bad criteria_implem : `{}`", self.criteria_implem_name)
     }
 }

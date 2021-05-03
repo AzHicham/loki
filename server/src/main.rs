@@ -41,13 +41,11 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use launch::{config, solver};
 use launch::loki;
+use launch::{config, solver};
 
+use loki::traits::{self, RequestInput};
 use loki::transit_model;
-use loki::{
-    traits::{self, RequestInput},
-};
 use loki::{
     log::{error, info, warn},
     LoadsDailyData, LoadsPeriodicData,
@@ -60,12 +58,11 @@ use transit_model::Model;
 
 use std::{fs::File, io::BufReader, path::PathBuf};
 
-
 use failure::{bail, format_err, Error};
 
 use std::convert::TryFrom;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -82,15 +79,11 @@ pub enum Options {
     Launch(Config),
 }
 
-
 #[derive(StructOpt)]
-#[structopt(
-    rename_all = "snake_case"
-)]
+#[structopt(rename_all = "snake_case")]
 pub struct ConfigCreator {
     #[structopt(flatten)]
     pub config: Config,
-
 }
 
 #[derive(StructOpt)]
@@ -100,16 +93,12 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(StructOpt)]
-#[structopt(
-    rename_all = "snake_case"
-)]
+#[derive(Serialize, Deserialize, StructOpt)]
+#[structopt(rename_all = "snake_case")]
 pub struct Config {
-
     #[serde(flatten)]
     #[structopt(flatten)]
-    launch_params : config::LaunchParams,
+    launch_params: config::LaunchParams,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "basic" comparator
@@ -123,11 +112,7 @@ pub struct Config {
 
     #[serde(flatten)]
     #[structopt(flatten)]
-    request_default_params : config::RequestParams,
-
-
-
-
+    request_default_params: config::RequestParams,
 }
 
 fn main() {
@@ -139,7 +124,6 @@ fn main() {
         std::process::exit(1);
     }
 }
-
 
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
@@ -163,7 +147,7 @@ fn launch_server() -> Result<(), Error> {
     }
 }
 
-pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
+pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     let file = match File::open(&config_file.file) {
         Ok(file) => file,
         Err(e) => {
@@ -171,13 +155,11 @@ pub fn read_config(config_file : & ConfigFile) -> Result<Config, Error> {
         }
     };
     let reader = BufReader::new(file);
-    let config : Config = serde_json::from_reader(reader)?;
+    let config: Config = serde_json::from_reader(reader)?;
     Ok(config)
 }
 
-fn launch(config: Config) -> Result<(), Error>
-{
-
+fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
@@ -190,9 +172,7 @@ fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = launch::read::<Data>(
-        &config.launch_params
-    )?;
+    let (data, model) = launch::read::<Data>(&config.launch_params)?;
 
     match config.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => {
@@ -204,14 +184,10 @@ where
     }
 }
 
-fn server_loop< Data, Solver>(
-    model: &Model,
-    data: &Data,
-    config: &Config,
-) -> Result<(), Error>
+fn server_loop<Data, Solver>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
-    Solver: solver::Solver< Data>,
+    Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
@@ -292,7 +268,7 @@ where
 fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
-    data: & Data,
+    data: &Data,
     model: &Model,
     solver: &mut Solver,
     config: &Config,
@@ -344,19 +320,18 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri =
-                location_context
-                    .place
-                    .strip_prefix("stop_point:")
-                    .map(|uri| uri.to_string())
-                    .or_else(|| {
-                        warn!(
-                            "The {}th arrival stop point has an uri {} \
+            let stop_point_uri = location_context
+                .place
+                .strip_prefix("stop_point:")
+                .map(|uri| uri.to_string())
+                .or_else(|| {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                            idx, location_context.place,
-                        );
-                        None
-                    })?;
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
@@ -380,19 +355,18 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri =
-                location_context
-                    .place
-                    .strip_prefix("stop_point:")
-                    .map(|uri| uri.to_string())
-                    .or_else(|| {
-                        warn!(
-                            "The {}th arrival stop point has an uri {} \
+            let stop_point_uri = location_context
+                .place
+                .strip_prefix("stop_point:")
+                .map(|uri| uri.to_string())
+                .or_else(|| {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                            idx, location_context.place,
-                        );
-                        None
-                    })?;
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
@@ -436,7 +410,6 @@ where
         );
         config.request_default_params.max_nb_of_legs
     });
-
 
     let request_input = RequestInput {
         departure_datetime,

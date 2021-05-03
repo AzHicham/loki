@@ -34,30 +34,30 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
 pub fn parse_datetime(string_datetime: &str) -> Result<loki::NaiveDateTime, BadDateTime> {
     let try_datetime = loki::NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
     match try_datetime {
         Ok(datetime) => Ok(datetime),
-        Err(_) => { 
+        Err(_) => {
             let err = BadDateTime {
-                string_datetime : string_datetime.to_string()
+                string_datetime: string_datetime.to_string(),
             };
             Err(err)
-        },
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct BadDateTime {
-    string_datetime : String
+    string_datetime: String,
 }
 
 impl std::error::Error for BadDateTime {}
 
 impl std::fmt::Display for BadDateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f,
+        write!(
+            f,
             "Unable to parse {} as a datetime. Expected format is 20190628T163215",
             self.string_datetime
         )

@@ -39,9 +39,9 @@ use std::{fmt::Debug, time::SystemTime};
 use loki::log::{debug, trace};
 
 use loki::{
-    response, transit_model,
+    response,
     traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters},
-    MultiCriteriaRaptor,
+    transit_model, MultiCriteriaRaptor,
 };
 
 use loki::request::basic_criteria;
@@ -53,7 +53,7 @@ pub trait Solver<Data> {
 
     fn solve_request(
         &mut self,
-        data: & Data,
+        data: &Data,
         model: &transit_model::Model,
         request_input: RequestInput,
         comparator: &config::ComparatorType,
@@ -63,7 +63,7 @@ pub trait Solver<Data> {
         Data: traits::DataWithIters;
 }
 
-pub struct BasicCriteriaSolver< Data: traits::Data> {
+pub struct BasicCriteriaSolver<Data: traits::Data> {
     engine: MultiCriteriaRaptor<basic_criteria::Types<Data>>,
 }
 
@@ -76,7 +76,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
 
     fn solve_request(
         &mut self,
-        data: & Data,
+        data: &Data,
         model: &transit_model::Model,
         request_input: RequestInput,
         comparator_type: &config::ComparatorType,
@@ -123,7 +123,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
 
     fn solve_request(
         &mut self,
-        data: & Data,
+        data: &Data,
         model: &transit_model::Model,
         request_input: RequestInput,
         comparator_type: &config::ComparatorType,

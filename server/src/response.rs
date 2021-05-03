@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
 use crate::navitia_proto;
 
 use launch::loki;
@@ -46,7 +45,7 @@ use loki::{
 };
 
 use loki::chrono::{self, NaiveDate, NaiveDateTime};
-use loki::chrono_tz::{ self, Tz as Timezone};
+use loki::chrono_tz::{self, Tz as Timezone};
 
 use failure::{format_err, Error};
 use transit_model::Model;
@@ -362,7 +361,6 @@ fn make_pt_display_info(
             vehicle_journey.id
         )
     })?;
-
 
     let network_id = &line.network_id;
 

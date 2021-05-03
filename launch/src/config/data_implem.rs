@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -50,8 +50,6 @@ impl Default for DataImplem {
         Self::LoadsPeriodic
     }
 }
-
-
 
 impl std::str::FromStr for DataImplem {
     type Err = DataImplemConfigError;
@@ -71,7 +69,6 @@ impl std::str::FromStr for DataImplem {
         Ok(implem)
     }
 }
-
 
 #[derive(Debug)]
 pub struct DataImplemConfigError {

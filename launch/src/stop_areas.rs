@@ -34,21 +34,22 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{NaiveDateTime, PositiveDuration, traits::RequestInput, transit_model};
+use loki::{traits::RequestInput, transit_model, NaiveDateTime, PositiveDuration};
 
-use crate::config::RequestParams; 
+use crate::config::RequestParams;
 
 pub fn make_query_stop_areas(
-    model: &transit_model::Model, 
-    departure_datetime : & NaiveDateTime,
+    model: &transit_model::Model,
+    departure_datetime: &NaiveDateTime,
     from_stop_area: &str,
     to_stop_area: &str,
-    request_params : & RequestParams,
+    request_params: &RequestParams,
 ) -> Result<RequestInput, UnknownStopArea> {
+    let departures_stop_point_and_fallback_duration =
+        stops_of_stop_area(model, from_stop_area, PositiveDuration::zero())?;
+    let arrivals_stop_point_and_fallback_duration =
+        stops_of_stop_area(model, to_stop_area, PositiveDuration::zero())?;
 
-    let departures_stop_point_and_fallback_duration = stops_of_stop_area(model, from_stop_area, PositiveDuration::zero())?;
-    let arrivals_stop_point_and_fallback_duration = stops_of_stop_area(model, to_stop_area, PositiveDuration::zero())?;
-    
     let request_input = RequestInput {
         departure_datetime: *departure_datetime,
         departures_stop_point_and_fallback_duration,
@@ -57,26 +58,24 @@ pub fn make_query_stop_areas(
         leg_walking_penalty: request_params.leg_walking_penalty,
         max_nb_of_legs: request_params.max_nb_of_legs,
         max_journey_duration: request_params.max_journey_duration,
-        
     };
 
     Ok(request_input)
-    
 }
 
-
 pub fn stops_of_stop_area(
-    model: &transit_model::Model, 
-    stop_area_uri : & str,  
-    duration_to_stops : PositiveDuration
+    model: &transit_model::Model,
+    stop_area_uri: &str,
+    duration_to_stops: PositiveDuration,
 ) -> Result<Vec<(String, PositiveDuration)>, UnknownStopArea> {
-
     use std::collections::BTreeSet;
     let mut stop_area_set = BTreeSet::new();
     let stop_area_idx = model
         .stop_areas
         .get_idx(stop_area_uri)
-        .ok_or_else(|| UnknownStopArea{ uri : stop_area_uri.to_string()} )?;
+        .ok_or_else(|| UnknownStopArea {
+            uri: stop_area_uri.to_string(),
+        })?;
     stop_area_set.insert(stop_area_idx);
 
     let result: Vec<(String, PositiveDuration)> = model
@@ -91,21 +90,15 @@ pub fn stops_of_stop_area(
     Ok(result)
 }
 
-
 #[derive(Debug)]
-pub struct UnknownStopArea{
-    uri : String
+pub struct UnknownStopArea {
+    uri: String,
 }
 
 impl std::error::Error for UnknownStopArea {}
 
 impl std::fmt::Display for UnknownStopArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Unknown stop area : `{}`",
-            self.uri
-        )
+        write!(f, "Unknown stop area : `{}`", self.uri)
     }
 }
-
