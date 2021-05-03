@@ -38,7 +38,7 @@
 
 use failure::Error;
 
-use stop_areas::{launch, Config, };
+use loki_stop_areas::{launch, Config, };
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded
