@@ -163,8 +163,8 @@ zmq_socket = tcp://*:${krakenPort}
           --arg inputType "$inputType" \
           --arg inputPath "/data/$inputType/" \
           '{
-    input_path: $inputPath,
-    input_type: $inputType,
+    input_data_path: $inputPath,
+    input_data_type: $inputType,
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,

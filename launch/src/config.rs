@@ -38,12 +38,12 @@ pub mod comparator_type;
 pub mod criteria_implem;
 pub mod data_implem;
 pub mod input_data_type;
-pub mod request_params;
 pub mod launch_params;
+pub mod request_params;
 
 pub use comparator_type::ComparatorType;
 pub use criteria_implem::CriteriaImplem;
 pub use data_implem::DataImplem;
 pub use input_data_type::InputDataType;
-pub use request_params::RequestParams;
 pub use launch_params::LaunchParams;
+pub use request_params::RequestParams;

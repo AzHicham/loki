@@ -1,3 +1,7 @@
 /target
-/mc_navitia
+/mc_navitia*
 **/*.rs.bk
+/tmp
+random/flamegraph.svg
+random/perf.data
+random/perf.data.old

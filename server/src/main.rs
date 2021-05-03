@@ -41,13 +41,11 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use loki::config::{self, InputType};
+use launch::loki;
+use launch::{config, solver};
+
+use loki::traits::{self, RequestInput};
 use loki::transit_model;
-use loki::{
-    config::RequestParams,
-    solver,
-    traits::{self, RequestInput},
-};
 use loki::{
     log::{error, info, warn},
     LoadsDailyData, LoadsPeriodicData,
@@ -60,15 +58,11 @@ use transit_model::Model;
 
 use std::{fs::File, io::BufReader, path::PathBuf};
 
-use slog::slog_o;
-use slog::Drain;
-use slog_async::OverflowStrategy;
-
 use failure::{bail, format_err, Error};
 
 use std::convert::TryFrom;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -77,8 +71,19 @@ use serde::Deserialize;
     rename_all = "snake_case"
 )]
 pub enum Options {
-    Cli(Config),
+    /// Create a config file from cli arguments
+    CreateConfig(ConfigCreator),
+    /// Launch from a config file
     ConfigFile(ConfigFile),
+    /// Launch from cli arguments
+    Launch(Config),
+}
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "snake_case")]
+pub struct ConfigCreator {
+    #[structopt(flatten)]
+    pub config: Config,
 }
 
 #[derive(StructOpt)]
@@ -88,17 +93,12 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-#[derive(StructOpt, Deserialize)]
+#[derive(Serialize, Deserialize, StructOpt)]
+#[structopt(rename_all = "snake_case")]
 pub struct Config {
-    /// directory of ntfs files to load
-    #[structopt(parse(from_os_str))]
-    input_path: PathBuf,
-
-    input_type: InputType,
-
-    /// path to the passengers loads file
-    #[structopt(parse(from_os_str))]
-    loads_data_path: Option<PathBuf>,
+    #[serde(flatten)]
+    #[structopt(flatten)]
+    launch_params: config::LaunchParams,
 
     /// zmq socket to listen for protobuf requests
     /// that will be handled with "basic" comparator
@@ -110,45 +110,13 @@ pub struct Config {
     #[structopt(long)]
     loads_requests_socket: Option<String>,
 
-    /// Type used for storage of criteria
-    /// "classic" or "loads"
-    #[structopt(long, default_value = "loads")]
-    criteria_implem: config::CriteriaImplem,
-
-    /// Timetable implementation to use :
-    /// "periodic" (default) or "daily"
-    ///  or "loads_periodic" or "loads_daily"
-    #[structopt(long, default_value = "loads_periodic")]
-    data_implem: config::DataImplem,
-
-    /// The default transfer duration between a stop point and itself
-    #[structopt(long, default_value = config::DEFAULT_TRANSFER_DURATION)]
-    #[serde(default = "config::default_transfer_duration")]
-    default_transfer_duration: PositiveDuration,
-
-    /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_ARRIVAL_PENALTY)]
-    #[serde(default = "config::default_leg_arrival_penalty")]
-    leg_arrival_penalty: PositiveDuration,
-
-    /// penalty to apply to walking time for each vehicle leg in a journey
-    #[structopt(long, default_value = config::DEFAULT_LEG_WALKING_PENALTY)]
-    #[serde(default = "config::default_leg_walking_penalty")]
-    leg_walking_penalty: PositiveDuration,
-
-    /// maximum number of vehicle legs in a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_NB_LEGS)]
-    #[serde(default = "config::default_max_nb_of_legs")]
-    max_nb_of_legs: u8,
-
-    /// maximum duration of a journey
-    #[structopt(long, default_value = config::DEFAULT_MAX_JOURNEY_DURATION)]
-    #[serde(default = "config::default_max_journey_duration")]
-    max_journey_duration: PositiveDuration,
+    #[serde(flatten)]
+    #[structopt(flatten)]
+    request_default_params: config::RequestParams,
 }
 
 fn main() {
-    let _log_guard = init_logger();
+    let _log_guard = launch::logger::init_logger();
     if let Err(err) = launch_server() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
@@ -157,81 +125,69 @@ fn main() {
     }
 }
 
-fn init_logger() -> slog_scope::GlobalLoggerGuard {
-    let decorator = slog_term::TermDecorator::new().stdout().build();
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let mut builder = slog_envlogger::LogBuilder::new(drain).filter(None, slog::FilterLevel::Info);
-    if let Ok(s) = std::env::var("RUST_LOG") {
-        builder = builder.parse(&s);
-    }
-    let drain = slog_async::Async::new(builder.build())
-        .chan_size(256) // Double the default size
-        .overflow_strategy(OverflowStrategy::Block)
-        .build()
-        .fuse();
-    let logger = slog::Logger::root(drain, slog_o!());
-
-    let scope_guard = slog_scope::set_global_logger(logger);
-    slog_stdlog::init().unwrap();
-    scope_guard
-}
-
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
-    let config = match options {
-        Options::Cli(config) => config,
+    match options {
         Options::ConfigFile(config_file) => {
-            let file = match File::open(&config_file.file) {
-                Ok(file) => file,
-                Err(e) => {
-                    bail!("Error opening config file {:?} : {}", &config_file.file, e)
-                }
-            };
-            let reader = BufReader::new(file);
-            let result = serde_json::from_reader(reader);
-            match result {
-                Ok(config) => config,
-                Err(e) => bail!("Error reading config file {:?} : {}", &config_file.file, e),
-            }
+            let config = read_config(&config_file)?;
+            launch(config)?;
+            Ok(())
         }
-    };
-    match config.data_implem {
-        config::DataImplem::Periodic => launch::<PeriodicData>(config),
-        config::DataImplem::Daily => launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => launch::<LoadsDailyData>(config),
+        Options::CreateConfig(config_creator) => {
+            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
+
+            println!("{}", json_string);
+
+            Ok(())
+        }
+        Options::Launch(config) => {
+            launch(config)?;
+            Ok(())
+        }
     }
 }
 
-fn launch<Data>(config: Config) -> Result<(), Error>
+pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
+    let file = match File::open(&config_file.file) {
+        Ok(file) => file,
+        Err(e) => {
+            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+        }
+    };
+    let reader = BufReader::new(file);
+    let config: Config = serde_json::from_reader(reader)?;
+    Ok(config)
+}
+
+fn launch(config: Config) -> Result<(), Error> {
+    match config.launch_params.data_implem {
+        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
+        config::DataImplem::Daily => config_launch::<DailyData>(config),
+        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
+        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
+    }
+}
+
+fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
 {
-    let (data, model) = loki::launch_utils::read::<Data, _, _>(
-        &config.input_path,
-        &config.input_type,
-        config.loads_data_path.as_ref(),
-        &config.default_transfer_duration,
-    )?;
+    let (data, model) = launch::read::<Data>(&config.launch_params)?;
 
-    match config.criteria_implem {
+    match config.launch_params.criteria_implem {
         config::CriteriaImplem::Basic => {
-            server_loop::<Data, solver::BasicCriteriaSolver<'_, Data>>(&model, &data, &config)
+            server_loop::<Data, solver::BasicCriteriaSolver<Data>>(&model, &data, &config)
         }
         config::CriteriaImplem::Loads => {
-            server_loop::<Data, solver::LoadsCriteriaSolver<'_, Data>>(&model, &data, &config)
+            server_loop::<Data, solver::LoadsCriteriaSolver<Data>>(&model, &data, &config)
         }
     }
 }
 
-fn server_loop<'data, Data, Solver>(
-    model: &Model,
-    data: &'data Data,
-    config: &Config,
-) -> Result<(), Error>
+fn server_loop<Data, Solver>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
     Data: traits::DataWithIters,
-    Solver: traits::Solver<'data, Data>,
+    Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
@@ -309,10 +265,10 @@ where
     }
 }
 
-fn solve<'data, Data, Solver: traits::Solver<'data, Data>>(
+fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
-    data: &'data Data,
+    data: &Data,
     model: &Model,
     solver: &mut Solver,
     config: &Config,
@@ -364,23 +320,24 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri =
-                location_context
-                    .place
-                    .strip_prefix("stop_point:")
-                    .or_else(|| {
-                        warn!(
-                            "The {}th arrival stop point has an uri {} \
+            let stop_point_uri = location_context
+                .place
+                .strip_prefix("stop_point:")
+                .map(|uri| uri.to_string())
+                .or_else(|| {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                            idx, location_context.place,
-                        );
-                        None
-                    })?;
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
             Some((stop_point_uri, duration))
-        });
+        })
+        .collect();
 
     let arrivals_stop_point_and_fallback_duration = journey_request
         .destination
@@ -398,23 +355,24 @@ where
                     );
                     None
                 })?;
-            let stop_point_uri =
-                location_context
-                    .place
-                    .strip_prefix("stop_point:")
-                    .or_else(|| {
-                        warn!(
-                            "The {}th arrival stop point has an uri {} \
+            let stop_point_uri = location_context
+                .place
+                .strip_prefix("stop_point:")
+                .map(|uri| uri.to_string())
+                .or_else(|| {
+                    warn!(
+                        "The {}th arrival stop point has an uri {} \
                         that doesn't start with `stop_point:`. I ignore it",
-                            idx, location_context.place,
-                        );
-                        None
-                    })?;
+                        idx, location_context.place,
+                    );
+                    None
+                })?;
             // let trimmed = location_context.place.trim_start_matches("stop_point:");
             // let stop_point_uri = format!("StopPoint:{}", trimmed);
             // let stop_point_uri = location_context.place.clone();
             Some((stop_point_uri, duration))
-        });
+        })
+        .collect();
 
     let departure_timestamp_u64 = journey_request
         .datetimes
@@ -426,7 +384,7 @@ where
             departure_timestamp_u64
         )
     })?;
-    let departure_datetime = chrono::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
+    let departure_datetime = loki::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
     info!(
         "Requested timestamp {}, datetime {}",
@@ -439,32 +397,28 @@ where
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, config.max_journey_duration
+                journey_request.max_duration, config.request_default_params.max_journey_duration
             );
-            config.max_journey_duration.clone()
+            config.request_default_params.max_journey_duration.clone()
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, config.max_nb_of_legs
+            journey_request.max_transfers, config.request_default_params.max_nb_of_legs
         );
-        config.max_nb_of_legs
+        config.request_default_params.max_nb_of_legs
     });
-
-    let params = RequestParams {
-        leg_arrival_penalty: config.leg_arrival_penalty,
-        leg_walking_penalty: config.leg_walking_penalty,
-        max_nb_of_legs,
-        max_journey_duration,
-    };
 
     let request_input = RequestInput {
         departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        params,
+        leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_default_params.leg_walking_penalty,
+        max_nb_of_legs,
+        max_journey_duration,
     };
 
     let responses = solver.solve_request(data, model, request_input, &comparator_type)?;

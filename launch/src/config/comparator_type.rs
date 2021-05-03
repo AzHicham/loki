@@ -34,44 +34,52 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::config;
-use loki::{DailyData, PeriodicData};
-use loki::{LoadsDailyData, LoadsPeriodicData};
+use serde::{Deserialize, Serialize};
 
-use failure::Error;
-
-use structopt::StructOpt;
-
-use loki_cli::{
-    init_logger,
-    stop_areas::{launch, Options},
-};
-
-fn main() {
-    let _log_guard = init_logger();
-    if let Err(err) = run() {
-        for cause in err.iter_chain() {
-            eprintln!("{}", cause);
-        }
-        std::process::exit(1);
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComparatorType {
+    Loads,
+    Basic,
+}
+impl std::str::FromStr for ComparatorType {
+    type Err = ComparatorTypeConfigError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let request_type = match s {
+            "loads" => ComparatorType::Loads,
+            "basic" => ComparatorType::Basic,
+            _ => {
+                return Err(ComparatorTypeConfigError {
+                    comparator_type_name: s.to_string(),
+                })
+            }
+        };
+        Ok(request_type)
     }
 }
 
-fn run() -> Result<(), Error> {
-    let options = Options::from_args();
-    match options.base.data_implem {
-        config::DataImplem::Periodic => {
-            launch::<PeriodicData>(options)?;
+impl Default for ComparatorType {
+    fn default() -> Self {
+        Self::Loads
+    }
+}
+
+impl std::fmt::Display for ComparatorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComparatorType::Loads => write!(f, "loads"),
+            ComparatorType::Basic => write!(f, "basic"),
         }
-        config::DataImplem::Daily => {
-            launch::<DailyData>(options)?;
-        }
-        config::DataImplem::LoadsPeriodic => {
-            launch::<LoadsPeriodicData>(options)?;
-        }
-        config::DataImplem::LoadsDaily => {
-            launch::<LoadsDailyData>(options)?;
-        }
-    };
-    Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ComparatorTypeConfigError {
+    comparator_type_name: String,
+}
+
+impl std::fmt::Display for ComparatorTypeConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad comparator type : `{}`", self.comparator_type_name)
+    }
 }

@@ -35,14 +35,17 @@
 // www.navitia.io
 
 use crate::navitia_proto;
+
+use launch::loki;
+
 use loki::transit_model;
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
     Idx, StopPoint, VehicleJourney,
 };
 
-use chrono::{NaiveDate, NaiveDateTime};
-use chrono_tz::Tz as Timezone;
+use loki::chrono::{self, NaiveDate, NaiveDateTime};
+use loki::chrono_tz::{self, Tz as Timezone};
 
 use failure::{format_err, Error};
 use transit_model::Model;
@@ -358,7 +361,6 @@ fn make_pt_display_info(
             vehicle_journey.id
         )
     })?;
-
 
     let network_id = &line.network_id;
 

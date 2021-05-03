@@ -34,16 +34,47 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod comparator_type;
-pub mod criteria_implem;
-pub mod data_implem;
-pub mod input_data_type;
-pub mod request_params;
-pub mod launch_params;
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputDataType {
+    Gtfs,
+    Ntfs,
+}
 
-pub use comparator_type::ComparatorType;
-pub use criteria_implem::CriteriaImplem;
-pub use data_implem::DataImplem;
-pub use input_data_type::InputDataType;
-pub use request_params::RequestParams;
-pub use launch_params::LaunchParams;
+impl std::str::FromStr for InputDataType {
+    type Err = InputDataTypeConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let result = match s {
+            "ntfs" => InputDataType::Ntfs,
+            "gtfs" => InputDataType::Gtfs,
+            _ => {
+                return Err(InputDataTypeConfigError {
+                    input_type_name: s.to_string(),
+                })
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl std::fmt::Display for InputDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InputDataType::Gtfs => write!(f, "gtfs"),
+            InputDataType::Ntfs => write!(f, "ntfs"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct InputDataTypeConfigError {
+    input_type_name: String,
+}
+
+impl std::fmt::Display for InputDataTypeConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bad input data type give : `{}`", self.input_type_name)
+    }
+}
