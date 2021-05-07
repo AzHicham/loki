@@ -117,7 +117,7 @@ run git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tool
 run pip install -r ./tmp/core_team_ci_tools/github_artifacts/requirements.txt --user
 
 # let's download the navitia packages
-run python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o CanalTP -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/
+run python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o CanalTP -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/ --waiting
 
 # let's unzip what we received
 run unzip -q ./tmp/${archive} -d ./tmp/
