@@ -65,7 +65,7 @@ docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock 
 
 This will create a folder `./mc_navitia` containing everything needed to launch navitia.
 
-# Launch
+# Launch docker
 
 In `./mc_navitia` run 
 ```bash
@@ -76,3 +76,21 @@ Then you can send http requests to the jormun server on http://localhost:9191 !
 
 Don't forget to add "_override_scenario=distributed" to your requests !
 Otherwise you won't be using the loki server.
+
+# Launch kubernetes 
+
+
+```bash
+# start the cluster
+minikube start
+# mount data into the cluster only node
+minikube mount ./mc_navitia/:/data
+# create a persistent volume with `storageClassName: storage-class-navitia`
+kubectl apply -f ./docker/kubernetes-volume.yml
+# create all navitia services, they will mount the data present in the persitent volume we just created
+kubectl apply -f ./mc_navitia/kubernetes.yml
+# forward port from localhost into the cluster to the navitia service
+kubectl port-forward service/navitia 9192:80
+# navitia is responding on http://localhost:9192/ !
+```
+

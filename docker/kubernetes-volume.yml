@@ -1,0 +1,14 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: persistent-volume-navitia
+  labels:
+    type: local
+spec:
+  storageClassName: storage-class-navitia
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadOnlyMany
+  hostPath:
+    path: "/data"

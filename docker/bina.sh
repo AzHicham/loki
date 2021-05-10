@@ -34,6 +34,63 @@ services:
   
 """ > ${output}/docker-compose.yml
 
+
+# we initialize the kubernetes.yml with the 
+# services used for all coverages
+echo """
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume-claim-navitia
+spec:
+  storageClassName: storage-class-navitia
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-jormun
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-jormun
+  template:
+    metadata: 
+      labels:
+        app : app-jormun
+    spec:
+      containers:
+        - image: navitia/mc_jormun
+          name: jormungandr
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: volume-navitia
+              mountPath: /data
+      volumes:
+        - name: volume-navitia
+          persistentVolumeClaim:
+            claimName: volume-claim-navitia
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: navitia
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: app-jormun
+  type: ClusterIP
+""" > ${output}/kubernetes.yml
+
 mkdir -p ${output}/jormun_conf/
 
 cd ${input}
@@ -106,7 +163,7 @@ for folder in $(ls -d */); do
 
 
 
-    # add kraken and loki services for this coverage
+    # add kraken and loki services to docker for this coverage
     echo """
   loki-${coverage}:
     image: navitia/mc_loki
@@ -173,6 +230,98 @@ zmq_socket = tcp://*:${krakenPort}
 }' > ${output}/${coverage}/loki_config.json
 
 
+  # add kraken and loki services to kubernetes for this coverage
+    # kraken config file
+    echo """
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-kraken-${coverage}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-kraken-${coverage}
+  template:
+    metadata: 
+      labels:
+        app : app-kraken-${coverage}
+    spec:
+      containers:             
+        - image: navitia/mc_kraken
+          name: kraken-${coverage}
+          volumeMounts:
+            - name: volume-navitia
+              mountPath: /data
+              subPath: ${coverage}
+          ports:
+            - containerPort: ${krakenPort}
+      volumes:
+        - name: volume-navitia
+          persistentVolumeClaim:
+            claimName: volume-claim-navitia
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kraken-${coverage}
+spec:
+  ports:
+  - port: ${krakenPort}
+    protocol: TCP
+    targetPort: ${krakenPort}
+  selector:
+    app: app-kraken-${coverage}
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-loki-${coverage}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-loki-${coverage}
+  template:
+    metadata: 
+      labels:
+        app : app-loki-${coverage}
+    spec:
+      containers:             
+        - image: navitia/mc_loki
+          name: loki-${coverage}
+          volumeMounts:
+            - name: volume-navitia
+              mountPath: /data
+              subPath: ${coverage}
+          ports:
+            - containerPort: ${lokiBasicPort}
+            - containerPort: ${lokiLoadsPort}
+      volumes:
+        - name: volume-navitia
+          persistentVolumeClaim:
+            claimName: volume-claim-navitia
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-${coverage}
+spec:
+  ports:
+  - port: ${lokiBasicPort}
+    protocol: TCP
+    targetPort: ${lokiBasicPort}
+    name: basic
+  - port: ${lokiLoadsPort}
+    protocol: TCP
+    targetPort: ${lokiLoadsPort}
+    name: loads
+  selector:
+    app: app-loki-${coverage}
+  type: ClusterIP
+""" >> ${output}/kubernetes.yml
 
     echo "${coverage} done"
 done
