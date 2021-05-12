@@ -92,7 +92,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
                     data,
                     request_input,
                 )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data, model);
+                let responses = solve_request_inner(&mut self.engine, &request, data);
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
@@ -101,7 +101,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
                     data,
                     request_input,
                 )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data, model);
+                let responses = solve_request_inner(&mut self.engine, &request, data);
                 Ok(responses)
             }
         }
@@ -139,7 +139,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
                     data,
                     request_input,
                 )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data, model);
+                let responses = solve_request_inner(&mut self.engine, &request, data);
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
@@ -148,7 +148,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
                     data,
                     request_input,
                 )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data, model);
+                let responses = solve_request_inner(&mut self.engine, &request, data);
                 Ok(responses)
             }
         }
@@ -158,8 +158,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
 fn solve_request_inner<'data, Data, Request, Types>(
     engine: &mut MultiCriteriaRaptor<Types>,
     request: &Request,
-    data: &'data Data,
-    model: &transit_model::Model,
+    data: &'data Data
 ) -> Vec<response::Response>
 where
     Request: RequestWithIters,
@@ -188,21 +187,15 @@ where
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
 
-    for pt_journey in engine.responses() {
-        let response = request.create_response(pt_journey);
-        match response {
-            Ok(journey) => {
-                trace!("{}", journey.print(data, model).unwrap());
-            }
-            Err(_) => {
-                trace!("An error occured while converting an engine journey to response.");
-            }
-        };
-    }
-
     let journeys_iter = engine
         .responses()
-        .filter_map(|pt_journey| request.create_response(pt_journey).ok());
+        .filter_map(|pt_journey| request.create_response(pt_journey)
+            .or_else(|err|{
+                trace!("An error occured while converting an engine journey to response. {:?}", err);
+                Err(err)
+            })
+            .ok()
+        );
 
     let responses: Vec<_> = journeys_iter
         .map(|journey| journey.to_response(data))
