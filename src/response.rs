@@ -139,15 +139,27 @@ pub enum BadJourney<Data: traits::Data> {
     BadTransferEndTime(Data::Transfer, VehicleLeg<Data>, usize),
 }
 
-impl<Data : traits::Data> Debug for BadJourney<Data> {
+impl<Data: traits::Data> Debug for BadJourney<Data> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BadJourney::DebarkIsUpstreamBoard(_, _) => { write!(f, "DebarkIsUpstreamBoard") }
-            BadJourney::NoBoardTime(_, _) => { write!(f, "NoBoardTime") }
-            BadJourney::NoDebarkTime(_, _) => { write!(f, "NoDebarkTime") }
-            BadJourney::BadTransferStartStop(_, _, _) => { write!(f, "BadTransferStartStop") }
-            BadJourney::BadTransferEndStop(_, _, _) => { write!(f, "BadTransferEndStop") }
-            BadJourney::BadTransferEndTime(_, _, _) => { write!(f, "BadTransferEndTime") }
+            BadJourney::DebarkIsUpstreamBoard(_, _) => {
+                write!(f, "DebarkIsUpstreamBoard")
+            }
+            BadJourney::NoBoardTime(_, _) => {
+                write!(f, "NoBoardTime")
+            }
+            BadJourney::NoDebarkTime(_, _) => {
+                write!(f, "NoDebarkTime")
+            }
+            BadJourney::BadTransferStartStop(_, _, _) => {
+                write!(f, "BadTransferStartStop")
+            }
+            BadJourney::BadTransferEndStop(_, _, _) => {
+                write!(f, "BadTransferEndStop")
+            }
+            BadJourney::BadTransferEndTime(_, _, _) => {
+                write!(f, "BadTransferEndTime")
+            }
         }
     }
 }

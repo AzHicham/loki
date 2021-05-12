@@ -158,7 +158,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
 fn solve_request_inner<'data, Data, Request, Types>(
     engine: &mut MultiCriteriaRaptor<Types>,
     request: &Request,
-    data: &'data Data
+    data: &'data Data,
 ) -> Vec<response::Response>
 where
     Request: RequestWithIters,
@@ -187,15 +187,18 @@ where
     debug!("Nb of journeys found : {}", engine.nb_of_journeys());
     debug!("Tree size : {}", engine.tree_size());
 
-    let journeys_iter = engine
-        .responses()
-        .filter_map(|pt_journey| request.create_response(pt_journey)
-            .or_else(|err|{
-                trace!("An error occured while converting an engine journey to response. {:?}", err);
+    let journeys_iter = engine.responses().filter_map(|pt_journey| {
+        request
+            .create_response(pt_journey)
+            .or_else(|err| {
+                trace!(
+                    "An error occured while converting an engine journey to response. {:?}",
+                    err
+                );
                 Err(err)
             })
             .ok()
-        );
+    });
 
     let responses: Vec<_> = journeys_iter
         .map(|journey| journey.to_response(data))
