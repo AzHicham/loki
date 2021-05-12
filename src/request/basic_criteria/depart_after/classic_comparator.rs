@@ -225,7 +225,7 @@ where
     fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: traits::RequestInput,
+        request_input: & traits::RequestInput,
     ) -> Result<Self, BadRequest>
     where
         Self: Sized,

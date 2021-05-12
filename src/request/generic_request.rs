@@ -61,7 +61,7 @@ where
     pub fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: traits::RequestInput,
+        request_input: &traits::RequestInput,
     ) -> Result<Self, BadRequest>
     where
         Self: Sized,
@@ -81,11 +81,11 @@ where
             })?;
 
         let departures : Vec<_> = request_input.departures_stop_point_and_fallback_duration
-            .into_iter()
+            .iter()
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-                let stop_point_uri = stop_point_uri.as_ref();
-                let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
+                let stop_point_uri = stop_point_uri.to_string();
+                let stop_idx = model.stop_points.get_idx(&stop_point_uri).or_else(|| {
                     warn!(
                         "The {}th departure stop point {} is not found in model. \
                                 I ignore it.",
@@ -101,7 +101,7 @@ where
                     );
                     None
                 })?;
-                Some((stop, fallback_duration))
+                Some((stop, fallback_duration.clone()))
             })
             .collect();
         if departures.is_empty() {
@@ -109,11 +109,11 @@ where
         }
 
         let arrivals : Vec<_> = request_input.arrivals_stop_point_and_fallback_duration
-            .into_iter()
+            .iter()
             .enumerate()
             .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-                let stop_point_uri = stop_point_uri.as_ref();
-                let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
+                let stop_point_uri = stop_point_uri.to_string();
+                let stop_idx = model.stop_points.get_idx(&stop_point_uri).or_else(|| {
                     warn!(
                         "The {}th arrival stop point {} is not found in model. \
                                 I ignore it.",
@@ -129,7 +129,7 @@ where
                     );
                     None
                 })?;
-                Some((stop, fallback_duration))
+                Some((stop, fallback_duration.clone()))
             })
             .collect();
 

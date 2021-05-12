@@ -195,7 +195,7 @@ where
             &config.request_params,
         )?;
         let solve_result =
-            solver.solve_request(data, model, request_input, &config.comparator_type);
+            solver.solve_request(data, model, &request_input, &config.comparator_type);
 
         match solve_result {
             Err(err) => {

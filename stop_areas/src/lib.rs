@@ -211,7 +211,7 @@ where
         end_stop_area_uri,
         &config.request_params,
     )?;
-    let solve_result = solver.solve_request(data, model, request_input, &config.comparator_type);
+    let solve_result = solver.solve_request(data, model, &request_input, &config.comparator_type);
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
     log::info!("Duration : {} ms", duration as f64);
