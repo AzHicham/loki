@@ -55,7 +55,7 @@ pub trait Solver<Data> {
         &mut self,
         data: &Data,
         model: &transit_model::Model,
-        request_input: RequestInput,
+        request_input: &RequestInput,
         comparator: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
@@ -78,7 +78,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
         &mut self,
         data: &Data,
         model: &transit_model::Model,
-        request_input: RequestInput,
+        request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
@@ -90,7 +90,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
                 let request = basic_criteria::depart_after::classic_comparator::Request::new(
                     model,
                     data,
-                    request_input,
+                    request_input, 
                 )?;
                 let responses = solve_request_inner(&mut self.engine, &request, data, model);
                 Ok(responses)
@@ -125,7 +125,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
         &mut self,
         data: &Data,
         model: &transit_model::Model,
-        request_input: RequestInput,
+        request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
     ) -> Result<Vec<response::Response>, BadRequest>
     where

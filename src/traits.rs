@@ -411,7 +411,7 @@ pub trait RequestIO<'data, Data: self::Data>: Request {
     fn new(
         model: &transit_model::Model,
         transit_data: &'data Data,
-        request_input: RequestInput,
+        request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
     where
         Self: Sized;

@@ -36,7 +36,7 @@
 
 use crate::navitia_proto;
 
-use launch::loki;
+use launch::loki::{self, traits::RequestInput};
 
 use loki::transit_model;
 use loki::{
@@ -53,6 +53,7 @@ use transit_model::Model;
 use std::convert::TryFrom;
 
 pub fn make_response(
+    request_input : & RequestInput,
     journeys: Vec<loki::Response>,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error> {
@@ -60,7 +61,7 @@ pub fn make_response(
         journeys: journeys
             .iter()
             .enumerate()
-            .map(|(idx, journey)| make_journey(&journey, idx, model))
+            .map(|(idx, journey)| make_journey(&request_input, &journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
 
         ..Default::default()
@@ -72,6 +73,7 @@ pub fn make_response(
 }
 
 fn make_journey(
+    request_input : & RequestInput,
     journey: &loki::Response,
     journey_id: usize,
     model: &Model,
@@ -97,6 +99,7 @@ fn make_journey(
             ridesharing: Some(0),
             taxi: Some(0),
         }),
+        requested_date_time : Some(to_u64_timestamp(&request_input.departure_datetime)?),
         ..Default::default()
     };
 

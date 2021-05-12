@@ -265,6 +265,7 @@ where
     }
 }
 
+
 fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
@@ -273,7 +274,7 @@ fn solve<Data, Solver: solver::Solver<Data>>(
     solver: &mut Solver,
     config: &Config,
     comparator_type: config::ComparatorType,
-) -> Result<Vec<loki::response::Response>, Error>
+) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
     Data: traits::DataWithIters,
 {
@@ -421,12 +422,12 @@ where
         max_journey_duration,
     };
 
-    let responses = solver.solve_request(data, model, request_input, &comparator_type)?;
-    Ok(responses)
+    let responses = solver.solve_request(data, model, &request_input, &comparator_type)?;
+    Ok((request_input, responses))
 }
 
 fn respond(
-    solve_result: Result<Vec<loki::Response>, Error>,
+    solve_result: Result<(RequestInput, Vec<loki::Response>), Error>,
     model: &Model,
     response_bytes: &mut Vec<u8>,
     socket: &zmq::Socket,
@@ -436,8 +437,8 @@ fn respond(
             error!("Error while solving request : {}", err);
             make_error_response(err)
         }
-        Ok(journeys) => {
-            let response_result = response::make_response(journeys, model);
+        Ok((request_input, journeys)) => {
+            let response_result = response::make_response(&request_input, journeys, model);
             match response_result {
                 Result::Err(err) => {
                     error!(
