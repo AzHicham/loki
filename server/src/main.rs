@@ -265,7 +265,6 @@ where
     }
 }
 
-
 fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
@@ -422,6 +421,8 @@ where
         max_journey_duration,
     };
 
+    // trace!("{:#?}", request_input);
+
     let responses = solver.solve_request(data, model, &request_input, &comparator_type)?;
     Ok((request_input, responses))
 }
@@ -447,7 +448,10 @@ fn respond(
                     );
                     make_error_response(err)
                 }
-                Ok(resp) => resp,
+                Ok(resp) => {
+                    // trace!("{:#?}", resp);
+                    resp
+                }
             }
         }
     };
