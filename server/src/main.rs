@@ -422,8 +422,10 @@ where
         max_journey_duration,
     };
 
-    let responses = solver.solve_request(data, model, &request_input, &comparator_type)?;
-    Ok((request_input, responses))
+    // trace!("{:#?}", request_input);
+
+    let responses = solver.solve_request(data, model, request_input, &comparator_type)?;
+    Ok(responses)
 }
 
 fn respond(
