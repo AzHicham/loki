@@ -47,7 +47,7 @@ use launch::{config, solver};
 use loki::traits::{self, RequestInput};
 use loki::transit_model;
 use loki::{
-    log::{error, info, warn},
+    log::{error, info, warn, trace},
     LoadsDailyData, LoadsPeriodicData,
 };
 use loki::{DailyData, PeriodicData, PositiveDuration};
@@ -447,7 +447,10 @@ fn respond(
                     );
                     make_error_response(err)
                 }
-                Ok(resp) => resp,
+                Ok(resp) => {
+                    // trace!("{:#?}", resp);
+                    resp
+                },
             }
         }
     };
