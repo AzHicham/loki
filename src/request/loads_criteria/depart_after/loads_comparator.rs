@@ -268,7 +268,12 @@ where
             pt_journey.criteria_at_arrival.loads_count.clone(),
         )
     }
+}
 
+impl<'data, 'model, Data> traits::RequestDebug for Request<'data, 'model, Data>
+    where
+        Data: traits::Data,
+{
     fn stop_name(&self, stop : & Self::Stop) -> String {
         self.generic.stop_name(stop)
     }

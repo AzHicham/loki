@@ -435,7 +435,9 @@ pub trait RequestIO<'data, 'model, Data: self::Data>: Request {
             Departure = Self::Departure,
             Criteria = Self::Criteria,
         >;
+} 
 
+pub trait RequestDebug : Request { 
     fn stop_name(&self, stop : & Self::Stop) -> String;
     fn trip_name(&self, trip : & Self::Trip) -> String;
     fn mission_name(&self, mission : & Self::Mission) -> String;

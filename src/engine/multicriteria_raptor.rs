@@ -36,7 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::engine::journeys_tree::JourneysTree;
+use crate::{engine::journeys_tree::JourneysTree, traits::RequestDebug};
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use crate::traits::{Journey, RequestTypes, RequestWithIters};
 use log::trace;
@@ -125,6 +125,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
+        R : RequestDebug
     {
         self.clear();
         self.resize(pt.nb_of_stops(), pt.nb_of_missions());
@@ -308,6 +309,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
+        R : RequestDebug
     {
         debug_assert!(!self.missions_with_new_wait.is_empty());
         debug_assert!(self.stops_with_new_debark.is_empty());

@@ -257,7 +257,12 @@ where
         self.generic
             .create_response(pt_journey, LoadsCount::default())
     }
+}
 
+impl<'data, 'model, Data> traits::RequestDebug for Request<'data, 'model, Data>
+    where
+        Data: traits::Data,
+{
     fn stop_name(&self, stop : & Self::Stop) -> String {
         self.generic.stop_name(stop)
     }

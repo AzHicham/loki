@@ -36,7 +36,7 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
-use loki::log::{debug, trace};
+use loki::{log::{debug, trace}, traits::RequestDebug};
 
 use loki::{
     response,
@@ -162,7 +162,7 @@ fn solve_request_inner<'data, 'model, Data, Request, Types>(
 ) -> Vec<response::Response>
 where
     Request: RequestWithIters,
-    Request: RequestIO<'data, 'model, Data>,
+    Request: RequestIO<'data, 'model, Data> + RequestDebug,
     Data: traits::Data,
     Types: RequestTypes<
         Position = Request::Position,
