@@ -155,14 +155,14 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
     }
 }
 
-fn solve_request_inner<'data, Data, Request, Types>(
+fn solve_request_inner<'data, 'model, Data, Request, Types>(
     engine: &mut MultiCriteriaRaptor<Types>,
     request: &Request,
     data: &'data Data,
 ) -> Vec<response::Response>
 where
     Request: RequestWithIters,
-    Request: RequestIO<'data, Data>,
+    Request: RequestIO<'data, 'model, Data>,
     Data: traits::Data,
     Types: RequestTypes<
         Position = Request::Position,

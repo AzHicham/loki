@@ -408,9 +408,9 @@ pub struct RequestInput {
     pub max_journey_duration: PositiveDuration,
 }
 
-pub trait RequestIO<'data, Data: self::Data>: Request {
+pub trait RequestIO<'data, 'model, Data: self::Data>: Request {
     fn new(
-        model: &transit_model::Model,
+        model: &'model transit_model::Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -435,6 +435,11 @@ pub trait RequestIO<'data, Data: self::Data>: Request {
             Departure = Self::Departure,
             Criteria = Self::Criteria,
         >;
+
+    fn stop_name(&self, stop : & Self::Stop) -> String;
+    fn trip_name(&self, trip : & Self::Trip) -> String;
+    fn mission_name(&self, mission : & Self::Mission) -> String;
+    fn position_name(&self, position : & Self::Position, mission : & Self::Mission) -> String;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
