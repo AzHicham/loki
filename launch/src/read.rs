@@ -58,8 +58,21 @@ where
                 on_demand_transport: false,
                 on_demand_transport_comment: None,
             };
+            use std::str::FromStr;
+            let max_distance = f64::from_str(transit_model::TRANSFER_MAX_DISTANCE)?;
+            let walking_speed = f64::from_str(transit_model::TRANSFER_WAKING_SPEED)?;
+            let waiting_time = u32::from_str(transit_model::TRANSFER_WAITING_TIME)?;
 
-            transit_model::gtfs::read_from_path(&launch_params.input_data_path, configuration)?
+            let model =
+                transit_model::gtfs::read_from_path(&launch_params.input_data_path, configuration)?;
+            let model = transit_model::transfers::generates_transfers(
+                model,
+                max_distance,
+                walking_speed,
+                waiting_time,
+                None,
+            )?;
+            model
         }
     };
 
