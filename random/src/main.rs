@@ -7,7 +7,7 @@ use launch::{
 
 use loki::log;
 
-use loki::{log::trace, transit_model::Model};
+use loki::{log::debug, transit_model::Model};
 
 use loki::traits;
 
@@ -203,7 +203,7 @@ where
             }
             Ok(responses) => {
                 for response in responses.iter() {
-                    trace!("{}", response.print(model)?);
+                    debug!("{}", response.print(model)?);
                 }
             }
         }

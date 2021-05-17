@@ -43,7 +43,7 @@ use launch::{
 
 use loki::log;
 
-use loki::{log::trace, traits, transit_model::Model};
+use loki::{log::debug, traits, transit_model::Model};
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
@@ -222,7 +222,7 @@ where
         }
         Ok(responses) => {
             for response in responses.iter() {
-                trace!("{}", response.print(model)?);
+                debug!("{}", response.print(model)?);
             }
         }
     }
