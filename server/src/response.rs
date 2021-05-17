@@ -93,7 +93,7 @@ fn make_journey(
         nb_sections: Some(u32::try_from(journey.nb_of_sections())?),
         durations: Some(navitia_proto::Durations {
             total: Some(i32::try_from(journey.total_duration())?),
-            walking: Some(i32::try_from(journey.total_walking_duration())?),
+            walking: Some(i32::try_from(journey.total_transfer_duration())?),
             bike: Some(0),
             car: Some(0),
             ridesharing: Some(0),
