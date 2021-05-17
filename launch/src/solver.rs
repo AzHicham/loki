@@ -90,7 +90,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
                 let request = basic_criteria::depart_after::classic_comparator::Request::new(
                     model,
                     data,
-                    request_input, 
+                    request_input,
                 )?;
                 let responses = solve_request_inner(&mut self.engine, &request, data);
                 Ok(responses)

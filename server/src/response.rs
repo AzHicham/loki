@@ -53,7 +53,7 @@ use transit_model::Model;
 use std::convert::TryFrom;
 
 pub fn make_response(
-    request_input : & RequestInput,
+    request_input: &RequestInput,
     journeys: Vec<loki::Response>,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error> {
@@ -73,7 +73,7 @@ pub fn make_response(
 }
 
 fn make_journey(
-    request_input : & RequestInput,
+    request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
     model: &Model,
@@ -99,7 +99,7 @@ fn make_journey(
             ridesharing: Some(0),
             taxi: Some(0),
         }),
-        requested_date_time : Some(to_u64_timestamp(&request_input.departure_datetime)?),
+        requested_date_time: Some(to_u64_timestamp(&request_input.departure_datetime)?),
         ..Default::default()
     };
 

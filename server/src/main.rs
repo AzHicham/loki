@@ -265,7 +265,6 @@ where
     }
 }
 
-
 fn solve<Data, Solver: solver::Solver<Data>>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
@@ -452,7 +451,7 @@ fn respond(
                 Ok(resp) => {
                     // trace!("{:#?}", resp);
                     resp
-                },
+                }
             }
         }
     };
