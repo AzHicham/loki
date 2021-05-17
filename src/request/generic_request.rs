@@ -101,7 +101,7 @@ where
                     );
                     None
                 })?;
-                Some((stop, fallback_duration.clone()))
+                Some((stop, *fallback_duration))
             })
             .collect();
         if departures.is_empty() {
@@ -129,7 +129,7 @@ where
                     );
                     None
                 })?;
-                Some((stop, fallback_duration.clone()))
+                Some((stop, *fallback_duration))
             })
             .collect();
 
