@@ -68,8 +68,8 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
-            <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32) 
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) * (lower.nb_of_legs as u32)
+            <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32) * (upper.nb_of_legs as u32)
     }
 
     fn can_be_discarded(&self, partial_journey_criteria : & Self::Criteria, complete_journey_criteria : & Self::Criteria) -> bool { 
