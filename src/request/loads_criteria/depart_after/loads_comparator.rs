@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits;
+use crate::{PositiveDuration, traits};
 
 use traits::{BadRequest, RequestIO};
 
@@ -79,6 +79,11 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
     // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
     //     lower.arrival_time <= upper.arrival_time
     // }
+
+    fn can_be_discarded(&self, partial_journey_criteria : & Self::Criteria, complete_journey_criteria : & Self::Criteria) -> bool { 
+        partial_journey_criteria.arrival_time >= complete_journey_criteria.arrival_time + PositiveDuration::from_hms(1, 0, 0)
+
+    }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
         self.generic.is_valid(criteria)

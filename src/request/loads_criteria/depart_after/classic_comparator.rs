@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits::{self};
+use crate::{PositiveDuration, traits::{self}};
 
 use traits::{BadRequest, RequestIO};
 
@@ -67,6 +67,11 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
+    }
+
+    fn can_be_discarded(&self, partial_journey_criteria : & Self::Criteria, complete_journey_criteria : & Self::Criteria) -> bool { 
+        partial_journey_criteria.arrival_time >= complete_journey_criteria.arrival_time + PositiveDuration::from_hms(1, 0, 0)
+
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {

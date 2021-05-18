@@ -205,6 +205,8 @@ pub trait Request: RequestTypes {
     /// Returns `true` if `lower` is better or equivalent to `upper`
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool;
 
+    fn can_be_discarded(&self, partial_journey_criteria : & Self::Criteria, complete_journey_criteria : & Self::Criteria) -> bool;
+
     /// Returns `false` when `criteria` corresponds to an invalid journey.
     ///
     /// For example if we want to have at most 5 transfers, and `criteria` have 6 transfers

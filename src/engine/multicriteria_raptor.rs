@@ -399,6 +399,11 @@ where
                                 // trace!("    new_board_front is better");
                                 continue;
                             }
+                            if self.can_be_discarded(&new_board_criteria, pt) {
+                                continue;
+                            }
+    
+
 
                             let new_board = self.journeys_tree.board(&wait, &trip, &position);
                             trace!("    New board {:?} at stop {} into trip {}, parent {:?}", new_board, pt.position_name(&position, mission), pt.trip_name(&trip), wait);
@@ -423,6 +428,9 @@ where
                             continue;
                         }
                         if self.new_board_front.dominates(&new_criteria, pt) {
+                            continue;
+                        }
+                        if self.can_be_discarded(&new_criteria, pt) {
                             continue;
                         }
 
@@ -519,6 +527,9 @@ where
                 for transfer in pt.transfers_at(&stop) {
                     let (arrival_stop, arrival_criteria) = pt.transfer(&stop, &transfer, &criteria);
                     let arrival_id = pt.stop_id(&arrival_stop);
+                    if self.can_be_discarded(&arrival_criteria, pt) {
+                        continue;
+                    }
                     let wait_front = &mut self.wait_fronts[arrival_id];
                     let new_wait_front = &mut self.new_wait_fronts[arrival_id];
                     if !pt.is_valid(&arrival_criteria) {
@@ -545,6 +556,28 @@ where
                 }
             }
         }
+    }
+
+    fn can_be_discarded<R>(&self, partial_journey_criteria : & T::Criteria, pt: &R) -> bool
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
+    {
+        for (_, complete_journey_criteria) in self.arrive_front.iter() {
+            if pt.can_be_discarded(partial_journey_criteria, complete_journey_criteria) {
+                return true;
+            }
+        }
+        false
+
     }
 
     // tranfer `new_waiting_fronts` into `waiting_fronts`
