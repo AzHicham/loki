@@ -48,11 +48,11 @@ use super::Criteria;
 
 pub mod classic_comparator;
 
-pub struct GenericBasicDepartAfter<'data, Data: traits::Data> {
-    generic: GenericRequest<'data, Data>,
+pub struct GenericBasicDepartAfter<'data, 'model, Data: traits::Data> {
+    generic: GenericRequest<'data, 'model, Data>,
 }
 
-impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
+impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, 'model, Data> {
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {
         self.generic.leg_arrival_penalty
     }
@@ -249,7 +249,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
     }
 
     fn new(
-        model: &transit_model::Model,
+        model: &'model transit_model::Model,
         transit_data: &'data Data,
         request_input: &traits::RequestInput,
     ) -> Result<Self, BadRequest>
@@ -280,9 +280,22 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, Data> {
     {
         self.generic.create_response(pt_journey, loads_count)
     }
+
+    pub fn stop_name(&self, stop : & Data::Stop) -> String {
+        self.generic.stop_name(stop)
+    }
+    pub fn trip_name(&self, trip : & Data::Trip) -> String {
+        self.generic.trip_name(trip)
+    }
+    pub fn mission_name(&self, mission : & Data::Mission ) -> String {
+        self.generic.mission_name(mission)
+    }
+    pub fn position_name(&self, position : & Data::Position, mission : & Data::Mission) -> String {
+        self.generic.position_name(position, mission)
+    }
 }
 
-impl<'data, 'outer, Data> GenericBasicDepartAfter<'data, Data>
+impl<'data, 'model, 'outer, Data> GenericBasicDepartAfter<'data, 'model, Data>
 where
     Data: traits::Data + traits::DataIters<'outer>,
 {

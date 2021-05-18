@@ -47,7 +47,7 @@ use launch::{config, solver};
 use loki::traits::{self, RequestInput};
 use loki::transit_model;
 use loki::{
-    log::{error, info, warn},
+    log::{error, info, warn, debug},
     LoadsDailyData, LoadsPeriodicData,
 };
 use loki::{DailyData, PeriodicData, PositiveDuration};
@@ -424,6 +424,9 @@ where
     // trace!("{:#?}", request_input);
 
     let responses = solver.solve_request(data, model, &request_input, &comparator_type)?;
+    for response in responses.iter() {
+        debug!("{}", response.print(model)?);
+    }
     Ok((request_input, responses))
 }
 
