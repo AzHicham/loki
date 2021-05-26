@@ -115,6 +115,15 @@ impl<ItemData: Clone, T: RequestTypes> ParetoFront<ItemData, T> {
             .retain(|(_, old_criteria)| !request.is_lower(&criteria, old_criteria));
     }
 
+    pub fn remove_elements_that_can_be_discarded_by<R>(&mut self, criteria: &T::Criteria, request: &R)
+    where
+        R: Request<Criteria = T::Criteria>,
+    {
+        self.elements
+            .retain(|(_, old_criteria)| !request.can_be_discarded(&old_criteria, criteria));
+
+    }
+
     pub fn add_and_remove_elements_dominated<R>(
         &mut self,
         item_data: ItemData,

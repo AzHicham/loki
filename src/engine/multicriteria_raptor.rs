@@ -505,10 +505,22 @@ where
             let stop_id = pt.stop_id(&stop);
             let new_debark_front = &self.new_debark_fronts[stop_id];
             for (debark, criteria) in new_debark_front.iter() {
-                let arrive = self.journeys_tree.arrive(debark, &arrival);
+                
                 let arrive_criteria = pt.arrive(&arrival, criteria);
+                if self.arrive_front.dominates(&arrive_criteria, pt) {
+                    continue;
+                }
+                self.arrive_front.remove_elements_dominated_by(&arrive_criteria, pt);
+
+                self.arrive_front.remove_elements_that_can_be_discarded_by(&arrive_criteria, pt);
+
+                let arrive = self.journeys_tree.arrive(debark, &arrival);
+
                 self.arrive_front.add(arrive, arrive_criteria, pt);
                 trace!("Arrival from {}, parent {:?}", pt.stop_name(&stop), debark);
+
+                
+                
             }
         }
 
