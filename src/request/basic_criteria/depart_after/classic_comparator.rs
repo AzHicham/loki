@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use crate::traits::{self, RequestTypes};
-use crate::{loads_data::LoadsCount, PositiveDuration};
+use crate::{loads_data::LoadsCount};
 
 use traits::{BadRequest, RequestIO};
 

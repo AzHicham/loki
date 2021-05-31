@@ -62,7 +62,6 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::PositiveDuration;
 
 fn load_to_int(load: &Load) -> u8 {
     match load {

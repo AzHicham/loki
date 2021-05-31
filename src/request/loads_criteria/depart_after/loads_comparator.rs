@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{traits, PositiveDuration};
+use crate::{traits};
 
 use traits::{BadRequest, RequestIO};
 
