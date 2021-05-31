@@ -62,7 +62,6 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-
 fn load_to_int(load: &Load) -> u8 {
     match load {
         Load::Low => 0,
@@ -85,9 +84,9 @@ impl PartialOrd for Load {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LoadsCount {
-    pub high: usize,
-    pub medium: usize,
-    pub low: usize,
+    pub high: u16,
+    pub medium: u16,
+    pub low: u16,
 }
 
 impl LoadsCount {
@@ -117,8 +116,18 @@ impl LoadsCount {
         Self { high, medium, low }
     }
 
-    pub fn total(&self) -> usize {
+    pub fn total(&self) -> u16 {
         self.high + self.medium + self.low
+    }
+
+    pub fn max(&self) -> Load {
+        if self.high > 0 {
+            return Load::High;
+        }
+        if self.medium > 0 {
+            return Load::Medium;
+        }
+        Load::Low
     }
 
     pub fn is_lower(&self, other: &Self) -> bool {

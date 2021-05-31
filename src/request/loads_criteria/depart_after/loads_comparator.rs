@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{traits};
+use crate::traits;
 
 use traits::{BadRequest, RequestIO};
 
@@ -61,24 +61,15 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty();
         let walking_penalty = self.generic.leg_walking_penalty();
+
         lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
-        && lower.loads_count.is_lower(&upper.loads_count)
+        && lower.loads_count.max() <= upper.loads_count.max()
     }
-
-    // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
-    //     lower.arrival_time <= upper.arrival_time
-    //     && lower.nb_of_legs <= upper.nb_of_legs
-    //     && lower.fallback_duration + lower.transfers_duration <=  upper.fallback_duration + upper.transfers_duration
-    // }
-
-    // fn is_lower(&self, lower : & Self::Criteria, upper : & Self::Criteria) -> bool {
-    //     lower.arrival_time <= upper.arrival_time
-    // }
 
     fn can_be_discarded(
         &self,

@@ -284,3 +284,33 @@ impl std::ops::Mul<u32> for PositiveDuration {
         }
     }
 }
+
+impl std::ops::Mul<u16> for PositiveDuration {
+    type Output = Self;
+
+    fn mul(self, rhs: u16) -> Self::Output {
+        PositiveDuration {
+            seconds: self.seconds * (rhs as u32),
+        }
+    }
+}
+
+impl std::ops::Mul<PositiveDuration> for u32 {
+    type Output = PositiveDuration;
+
+    fn mul(self, rhs: PositiveDuration) -> Self::Output {
+        PositiveDuration {
+            seconds: self * rhs.seconds,
+        }
+    }
+}
+
+impl std::ops::Mul<PositiveDuration> for u16 {
+    type Output = PositiveDuration;
+
+    fn mul(self, rhs: PositiveDuration) -> Self::Output {
+        PositiveDuration {
+            seconds: (self as u32) * rhs.seconds,
+        }
+    }
+}
