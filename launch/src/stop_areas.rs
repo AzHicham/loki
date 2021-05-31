@@ -58,7 +58,7 @@ pub fn make_query_stop_areas(
         leg_walking_penalty: request_params.leg_walking_penalty,
         max_nb_of_legs: request_params.max_nb_of_legs,
         max_journey_duration: request_params.max_journey_duration,
-        too_late_threshold : request_params.too_late_threshold,
+        too_late_threshold: request_params.too_late_threshold,
     };
 
     Ok(request_input)

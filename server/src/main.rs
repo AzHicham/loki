@@ -421,7 +421,7 @@ where
         leg_walking_penalty: config.request_default_params.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
-        too_late_threshold : config.request_default_params.too_late_threshold,
+        too_late_threshold: config.request_default_params.too_late_threshold,
     };
 
     // trace!("{:#?}", request_input);

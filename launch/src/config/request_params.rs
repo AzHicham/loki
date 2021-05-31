@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use serde::{Deserialize, Serialize};
-use std::{str::FromStr};
+use std::str::FromStr;
 use structopt::StructOpt;
 
 use loki::PositiveDuration;
@@ -66,9 +66,7 @@ pub struct RequestParams {
     /// the arrival time of another journey + too_late_threshold
     #[structopt(long, default_value = DEFAULT_TOO_LATE_THRESHOLD)]
     #[serde(default = "default_max_journey_duration")]
-    pub too_late_threshold : PositiveDuration
-
-
+    pub too_late_threshold: PositiveDuration,
 }
 
 pub const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
@@ -102,10 +100,9 @@ impl Default for RequestParams {
         Self {
             leg_arrival_penalty: default_leg_arrival_penalty(),
             leg_walking_penalty: default_leg_walking_penalty(),
-            max_nb_of_legs : default_max_nb_of_legs(),
+            max_nb_of_legs: default_max_nb_of_legs(),
             max_journey_duration: default_max_journey_duration(),
-            too_late_threshold : default_too_late_threshold(),
+            too_late_threshold: default_too_late_threshold(),
         }
     }
 }
-
