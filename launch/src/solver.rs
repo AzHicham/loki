@@ -36,7 +36,10 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
-use loki::{log::{debug, trace, info}, traits::RequestDebug};
+use loki::{
+    log::{debug, info, trace},
+    traits::RequestDebug,
+};
 
 use loki::{
     response,

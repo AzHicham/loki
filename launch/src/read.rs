@@ -48,9 +48,7 @@ where
     Data: traits::Data,
 {
     let model = match launch_params.input_data_type {
-        config::InputDataType::Ntfs => {
-            transit_model::ntfs::read(&launch_params.input_data_path)?
-        },
+        config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
         config::InputDataType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
                 contributor: transit_model::objects::Contributor::default(),

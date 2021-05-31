@@ -47,7 +47,7 @@ use launch::{config, solver};
 use loki::traits::{self, RequestInput};
 use loki::transit_model;
 use loki::{
-    log::{error, info, warn, debug},
+    log::{debug, error, info, warn},
     LoadsDailyData, LoadsPeriodicData,
 };
 use loki::{DailyData, PeriodicData, PositiveDuration};

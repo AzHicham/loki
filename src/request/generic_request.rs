@@ -46,7 +46,7 @@ use transit_model::Model;
 
 pub struct GenericRequest<'data, 'model, Data: traits::Data> {
     pub(super) transit_data: &'data Data,
-    pub(super) model : & 'model Model,
+    pub(super) model: &'model Model,
     pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
     pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -266,34 +266,37 @@ impl Iterator for Arrivals {
     }
 }
 
-
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
     Data: traits::Data,
 {
-    pub fn stop_name(&self, stop : & Data::Stop) -> String {
+    pub fn stop_name(&self, stop: &Data::Stop) -> String {
         let stop_point_idx = self.transit_data.stop_point_idx(stop);
         let stop_point = &self.model.stop_points[stop_point_idx];
         stop_point.id.clone()
     }
 
-    pub fn trip_name(&self, trip : & Data::Trip) -> String {
+    pub fn trip_name(&self, trip: &Data::Trip) -> String {
         let vehicle_journey_idx = self.transit_data.vehicle_journey_idx(trip);
         let date = self.transit_data.day_of(trip);
         let vehicle_journey = &self.model.vehicle_journeys[vehicle_journey_idx];
-        format!("{}_{}_{}", vehicle_journey.id, date.to_string(), vehicle_journey.route_id)
+        format!(
+            "{}_{}_{}",
+            vehicle_journey.id,
+            date.to_string(),
+            vehicle_journey.route_id
+        )
     }
 
-    pub fn mission_name(&self, mission : & Data::Mission ) -> String {
+    pub fn mission_name(&self, mission: &Data::Mission) -> String {
         let mission_id = self.transit_data.mission_id(mission);
         format!("{}", mission_id)
     }
 
-    pub fn position_name(&self, position : & Data::Position, mission : & Data::Mission) -> String {
+    pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
         let stop = self.transit_data.stop_of(position, mission);
         let stop_name = self.stop_name(&stop);
         let mission_name = self.mission_name(mission);
         format!("{}_{}", stop_name, mission_name)
     }
-
 }

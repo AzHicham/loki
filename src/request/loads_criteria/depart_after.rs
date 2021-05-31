@@ -288,16 +288,16 @@ impl<'data, 'model, Data: traits::Data> GenericLoadsDepartAfter<'data, 'model, D
         self.generic.create_response(pt_journey, loads_count)
     }
 
-    pub fn stop_name(&self, stop : & Data::Stop) -> String {
+    pub fn stop_name(&self, stop: &Data::Stop) -> String {
         self.generic.stop_name(stop)
     }
-    pub fn trip_name(&self, trip : & Data::Trip) -> String {
+    pub fn trip_name(&self, trip: &Data::Trip) -> String {
         self.generic.trip_name(trip)
     }
-    pub fn mission_name(&self, mission : & Data::Mission ) -> String {
+    pub fn mission_name(&self, mission: &Data::Mission) -> String {
         self.generic.mission_name(mission)
     }
-    pub fn position_name(&self, position : & Data::Position, mission : & Data::Mission) -> String {
+    pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
         self.generic.position_name(position, mission)
     }
 }

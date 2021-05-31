@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{PositiveDuration, traits};
+use crate::{traits, PositiveDuration};
 
 use traits::{BadRequest, RequestIO};
 
@@ -80,9 +80,13 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
     //     lower.arrival_time <= upper.arrival_time
     // }
 
-    fn can_be_discarded(&self, partial_journey_criteria : & Self::Criteria, complete_journey_criteria : & Self::Criteria) -> bool { 
-        partial_journey_criteria.arrival_time >= complete_journey_criteria.arrival_time + PositiveDuration::from_hms(1, 0, 0)
-
+    fn can_be_discarded(
+        &self,
+        partial_journey_criteria: &Self::Criteria,
+        complete_journey_criteria: &Self::Criteria,
+    ) -> bool {
+        partial_journey_criteria.arrival_time
+            >= complete_journey_criteria.arrival_time + PositiveDuration::from_hms(1, 0, 0)
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
@@ -225,8 +229,10 @@ where
     }
 }
 
-impl<'data, 'model, Data> traits::RequestWithIters for Request<'data, 'model, Data> where Data: traits::DataWithIters
-{}
+impl<'data, 'model, Data> traits::RequestWithIters for Request<'data, 'model, Data> where
+    Data: traits::DataWithIters
+{
+}
 
 use crate::response;
 use crate::traits::Journey as PTJourney;
@@ -276,22 +282,22 @@ where
 }
 
 impl<'data, 'model, Data> traits::RequestDebug for Request<'data, 'model, Data>
-    where
-        Data: traits::Data,
+where
+    Data: traits::Data,
 {
-    fn stop_name(&self, stop : & Self::Stop) -> String {
+    fn stop_name(&self, stop: &Self::Stop) -> String {
         self.generic.stop_name(stop)
     }
 
-    fn trip_name(&self, trip : & Self::Trip) -> String {
+    fn trip_name(&self, trip: &Self::Trip) -> String {
         self.generic.trip_name(trip)
     }
 
-    fn mission_name(&self, mission : & Self::Mission) -> String {
+    fn mission_name(&self, mission: &Self::Mission) -> String {
         self.generic.mission_name(mission)
     }
 
-    fn position_name(&self, position : & Self::Position, mission : & Self::Mission) -> String {
+    fn position_name(&self, position: &Self::Position, mission: &Self::Mission) -> String {
         self.generic.position_name(position, mission)
     }
 }
