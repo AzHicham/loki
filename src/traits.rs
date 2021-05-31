@@ -412,6 +412,7 @@ pub struct RequestInput {
     pub leg_walking_penalty: PositiveDuration,
     pub max_nb_of_legs: u8,
     pub max_journey_duration: PositiveDuration,
+    pub too_late_threshold : PositiveDuration,
 }
 
 pub trait RequestIO<'data, 'model, Data: self::Data>: Request {

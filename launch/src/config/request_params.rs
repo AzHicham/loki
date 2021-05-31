@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+use std::{str::FromStr};
 use structopt::StructOpt;
 
 use loki::PositiveDuration;
@@ -61,12 +61,21 @@ pub struct RequestParams {
     #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
     #[serde(default = "default_max_journey_duration")]
     pub max_journey_duration: PositiveDuration,
+
+    /// discard any journey that arrive later than
+    /// the arrival time of another journey + too_late_threshold
+    #[structopt(long, default_value = DEFAULT_TOO_LATE_THRESHOLD)]
+    #[serde(default = "default_max_journey_duration")]
+    pub too_late_threshold : PositiveDuration
+
+
 }
 
 pub const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
 pub const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
 pub const DEFAULT_MAX_NB_LEGS: &str = "10";
 pub const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
+pub const DEFAULT_TOO_LATE_THRESHOLD: &str = "02:00:00";
 
 pub fn default_leg_arrival_penalty() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap()
@@ -84,25 +93,19 @@ pub fn default_max_journey_duration() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_MAX_JOURNEY_DURATION).unwrap()
 }
 
+pub fn default_too_late_threshold() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_TOO_LATE_THRESHOLD).unwrap()
+}
+
 impl Default for RequestParams {
     fn default() -> Self {
-        let max_nb_of_legs: u8 = FromStr::from_str(DEFAULT_MAX_NB_LEGS).unwrap();
         Self {
-            leg_arrival_penalty: FromStr::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap(),
-            leg_walking_penalty: FromStr::from_str(DEFAULT_LEG_WALKING_PENALTY).unwrap(),
-            max_nb_of_legs,
-            max_journey_duration: FromStr::from_str(DEFAULT_MAX_JOURNEY_DURATION).unwrap(),
+            leg_arrival_penalty: default_leg_arrival_penalty(),
+            leg_walking_penalty: default_leg_walking_penalty(),
+            max_nb_of_legs : default_max_nb_of_legs(),
+            max_journey_duration: default_max_journey_duration(),
+            too_late_threshold : default_too_late_threshold(),
         }
     }
 }
 
-impl Display for RequestParams {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "--leg_arrival_penalty {} --leg_walking_penalty {} --max_nb_of_legs {} --max_journey_duration {}",
-                self.leg_arrival_penalty,
-                self.leg_walking_penalty,
-                self.max_nb_of_legs,
-                self.max_journey_duration
-        )
-    }
-}

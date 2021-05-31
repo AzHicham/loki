@@ -86,7 +86,7 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
         complete_journey_criteria: &Self::Criteria,
     ) -> bool {
         partial_journey_criteria.arrival_time
-            >= complete_journey_criteria.arrival_time + PositiveDuration::from_hms(1, 0, 0)
+            >= complete_journey_criteria.arrival_time + self.generic.generic.too_late_threshold
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {

@@ -54,6 +54,7 @@ pub struct GenericRequest<'data, 'model, Data: traits::Data> {
     pub(super) leg_walking_penalty: PositiveDuration,
     pub(super) max_arrival_time: SecondsSinceDatasetUTCStart,
     pub(super) max_nb_legs: u8,
+    pub(super) too_late_threshold : PositiveDuration, 
 }
 
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
@@ -149,6 +150,7 @@ where
             leg_walking_penalty: request_input.leg_walking_penalty,
             max_arrival_time: departure_datetime + request_input.max_journey_duration,
             max_nb_legs: request_input.max_nb_of_legs,
+            too_late_threshold : request_input.too_late_threshold
         };
 
         Ok(result)
