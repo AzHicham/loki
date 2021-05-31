@@ -67,7 +67,8 @@ fn test_loads_matin() -> Result<(), Error> {
             "departure_datetime" : "20210101T080000",
             "comparator_type" : "loads",
             "start" : "stop_area:massy",
-            "end" : "stop_area:paris"
+            "end" : "stop_area:paris",
+            "too_late_threshold" : "24:00:00"
           } "#,
     )?;
 
@@ -99,7 +100,8 @@ fn test_loads_midi() -> Result<(), Error> {
         "departure_datetime": "20210101T100000",
         "comparator_type": "loads",
         "start" : "stop_area:massy",
-        "end" : "stop_area:paris"
+        "end" : "stop_area:paris",
+        "too_late_threshold" : "24:00:00"
       } "#,
     )?;
 
@@ -128,7 +130,8 @@ fn test_without_loads_matin() -> Result<(), Error> {
         "departure_datetime": "20210101T080000",
         "comparator_type": "basic",
         "start" : "stop_area:massy",
-        "end" : "stop_area:paris"
+        "end" : "stop_area:paris",
+        "too_late_threshold" : "24:00:00"
       } "#,
     )?;
 

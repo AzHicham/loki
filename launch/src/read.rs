@@ -58,6 +58,7 @@ where
                 on_demand_transport: false,
                 on_demand_transport_comment: None,
             };
+            info!("Reading gtfs from {:?}", &launch_params.input_data_path);
             use std::str::FromStr;
             let max_distance = f64::from_str(transit_model::TRANSFER_MAX_DISTANCE)?;
             let walking_speed = f64::from_str(transit_model::TRANSFER_WAKING_SPEED)?;

@@ -205,6 +205,12 @@ pub trait Request: RequestTypes {
     /// Returns `true` if `lower` is better or equivalent to `upper`
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool;
 
+    fn can_be_discarded(
+        &self,
+        partial_journey_criteria: &Self::Criteria,
+        complete_journey_criteria: &Self::Criteria,
+    ) -> bool;
+
     /// Returns `false` when `criteria` corresponds to an invalid journey.
     ///
     /// For example if we want to have at most 5 transfers, and `criteria` have 6 transfers
@@ -406,6 +412,7 @@ pub struct RequestInput {
     pub leg_walking_penalty: PositiveDuration,
     pub max_nb_of_legs: u8,
     pub max_journey_duration: PositiveDuration,
+    pub too_late_threshold: PositiveDuration,
 }
 
 pub trait RequestIO<'data, 'model, Data: self::Data>: Request {
@@ -435,13 +442,13 @@ pub trait RequestIO<'data, 'model, Data: self::Data>: Request {
             Departure = Self::Departure,
             Criteria = Self::Criteria,
         >;
-} 
+}
 
-pub trait RequestDebug : Request { 
-    fn stop_name(&self, stop : & Self::Stop) -> String;
-    fn trip_name(&self, trip : & Self::Trip) -> String;
-    fn mission_name(&self, mission : & Self::Mission) -> String;
-    fn position_name(&self, position : & Self::Position, mission : & Self::Mission) -> String;
+pub trait RequestDebug: Request {
+    fn stop_name(&self, stop: &Self::Stop) -> String;
+    fn trip_name(&self, trip: &Self::Trip) -> String;
+    fn mission_name(&self, mission: &Self::Mission) -> String;
+    fn position_name(&self, position: &Self::Position, mission: &Self::Mission) -> String;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}

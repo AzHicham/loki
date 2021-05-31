@@ -34,8 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::loads_data::LoadsCount;
 use crate::traits::{self, RequestTypes};
+use crate::{loads_data::LoadsCount};
 
 use traits::{BadRequest, RequestIO};
 
@@ -68,8 +68,17 @@ impl<'data, 'model, Data: traits::Data> traits::Request for Request<'data, 'mode
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
+    }
+
+    fn can_be_discarded(
+        &self,
+        partial_journey_criteria: &Self::Criteria,
+        complete_journey_criteria: &Self::Criteria,
+    ) -> bool {
+        partial_journey_criteria.arrival_time
+            >= complete_journey_criteria.arrival_time + self.generic.generic.too_late_threshold
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
@@ -212,8 +221,10 @@ where
     }
 }
 
-impl<'data, 'model, Data> traits::RequestWithIters for Request<'data, 'model, Data> where Data: traits::DataWithIters
-{}
+impl<'data, 'model, Data> traits::RequestWithIters for Request<'data, 'model, Data> where
+    Data: traits::DataWithIters
+{
+}
 
 use crate::response;
 use crate::traits::Journey as PTJourney;
@@ -260,22 +271,22 @@ where
 }
 
 impl<'data, 'model, Data> traits::RequestDebug for Request<'data, 'model, Data>
-    where
-        Data: traits::Data,
+where
+    Data: traits::Data,
 {
-    fn stop_name(&self, stop : & Self::Stop) -> String {
+    fn stop_name(&self, stop: &Self::Stop) -> String {
         self.generic.stop_name(stop)
     }
 
-    fn trip_name(&self, trip : & Self::Trip) -> String {
+    fn trip_name(&self, trip: &Self::Trip) -> String {
         self.generic.trip_name(trip)
     }
 
-    fn mission_name(&self, mission : & Self::Mission) -> String {
+    fn mission_name(&self, mission: &Self::Mission) -> String {
         self.generic.mission_name(mission)
     }
 
-    fn position_name(&self, position : & Self::Position, mission : & Self::Mission) -> String {
+    fn position_name(&self, position: &Self::Position, mission: &Self::Mission) -> String {
         self.generic.position_name(position, mission)
     }
 }

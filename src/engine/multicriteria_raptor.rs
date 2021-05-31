@@ -36,9 +36,9 @@
 
 use std::fmt::Debug;
 
-use crate::{engine::journeys_tree::JourneysTree, traits::RequestDebug};
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use crate::traits::{Journey, RequestTypes, RequestWithIters};
+use crate::{engine::journeys_tree::JourneysTree, traits::RequestDebug};
 use log::trace;
 
 pub struct MultiCriteriaRaptor<T: RequestTypes> {
@@ -125,7 +125,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
-        R : RequestDebug
+        R: RequestDebug,
     {
         self.clear();
         self.resize(pt.nb_of_stops(), pt.nb_of_missions());
@@ -215,7 +215,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
-        R : RequestDebug
+        R: RequestDebug,
     {
         debug_assert!(self.journeys_tree.is_empty());
         debug_assert!(self
@@ -255,13 +255,16 @@ where
             Arrival = T::Arrival,
             Criteria = T::Criteria,
         >,
-        R : RequestDebug,
+        R: RequestDebug,
     {
         debug_assert!(self.missions_with_new_wait.is_empty());
 
         for stop in self.stops_with_new_wait.iter() {
             // TODO : check that the same mission is not returned twice
-            trace!("Identifying missions with new waits at {}", pt.stop_name(stop));
+            trace!(
+                "Identifying missions with new waits at {}",
+                pt.stop_name(stop)
+            );
             for (mission, position) in pt.boardable_missions_at(&stop) {
                 let current_mission_has_new_wait =
                     &mut self.mission_has_new_wait[pt.mission_id(&mission)];
@@ -314,7 +317,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
-        R : RequestDebug
+        R: RequestDebug,
     {
         debug_assert!(!self.missions_with_new_wait.is_empty());
         debug_assert!(self.stops_with_new_debark.is_empty());
@@ -328,7 +331,13 @@ where
 
             self.board_front.clear();
 
-            trace!("Riding {} from {:?}", pt.mission_name(mission), has_position.clone().map(|pos| pt.position_name(&pos, mission)));
+            trace!(
+                "Riding {} from {:?}",
+                pt.mission_name(mission),
+                has_position
+                    .clone()
+                    .map(|pos| pt.position_name(&pos, mission))
+            );
 
             while let Some(position) = has_position {
                 let stop = pt.stop_of(&position, mission);
@@ -358,7 +367,13 @@ where
                                 new_debark_criteria,
                                 pt,
                             );
-                            trace!("New debark {:?} at stop {} from trip {}, parent {:?}", new_debark, pt.position_name(&position, mission), pt.trip_name(trip), board);
+                            trace!(
+                                "New debark {:?} at stop {} from trip {}, parent {:?}",
+                                new_debark,
+                                pt.position_name(&position, mission),
+                                pt.trip_name(trip),
+                                board
+                            );
 
                             if !current_stop_has_new_debark {
                                 self.stops_with_new_debark.push(stop.clone());
@@ -399,9 +414,18 @@ where
                                 // trace!("    new_board_front is better");
                                 continue;
                             }
+                            if self.can_be_discarded(&new_board_criteria, pt) {
+                                continue;
+                            }
 
                             let new_board = self.journeys_tree.board(&wait, &trip, &position);
-                            trace!("    New board {:?} at stop {} into trip {}, parent {:?}", new_board, pt.position_name(&position, mission), pt.trip_name(&trip), wait);
+                            trace!(
+                                "    New board {:?} at stop {} into trip {}, parent {:?}",
+                                new_board,
+                                pt.position_name(&position, mission),
+                                pt.trip_name(&trip),
+                                wait
+                            );
                             self.new_board_front.add_and_remove_elements_dominated(
                                 (new_board, trip),
                                 new_board_criteria,
@@ -423,6 +447,9 @@ where
                             continue;
                         }
                         if self.new_board_front.dominates(&new_criteria, pt) {
+                            continue;
+                        }
+                        if self.can_be_discarded(&new_criteria, pt) {
                             continue;
                         }
 
@@ -487,7 +514,7 @@ where
             Criteria = T::Criteria,
             Transfer = T::Transfer,
         >,
-        R : RequestDebug
+        R: RequestDebug,
     {
         debug_assert!(self.new_wait_fronts.iter().all(|front| front.is_empty()));
         debug_assert!(self.stops_with_new_wait.is_empty());
@@ -497,8 +524,18 @@ where
             let stop_id = pt.stop_id(&stop);
             let new_debark_front = &self.new_debark_fronts[stop_id];
             for (debark, criteria) in new_debark_front.iter() {
-                let arrive = self.journeys_tree.arrive(debark, &arrival);
                 let arrive_criteria = pt.arrive(&arrival, criteria);
+                if self.arrive_front.dominates(&arrive_criteria, pt) {
+                    continue;
+                }
+                self.arrive_front
+                    .remove_elements_dominated_by(&arrive_criteria, pt);
+
+                self.arrive_front
+                    .remove_elements_that_can_be_discarded_by(&arrive_criteria, pt);
+
+                let arrive = self.journeys_tree.arrive(debark, &arrival);
+
                 self.arrive_front.add(arrive, arrive_criteria, pt);
                 trace!("Arrival from {}, parent {:?}", pt.stop_name(&stop), debark);
             }
@@ -519,6 +556,9 @@ where
                 for transfer in pt.transfers_at(&stop) {
                     let (arrival_stop, arrival_criteria) = pt.transfer(&stop, &transfer, &criteria);
                     let arrival_id = pt.stop_id(&arrival_stop);
+                    if self.can_be_discarded(&arrival_criteria, pt) {
+                        continue;
+                    }
                     let wait_front = &mut self.wait_fronts[arrival_id];
                     let new_wait_front = &mut self.new_wait_fronts[arrival_id];
                     if !pt.is_valid(&arrival_criteria) {
@@ -541,10 +581,37 @@ where
                     let waiting = self.journeys_tree.transfer(&debark, &transfer);
                     wait_front.remove_elements_dominated_by(&arrival_criteria, pt);
                     new_wait_front.add_and_remove_elements_dominated(waiting, arrival_criteria, pt);
-                    trace!("Transfer {:?} from {} to {}, parent {:?}", waiting, pt.stop_name(&stop), pt.stop_name(&arrival_stop), debark);
+                    trace!(
+                        "Transfer {:?} from {} to {}, parent {:?}",
+                        waiting,
+                        pt.stop_name(&stop),
+                        pt.stop_name(&arrival_stop),
+                        debark
+                    );
                 }
             }
         }
+    }
+
+    fn can_be_discarded<R>(&self, partial_journey_criteria: &T::Criteria, pt: &R) -> bool
+    where
+        R: RequestWithIters<
+            Position = T::Position,
+            Mission = T::Mission,
+            Stop = T::Stop,
+            Trip = T::Trip,
+            Departure = T::Departure,
+            Arrival = T::Arrival,
+            Criteria = T::Criteria,
+            Transfer = T::Transfer,
+        >,
+    {
+        for (_, complete_journey_criteria) in self.arrive_front.iter() {
+            if pt.can_be_discarded(partial_journey_criteria, complete_journey_criteria) {
+                return true;
+            }
+        }
+        false
     }
 
     // tranfer `new_waiting_fronts` into `waiting_fronts`
@@ -590,7 +657,6 @@ where
             self.mission_has_new_wait[mission_id] = None;
         }
         self.missions_with_new_wait.clear();
-
     }
 
     fn fill_results(&mut self) {

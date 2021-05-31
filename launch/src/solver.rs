@@ -36,7 +36,10 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
-use loki::{log::{debug, trace}, traits::RequestDebug};
+use loki::{
+    log::{debug, info, trace},
+    traits::RequestDebug,
+};
 
 use loki::{
     response,
@@ -176,16 +179,16 @@ where
     >,
     Types::Criteria: Debug,
 {
-    debug!("Start computing journey");
+    debug!("Start computing journeys");
     let request_timer = SystemTime::now();
     engine.compute(request);
-    debug!(
+    info!(
         "Journeys computed in {} ms with {} rounds",
         request_timer.elapsed().unwrap().as_millis(),
         engine.nb_of_rounds()
     );
-    debug!("Nb of journeys found : {}", engine.nb_of_journeys());
-    debug!("Tree size : {}", engine.tree_size());
+    info!("Nb of journeys found : {}", engine.nb_of_journeys());
+    info!("Tree size : {}", engine.tree_size());
 
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         request

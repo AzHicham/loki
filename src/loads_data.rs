@@ -62,6 +62,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
+
 fn load_to_int(load: &Load) -> u8 {
     match load {
         Load::Low => 0,
