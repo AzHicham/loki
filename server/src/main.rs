@@ -93,7 +93,7 @@ pub struct ConfigFile {
     file: PathBuf,
 }
 
-#[derive(Serialize, Deserialize, StructOpt)]
+#[derive(Serialize, Deserialize, StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 pub struct Config {
     #[serde(flatten)]
@@ -148,6 +148,7 @@ fn launch_server() -> Result<(), Error> {
 }
 
 pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
+    info!("Reading config from file {:?}", &config_file.file);
     let file = match File::open(&config_file.file) {
         Ok(file) => file,
         Err(e) => {
@@ -156,6 +157,7 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     };
     let reader = BufReader::new(file);
     let config: Config = serde_json::from_reader(reader)?;
+    debug!("Launching with config : {:#?}", config);
     Ok(config)
 }
 
