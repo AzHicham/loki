@@ -34,9 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{
-    traits::{self},
-};
+use crate::traits::{self};
 
 use traits::{BadRequest, RequestIO};
 

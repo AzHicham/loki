@@ -34,8 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::loads_data::LoadsCount;
 use crate::traits::{self, RequestTypes};
-use crate::{loads_data::LoadsCount};
 
 use traits::{BadRequest, RequestIO};
 
