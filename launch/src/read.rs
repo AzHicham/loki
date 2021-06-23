@@ -36,8 +36,8 @@
 
 use super::config;
 use loki::log::{info, warn};
-use loki::traits;
 use loki::transit_model::{self, Model};
+use loki::DataTrait;
 use loki::LoadsData;
 use std::{collections::BTreeMap, time::SystemTime};
 
@@ -45,7 +45,7 @@ pub fn read<Data>(
     launch_params: &config::LaunchParams,
 ) -> Result<(Data, Model), transit_model::Error>
 where
-    Data: traits::Data,
+    Data: DataTrait,
 {
     let model = match launch_params.input_data_type {
         config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,

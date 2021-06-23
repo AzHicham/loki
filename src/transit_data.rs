@@ -34,9 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod data_interface;
 pub mod init;
 pub mod iters;
-pub mod data_interface;
 
 use iters::MissionsOfStop;
 pub use transit_model::objects::Time as TransitModelTime;

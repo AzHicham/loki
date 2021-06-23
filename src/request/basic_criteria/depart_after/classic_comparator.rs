@@ -34,10 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::engine::engine_interface::{BadRequest, RequestDebug, RequestIO, RequestInput, RequestIters, RequestTypes, RequestWithIters};
-use crate::loads_data::LoadsCount;
-use crate::transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes};
 use crate::engine::engine_interface::Request as RequestTrait;
+use crate::engine::engine_interface::{
+    BadRequest, RequestDebug, RequestIO, RequestInput, RequestIters, RequestTypes, RequestWithIters,
+};
+use crate::loads_data::LoadsCount;
+use crate::transit_data::data_interface::{
+    Data as DataTrait, DataIters, DataWithIters, TransitTypes,
+};
 
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericBasicDepartAfter};
 
@@ -68,7 +72,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
             <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32) 
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
     }
 
@@ -221,13 +225,11 @@ where
     }
 }
 
-impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where
-    Data: DataWithIters
-{
-}
+impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where Data: DataWithIters
+{}
 
-use crate::response;
 use crate::engine::engine_interface::Journey as PTJourney;
+use crate::response;
 
 impl<'data, 'model, Data> RequestIO<'data, 'model, Data> for Request<'data, 'model, Data>
 where

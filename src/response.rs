@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits;
 use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},

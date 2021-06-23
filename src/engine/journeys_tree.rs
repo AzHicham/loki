@@ -34,10 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
 use super::engine_interface::{ConnectionLeg, DepartureLeg, Journey, RequestTypes};
-
 
 type Id = usize;
 

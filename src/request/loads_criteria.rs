@@ -36,10 +36,10 @@
 
 use std::marker::PhantomData;
 
-use crate::{loads_data::LoadsCount, time::SecondsSinceDatasetUTCStart, PositiveDuration};
+use crate::engine::engine_interface::RequestTypes;
 use crate::transit_data::data_interface::Data as DataTrait;
 use crate::transit_data::data_interface::TransitTypes;
-use crate::engine::engine_interface::RequestTypes;
+use crate::{loads_data::LoadsCount, time::SecondsSinceDatasetUTCStart, PositiveDuration};
 
 pub mod depart_after;
 

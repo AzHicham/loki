@@ -34,14 +34,13 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::response;
 use crate::{loads_data::LoadsCount, time::PositiveDuration};
-use crate::{
-    response,
+
+use crate::engine::engine_interface::{
+    BadRequest, Journey as PTJourney, RequestInput, RequestTypes,
 };
-
-use crate::engine::engine_interface::{BadRequest, Journey as PTJourney, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::{Data as DataTrait, DataIters};
-
 
 use super::super::generic_request::{Arrival, Arrivals, Departure, Departures, GenericRequest};
 use super::Criteria;

@@ -1,6 +1,5 @@
-
-use crate::transit_data::data_interface;
 use crate::response;
+use crate::transit_data::data_interface;
 
 pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey
@@ -263,9 +262,7 @@ pub trait RequestDebug: Request {
     fn position_name(&self, position: &Self::Position, mission: &Self::Mission) -> String;
 }
 
-
 pub trait RequestWithIters: Request + for<'a> RequestIters<'a> {}
-
 
 pub struct DepartureLeg<T: RequestTypes> {
     pub departure: T::Departure,
@@ -300,7 +297,7 @@ use std::fmt;
 
 use chrono::NaiveDateTime;
 
-use crate::{PositiveDuration, transit_data::data_interface::DataIters};
+use crate::{transit_data::data_interface::DataIters, PositiveDuration};
 
 impl fmt::Display for BadRequest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

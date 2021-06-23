@@ -35,13 +35,12 @@
 // www.navitia.io
 
 use crate::engine::engine_interface::Journey as PTJourney;
-use crate::{
-    loads_data::LoadsCount,
-    response,
-    engine::engine_interface::{BadRequest, RequestTypes, RequestInput},
-    PositiveDuration,
-};
 use crate::transit_data::data_interface::{Data as DataTrait, DataIters};
+use crate::{
+    engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
+    loads_data::LoadsCount,
+    response, PositiveDuration,
+};
 
 use super::super::generic_request::{Arrival, Arrivals, Departure, Departures, GenericRequest};
 use super::Criteria;

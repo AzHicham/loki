@@ -34,9 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes};
+use crate::transit_data::data_interface::{
+    Data as DataTrait, DataIters, DataWithIters, TransitTypes,
+};
 
-use crate::engine::engine_interface::{BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters, RequestTypes, RequestWithIters};
+use crate::engine::engine_interface::{
+    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
+    RequestTypes, RequestWithIters,
+};
 
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericLoadsDepartAfter};
 pub struct Request<'data, 'model, Data: DataTrait> {
@@ -220,13 +225,11 @@ where
     }
 }
 
-impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where
-    Data: DataWithIters
-{
-}
+impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where Data: DataWithIters
+{}
 
-use crate::response;
 use crate::engine::engine_interface::Journey as PTJourney;
+use crate::response;
 
 impl<'data, 'model, Data> RequestIO<'data, 'model, Data> for Request<'data, 'model, Data>
 where

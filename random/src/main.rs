@@ -1,4 +1,4 @@
-use launch::loki;
+use launch::loki::{self, DataWithIters};
 use launch::{
     config,
     loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
@@ -8,8 +8,6 @@ use launch::{
 use loki::log;
 
 use loki::{log::debug, transit_model::Model};
-
-use loki::traits;
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
@@ -144,7 +142,7 @@ pub fn launch(config: Config) -> Result<(), Error> {
 
 pub fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
 {
     let (data, model) = launch::read(&config.launch_params)?;
     match config.launch_params.criteria_implem {
@@ -165,7 +163,7 @@ fn build_engine_and_solve<Data, Solver>(
     config: &Config,
 ) -> Result<(), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
     Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());

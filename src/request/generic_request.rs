@@ -34,16 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits;
 use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
-use log::warn;
-use crate::engine::engine_interface::{BadRequest, RequestTypes, RequestInput};
-use transit_model::Model;
+use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::Data as DataTrait;
+use log::warn;
+use transit_model::Model;
 
 pub struct GenericRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
@@ -158,8 +157,8 @@ where
     }
 }
 
-use crate::response;
 use crate::engine::engine_interface::Journey as PTJourney;
+use crate::response;
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
     Data: DataTrait,
@@ -213,7 +212,6 @@ where
         )
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Departure {

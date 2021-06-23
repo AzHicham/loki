@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{traits::RequestInput, transit_model, NaiveDateTime, PositiveDuration};
+use loki::{transit_model, NaiveDateTime, PositiveDuration, RequestInput};
 
 use crate::config::RequestParams;
 
