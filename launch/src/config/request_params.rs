@@ -65,7 +65,7 @@ pub struct RequestParams {
     /// discard any journey that arrive later than
     /// the arrival time of another journey + too_late_threshold
     #[structopt(long, default_value = DEFAULT_TOO_LATE_THRESHOLD)]
-    #[serde(default = "default_max_journey_duration")]
+    #[serde(default = "default_too_late_threshold")]
     pub too_late_threshold: PositiveDuration,
 }
 
