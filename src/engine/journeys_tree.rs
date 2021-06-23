@@ -34,7 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits::{ConnectionLeg, DepartureLeg, Journey, RequestTypes};
+
+
+use super::engine_interface::{ConnectionLeg, DepartureLeg, Journey, RequestTypes};
+
+
 type Id = usize;
 
 #[derive(Clone, Copy, Debug)]
