@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod data_interface;
 pub mod init;
 pub mod iters;
 
@@ -45,7 +46,6 @@ pub use typed_index_collection::Idx;
 use crate::{
     loads_data::{Load, LoadsData},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    traits::{Data, DataIters, DataWithIters, TransitTypes},
 };
 
 use std::{collections::HashMap, fmt::Debug};
@@ -84,7 +84,7 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     }
 }
 
-impl<Timetables: TimetablesTrait> TransitTypes for TransitData<Timetables> {
+impl<Timetables: TimetablesTrait> data_interface::TransitTypes for TransitData<Timetables> {
     type Stop = Stop;
 
     type Mission = Timetables::Mission;
@@ -96,7 +96,7 @@ impl<Timetables: TimetablesTrait> TransitTypes for TransitData<Timetables> {
     type Transfer = Transfer;
 }
 
-impl<Timetables: TimetablesTrait> Data for TransitData<Timetables>
+impl<Timetables: TimetablesTrait> data_interface::Data for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<'a, Timetables> DataIters<'a> for TransitData<Timetables>
+impl<'a, Timetables> data_interface::DataIters<'a> for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + TimetablesIter<'a>,
     Timetables::Mission: 'a,
@@ -265,7 +265,7 @@ where
     }
 }
 
-impl<Timetables> DataWithIters for TransitData<Timetables>
+impl<Timetables> data_interface::DataWithIters for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,

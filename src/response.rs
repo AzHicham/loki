@@ -34,13 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits;
 use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
+
+use crate::transit_data::data_interface::Data as DataTrait;
 
 use std::fmt::Debug;
 
@@ -99,13 +100,13 @@ impl Response {
     }
 }
 
-pub struct VehicleLeg<Data: traits::Data> {
+pub struct VehicleLeg<Data: DataTrait> {
     pub trip: Data::Trip,
     pub board_position: Data::Position,
     pub debark_position: Data::Position,
 }
 
-impl<Data: traits::Data> Clone for VehicleLeg<Data> {
+impl<Data: DataTrait> Clone for VehicleLeg<Data> {
     fn clone(&self) -> Self {
         Self {
             trip: self.trip.clone(),
@@ -116,7 +117,7 @@ impl<Data: traits::Data> Clone for VehicleLeg<Data> {
 }
 
 #[derive(Clone)]
-pub struct Journey<Data: traits::Data> {
+pub struct Journey<Data: DataTrait> {
     departure_datetime: SecondsSinceDatasetUTCStart,
     departure_fallback_duration: PositiveDuration,
     first_vehicle: VehicleLeg<Data>,
@@ -130,7 +131,7 @@ pub enum VehicleLegIdx {
     Connection(usize),
 }
 #[derive(Clone)]
-pub enum BadJourney<Data: traits::Data> {
+pub enum BadJourney<Data: DataTrait> {
     DebarkIsUpstreamBoard(VehicleLeg<Data>, VehicleLegIdx),
     NoBoardTime(VehicleLeg<Data>, VehicleLegIdx),
     NoDebarkTime(VehicleLeg<Data>, VehicleLegIdx),
@@ -139,7 +140,7 @@ pub enum BadJourney<Data: traits::Data> {
     BadTransferEndTime(Data::Transfer, VehicleLeg<Data>, usize),
 }
 
-impl<Data: traits::Data> Debug for BadJourney<Data> {
+impl<Data: DataTrait> Debug for BadJourney<Data> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BadJourney::DebarkIsUpstreamBoard(_, _) => {
@@ -166,7 +167,7 @@ impl<Data: traits::Data> Debug for BadJourney<Data> {
 
 impl<Data> Journey<Data>
 where
-    Data: traits::Data,
+    Data: DataTrait,
 {
     pub fn new(
         departure_datetime: SecondsSinceDatasetUTCStart,
@@ -467,7 +468,7 @@ where
     }
 }
 
-impl<Data: traits::Data> Journey<Data> {
+impl<Data: DataTrait> Journey<Data> {
     pub fn to_response(&self, data: &Data) -> Response {
         Response {
             departure: self.departure_section(data),
@@ -594,13 +595,13 @@ impl<Data: traits::Data> Journey<Data> {
     }
 }
 
-pub struct ConnectionIter<'journey, 'data, Data: traits::Data> {
+pub struct ConnectionIter<'journey, 'data, Data: DataTrait> {
     data: &'data Data,
     journey: &'journey Journey<Data>,
     connection_idx: usize,
 }
 
-impl<'journey, 'data, Data: traits::Data> Iterator for ConnectionIter<'journey, 'data, Data> {
+impl<'journey, 'data, Data: DataTrait> Iterator for ConnectionIter<'journey, 'data, Data> {
     type Item = (TransferSection, WaitingSection, VehicleSection);
 
     fn next(&mut self) -> Option<Self::Item> {

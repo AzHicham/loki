@@ -34,8 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::engine::engine_interface::{Request, RequestTypes};
 use crate::engine::journeys_tree::{Arrive, Board, Debark, Wait};
-use crate::traits::{Request, RequestTypes, TransitTypes};
+use crate::transit_data::data_interface::TransitTypes;
 
 use std::{fmt::Debug, slice::Iter as SliceIter};
 

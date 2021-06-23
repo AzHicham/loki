@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::loki;
+use launch::loki::{self, DataWithIters};
 use launch::{
     config,
     loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
@@ -43,7 +43,7 @@ use launch::{
 
 use loki::log;
 
-use loki::{log::debug, traits, transit_model::Model};
+use loki::{log::debug, transit_model::Model};
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
@@ -163,7 +163,7 @@ pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
 
 fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
 {
     let (data, model) = launch::read(&config.launch_params)?;
     let result = match config.launch_params.criteria_implem {
@@ -186,7 +186,7 @@ fn build_engine_and_solve<Data, Solver>(
     config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
     Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());

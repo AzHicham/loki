@@ -36,7 +36,7 @@
 
 use crate::navitia_proto;
 
-use launch::loki::{self, traits::RequestInput};
+use launch::loki::{self, RequestInput};
 
 use loki::transit_model;
 use loki::{

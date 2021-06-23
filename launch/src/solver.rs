@@ -36,15 +36,11 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
-use loki::{
-    log::{debug, info, trace},
-    traits::RequestDebug,
-};
+use loki::log::{debug, info, trace};
 
 use loki::{
-    response,
-    traits::{self, BadRequest, RequestIO, RequestInput, RequestTypes, RequestWithIters},
-    transit_model, MultiCriteriaRaptor,
+    response, transit_model, BadRequest, DataTrait, DataWithIters, MultiCriteriaRaptor,
+    RequestDebug, RequestIO, RequestInput, RequestTypes, RequestWithIters,
 };
 
 use loki::request::basic_criteria;
@@ -63,14 +59,14 @@ pub trait Solver<Data> {
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Data: traits::DataWithIters;
+        Data: DataWithIters;
 }
 
-pub struct BasicCriteriaSolver<Data: traits::Data> {
+pub struct BasicCriteriaSolver<Data: DataTrait> {
     engine: MultiCriteriaRaptor<basic_criteria::Types<Data>>,
 }
 
-impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
+impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -86,7 +82,7 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Data: traits::DataWithIters,
+        Data: DataWithIters,
     {
         match comparator_type {
             config::ComparatorType::Loads => {
@@ -113,11 +109,11 @@ impl<Data: traits::Data> Solver<Data> for BasicCriteriaSolver<Data> {
 
 use loki::request::loads_criteria;
 
-pub struct LoadsCriteriaSolver<Data: traits::Data> {
+pub struct LoadsCriteriaSolver<Data: DataTrait> {
     engine: MultiCriteriaRaptor<loads_criteria::Types<Data>>,
 }
 
-impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
+impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
     fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -133,7 +129,7 @@ impl<Data: traits::Data> Solver<Data> for LoadsCriteriaSolver<Data> {
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Data: traits::DataWithIters,
+        Data: DataWithIters,
     {
         match comparator_type {
             config::ComparatorType::Loads => {
@@ -166,7 +162,7 @@ fn solve_request_inner<'data, 'model, Data, Request, Types>(
 where
     Request: RequestWithIters,
     Request: RequestIO<'data, 'model, Data> + RequestDebug,
-    Data: traits::Data,
+    Data: DataTrait,
     Types: RequestTypes<
         Position = Request::Position,
         Mission = Request::Mission,

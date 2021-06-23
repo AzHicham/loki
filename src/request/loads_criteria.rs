@@ -36,7 +36,10 @@
 
 use std::marker::PhantomData;
 
-use crate::{loads_data::LoadsCount, time::SecondsSinceDatasetUTCStart, traits, PositiveDuration};
+use crate::engine::engine_interface::RequestTypes;
+use crate::transit_data::data_interface::Data as DataTrait;
+use crate::transit_data::data_interface::TransitTypes;
+use crate::{loads_data::LoadsCount, time::SecondsSinceDatasetUTCStart, PositiveDuration};
 
 pub mod depart_after;
 
@@ -53,7 +56,7 @@ pub struct Types<Data> {
     _phantom: PhantomData<Data>,
 }
 
-impl<'data, Data: traits::Data> traits::TransitTypes for Types<Data> {
+impl<'data, Data: DataTrait> TransitTypes for Types<Data> {
     type Stop = Data::Stop;
 
     type Mission = Data::Mission;
@@ -65,7 +68,7 @@ impl<'data, Data: traits::Data> traits::TransitTypes for Types<Data> {
     type Transfer = Data::Transfer;
 }
 
-impl<'data, Data: traits::Data> traits::RequestTypes for Types<Data> {
+impl<'data, Data: DataTrait> RequestTypes for Types<Data> {
     type Departure = super::generic_request::Departure;
 
     type Arrival = super::generic_request::Arrival;

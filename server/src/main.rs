@@ -41,11 +41,11 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use launch::loki;
+use launch::loki::{self, DataWithIters};
 use launch::{config, solver};
 
-use loki::traits::{self, RequestInput};
 use loki::transit_model;
+use loki::RequestInput;
 use loki::{
     log::{debug, error, info, warn},
     LoadsDailyData, LoadsPeriodicData,
@@ -172,7 +172,7 @@ fn launch(config: Config) -> Result<(), Error> {
 
 fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
 {
     let (data, model) = launch::read::<Data>(&config.launch_params)?;
 
@@ -188,7 +188,7 @@ where
 
 fn server_loop<Data, Solver>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
     Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
@@ -277,7 +277,7 @@ fn solve<Data, Solver: solver::Solver<Data>>(
     comparator_type: config::ComparatorType,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
-    Data: traits::DataWithIters,
+    Data: DataWithIters,
 {
     let proto_request = decode_zmq_message(socket, zmq_message)?;
     info!(

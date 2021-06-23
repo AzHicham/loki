@@ -34,17 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::traits;
 use crate::{
     loads_data::LoadsCount,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
+use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
+use crate::transit_data::data_interface::Data as DataTrait;
 use log::warn;
-use traits::{BadRequest, RequestTypes};
 use transit_model::Model;
 
-pub struct GenericRequest<'data, 'model, Data: traits::Data> {
+pub struct GenericRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
     pub(super) model: &'model Model,
     pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
@@ -59,12 +59,12 @@ pub struct GenericRequest<'data, 'model, Data: traits::Data> {
 
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
-    Data: traits::Data,
+    Data: DataTrait,
 {
     pub fn new(
         model: &'model transit_model::Model,
         transit_data: &'data Data,
-        request_input: &traits::RequestInput,
+        request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
     where
         Self: Sized,
@@ -157,11 +157,11 @@ where
     }
 }
 
+use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
-use crate::traits::Journey as PTJourney;
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
-    Data: traits::Data,
+    Data: DataTrait,
 {
     pub fn create_response<R>(
         &self,
@@ -212,8 +212,6 @@ where
         )
     }
 }
-
-use crate::traits::Data as DataTrait;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Departure {
@@ -270,7 +268,7 @@ impl Iterator for Arrivals {
 
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
-    Data: traits::Data,
+    Data: DataTrait,
 {
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
         let stop_point_idx = self.transit_data.stop_point_idx(stop);

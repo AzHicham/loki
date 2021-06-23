@@ -41,7 +41,6 @@ pub mod loads_data;
 pub mod request;
 pub mod time;
 mod timetables;
-pub mod traits;
 mod transit_data;
 
 pub use chrono;
@@ -50,6 +49,8 @@ pub use chrono_tz;
 pub use log;
 pub use time::PositiveDuration;
 pub use transit_model;
+
+pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
 
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
@@ -60,6 +61,11 @@ pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodic
 pub use loads_data::LoadsData;
 
 pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
+
+pub use engine::engine_interface::{
+    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
+    RequestWithIters,
+};
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 

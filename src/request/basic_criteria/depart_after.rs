@@ -34,25 +34,24 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::response;
 use crate::{loads_data::LoadsCount, time::PositiveDuration};
-use crate::{
-    response,
-    traits::{self, RequestTypes},
-};
 
-use crate::traits::Journey as PTJourney;
-use traits::BadRequest;
+use crate::engine::engine_interface::{
+    BadRequest, Journey as PTJourney, RequestInput, RequestTypes,
+};
+use crate::transit_data::data_interface::{Data as DataTrait, DataIters};
 
 use super::super::generic_request::{Arrival, Arrivals, Departure, Departures, GenericRequest};
 use super::Criteria;
 
 pub mod classic_comparator;
 
-pub struct GenericBasicDepartAfter<'data, 'model, Data: traits::Data> {
+pub struct GenericBasicDepartAfter<'data, 'model, Data: DataTrait> {
     generic: GenericRequest<'data, 'model, Data>,
 }
 
-impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, 'model, Data> {
+impl<'data, 'model, Data: DataTrait> GenericBasicDepartAfter<'data, 'model, Data> {
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {
         self.generic.leg_arrival_penalty
     }
@@ -251,7 +250,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, 'model, D
     fn new(
         model: &'model transit_model::Model,
         transit_data: &'data Data,
-        request_input: &traits::RequestInput,
+        request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
     where
         Self: Sized,
@@ -297,7 +296,7 @@ impl<'data, 'model, Data: traits::Data> GenericBasicDepartAfter<'data, 'model, D
 
 impl<'data, 'model, 'outer, Data> GenericBasicDepartAfter<'data, 'model, Data>
 where
-    Data: traits::Data + traits::DataIters<'outer>,
+    Data: DataTrait + DataIters<'outer>,
 {
     fn departures(&'outer self) -> Departures {
         self.generic.departures()

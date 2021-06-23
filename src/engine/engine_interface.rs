@@ -1,196 +1,7 @@
-// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
-//
-// This file is part of Navitia,
-// the software to build cool stuff with public transport.
-//
-// Hope you'll enjoy and contribute to this project,
-// powered by Kisio Digital (www.kisio.com).
-// Help us simplify mobility and open public transport:
-// a non ending quest to the responsive locomotion way of traveling!
-//
-// This contribution is a part of the research and development work of the
-// IVA Project which aims to enhance traveler information and is carried out
-// under the leadership of the Technological Research Institute SystemX,
-// with the partnership and support of the transport organization authority
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds
-// under the scope of the French Program "Investissements d’Avenir".
-//
-// LICENCE: This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-//
-// Stay tuned using
-// twitter @navitia
-// channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
-// https://groups.google.com/d/forum/navitia
-// www.navitia.io
+use crate::response;
+use crate::transit_data::data_interface;
 
-use crate::{
-    // config,
-    loads_data::{Load, LoadsData},
-    response,
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-};
-use chrono::{NaiveDate, NaiveDateTime};
-use transit_model::{
-    objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
-    Model,
-};
-pub use typed_index_collection::Idx;
-
-use std::fmt::Debug;
-
-pub trait TransitTypes {
-    /// A location where a vehicle can be boarded into or debarked from
-    type Stop: Debug + Clone;
-
-    /// A `Mission` is an ordered sequence of `Position`
-    type Mission: Debug + Clone;
-
-    /// Identify a step along a `Mission`
-    type Position: Debug + Clone;
-
-    /// A trip of a vehicle along a `Mission`
-    type Trip: Debug + Clone;
-
-    /// Identify a foot transfer between two `Stop`s
-    type Transfer: Debug + Clone;
-}
-
-pub trait Data: TransitTypes {
-    /// Returns `true` if `upstream` is positioned strictly before `downstream`
-    /// in `mission`.
-    ///
-    /// Panics if `upstream` or `downstream` does not belong to `mission`.
-    fn is_upstream(
-        &self,
-        upstream: &Self::Position,
-        downstream: &Self::Position,
-        mission: &Self::Mission,
-    ) -> bool;
-
-    /// Returns `Some(next_position)` if `next_position` is after `position` on `mission`.
-    ///
-    /// Returns `None` if `position` is the last on `mission`.
-    ///
-    /// Panics if `position` does not belong to `mission`.
-    fn next_on_mission(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position>;
-
-    /// Returns the `Mission` that `trip` belongs to.
-    fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
-
-    /// Returns the `Stop` at `position` in `mission`
-    ///
-    /// Panics if `position` does not belong to `mission`
-    fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop;
-
-    // Panics if `position` is not valid for `trip`
-    // None if `trip` does not allows boarding at `stop_idx`
-    fn board_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
-    // Panics if `position` is not valid for `trip`
-    // None if `trip` does not allows debark at `stop_idx`
-    fn debark_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
-
-    // Panics if `trip` does not go through `position`
-    fn arrival_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> (SecondsSinceDatasetUTCStart, Load);
-
-    fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration);
-
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
-
-    fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
-
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
-    fn stop_point_idx(&self, stop: &Self::Stop) -> Idx<StopPoint>;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
-
-    fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
-
-    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop;
-
-    fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
-
-    fn new(
-        model: &Model,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
-    ) -> Self;
-
-    fn calendar(&self) -> &crate::time::Calendar;
-
-    fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
-
-    fn nb_of_trips(&self) -> usize;
-
-    /// An upper bound on the total number of `Stop`s.
-    fn nb_of_stops(&self) -> usize;
-
-    /// Returns an usize between 0 and nb_of_stops().
-    ///
-    /// Returns a different value for two different `stop`s.
-    fn stop_id(&self, stop: &Self::Stop) -> usize;
-
-    /// An upper bound on the total number of `Mission`s
-    fn nb_of_missions(&self) -> usize;
-    /// Returns an usize between 0 and nb_of_misions()
-    /// Returns a different value for two different `mission`s
-    fn mission_id(&self, mission: &Self::Mission) -> usize;
-}
-
-pub trait DataIters<'a>: TransitTypes {
-    /// Iterator for the `Mission`s that can be boarded at a `stop`
-    /// along with the `Position` of `stop` on each `Mission`
-    type MissionsAtStop: Iterator<Item = (Self::Mission, Self::Position)>;
-    /// Returns all the `Mission`s that can be boarded at `stop`.
-    ///
-    /// Should not return twice the same `Mission`.
-    fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
-
-    /// Iterator for all `Transfer`s that can be taken at a `Stop`
-    type TransfersAtStop: Iterator<Item = Self::Transfer>;
-    /// Returns all `Transfer`s that can be taken at `from_stop`
-    ///
-    /// Should not return twice the same `Transfer`.
-    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop;
-
-    /// Iterator for all `Trip`s belonging to a `Mission`.
-    type TripsOfMission: Iterator<Item = Self::Trip>;
-    /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
-}
-
-pub trait RequestTypes: TransitTypes {
+pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey
     type Departure: Clone;
 
@@ -415,7 +226,7 @@ pub struct RequestInput {
     pub too_late_threshold: PositiveDuration,
 }
 
-pub trait RequestIO<'data, 'model, Data: self::Data>: Request {
+pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {
     fn new(
         model: &'model transit_model::Model,
         transit_data: &'data Data,
@@ -451,8 +262,6 @@ pub trait RequestDebug: Request {
     fn position_name(&self, position: &Self::Position, mission: &Self::Mission) -> String;
 }
 
-pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
-
 pub trait RequestWithIters: Request + for<'a> RequestIters<'a> {}
 
 pub struct DepartureLeg<T: RequestTypes> {
@@ -485,6 +294,10 @@ pub enum BadRequest {
 impl std::error::Error for BadRequest {}
 
 use std::fmt;
+
+use chrono::NaiveDateTime;
+
+use crate::{transit_data::data_interface::DataIters, PositiveDuration};
 
 impl fmt::Display for BadRequest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
