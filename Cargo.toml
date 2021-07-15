@@ -15,8 +15,8 @@ members = [
 ]
 
 [dependencies]
-transit_model = "0.31"
-typed_index_collection = "1"
+transit_model = "0.39"
+typed_index_collection = "2"
 chrono = "0.4"
 chrono-tz = "0.5"
 log = "0.4"
