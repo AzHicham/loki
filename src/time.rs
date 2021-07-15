@@ -39,6 +39,7 @@ use std::fmt::{Display, Formatter};
 
 mod calendar;
 pub mod days_patterns;
+pub mod timezones_patterns;
 
 /// Duration since "noon minus 12 hours" on a day in a specific timezone
 /// This corresponds to the "Time" notion found in gtfs/ntfs stop_times.txt
