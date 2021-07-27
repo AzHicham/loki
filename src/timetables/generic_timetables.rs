@@ -228,7 +228,7 @@ where
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         let time = timetable_data.departure_time(vehicle.idx, position.idx);
-        let load = timetable_data.load_before(vehicle.idx, position.idx);
+        let load = timetable_data.load_after(vehicle.idx, position.idx);
         (time, load)
     }
 
@@ -299,7 +299,9 @@ where
                     timetable: timetable.clone(),
                     idx,
                 };
-                let load = self.timetable_data(timetable).load_after(idx, position.idx);
+                let load = self
+                    .timetable_data(timetable)
+                    .load_before(idx, position.idx);
                 (vehicle, time, load)
             })
     }
@@ -579,7 +581,7 @@ where
             }
         };
 
-        for vehicle_idx in last_debarkable_vehicle..0 {
+        for vehicle_idx in (0..last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             // let debark_time = &self.debark_times_by_position[position_idx][vehicle_idx];
             if filter(vehicle_data)

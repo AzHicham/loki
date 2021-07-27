@@ -124,10 +124,14 @@ impl<'data, 'model, Data: DataTrait> GenericBasicArrivalBefore<'data, 'model, Da
         position: &Data::Position,
         onboard_criteria: &Criteria,
     ) -> Option<Criteria> {
-        // debug_assert!({
-        //     let arrival_time = &onboard_criteria.arrival_time;
-        //     self.generic.transit_data.arrival_time_of(trip, position).0 == *arrival_time
-        // });
+        debug_assert!({
+            let arrival_time = &onboard_criteria.arrival_time;
+            self.generic
+                .transit_data
+                .departure_time_of(trip, position)
+                .0
+                == *arrival_time
+        });
         self.generic
             .transit_data
             .board_time_of(trip, position)
@@ -146,12 +150,12 @@ impl<'data, 'model, Data: DataTrait> GenericBasicArrivalBefore<'data, 'model, Da
             .transit_data
             .previous_on_mission(position, &mission)
             .unwrap();
-        let timeload_at_previous_position = self
+        let departure_timeload_at_previous_position = self
             .generic
             .transit_data
-            .arrival_time_of(trip, &previous_position);
+            .departure_time_of(trip, &previous_position);
         Criteria {
-            arrival_time: timeload_at_previous_position.0,
+            arrival_time: departure_timeload_at_previous_position.0,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
