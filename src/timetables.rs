@@ -105,11 +105,24 @@ pub trait Timetables: Types {
         mission: &Self::Mission,
     ) -> Option<Self::Position>;
 
+    fn previous_position(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position>;
+
     fn arrival_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load);
+
+    fn departure_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> (SecondsSinceDatasetUTCStart, Load);
+
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
@@ -121,9 +134,17 @@ pub trait Timetables: Types {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
+
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn latest_trip_that_debark_at(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;

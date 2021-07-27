@@ -134,6 +134,14 @@ where
         self.timetables.next_position(position, mission)
     }
 
+    fn previous_on_mission(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position> {
+        self.timetables.previous_position(position, mission)
+    }
+
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
         self.timetables.mission_of(trip)
     }
@@ -166,6 +174,14 @@ where
         self.timetables.arrival_time_of(trip, position)
     }
 
+    fn departure_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
+        self.timetables.departure_time_of(trip, position)
+    }
+
     fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration) {
         let stop_data = self.stop_data(&transfer.stop);
         let result = stop_data.transfers[transfer.idx_in_stop_transfers];
@@ -180,6 +196,16 @@ where
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .earliest_trip_to_board_at(waiting_time, mission, position)
+    }
+
+    fn latest_trip_that_debark_at(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.timetables
+            .latest_trip_that_debark_at(waiting_time, mission, position)
     }
 
     fn nb_of_trips(&self) -> usize {

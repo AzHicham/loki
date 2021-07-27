@@ -426,7 +426,13 @@ where
 
     // trace!("{:#?}", request_input);
 
-    let responses = solver.solve_request(data, model, &request_input, &comparator_type)?;
+    let responses = solver.solve_request(
+        data,
+        model,
+        &request_input,
+        &comparator_type,
+        journey_request.clockwise,
+    )?;
     for response in responses.iter() {
         debug!("{}", response.print(model)?);
     }

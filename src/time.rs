@@ -275,6 +275,16 @@ impl std::ops::Add<PositiveDuration> for SecondsSinceDatasetUTCStart {
     }
 }
 
+impl std::ops::Sub<PositiveDuration> for SecondsSinceDatasetUTCStart {
+    type Output = Self;
+
+    fn sub(self, rhs: PositiveDuration) -> Self::Output {
+        Self {
+            seconds: self.seconds - rhs.seconds,
+        }
+    }
+}
+
 impl std::ops::Mul<u32> for PositiveDuration {
     type Output = Self;
 

@@ -175,6 +175,23 @@ where
         }
     }
 
+    pub(super) fn previous_position(
+        &self,
+        position: &Position,
+        timetable: &Timetable,
+    ) -> Option<Position> {
+        assert_eq!(position.timetable, *timetable);
+        if position.idx >= 1 {
+            let result = Position {
+                timetable: position.timetable.clone(),
+                idx: position.idx - 1,
+            };
+            Some(result)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn debark_time(
         &self,
         vehicle: &Vehicle,
@@ -203,6 +220,14 @@ where
         assert!(vehicle.timetable == position.timetable);
         let timetable_data = self.timetable_data(&vehicle.timetable);
         let time = timetable_data.arrival_time(vehicle.idx, position.idx);
+        let load = timetable_data.load_before(vehicle.idx, position.idx);
+        (time, load)
+    }
+
+    pub(super) fn departure_time(&self, vehicle: &Vehicle, position: &Position) -> (&Time, &Load) {
+        assert!(vehicle.timetable == position.timetable);
+        let timetable_data = self.timetable_data(&vehicle.timetable);
+        let time = timetable_data.departure_time(vehicle.idx, position.idx);
         let load = timetable_data.load_before(vehicle.idx, position.idx);
         (time, load)
     }
@@ -237,6 +262,38 @@ where
         assert!(position.timetable == *timetable);
         self.timetable_data(timetable)
             .earliest_filtered_vehicle_to_board(waiting_time, position.idx, filter)
+            .map(|(idx, time)| {
+                let vehicle = Vehicle {
+                    timetable: timetable.clone(),
+                    idx,
+                };
+                let load = self.timetable_data(timetable).load_after(idx, position.idx);
+                (vehicle, time, load)
+            })
+    }
+
+    pub(super) fn latest_vehicle_that_debark(
+        &self,
+        time: &Time,
+        timetable: &Timetable,
+        position: &Position,
+    ) -> Option<(Vehicle, &Time, &Load)> {
+        self.latest_filtered_vehicle_that_debark(time, timetable, position, |_| true)
+    }
+
+    pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        time: &Time,
+        timetable: &Timetable,
+        position: &Position,
+        filter: Filter,
+    ) -> Option<(Vehicle, &Time, &Load)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        assert_eq!(position.timetable, *timetable);
+        self.timetable_data(timetable)
+            .latest_filtered_vehicle_that_debark(time, position.idx, filter)
             .map(|(idx, time)| {
                 let vehicle = Vehicle {
                     timetable: timetable.clone(),
@@ -373,6 +430,10 @@ where
         &self.debark_times_by_position[position_idx][vehicle_idx]
     }
 
+    fn departure_time(&self, vehicle_idx: usize, position_idx: usize) -> &Time {
+        &self.board_times_by_position[position_idx][vehicle_idx]
+    }
+
     fn debark_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
         if self.can_debark(position_idx) {
             Some(&self.debark_times_by_position[position_idx][vehicle_idx])
@@ -470,6 +531,62 @@ where
             if filter(vehicle_data) && waiting_time <= board_time {
                 let arrival_time_at_next_position =
                     self.arrival_time(vehicle_idx, next_position_idx);
+                return Some((vehicle_idx, arrival_time_at_next_position));
+            }
+        }
+        None
+    }
+
+    // Given a `position` and a `time`
+    // return `Some(best_trip_idx)`
+    // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
+    // that debark at the subsequent positions at the latest time
+    fn latest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        time: &Time,
+        position_idx: usize,
+        filter: Filter,
+    ) -> Option<(usize, &Time)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        if !self.can_debark(position_idx) {
+            return None;
+        }
+        // we should not be able to debark at the first position
+        assert!(position_idx > 0);
+
+        let search_result = self.debark_times_by_position[position_idx].binary_search(time);
+        let last_debarkable_vehicle = match search_result {
+            // here it means that
+            //    time < debark_time(idx)    if idx < len
+            //    time > debark_time(idx -1) if idx > 0
+            // so idx - 1 is indeed the last vehicle that debark at position
+            Err(0) => 0,
+            Err(idx) => idx - 1,
+            // here it means that
+            //    waiting_time == debark_time(idx)
+            // but maybe idx is not the greatest idx such as time == debark_time(idx)
+            Ok(idx) => {
+                let size_vec_debark = self.debark_times_by_position[position_idx].len();
+                let mut last_idx = idx;
+                while last_idx < size_vec_debark
+                    && self.debark_times_by_position[position_idx][last_idx] == *time
+                {
+                    last_idx += 1;
+                }
+                last_idx
+            }
+        };
+
+        for vehicle_idx in last_debarkable_vehicle..0 {
+            let vehicle_data = &self.vehicle_datas[vehicle_idx];
+            // let debark_time = &self.debark_times_by_position[position_idx][vehicle_idx];
+            if filter(vehicle_data)
+            /*&& time >= debark_time */
+            {
+                let arrival_time_at_next_position =
+                    self.departure_time(vehicle_idx, position_idx - 1);
                 return Some((vehicle_idx, arrival_time_at_next_position));
             }
         }

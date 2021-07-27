@@ -137,8 +137,21 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.next_position(position, mission)
     }
 
+    fn previous_position(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position> {
+        self.timetables.previous_position(position, mission)
+    }
+
     fn arrival_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> (Time, Load) {
         let (time, load) = self.timetables.arrival_time(trip, position);
+        (*time, *load)
+    }
+
+    fn departure_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> (Time, Load) {
+        let (time, load) = self.timetables.departure_time(trip, position);
         (*time, *load)
     }
 
@@ -162,6 +175,17 @@ impl TimetablesTrait for DailyTimetables {
     ) -> Option<(Self::Trip, Time, Load)> {
         self.timetables
             .earliest_vehicle_to_board(&waiting_time, mission, position)
+            .map(|(trip, time, load)| (trip, *time, *load))
+    }
+
+    fn latest_trip_that_debark_at(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.timetables
+            .latest_vehicle_that_debark(time, mission, position)
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 

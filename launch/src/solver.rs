@@ -56,6 +56,7 @@ pub trait Solver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator: &config::ComparatorType,
+        clockwise: bool,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -79,6 +80,7 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
+        clockwise: bool,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -95,12 +97,21 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = basic_criteria::depart_after::classic_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = if let true = clockwise {
+                    let request = basic_criteria::depart_after::classic_comparator::Request::new(
+                        model,
+                        data,
+                        request_input,
+                    )?;
+                    solve_request_inner(&mut self.engine, &request, data)
+                } else {
+                    let request = basic_criteria::arrival_before::classic_comparator::Request::new(
+                        model,
+                        data,
+                        request_input,
+                    )?;
+                    solve_request_inner(&mut self.engine, &request, data)
+                };
                 Ok(responses)
             }
         }
@@ -126,6 +137,7 @@ impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
+        clockwise: bool,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -142,12 +154,22 @@ impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = loads_criteria::depart_after::classic_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = if let true = clockwise {
+                    let request = loads_criteria::depart_after::classic_comparator::Request::new(
+                        model,
+                        data,
+                        request_input,
+                    )?;
+                    solve_request_inner(&mut self.engine, &request, data)
+                } else {
+                    unimplemented!();
+                    // let request = loads_criteria::arrival_before::classic_comparator::Request::new(
+                    //     model,
+                    //     data,
+                    //     request_input,
+                    // )?;
+                    // solve_request_inner(&mut self.engine, &request, data)
+                };
                 Ok(responses)
             }
         }

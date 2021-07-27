@@ -149,6 +149,14 @@ impl TimetablesTrait for PeriodicTimetables {
         self.timetables.next_position(position, mission)
     }
 
+    fn previous_position(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position> {
+        self.timetables.previous_position(position, mission)
+    }
+
     fn arrival_time_of(
         &self,
         trip: &Self::Trip,
@@ -160,6 +168,14 @@ impl TimetablesTrait for PeriodicTimetables {
         let day = &trip.day;
         let time = self.calendar.compose(day, time_in_day, timezone);
         (time, Load::default())
+    }
+
+    fn departure_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
+        unimplemented!()
     }
 
     fn debark_time_of(
@@ -257,6 +273,15 @@ impl TimetablesTrait for PeriodicTimetables {
                 (trip, arrival_time_at_next_stop, Load::default())
             },
         )
+    }
+
+    fn latest_trip_that_debark_at(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        unimplemented!()
     }
 
     fn insert<'date, Stops, Flows, Dates, Times>(

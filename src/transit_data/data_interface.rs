@@ -51,6 +51,17 @@ pub trait Data: TransitTypes {
         mission: &Self::Mission,
     ) -> Option<Self::Position>;
 
+    /// Returns `Some(previous_position)` if `previous_position` is before `position` on `mission`.
+    ///
+    /// Returns `None` if `position` is the first on `mission`.
+    ///
+    /// Panics if `position` does not belong to `mission`.
+    fn previous_on_mission(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position>;
+
     /// Returns the `Mission` that `trip` belongs to.
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
 
@@ -81,11 +92,25 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load);
 
+    // Panics if `trip` does not go through `position`
+    fn departure_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> (SecondsSinceDatasetUTCStart, Load);
+
     fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration);
 
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn latest_trip_that_debark_at(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
