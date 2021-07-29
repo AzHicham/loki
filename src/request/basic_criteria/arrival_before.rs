@@ -61,7 +61,7 @@ impl<'data, 'model, Data: DataTrait> GenericBasicArrivalBefore<'data, 'model, Da
     }
 
     fn is_valid(&self, criteria: &Criteria) -> bool {
-        criteria.arrival_time <= self.generic.max_arrival_time
+        criteria.arrival_time >= self.generic.max_arrival_time
             && criteria.nb_of_legs <= self.generic.max_nb_legs
     }
 
