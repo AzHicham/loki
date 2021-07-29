@@ -583,13 +583,10 @@ where
 
         for vehicle_idx in (0..last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
-            // let debark_time = &self.debark_times_by_position[position_idx][vehicle_idx];
-            if filter(vehicle_data)
-            /*&& time >= debark_time */
-            {
-                let arrival_time_at_next_position =
+            if filter(vehicle_data) {
+                let departure_time_at_previous_position =
                     self.departure_time(vehicle_idx, position_idx - 1);
-                return Some((vehicle_idx, arrival_time_at_next_position));
+                return Some((vehicle_idx, departure_time_at_previous_position));
             }
         }
         None

@@ -211,12 +211,11 @@ where
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         request
             .create_response(pt_journey)
-            .or_else(|err| {
+            .map_err(|err| {
                 trace!(
                     "An error occured while converting an engine journey to response. {:?}",
                     err
                 );
-                Err(err)
             })
             .ok()
     });

@@ -73,7 +73,7 @@ impl<'data, 'model, Data: DataTrait> GenericBasicArrivalBefore<'data, 'model, Da
     ) -> Option<Criteria> {
         let has_debark = self.generic.transit_data.debark_time_of(trip, position);
         if let Some(debark_timeload) = has_debark {
-            if waiting_criteria.arrival_time > debark_timeload.0 {
+            if waiting_criteria.arrival_time < debark_timeload.0 {
                 return None;
             }
         } else {
@@ -282,7 +282,8 @@ impl<'data, 'model, Data: DataTrait> GenericBasicArrivalBefore<'data, 'model, Da
             Transfer = Data::Transfer,
         >,
     {
-        self.generic.create_response(pt_journey, loads_count)
+        self.generic
+            .create_response_reverse(pt_journey, loads_count)
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {

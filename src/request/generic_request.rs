@@ -39,7 +39,7 @@ use crate::{
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
-use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
+use crate::engine::engine_interface::{BadRequest, ConnectionLeg, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::Data as DataTrait;
 use log::warn;
 use transit_model::Model;
@@ -200,6 +200,83 @@ where
             };
             (transfer, vehicle_leg)
         });
+
+        response::Journey::new(
+            departure_datetime,
+            *departure_fallback_duration,
+            first_vehicle,
+            connections,
+            *arrival_fallback_duration,
+            loads_count,
+            &self.transit_data,
+        )
+    }
+
+    pub fn create_response_reverse<R>(
+        &self,
+        pt_journey: &PTJourney<R>,
+        loads_count: LoadsCount,
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    where
+        R: RequestTypes<
+            Departure = Departure,
+            Arrival = Arrival,
+            Trip = Data::Trip,
+            Position = Data::Position,
+            Transfer = Data::Transfer,
+        >,
+    {
+        let departure_datetime = self.departure_datetime;
+
+        // departure is the new arrival & vice-versa
+        let arrival_idx = pt_journey.arrival.idx;
+        let departure_fallback_duration =
+            &self.arrivals_stop_point_and_fallbrack_duration[arrival_idx].1;
+
+        let departure_idx = pt_journey.departure_leg.departure.idx;
+        let arrival_fallback_duration =
+            &self.departures_stop_point_and_fallback_duration[departure_idx].1;
+
+        let first_vehicle = if let true = pt_journey.connection_legs.is_empty() {
+            response::VehicleLeg {
+                trip: pt_journey.departure_leg.trip.clone(),
+                board_position: pt_journey.departure_leg.debark_position.clone(),
+                debark_position: pt_journey.departure_leg.board_position.clone(),
+            }
+        } else {
+            // last connection become first vehicle && we inverse board & debark
+            let last_connection = pt_journey.connection_legs.last();
+            response::VehicleLeg {
+                trip: last_connection.unwrap().trip.clone(),
+                board_position: last_connection.unwrap().debark_position.clone(),
+                debark_position: last_connection.unwrap().board_position.clone(),
+            }
+        };
+
+        // reverse iterator
+        let connections =
+            pt_journey
+                .connection_legs
+                .iter()
+                .enumerate()
+                .rev()
+                .map(|(idx, connection_leg)| {
+                    let transfer = connection_leg.transfer.clone();
+                    let vehicle_leg = if let 0 = idx {
+                        response::VehicleLeg {
+                            trip: pt_journey.departure_leg.trip.clone(),
+                            board_position: pt_journey.departure_leg.debark_position.clone(),
+                            debark_position: pt_journey.departure_leg.board_position.clone(),
+                        }
+                    } else {
+                        response::VehicleLeg {
+                            trip: connection_leg.trip.clone(),
+                            board_position: connection_leg.debark_position.clone(),
+                            debark_position: connection_leg.board_position.clone(),
+                        }
+                    };
+                    (transfer, vehicle_leg)
+                });
 
         response::Journey::new(
             departure_datetime,
