@@ -82,7 +82,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         complete_journey_criteria: &Self::Criteria,
     ) -> bool {
         partial_journey_criteria.arrival_time
-            <= complete_journey_criteria.arrival_time + self.generic.generic.too_late_threshold
+            <= complete_journey_criteria.arrival_time - self.generic.generic.too_late_threshold
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {

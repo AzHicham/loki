@@ -226,16 +226,19 @@ where
             Transfer = Data::Transfer,
         >,
     {
+        // get departure time using the pt_journey.criteria.at_arrival
+        // passed by argument
         let departure_datetime = self.departure_datetime;
 
         // departure is the new arrival & vice-versa
-        let arrival_idx = pt_journey.arrival.idx;
-        let departure_fallback_duration =
-            &self.arrivals_stop_point_and_fallbrack_duration[arrival_idx].1;
-
+        // departure.idx is an Arrival idx !!
         let departure_idx = pt_journey.departure_leg.departure.idx;
         let arrival_fallback_duration =
-            &self.departures_stop_point_and_fallback_duration[departure_idx].1;
+            &self.arrivals_stop_point_and_fallbrack_duration[departure_idx].1;
+
+        let arrival_idx = pt_journey.arrival.idx;
+        let departure_fallback_duration =
+            &self.departures_stop_point_and_fallback_duration[arrival_idx].1;
 
         let first_vehicle = if let true = pt_journey.connection_legs.is_empty() {
             response::VehicleLeg {
@@ -253,30 +256,30 @@ where
             }
         };
 
+        let transfer_iter = pt_journey
+            .connection_legs
+            .iter()
+            .rev()
+            .map(|connection_leg| connection_leg.transfer.clone());
+
+        let time_forward_vehicle_leg_iter = pt_journey
+            .connection_legs
+            .iter()
+            .rev()
+            .skip(1)
+            .map(|(connection_leg)| response::VehicleLeg {
+                trip: connection_leg.trip.clone(),
+                board_position: connection_leg.debark_position.clone(),
+                debark_position: connection_leg.board_position.clone(),
+            })
+            .chain(std::iter::once(response::VehicleLeg {
+                trip: pt_journey.departure_leg.trip.clone(),
+                board_position: pt_journey.departure_leg.debark_position.clone(),
+                debark_position: pt_journey.departure_leg.board_position.clone(),
+            }));
+
         // reverse iterator
-        let connections =
-            pt_journey
-                .connection_legs
-                .iter()
-                .enumerate()
-                .rev()
-                .map(|(idx, connection_leg)| {
-                    let transfer = connection_leg.transfer.clone();
-                    let vehicle_leg = if let 0 = idx {
-                        response::VehicleLeg {
-                            trip: pt_journey.departure_leg.trip.clone(),
-                            board_position: pt_journey.departure_leg.debark_position.clone(),
-                            debark_position: pt_journey.departure_leg.board_position.clone(),
-                        }
-                    } else {
-                        response::VehicleLeg {
-                            trip: connection_leg.trip.clone(),
-                            board_position: connection_leg.debark_position.clone(),
-                            debark_position: connection_leg.board_position.clone(),
-                        }
-                    };
-                    (transfer, vehicle_leg)
-                });
+        let connections = transfer_iter.zip(time_forward_vehicle_leg_iter);
 
         response::Journey::new(
             departure_datetime,
