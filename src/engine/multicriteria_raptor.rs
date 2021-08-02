@@ -347,7 +347,8 @@ where
                 {
                     let debark_front = &mut self.debark_fronts[stop_id];
                     let new_debark_front = &mut self.new_debark_fronts[stop_id];
-                    let current_stop_has_new_debark = !new_debark_front.is_empty();
+                    let new_debark_was_empty = new_debark_front.is_empty();
+                    let mut new_debark_added = false;
 
                     // trace!("At {} Board front : {:#?}", pt.position_name(&position, mission), &self.board_front);
 
@@ -374,11 +375,12 @@ where
                                 pt.trip_name(trip),
                                 board
                             );
-
-                            if !current_stop_has_new_debark {
-                                self.stops_with_new_debark.push(stop.clone());
-                            }
+                            new_debark_added = true;
                         }
+                    }
+
+                    if new_debark_was_empty && new_debark_added {
+                        self.stops_with_new_debark.push(stop.clone());
                     }
                 }
 
