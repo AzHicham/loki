@@ -321,8 +321,8 @@ where
         self.generic.transit_data.boardable_missions_at(stop)
     }
 
-    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::TransfersAtStop {
-        self.generic.transit_data.transfers_at(from_stop)
+    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::BackwardTransfersAtStop {
+        self.generic.transit_data.transfers_backward_at(from_stop)
     }
 
     fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {

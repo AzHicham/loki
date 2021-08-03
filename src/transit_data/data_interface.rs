@@ -124,7 +124,10 @@ pub trait Data: TransitTypes {
 
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
 
-    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop;
+    fn transfer_start_end_stop(
+        &self,
+        transfer: &Self::Transfer,
+    ) -> (Self::Stop, Self::Stop, PositiveDuration);
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
 
@@ -165,11 +168,18 @@ pub trait DataIters<'a>: TransitTypes {
     fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
 
     /// Iterator for all `Transfer`s that can be taken at a `Stop`
-    type TransfersAtStop: Iterator<Item = Self::Transfer>;
+    type ForwardTransfersAtStop: Iterator<Item = Self::Transfer>;
     /// Returns all `Transfer`s that can be taken at `from_stop`
     ///
     /// Should not return twice the same `Transfer`.
-    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop;
+    fn transfers_forward_at(&'a self, from_stop: &Self::Stop) -> Self::ForwardTransfersAtStop;
+
+    /// Iterator for all `Transfer`s that can debark at a `Stop`
+    type BackwardTransfersAtStop: Iterator<Item = Self::Transfer>;
+    /// Returns all `Transfer`s that can debark at `stop`
+    ///
+    /// Should not return twice the same `Transfer`.
+    fn transfers_backward_at(&'a self, stop: &Self::Stop) -> Self::BackwardTransfersAtStop;
 
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;

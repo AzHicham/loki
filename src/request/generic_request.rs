@@ -159,6 +159,8 @@ where
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
+use crate::transit_data::{Transfer, TransferType};
+
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
     Data: DataTrait,

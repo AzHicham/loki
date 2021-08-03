@@ -132,8 +132,12 @@ where
             (Some(from_stop), Some(to_stop)) => {
                 let from_stop_data = &mut self.stops_data[from_stop.idx];
                 from_stop_data
-                    .transfers
+                    .transfers_to
                     .push((*to_stop, duration, transfer_idx));
+                let to_stop_data = &mut self.stops_data[to_stop.idx];
+                to_stop_data
+                    .transfers_from
+                    .push((*from_stop, duration, transfer_idx));
             }
             _ => {
                 warn!(
@@ -202,7 +206,8 @@ where
         let stop_data = StopData::<Timetables> {
             stop_point_idx,
             position_in_timetables: Vec::new(),
-            transfers: Vec::new(),
+            transfers_to: Vec::new(),
+            transfers_from: Vec::new(),
         };
         let stop = Stop {
             idx: self.stops_data.len(),

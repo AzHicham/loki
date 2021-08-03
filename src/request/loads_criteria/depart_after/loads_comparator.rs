@@ -203,18 +203,13 @@ where
     fn arrivals(&'outer self) -> Self::Arrivals {
         self.generic.arrivals()
     }
-}
 
-impl<'data, 'model, 'outer, Data> DataIters<'outer> for Request<'data, 'model, Data>
-where
-    Data: DataTrait + DataIters<'outer>,
-{
     type MissionsAtStop = Data::MissionsAtStop;
-
     fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.generic.boardable_missions_at(stop)
     }
-    type TransfersAtStop = Data::TransfersAtStop;
+
+    type TransfersAtStop = Data::ForwardTransfersAtStop;
     fn transfers_at(&'outer self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
         self.generic.transfers_at(from_stop)
     }
