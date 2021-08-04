@@ -193,7 +193,10 @@ where
 
     fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration) {
         let stop_data = self.stop_data(&transfer.stop);
-        let result = stop_data.transfers_to[transfer.idx_in_stop_transfers];
+        let result = match transfer.transfer_type {
+            TransferType::Forward => stop_data.transfers_to[transfer.idx_in_stop_transfers],
+            TransferType::Backward => stop_data.transfers_from[transfer.idx_in_stop_transfers],
+        };
         (result.0, result.1)
     }
 
@@ -310,8 +313,8 @@ where
     }
 
     type BackwardTransfersAtStop = iters::BackwardTransfersOfStop;
-    fn transfers_backward_at(&'a self, from_stop: &Self::Stop) -> Self::BackwardTransfersAtStop {
-        self.transfers_backward_of(from_stop)
+    fn transfers_backward_at(&'a self, stop: &Self::Stop) -> Self::BackwardTransfersAtStop {
+        self.transfers_backward_of(stop)
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;

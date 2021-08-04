@@ -68,8 +68,8 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         let arrival_penalty = self.generic.leg_arrival_penalty();
         let walking_penalty = self.generic.leg_walking_penalty();
 
-        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
-            >= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
+        lower.arrival_time - arrival_penalty * (lower.nb_of_legs as u32)
+            >= upper.arrival_time - arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
