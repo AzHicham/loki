@@ -39,7 +39,7 @@ use crate::{
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
-use crate::engine::engine_interface::{BadRequest, ConnectionLeg, RequestInput, RequestTypes};
+use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::Data as DataTrait;
 use log::warn;
 use transit_model::Model;
@@ -159,7 +159,6 @@ where
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
-use crate::transit_data::{Transfer, TransferType};
 
 impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
 where
@@ -269,7 +268,7 @@ where
             .iter()
             .rev()
             .skip(1)
-            .map(|(connection_leg)| response::VehicleLeg {
+            .map(|connection_leg| response::VehicleLeg {
                 trip: connection_leg.trip.clone(),
                 board_position: connection_leg.debark_position.clone(),
                 debark_position: connection_leg.board_position.clone(),

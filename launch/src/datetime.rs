@@ -34,6 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub enum DateTimeRepresent {
+    Departure,
+    Arrival,
+}
+
 pub fn parse_datetime(string_datetime: &str) -> Result<loki::NaiveDateTime, BadDateTime> {
     let try_datetime = loki::NaiveDateTime::parse_from_str(string_datetime, "%Y%m%dT%H%M%S");
     match try_datetime {

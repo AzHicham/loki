@@ -317,7 +317,7 @@ use std::fmt;
 
 use chrono::NaiveDateTime;
 
-use crate::{transit_data::data_interface::DataIters, PositiveDuration};
+use crate::PositiveDuration;
 
 impl fmt::Display for BadRequest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -36,9 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::engine::engine_interface::{
-    Journey, Request, RequestDebug, RequestTypes, RequestWithIters,
-};
+use crate::engine::engine_interface::{Journey, RequestDebug, RequestTypes, RequestWithIters};
 use crate::engine::journeys_tree::JourneysTree;
 use crate::engine::pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront};
 use log::trace;

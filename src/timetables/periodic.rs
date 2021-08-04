@@ -175,7 +175,12 @@ impl TimetablesTrait for PeriodicTimetables {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        unimplemented!()
+        let (time_in_day, _load) = self.timetables.departure_time(&trip.vehicle, position);
+        let timetable = self.timetables.timetable_of(&trip.vehicle);
+        let timezone = self.timetables.timezone_data(&timetable);
+        let day = &trip.day;
+        let time = self.calendar.compose(day, time_in_day, timezone);
+        (time, Load::default())
     }
 
     fn debark_time_of(
@@ -281,7 +286,65 @@ impl TimetablesTrait for PeriodicTimetables {
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        unimplemented!()
+        let has_earliest_and_latest_debark_time =
+            self.timetables.earliest_and_latest_debark_time(position);
+
+        // if there is no earliest/latest debark time, it means that this position cannot be debarked
+        // and we return None
+        let (_earliest_debark_time_in_day, _latest_debark_time_in_day) =
+            has_earliest_and_latest_debark_time?;
+
+        let timezone = self.timetables.timezone_data(&mission);
+
+        let decompositions = self.calendar.decompositions(
+            time,
+            timezone,
+            SecondsSinceTimezonedDayStart::max(),
+            SecondsSinceTimezonedDayStart::min(),
+            // *latest_debark_time_in_day,
+            // *earliest_debark_time_in_day,
+        );
+        let mut best_vehicle_day_and_its_departure_time_at_previous_position: Option<(
+            Vehicle,
+            DaysSinceDatasetStart,
+            SecondsSinceDatasetUTCStart,
+        )> = None;
+        for (waiting_day, waiting_time_in_day) in decompositions {
+            let has_vehicle = self.timetables.latest_filtered_vehicle_that_debark(
+                &waiting_time_in_day,
+                &mission,
+                &position,
+                |vehicle_data| {
+                    let days_pattern = vehicle_data.days_pattern;
+                    self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                },
+            );
+            if let Some((vehicle, departure_time_in_day_at_previous_stop, _load)) = has_vehicle {
+                let departure_time_at_previous_stop = self.calendar.compose(
+                    &waiting_day,
+                    departure_time_in_day_at_previous_stop,
+                    &timezone,
+                );
+                if let Some((_, _, best_departure_time)) =
+                    &best_vehicle_day_and_its_departure_time_at_previous_position
+                {
+                    if departure_time_at_previous_stop > *best_departure_time {
+                        best_vehicle_day_and_its_departure_time_at_previous_position =
+                            Some((vehicle, waiting_day, departure_time_at_previous_stop));
+                    }
+                } else {
+                    best_vehicle_day_and_its_departure_time_at_previous_position =
+                        Some((vehicle, waiting_day, departure_time_at_previous_stop));
+                }
+            }
+        }
+
+        best_vehicle_day_and_its_departure_time_at_previous_position.map(
+            |(vehicle, day, departure_time_at_previous_stop)| {
+                let trip = Trip { vehicle, day };
+                (trip, departure_time_at_previous_stop, Load::default())
+            },
+        )
     }
 
     fn insert<'date, Stops, Flows, Dates, Times>(

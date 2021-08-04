@@ -62,6 +62,7 @@ use failure::{bail, format_err, Error};
 
 use std::convert::TryFrom;
 
+use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 
 #[derive(StructOpt)]
@@ -424,6 +425,10 @@ where
         too_late_threshold: config.request_default_params.too_late_threshold,
     };
 
+    let datetime_represent = match journey_request.clockwise {
+        true => DateTimeRepresent::Departure,
+        false => DateTimeRepresent::Arrival,
+    };
     // trace!("{:#?}", request_input);
 
     let responses = solver.solve_request(
@@ -431,7 +436,7 @@ where
         model,
         &request_input,
         &comparator_type,
-        journey_request.clockwise,
+        datetime_represent,
     )?;
     for response in responses.iter() {
         debug!("{}", response.print(model)?);

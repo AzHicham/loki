@@ -82,6 +82,8 @@ pub(super) struct TimetableData<Time, Load, TimezoneData, VehicleData> {
     pub(super) debark_times_by_position: Vec<Vec<Time>>,
 
     pub(super) earliest_and_latest_board_time_by_position: Vec<(Time, Time)>,
+
+    pub(super) earliest_and_latest_debark_time_by_position: Vec<(Time, Time)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -238,6 +240,14 @@ where
     ) -> Option<&(Time, Time)> {
         let timetable_data = self.timetable_data(&position.timetable);
         timetable_data.earliest_and_latest_board_time(position.idx)
+    }
+
+    pub(super) fn earliest_and_latest_debark_time(
+        &self,
+        position: &Position,
+    ) -> Option<&(Time, Time)> {
+        let timetable_data = self.timetable_data(&position.timetable);
+        timetable_data.earliest_and_latest_debark_time(position.idx)
     }
 
     pub(super) fn earliest_vehicle_to_board(
@@ -460,6 +470,14 @@ where
         }
     }
 
+    fn earliest_and_latest_debark_time(&self, position_idx: usize) -> Option<&(Time, Time)> {
+        if self.can_debark(position_idx) {
+            Some(&self.earliest_and_latest_debark_time_by_position[position_idx])
+        } else {
+            None
+        }
+    }
+
     fn load_after(&self, vehicle_idx: usize, position_idx: usize) -> &Load {
         assert!(position_idx + 1 < self.nb_of_positions());
         &self.vehicle_loads[vehicle_idx][position_idx]
@@ -615,6 +633,10 @@ where
             .clone()
             .map(|board_time| (board_time.clone(), board_time))
             .collect();
+        let earliest_and_latest_debark_time_by_position: Vec<_> = board_times
+            .clone()
+            .map(|debark_time| (debark_time.clone(), debark_time))
+            .collect();
         let mut result = Self {
             timezone_data,
             stop_flows,
@@ -623,6 +645,7 @@ where
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
             earliest_and_latest_board_time_by_position,
+            earliest_and_latest_debark_time_by_position,
         };
         result.do_insert(board_times, debark_times, loads, vehicle_data, 0);
         result
