@@ -436,7 +436,7 @@ where
         model,
         &request_input,
         &comparator_type,
-        datetime_represent,
+        &datetime_represent,
     )?;
     for response in responses.iter() {
         debug!("{}", response.print(model)?);

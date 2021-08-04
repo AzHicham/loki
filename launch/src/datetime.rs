@@ -34,9 +34,43 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum DateTimeRepresent {
     Departure,
     Arrival,
+}
+
+impl Default for DateTimeRepresent {
+    fn default() -> Self {
+        DateTimeRepresent::Departure
+    }
+}
+
+impl std::fmt::Display for DateTimeRepresent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DateTimeRepresent::Departure => write!(f, "departure"),
+            DateTimeRepresent::Arrival => write!(f, "arrival"),
+        }
+    }
+}
+
+impl std::str::FromStr for DateTimeRepresent {
+    type Err = DateTimeRepresentConfigError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let request_type = match s {
+            "departure" => DateTimeRepresent::Departure,
+            "arrival" => DateTimeRepresent::Arrival,
+            _ => {
+                return Err(DateTimeRepresentConfigError {
+                    datetime_represent_name: s.to_string(),
+                })
+            }
+        };
+        Ok(request_type)
+    }
 }
 
 pub fn parse_datetime(string_datetime: &str) -> Result<loki::NaiveDateTime, BadDateTime> {
@@ -65,6 +99,23 @@ impl std::fmt::Display for BadDateTime {
             f,
             "Unable to parse {} as a datetime. Expected format is 20190628T163215",
             self.string_datetime
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct DateTimeRepresentConfigError {
+    datetime_represent_name: String,
+}
+
+impl std::error::Error for DateTimeRepresentConfigError {}
+
+impl std::fmt::Display for DateTimeRepresentConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Bad datetime_represent : `{}`",
+            self.datetime_represent_name
         )
     }
 }

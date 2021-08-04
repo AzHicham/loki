@@ -57,7 +57,7 @@ pub trait Solver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator: &config::ComparatorType,
-        datetime_represent: DateTimeRepresent,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -81,7 +81,7 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
-        datetime_represent: DateTimeRepresent,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -157,7 +157,7 @@ impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
-        datetime_represent: DateTimeRepresent,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,

@@ -13,7 +13,9 @@ use std::{fs::File, io::BufReader, time::SystemTime};
 
 use failure::{bail, Error};
 
+use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
+use structopt::StructOpt;
 use structopt::StructOpt;
 
 fn main() {
@@ -42,6 +44,13 @@ pub struct Config {
     /// valid day of the dataset
     #[structopt(long)]
     pub departure_datetime: Option<String>,
+
+    /// "departure_datetime" can represent
+    /// a DepartureAfter datetime
+    /// or ArrivalBefore datetime
+    #[serde(default)]
+    #[structopt(long, default_value)]
+    pub datetime_represent: DateTimeRepresent,
 
     /// Which comparator to use for the request
     /// "basic" or "loads"
@@ -176,6 +185,8 @@ where
         }
     };
 
+    let datetime_represent = &config.datetime_represent;
+
     let compute_timer = SystemTime::now();
 
     let nb_queries = config.nb_queries;
@@ -192,8 +203,13 @@ where
             end_stop_area_uri,
             &config.request_params,
         )?;
-        let solve_result =
-            solver.solve_request(data, model, &request_input, &config.comparator_type);
+        let solve_result = solver.solve_request(
+            data,
+            model,
+            &request_input,
+            &config.comparator_type,
+            datetime_represent,
+        );
 
         match solve_result {
             Err(err) => {

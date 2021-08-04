@@ -37,6 +37,7 @@
 use launch::loki::{self, DataWithIters};
 use launch::{
     config,
+    datetime::DateTimeRepresent,
     loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
     solver,
 };
@@ -96,6 +97,13 @@ pub struct Config {
     /// valid day of the dataset
     #[structopt(long)]
     pub departure_datetime: Option<String>,
+
+    /// "departure_datetime" can represent
+    /// a DepartureAfter datetime
+    /// or ArrivalBefore datetime
+    #[serde(default)]
+    #[structopt(long, default_value)]
+    pub datetime_represent: DateTimeRepresent,
 
     /// Which comparator to use for the request
     /// "basic" or "loads"
@@ -199,6 +207,8 @@ where
         }
     };
 
+    let datetime_represent = &config.datetime_represent;
+
     let compute_timer = SystemTime::now();
 
     let start_stop_area_uri = &config.start;
@@ -211,7 +221,13 @@ where
         end_stop_area_uri,
         &config.request_params,
     )?;
-    let solve_result = solver.solve_request(data, model, &request_input, &config.comparator_type);
+    let solve_result = solver.solve_request(
+        data,
+        model,
+        &request_input,
+        &config.comparator_type,
+        datetime_represent,
+    );
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
     log::info!("Duration : {} ms", duration as f64);
