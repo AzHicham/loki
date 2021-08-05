@@ -535,13 +535,14 @@ where
             //    waiting_time == board_time(idx)
             // but maybe idx is not the smallest idx such hat waiting_time == board_time(idx)
             Ok(idx) => {
-                let mut first_idx = idx;
-                while first_idx > 0
-                    && self.board_times_by_position[position_idx][first_idx] == *waiting_time
-                {
-                    first_idx -= 1;
+                let mut first_idx = None;
+                for i in (0..idx).rev() {
+                    if self.board_times_by_position[position_idx][i] != *waiting_time {
+                        first_idx = Some(i + 1);
+                        break;
+                    }
                 }
-                first_idx
+                first_idx.unwrap_or(0)
             }
         };
 
@@ -575,14 +576,13 @@ where
         }
         // we should not be able to debark at the first position
         assert!(position_idx > 0);
-
         let search_result = self.debark_times_by_position[position_idx].binary_search(time);
         let last_debarkable_vehicle = match search_result {
             // here it means that
             //    time < debark_time(idx)    if idx < len
             //    time > debark_time(idx -1) if idx > 0
             // so idx - 1 is indeed the last vehicle that debark at position
-            Err(0) => 0,
+            Err(0) => return None,
             Err(idx) => idx - 1,
             // here it means that
             //    waiting_time == debark_time(idx)
@@ -595,11 +595,11 @@ where
                 {
                     last_idx += 1;
                 }
-                last_idx
+                last_idx - 1
             }
         };
 
-        for vehicle_idx in (0..last_debarkable_vehicle).rev() {
+        for vehicle_idx in (0..=last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             if filter(vehicle_data) {
                 let departure_time_at_previous_position =
