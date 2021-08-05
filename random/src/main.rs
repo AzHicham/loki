@@ -16,7 +16,6 @@ use failure::{bail, Error};
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
-use structopt::StructOpt;
 
 fn main() {
     let _log_guard = launch::logger::init_logger();
