@@ -6,7 +6,7 @@
 Reads a [ntfs][1] or a gtfs and performs a journey query between two stop areas.
 
 
-## Usage 
+## Usage
 
 ### stop_areas
 The `loki_stop_areas` binary perform a journey query between two stop areas :
@@ -17,13 +17,13 @@ cargo run --release -- launch --input_data_path /path/to/ntfs  --input_data_type
 
 where `start_stop_area_uri` and `end_stop_area_uri` are uri of stop areas occuring in the ntfs dataset located in the directory `/path/to/ntfs/`.
 
-For example : 
+For example :
 ```bash
 cargo run --release -- launch --input_data_path tests/one_line/  --input_data_type ntfs --start stop_area:massy --end stop_area:paris
 ```
 
 
-## More options 
+## More options
 You can also create a config file and launch the binary with a config file instead of command line arguments.
 You also have more configuration options.
 Call the binary with  `--help` to see the docs.

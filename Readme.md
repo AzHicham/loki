@@ -8,18 +8,18 @@ This is a work-in-progress implementation of a multicriteria public transit engi
 The goal is to have an engine that computes a set of pareto-optimal journeys for public transit,
 but with an engine generic enough to handle any criteria specified by a partial order.
 
-Note that the engine handle only the 'public transit' part of the journey. It assumes 
+Note that the engine handle only the 'public transit' part of the journey. It assumes
 that the fallbacks (from the actual starting point to the entrance of the public transit network, as well as from the exit of the public transit network to the actual destination) are given as input.
 
 ## Repository Architecture
 
-The root of the repository provides the `loki` library, 
+The root of the repository provides the `loki` library,
 which allow to perform public transit requests on a ntfs/gtfs dataset (read with `transit_model`).
 
 The library can be used with :
 - the [stop_areas][1] subcrate, where you can provides the origin and destination as command line arguments,
-- the [random][6] to perform benchmarks by generating random requests. 
-- as a server with the [server][3] subcrate, which process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) sent to a zmq socket, call the `loki` engine, and return protobuf responses on the zmq socket. 
+- the [random][6] to perform benchmarks by generating random requests.
+- as a server with the [server][3] subcrate, which process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) sent to a zmq socket, call the `loki` engine, and return protobuf responses on the zmq socket.
 
 In order to provide a fully-fledged multimodal journey planner, the `server` needs other [Navitia][4] components as well as data.
 These components are bundled together in `./dockers`, and some ready to use data is provided in `./data`.

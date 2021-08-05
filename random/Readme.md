@@ -6,9 +6,9 @@
 Reads a [ntfs][1] or a gtfs and performs random journey queries between stop areas.
 
 
-## Usage 
+## Usage
 
-The `loki_random` binary perform random queries on a provided dataset. 
+The `loki_random` binary perform random queries on a provided dataset.
 It is useful for benchmarking.
 For exemple :
 
@@ -18,12 +18,12 @@ cargo run --release -- launch --input_data_path ../data/idfm/ntfs/ --input_data_
 
 will perform 10 queries between stop_areas chosen at random in the dataset.
 
-If you want to perform more queries : 
+If you want to perform more queries :
 ```bash
 cargo run --release -- launch --input_data_path ../data/idfm/ntfs/ --input_data_type ntfs --nb_queries 1000
 ```
 
-## More options 
+## More options
 You can also create a config file and launch the binary with a config file instead of command line arguments.
 You also have more configuration options.
 Call the binary with  `--help` to see the docs.
@@ -42,7 +42,7 @@ The allowed log levels are `TRACE, DEBUG, INFO, WARN, ERROR`.
 You can disable a log level at compile time by specifying features for the [log][2] crate in [Cargo.toml][3], see the [log documentation][4] for more details.
 
 ## Profile with flamegraph
-Install [flamegraph-rs][5] and launch 
+Install [flamegraph-rs][5] and launch
 ```bash
 cargo flamegraph --bin loki_random -- launch --input_data_path ../data/idfm/ntfs/ --input_data_type ntfs --nb_queries 1000
 ```

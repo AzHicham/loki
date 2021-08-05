@@ -20,22 +20,22 @@ function run() {
 }
 
 
-# we initialize the docker-compose.yml with the 
+# we initialize the docker-compose.yml with the
 # services used for all coverages
 echo """
 version: \"3\"
-services: 
+services:
   jormungandr:
     image: navitia/mc_jormun
     volumes:
       - .:/data
     ports:
       - 9191:80
-  
+
 """ > ${output}/docker-compose.yml
 
 
-# we initialize the kubernetes.yml with the 
+# we initialize the kubernetes.yml with the
 # services used for all coverages
 echo """
 apiVersion: v1
@@ -60,7 +60,7 @@ spec:
     matchLabels:
       app: app-jormun
   template:
-    metadata: 
+    metadata:
       labels:
         app : app-jormun
     spec:
@@ -123,7 +123,7 @@ for folder in $(ls -d */); do
     if [[ -e ${input}/${coverage}/gtfs/ ]]; then
 
       inputType="gtfs"
-      
+
       rm -f ${output}/${coverage}/gtfs/*
       mkdir -p ${output}/${coverage}/gtfs/
       cp  ${input}/${coverage}/gtfs/* ${output}/${coverage}/gtfs/
@@ -149,7 +149,7 @@ for folder in $(ls -d */); do
         rm -f ${output}/${coverage}/osm/*
         mkdir -p ${output}/${coverage}/osm/
         cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
-    fi    
+    fi
 
     # binarize
     echo "Launch binarisation"
@@ -158,7 +158,7 @@ for folder in $(ls -d */); do
 
     # copy stoptime_loads if present
     if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
-      cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv 
+      cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv
     fi
 
 
@@ -167,7 +167,7 @@ for folder in $(ls -d */); do
     echo """
   loki-${coverage}:
     image: navitia/mc_loki
-    environment: 
+    environment:
       - RUST_LOG=debug
     volumes:
       - ./${coverage}/:/data
@@ -186,23 +186,23 @@ for folder in $(ls -d */); do
 
     # Jormun config files
     # one for the "kraken" coverage
-    jq -n --arg instance "${coverage}-kraken" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{ 
-    key: $instance, 
+    jq -n --arg instance "${coverage}-kraken" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{
+    key: $instance,
     zmq_socket: $krakenSocket
 }'  > ${output}/jormun_conf/$coverage.json
 
     # one for "loki" with loads comparator
-    jq -n --arg instance "${coverage}-loki-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiLoadsPort}" '{ 
-    key: $instance, 
-    zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $lokiSocket 
+    jq -n --arg instance "${coverage}-loki-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiLoadsPort}" '{
+    key: $instance,
+    zmq_socket: $krakenSocket,
+    pt_zmq_socket : $lokiSocket
 }'  > ${output}/jormun_conf/${coverage}_loads.json
 
     # one for "loki" with basic comparator
-    jq -n --arg instance "${coverage}-loki-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{ 
-    key: $instance, 
-    zmq_socket: $krakenSocket, 
-    pt_zmq_socket : $lokiSocket 
+    jq -n --arg instance "${coverage}-loki-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
+    key: $instance,
+    zmq_socket: $krakenSocket,
+    pt_zmq_socket : $lokiSocket
 }'  > ${output}/jormun_conf/${coverage}_classic.json
 
     # kraken config file
@@ -244,11 +244,11 @@ spec:
     matchLabels:
       app: app-kraken-${coverage}
   template:
-    metadata: 
+    metadata:
       labels:
         app : app-kraken-${coverage}
     spec:
-      containers:             
+      containers:
         - image: navitia/mc_kraken
           name: kraken-${coverage}
           volumeMounts:
@@ -285,11 +285,11 @@ spec:
     matchLabels:
       app: app-loki-${coverage}
   template:
-    metadata: 
+    metadata:
       labels:
         app : app-loki-${coverage}
     spec:
-      containers:             
+      containers:
         - image: navitia/mc_loki
           name: loki-${coverage}
           volumeMounts:

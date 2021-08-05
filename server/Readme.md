@@ -6,7 +6,7 @@ Serve you Tips and tricks to fluidify your (public) transit !
 
 Reads a [ntfs][1] dataset and then process protobuf journey requests (the format is specified by the [navitia-proto][2] repo) send to a zmq socket, call the `loki` engine, and returns the protobuf response on the zmq socket.
 
-## How to compile 
+## How to compile
 
 Install libzmq (needed for the `zmq` crate, cf https://crates.io/crates/zmq/):
 ```bash
@@ -22,20 +22,20 @@ cargo build --release
 
 ## How to use
 
-Loki-server can be used to answer the "public transit" part of distributed journey request. 
+Loki-server can be used to answer the "public transit" part of distributed journey request.
 The setup is as follow :
 - a jormun server will receive the distributed journey request, and create several subrequest to be handled by backends, before
-  serving the response 
+  serving the response
 - a loki-server backend will answer all "pt_journey" subrequests
 - a kraken backend will answer all other subrequests
 
 You should have a ntfs dataset in `/path/to/ntfs` which has been binarized to `/path/to/data.nav.lz4` (you can use [eitry][8] for generating a `data.nav.lz4` from a ntfs dataset).
 You need to setup :
-- a jormun server from [this branch][7] which should be configured with 
+- a jormun server from [this branch][7] which should be configured with
 ```json
 {"key": "mycoverage", "zmq_socket": "ipc:///tmp/kraken", "pt_zmq_socket" : "ipc:///tmp/loki"}
 ```
-- a kraken configured with 
+- a kraken configured with
 ```
 [GENERAL]
 instance_name = "mycoverage"
@@ -52,11 +52,11 @@ Then you can send http requests to the jormun server !
 
 ## Architecture
 
-### Protobuf 
+### Protobuf
 
 This crate uses [prost][4] to handle (de)serialization of protobuf. The protobuf schema is specified in [navitia-proto][2].
-This means that Rust code is generated from `.proto` files at compile time, by [prost-build][3] in the build script [build.rs][5]. 
-To see where the rust code is generated, run 
+This means that Rust code is generated from `.proto` files at compile time, by [prost-build][3] in the build script [build.rs][5].
+To see where the rust code is generated, run
 ```bash
 cargo build --release -vv
 ```

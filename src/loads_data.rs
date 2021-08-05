@@ -268,7 +268,7 @@ impl LoadsData {
                     .get(&stop_sequence);
                 if has_idx.is_none() {
                     trace!(
-                        "Error reading {:?} at line {}. \n 
+                        "Error reading {:?} at line {}. \n
                         The provided stop_sequence {} is not valid for the vehicle_journey {}.
                         I'll skip this line.",
                         filepath,
