@@ -375,7 +375,6 @@ where
                                 pt.trip_name(trip),
                                 board
                             );
-
                             new_debark_added = true;
                         }
                     }
