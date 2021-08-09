@@ -38,6 +38,7 @@ use chrono::NaiveDate;
 use log::{debug, trace};
 use std::collections::BTreeMap;
 use std::error::Error;
+use std::fmt::Display;
 use std::path::Path;
 use transit_model::objects::VehicleJourney;
 use transit_model::Model;
@@ -169,10 +170,10 @@ impl Display for LoadsCount {
         write!(
             f,
             "High {}; Medium {}; Low {}; total {}",
-            self.loads_count.high,
-            self.loads_count.medium,
-            self.loads_count.low,
-            self.loads_count.total()
+            self.high,
+            self.medium,
+            self.low,
+            self.total()
         )
     }
 }

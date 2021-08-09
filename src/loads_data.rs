@@ -34,12 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-#[cfg(vehicle_loads)]
+#[cfg(feature = "vehicle_loads")]
 pub mod real_loads;
-#[cfg(vehicle_loads)]
+#[cfg(feature = "vehicle_loads")]
 pub use real_loads::{Load, LoadsCount, LoadsData};
 
-#[cfg(not(vehicle_loads))]
+#[cfg(not(feature = "vehicle_loads"))]
 pub mod empty_loads;
-#[cfg(not(vehicle_loads))]
+#[cfg(not(feature = "vehicle_loads"))]
 pub use empty_loads::{Load, LoadsCount, LoadsData};
