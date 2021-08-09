@@ -225,7 +225,8 @@ where
         let mut prev_vehicle_leg = &self.first_vehicle;
 
         for (idx, (transfer, vehicle_leg)) in self.connections.iter().enumerate() {
-            let transfer_start_stop = data.transfer_start_stop(transfer);
+            let (transfer_start_stop, transfer_end_stop, transfer_duration) =
+                data.transfer_start_end_stop(transfer);
             if !data.is_same_stop(&prev_debark_stop, &transfer_start_stop) {
                 return Err(BadJourney::BadTransferStartStop(
                     prev_vehicle_leg.clone(),
@@ -233,7 +234,6 @@ where
                     idx,
                 ));
             }
-            let (transfer_end_stop, transfer_duration) = data.transfer(transfer);
 
             let board_position = &vehicle_leg.board_position;
             let debark_position = &vehicle_leg.debark_position;

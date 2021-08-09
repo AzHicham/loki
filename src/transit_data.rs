@@ -61,15 +61,24 @@ pub struct TransitData<Timetables: TimetablesTrait> {
 pub struct StopData<Timetables: TimetablesTrait> {
     pub(super) stop_point_idx: Idx<StopPoint>,
     pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
-    pub(super) transfers: Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>,
+    pub(super) transfers_to: Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>,
+    pub(super) transfers_from: Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub struct Stop {
     pub(super) idx: usize,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TransferType {
+    Forward,
+    Backward,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Transfer {
+    pub(super) transfer_type: TransferType,
     pub(super) stop: Stop,
     pub(super) idx_in_stop_transfers: usize,
 }
@@ -134,6 +143,14 @@ where
         self.timetables.next_position(position, mission)
     }
 
+    fn previous_on_mission(
+        &self,
+        position: &Self::Position,
+        mission: &Self::Mission,
+    ) -> Option<Self::Position> {
+        self.timetables.previous_position(position, mission)
+    }
+
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
         self.timetables.mission_of(trip)
     }
@@ -166,9 +183,20 @@ where
         self.timetables.arrival_time_of(trip, position)
     }
 
+    fn departure_time_of(
+        &self,
+        trip: &Self::Trip,
+        position: &Self::Position,
+    ) -> (SecondsSinceDatasetUTCStart, Load) {
+        self.timetables.departure_time_of(trip, position)
+    }
+
     fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration) {
         let stop_data = self.stop_data(&transfer.stop);
-        let result = stop_data.transfers[transfer.idx_in_stop_transfers];
+        let result = match transfer.transfer_type {
+            TransferType::Forward => stop_data.transfers_to[transfer.idx_in_stop_transfers],
+            TransferType::Backward => stop_data.transfers_from[transfer.idx_in_stop_transfers],
+        };
         (result.0, result.1)
     }
 
@@ -180,6 +208,16 @@ where
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .earliest_trip_to_board_at(waiting_time, mission, position)
+    }
+
+    fn latest_trip_that_debark_at(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.timetables
+            .latest_trip_that_debark_at(waiting_time, mission, position)
     }
 
     fn nb_of_trips(&self) -> usize {
@@ -223,7 +261,10 @@ where
 
     fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
         let stop_data = self.stop_data(&transfer.stop);
-        let result = stop_data.transfers[transfer.idx_in_stop_transfers];
+        let result = match transfer.transfer_type {
+            TransferType::Forward => stop_data.transfers_to[transfer.idx_in_stop_transfers],
+            TransferType::Backward => stop_data.transfers_from[transfer.idx_in_stop_transfers],
+        };
         result.2
     }
 
@@ -231,8 +272,22 @@ where
         self.timetables.day_of(trip)
     }
 
-    fn transfer_start_stop(&self, transfer: &Self::Transfer) -> Self::Stop {
-        transfer.stop
+    fn transfer_start_end_stop(
+        &self,
+        transfer: &Self::Transfer,
+    ) -> (Self::Stop, Self::Stop, PositiveDuration) {
+        match transfer.transfer_type {
+            TransferType::Forward => {
+                let start_stop_data = self.stop_data(&transfer.stop);
+                let end_stop_data = start_stop_data.transfers_to[transfer.idx_in_stop_transfers];
+                (transfer.stop, end_stop_data.0, end_stop_data.1)
+            }
+            TransferType::Backward => {
+                let start_stop_data = self.stop_data(&transfer.stop);
+                let end_stop_data = start_stop_data.transfers_from[transfer.idx_in_stop_transfers];
+                (end_stop_data.0, transfer.stop, end_stop_data.1)
+            }
+        }
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
@@ -252,10 +307,14 @@ where
         self.missions_of(stop)
     }
 
-    type TransfersAtStop = iters::TransfersOfStop;
+    type ForwardTransfersAtStop = iters::ForwardTransfersOfStop;
+    fn transfers_forward_at(&'a self, from_stop: &Self::Stop) -> Self::ForwardTransfersAtStop {
+        self.transfers_forward_of(from_stop)
+    }
 
-    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
-        self.transfers_of(from_stop)
+    type BackwardTransfersAtStop = iters::BackwardTransfersOfStop;
+    fn transfers_backward_at(&'a self, stop: &Self::Stop) -> Self::BackwardTransfersAtStop {
+        self.transfers_backward_of(stop)
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;

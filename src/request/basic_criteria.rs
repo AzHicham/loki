@@ -42,6 +42,7 @@ use crate::engine::engine_interface::RequestTypes;
 use crate::transit_data::data_interface::Data as DataTrait;
 use crate::transit_data::data_interface::TransitTypes;
 
+pub mod arrival_before;
 pub mod depart_after;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

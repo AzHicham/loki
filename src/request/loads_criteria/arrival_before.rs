@@ -48,11 +48,11 @@ use super::Criteria;
 pub mod classic_comparator;
 pub mod loads_comparator;
 
-pub struct GenericLoadsDepartAfter<'data, 'model, Data: DataTrait> {
+pub struct GenericLoadsArrivalBefore<'data, 'model, Data: DataTrait> {
     generic: GenericRequest<'data, 'model, Data>,
 }
 
-impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data> {
+impl<'data, 'model, Data: DataTrait> GenericLoadsArrivalBefore<'data, 'model, Data> {
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {
         self.generic.leg_arrival_penalty
     }
@@ -61,9 +61,10 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         self.generic.leg_walking_penalty
     }
 
-    pub fn is_valid(&self, criteria: &Criteria) -> bool {
-        criteria.arrival_time <= self.generic.max_arrival_time
-            && criteria.nb_of_legs <= self.generic.max_nb_legs
+    fn is_valid(&self, criteria: &Criteria) -> bool {
+        // criteria.arrival_time <= self.generic.max_arrival_time
+        //     &&
+        criteria.nb_of_legs <= self.generic.max_nb_legs
     }
 
     fn board_and_ride(
@@ -72,25 +73,25 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         trip: &Data::Trip,
         waiting_criteria: &Criteria,
     ) -> Option<Criteria> {
-        let has_board = self.generic.transit_data.board_time_of(trip, position);
-        if let Some(board_timeload) = has_board {
-            if waiting_criteria.arrival_time > board_timeload.0 {
+        let has_debark = self.generic.transit_data.debark_time_of(trip, position);
+        if let Some(debark_timeload) = has_debark {
+            if waiting_criteria.arrival_time < debark_timeload.0 {
                 return None;
             }
         } else {
             return None;
         }
         let mission = self.generic.transit_data.mission_of(trip);
-        let next_position = self
+        let previous_position = self
             .generic
             .transit_data
-            .next_on_mission(position, &mission)?;
-        let (arrival_time_at_next_stop, load) = self
+            .previous_on_mission(position, &mission)?;
+        let (departure_timeload_at_previous_stop, load) = self
             .generic
             .transit_data
-            .arrival_time_of(trip, &next_position);
+            .departure_time_of(trip, &previous_position);
         let new_criteria = Criteria {
-            arrival_time: arrival_time_at_next_stop,
+            arrival_time: departure_timeload_at_previous_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
@@ -99,7 +100,7 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         Some(new_criteria)
     }
 
-    pub fn best_trip_to_board(
+    fn best_trip_to_board(
         &self,
         position: &Data::Position,
         mission: &Data::Mission,
@@ -108,7 +109,7 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         let waiting_time = &waiting_criteria.arrival_time;
         self.generic
             .transit_data
-            .earliest_trip_to_board_at(waiting_time, mission, position)
+            .latest_trip_that_debark_at(waiting_time, mission, position)
             .map(|(trip, arrival_time, load)| {
                 let new_criteria = Criteria {
                     arrival_time,
@@ -121,7 +122,7 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
             })
     }
 
-    pub fn debark(
+    fn debark(
         &self,
         trip: &Data::Trip,
         position: &Data::Position,
@@ -129,13 +130,17 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
     ) -> Option<Criteria> {
         debug_assert!({
             let arrival_time = &onboard_criteria.arrival_time;
-            self.generic.transit_data.arrival_time_of(trip, position).0 == *arrival_time
+            self.generic
+                .transit_data
+                .departure_time_of(trip, position)
+                .0
+                == *arrival_time
         });
         self.generic
             .transit_data
-            .debark_time_of(trip, position)
-            .map(|(debark_time, _load)| Criteria {
-                arrival_time: debark_time,
+            .board_time_of(trip, position)
+            .map(|board_timeload| Criteria {
+                arrival_time: board_timeload.0,
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
@@ -145,17 +150,17 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
 
     fn ride(&self, trip: &Data::Trip, position: &Data::Position, criteria: &Criteria) -> Criteria {
         let mission = self.generic.transit_data.mission_of(trip);
-        let next_position = self
+        let previous_position = self
             .generic
             .transit_data
-            .next_on_mission(position, &mission)
+            .previous_on_mission(position, &mission)
             .unwrap();
-        let (arrival_time_at_next_position, load) = self
+        let (departure_timeload_at_previous_position, load) = self
             .generic
             .transit_data
-            .arrival_time_of(trip, &next_position);
+            .departure_time_of(trip, &previous_position);
         Criteria {
-            arrival_time: arrival_time_at_next_position,
+            arrival_time: departure_timeload_at_previous_position,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
@@ -171,7 +176,7 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
     ) -> (Data::Stop, Criteria) {
         let (arrival_stop, transfer_duration) = self.generic.transit_data.transfer(transfer);
         let new_criteria = Criteria {
-            arrival_time: criteria.arrival_time + transfer_duration,
+            arrival_time: criteria.arrival_time - transfer_duration,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration + transfer_duration,
@@ -182,8 +187,8 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
 
     fn depart(&self, departure: &Departure) -> (Data::Stop, Criteria) {
         let (stop, fallback_duration) =
-            &self.generic.departures_stop_point_and_fallback_duration[departure.idx];
-        let arrival_time = self.generic.departure_datetime + *fallback_duration;
+            &self.generic.arrivals_stop_point_and_fallbrack_duration[departure.idx];
+        let arrival_time = self.generic.departure_datetime - *fallback_duration;
         let criteria = Criteria {
             arrival_time,
             nb_of_legs: 0,
@@ -195,16 +200,16 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
     }
 
     fn arrival_stop(&self, arrival: &Arrival) -> Data::Stop {
-        self.generic.arrivals_stop_point_and_fallbrack_duration[arrival.idx]
+        self.generic.departures_stop_point_and_fallback_duration[arrival.idx]
             .0
             .clone()
     }
 
     fn arrive(&self, arrival: &Arrival, criteria: &Criteria) -> Criteria {
         let arrival_duration =
-            &self.generic.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
+            &self.generic.departures_stop_point_and_fallback_duration[arrival.idx].1;
         Criteria {
-            arrival_time: criteria.arrival_time + *arrival_duration,
+            arrival_time: criteria.arrival_time - *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
@@ -218,7 +223,8 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         downstream: &Data::Position,
         mission: &Data::Mission,
     ) -> bool {
-        self.generic
+        !self
+            .generic
             .transit_data
             .is_upstream(upstream, downstream, mission)
     }
@@ -228,7 +234,7 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
         stop: &Data::Position,
         mission: &Data::Mission,
     ) -> Option<Data::Position> {
-        self.generic.transit_data.next_on_mission(stop, mission)
+        self.generic.transit_data.previous_on_mission(stop, mission)
     }
 
     fn mission_of(&self, trip: &Data::Trip) -> Data::Mission {
@@ -285,7 +291,8 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
             Transfer = Data::Transfer,
         >,
     {
-        self.generic.create_response(pt_journey, loads_count)
+        self.generic
+            .create_response_reverse(pt_journey, loads_count)
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
@@ -302,24 +309,28 @@ impl<'data, 'model, Data: DataTrait> GenericLoadsDepartAfter<'data, 'model, Data
     }
 }
 
-impl<'data, 'model, 'outer, Data> GenericLoadsDepartAfter<'data, 'model, Data>
+impl<'data, 'model, 'outer, Data> GenericLoadsArrivalBefore<'data, 'model, Data>
 where
     Data: DataTrait + DataIters<'outer>,
 {
     fn departures(&'outer self) -> Departures {
-        self.generic.departures()
+        Departures {
+            inner: self.generic.arrivals().inner,
+        }
     }
 
     fn arrivals(&'outer self) -> Arrivals {
-        self.generic.arrivals()
+        Arrivals {
+            inner: self.generic.departures().inner,
+        }
     }
 
     fn boardable_missions_at(&'outer self, stop: &Data::Stop) -> Data::MissionsAtStop {
         self.generic.transit_data.boardable_missions_at(stop)
     }
 
-    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::ForwardTransfersAtStop {
-        self.generic.transit_data.transfers_forward_at(from_stop)
+    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::BackwardTransfersAtStop {
+        self.generic.transit_data.transfers_backward_at(from_stop)
     }
 
     fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {

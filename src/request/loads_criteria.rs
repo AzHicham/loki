@@ -41,6 +41,7 @@ use crate::transit_data::data_interface::Data as DataTrait;
 use crate::transit_data::data_interface::TransitTypes;
 use crate::{loads_data::LoadsCount, time::SecondsSinceDatasetUTCStart, PositiveDuration};
 
+pub mod arrival_before;
 pub mod depart_after;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

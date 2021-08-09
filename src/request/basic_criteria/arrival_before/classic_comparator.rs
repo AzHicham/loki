@@ -34,16 +34,19 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::engine::engine_interface::Request as RequestTrait;
 use crate::engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
-    RequestTypes, RequestWithIters,
+    BadRequest, RequestDebug, RequestIO, RequestInput, RequestIters, RequestTypes, RequestWithIters,
 };
-use crate::transit_data::data_interface::TransitTypes;
-use crate::transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters};
+use crate::loads_data::LoadsCount;
+use crate::transit_data::data_interface::{
+    Data as DataTrait, DataIters, DataWithIters, TransitTypes,
+};
 
-use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericLoadsDepartAfter};
+use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericBasicArrivalBefore};
+
 pub struct Request<'data, 'model, Data: DataTrait> {
-    generic: GenericLoadsDepartAfter<'data, 'model, Data>,
+    generic: GenericBasicArrivalBefore<'data, 'model, Data>,
 }
 
 impl<'data, 'model, Data: DataTrait> TransitTypes for Request<'data, 'model, Data> {
@@ -64,8 +67,9 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty();
         let walking_penalty = self.generic.leg_walking_penalty();
-        lower.arrival_time + arrival_penalty * (lower.nb_of_legs as u32)
-            <= upper.arrival_time + arrival_penalty * (upper.nb_of_legs as u32)
+
+        lower.arrival_time - arrival_penalty * (lower.nb_of_legs as u32)
+            >= upper.arrival_time - arrival_penalty * (upper.nb_of_legs as u32)
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
@@ -78,7 +82,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         complete_journey_criteria: &Self::Criteria,
     ) -> bool {
         partial_journey_criteria.arrival_time
-            >= complete_journey_criteria.arrival_time + self.generic.generic.too_late_threshold
+            <= complete_journey_criteria.arrival_time - self.generic.generic.too_late_threshold
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
@@ -201,11 +205,12 @@ where
     }
 
     type MissionsAtStop = Data::MissionsAtStop;
+
     fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.generic.boardable_missions_at(stop)
     }
 
-    type TransfersAtStop = Data::ForwardTransfersAtStop;
+    type TransfersAtStop = Data::BackwardTransfersAtStop;
     fn transfers_at(&'outer self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
         self.generic.transfers_at(from_stop)
     }
@@ -234,7 +239,7 @@ where
     where
         Self: Sized,
     {
-        let generic_result = GenericLoadsDepartAfter::new(model, transit_data, request_input);
+        let generic_result = GenericBasicArrivalBefore::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 
@@ -247,7 +252,6 @@ where
         pt_journey: &PTJourney<T>,
     ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
     where
-        Self: Sized,
         T: RequestTypes<
             Stop = Self::Stop,
             Mission = Self::Mission,
@@ -259,10 +263,8 @@ where
             Criteria = Self::Criteria,
         >,
     {
-        self.generic.create_response(
-            pt_journey,
-            pt_journey.criteria_at_arrival.loads_count.clone(),
-        )
+        self.generic
+            .create_response(pt_journey, LoadsCount::default())
     }
 }
 

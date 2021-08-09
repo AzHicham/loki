@@ -82,6 +82,8 @@ pub(super) struct TimetableData<Time, Load, TimezoneData, VehicleData> {
     pub(super) debark_times_by_position: Vec<Vec<Time>>,
 
     pub(super) earliest_and_latest_board_time_by_position: Vec<(Time, Time)>,
+
+    pub(super) earliest_and_latest_debark_time_by_position: Vec<(Time, Time)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -175,6 +177,23 @@ where
         }
     }
 
+    pub(super) fn previous_position(
+        &self,
+        position: &Position,
+        timetable: &Timetable,
+    ) -> Option<Position> {
+        assert_eq!(position.timetable, *timetable);
+        if position.idx >= 1 {
+            let result = Position {
+                timetable: position.timetable.clone(),
+                idx: position.idx - 1,
+            };
+            Some(result)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn debark_time(
         &self,
         vehicle: &Vehicle,
@@ -207,12 +226,28 @@ where
         (time, load)
     }
 
+    pub(super) fn departure_time(&self, vehicle: &Vehicle, position: &Position) -> (&Time, &Load) {
+        assert!(vehicle.timetable == position.timetable);
+        let timetable_data = self.timetable_data(&vehicle.timetable);
+        let time = timetable_data.departure_time(vehicle.idx, position.idx);
+        let load = timetable_data.load_after(vehicle.idx, position.idx);
+        (time, load)
+    }
+
     pub(super) fn earliest_and_latest_board_time(
         &self,
         position: &Position,
     ) -> Option<&(Time, Time)> {
         let timetable_data = self.timetable_data(&position.timetable);
         timetable_data.earliest_and_latest_board_time(position.idx)
+    }
+
+    pub(super) fn earliest_and_latest_debark_time(
+        &self,
+        position: &Position,
+    ) -> Option<&(Time, Time)> {
+        let timetable_data = self.timetable_data(&position.timetable);
+        timetable_data.earliest_and_latest_debark_time(position.idx)
     }
 
     pub(super) fn earliest_vehicle_to_board(
@@ -243,6 +278,40 @@ where
                     idx,
                 };
                 let load = self.timetable_data(timetable).load_after(idx, position.idx);
+                (vehicle, time, load)
+            })
+    }
+
+    pub(super) fn latest_vehicle_that_debark(
+        &self,
+        time: &Time,
+        timetable: &Timetable,
+        position: &Position,
+    ) -> Option<(Vehicle, &Time, &Load)> {
+        self.latest_filtered_vehicle_that_debark(time, timetable, position, |_| true)
+    }
+
+    pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        time: &Time,
+        timetable: &Timetable,
+        position: &Position,
+        filter: Filter,
+    ) -> Option<(Vehicle, &Time, &Load)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        assert_eq!(position.timetable, *timetable);
+        self.timetable_data(timetable)
+            .latest_filtered_vehicle_that_debark(time, position.idx, filter)
+            .map(|(idx, time)| {
+                let vehicle = Vehicle {
+                    timetable: timetable.clone(),
+                    idx,
+                };
+                let load = self
+                    .timetable_data(timetable)
+                    .load_before(idx, position.idx);
                 (vehicle, time, load)
             })
     }
@@ -373,6 +442,10 @@ where
         &self.debark_times_by_position[position_idx][vehicle_idx]
     }
 
+    fn departure_time(&self, vehicle_idx: usize, position_idx: usize) -> &Time {
+        &self.board_times_by_position[position_idx][vehicle_idx]
+    }
+
     fn debark_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
         if self.can_debark(position_idx) {
             Some(&self.debark_times_by_position[position_idx][vehicle_idx])
@@ -392,6 +465,14 @@ where
     fn earliest_and_latest_board_time(&self, position_idx: usize) -> Option<&(Time, Time)> {
         if self.can_board(position_idx) {
             Some(&self.earliest_and_latest_board_time_by_position[position_idx])
+        } else {
+            None
+        }
+    }
+
+    fn earliest_and_latest_debark_time(&self, position_idx: usize) -> Option<&(Time, Time)> {
+        if self.can_debark(position_idx) {
+            Some(&self.earliest_and_latest_debark_time_by_position[position_idx])
         } else {
             None
         }
@@ -454,13 +535,14 @@ where
             //    waiting_time == board_time(idx)
             // but maybe idx is not the smallest idx such hat waiting_time == board_time(idx)
             Ok(idx) => {
-                let mut first_idx = idx;
-                while first_idx > 0
-                    && self.board_times_by_position[position_idx][first_idx] == *waiting_time
-                {
-                    first_idx -= 1;
+                let mut first_idx = None;
+                for i in (0..idx).rev() {
+                    if self.board_times_by_position[position_idx][i] != *waiting_time {
+                        first_idx = Some(i + 1);
+                        break;
+                    }
                 }
-                first_idx
+                first_idx.unwrap_or(0)
             }
         };
 
@@ -471,6 +553,58 @@ where
                 let arrival_time_at_next_position =
                     self.arrival_time(vehicle_idx, next_position_idx);
                 return Some((vehicle_idx, arrival_time_at_next_position));
+            }
+        }
+        None
+    }
+
+    // Given a `position` and a `time`
+    // return `Some(best_trip_idx)`
+    // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
+    // that debark at the subsequent positions at the latest time
+    fn latest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        time: &Time,
+        position_idx: usize,
+        filter: Filter,
+    ) -> Option<(usize, &Time)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        if !self.can_debark(position_idx) {
+            return None;
+        }
+        // we should not be able to debark at the first position
+        assert!(position_idx > 0);
+        let search_result = self.debark_times_by_position[position_idx].binary_search(time);
+        let last_debarkable_vehicle = match search_result {
+            // here it means that
+            //    time < debark_time(idx)    if idx < len
+            //    time > debark_time(idx -1) if idx > 0
+            // so idx - 1 is indeed the last vehicle that debark at position
+            Err(0) => return None,
+            Err(idx) => idx - 1,
+            // here it means that
+            //    waiting_time == debark_time(idx)
+            // but maybe idx is not the greatest idx such as time == debark_time(idx)
+            Ok(idx) => {
+                let size_vec_debark = self.debark_times_by_position[position_idx].len();
+                let mut last_idx = idx;
+                while last_idx < size_vec_debark
+                    && self.debark_times_by_position[position_idx][last_idx] == *time
+                {
+                    last_idx += 1;
+                }
+                last_idx - 1
+            }
+        };
+
+        for vehicle_idx in (0..=last_debarkable_vehicle).rev() {
+            let vehicle_data = &self.vehicle_datas[vehicle_idx];
+            if filter(vehicle_data) {
+                let departure_time_at_previous_position =
+                    self.departure_time(vehicle_idx, position_idx - 1);
+                return Some((vehicle_idx, departure_time_at_previous_position));
             }
         }
         None
@@ -499,6 +633,10 @@ where
             .clone()
             .map(|board_time| (board_time.clone(), board_time))
             .collect();
+        let earliest_and_latest_debark_time_by_position: Vec<_> = board_times
+            .clone()
+            .map(|debark_time| (debark_time.clone(), debark_time))
+            .collect();
         let mut result = Self {
             timezone_data,
             stop_flows,
@@ -507,6 +645,7 @@ where
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
             earliest_and_latest_board_time_by_position,
+            earliest_and_latest_debark_time_by_position,
         };
         result.do_insert(board_times, debark_times, loads, vehicle_data, 0);
         result

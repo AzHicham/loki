@@ -202,7 +202,7 @@ pub trait Request: RequestTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
+pub trait RequestIters<'a>: RequestTypes {
     /// Iterator for all possible arrivals of a journey
     type Arrivals: Iterator<Item = Self::Arrival>;
     /// Returns the identifiers of all possible arrivals of a journey
@@ -212,6 +212,26 @@ pub trait RequestIters<'a>: RequestTypes + DataIters<'a> {
     type Departures: Iterator<Item = Self::Departure>;
     /// Returns the identifiers of all possible departures of a journey
     fn departures(&'a self) -> Self::Departures;
+
+    /// Iterator for the `Mission`s that can be boarded at a `stop`
+    /// along with the `Position` of `stop` on each `Mission`
+    type MissionsAtStop: Iterator<Item = (Self::Mission, Self::Position)>;
+    /// Returns all the `Mission`s that can be boarded at `stop`.
+    ///
+    /// Should not return twice the same `Mission`.
+    fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
+
+    /// Iterator for all `Transfer`s that can be taken at a `Stop`
+    type TransfersAtStop: Iterator<Item = Self::Transfer>;
+    /// Returns all `Transfer`s that can be taken at `from_stop`
+    ///
+    /// Should not return twice the same `Transfer`.
+    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop;
+
+    /// Iterator for all `Trip`s belonging to a `Mission`.
+    type TripsOfMission: Iterator<Item = Self::Trip>;
+    /// Returns all `Trip`s belonging to `mission`
+    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
 #[derive(Debug)]
@@ -297,7 +317,7 @@ use std::fmt;
 
 use chrono::NaiveDateTime;
 
-use crate::{transit_data::data_interface::DataIters, PositiveDuration};
+use crate::PositiveDuration;
 
 impl fmt::Display for BadRequest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

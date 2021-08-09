@@ -43,6 +43,7 @@ use loki::{
     RequestDebug, RequestIO, RequestInput, RequestTypes, RequestWithIters,
 };
 
+use crate::datetime::DateTimeRepresent;
 use loki::request::basic_criteria;
 
 use super::config;
@@ -56,6 +57,7 @@ pub trait Solver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator: &config::ComparatorType,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -79,6 +81,7 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -86,21 +89,49 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
     {
         match comparator_type {
             config::ComparatorType::Loads => {
-                let request = basic_criteria::depart_after::classic_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = match datetime_represent {
+                    DateTimeRepresent::Departure => {
+                        let request =
+                            basic_criteria::depart_after::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                    DateTimeRepresent::Arrival => {
+                        let request =
+                            basic_criteria::arrival_before::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                };
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = basic_criteria::depart_after::classic_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = match datetime_represent {
+                    DateTimeRepresent::Departure => {
+                        let request =
+                            basic_criteria::depart_after::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                    DateTimeRepresent::Arrival => {
+                        let request =
+                            basic_criteria::arrival_before::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                };
                 Ok(responses)
             }
         }
@@ -126,6 +157,7 @@ impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
         model: &transit_model::Model,
         request_input: &RequestInput,
         comparator_type: &config::ComparatorType,
+        datetime_represent: &DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -133,21 +165,48 @@ impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
     {
         match comparator_type {
             config::ComparatorType::Loads => {
-                let request = loads_criteria::depart_after::loads_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = match datetime_represent {
+                    DateTimeRepresent::Departure => {
+                        let request = loads_criteria::depart_after::loads_comparator::Request::new(
+                            model,
+                            data,
+                            request_input,
+                        )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                    DateTimeRepresent::Arrival => {
+                        let request =
+                            loads_criteria::arrival_before::loads_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                };
                 Ok(responses)
             }
             config::ComparatorType::Basic => {
-                let request = loads_criteria::depart_after::classic_comparator::Request::new(
-                    model,
-                    data,
-                    request_input,
-                )?;
-                let responses = solve_request_inner(&mut self.engine, &request, data);
+                let responses = match datetime_represent {
+                    DateTimeRepresent::Departure => {
+                        let request =
+                            loads_criteria::depart_after::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                    DateTimeRepresent::Arrival => {
+                        let request =
+                            loads_criteria::arrival_before::classic_comparator::Request::new(
+                                model,
+                                data,
+                                request_input,
+                            )?;
+                        solve_request_inner(&mut self.engine, &request, data)
+                    }
+                };
                 Ok(responses)
             }
         }
@@ -189,12 +248,11 @@ where
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         request
             .create_response(pt_journey)
-            .or_else(|err| {
+            .map_err(|err| {
                 trace!(
                     "An error occured while converting an engine journey to response. {:?}",
                     err
                 );
-                Err(err)
             })
             .ok()
     });
