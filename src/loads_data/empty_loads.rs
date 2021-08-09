@@ -35,24 +35,29 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use log::{debug, trace};
-use std::collections::BTreeMap;
 use std::error::Error;
+use std::fmt::Display;
 use std::path::Path;
 use transit_model::objects::VehicleJourney;
 use transit_model::Model;
 use typed_index_collection::Idx;
 
-type StopSequence = u32;
-type Occupancy = u8;
 type VehicleJourneyIdx = Idx<VehicleJourney>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {}
+pub enum Load {
+    Unknown
+}
+
+impl Display for Load {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Load ()")
+    }
+}
 
 impl Default for Load {
     fn default() -> Self {
-        ()
+        Load::Unknown
     }
 }
 
@@ -61,8 +66,8 @@ use std::cmp::Ordering;
 
 
 impl Ord for Load {
-    fn cmp(&self, other: &Self) -> Ordering {
-        true
+    fn cmp(&self, _other: &Self) -> Ordering {
+        Ordering::Equal
     }
 }
 
@@ -75,12 +80,19 @@ impl PartialOrd for Load {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LoadsCount();
 
+
+impl Display for LoadsCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LoadsCount ()")
+    }
+}
+
 impl LoadsCount {
     pub fn zero() -> Self {
         Self { }
     }
 
-    pub fn add(&self, load: Load) -> Self {
+    pub fn add(&self, _load: Load) -> Self {
         Self {  }
     }
 
@@ -88,7 +100,7 @@ impl LoadsCount {
         Load::default()
     }
 
-    pub fn is_lower(&self, other: &Self) -> bool {
+    pub fn is_lower(&self, _other: &Self) -> bool {
         true
     }
 }
@@ -99,10 +111,6 @@ impl Default for LoadsCount {
     }
 }
 
-fn occupancy_to_load(occupancy: Occupancy) -> Load {
-    debug_assert!(occupancy <= 100);
-    Load::default()
-}
 
 pub struct LoadsData();
 
@@ -110,8 +118,8 @@ pub struct LoadsData();
 impl LoadsData {
     pub fn loads(
         &self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        _vehicle_journey_idx: &VehicleJourneyIdx,
+        _date: &NaiveDate,
     ) -> Option<&[Load]> {
         None
     }
@@ -121,8 +129,8 @@ impl LoadsData {
     }
 
     pub fn new<P: AsRef<Path>>(
-        csv_occupancys_filepath: P,
-        model: &Model,
+        _csv_occupancys_filepath: P,
+        _model: &Model,
     ) -> Result<Self, Box<dyn Error>> {
         
         Ok(LoadsData::empty())

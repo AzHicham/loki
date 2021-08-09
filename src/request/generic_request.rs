@@ -34,265 +34,143 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{
-    loads_data::LoadsCount,
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-};
+use std::{marker::PhantomData};
 
-use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
+use crate::{RequestTypes, loads_data::LoadsCount, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::TransitTypes};
+
+use crate::engine::engine_interface::{BadRequest};
 use crate::transit_data::data_interface::Data as DataTrait;
+use chrono::NaiveDateTime;
 use log::warn;
 use transit_model::Model;
 
-pub struct GenericRequest<'data, 'model, Data: DataTrait> {
-    pub(super) transit_data: &'data Data,
-    pub(super) model: &'model Model,
-    pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
-    pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
-    pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
-    pub(super) leg_arrival_penalty: PositiveDuration,
-    pub(super) leg_walking_penalty: PositiveDuration,
-    pub(super) max_arrival_time: SecondsSinceDatasetUTCStart,
-    pub(super) max_nb_legs: u8,
-    pub(super) too_late_threshold: PositiveDuration,
+#[derive(Debug, Clone)]
+pub struct Criteria {
+    pub(super) time: SecondsSinceDatasetUTCStart,
+    pub(super) nb_of_legs: u8,
+    pub(super) fallback_duration: PositiveDuration,
+    pub(super) transfers_duration: PositiveDuration,
+    pub(super) loads_count: LoadsCount,
 }
 
-impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
+pub struct Types<Data> {
+    _phantom: PhantomData<Data>,
+}
+
+impl<'data, Data: DataTrait> TransitTypes for Types<Data> {
+    type Stop = Data::Stop;
+
+    type Mission = Data::Mission;
+
+    type Position = Data::Position;
+
+    type Trip = Data::Trip;
+
+    type Transfer = Data::Transfer;
+}
+
+impl<'data, Data: DataTrait> RequestTypes for Types<Data> {
+    type Departure = Departure;
+
+    type Arrival = Arrival;
+
+    type Criteria = Criteria;
+}
+
+
+pub(super) fn parse_datetime(
+    datetime :&NaiveDateTime,
+    calendar : & Calendar,
+) -> Result<SecondsSinceDatasetUTCStart, BadRequest> {
+    calendar
+        .from_naive_datetime(datetime)
+        .ok_or_else(|| {
+            warn!(
+                "The requested datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            BadRequest::RequestedDatetime
+        })
+}
+
+pub(super) fn parse_departures<Data>(
+    departures_stop_point_and_fallback_duration : &[(String, PositiveDuration)],
+    model : & Model,
+    transit_data : & Data
+) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
-    Data: DataTrait,
+ Data : DataTrait,
 {
-    pub fn new(
-        model: &'model transit_model::Model,
-        transit_data: &'data Data,
-        request_input: &RequestInput,
-    ) -> Result<Self, BadRequest>
-    where
-        Self: Sized,
-    {
-        let departure_datetime = transit_data
-            .calendar()
-            .from_naive_datetime(&request_input.departure_datetime)
-            .ok_or_else(|| {
+    let result : Vec<_> = departures_stop_point_and_fallback_duration
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
+            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
                 warn!(
-                    "The departure datetime {:?} is out of bound of the allowed dates. \
-                    Allowed dates are between {:?} and {:?}.",
-                    request_input.departure_datetime,
-                    transit_data.calendar().first_datetime(),
-                    transit_data.calendar().last_datetime(),
+                    "The {}th departure stop point {} is not found in model. \
+                            I ignore it.",
+                    idx, stop_point_uri
                 );
-                BadRequest::DepartureDatetime
+                None
             })?;
-
-        let departures : Vec<_> = request_input.departures_stop_point_and_fallback_duration
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-                let stop_point_uri = stop_point_uri.to_string();
-                let stop_idx = model.stop_points.get_idx(&stop_point_uri).or_else(|| {
-                    warn!(
-                        "The {}th departure stop point {} is not found in model. \
-                                I ignore it.",
-                        idx, stop_point_uri
-                    );
-                    None
-                })?;
-                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                    warn!(
-                        "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
-                            I ignore it",
-                        idx, stop_point_uri, stop_idx
-                    );
-                    None
-                })?;
-                Some((stop, *fallback_duration))
-            })
-            .collect();
-        if departures.is_empty() {
-            return Err(BadRequest::NoValidDepartureStop);
-        }
-
-        let arrivals : Vec<_> = request_input.arrivals_stop_point_and_fallback_duration
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-                let stop_point_uri = stop_point_uri.to_string();
-                let stop_idx = model.stop_points.get_idx(&stop_point_uri).or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point {} is not found in model. \
-                                I ignore it.",
-                        idx, stop_point_uri
-                    );
-                    None
-                })?;
-                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
-                            I ignore it",
-                        idx, stop_point_uri, stop_idx
-                    );
-                    None
-                })?;
-                Some((stop, *fallback_duration))
-            })
-            .collect();
-
-        if arrivals.is_empty() {
-            return Err(BadRequest::NoValidArrivalStop);
-        }
-
-        let result = Self {
-            transit_data,
-            model,
-            departure_datetime,
-            departures_stop_point_and_fallback_duration: departures,
-            arrivals_stop_point_and_fallbrack_duration: arrivals,
-            leg_arrival_penalty: request_input.leg_arrival_penalty,
-            leg_walking_penalty: request_input.leg_walking_penalty,
-            max_arrival_time: departure_datetime + request_input.max_journey_duration,
-            max_nb_legs: request_input.max_nb_of_legs,
-            too_late_threshold: request_input.too_late_threshold,
-        };
-
-        Ok(result)
+            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                warn!(
+                    "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
+                        I ignore it",
+                    idx, stop_point_uri, stop_idx
+                );
+                None
+            })?;
+            Some((stop, fallback_duration.clone()))
+        })
+        .collect();
+    if result.is_empty() {
+        return Err(BadRequest::NoValidDepartureStop);
     }
+    Ok(result)
 }
 
-use crate::engine::engine_interface::Journey as PTJourney;
-use crate::response;
 
-impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
+pub(super) fn parse_arrivals< Data, >(
+    arrivals_stop_point_and_fallback_duration :  &[(String, PositiveDuration)],
+    model : & Model,
+    transit_data : & Data
+) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
-    Data: DataTrait,
+ Data : DataTrait,
 {
-    pub fn create_response<R>(
-        &self,
-        pt_journey: &PTJourney<R>,
-        loads_count: LoadsCount,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
-    where
-        R: RequestTypes<
-            Departure = Departure,
-            Arrival = Arrival,
-            Trip = Data::Trip,
-            Position = Data::Position,
-            Transfer = Data::Transfer,
-        >,
-    {
-        let departure_datetime = self.departure_datetime;
-        let departure_idx = pt_journey.departure_leg.departure.idx;
-        let departure_fallback_duration =
-            &self.departures_stop_point_and_fallback_duration[departure_idx].1;
-
-        let first_vehicle = response::VehicleLeg {
-            trip: pt_journey.departure_leg.trip.clone(),
-            board_position: pt_journey.departure_leg.board_position.clone(),
-            debark_position: pt_journey.departure_leg.debark_position.clone(),
-        };
-
-        let arrival_fallback_duration =
-            &self.arrivals_stop_point_and_fallbrack_duration[pt_journey.arrival.idx].1;
-
-        let connections = pt_journey.connection_legs.iter().map(|connection_leg| {
-            let transfer = connection_leg.transfer.clone();
-            let vehicle_leg = response::VehicleLeg {
-                trip: connection_leg.trip.clone(),
-                board_position: connection_leg.board_position.clone(),
-                debark_position: connection_leg.debark_position.clone(),
-            };
-            (transfer, vehicle_leg)
-        });
-
-        response::Journey::new(
-            departure_datetime,
-            *departure_fallback_duration,
-            first_vehicle,
-            connections,
-            *arrival_fallback_duration,
-            loads_count,
-            &self.transit_data,
-        )
+    let result : Vec<_> = arrivals_stop_point_and_fallback_duration
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
+            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
+                warn!(
+                    "The {}th arrival stop point {} is not found in model. \
+                            I ignore it.",
+                    idx, stop_point_uri
+                );
+                None
+            })?;
+            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                warn!(
+                    "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
+                        I ignore it",
+                    idx, stop_point_uri, stop_idx
+                );
+                None
+            })?;
+            Some((stop, fallback_duration.clone()))
+        })
+        .collect();
+    if result.is_empty() {
+        return Err(BadRequest::NoValidArrivalStop);
     }
-
-    pub fn create_response_reverse<R>(
-        &self,
-        pt_journey: &PTJourney<R>,
-        loads_count: LoadsCount,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
-    where
-        R: RequestTypes<
-            Departure = Departure,
-            Arrival = Arrival,
-            Trip = Data::Trip,
-            Position = Data::Position,
-            Transfer = Data::Transfer,
-        >,
-    {
-        // get departure time using the pt_journey.criteria.at_arrival
-        // passed by argument
-        let departure_datetime = self.departure_datetime;
-
-        // departure is the new arrival & vice-versa
-        // departure.idx is an Arrival idx !!
-        let departure_idx = pt_journey.departure_leg.departure.idx;
-        let arrival_fallback_duration =
-            &self.arrivals_stop_point_and_fallbrack_duration[departure_idx].1;
-
-        let arrival_idx = pt_journey.arrival.idx;
-        let departure_fallback_duration =
-            &self.departures_stop_point_and_fallback_duration[arrival_idx].1;
-
-        let first_vehicle = if let true = pt_journey.connection_legs.is_empty() {
-            response::VehicleLeg {
-                trip: pt_journey.departure_leg.trip.clone(),
-                board_position: pt_journey.departure_leg.debark_position.clone(),
-                debark_position: pt_journey.departure_leg.board_position.clone(),
-            }
-        } else {
-            // last connection become first vehicle && we inverse board & debark
-            let last_connection = pt_journey.connection_legs.last();
-            response::VehicleLeg {
-                trip: last_connection.unwrap().trip.clone(),
-                board_position: last_connection.unwrap().debark_position.clone(),
-                debark_position: last_connection.unwrap().board_position.clone(),
-            }
-        };
-
-        let transfer_iter = pt_journey
-            .connection_legs
-            .iter()
-            .rev()
-            .map(|connection_leg| connection_leg.transfer.clone());
-
-        let time_forward_vehicle_leg_iter = pt_journey
-            .connection_legs
-            .iter()
-            .rev()
-            .skip(1)
-            .map(|connection_leg| response::VehicleLeg {
-                trip: connection_leg.trip.clone(),
-                board_position: connection_leg.debark_position.clone(),
-                debark_position: connection_leg.board_position.clone(),
-            })
-            .chain(std::iter::once(response::VehicleLeg {
-                trip: pt_journey.departure_leg.trip.clone(),
-                board_position: pt_journey.departure_leg.debark_position.clone(),
-                debark_position: pt_journey.departure_leg.board_position.clone(),
-            }));
-
-        // reverse iterator
-        let connections = transfer_iter.zip(time_forward_vehicle_leg_iter);
-
-        response::Journey::new(
-            departure_datetime,
-            *departure_fallback_duration,
-            first_vehicle,
-            connections,
-            *arrival_fallback_duration,
-            loads_count,
-            &self.transit_data,
-        )
-    }
+    Ok(result)
 }
+
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Departure {
@@ -304,24 +182,6 @@ pub struct Arrival {
     pub(super) idx: usize,
 }
 
-impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
-where
-    Data: DataTrait,
-{
-    pub(super) fn departures(&self) -> Departures {
-        let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
-        Departures {
-            inner: 0..nb_of_departures,
-        }
-    }
-
-    pub(super) fn arrivals(&self) -> Arrivals {
-        let nb_of_arrivals = self.arrivals_stop_point_and_fallbrack_duration.len();
-        Arrivals {
-            inner: 0..nb_of_arrivals,
-        }
-    }
-}
 
 pub struct Departures {
     pub(super) inner: std::ops::Range<usize>,
@@ -347,37 +207,50 @@ impl Iterator for Arrivals {
     }
 }
 
-impl<'data, 'model, Data> GenericRequest<'data, 'model, Data>
-where
-    Data: DataTrait,
-{
-    pub fn stop_name(&self, stop: &Data::Stop) -> String {
-        let stop_point_idx = self.transit_data.stop_point_idx(stop);
-        let stop_point = &self.model.stop_points[stop_point_idx];
-        stop_point.id.clone()
-    }
-
-    pub fn trip_name(&self, trip: &Data::Trip) -> String {
-        let vehicle_journey_idx = self.transit_data.vehicle_journey_idx(trip);
-        let date = self.transit_data.day_of(trip);
-        let vehicle_journey = &self.model.vehicle_journeys[vehicle_journey_idx];
-        format!(
-            "{}_{}_{}",
-            vehicle_journey.id,
-            date.to_string(),
-            vehicle_journey.route_id
-        )
-    }
-
-    pub fn mission_name(&self, mission: &Data::Mission) -> String {
-        let mission_id = self.transit_data.mission_id(mission);
-        format!("{}", mission_id)
-    }
-
-    pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
-        let stop = self.transit_data.stop_of(position, mission);
-        let stop_name = self.stop_name(&stop);
-        let mission_name = self.mission_name(mission);
-        format!("{}_{}", stop_name, mission_name)
-    }
+pub(super) fn stop_name< Data : DataTrait>(
+    stop: &Data::Stop,
+    model : &  Model,
+    transit_data : & Data
+) -> String {
+    let stop_point_idx = transit_data.stop_point_idx(stop);
+    let stop_point = &model.stop_points[stop_point_idx];
+    stop_point.id.clone()
 }
+
+pub(super) fn trip_name<Data : DataTrait>(
+    trip: &Data::Trip,
+    model : & Model,
+    transit_data : & Data
+) -> String {
+    let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
+    let date = transit_data.day_of(trip);
+    let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
+    format!(
+        "{}_{}_{}",
+        vehicle_journey.id,
+        date.to_string(),
+        vehicle_journey.route_id
+    )
+}
+
+pub(super) fn mission_name<Data : DataTrait>(
+    mission: &Data::Mission,
+    _model : & Model,
+    transit_data : & Data
+) -> String {
+    let mission_id = transit_data.mission_id(mission);
+    format!("{}", mission_id)
+}
+
+pub(super) fn position_name<Data : DataTrait>( 
+    position: &Data::Position, 
+    mission: &Data::Mission,
+    model : & Model,
+    transit_data : & Data
+) -> String {
+    let stop = transit_data.stop_of(position, mission);
+    let stop_name = stop_name(&stop, model, transit_data);
+    let mission_name = mission_name(mission, model, transit_data);
+    format!("{}_{}", stop_name, mission_name,)
+}
+

@@ -54,6 +54,17 @@ pub enum Load {
     High,
 }
 
+impl Display for Load {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Load::Low => write!(f, "Low"),
+            Load::Medium => write!(f, "Medium"),
+            Load::High => write!(f, "High")
+        }
+
+    }
+}
+
 impl Default for Load {
     fn default() -> Self {
         Load::Medium
@@ -150,6 +161,19 @@ impl LoadsCount {
 impl Default for LoadsCount {
     fn default() -> Self {
         Self::zero()
+    }
+}
+
+impl Display for LoadsCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "High {}; Medium {}; Low {}; total {}",
+            self.loads_count.high,
+            self.loads_count.medium,
+            self.loads_count.low,
+            self.loads_count.total()
+        )
     }
 }
 

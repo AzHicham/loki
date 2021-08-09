@@ -402,11 +402,8 @@ where
         )?;
         writeln!(
             writer,
-            "Loads : High {}; Medium {}; Low {}; total {}",
-            self.loads_count.high,
-            self.loads_count.medium,
-            self.loads_count.low,
-            self.loads_count.total()
+            "Loads : {}",
+            self.loads_count
         )?;
 
         let departure_datetime = data.to_naive_datetime(&self.departure_datetime);
@@ -769,11 +766,8 @@ impl Response {
         )?;
         writeln!(
             writer,
-            "Loads : High {}; Medium {}; Low {}; total {}",
-            self.loads_count.high,
-            self.loads_count.medium,
-            self.loads_count.low,
-            self.loads_count.total()
+            "Loads : {}",
+            self.loads_count
         )?;
 
         writeln!(
