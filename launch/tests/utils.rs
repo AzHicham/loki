@@ -34,43 +34,49 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+use loki::log::info;
+use loki::transit_model::{self, Model};
+use loki::DataWithIters;
+use loki::{LoadsData, PositiveDuration};
+use std::time::SystemTime;
 
-mod engine;
-pub mod loads_data;
-pub mod request;
-pub mod time;
-mod timetables;
-mod transit_data;
+pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
 
-pub mod modelbuilder;
+pub fn default_transfer_duration() -> PositiveDuration {
+    use std::str::FromStr;
+    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+}
 
-pub use chrono;
-pub use chrono::NaiveDateTime;
-pub use chrono_tz;
-pub use log;
-pub use time::PositiveDuration;
-pub use transit_model;
+pub fn build_and_solve<Data>(
+    model: Model,
+    loads_data: &LoadsData,
+    transfer_duration: Option<PositiveDuration>,
+) -> Result<(Data, Model), transit_model::Error>
+where
+    Data: DataWithIters,
+{
+    info!("Transit model loaded");
+    info!(
+        "Number of vehicle journeys : {}",
+        model.vehicle_journeys.len()
+    );
+    info!("Number of routes : {}", model.routes.len());
 
-pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
+    let data_timer = SystemTime::now();
+    let data = Data::new(
+        &model,
+        &loads_data,
+        transfer_duration.unwrap_or_else(default_transfer_duration),
+    );
+    let data_build_duration = data_timer.elapsed().unwrap().as_millis();
+    info!("Data constructed in {} ms", data_build_duration);
+    info!("Number of missions {} ", data.nb_of_missions());
+    info!("Number of trips {} ", data.nb_of_trips());
+    info!(
+        "Validity dates between {} and {}",
+        data.calendar().first_date(),
+        data.calendar().last_date()
+    );
 
-pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
-pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
-
-pub type LoadsDailyData = transit_data::TransitData<timetables::LoadsDailyTimetables>;
-pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodicTimetables>;
-
-pub use loads_data::LoadsData;
-
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
-
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
-
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub mod response;
-
-pub type Response = response::Response;
+    Ok((data, model))
+}

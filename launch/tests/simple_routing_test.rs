@@ -34,43 +34,31 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+mod utils;
+use failure::Error;
+use loki::modelbuilder::ModelBuilder;
+use loki::PeriodicData;
+use utils::build_and_solve;
 
-mod engine;
-pub mod loads_data;
-pub mod request;
-pub mod time;
-mod timetables;
-mod transit_data;
+#[test]
+fn test_simple_routing() -> Result<(), Error> {
+    assert_eq!(2, 2);
 
-pub mod modelbuilder;
+    let model = ModelBuilder::default()
+        .vj("toto", |vj| {
+            vj.route("1")
+                .st("A", "10:00:00", "10:01:00")
+                .st("B", "11:00:00", "11:01:00");
+        })
+        .vj("tata", |vj| {
+            vj.st("A", "10:00:00", "10:01:00")
+                .st("D", "11:00:00", "11:01:00");
+        })
+        .build();
 
-pub use chrono;
-pub use chrono::NaiveDateTime;
-pub use chrono_tz;
-pub use log;
-pub use time::PositiveDuration;
-pub use transit_model;
+    // let res = build_and_solve::<PeriodicData>(model, &loki::LoadsData::empty(), None);
 
-pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
+    assert_eq!(model.vehicle_journeys.len(), 2);
 
-pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
-pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
-
-pub type LoadsDailyData = transit_data::TransitData<timetables::LoadsDailyTimetables>;
-pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodicTimetables>;
-
-pub use loads_data::LoadsData;
-
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
-
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
-
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub mod response;
-
-pub type Response = response::Response;
+    Ok(())
+}
