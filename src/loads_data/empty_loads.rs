@@ -34,12 +34,98 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-#[cfg(vehicle_loads)]
-pub mod real_loads;
-#[cfg(vehicle_loads)]
-pub use real_loads::{Load, LoadsCount, LoadsData};
+use chrono::NaiveDate;
+use log::{debug, trace};
+use std::collections::BTreeMap;
+use std::error::Error;
+use std::path::Path;
+use transit_model::objects::VehicleJourney;
+use transit_model::Model;
+use typed_index_collection::Idx;
 
-#[cfg(not(vehicle_loads))]
-pub mod empty_loads;
-#[cfg(not(vehicle_loads))]
-pub use empty_loads::{Load, LoadsCount, LoadsData};
+type StopSequence = u32;
+type Occupancy = u8;
+type VehicleJourneyIdx = Idx<VehicleJourney>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Load {}
+
+impl Default for Load {
+    fn default() -> Self {
+        ()
+    }
+}
+
+use std::cmp::Ordering;
+
+
+
+impl Ord for Load {
+    fn cmp(&self, other: &Self) -> Ordering {
+        true
+    }
+}
+
+impl PartialOrd for Load {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct LoadsCount();
+
+impl LoadsCount {
+    pub fn zero() -> Self {
+        Self { }
+    }
+
+    pub fn add(&self, load: Load) -> Self {
+        Self {  }
+    }
+
+    pub fn max(&self) -> Load {
+        Load::default()
+    }
+
+    pub fn is_lower(&self, other: &Self) -> bool {
+        true
+    }
+}
+
+impl Default for LoadsCount {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+fn occupancy_to_load(occupancy: Occupancy) -> Load {
+    debug_assert!(occupancy <= 100);
+    Load::default()
+}
+
+pub struct LoadsData();
+
+
+impl LoadsData {
+    pub fn loads(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> Option<&[Load]> {
+        None
+    }
+
+    pub fn empty() -> Self {
+        LoadsData { }
+    }
+
+    pub fn new<P: AsRef<Path>>(
+        csv_occupancys_filepath: P,
+        model: &Model,
+    ) -> Result<Self, Box<dyn Error>> {
+        
+        Ok(LoadsData::empty())
+    }
+
+}
