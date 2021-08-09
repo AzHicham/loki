@@ -12,13 +12,13 @@
 [2020-01-31 10:35:47] 	[Info]			- Fichier des itinéraires
 [2020-01-31 10:35:47] 	[Info]			- Fichier des lignes
 [2020-01-31 10:35:47] 	[Info]			- Fichier des sociétés
- 
+
 ***********************************************************************************
- 
+
 [2020-01-31 10:35:47] 	[Info]		Génération des fichiers pour la période du 01/02/2020 au 31/12/2020
- 
+
 ***********************************************************************************
- 
+
 [2020-01-31 10:35:47] 	[Info]		Traitement des données...
 [2020-01-31 10:35:52] 	[Info]		Il y a 7 habillages différents sur la période.
 [2020-01-31 10:35:55] 	[Info]		Il y a 2322 courses différentes sur la période.
@@ -32,7 +32,7 @@
 [2020-01-31 10:35:56] 	[Info]		Génération du fichier 'stops.txt'...
 [2020-01-31 10:35:57] 	[Info]		Génération du fichier 'shapes.txt'...
 [2020-01-31 10:35:57] 	[Info]		Durée de la génération : 10.5022s
- 
+
 ***********************************************************************************
- 
+
 [2020-01-31 10:35:57] 	[Info]		La génération des fichiers est terminée.

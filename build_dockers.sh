@@ -5,7 +5,7 @@ set -e
 
 function show_help() {
     cat << EOF
-Usage: ${0##*/}  -o oauth_token 
+Usage: ${0##*/}  -o oauth_token
     -e      [push|pull_request]
     -b      [dev|release] if -e push, or the branch name if -e pull_request
     -f      navitia pull_request fork owner, needed only if -e pull_request
@@ -72,7 +72,7 @@ if [[ $event == "push" ]]; then
         workflow="build_navitia_packages_for_release.yml"
         archive="navitia-debian10-packages.zip"
         inside_archive="navitia_debian10_packages.zip"
-    else 
+    else
         echo """branch must be "dev" or "release" for push events (-e push)"""
         echo "***${branch}***"
         show_help

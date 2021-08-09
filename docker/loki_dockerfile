@@ -11,6 +11,3 @@ COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 
 VOLUME /data
 CMD ["/usr/local/bin/loki_server", "config_file", "/data/loki_config.json"]
-
-
-

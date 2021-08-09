@@ -1,11 +1,11 @@
 
 ## Dockers
-Provides dockers to run a fully featured navitia, where loki_server 
+Provides dockers to run a fully featured navitia, where loki_server
 will solve the "public transport" part of the request, instead of kraken.
 
 
 # Build
-You can build the dockers by launching 
+You can build the dockers by launching
 ```bash
 ./build_docker.sh -o my_github_token
 ```
@@ -60,14 +60,14 @@ In the following example, we have two datasets (corsese and idfm), with osm data
 Then, from the root directory of this repository, run :
 
 ```bash
-docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina 
+docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina
 ```
 
 This will create a folder `./mc_navitia` containing everything needed to launch navitia.
 
 # Launch docker
 
-In `./mc_navitia` run 
+In `./mc_navitia` run
 ```bash
 docker-compose up
 ```
@@ -77,7 +77,7 @@ Then you can send http requests to the jormun server on http://localhost:9191 !
 Don't forget to add "_override_scenario=distributed" to your requests !
 Otherwise you won't be using the loki server.
 
-# Launch kubernetes 
+# Launch kubernetes
 
 
 ```bash
@@ -93,4 +93,3 @@ kubectl apply -f ./mc_navitia/kubernetes.yml
 kubectl port-forward service/navitia 9192:80
 # navitia is responding on http://localhost:9192/ !
 ```
-

@@ -22,7 +22,7 @@ jobs:
       run: |
         ./build_dockers.sh -o ${{secrets.oauth_token}}
     - name: Binarize
-      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina 
+      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina
     - name: Launch dockers
       working-directory: ./mc_navitia
       run: |
@@ -93,4 +93,3 @@ jobs:
       if: always()
       run: |
         docker-compose down --rmi all -v
-          

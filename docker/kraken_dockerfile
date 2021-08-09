@@ -5,7 +5,7 @@ COPY navitia-kraken_*.deb ./
 
 # install navitia-kraken package
 RUN apt-get update
-RUN apt-get install -y ./navitia-kraken_*.deb 
+RUN apt-get install -y ./navitia-kraken_*.deb
 
 # install kraken dependencies
 RUN apt-get install -y netcat

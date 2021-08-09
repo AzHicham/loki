@@ -6,11 +6,11 @@ COPY navitia-jormungandr_*.deb ./
 
 # install navitia-common package
 RUN apt-get update
-RUN apt-get install -y ./navitia-common_*.deb 
+RUN apt-get install -y ./navitia-common_*.deb
 
 
 # install navitia-jormun package
-RUN apt-get install -y ./navitia-jormungandr_*.deb 
+RUN apt-get install -y ./navitia-jormungandr_*.deb
 
 # install jormungandr requirements
 RUN apt-get install -y python python-pip git libpq-dev libgeos-c1v5
@@ -27,6 +27,3 @@ ENV JORMUNGANDR_INSTANCES_DIR=/data/jormun_conf/
 ENV JORMUNGANDR_DISABLE_DATABASE=True
 VOLUME /data
 CMD ["uwsgi", "--master", "--lazy-apps", "--mount", "/=jormungandr:app", "--http", "0.0.0.0:80"]
-
-
-

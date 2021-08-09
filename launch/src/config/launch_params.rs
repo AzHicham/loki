@@ -84,9 +84,9 @@ pub fn default_transfer_duration() -> PositiveDuration {
 impl LaunchParams {
     pub fn minimal_json_input(input_data_path: &str, input_data_type: InputDataType) -> String {
         format!(
-            r#" {{ 
-            "input_data_path" : "{}", 
-            "input_data_type" : "{}" 
+            r#" {{
+            "input_data_path" : "{}",
+            "input_data_type" : "{}"
             }} "#,
             input_data_path, input_data_type
         )
