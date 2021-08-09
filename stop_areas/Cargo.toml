@@ -14,5 +14,4 @@ serde_json = "1.0"
 failure = "0.1"
 # log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 
-[features]
-vehicle_loads = []
+
