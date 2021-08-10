@@ -205,7 +205,7 @@ where
         self.generic.boardable_missions_at(stop)
     }
 
-    type TransfersAtStop = Data::ForwardTransfersAtStop;
+    type TransfersAtStop = Data::OutgoingTransfersAtStop;
     fn transfers_at(&'outer self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
         self.generic.transfers_at(from_stop)
     }

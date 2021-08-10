@@ -307,13 +307,13 @@ where
         self.missions_of(stop)
     }
 
-    type ForwardTransfersAtStop = iters::ForwardTransfersOfStop;
-    fn transfers_forward_at(&'a self, from_stop: &Self::Stop) -> Self::ForwardTransfersAtStop {
+    type OutgoingTransfersAtStop = iters::ForwardTransfersOfStop;
+    fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
         self.transfers_forward_of(from_stop)
     }
 
-    type BackwardTransfersAtStop = iters::BackwardTransfersOfStop;
-    fn transfers_backward_at(&'a self, stop: &Self::Stop) -> Self::BackwardTransfersAtStop {
+    type IncomingTransfersAtStop = iters::BackwardTransfersOfStop;
+    fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
         self.transfers_backward_of(stop)
     }
 

@@ -51,8 +51,8 @@ pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
     pub(super) model: &'model Model,
     pub(super) arrival_datetime: SecondsSinceDatasetUTCStart,
-    pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
-    pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
+    pub(super) entry_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
+    pub(super) exit_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) leg_arrival_penalty: PositiveDuration,
     pub(super) leg_walking_penalty: PositiveDuration,
     pub(super) min_departure_time: SecondsSinceDatasetUTCStart,
@@ -93,8 +93,8 @@ where
             transit_data,
             model,
             arrival_datetime,
-            departures_stop_point_and_fallback_duration: departures,
-            arrivals_stop_point_and_fallbrack_duration: arrivals,
+            entry_stop_point_and_fallback_duration: departures,
+            exit_stop_point_and_fallback_duration: arrivals,
             leg_arrival_penalty: request_input.leg_arrival_penalty,
             leg_walking_penalty: request_input.leg_walking_penalty,
             min_departure_time: arrival_datetime - request_input.max_journey_duration,
@@ -122,15 +122,13 @@ where
         let departure_datetime = pt_journey.criteria_at_arrival.time;
 
         let arrival_fallback_duration = {
-            // departure is the new arrival & vice-versa
-            // departure.idx is an Arrival idx !!
             let departure_idx = pt_journey.departure_leg.departure.idx;
-            &self.arrivals_stop_point_and_fallbrack_duration[departure_idx].1
+            &self.exit_stop_point_and_fallback_duration[departure_idx].1
         };
 
         let departure_fallback_duration = {
             let arrival_idx = pt_journey.arrival.idx;
-            &self.departures_stop_point_and_fallback_duration[arrival_idx].1
+            &self.entry_stop_point_and_fallback_duration[arrival_idx].1
         };
 
         let first_vehicle = if let true = pt_journey.connection_legs.is_empty() {
@@ -328,8 +326,7 @@ where
     }
 
     fn depart(&self, departure: &Departure) -> (Data::Stop, Criteria) {
-        let (stop, fallback_duration) =
-            &self.arrivals_stop_point_and_fallbrack_duration[departure.idx];
+        let (stop, fallback_duration) = &self.exit_stop_point_and_fallback_duration[departure.idx];
         let time = self.arrival_datetime - *fallback_duration;
         let criteria = Criteria {
             time,
@@ -342,13 +339,13 @@ where
     }
 
     fn arrival_stop(&self, arrival: &Arrival) -> Data::Stop {
-        self.departures_stop_point_and_fallback_duration[arrival.idx]
+        self.entry_stop_point_and_fallback_duration[arrival.idx]
             .0
             .clone()
     }
 
     fn arrive(&self, arrival: &Arrival, criteria: &Criteria) -> Criteria {
-        let arrival_duration = &self.departures_stop_point_and_fallback_duration[arrival.idx].1;
+        let arrival_duration = &self.entry_stop_point_and_fallback_duration[arrival.idx].1;
         Criteria {
             time: criteria.time - *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
@@ -410,14 +407,14 @@ where
     Data: DataTrait + DataIters<'outer>,
 {
     fn departures(&'outer self) -> Departures {
-        let nb_of_arrivals = self.arrivals_stop_point_and_fallbrack_duration.len();
+        let nb_of_arrivals = self.exit_stop_point_and_fallback_duration.len();
         Departures {
             inner: 0..nb_of_arrivals,
         }
     }
 
     fn arrivals(&'outer self) -> Arrivals {
-        let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
+        let nb_of_departures = self.entry_stop_point_and_fallback_duration.len();
         Arrivals {
             inner: 0..nb_of_departures,
         }
@@ -427,8 +424,8 @@ where
         self.transit_data.boardable_missions_at(stop)
     }
 
-    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::BackwardTransfersAtStop {
-        self.transit_data.transfers_backward_at(from_stop)
+    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::IncomingTransfersAtStop {
+        self.transit_data.incoming_transfers_at(from_stop)
     }
 
     fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {
