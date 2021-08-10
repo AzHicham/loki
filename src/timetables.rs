@@ -34,18 +34,13 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-mod daily;
 mod generic_timetables;
 mod iters;
-mod loads_daily;
-mod loads_periodic;
+mod daily;
 mod periodic;
 
 pub use daily::DailyTimetables;
 pub use periodic::PeriodicTimetables;
-
-pub use loads_daily::DailyTimetables as LoadsDailyTimetables;
-pub use loads_periodic::PeriodicTimetables as LoadsPeriodicTimetables;
 
 use std::hash::Hash;
 

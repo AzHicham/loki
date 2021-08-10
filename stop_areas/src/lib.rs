@@ -39,7 +39,7 @@ use launch::solver::Solver;
 use launch::{
     config,
     datetime::DateTimeRepresent,
-    loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
+    loki::{DailyData, PeriodicData},
 };
 
 use loki::log;
@@ -164,8 +164,6 @@ pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
     }
 }
 

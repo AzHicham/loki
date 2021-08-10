@@ -49,7 +49,6 @@ use loki::transit_model;
 use loki::RequestInput;
 use loki::{
     log::{debug, error, info, warn},
-    LoadsDailyData, LoadsPeriodicData,
 };
 use loki::{DailyData, PeriodicData, PositiveDuration};
 
@@ -167,8 +166,6 @@ fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
     }
 }
 

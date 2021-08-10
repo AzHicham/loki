@@ -41,13 +41,11 @@ use serde::{Deserialize, Serialize};
 pub enum DataImplem {
     Periodic,
     Daily,
-    LoadsPeriodic,
-    LoadsDaily,
 }
 
 impl Default for DataImplem {
     fn default() -> Self {
-        Self::LoadsPeriodic
+        Self::Periodic
     }
 }
 
@@ -58,8 +56,6 @@ impl std::str::FromStr for DataImplem {
         let implem = match s {
             "periodic" => Periodic,
             "daily" => Daily,
-            "loads_periodic" => LoadsPeriodic,
-            "loads_daily" => LoadsDaily,
             _ => {
                 return Err(DataImplemConfigError {
                     implem_name: s.to_string(),
@@ -81,8 +77,6 @@ impl std::fmt::Display for DataImplem {
         match self {
             Periodic => write!(f, "periodic"),
             Daily => write!(f, "daily"),
-            LoadsPeriodic => write!(f, "loads_periodic"),
-            LoadsDaily => write!(f, "loads_daily"),
         }
     }
 }
