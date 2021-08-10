@@ -15,8 +15,10 @@
 //! Provides an easy way to create a `crate::Model`
 //!
 //! ```
+//! # use loki::modelbuilder::ModelBuilder;
+//!
 //! # fn main() {
-//!  let model = transit_model_builder::ModelBuilder::default()
+//!  let model = ModelBuilder::default()
 //!      .vj("toto", |vj| {
 //!          vj.route("1")
 //!            .st("A", "10:00:00", "10:01:00")
@@ -57,8 +59,10 @@ impl<'a> ModelBuilder {
     /// Add a new VehicleJourney to the model
     ///
     /// ```
+    /// # use loki::modelbuilder::ModelBuilder;
+    ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///        .vj("toto", |vj_builder| {
     ///            vj_builder
     ///                .st("A", "10:00:00", "10:01:00")
@@ -97,8 +101,11 @@ impl<'a> ModelBuilder {
     /// Add a new Route to the model
     ///
     /// ```
+    ///
+    /// # use loki::modelbuilder::ModelBuilder;
+    ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///      .route("l1", |r| {
     ///             r.name = "ligne 1".to_owned();
     ///         })
@@ -128,9 +135,10 @@ impl<'a> ModelBuilder {
     ///
     /// ```
     /// # use transit_model::objects::Date;
+    /// # use loki::modelbuilder::ModelBuilder;
     ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///      .calendar("c1", &["2020-01-01", "2020-01-02"])
     ///      .calendar("default_service", &[Date::from_ymd(2019, 2, 6)])
     ///      .vj("toto", |vj| {
@@ -157,9 +165,10 @@ impl<'a> ModelBuilder {
     ///
     /// ```
     /// # use transit_model::objects::Date;
+    /// # use loki::modelbuilder::ModelBuilder;
     ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///      .default_calendar(&["2020-01-01"])
     ///      .vj("toto", |vj| {
     ///          vj
@@ -176,9 +185,10 @@ impl<'a> ModelBuilder {
     ///
     /// ```
     /// # use transit_model::objects::Date;
+    /// # use loki::modelbuilder::ModelBuilder;
     ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///      .calendar_mut("c1", |c| {
     ///             c.dates.insert(Date::from_ymd(2019, 2, 6));
     ///         })
@@ -294,8 +304,11 @@ impl<'a> VehicleJourneyBuilder<'a> {
     /// not in the right format, this conversion will fail
     ///
     /// ```
+    ///
+    /// # use loki::modelbuilder::ModelBuilder;
+    ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///        .vj("toto", |vj_builder| {
     ///            vj_builder
     ///                .st("A", "10:00:00", "10:01:00")
@@ -350,8 +363,11 @@ impl<'a> VehicleJourneyBuilder<'a> {
     /// Set the route of the vj
     ///
     /// ```
+    ///
+    /// # use loki::modelbuilder::ModelBuilder;
+    ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///        .route("1", |r| {
     ///            r.name = "bob".into();
     ///        })
@@ -378,9 +394,10 @@ impl<'a> VehicleJourneyBuilder<'a> {
     ///
     /// ```
     /// # use transit_model::objects::Date;
+    /// # use loki::modelbuilder::ModelBuilder;
     ///
     /// # fn main() {
-    /// let model = transit_model_builder::ModelBuilder::default()
+    /// let model = ModelBuilder::default()
     ///        .calendar("c1", &["2021-01-07"])
     ///        .vj("toto", |vj_builder| {
     ///            vj_builder.calendar("c1");

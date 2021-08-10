@@ -36,15 +36,21 @@
 
 mod utils;
 use failure::Error;
+use launch::solver::BasicCriteriaSolver;
 use loki::modelbuilder::ModelBuilder;
 use loki::PeriodicData;
-use utils::build_and_solve;
+use utils::{build_and_solve, Config};
+
+fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 #[test]
 fn test_simple_routing() -> Result<(), Error> {
-    assert_eq!(2, 2);
+    init();
 
     let model = ModelBuilder::default()
+        .default_calendar(&["2020-01-01"])
         .vj("toto", |vj| {
             vj.route("1")
                 .st("A", "10:00:00", "10:01:00")
@@ -56,7 +62,19 @@ fn test_simple_routing() -> Result<(), Error> {
         })
         .build();
 
-    // let res = build_and_solve::<PeriodicData>(model, &loki::LoadsData::empty(), None);
+    let config = Config::new(
+        "20210728T100000".to_string(),
+        "A".to_string(),
+        "B".to_string(),
+    );
+
+    let responses = build_and_solve::<PeriodicData, BasicCriteriaSolver<PeriodicData>>(
+        &model,
+        &loki::LoadsData::empty(),
+        &config,
+    )?;
+
+    assert_eq!(responses.len(), 1);
 
     assert_eq!(model.vehicle_journeys.len(), 2);
 

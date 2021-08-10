@@ -34,11 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use failure::Error;
+use launch::datetime::DateTimeRepresent;
+use launch::loki::{response, RequestInput};
+use launch::{config, solver};
 use loki::log::info;
-use loki::transit_model::{self, Model};
+use loki::transit_model::Model;
 use loki::DataWithIters;
 use loki::{LoadsData, PositiveDuration};
+use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
+use structopt::StructOpt;
 
 pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
 
@@ -47,13 +53,84 @@ pub fn default_transfer_duration() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
 }
 
-pub fn build_and_solve<Data>(
-    model: Model,
+#[derive(Serialize, Deserialize, StructOpt)]
+#[structopt(rename_all = "snake_case")]
+pub struct Config {
+    #[serde(flatten)]
+    #[structopt(flatten)]
+    pub request_params: config::RequestParams,
+
+    #[structopt(long)]
+    pub datetime: String,
+
+    #[serde(default)]
+    #[structopt(long, default_value)]
+    pub datetime_represent: DateTimeRepresent,
+
+    #[serde(default)]
+    #[structopt(long, default_value)]
+    pub comparator_type: config::ComparatorType,
+
+    #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
+    #[serde(default = "default_transfer_duration")]
+    transfer_duration: PositiveDuration,
+
+    /// name of the start stop_area
+    #[structopt(long)]
+    pub start: String,
+
+    /// name of the end stop_area
+    #[structopt(long)]
+    pub end: String,
+}
+
+impl Config {
+    pub fn new(datetime: String, start: String, end: String) -> Self {
+        Config {
+            request_params: Default::default(),
+            datetime,
+            datetime_represent: Default::default(),
+            comparator_type: Default::default(),
+            transfer_duration: default_transfer_duration(),
+            start,
+            end,
+        }
+    }
+}
+
+fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
+    let departure_datetime = launch::datetime::parse_datetime(&config.datetime)?;
+
+    let start_stop_point_uri = &config.start;
+    let end_stop_point_uri = &config.end;
+
+    let request_input = RequestInput {
+        departure_datetime,
+        departures_stop_point_and_fallback_duration: vec![(
+            start_stop_point_uri.clone(),
+            PositiveDuration::zero(),
+        )],
+        arrivals_stop_point_and_fallback_duration: vec![(
+            end_stop_point_uri.clone(),
+            PositiveDuration::zero(),
+        )],
+        leg_arrival_penalty: config.request_params.leg_arrival_penalty,
+        leg_walking_penalty: config.request_params.leg_walking_penalty,
+        max_nb_of_legs: config.request_params.max_nb_of_legs,
+        max_journey_duration: config.request_params.max_journey_duration,
+        too_late_threshold: config.request_params.too_late_threshold,
+    };
+    Ok(request_input)
+}
+
+pub fn build_and_solve<Data, Solver>(
+    model: &Model,
     loads_data: &LoadsData,
-    transfer_duration: Option<PositiveDuration>,
-) -> Result<(Data, Model), transit_model::Error>
+    config: &Config,
+) -> Result<Vec<response::Response>, Error>
 where
     Data: DataWithIters,
+    Solver: solver::Solver<Data>,
 {
     info!("Transit model loaded");
     info!(
@@ -61,14 +138,10 @@ where
         model.vehicle_journeys.len()
     );
     info!("Number of routes : {}", model.routes.len());
-
     let data_timer = SystemTime::now();
-    let data = Data::new(
-        &model,
-        &loads_data,
-        transfer_duration.unwrap_or_else(default_transfer_duration),
-    );
+    let data = Data::new(model, loads_data, config.transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
+
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());
     info!("Number of trips {} ", data.nb_of_trips());
@@ -78,5 +151,16 @@ where
         data.calendar().last_date()
     );
 
-    Ok((data, model))
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+
+    let request_input = make_request_from_config(config)?;
+
+    let responses = solver.solve_request(
+        &data,
+        model,
+        &request_input,
+        &config.comparator_type,
+        &config.datetime_represent,
+    )?;
+    Ok(responses)
 }
