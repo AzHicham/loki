@@ -46,7 +46,7 @@ type VehicleJourneyIdx = Idx<VehicleJourney>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
-    Unknown
+    Unknown,
 }
 
 impl Display for Load {
@@ -63,8 +63,6 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-
-
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {
         Ordering::Equal
@@ -80,7 +78,6 @@ impl PartialOrd for Load {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LoadsCount();
 
-
 impl Display for LoadsCount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "LoadsCount ()")
@@ -89,11 +86,11 @@ impl Display for LoadsCount {
 
 impl LoadsCount {
     pub fn zero() -> Self {
-        Self { }
+        Self {}
     }
 
     pub fn add(&self, _load: Load) -> Self {
-        Self {  }
+        Self {}
     }
 
     pub fn max(&self) -> Load {
@@ -111,9 +108,7 @@ impl Default for LoadsCount {
     }
 }
 
-
 pub struct LoadsData();
-
 
 impl LoadsData {
     pub fn loads(
@@ -125,15 +120,13 @@ impl LoadsData {
     }
 
     pub fn empty() -> Self {
-        LoadsData { }
+        LoadsData {}
     }
 
     pub fn new<P: AsRef<Path>>(
         _csv_occupancys_filepath: P,
         _model: &Model,
     ) -> Result<Self, Box<dyn Error>> {
-        
         Ok(LoadsData::empty())
     }
-
 }

@@ -37,7 +37,11 @@
 pub mod basic_comparator;
 pub mod loads_comparator;
 
-use crate::{loads_data::LoadsCount, time::{PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::DataIters};
+use crate::{
+    loads_data::LoadsCount,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::data_interface::DataIters,
+};
 
 use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::Data as DataTrait;
@@ -51,7 +55,7 @@ pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
     pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) leg_arrival_penalty: PositiveDuration,
     pub(super) leg_walking_penalty: PositiveDuration,
-    pub(super) min_departure_time    : SecondsSinceDatasetUTCStart,
+    pub(super) min_departure_time: SecondsSinceDatasetUTCStart,
     pub(super) max_nb_legs: u8,
     pub(super) too_late_threshold: PositiveDuration,
 }
@@ -60,11 +64,6 @@ impl<'data, 'model, Data> GenericArriveBeforeRequest<'data, 'model, Data>
 where
     Data: DataTrait,
 {
-
-
-   
-
-
     pub fn new(
         model: &'model transit_model::Model,
         transit_data: &'data Data,
@@ -73,22 +72,21 @@ where
     where
         Self: Sized,
     {
-
         let arrival_datetime = super::generic_request::parse_datetime(
-            &request_input.datetime, 
-            transit_data.calendar()
+            &request_input.datetime,
+            transit_data.calendar(),
         )?;
 
-        let departures  = super::generic_request::parse_departures(
-            &request_input.departures_stop_point_and_fallback_duration, 
-            model, 
-            transit_data
+        let departures = super::generic_request::parse_departures(
+            &request_input.departures_stop_point_and_fallback_duration,
+            model,
+            transit_data,
         )?;
 
-        let arrivals : Vec<_> = super::generic_request::parse_arrivals(
-            &request_input.arrivals_stop_point_and_fallback_duration, 
-            model, 
-            transit_data
+        let arrivals: Vec<_> = super::generic_request::parse_arrivals(
+            &request_input.arrivals_stop_point_and_fallback_duration,
+            model,
+            transit_data,
         )?;
 
         let result = Self {
@@ -99,15 +97,13 @@ where
             arrivals_stop_point_and_fallbrack_duration: arrivals,
             leg_arrival_penalty: request_input.leg_arrival_penalty,
             leg_walking_penalty: request_input.leg_walking_penalty,
-            min_departure_time: arrival_datetime - request_input.max_journey_duration ,
+            min_departure_time: arrival_datetime - request_input.max_journey_duration,
             max_nb_legs: request_input.max_nb_of_legs,
             too_late_threshold: request_input.too_late_threshold,
         };
 
         Ok(result)
     }
-
-
 
     pub fn create_arrive_before_response<R>(
         &self,
@@ -125,7 +121,6 @@ where
     {
         let departure_datetime = pt_journey.criteria_at_arrival.time;
 
-
         let arrival_fallback_duration = {
             // departure is the new arrival & vice-versa
             // departure.idx is an Arrival idx !!
@@ -137,9 +132,6 @@ where
             let arrival_idx = pt_journey.arrival.idx;
             &self.departures_stop_point_and_fallback_duration[arrival_idx].1
         };
-
-
-
 
         let first_vehicle = if let true = pt_journey.connection_legs.is_empty() {
             response::VehicleLeg {
@@ -193,7 +185,6 @@ where
         )
     }
 
-
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
         super::generic_request::stop_name(stop, &self.model, self.transit_data)
     }
@@ -218,11 +209,8 @@ where
         self.leg_walking_penalty
     }
 
-    fn is_valid(&self,
-        criteria : & Criteria
-    ) -> bool {
-        criteria.time >= self.min_departure_time
-            && criteria.nb_of_legs <= self.max_nb_legs
+    fn is_valid(&self, criteria: &Criteria) -> bool {
+        criteria.time >= self.min_departure_time && criteria.nb_of_legs <= self.max_nb_legs
     }
 
     fn can_be_discarded(
@@ -230,10 +218,8 @@ where
         partial_journey_criteria: &Criteria,
         complete_journey_criteria: &Criteria,
     ) -> bool {
-        partial_journey_criteria.time
-            <= complete_journey_criteria.time - self.too_late_threshold
+        partial_journey_criteria.time <= complete_journey_criteria.time - self.too_late_threshold
     }
-
 
     fn board_and_ride(
         &self,
@@ -250,9 +236,7 @@ where
             return None;
         }
         let mission = self.transit_data.mission_of(trip);
-        let previous_position = self
-            .transit_data
-            .previous_on_mission(position, &mission)?;
+        let previous_position = self.transit_data.previous_on_mission(position, &mission)?;
         let (departure_time_at_previous_stop, load) = self
             .transit_data
             .departure_time_of(trip, &previous_position);
@@ -277,7 +261,7 @@ where
             .latest_trip_that_debark_at(waiting_time, mission, position)
             .map(|(trip, debark_time, load)| {
                 let new_criteria = Criteria {
-                    time : debark_time,
+                    time: debark_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
@@ -295,10 +279,7 @@ where
     ) -> Option<Criteria> {
         debug_assert!({
             let arrival_time = &onboard_criteria.time;
-            self.transit_data
-                .departure_time_of(trip, position)
-                .0
-                == *arrival_time
+            self.transit_data.departure_time_of(trip, position).0 == *arrival_time
         });
         self.transit_data
             .board_time_of(trip, position)
@@ -351,7 +332,7 @@ where
             &self.arrivals_stop_point_and_fallbrack_duration[departure.idx];
         let time = self.arrival_datetime - *fallback_duration;
         let criteria = Criteria {
-            time ,
+            time,
             nb_of_legs: 0,
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
@@ -367,8 +348,7 @@ where
     }
 
     fn arrive(&self, arrival: &Arrival, criteria: &Criteria) -> Criteria {
-        let arrival_duration =
-            &self.departures_stop_point_and_fallback_duration[arrival.idx].1;
+        let arrival_duration = &self.departures_stop_point_and_fallback_duration[arrival.idx].1;
         Criteria {
             time: criteria.time - *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
@@ -384,9 +364,7 @@ where
         downstream: &Data::Position,
         mission: &Data::Mission,
     ) -> bool {
-        !self
-            .transit_data
-            .is_upstream(upstream, downstream, mission)
+        !self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -420,17 +398,12 @@ where
     fn mission_id(&self, mission: &Data::Mission) -> usize {
         self.transit_data.mission_id(mission)
     }
-
-
 }
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
-
-
-
 
 impl<'data, 'model, 'outer, Data> GenericArriveBeforeRequest<'data, 'model, Data>
 where
@@ -462,4 +435,3 @@ where
         self.transit_data.trips_of(mission)
     }
 }
-

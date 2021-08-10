@@ -34,11 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
-use crate::{RequestTypes, loads_data::LoadsCount, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::TransitTypes};
+use crate::{
+    loads_data::LoadsCount,
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::data_interface::TransitTypes,
+    RequestTypes,
+};
 
-use crate::engine::engine_interface::{BadRequest};
+use crate::engine::engine_interface::BadRequest;
 use crate::transit_data::data_interface::Data as DataTrait;
 use chrono::NaiveDateTime;
 use log::warn;
@@ -77,34 +82,31 @@ impl<'data, Data: DataTrait> RequestTypes for Types<Data> {
     type Criteria = Criteria;
 }
 
-
 pub(super) fn parse_datetime(
-    datetime :&NaiveDateTime,
-    calendar : & Calendar,
+    datetime: &NaiveDateTime,
+    calendar: &Calendar,
 ) -> Result<SecondsSinceDatasetUTCStart, BadRequest> {
-    calendar
-        .from_naive_datetime(datetime)
-        .ok_or_else(|| {
-            warn!(
-                "The requested datetime {:?} is out of bound of the allowed dates. \
+    calendar.from_naive_datetime(datetime).ok_or_else(|| {
+        warn!(
+            "The requested datetime {:?} is out of bound of the allowed dates. \
                 Allowed dates are between {:?} and {:?}.",
-                datetime,
-                calendar.first_datetime(),
-                calendar.last_datetime(),
-            );
-            BadRequest::RequestedDatetime
-        })
+            datetime,
+            calendar.first_datetime(),
+            calendar.last_datetime(),
+        );
+        BadRequest::RequestedDatetime
+    })
 }
 
 pub(super) fn parse_departures<Data>(
-    departures_stop_point_and_fallback_duration : &[(String, PositiveDuration)],
-    model : & Model,
-    transit_data : & Data
+    departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    model: &Model,
+    transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
- Data : DataTrait,
+    Data: DataTrait,
 {
-    let result : Vec<_> = departures_stop_point_and_fallback_duration
+    let result: Vec<_> = departures_stop_point_and_fallback_duration
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
@@ -133,16 +135,15 @@ where
     Ok(result)
 }
 
-
-pub(super) fn parse_arrivals< Data, >(
-    arrivals_stop_point_and_fallback_duration :  &[(String, PositiveDuration)],
-    model : & Model,
-    transit_data : & Data
+pub(super) fn parse_arrivals<Data>(
+    arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    model: &Model,
+    transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
- Data : DataTrait,
+    Data: DataTrait,
 {
-    let result : Vec<_> = arrivals_stop_point_and_fallback_duration
+    let result: Vec<_> = arrivals_stop_point_and_fallback_duration
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
@@ -171,7 +172,6 @@ where
     Ok(result)
 }
 
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Departure {
     pub(super) idx: usize,
@@ -181,7 +181,6 @@ pub struct Departure {
 pub struct Arrival {
     pub(super) idx: usize,
 }
-
 
 pub struct Departures {
     pub(super) inner: std::ops::Range<usize>,
@@ -207,20 +206,20 @@ impl Iterator for Arrivals {
     }
 }
 
-pub(super) fn stop_name< Data : DataTrait>(
+pub(super) fn stop_name<Data: DataTrait>(
     stop: &Data::Stop,
-    model : &  Model,
-    transit_data : & Data
+    model: &Model,
+    transit_data: &Data,
 ) -> String {
     let stop_point_idx = transit_data.stop_point_idx(stop);
     let stop_point = &model.stop_points[stop_point_idx];
     stop_point.id.clone()
 }
 
-pub(super) fn trip_name<Data : DataTrait>(
+pub(super) fn trip_name<Data: DataTrait>(
     trip: &Data::Trip,
-    model : & Model,
-    transit_data : & Data
+    model: &Model,
+    transit_data: &Data,
 ) -> String {
     let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
     let date = transit_data.day_of(trip);
@@ -233,24 +232,23 @@ pub(super) fn trip_name<Data : DataTrait>(
     )
 }
 
-pub(super) fn mission_name<Data : DataTrait>(
+pub(super) fn mission_name<Data: DataTrait>(
     mission: &Data::Mission,
-    _model : & Model,
-    transit_data : & Data
+    _model: &Model,
+    transit_data: &Data,
 ) -> String {
     let mission_id = transit_data.mission_id(mission);
     format!("{}", mission_id)
 }
 
-pub(super) fn position_name<Data : DataTrait>( 
-    position: &Data::Position, 
+pub(super) fn position_name<Data: DataTrait>(
+    position: &Data::Position,
     mission: &Data::Mission,
-    model : & Model,
-    transit_data : & Data
+    model: &Model,
+    transit_data: &Data,
 ) -> String {
     let stop = transit_data.stop_of(position, mission);
     let stop_name = stop_name(&stop, model, transit_data);
     let mission_name = mission_name(mission, model, transit_data);
     format!("{}_{}", stop_name, mission_name,)
 }
-

@@ -60,9 +60,8 @@ impl Display for Load {
         match self {
             Load::Low => write!(f, "Low"),
             Load::Medium => write!(f, "Medium"),
-            Load::High => write!(f, "High")
+            Load::High => write!(f, "High"),
         }
-
     }
 }
 

@@ -45,7 +45,6 @@ use loki::{
 
 use crate::datetime::DateTimeRepresent;
 
-
 use super::config;
 use loki::request::{self, generic_request::Types};
 
@@ -53,7 +52,7 @@ pub struct Solver<Data: DataTrait> {
     engine: MultiCriteriaRaptor<Types<Data>>,
 }
 
-impl<Data: DataTrait>  Solver<Data> {
+impl<Data: DataTrait> Solver<Data> {
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -72,54 +71,46 @@ impl<Data: DataTrait>  Solver<Data> {
         Self: Sized,
         Data: DataWithIters,
     {
-        use config::ComparatorType::*;
         use crate::datetime::DateTimeRepresent::*;
+        use config::ComparatorType::*;
 
         let responses = match (datetime_represent, comparator_type) {
             (Arrival, Loads) => {
-                let request =
-                    request::arrive_before::loads_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
+                let request = request::arrive_before::loads_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
                 solve_request_inner(&mut self.engine, &request, data)
-            },
+            }
             (Departure, Loads) => {
-                let request =
-                    request::depart_after::loads_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
+                let request = request::depart_after::loads_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
                 solve_request_inner(&mut self.engine, &request, data)
-            },
+            }
             (Arrival, Basic) => {
-                let request =
-                    request::arrive_before::basic_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
+                let request = request::arrive_before::basic_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
                 solve_request_inner(&mut self.engine, &request, data)
-            },
+            }
             (Departure, Basic) => {
-                let request =
-                    request::depart_after::basic_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
+                let request = request::depart_after::basic_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
                 solve_request_inner(&mut self.engine, &request, data)
-            },
-
-
+            }
         };
         Ok(responses)
-        
     }
 }
-
 
 fn solve_request_inner<'data, 'model, Data, Request, Types>(
     engine: &mut MultiCriteriaRaptor<Types>,

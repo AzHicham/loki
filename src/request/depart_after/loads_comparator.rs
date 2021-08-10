@@ -81,7 +81,8 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         partial_journey_criteria: &Self::Criteria,
         complete_journey_criteria: &Self::Criteria,
     ) -> bool {
-        self.generic.can_be_discarded(partial_journey_criteria, complete_journey_criteria)
+        self.generic
+            .can_be_discarded(partial_journey_criteria, complete_journey_criteria)
     }
 
     fn is_valid(&self, criteria: &Self::Criteria) -> bool {
@@ -262,9 +263,7 @@ where
             Criteria = Self::Criteria,
         >,
     {
-        self.generic.create_response(
-            pt_journey
-        )
+        self.generic.create_response(pt_journey)
     }
 }
 

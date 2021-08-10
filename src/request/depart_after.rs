@@ -37,7 +37,11 @@
 pub mod basic_comparator;
 pub mod loads_comparator;
 
-use crate::{loads_data::{LoadsCount}, time::{PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::DataIters};
+use crate::{
+    loads_data::LoadsCount,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::data_interface::DataIters,
+};
 
 use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
 use crate::transit_data::data_interface::Data as DataTrait;
@@ -74,20 +78,20 @@ where
         Self: Sized,
     {
         let departure_datetime = super::generic_request::parse_datetime(
-            &request_input.datetime, 
-            transit_data.calendar()
+            &request_input.datetime,
+            transit_data.calendar(),
         )?;
 
-        let departures  = super::generic_request::parse_departures(
-            &request_input.departures_stop_point_and_fallback_duration, 
-            model, 
-            transit_data
+        let departures = super::generic_request::parse_departures(
+            &request_input.departures_stop_point_and_fallback_duration,
+            model,
+            transit_data,
         )?;
 
-        let arrivals : Vec<_> = super::generic_request::parse_arrivals(
-            &request_input.arrivals_stop_point_and_fallback_duration, 
-            model, 
-            transit_data
+        let arrivals: Vec<_> = super::generic_request::parse_arrivals(
+            &request_input.arrivals_stop_point_and_fallback_duration,
+            model,
+            transit_data,
         )?;
 
         let result = Self {
@@ -98,7 +102,7 @@ where
             arrivals_stop_point_and_fallbrack_duration: arrivals,
             leg_arrival_penalty: request_input.leg_arrival_penalty,
             leg_walking_penalty: request_input.leg_walking_penalty,
-            max_arrival_time: departure_datetime + request_input.max_journey_duration ,
+            max_arrival_time: departure_datetime + request_input.max_journey_duration,
             max_nb_legs: request_input.max_nb_of_legs,
             too_late_threshold: request_input.too_late_threshold,
         };
@@ -155,7 +159,6 @@ where
         )
     }
 
-
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
         super::generic_request::stop_name(stop, &self.model, self.transit_data)
     }
@@ -180,11 +183,8 @@ where
         self.leg_walking_penalty
     }
 
-    fn is_valid(&self,
-        criteria : & Criteria
-    ) -> bool {
-        criteria.time <= self.max_arrival_time
-            && criteria.nb_of_legs <= self.max_nb_legs
+    fn is_valid(&self, criteria: &Criteria) -> bool {
+        criteria.time <= self.max_arrival_time && criteria.nb_of_legs <= self.max_nb_legs
     }
 
     fn can_be_discarded(
@@ -192,8 +192,7 @@ where
         partial_journey_criteria: &Criteria,
         complete_journey_criteria: &Criteria,
     ) -> bool {
-        partial_journey_criteria.time
-            >= complete_journey_criteria.time + self.too_late_threshold
+        partial_journey_criteria.time >= complete_journey_criteria.time + self.too_late_threshold
     }
 
     fn board_and_ride(
@@ -201,7 +200,7 @@ where
         position: &Data::Position,
         trip: &Data::Trip,
         waiting_criteria: &Criteria,
-    ) -> Option<Criteria>{
+    ) -> Option<Criteria> {
         let has_board = self.transit_data.board_time_of(trip, position);
         if let Some(board_timeload) = has_board {
             if waiting_criteria.time > board_timeload.0 {
@@ -211,20 +210,17 @@ where
             return None;
         }
         let mission = self.transit_data.mission_of(trip);
-        let next_position = self
-            .transit_data
-            .next_on_mission(position, &mission)?;
-        let (arrival_time_at_next_stop, load) = self
-            .transit_data
-            .arrival_time_of(trip, &next_position);
-            let new_criteria = Criteria {
-                time: arrival_time_at_next_stop,
-                nb_of_legs: waiting_criteria.nb_of_legs + 1,
-                fallback_duration: waiting_criteria.fallback_duration,
-                transfers_duration: waiting_criteria.transfers_duration,
-                loads_count: waiting_criteria.loads_count.add(load),
-            };
-            Some(new_criteria)
+        let next_position = self.transit_data.next_on_mission(position, &mission)?;
+        let (arrival_time_at_next_stop, load) =
+            self.transit_data.arrival_time_of(trip, &next_position);
+        let new_criteria = Criteria {
+            time: arrival_time_at_next_stop,
+            nb_of_legs: waiting_criteria.nb_of_legs + 1,
+            fallback_duration: waiting_criteria.fallback_duration,
+            transfers_duration: waiting_criteria.transfers_duration,
+            loads_count: waiting_criteria.loads_count.add(load),
+        };
+        Some(new_criteria)
     }
 
     fn best_trip_to_board(
@@ -232,13 +228,13 @@ where
         position: &Data::Position,
         mission: &Data::Mission,
         waiting_criteria: &Criteria,
-    ) -> Option<(Data::Trip, Criteria)>  {
+    ) -> Option<(Data::Trip, Criteria)> {
         let waiting_time = &waiting_criteria.time;
         self.transit_data
             .earliest_trip_to_board_at(waiting_time, mission, position)
             .map(|(trip, arrival_time, load)| {
                 let new_criteria = Criteria {
-                    time : arrival_time,
+                    time: arrival_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
@@ -246,7 +242,6 @@ where
                 };
                 (trip, new_criteria)
             })
-           
     }
 
     fn debark(
@@ -266,23 +261,18 @@ where
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
-                loads_count : onboard_criteria.loads_count.clone()
+                loads_count: onboard_criteria.loads_count.clone(),
             })
     }
 
-    fn ride(&self, 
-        trip: &Data::Trip, 
-        position: &Data::Position, 
-        criteria: &Criteria
-    ) -> Criteria {
+    fn ride(&self, trip: &Data::Trip, position: &Data::Position, criteria: &Criteria) -> Criteria {
         let mission = self.transit_data.mission_of(trip);
         let next_position = self
             .transit_data
             .next_on_mission(position, &mission)
             .unwrap();
-        let (arrival_time_at_next_position, load) = self
-            .transit_data
-            .arrival_time_of(trip, &next_position);
+        let (arrival_time_at_next_position, load) =
+            self.transit_data.arrival_time_of(trip, &next_position);
         Criteria {
             time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
@@ -330,8 +320,7 @@ where
     }
 
     fn arrive(&self, arrival: &Arrival, criteria: &Criteria) -> Criteria {
-        let arrival_duration =
-            &self.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
+        let arrival_duration = &self.arrivals_stop_point_and_fallbrack_duration[arrival.idx].1;
         Criteria {
             time: criteria.time + *arrival_duration,
             nb_of_legs: criteria.nb_of_legs,
@@ -347,8 +336,7 @@ where
         downstream: &Data::Position,
         mission: &Data::Mission,
     ) -> bool {
-        self.transit_data
-            .is_upstream(upstream, downstream, mission)
+        self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -382,11 +370,7 @@ where
     fn mission_id(&self, mission: &Data::Mission) -> usize {
         self.transit_data.mission_id(mission)
     }
-
-
 }
-
-
 
 impl<'data, 'model, 'outer, Data> GenericDepartAfterRequest<'data, 'model, Data>
 where
@@ -418,4 +402,3 @@ where
         self.transit_data.trips_of(mission)
     }
 }
-

@@ -150,15 +150,11 @@ pub fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: DataWithIters,
 {
-    let (data, model) :(Data, Model) = launch::read(&config.launch_params)?;
+    let (data, model): (Data, Model) = launch::read(&config.launch_params)?;
     build_engine_and_solve(&model, &data, &config)
 }
 
-fn build_engine_and_solve<Data>(
-    model: &Model,
-    data: &Data,
-    config: &Config,
-) -> Result<(), Error>
+fn build_engine_and_solve<Data>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
     Data: DataWithIters,
 {

@@ -171,7 +171,7 @@ fn config_launch<Data>(config: Config) -> Result<(Model, Vec<loki::Response>), E
 where
     Data: DataWithIters,
 {
-    let (data, model) : (Data, Model) = launch::read(&config.launch_params)?;
+    let (data, model): (Data, Model) = launch::read(&config.launch_params)?;
     let result = build_engine_and_solve(&model, &data, &config);
 
     result.map(|responses| (model, responses))
@@ -183,7 +183,7 @@ fn build_engine_and_solve<Data>(
     config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
 where
-    Data: DataWithIters
+    Data: DataWithIters,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

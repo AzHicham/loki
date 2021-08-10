@@ -34,9 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+mod daily;
 mod generic_timetables;
 mod iters;
-mod daily;
 mod periodic;
 
 pub use daily::DailyTimetables;

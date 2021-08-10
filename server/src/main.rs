@@ -41,15 +41,13 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
+use launch::config;
 use launch::loki::{self, DataWithIters};
 use launch::solver::Solver;
-use launch::{config};
 
+use loki::log::{debug, error, info, warn};
 use loki::transit_model;
 use loki::RequestInput;
-use loki::{
-    log::{debug, error, info, warn},
-};
 use loki::{DailyData, PeriodicData, PositiveDuration};
 
 use prost::Message;
@@ -176,7 +174,6 @@ where
     let (data, model) = launch::read::<Data>(&config.launch_params)?;
 
     server_loop(&model, &data, &config)
-
 }
 
 fn server_loop<Data>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
@@ -406,7 +403,7 @@ where
     });
 
     let request_input = RequestInput {
-        datetime : departure_datetime,
+        datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
         leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
