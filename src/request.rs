@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod basic_criteria;
 pub mod generic_request;
-pub mod loads_criteria;
+
+pub mod arrive_before;
+pub mod depart_after;

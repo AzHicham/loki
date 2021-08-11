@@ -168,18 +168,18 @@ pub trait DataIters<'a>: TransitTypes {
     fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
 
     /// Iterator for all `Transfer`s that can be taken at a `Stop`
-    type ForwardTransfersAtStop: Iterator<Item = Self::Transfer>;
+    type OutgoingTransfersAtStop: Iterator<Item = Self::Transfer>;
     /// Returns all `Transfer`s that can be taken at `from_stop`
     ///
     /// Should not return twice the same `Transfer`.
-    fn transfers_forward_at(&'a self, from_stop: &Self::Stop) -> Self::ForwardTransfersAtStop;
+    fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop;
 
     /// Iterator for all `Transfer`s that can debark at a `Stop`
-    type BackwardTransfersAtStop: Iterator<Item = Self::Transfer>;
+    type IncomingTransfersAtStop: Iterator<Item = Self::Transfer>;
     /// Returns all `Transfer`s that can debark at `stop`
     ///
     /// Should not return twice the same `Transfer`.
-    fn transfers_backward_at(&'a self, stop: &Self::Stop) -> Self::BackwardTransfersAtStop;
+    fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop;
 
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;

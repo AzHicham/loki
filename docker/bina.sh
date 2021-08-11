@@ -214,7 +214,6 @@ zmq_socket = tcp://*:${krakenPort}
 " > ${output}/${coverage}/kraken.ini
 
     # Loki config files
-    # one for the coverage with loads criteria
     jq -n --arg basicSocket "tcp://*:$lokiBasicPort" \
           --arg loadsSocket "tcp://*:$lokiLoadsPort" \
           --arg inputType "$inputType" \
@@ -225,7 +224,7 @@ zmq_socket = tcp://*:${krakenPort}
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,
-    data_implem: "loads_periodic",
+    data_implem: "periodic",
     criteria_implem: "loads"
 }' > ${output}/${coverage}/loki_config.json
 

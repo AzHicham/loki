@@ -236,7 +236,7 @@ pub trait RequestIters<'a>: RequestTypes {
 
 #[derive(Debug)]
 pub struct RequestInput {
-    pub departure_datetime: NaiveDateTime,
+    pub datetime: NaiveDateTime,
     pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
     pub arrivals_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
     pub leg_arrival_penalty: PositiveDuration,
@@ -307,7 +307,7 @@ pub struct Journey<T: RequestTypes> {
 
 #[derive(Debug)]
 pub enum BadRequest {
-    DepartureDatetime,
+    RequestedDatetime,
     NoValidDepartureStop,
     NoValidArrivalStop,
 }
@@ -322,7 +322,7 @@ use crate::PositiveDuration;
 impl fmt::Display for BadRequest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BadRequest::DepartureDatetime => write!(
+            BadRequest::RequestedDatetime => write!(
                 f,
                 "The requested datetime is out of the validity period of the data."
             ),

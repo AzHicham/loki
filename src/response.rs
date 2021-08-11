@@ -400,14 +400,7 @@ where
             self.departure_fallback_duration,
             self.arrival_fallback_duration
         )?;
-        writeln!(
-            writer,
-            "Loads : High {}; Medium {}; Low {}; total {}",
-            self.loads_count.high,
-            self.loads_count.medium,
-            self.loads_count.low,
-            self.loads_count.total()
-        )?;
+        writeln!(writer, "Loads : {}", self.loads_count)?;
 
         let departure_datetime = data.to_naive_datetime(&self.departure_datetime);
         writeln!(
@@ -767,14 +760,7 @@ impl Response {
             write_duration(self.departure.duration_in_seconds()),
             write_duration(self.arrival.duration_in_seconds())
         )?;
-        writeln!(
-            writer,
-            "Loads : High {}; Medium {}; Low {}; total {}",
-            self.loads_count.high,
-            self.loads_count.medium,
-            self.loads_count.low,
-            self.loads_count.total()
-        )?;
+        writeln!(writer, "Loads : {}", self.loads_count)?;
 
         writeln!(
             writer,

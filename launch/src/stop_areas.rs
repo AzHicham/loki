@@ -51,7 +51,7 @@ pub fn make_query_stop_areas(
         stops_of_stop_area(model, to_stop_area, PositiveDuration::zero())?;
 
     let request_input = RequestInput {
-        departure_datetime: *departure_datetime,
+        datetime: *departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
         leg_arrival_penalty: request_params.leg_arrival_penalty,

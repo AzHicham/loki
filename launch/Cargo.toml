@@ -16,3 +16,7 @@ slog-scope = "4.1"
 slog-stdlog = "4.0"
 slog-async = "2.3"
 slog-envlogger = "2.1"
+
+[features]
+# enable the vehicle_loads feature on the loki lib
+vehicle_loads = ["loki/vehicle_loads"]

@@ -34,31 +34,33 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::fmt::Debug;
-
-use super::{generic_timetables::Timetables, TimetablesIter};
+use super::{
+    generic_timetables::{Position, Timetable, Timetables, Vehicle, VehicleTimesError},
+    iters::{PositionsIter, TimetableIter, VehicleIter},
+    FlowDirection, Stop, TimetablesIter,
+};
 
 use crate::transit_data::{Idx, VehicleJourney};
 use crate::{
-    loads_data::{Load, LoadsData},
+    loads_data::LoadsData,
     time::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     },
 };
 use chrono::NaiveDate;
 
-use crate::timetables::{
-    FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
-};
+use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
 
 use crate::log::{trace, warn};
 
+use crate::loads_data::Load;
+
+pub type Time = SecondsSinceDatasetUTCStart;
 #[derive(Debug)]
 pub struct DailyTimetables {
-    timetables: Timetables<SecondsSinceDatasetUTCStart, (), (), VehicleData>,
+    timetables: Timetables<Time, Load, (), VehicleData>,
     calendar: Calendar,
 }
-
 #[derive(Clone, Debug)]
 struct VehicleData {
     vehicle_journey_idx: Idx<VehicleJourney>,
@@ -66,11 +68,11 @@ struct VehicleData {
 }
 
 impl TimetablesTypes for DailyTimetables {
-    type Mission = super::generic_timetables::Timetable;
+    type Mission = Timetable;
 
-    type Position = super::generic_timetables::Position;
+    type Position = Position;
 
-    type Trip = super::generic_timetables::Vehicle;
+    type Trip = Vehicle;
 }
 
 impl TimetablesTrait for DailyTimetables {
@@ -110,8 +112,12 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.timetable_of(trip)
     }
 
-    fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> super::Stop {
+    fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop {
         *self.timetables.stop_at(position, mission)
+    }
+
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
     }
 
     fn is_upstream_in_mission(
@@ -139,42 +145,26 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.previous_position(position, mission)
     }
 
-    fn arrival_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let time = self.timetables.arrival_time(trip, position).0;
-        (*time, Load::default())
+    fn arrival_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> (Time, Load) {
+        let (time, load) = self.timetables.arrival_time(trip, position);
+        (*time, *load)
     }
 
-    fn departure_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let time = self.timetables.departure_time(trip, position).0;
-        (*time, Load::default())
+    fn departure_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> (Time, Load) {
+        let (time, load) = self.timetables.departure_time(trip, position);
+        (*time, *load)
     }
 
-    fn debark_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+    fn debark_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<(Time, Load)> {
         self.timetables
             .debark_time(trip, position)
-            .map(|(time, _)| (*time, Load::default()))
+            .map(|(time, load)| (*time, *load))
     }
 
-    fn board_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+    fn board_time_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<(Time, Load)> {
         self.timetables
             .board_time(trip, position)
-            .map(|(time, _)| (*time, Load::default()))
+            .map(|(time, load)| (*time, *load))
     }
 
     fn earliest_trip_to_board_at(
@@ -182,10 +172,10 @@ impl TimetablesTrait for DailyTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+    ) -> Option<(Self::Trip, Time, Load)> {
         self.timetables
-            .earliest_vehicle_to_board(waiting_time, mission, position)
-            .map(|(trip, time, _)| (trip, *time, Load::default()))
+            .earliest_vehicle_to_board(&waiting_time, mission, position)
+            .map(|(trip, time, load)| (trip, *time, *load))
     }
 
     fn latest_trip_that_debark_at(
@@ -196,7 +186,7 @@ impl TimetablesTrait for DailyTimetables {
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .latest_vehicle_that_debark(time, mission, position)
-            .map(|(trip, time, _)| (trip, *time, Load::default()))
+            .map(|(trip, time, load)| (trip, *time, *load))
     }
 
     fn insert<'date, Stops, Flows, Dates, Times>(
@@ -205,7 +195,7 @@ impl TimetablesTrait for DailyTimetables {
         flows: Flows,
         board_times: Times,
         debark_times: Times,
-        _loads_data: &LoadsData,
+        loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
@@ -219,11 +209,12 @@ impl TimetablesTrait for DailyTimetables {
     {
         let mut result = Vec::new();
         let nb_of_positions = stops.len();
-        let loads = if nb_of_positions > 0 {
-            vec![(); nb_of_positions - 1]
+        let default_loads = if nb_of_positions > 0 {
+            vec![Load::default(); nb_of_positions - 1]
         } else {
-            vec![(); 0]
+            vec![Load::default(); 0]
         };
+
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
@@ -247,6 +238,10 @@ impl TimetablesTrait for DailyTimetables {
                     let debark_times_utc = debark_times
                         .clone()
                         .map(|time| calendar.compose(&day, &time, timezone));
+
+                    let loads = loads_data
+                        .loads(&vehicle_journey_idx, date)
+                        .unwrap_or_else(|| default_loads.as_slice());
                     let vehicle_data = VehicleData {
                         vehicle_journey_idx,
                         day,
@@ -256,7 +251,7 @@ impl TimetablesTrait for DailyTimetables {
                         flows.clone(),
                         board_times_utc,
                         debark_times_utc,
-                        loads.clone().into_iter(),
+                        loads.iter().copied(),
                         (),
                         vehicle_data,
                     );
@@ -273,33 +268,27 @@ impl TimetablesTrait for DailyTimetables {
         }
         result
     }
-
-    fn nb_of_trips(&self) -> usize {
-        self.timetables.nb_of_trips()
-    }
 }
 
 impl<'a> TimetablesIter<'a> for DailyTimetables {
-    type Positions = super::iters::PositionsIter;
+    type Positions = PositionsIter;
 
     fn positions(&'a self, mission: &Self::Mission) -> Self::Positions {
         self.timetables.positions(mission)
     }
 
-    type Trips = super::iters::VehicleIter;
+    type Trips = VehicleIter;
 
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::Trips {
         self.timetables.vehicles(mission)
     }
 
-    type Missions = super::iters::TimetableIter;
+    type Missions = TimetableIter;
 
     fn missions(&'a self) -> Self::Missions {
         self.timetables.timetables()
     }
 }
-
-use super::generic_timetables::VehicleTimesError;
 
 fn handle_vehicletimes_error(
     vehicle_journey: &VehicleJourney,

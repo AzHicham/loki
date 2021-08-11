@@ -41,15 +41,13 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
+use launch::config;
 use launch::loki::{self, DataWithIters};
-use launch::{config, solver};
+use launch::solver::Solver;
 
+use loki::log::{debug, error, info, warn};
 use loki::transit_model;
 use loki::RequestInput;
-use loki::{
-    log::{debug, error, info, warn},
-    LoadsDailyData, LoadsPeriodicData,
-};
 use loki::{DailyData, PeriodicData, PositiveDuration};
 
 use prost::Message;
@@ -166,8 +164,6 @@ fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
     }
 }
 
@@ -177,20 +173,12 @@ where
 {
     let (data, model) = launch::read::<Data>(&config.launch_params)?;
 
-    match config.launch_params.criteria_implem {
-        config::CriteriaImplem::Basic => {
-            server_loop::<Data, solver::BasicCriteriaSolver<Data>>(&model, &data, &config)
-        }
-        config::CriteriaImplem::Loads => {
-            server_loop::<Data, solver::LoadsCriteriaSolver<Data>>(&model, &data, &config)
-        }
-    }
+    server_loop(&model, &data, &config)
 }
 
-fn server_loop<Data, Solver>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
+fn server_loop<Data>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
     Data: DataWithIters,
-    Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
     let context = zmq::Context::new();
@@ -268,12 +256,12 @@ where
     }
 }
 
-fn solve<Data, Solver: solver::Solver<Data>>(
+fn solve<Data>(
     socket: &zmq::Socket,
     zmq_message: &mut zmq::Message,
     data: &Data,
     model: &Model,
-    solver: &mut Solver,
+    solver: &mut Solver<Data>,
     config: &Config,
     comparator_type: config::ComparatorType,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
@@ -415,7 +403,7 @@ where
     });
 
     let request_input = RequestInput {
-        departure_datetime,
+        datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
         leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,

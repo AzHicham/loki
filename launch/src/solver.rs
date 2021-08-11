@@ -44,38 +44,22 @@ use loki::{
 };
 
 use crate::datetime::DateTimeRepresent;
-use loki::request::basic_criteria;
 
 use super::config;
+use loki::request::{self, generic_request::Types};
 
-pub trait Solver<Data> {
-    fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self;
-
-    fn solve_request(
-        &mut self,
-        data: &Data,
-        model: &transit_model::Model,
-        request_input: &RequestInput,
-        comparator: &config::ComparatorType,
-        datetime_represent: &DateTimeRepresent,
-    ) -> Result<Vec<response::Response>, BadRequest>
-    where
-        Self: Sized,
-        Data: DataWithIters;
+pub struct Solver<Data: DataTrait> {
+    engine: MultiCriteriaRaptor<Types<Data>>,
 }
 
-pub struct BasicCriteriaSolver<Data: DataTrait> {
-    engine: MultiCriteriaRaptor<basic_criteria::Types<Data>>,
-}
-
-impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
-    fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
+impl<Data: DataTrait> Solver<Data> {
+    pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
         }
     }
 
-    fn solve_request(
+    pub fn solve_request(
         &mut self,
         data: &Data,
         model: &transit_model::Model,
@@ -87,129 +71,44 @@ impl<Data: DataTrait> Solver<Data> for BasicCriteriaSolver<Data> {
         Self: Sized,
         Data: DataWithIters,
     {
-        match comparator_type {
-            config::ComparatorType::Loads => {
-                let responses = match datetime_represent {
-                    DateTimeRepresent::Departure => {
-                        let request =
-                            basic_criteria::depart_after::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                    DateTimeRepresent::Arrival => {
-                        let request =
-                            basic_criteria::arrival_before::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                };
-                Ok(responses)
-            }
-            config::ComparatorType::Basic => {
-                let responses = match datetime_represent {
-                    DateTimeRepresent::Departure => {
-                        let request =
-                            basic_criteria::depart_after::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                    DateTimeRepresent::Arrival => {
-                        let request =
-                            basic_criteria::arrival_before::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                };
-                Ok(responses)
-            }
-        }
-    }
-}
+        use crate::datetime::DateTimeRepresent::*;
+        use config::ComparatorType::*;
 
-use loki::request::loads_criteria;
-
-pub struct LoadsCriteriaSolver<Data: DataTrait> {
-    engine: MultiCriteriaRaptor<loads_criteria::Types<Data>>,
-}
-
-impl<Data: DataTrait> Solver<Data> for LoadsCriteriaSolver<Data> {
-    fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
-        Self {
-            engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
-        }
-    }
-
-    fn solve_request(
-        &mut self,
-        data: &Data,
-        model: &transit_model::Model,
-        request_input: &RequestInput,
-        comparator_type: &config::ComparatorType,
-        datetime_represent: &DateTimeRepresent,
-    ) -> Result<Vec<response::Response>, BadRequest>
-    where
-        Self: Sized,
-        Data: DataWithIters,
-    {
-        match comparator_type {
-            config::ComparatorType::Loads => {
-                let responses = match datetime_represent {
-                    DateTimeRepresent::Departure => {
-                        let request = loads_criteria::depart_after::loads_comparator::Request::new(
-                            model,
-                            data,
-                            request_input,
-                        )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                    DateTimeRepresent::Arrival => {
-                        let request =
-                            loads_criteria::arrival_before::loads_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                };
-                Ok(responses)
+        let responses = match (datetime_represent, comparator_type) {
+            (Arrival, Loads) => {
+                let request = request::arrive_before::loads_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
+                solve_request_inner(&mut self.engine, &request, data)
             }
-            config::ComparatorType::Basic => {
-                let responses = match datetime_represent {
-                    DateTimeRepresent::Departure => {
-                        let request =
-                            loads_criteria::depart_after::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                    DateTimeRepresent::Arrival => {
-                        let request =
-                            loads_criteria::arrival_before::classic_comparator::Request::new(
-                                model,
-                                data,
-                                request_input,
-                            )?;
-                        solve_request_inner(&mut self.engine, &request, data)
-                    }
-                };
-                Ok(responses)
+            (Departure, Loads) => {
+                let request = request::depart_after::loads_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
+                solve_request_inner(&mut self.engine, &request, data)
             }
-        }
+            (Arrival, Basic) => {
+                let request = request::arrive_before::basic_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
+                solve_request_inner(&mut self.engine, &request, data)
+            }
+            (Departure, Basic) => {
+                let request = request::depart_after::basic_comparator::Request::new(
+                    model,
+                    data,
+                    request_input,
+                )?;
+                solve_request_inner(&mut self.engine, &request, data)
+            }
+        };
+        Ok(responses)
     }
 }
 
