@@ -34,55 +34,99 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Deserialize, Serialize};
+use chrono::NaiveDate;
+use std::error::Error;
+use std::fmt::Display;
+use std::path::Path;
+use transit_model::objects::VehicleJourney;
+use transit_model::Model;
+use typed_index_collection::Idx;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DataImplem {
-    Periodic,
-    Daily,
+type VehicleJourneyIdx = Idx<VehicleJourney>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Load {
+    Unknown,
 }
 
-impl Default for DataImplem {
+impl Display for Load {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Load ()")
+    }
+}
+
+impl Default for Load {
     fn default() -> Self {
-        Self::Periodic
+        Load::Unknown
     }
 }
 
-impl std::str::FromStr for DataImplem {
-    type Err = DataImplemConfigError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use DataImplem::*;
-        let implem = match s {
-            "periodic" => Periodic,
-            "daily" => Daily,
-            _ => {
-                return Err(DataImplemConfigError {
-                    implem_name: s.to_string(),
-                })
-            }
-        };
-        Ok(implem)
+use std::cmp::Ordering;
+
+impl Ord for Load {
+    fn cmp(&self, _other: &Self) -> Ordering {
+        Ordering::Equal
     }
 }
 
-#[derive(Debug)]
-pub struct DataImplemConfigError {
-    implem_name: String,
+impl PartialOrd for Load {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
-impl std::fmt::Display for DataImplem {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct LoadsCount();
+
+impl Display for LoadsCount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use DataImplem::*;
-        match self {
-            Periodic => write!(f, "periodic"),
-            Daily => write!(f, "daily"),
-        }
+        write!(f, "LoadsCount ()")
     }
 }
 
-impl std::fmt::Display for DataImplemConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad implem configuration : `{}`", self.implem_name)
+impl LoadsCount {
+    pub fn zero() -> Self {
+        Self {}
+    }
+
+    pub fn add(&self, _load: Load) -> Self {
+        Self {}
+    }
+
+    pub fn max(&self) -> Load {
+        Load::default()
+    }
+
+    pub fn is_lower(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Default for LoadsCount {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+pub struct LoadsData();
+
+impl LoadsData {
+    pub fn loads(
+        &self,
+        _vehicle_journey_idx: &VehicleJourneyIdx,
+        _date: &NaiveDate,
+    ) -> Option<&[Load]> {
+        None
+    }
+
+    pub fn empty() -> Self {
+        LoadsData {}
+    }
+
+    pub fn new<P: AsRef<Path>>(
+        _csv_occupancys_filepath: P,
+        _model: &Model,
+    ) -> Result<Self, Box<dyn Error>> {
+        Ok(LoadsData::empty())
     }
 }

@@ -1,8 +1,8 @@
 use launch::loki::{self, DataWithIters};
+use launch::solver::Solver;
 use launch::{
     config,
-    loki::{DailyData, LoadsDailyData, LoadsPeriodicData, PeriodicData},
-    solver,
+    loki::{DailyData, PeriodicData},
 };
 
 use loki::log;
@@ -143,8 +143,6 @@ pub fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
-        config::DataImplem::LoadsPeriodic => config_launch::<LoadsPeriodicData>(config),
-        config::DataImplem::LoadsDaily => config_launch::<LoadsDailyData>(config),
     }
 }
 
@@ -152,27 +150,13 @@ pub fn config_launch<Data>(config: Config) -> Result<(), Error>
 where
     Data: DataWithIters,
 {
-    let (data, model) = launch::read(&config.launch_params)?;
-    match config.launch_params.criteria_implem {
-        config::CriteriaImplem::Basic => build_engine_and_solve::<
-            Data,
-            solver::BasicCriteriaSolver<Data>,
-        >(&model, &data, &config),
-        config::CriteriaImplem::Loads => build_engine_and_solve::<
-            Data,
-            solver::LoadsCriteriaSolver<Data>,
-        >(&model, &data, &config),
-    }
+    let (data, model): (Data, Model) = launch::read(&config.launch_params)?;
+    build_engine_and_solve(&model, &data, &config)
 }
 
-fn build_engine_and_solve<Data, Solver>(
-    model: &Model,
-    data: &Data,
-    config: &Config,
-) -> Result<(), Error>
+fn build_engine_and_solve<Data>(model: &Model, data: &Data, config: &Config) -> Result<(), Error>
 where
     Data: DataWithIters,
-    Solver: solver::Solver<Data>,
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

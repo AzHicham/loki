@@ -58,9 +58,6 @@ pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
 
-pub type LoadsDailyData = transit_data::TransitData<timetables::LoadsDailyTimetables>;
-pub type LoadsPeriodicData = transit_data::TransitData<timetables::LoadsPeriodicTimetables>;
-
 pub use loads_data::LoadsData;
 
 pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};

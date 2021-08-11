@@ -38,7 +38,6 @@ mod utils;
 use failure::Error;
 use launch::loki::chrono::NaiveDate;
 use launch::loki::transit_model::objects::Date;
-use launch::solver::BasicCriteriaSolver;
 use loki::chrono::NaiveTime;
 use loki::modelbuilder::ModelBuilder;
 use loki::{NaiveDateTime, PeriodicData};
@@ -75,11 +74,7 @@ fn test_simple_routing() -> Result<(), Error> {
         "B".to_string(),
     );
 
-    let responses = build_and_solve::<PeriodicData, BasicCriteriaSolver<PeriodicData>>(
-        &model,
-        &loki::LoadsData::empty(),
-        &config,
-    )?;
+    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 1);
     assert_eq!(responses.len(), 1);

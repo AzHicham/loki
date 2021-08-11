@@ -62,8 +62,7 @@ fn test_loads_matin() -> Result<(), Error> {
             "input_data_path" : "tests/one_line",
             "input_data_type" : "ntfs",
             "loads_data_path" : "tests/one_line/loads.csv",
-            "criteria_implem" : "loads",
-            "data_implem" : "loads_periodic",
+            "data_implem" : "periodic",
             "departure_datetime" : "20210101T080000",
             "comparator_type" : "loads",
             "start" : "stop_area:massy",
@@ -74,10 +73,15 @@ fn test_loads_matin() -> Result<(), Error> {
 
     let (model, mut responses) = launch(config)?;
 
-    assert!(responses.len() == 2);
-    responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-    assert!(responses[0].first_vj_uri(&model) == "matin");
-    assert!(responses[1].first_vj_uri(&model) == "midi");
+    if cfg!(feature = "vehicle_loads") {
+        assert!(responses.len() == 2);
+        responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
+        assert!(responses[0].first_vj_uri(&model) == "matin");
+        assert!(responses[1].first_vj_uri(&model) == "midi");
+    } else {
+        assert!(responses.len() == 1);
+        assert!(responses[0].first_vj_uri(&model) == "matin");
+    }
 
     Ok(())
 }
@@ -95,8 +99,7 @@ fn test_loads_midi() -> Result<(), Error> {
         "input_data_path": "tests/one_line",
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
-        "criteria_implem": "loads",
-        "data_implem": "loads_periodic",
+        "data_implem": "periodic",
         "departure_datetime": "20210101T100000",
         "comparator_type": "loads",
         "start" : "stop_area:massy",
@@ -125,8 +128,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
         "input_data_path": "tests/one_line",
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
-        "criteria_implem": "loads",
-        "data_implem": "loads_periodic",
+        "data_implem": "periodic",
         "departure_datetime": "20210101T080000",
         "comparator_type": "basic",
         "start" : "stop_area:massy",

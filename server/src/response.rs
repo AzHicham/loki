@@ -99,7 +99,7 @@ fn make_journey(
             ridesharing: Some(0),
             taxi: Some(0),
         }),
-        requested_date_time: Some(to_u64_timestamp(&request_input.departure_datetime)?),
+        requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
         ..Default::default()
     };
 

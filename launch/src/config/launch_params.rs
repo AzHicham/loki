@@ -68,7 +68,6 @@ pub struct LaunchParams {
 
     /// Timetable implementation to use :
     /// "periodic" (default) or "daily"
-    ///  or "loads_periodic" or "loads_daily"
     #[structopt(long, default_value)]
     #[serde(default)]
     pub data_implem: super::DataImplem,

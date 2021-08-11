@@ -35,9 +35,10 @@
 // www.navitia.io
 
 use failure::Error;
+use launch::config;
 use launch::datetime::DateTimeRepresent;
 use launch::loki::{response, RequestInput};
-use launch::{config, solver};
+use launch::solver::Solver;
 use loki::log::info;
 use loki::transit_model::Model;
 use loki::DataWithIters;
@@ -99,13 +100,13 @@ impl Config {
 }
 
 fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
-    let departure_datetime = launch::datetime::parse_datetime(&config.datetime)?;
+    let datetime = launch::datetime::parse_datetime(&config.datetime)?;
 
     let start_stop_point_uri = &config.start;
     let end_stop_point_uri = &config.end;
 
     let request_input = RequestInput {
-        departure_datetime,
+        datetime,
         departures_stop_point_and_fallback_duration: vec![(
             start_stop_point_uri.clone(),
             PositiveDuration::zero(),
@@ -123,14 +124,13 @@ fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
     Ok(request_input)
 }
 
-pub fn build_and_solve<Data, Solver>(
+pub fn build_and_solve<Data>(
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
 where
     Data: DataWithIters,
-    Solver: solver::Solver<Data>,
 {
     info!("Transit model loaded");
     info!(
