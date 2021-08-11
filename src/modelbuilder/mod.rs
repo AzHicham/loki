@@ -32,10 +32,11 @@
 //! # }
 //! ```
 
+use failure::Error;
 use transit_model::model::Collections;
 use transit_model::objects::{Calendar, Date, Route, StopPoint, StopTime, Time, VehicleJourney};
 use transit_model::Model;
-use typed_index_collection::Idx;
+use typed_index_collection::{CollectionWithId, Idx};
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
 
@@ -210,6 +211,27 @@ impl<'a> ModelBuilder {
             c
         });
         self
+    }
+
+    /// Consume the builder to create a navitia model
+    pub fn validity_period(mut self, start_period: Date, end_period: Date) -> Result<Self, Error> {
+        let mut calendars = self.collections.calendars.take();
+        for calendar in calendars.iter_mut() {
+            calendar.dates = calendar
+                .dates
+                .iter()
+                .cloned()
+                .filter(|date| *date >= start_period && *date <= end_period)
+                .collect();
+        }
+        let mut data_sets = self.collections.datasets.take();
+        for data_set in data_sets.iter_mut() {
+            data_set.start_date = start_period;
+            data_set.end_date = end_period;
+        }
+        self.collections.datasets = CollectionWithId::new(data_sets)?;
+        self.collections.calendars = CollectionWithId::new(calendars)?;
+        Ok(self)
     }
 
     /// Consume the builder to create a navitia model

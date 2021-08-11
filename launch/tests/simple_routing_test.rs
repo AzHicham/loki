@@ -36,9 +36,13 @@
 
 mod utils;
 use failure::Error;
+use launch::loki::chrono::NaiveDate;
+use launch::loki::transit_model::objects::Date;
 use launch::solver::BasicCriteriaSolver;
+use loki::chrono::NaiveTime;
 use loki::modelbuilder::ModelBuilder;
-use loki::PeriodicData;
+use loki::{NaiveDateTime, PeriodicData};
+use std::str::FromStr;
 use utils::{build_and_solve, Config};
 
 fn init() {
@@ -50,20 +54,23 @@ fn test_simple_routing() -> Result<(), Error> {
     init();
 
     let model = ModelBuilder::default()
-        .default_calendar(&["2020-01-01"])
-        .vj("toto", |vj| {
-            vj.route("1")
-                .st("A", "10:00:00", "10:01:00")
-                .st("B", "11:00:00", "11:01:00");
+        .calendar("service1", &["2020-01-01"])
+        .route("1", |r| {
+            r.name = String::from("bob");
         })
-        .vj("tata", |vj| {
-            vj.st("A", "10:00:00", "10:01:00")
-                .st("D", "11:00:00", "11:01:00");
+        .vj("toto", |vj_builder| {
+            vj_builder
+                .calendar("service1")
+                .route("1")
+                .st("A", "10:00:00", "10:00:01")
+                .st("B", "10:05:00", "10:05:01")
+                .st("C", "10:10:00", "10:10:01");
         })
+        .validity_period(Date::from_str("2020-01-01")?, Date::from_str("2020-01-02")?)?
         .build();
 
     let config = Config::new(
-        "20210728T100000".to_string(),
+        "20200101T085900".to_string(),
         "A".to_string(),
         "B".to_string(),
     );
@@ -74,9 +81,60 @@ fn test_simple_routing() -> Result<(), Error> {
         &config,
     )?;
 
+    assert_eq!(model.vehicle_journeys.len(), 1);
     assert_eq!(responses.len(), 1);
 
-    assert_eq!(model.vehicle_journeys.len(), 2);
+    let journey = &responses[0];
+    assert_eq!(journey.first_vj_uri(&model), "toto");
+    assert_eq!(journey.nb_of_sections(), 1);
+    assert_eq!(
+        journey.departure.from_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(8, 59, 0)
+        )
+    );
+    assert_eq!(
+        journey.departure.to_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(8, 59, 0)
+        )
+    );
+    assert_eq!(journey.connections.len(), 0);
+    assert_eq!(
+        journey.first_vehicle.from_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(9, 0, 1)
+        )
+    );
+    assert_eq!(
+        journey.first_vehicle.to_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(9, 5, 0)
+        )
+    );
+    assert_eq!(
+        journey.first_vehicle.day_for_vehicle_journey,
+        NaiveDate::from_ymd(2020, 1, 1)
+    );
+
+    assert_eq!(
+        journey.arrival.from_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(9, 5, 0)
+        )
+    );
+    assert_eq!(
+        journey.arrival.to_datetime,
+        NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveTime::from_hms(9, 5, 0)
+        )
+    );
 
     Ok(())
 }
