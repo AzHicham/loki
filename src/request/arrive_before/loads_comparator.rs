@@ -124,15 +124,6 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         self.generic.ride(trip, position, criteria)
     }
 
-    fn transfer(
-        &self,
-        from_stop: &Self::Stop,
-        transfer: &Self::Transfer,
-        criteria: &Self::Criteria,
-    ) -> (Self::Stop, Self::Criteria) {
-        self.generic.transfer(from_stop, transfer, criteria)
-    }
-
     fn depart(&self, departure: &Self::Departure) -> (Self::Stop, Self::Criteria) {
         self.generic.depart(departure)
     }
@@ -190,6 +181,8 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
 impl<'data, 'model, 'outer, Data> RequestIters<'outer> for Request<'data, 'model, Data>
 where
     Data: DataTrait + DataIters<'outer>,
+    Data::Transfer: 'outer,
+    Data::Stop: 'outer,
 {
     type Departures = Departures;
     fn departures(&'outer self) -> Self::Departures {
@@ -206,9 +199,13 @@ where
         self.generic.boardable_missions_at(stop)
     }
 
-    type TransfersAtStop = Data::IncomingTransfersAtStop;
-    fn transfers_at(&'outer self, from_stop: &Self::Stop) -> Self::TransfersAtStop {
-        self.generic.transfers_at(from_stop)
+    type TransfersAtStop = super::TransferAtStop<'outer, Data>;
+    fn transfers_at(
+        &'outer self,
+        from_stop: &Self::Stop,
+        criteria: &Self::Criteria,
+    ) -> Self::TransfersAtStop {
+        self.generic.transfers_at(from_stop, criteria)
     }
 
     type TripsOfMission = Data::TripsOfMission;
@@ -217,8 +214,13 @@ where
     }
 }
 
-impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where Data: DataWithIters
-{}
+impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data>
+where
+    Data: DataWithIters,
+    Data::Transfer: 'static,
+    Data::Stop: 'static,
+{
+}
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;

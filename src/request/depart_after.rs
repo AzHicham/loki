@@ -282,23 +282,6 @@ where
         }
     }
 
-    fn transfer(
-        &self,
-        _from_stop: &Data::Stop,
-        transfer: &Data::Transfer,
-        criteria: &Criteria,
-    ) -> (Data::Stop, Criteria) {
-        let (arrival_stop, transfer_duration) = self.transit_data.transfer(transfer);
-        let new_criteria = Criteria {
-            time: criteria.time + transfer_duration,
-            nb_of_legs: criteria.nb_of_legs,
-            fallback_duration: criteria.fallback_duration,
-            transfers_duration: criteria.transfers_duration + transfer_duration,
-            loads_count: criteria.loads_count.clone(),
-        };
-        (arrival_stop, new_criteria)
-    }
-
     fn depart(&self, departure: &Departure) -> (Data::Stop, Criteria) {
         let (stop, fallback_duration) =
             &self.departures_stop_point_and_fallback_duration[departure.idx];
@@ -375,6 +358,8 @@ where
 impl<'data, 'model, 'outer, Data> GenericDepartAfterRequest<'data, 'model, Data>
 where
     Data: DataTrait + DataIters<'outer>,
+    Data::Transfer: 'outer,
+    Data::Stop: 'outer,
 {
     pub(super) fn departures(&self) -> Departures {
         let nb_of_departures = self.departures_stop_point_and_fallback_duration.len();
@@ -394,11 +379,47 @@ where
         self.transit_data.boardable_missions_at(stop)
     }
 
-    fn transfers_at(&'outer self, from_stop: &Data::Stop) -> Data::OutgoingTransfersAtStop {
-        self.transit_data.outgoing_transfers_at(from_stop)
+    fn transfers_at(
+        &'outer self,
+        from_stop: &Data::Stop,
+        criteria: &Criteria,
+    ) -> TransferAtStop<'outer, Data> {
+        let outgoing_transfers = self.transit_data.outgoing_transfers_at(from_stop);
+        TransferAtStop {
+            inner: outgoing_transfers,
+            criteria: criteria.clone(),
+        }
     }
 
     fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {
         self.transit_data.trips_of(mission)
+    }
+}
+
+pub struct TransferAtStop<'data, Data>
+where
+    Data: DataTrait + DataIters<'data>,
+{
+    inner: Data::OutgoingTransfersAtStop,
+    criteria: Criteria,
+}
+
+impl<'data, Data> Iterator for TransferAtStop<'data, Data>
+where
+    Data: DataTrait + DataIters<'data>,
+{
+    type Item = (Data::Stop, Criteria, Data::Transfer);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|(stop, durations, transfer)| {
+            let new_criteria = Criteria {
+                time: self.criteria.time.clone() + durations.total_duration,
+                nb_of_legs: self.criteria.nb_of_legs.clone(),
+                fallback_duration: self.criteria.fallback_duration,
+                transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
+                loads_count: self.criteria.loads_count.clone(),
+            };
+            (stop.clone(), new_criteria, transfer.clone())
+        })
     }
 }

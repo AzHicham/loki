@@ -225,9 +225,10 @@ where
         let mut prev_vehicle_leg = &self.first_vehicle;
 
         for (idx, (transfer, vehicle_leg)) in self.connections.iter().enumerate() {
-            let (transfer_start_stop, transfer_end_stop, transfer_duration) =
-                data.transfer_start_end_stop(transfer);
-            if !data.is_same_stop(&prev_debark_stop, &transfer_start_stop) {
+            let (transfer_from_stop, transfer_to_stop) = data.transfer_from_to_stop(transfer);
+            let transfer_duration = data.transfer_duration(transfer);
+
+            if !data.is_same_stop(&prev_debark_stop, &transfer_from_stop) {
                 return Err(BadJourney::BadTransferStartStop(
                     prev_vehicle_leg.clone(),
                     transfer.clone(),
@@ -259,7 +260,7 @@ where
             let board_stop = data.stop_of(board_position, &mission);
             let debark_stop = data.stop_of(debark_position, &mission);
 
-            if !data.is_same_stop(&transfer_end_stop, &board_stop) {
+            if !data.is_same_stop(&transfer_to_stop, &board_stop) {
                 return Err(BadJourney::BadTransferEndStop(
                     transfer.clone(),
                     vehicle_leg.clone(),
@@ -322,7 +323,7 @@ where
     pub fn total_transfer_duration(&self, data: &Data) -> PositiveDuration {
         let mut result = PositiveDuration::zero();
         for (transfer, _) in &self.connections {
-            let (_, transfer_duration) = data.transfer(transfer);
+            let transfer_duration = data.transfer_duration(transfer);
             result = result + transfer_duration;
         }
         result
@@ -558,18 +559,15 @@ impl<Data: DataTrait> Journey<Data> {
         let from_datetime = data.to_naive_datetime(&prev_debark_time);
 
         let (transfer, _) = &self.connections[connection_idx];
-        let (start_transfer_stop, end_transfer_stop, transfer_duration) =
-            data.transfer_start_end_stop(transfer);
-
-        let to_stop_point = data.stop_point_idx(&end_transfer_stop);
-        let from_stop_point = data.stop_point_idx(&start_transfer_stop);
-
+        let (transfer_from_stop, transfer_to_stop) = data.transfer_from_to_stop(transfer);
+        let transfer_duration = data.transfer_duration(transfer);
         let end_transfer_time = prev_debark_time + transfer_duration;
         let to_datetime = data.to_naive_datetime(&end_transfer_time);
-
-        let transfer = data.transfer_idx(transfer);
+        let to_stop_point = data.stop_point_idx(&transfer_to_stop);
+        let from_stop_point = data.stop_point_idx(&transfer_from_stop);
+        let transfer_idx = data.transfer_transit_model_idx(&transfer);
         TransferSection {
-            transfer,
+            transfer: transfer_idx,
             from_datetime,
             to_datetime,
             from_stop_point,

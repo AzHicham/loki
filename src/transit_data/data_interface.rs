@@ -11,9 +11,11 @@ pub use typed_index_collection::Idx;
 
 use std::fmt::Debug;
 
+use super::TransferDurations;
+
 pub trait TransitTypes {
     /// A location where a vehicle can be boarded into or debarked from
-    type Stop: Debug + Clone;
+    type Stop: Debug + Clone + 'static;
 
     /// A `Mission` is an ordered sequence of `Position`
     type Mission: Debug + Clone;
@@ -25,7 +27,7 @@ pub trait TransitTypes {
     type Trip: Debug + Clone;
 
     /// Identify a foot transfer between two `Stop`s
-    type Transfer: Debug + Clone;
+    type Transfer: Debug + Clone + 'static;
 }
 
 pub trait Data: TransitTypes {
@@ -99,7 +101,9 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load);
 
-    fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration);
+    fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
+    fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
 
     fn earliest_trip_to_board_at(
         &self,
@@ -120,14 +124,8 @@ pub trait Data: TransitTypes {
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
     fn stop_point_idx(&self, stop: &Self::Stop) -> Idx<StopPoint>;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
 
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
-
-    fn transfer_start_end_stop(
-        &self,
-        transfer: &Self::Transfer,
-    ) -> (Self::Stop, Self::Stop, PositiveDuration);
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
 
@@ -158,7 +156,11 @@ pub trait Data: TransitTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-pub trait DataIters<'a>: TransitTypes {
+pub trait DataIters<'a>: TransitTypes
+where
+    Self::Transfer: 'a,
+    Self::Stop: 'a,
+{
     /// Iterator for the `Mission`s that can be boarded at a `stop`
     /// along with the `Position` of `stop` on each `Mission`
     type MissionsAtStop: Iterator<Item = (Self::Mission, Self::Position)>;
@@ -168,14 +170,18 @@ pub trait DataIters<'a>: TransitTypes {
     fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
 
     /// Iterator for all `Transfer`s that can be taken at a `Stop`
-    type OutgoingTransfersAtStop: Iterator<Item = Self::Transfer>;
+    type OutgoingTransfersAtStop: Iterator<
+        Item = &'a (Self::Stop, TransferDurations, Self::Transfer),
+    >;
     /// Returns all `Transfer`s that can be taken at `from_stop`
     ///
     /// Should not return twice the same `Transfer`.
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop;
 
     /// Iterator for all `Transfer`s that can debark at a `Stop`
-    type IncomingTransfersAtStop: Iterator<Item = Self::Transfer>;
+    type IncomingTransfersAtStop: Iterator<
+        Item = &'a (Self::Stop, TransferDurations, Self::Transfer),
+    >;
     /// Returns all `Transfer`s that can debark at `stop`
     ///
     /// Should not return twice the same `Transfer`.

@@ -51,6 +51,8 @@ use typed_index_collection::Idx;
 
 use log::{info, warn};
 
+use super::{Transfer, TransferData, TransferDurations};
+
 impl<Timetables> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
@@ -61,6 +63,7 @@ where
         default_transfer_duration: PositiveDuration,
     ) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
+        let nb_transfers = transit_model.transfers.len();
 
         let (start_date, end_date) = transit_model
             .calculate_validity_period()
@@ -69,6 +72,7 @@ where
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables: Timetables::new(start_date, end_date),
+            transfers_data: Vec::with_capacity(nb_transfers),
         };
 
         data.init(transit_model, loads_data, default_transfer_duration);
@@ -99,8 +103,13 @@ where
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
                     let duration = transfer
-                        .min_transfer_time
+                        .real_min_transfer_time
                         .map_or(default_transfer_duration, |seconds| PositiveDuration {
+                            seconds,
+                        });
+                    let walking_duration = transfer
+                        .min_transfer_time
+                        .map_or(PositiveDuration::zero(), |seconds| PositiveDuration {
                             seconds,
                         });
                     self.insert_transfer(
@@ -108,6 +117,7 @@ where
                         to_stop_point_idx,
                         transfer_idx,
                         duration,
+                        walking_duration,
                     )
                 }
                 _ => {
@@ -124,20 +134,39 @@ where
         to_stop_point_idx: Idx<StopPoint>,
         transfer_idx: Idx<TransitModelTransfer>,
         duration: PositiveDuration,
+        walking_duration: PositiveDuration,
     ) {
         let has_from_stop = self.stop_point_idx_to_stop.get(&from_stop_point_idx);
         let has_to_stop = self.stop_point_idx_to_stop.get(&to_stop_point_idx);
 
         match (has_from_stop, has_to_stop) {
             (Some(from_stop), Some(to_stop)) => {
+                let transfer = Transfer {
+                    idx: self.transfers_data.len(),
+                };
+                let durations = TransferDurations {
+                    total_duration: duration,
+                    walking_duration,
+                };
+                let transfer_data = TransferData {
+                    from_stop: from_stop.clone(),
+                    to_stop: to_stop.clone(),
+                    durations: durations.clone(),
+                    transit_model_transfer_idx: transfer_idx,
+                };
+                self.transfers_data.push(transfer_data);
                 let from_stop_data = &mut self.stops_data[from_stop.idx];
-                from_stop_data
-                    .transfers_to
-                    .push((*to_stop, duration, transfer_idx));
+                from_stop_data.outgoing_transfers.push((
+                    *to_stop,
+                    durations.clone(),
+                    transfer.clone(),
+                ));
                 let to_stop_data = &mut self.stops_data[to_stop.idx];
-                to_stop_data
-                    .transfers_from
-                    .push((*from_stop, duration, transfer_idx));
+                to_stop_data.incoming_transfers.push((
+                    *from_stop,
+                    durations.clone(),
+                    transfer.clone(),
+                ));
             }
             _ => {
                 warn!(
@@ -206,8 +235,8 @@ where
         let stop_data = StopData::<Timetables> {
             stop_point_idx,
             position_in_timetables: Vec::new(),
-            transfers_to: Vec::new(),
-            transfers_from: Vec::new(),
+            incoming_transfers: Vec::new(),
+            outgoing_transfers: Vec::new(),
         };
         let stop = Stop {
             idx: self.stops_data.len(),
