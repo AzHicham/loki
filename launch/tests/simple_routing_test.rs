@@ -39,16 +39,18 @@ use failure::Error;
 use launch::loki::chrono::NaiveDate;
 use launch::loki::transit_model::objects::Date;
 use loki::chrono::NaiveTime;
+#[cfg(feature = "test")]
 use loki::modelbuilder::ModelBuilder;
 use loki::{NaiveDateTime, PeriodicData};
 use std::str::FromStr;
-use utils::{build_and_solve, Config};
+use utils::{build_and_solve, make_pt_from_vehicle, Config};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 #[test]
+#[cfg(feature = "test")]
 fn test_simple_routing() -> Result<(), Error> {
     init();
 
@@ -98,17 +100,10 @@ fn test_simple_routing() -> Result<(), Error> {
     );
     assert_eq!(journey.connections.len(), 0);
     assert_eq!(
-        journey.first_vehicle.from_datetime,
+        journey.first_vehicle_board_datetime(),
         NaiveDateTime::new(
             NaiveDate::from_ymd(2020, 1, 1),
             NaiveTime::from_hms(9, 0, 1)
-        )
-    );
-    assert_eq!(
-        journey.first_vehicle.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 5, 0)
         )
     );
     assert_eq!(
@@ -117,19 +112,19 @@ fn test_simple_routing() -> Result<(), Error> {
     );
 
     assert_eq!(
-        journey.arrival.from_datetime,
+        journey.last_vehicle_debark_datetime(),
         NaiveDateTime::new(
             NaiveDate::from_ymd(2020, 1, 1),
             NaiveTime::from_hms(9, 5, 0)
         )
     );
-    assert_eq!(
-        journey.arrival.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 5, 0)
-        )
-    );
+
+    assert_eq!(journey.nb_of_transfers(), 0);
+    assert_eq!(journey.total_duration(), 360);
+
+    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.first_vehicle, &model)?;
+    assert_eq!(from_sp.name, "A");
+    assert_eq!(to_sp.name, "B");
 
     Ok(())
 }
