@@ -43,7 +43,6 @@ pub mod time;
 mod timetables;
 mod transit_data;
 
-#[cfg(feature = "test")]
 pub mod modelbuilder;
 
 pub use chrono;

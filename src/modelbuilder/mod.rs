@@ -34,7 +34,9 @@
 
 use failure::Error;
 use transit_model::model::Collections;
-use transit_model::objects::{Calendar, Date, Route, StopPoint, StopTime, Time, VehicleJourney};
+use transit_model::objects::{
+    Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, VehicleJourney,
+};
 use transit_model::Model;
 use typed_index_collection::{CollectionWithId, Idx};
 
@@ -232,6 +234,22 @@ impl<'a> ModelBuilder {
         self.collections.datasets = CollectionWithId::new(data_sets)?;
         self.collections.calendars = CollectionWithId::new(calendars)?;
         Ok(self)
+    }
+
+    pub fn add_transfer(
+        mut self,
+        from_stop_id: String,
+        to_stop_id: String,
+        transfer_time: u32,
+    ) -> Self {
+        self.collections.transfers.push(Transfer {
+            from_stop_id,
+            to_stop_id,
+            min_transfer_time: Some(transfer_time),
+            real_min_transfer_time: Some(transfer_time),
+            equipment_id: None,
+        });
+        self
     }
 
     /// Consume the builder to create a navitia model

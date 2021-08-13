@@ -17,7 +17,6 @@ members = [
 [features]
 default = [] #["vehicle_loads"]
 vehicle_loads = []
-test = []
 
 [dependencies]
 transit_model = "0.39"

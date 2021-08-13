@@ -25,4 +25,3 @@ env_logger = "0.9.0"
 [features]
 # enable the vehicle_loads feature on the loki lib
 vehicle_loads = ["loki/vehicle_loads"]
-test = ["loki/test"]

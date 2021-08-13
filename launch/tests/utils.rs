@@ -203,6 +203,6 @@ pub fn make_pt_from_vehicle(
     Ok((from_stop_point, to_stop_point))
 }
 
-fn make_stop_point(stop_point_idx: Idx<StopPoint>, model: &Model) -> Result<StopPoint, Error> {
+pub fn make_stop_point(stop_point_idx: Idx<StopPoint>, model: &Model) -> Result<StopPoint, Error> {
     Ok(model.stop_points[stop_point_idx].clone())
 }
