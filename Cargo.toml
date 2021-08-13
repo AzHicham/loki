@@ -15,7 +15,7 @@ members = [
 ]
 
 [features]
-default = ["test"] #["vehicle_loads"]
+default = [] #["vehicle_loads"]
 vehicle_loads = []
 test = []
 
