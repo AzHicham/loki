@@ -183,11 +183,11 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(journey.connections.len(), 1);
     let transfer_section = &journey.connections[0].0;
     assert_eq!(
-        make_stop_point(transfer_section.from_stop_point, &model)?.name,
+        make_stop_point(transfer_section.from_stop_point, &model).name,
         "B"
     );
     assert_eq!(
-        make_stop_point(transfer_section.to_stop_point, &model)?.name,
+        make_stop_point(transfer_section.to_stop_point, &model).name,
         "F"
     );
     assert_eq!(
@@ -207,7 +207,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
 
     let waiting_section = &journey.connections[0].1;
     assert_eq!(
-        make_stop_point(waiting_section.stop_point, &model)?.name,
+        make_stop_point(waiting_section.stop_point, &model).name,
         "F"
     );
     assert_eq!(

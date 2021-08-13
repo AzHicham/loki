@@ -166,10 +166,10 @@ where
     Ok(responses)
 }
 
-pub fn make_pt_from_vehicle(
+pub fn make_pt_from_vehicle<'a>(
     vehicle_section: &VehicleSection,
-    model: &Model,
-) -> Result<(StopPoint, StopPoint), Error> {
+    model: &'a Model,
+) -> Result<(&'a StopPoint, &'a StopPoint), Error> {
     let vehicle_journey = &model.vehicle_journeys[vehicle_section.vehicle_journey];
 
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
@@ -184,7 +184,7 @@ pub fn make_pt_from_vehicle(
             )
         })?;
     let from_stop_point_idx = from_stoptime.stop_point_idx;
-    let from_stop_point = make_stop_point(from_stop_point_idx, model)?;
+    let from_stop_point = make_stop_point(from_stop_point_idx, model);
 
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
     let to_stoptime = vehicle_journey
@@ -198,11 +198,11 @@ pub fn make_pt_from_vehicle(
             )
         })?;
     let to_stop_point_idx = to_stoptime.stop_point_idx;
-    let to_stop_point = make_stop_point(to_stop_point_idx, model)?;
+    let to_stop_point = make_stop_point(to_stop_point_idx, model);
 
     Ok((from_stop_point, to_stop_point))
 }
 
-pub fn make_stop_point(stop_point_idx: Idx<StopPoint>, model: &Model) -> Result<StopPoint, Error> {
-    Ok(model.stop_points[stop_point_idx].clone())
+pub fn make_stop_point(stop_point_idx: Idx<StopPoint>, model: &Model) -> &StopPoint {
+    &model.stop_points[stop_point_idx]
 }
