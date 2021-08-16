@@ -49,7 +49,7 @@ fn init() {
 fn test_simple_routing() -> Result<(), Error> {
     init();
 
-    let model = ModelBuilder::default()
+    let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
         .route("1", |r| {
             r.name = String::from("bob");
@@ -62,7 +62,6 @@ fn test_simple_routing() -> Result<(), Error> {
                 .st("B", "10:05:00", "10:05:01")
                 .st("C", "10:10:00", "10:10:01");
         })
-        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
     let config = Config::new("20200101T085900", "A", "B");
@@ -95,7 +94,7 @@ fn test_simple_routing() -> Result<(), Error> {
 fn test_routing_with_transfers() -> Result<(), Error> {
     init();
 
-    let model = ModelBuilder::default()
+    let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder
@@ -112,7 +111,6 @@ fn test_routing_with_transfers() -> Result<(), Error> {
                 .st("G", "10:30:00", "10:30:01");
         })
         .add_transfer("B".into(), "F".into(), 120)
-        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
     let config = Config::new("20200101T085900", "A", "G");
@@ -170,7 +168,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
 fn test_routing_backward() -> Result<(), Error> {
     init();
 
-    let model = ModelBuilder::default()
+    let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder
@@ -187,7 +185,6 @@ fn test_routing_backward() -> Result<(), Error> {
                 .st("G", "10:30:00", "10:30:01");
         })
         .add_transfer("B".into(), "F".into(), 120)
-        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
     let mut config = Config::new("20200101T104000", "A", "G");

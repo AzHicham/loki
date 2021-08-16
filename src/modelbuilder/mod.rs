@@ -36,7 +36,7 @@ use failure::Error;
 use std::str::FromStr;
 use transit_model::model::Collections;
 use transit_model::objects::{
-    Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, VehicleJourney,
+    Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
 };
 use transit_model::Model;
 use typed_index_collection::{CollectionWithId, Idx};
@@ -46,9 +46,11 @@ const DEFAULT_CALENDAR_ID: &str = "default_service";
 /// Builder used to easily create a `Model`
 /// Note: if not explicitly set all the vehicule journeys
 /// will be attached to a default calendar starting 2020-01-01
+///
 #[derive(Default)]
 pub struct ModelBuilder {
     collections: Collections,
+    validity_period: ValidityPeriod,
 }
 
 /// Builder used to create and modify a new VehicleJourney
@@ -60,6 +62,16 @@ pub struct VehicleJourneyBuilder<'a> {
 }
 
 impl<'a> ModelBuilder {
+    pub fn new(start_validity_period: &str, end_validity_period: &str) -> Result<Self, Error> {
+        Ok(Self {
+            validity_period: ValidityPeriod {
+                start_date: Date::parse_from_str(start_validity_period, "%Y%m%d")?,
+                end_date: Date::parse_from_str(end_validity_period, "%Y%m%d")?,
+            },
+            ..Default::default()
+        })
+    }
+
     /// Add a new VehicleJourney to the model
     ///
     /// ```
@@ -93,6 +105,15 @@ impl<'a> ModelBuilder {
             .vehicle_journeys
             .push(new_vj)
             .unwrap_or_else(|_| panic!("vj {} already exists", name));
+
+        let vj = &self.collections.vehicle_journeys[vj_idx];
+
+        {
+            let mut dataset = self.collections.datasets.get_or_create(&vj.dataset_id);
+            dataset.start_date = self.validity_period.start_date;
+            dataset.end_date = self.validity_period.end_date;
+        }
+
         let vj_builder = VehicleJourneyBuilder {
             model: &mut self,
             vj_idx,
