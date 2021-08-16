@@ -36,6 +36,7 @@
 
 use failure::{format_err, Error};
 use launch::config;
+use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
@@ -44,45 +45,23 @@ use loki::log::info;
 use loki::transit_model::Model;
 use loki::DataWithIters;
 use loki::{LoadsData, PositiveDuration};
-use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
-use structopt::StructOpt;
 
-pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
-
-pub fn default_transfer_duration() -> PositiveDuration {
-    use std::str::FromStr;
-    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
-}
-
-#[derive(Serialize, Deserialize, StructOpt)]
-#[structopt(rename_all = "snake_case")]
 pub struct Config {
-    #[serde(flatten)]
-    #[structopt(flatten)]
     pub request_params: config::RequestParams,
 
-    #[structopt(long)]
     pub datetime: String,
 
-    #[serde(default)]
-    #[structopt(long, default_value)]
     pub datetime_represent: DateTimeRepresent,
 
-    #[serde(default)]
-    #[structopt(long, default_value)]
     pub comparator_type: config::ComparatorType,
 
-    #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
-    #[serde(default = "default_transfer_duration")]
     transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
-    #[structopt(long)]
     pub start: String,
 
     /// name of the end stop_area
-    #[structopt(long)]
     pub end: String,
 }
 
@@ -184,7 +163,7 @@ pub fn make_pt_from_vehicle<'a>(
             )
         })?;
     let from_stop_point_idx = from_stoptime.stop_point_idx;
-    let from_stop_point = make_stop_point(from_stop_point_idx, model);
+    let from_stop_point = make_stop_point(&from_stop_point_idx, model);
 
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
     let to_stoptime = vehicle_journey
@@ -198,11 +177,11 @@ pub fn make_pt_from_vehicle<'a>(
             )
         })?;
     let to_stop_point_idx = to_stoptime.stop_point_idx;
-    let to_stop_point = make_stop_point(to_stop_point_idx, model);
+    let to_stop_point = make_stop_point(&to_stop_point_idx, model);
 
     Ok((from_stop_point, to_stop_point))
 }
 
-pub fn make_stop_point(stop_point_idx: Idx<StopPoint>, model: &Model) -> &StopPoint {
-    &model.stop_points[stop_point_idx]
+pub fn make_stop_point<'a>(stop_point_idx: &Idx<StopPoint>, model: &'a Model) -> &'a StopPoint {
+    &model.stop_points[*stop_point_idx]
 }

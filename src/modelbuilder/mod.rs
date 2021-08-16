@@ -216,7 +216,11 @@ impl<'a> ModelBuilder {
     }
 
     /// Consume the builder to create a navitia model
-    pub fn validity_period(mut self, start_period: Date, end_period: Date) -> Result<Self, Error> {
+    pub fn restrict_validity_period(
+        mut self,
+        start_period: Date,
+        end_period: Date,
+    ) -> Result<Self, Error> {
         let mut calendars = self.collections.calendars.take();
         for calendar in calendars.iter_mut() {
             calendar.dates = calendar
