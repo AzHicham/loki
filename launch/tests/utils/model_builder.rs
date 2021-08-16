@@ -39,6 +39,7 @@ use loki::transit_model::objects::{
 };
 use loki::transit_model::Model;
 use loki::typed_index_collection::{CollectionWithId, Idx};
+use loki::NaiveDateTime;
 use std::str::FromStr;
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
@@ -62,11 +63,14 @@ pub struct VehicleJourneyBuilder<'a> {
 }
 
 impl<'a> ModelBuilder {
-    pub fn new(start_validity_period: &str, end_validity_period: &str) -> Result<Self, Error> {
+    pub fn new(
+        start_validity_period: impl AsDate,
+        end_validity_period: impl AsDate,
+    ) -> Result<Self, Error> {
         Ok(Self {
             validity_period: ValidityPeriod {
-                start_date: Date::parse_from_str(start_validity_period, "%Y%m%d")?,
-                end_date: Date::parse_from_str(end_validity_period, "%Y%m%d")?,
+                start_date: start_validity_period.as_date(),
+                end_date: end_validity_period.as_date(),
             },
             ..Default::default()
         })
@@ -339,6 +343,28 @@ impl AsDate for &str {
     // Note: if the string is not in the right format, this conversion will fail
     fn as_date(&self) -> Date {
         self.parse().expect("invalid date format")
+    }
+}
+
+pub trait AsDateTime {
+    fn as_datetime(&self) -> NaiveDateTime;
+}
+
+impl AsDateTime for &str {
+    fn as_datetime(&self) -> NaiveDateTime {
+        self.parse().expect("invalid datetime format")
+    }
+}
+
+impl AsDateTime for NaiveDateTime {
+    fn as_datetime(&self) -> NaiveDateTime {
+        *self
+    }
+}
+
+impl AsDateTime for &NaiveDateTime {
+    fn as_datetime(&self) -> NaiveDateTime {
+        **self
     }
 }
 

@@ -34,6 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod model_builder;
+
 use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
@@ -48,9 +50,7 @@ use loki::{DataWithIters, NaiveDateTime};
 use loki::{LoadsData, PositiveDuration};
 use std::time::SystemTime;
 
-pub fn dt_from_str(str_datetime: &str) -> ParseResult<NaiveDateTime> {
-    NaiveDateTime::parse_from_str(str_datetime, "%Y%m%dT%H%M%S")
-}
+use model_builder::AsDateTime;
 
 pub fn init_logger() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -59,7 +59,7 @@ pub fn init_logger() {
 pub struct Config {
     pub request_params: config::RequestParams,
 
-    pub datetime: String,
+    pub datetime: NaiveDateTime,
 
     pub datetime_represent: DateTimeRepresent,
 
@@ -75,10 +75,10 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(datetime: &str, start: &str, end: &str) -> Self {
+    pub fn new(datetime: impl AsDateTime, start: &str, end: &str) -> Self {
         Config {
             request_params: Default::default(),
-            datetime: datetime.into(),
+            datetime: datetime.as_datetime(),
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
             default_transfer_duration: default_transfer_duration(),
@@ -89,7 +89,7 @@ impl Config {
 }
 
 fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
-    let datetime = launch::datetime::parse_datetime(&config.datetime)?;
+    let datetime = config.datetime;
 
     let start_stop_point_uri = &config.start;
     let end_stop_point_uri = &config.end;
