@@ -33,6 +33,7 @@
 //! ```
 
 use failure::Error;
+use std::str::FromStr;
 use transit_model::model::Collections;
 use transit_model::objects::{
     Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, VehicleJourney,
@@ -218,22 +219,25 @@ impl<'a> ModelBuilder {
     /// Consume the builder to create a navitia model
     pub fn restrict_validity_period(
         mut self,
-        start_period: Date,
-        end_period: Date,
+        start_period: &str,
+        end_period: &str,
     ) -> Result<Self, Error> {
+        let start_period_datetime = Date::from_str(start_period)?;
+        let end_period_datetime = Date::from_str(end_period)?;
+
         let mut calendars = self.collections.calendars.take();
         for calendar in calendars.iter_mut() {
             calendar.dates = calendar
                 .dates
                 .iter()
                 .cloned()
-                .filter(|date| *date >= start_period && *date <= end_period)
+                .filter(|date| *date >= start_period_datetime && *date <= end_period_datetime)
                 .collect();
         }
         let mut data_sets = self.collections.datasets.take();
         for data_set in data_sets.iter_mut() {
-            data_set.start_date = start_period;
-            data_set.end_date = end_period;
+            data_set.start_date = start_period_datetime;
+            data_set.end_date = end_period_datetime;
         }
         self.collections.datasets = CollectionWithId::new(data_sets)?;
         self.collections.calendars = CollectionWithId::new(calendars)?;

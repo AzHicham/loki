@@ -37,13 +37,9 @@
 mod utils;
 use failure::Error;
 use launch::datetime::DateTimeRepresent;
-use launch::loki::chrono::NaiveDate;
-use launch::loki::transit_model::objects::Date;
-use loki::chrono::NaiveTime;
 use loki::modelbuilder::ModelBuilder;
-use loki::{NaiveDateTime, PeriodicData};
-use std::str::FromStr;
-use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
+use loki::PeriodicData;
+use utils::{build_and_solve, dt_from_str, make_pt_from_vehicle, make_stop_point, Config};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -66,14 +62,10 @@ fn test_simple_routing() -> Result<(), Error> {
                 .st("B", "10:05:00", "10:05:01")
                 .st("C", "10:10:00", "10:10:01");
         })
-        .restrict_validity_period(Date::from_str("2020-01-01")?, Date::from_str("2020-01-02")?)?
+        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
-    let config = Config::new(
-        "20200101T085900".to_string(),
-        "A".to_string(),
-        "B".to_string(),
-    );
+    let config = Config::new("20200101T085900", "A", "B");
 
     let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -81,35 +73,20 @@ fn test_simple_routing() -> Result<(), Error> {
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];
-    assert_eq!(journey.first_vj_uri(&model), "toto");
     assert_eq!(journey.nb_of_sections(), 1);
     assert_eq!(journey.connections.len(), 0);
-    assert_eq!(
-        journey.first_vehicle_board_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 0, 1)
-        )
-    );
-    assert_eq!(
-        journey.first_vehicle.day_for_vehicle_journey,
-        NaiveDate::from_ymd(2020, 1, 1)
-    );
 
-    assert_eq!(
-        journey.last_vehicle_debark_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 5, 0)
-        )
-    );
+    // First Vehicle
+    let vehicle_sec = &journey.first_vehicle;
+    assert_eq!(journey.first_vj_uri(&model), "toto");
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
+    assert_eq!(from_sp.name, "A");
+    assert_eq!(to_sp.name, "B");
+    assert_eq!(vehicle_sec.from_datetime, dt_from_str("20200101T090001")?);
+    assert_eq!(vehicle_sec.to_datetime, dt_from_str("20200101T090500")?);
 
     assert_eq!(journey.nb_of_transfers(), 0);
     assert_eq!(journey.total_duration(), 360);
-
-    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.first_vehicle, &model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "B");
 
     Ok(())
 }
@@ -123,7 +100,6 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         .vj("toto", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .route("1")
                 .st("A", "10:00:00", "10:00:01")
                 .st("B", "10:05:00", "10:05:01")
                 .st("C", "10:10:00", "10:10:01");
@@ -131,20 +107,15 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         .vj("tata", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .route("1")
                 .st("E", "10:05:00", "10:05:01")
                 .st("F", "10:20:00", "10:20:01")
                 .st("G", "10:30:00", "10:30:01");
         })
         .add_transfer("B".into(), "F".into(), 120)
-        .restrict_validity_period(Date::from_str("2020-01-01")?, Date::from_str("2020-01-02")?)?
+        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
-    let config = Config::new(
-        "20200101T085900".to_string(),
-        "A".to_string(),
-        "G".to_string(),
-    );
+    let config = Config::new("20200101T085900", "A", "G");
 
     let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -154,81 +125,43 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     let journey = &responses[0];
     assert_eq!(journey.first_vj_uri(&model), "toto");
     assert_eq!(journey.nb_of_sections(), 4);
-    assert_eq!(
-        journey.first_vehicle_board_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 0, 1)
-        )
-    );
-    assert_eq!(
-        journey.first_vehicle.day_for_vehicle_journey,
-        NaiveDate::from_ymd(2020, 1, 1)
-    );
-
-    assert_eq!(
-        journey.last_vehicle_debark_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 30, 0)
-        )
-    );
 
     assert_eq!(journey.nb_of_transfers(), 1);
     assert_eq!(journey.total_duration(), 1860);
 
-    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.first_vehicle, &model)?;
+    // First Vehicle
+    let vehicle_sec = &journey.first_vehicle;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
     assert_eq!(from_sp.name, "A");
     assert_eq!(to_sp.name, "B");
+    assert_eq!(vehicle_sec.from_datetime, dt_from_str("20200101T090001")?);
+    assert_eq!(vehicle_sec.to_datetime, dt_from_str("20200101T090500")?);
 
+    // Transfer section
     assert_eq!(journey.connections.len(), 1);
-    let transfer_section = &journey.connections[0].0;
-    assert_eq!(
-        make_stop_point(&transfer_section.from_stop_point, &model).name,
-        "B"
-    );
-    assert_eq!(
-        make_stop_point(&transfer_section.to_stop_point, &model).name,
-        "F"
-    );
-    assert_eq!(
-        transfer_section.from_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 5, 0)
-        )
-    );
-    assert_eq!(
-        transfer_section.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 7, 0)
-        )
-    );
+    let transfer_sec = &journey.connections[0].0;
+    let start_transfer_sp = make_stop_point(&transfer_sec.from_stop_point, &model);
+    assert_eq!(start_transfer_sp.name, "B");
+    assert_eq!(transfer_sec.from_datetime, dt_from_str("20200101T090500")?);
 
-    let waiting_section = &journey.connections[0].1;
-    assert_eq!(
-        make_stop_point(&waiting_section.stop_point, &model).name,
-        "F"
-    );
-    assert_eq!(
-        waiting_section.from_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 7, 0)
-        )
-    );
-    assert_eq!(
-        waiting_section.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 20, 1)
-        )
-    );
+    let end_transfer_sp = make_stop_point(&transfer_sec.to_stop_point, &model);
+    assert_eq!(end_transfer_sp.name, "F");
+    assert_eq!(transfer_sec.to_datetime, dt_from_str("20200101T090700")?);
 
-    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.connections[0].2, &model)?;
+    // Waiting section
+    let waiting_sec = &journey.connections[0].1;
+    let sp_waiting_section = make_stop_point(&waiting_sec.stop_point, &model);
+    assert_eq!(sp_waiting_section.name, "F");
+    assert_eq!(waiting_sec.from_datetime, dt_from_str("20200101T090700")?);
+    assert_eq!(waiting_sec.to_datetime, dt_from_str("20200101T092001")?);
+
+    // vehicle section
+    let vehicle_sec = &journey.connections[0].2;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
     assert_eq!(from_sp.name, "F");
     assert_eq!(to_sp.name, "G");
+    assert_eq!(vehicle_sec.from_datetime, dt_from_str("20200101T092001")?);
+    assert_eq!(vehicle_sec.to_datetime, dt_from_str("20200101T093000")?);
 
     Ok(())
 }
@@ -242,7 +175,6 @@ fn test_routing_backward() -> Result<(), Error> {
         .vj("toto", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .route("1")
                 .st("A", "10:00:00", "10:00:01")
                 .st("B", "10:05:00", "10:05:01")
                 .st("C", "10:10:00", "10:10:01");
@@ -250,20 +182,15 @@ fn test_routing_backward() -> Result<(), Error> {
         .vj("tata", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .route("1")
                 .st("E", "10:05:00", "10:05:01")
                 .st("F", "10:20:00", "10:20:01")
                 .st("G", "10:30:00", "10:30:01");
         })
         .add_transfer("B".into(), "F".into(), 120)
-        .restrict_validity_period(Date::from_str("2020-01-01")?, Date::from_str("2020-01-02")?)?
+        .restrict_validity_period("2020-01-01", "2020-01-02")?
         .build();
 
-    let mut config = Config::new(
-        "20200101T104000".to_string(),
-        "A".to_string(),
-        "G".to_string(),
-    );
+    let mut config = Config::new("20200101T104000", "A", "G");
     config.datetime_represent = DateTimeRepresent::Arrival;
 
     let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
@@ -274,81 +201,43 @@ fn test_routing_backward() -> Result<(), Error> {
     let journey = &responses[0];
     assert_eq!(journey.first_vj_uri(&model), "toto");
     assert_eq!(journey.nb_of_sections(), 4);
-    assert_eq!(
-        journey.first_vehicle_board_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 0, 1)
-        )
-    );
-    assert_eq!(
-        journey.first_vehicle.day_for_vehicle_journey,
-        NaiveDate::from_ymd(2020, 1, 1)
-    );
-
-    assert_eq!(
-        journey.last_vehicle_debark_datetime(),
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 30, 0)
-        )
-    );
 
     assert_eq!(journey.nb_of_transfers(), 1);
     assert_eq!(journey.total_duration(), 1799);
 
-    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.first_vehicle, &model)?;
+    // First Vehicle
+    let vehicle_sec = &journey.first_vehicle;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
     assert_eq!(from_sp.name, "A");
     assert_eq!(to_sp.name, "B");
+    assert_eq!(vehicle_sec.from_datetime, dt_from_str("20200101T090001")?);
+    assert_eq!(vehicle_sec.to_datetime, dt_from_str("20200101T090500")?);
 
+    // Transfer section
     assert_eq!(journey.connections.len(), 1);
-    let transfer_section = &journey.connections[0].0;
-    assert_eq!(
-        make_stop_point(&transfer_section.from_stop_point, &model).name,
-        "B"
-    );
-    assert_eq!(
-        make_stop_point(&transfer_section.to_stop_point, &model).name,
-        "F"
-    );
-    assert_eq!(
-        transfer_section.from_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 5, 0)
-        )
-    );
-    assert_eq!(
-        transfer_section.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 7, 0)
-        )
-    );
+    let transfer_sec = &journey.connections[0].0;
+    let start_transfer_sp = make_stop_point(&transfer_sec.from_stop_point, &model);
+    assert_eq!(start_transfer_sp.name, "B");
+    assert_eq!(transfer_sec.from_datetime, dt_from_str("20200101T090500")?);
 
-    let waiting_section = &journey.connections[0].1;
-    assert_eq!(
-        make_stop_point(&waiting_section.stop_point, &model).name,
-        "F"
-    );
-    assert_eq!(
-        waiting_section.from_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 7, 0)
-        )
-    );
-    assert_eq!(
-        waiting_section.to_datetime,
-        NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveTime::from_hms(9, 20, 1)
-        )
-    );
+    let end_transfer_sp = make_stop_point(&transfer_sec.to_stop_point, &model);
+    assert_eq!(end_transfer_sp.name, "F");
+    assert_eq!(transfer_sec.to_datetime, dt_from_str("20200101T090700")?);
 
-    let (from_sp, to_sp) = make_pt_from_vehicle(&journey.connections[0].2, &model)?;
+    // Waiting section
+    let waiting_sec = &journey.connections[0].1;
+    let sp_waiting_section = make_stop_point(&waiting_sec.stop_point, &model);
+    assert_eq!(sp_waiting_section.name, "F");
+    assert_eq!(waiting_sec.from_datetime, dt_from_str("20200101T090700")?);
+    assert_eq!(waiting_sec.to_datetime, dt_from_str("20200101T092001")?);
+
+    // vehicle section
+    let vehicle_sec = &journey.connections[0].2;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
     assert_eq!(from_sp.name, "F");
     assert_eq!(to_sp.name, "G");
+    assert_eq!(vehicle_sec.from_datetime, dt_from_str("20200101T092001")?);
+    assert_eq!(vehicle_sec.to_datetime, dt_from_str("20200101T093000")?);
 
     Ok(())
 }

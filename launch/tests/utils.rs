@@ -38,14 +38,19 @@ use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
+use launch::loki::chrono::ParseResult;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::log::info;
 use loki::transit_model::Model;
-use loki::DataWithIters;
+use loki::{DataWithIters, NaiveDateTime};
 use loki::{LoadsData, PositiveDuration};
 use std::time::SystemTime;
+
+pub fn dt_from_str(str_datetime: &str) -> ParseResult<NaiveDateTime> {
+    NaiveDateTime::parse_from_str(str_datetime, "%Y%m%dT%H%M%S")
+}
 
 pub struct Config {
     pub request_params: config::RequestParams,
@@ -66,15 +71,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(datetime: String, start: String, end: String) -> Self {
+    pub fn new(datetime: &str, start: &str, end: &str) -> Self {
         Config {
             request_params: Default::default(),
-            datetime,
+            datetime: datetime.into(),
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
             transfer_duration: default_transfer_duration(),
-            start,
-            end,
+            start: start.into(),
+            end: end.into(),
         }
     }
 }
