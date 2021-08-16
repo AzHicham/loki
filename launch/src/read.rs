@@ -37,8 +37,8 @@
 use super::config;
 use loki::log::{info, warn};
 use loki::transit_model::{self, Model};
-use loki::DataTrait;
 use loki::LoadsData;
+use loki::{DataTrait, PositiveDuration};
 use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Data>(
@@ -78,13 +78,6 @@ where
         }
     };
 
-    info!("Transit model loaded");
-    info!(
-        "Number of vehicle journeys : {}",
-        model.vehicle_journeys.len()
-    );
-    info!("Number of routes : {}", model.routes.len());
-
     let loads_data = launch_params
         .loads_data_path
         .as_ref()
@@ -101,8 +94,29 @@ where
         })
         .unwrap_or_else(LoadsData::empty);
 
+    let data = build_transit_data::<Data>(
+        &model,
+        &loads_data,
+        &launch_params.default_transfer_duration,
+    );
+
+    Ok((data, model))
+}
+
+pub fn build_transit_data<Data: DataTrait>(
+    model: &Model,
+    loads_data: &LoadsData,
+    default_transfer_duration: &PositiveDuration,
+) -> Data {
+    info!("Transit model loaded");
+    info!(
+        "Number of vehicle journeys : {}",
+        model.vehicle_journeys.len()
+    );
+    info!("Number of routes : {}", model.routes.len());
+
     let data_timer = SystemTime::now();
-    let data = Data::new(&model, &loads_data, launch_params.default_transfer_duration);
+    let data = Data::new(&model, loads_data, *default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());
@@ -113,5 +127,5 @@ where
         data.calendar().last_date()
     );
 
-    Ok((data, model))
+    data
 }

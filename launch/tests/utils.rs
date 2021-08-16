@@ -52,6 +52,10 @@ pub fn dt_from_str(str_datetime: &str) -> ParseResult<NaiveDateTime> {
     NaiveDateTime::parse_from_str(str_datetime, "%Y%m%dT%H%M%S")
 }
 
+pub fn init_logger() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 pub struct Config {
     pub request_params: config::RequestParams,
 
@@ -61,7 +65,7 @@ pub struct Config {
 
     pub comparator_type: config::ComparatorType,
 
-    transfer_duration: PositiveDuration,
+    default_transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
     pub start: String,
@@ -77,7 +81,7 @@ impl Config {
             datetime: datetime.into(),
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
-            transfer_duration: default_transfer_duration(),
+            default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
         }
@@ -117,26 +121,10 @@ pub fn build_and_solve<Data>(
 where
     Data: DataWithIters,
 {
-    info!("Transit model loaded");
-    info!(
-        "Number of vehicle journeys : {}",
-        model.vehicle_journeys.len()
-    );
-    info!("Number of routes : {}", model.routes.len());
-    let data_timer = SystemTime::now();
-    let data = Data::new(model, loads_data, config.transfer_duration);
-    let data_build_duration = data_timer.elapsed().unwrap().as_millis();
+    let data: Data =
+        launch::read::build_transit_data(model, loads_data, &config.default_transfer_duration);
 
-    info!("Data constructed in {} ms", data_build_duration);
-    info!("Number of missions {} ", data.nb_of_missions());
-    info!("Number of trips {} ", data.nb_of_trips());
-    info!(
-        "Validity dates between {} and {}",
-        data.calendar().first_date(),
-        data.calendar().last_date()
-    );
-
-    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
 
     let request_input = make_request_from_config(config)?;
 

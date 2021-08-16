@@ -33,13 +33,13 @@
 //! ```
 
 use failure::Error;
-use std::str::FromStr;
-use transit_model::model::Collections;
-use transit_model::objects::{
+use loki::transit_model::model::Collections;
+use loki::transit_model::objects::{
     Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
 };
-use transit_model::Model;
-use typed_index_collection::{CollectionWithId, Idx};
+use loki::transit_model::Model;
+use loki::typed_index_collection::{CollectionWithId, Idx};
+use std::str::FromStr;
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
 
@@ -560,7 +560,7 @@ mod test {
                 .collect()
         );
         let default_calendar = model.calendars.get("default_service").unwrap();
-        let dates = [transit_model::objects::Date::from_ymd(2020, 1, 1)]
+        let dates = [loki::transit_model::objects::Date::from_ymd(2020, 1, 1)]
             .iter()
             .copied()
             .collect::<std::collections::BTreeSet<_>>();

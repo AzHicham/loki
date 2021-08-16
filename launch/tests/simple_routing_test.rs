@@ -34,20 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+mod model_builder;
 mod utils;
 use failure::Error;
 use launch::datetime::DateTimeRepresent;
-use loki::modelbuilder::ModelBuilder;
 use loki::PeriodicData;
+use model_builder::ModelBuilder;
 use utils::{build_and_solve, dt_from_str, make_pt_from_vehicle, make_stop_point, Config};
-
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 #[test]
 fn test_simple_routing() -> Result<(), Error> {
-    init();
+    utils::init_logger();
 
     let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
@@ -92,7 +89,7 @@ fn test_simple_routing() -> Result<(), Error> {
 
 #[test]
 fn test_routing_with_transfers() -> Result<(), Error> {
-    init();
+    utils::init_logger();
 
     let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
@@ -166,7 +163,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
 
 #[test]
 fn test_routing_backward() -> Result<(), Error> {
-    init();
+    utils::init_logger();
 
     let model = ModelBuilder::new("20200101", "20200102")?
         .calendar("service1", &["2020-01-01"])
