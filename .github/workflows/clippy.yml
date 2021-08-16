@@ -37,10 +37,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: clippy
+        args: --fix
     - name: Run cargo check
       uses: actions-rs/cargo@v1
       with:
         command: check
+        args: --workspace --verbose
 
     - name: Commit and push changes
       continue-on-error: true
