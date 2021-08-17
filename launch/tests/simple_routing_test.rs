@@ -46,7 +46,7 @@ use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
 fn test_simple_routing() -> Result<(), Error> {
     utils::init_logger();
 
-    let model = ModelBuilder::new("2020-01-01", "2020-01-02")?
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .calendar("service1", &["2020-01-01"])
         .route("1", |r| {
             r.name = String::from("bob");
@@ -94,7 +94,7 @@ fn test_simple_routing() -> Result<(), Error> {
 fn test_routing_with_transfers() -> Result<(), Error> {
     utils::init_logger();
 
-    let model = ModelBuilder::new("2020-01-01", "2020-01-02")?
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder
@@ -183,7 +183,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
 fn test_routing_backward() -> Result<(), Error> {
     utils::init_logger();
 
-    let model = ModelBuilder::new("2020-01-01", "2020-01-02")?
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder

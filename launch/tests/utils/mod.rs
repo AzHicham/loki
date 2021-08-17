@@ -36,6 +36,7 @@
 
 pub mod model_builder;
 
+use env_logger::Env;
 use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
@@ -49,7 +50,13 @@ use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
 
 pub fn init_logger() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = env_logger::Builder::from_env(
+        // use log level specified by RUST_LOG env var if set
+        //  and default to the "debug" level when RUST_LOG is not set
+        Env::default().default_filter_or("debug"),
+    )
+    .is_test(true)
+    .try_init();
 }
 
 pub struct Config {
