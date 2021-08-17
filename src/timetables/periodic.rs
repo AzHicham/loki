@@ -258,11 +258,9 @@ impl TimetablesTrait for PeriodicTimetables {
                 },
             );
             if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
-                let arrival_time_at_next_stop = self.calendar.compose(
-                    &waiting_day,
-                    arrival_time_in_day_at_next_stop,
-                    timezone,
-                );
+                let arrival_time_at_next_stop =
+                    self.calendar
+                        .compose(&waiting_day, arrival_time_in_day_at_next_stop, timezone);
 
                 if let Some((_, _, best_arrival_time, best_load)) =
                     &best_vehicle_day_and_its_arrival_timeload_at_next_position
