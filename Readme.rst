@@ -10,7 +10,7 @@ Tips and tricks to fluidify your (public) transit !
 .. |Code Coverage| image:: https://codecov.io/gh/CanalTP/loki/branch/master/graph/badge.svg?token=IYF7W6U2NI
     :target: https://codecov.io/gh/CanalTP/loki
     :alt: Coverage
-    
+
 +----------------+-----------------+
 | Build status   | Code Coverage   |
 +----------------+-----------------+

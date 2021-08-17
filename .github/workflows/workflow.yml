@@ -11,16 +11,11 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
-    - name: Checkout submodules
-      shell: bash
-      run: |
-        sed -i 's,git\@github.com:\([^/]*\)/\(.*\).git,https://github.com/\1/\2,' .gitmodules
-        git submodule update --init --recursive
+      with:
+        submodules: 'recursive'
     - name: Install libzmq
       run: |
         sudo apt install libzmq3-dev
@@ -32,3 +27,23 @@ jobs:
       run: cargo test --workspace --features="loki_stop_areas/vehicle_loads"
     - name: Run tests in release mode
       run: cargo test --release --workspace
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y python3 python3-pip git
+        pip install pre-commit
+    - name: Pre-commit
+      run: |
+        pre-commit install --install-hooks
+        pre-commit run --all --show-diff-on-failure

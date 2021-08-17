@@ -12,11 +12,12 @@
   language: system
   types: [rust]
   pass_filenames: false
+  args: ["--workspace"]
 - id: clippy
   name: clippy
   description: Lint rust sources
   entry: cargo clippy
   language: system
-  args: ["--", "-D", "warnings"]
+  args: ["--all"]
   types: [rust]
   pass_filenames: false
