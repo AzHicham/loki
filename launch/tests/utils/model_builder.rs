@@ -256,15 +256,16 @@ impl<'a> ModelBuilder {
 
     pub fn add_transfer(
         mut self,
-        from_stop_id: String,
-        to_stop_id: String,
-        transfer_time: u32,
+        from_stop_id: &str,
+        to_stop_id: &str,
+        transfer_duration: impl IntoTime,
     ) -> Self {
+        let duration = transfer_duration.into_time().total_seconds();
         self.collections.transfers.push(Transfer {
-            from_stop_id,
-            to_stop_id,
-            min_transfer_time: Some(transfer_time),
-            real_min_transfer_time: Some(transfer_time),
+            from_stop_id: from_stop_id.to_string(),
+            to_stop_id: to_stop_id.to_string(),
+            min_transfer_time: Some(duration),
+            real_min_transfer_time: Some(duration),
             equipment_id: None,
         });
         self

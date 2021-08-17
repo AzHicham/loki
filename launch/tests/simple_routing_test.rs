@@ -102,7 +102,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
-        .add_transfer("B".into(), "F".into(), 120)
+        .add_transfer("B", "F", "00:02:00")
         .build();
 
     let config = Config::new("2020-01-01T08:59:00", "A", "G");
@@ -188,7 +188,7 @@ fn test_routing_backward() -> Result<(), Error> {
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
-        .add_transfer("B".into(), "F".into(), 120)
+        .add_transfer("B", "F", "00:02:00")
         .build();
 
     let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
