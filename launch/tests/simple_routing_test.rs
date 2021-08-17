@@ -58,7 +58,7 @@ fn test_simple_routing() -> Result<(), Error> {
 
     let config = Config::new("2020-01-01T08:59:00", "A", "B");
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 1);
     assert_eq!(responses.len(), 1);
@@ -107,7 +107,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
 
     let config = Config::new("2020-01-01T08:59:00", "A", "G");
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);
@@ -194,7 +194,7 @@ fn test_routing_backward() -> Result<(), Error> {
     let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
     config.datetime_represent = DateTimeRepresent::Arrival;
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);

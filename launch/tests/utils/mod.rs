@@ -45,7 +45,7 @@ use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::transit_model::Model;
-use loki::{DataWithIters, NaiveDateTime};
+use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
 
@@ -68,6 +68,8 @@ pub struct Config {
 
     pub comparator_type: config::ComparatorType,
 
+    pub data_implem: config::DataImplem,
+
     default_transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
@@ -84,6 +86,7 @@ impl Config {
             datetime: datetime.as_datetime(),
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
+            data_implem: Default::default(),
             default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
@@ -116,7 +119,20 @@ fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
     Ok(request_input)
 }
 
-pub fn build_and_solve<Data>(
+pub fn build_and_solve(
+    model: &Model,
+    loads_data: &LoadsData,
+    config: &Config,
+) -> Result<Vec<response::Response>, Error> {
+    match config.data_implem {
+        config::DataImplem::Periodic => {
+            build_and_solve_inner::<PeriodicData>(model, loads_data, config)
+        }
+        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, loads_data, config),
+    }
+}
+
+fn build_and_solve_inner<Data>(
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
