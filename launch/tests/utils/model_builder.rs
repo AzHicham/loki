@@ -43,6 +43,9 @@ use loki::typed_index_collection::Idx;
 use loki::NaiveDateTime;
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
+const DEFAULT_ROUTE_ID: &str = "default_route";
+const DEFAULT_LINE_ID: &str = "default_line";
+const DEFAULT_NETWORK_ID: &str = "default_network";
 
 pub const DEFAULT_TIMEZONE: chrono_tz::Tz = chrono_tz::UTC;
 
@@ -61,6 +64,16 @@ pub struct ModelBuilder {
 pub struct VehicleJourneyBuilder<'a> {
     model: &'a mut ModelBuilder,
     vj_idx: Idx<VehicleJourney>,
+    info: VehicleJourneyInfo,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum VehicleJourneyInfo {
+    Route(String),
+    Line(String),
+    Network(String),
+    Timezone(chrono_tz::Tz),
+    None,
 }
 
 impl Default for ModelBuilder {
@@ -117,6 +130,8 @@ impl<'a> ModelBuilder {
     {
         let new_vj = VehicleJourney {
             id: name.into(),
+            service_id: DEFAULT_CALENDAR_ID.to_string(),
+            route_id: DEFAULT_ROUTE_ID.to_string(),
             ..Default::default()
         };
         let vj_idx = self
@@ -136,6 +151,7 @@ impl<'a> ModelBuilder {
         let vj_builder = VehicleJourneyBuilder {
             model: &mut self,
             vj_idx,
+            info: VehicleJourneyInfo::None,
         };
 
         vj_initer(vj_builder);
@@ -451,7 +467,12 @@ impl<'a> VehicleJourneyBuilder<'a> {
     ///        .build();
     /// # }
     /// ```
-    pub fn route(self, id: &str) -> Self {
+    pub fn route(mut self, id: &str) -> Self {
+        assert!(
+            self.info == VehicleJourneyInfo::None,
+            "You cannot specify two different info for a vehicle journey"
+        );
+        self.info = VehicleJourneyInfo::Route(id.to_string());
         {
             let vj = &mut self
                 .model
@@ -459,6 +480,40 @@ impl<'a> VehicleJourneyBuilder<'a> {
                 .vehicle_journeys
                 .index_mut(self.vj_idx);
             vj.route_id = id.to_owned();
+        }
+
+        self
+    }
+
+    pub fn line(mut self, id: &str) -> Self {
+        assert!(
+            self.info == VehicleJourneyInfo::None,
+            "You cannot specify two different info for a vehicle journey"
+        );
+        self.info = VehicleJourneyInfo::Line(id.to_string());
+
+        self
+    }
+
+    pub fn network(mut self, id: &str) -> Self {
+        {
+            assert!(
+                self.info == VehicleJourneyInfo::None,
+                "You cannot specify two different info for a vehicle journey"
+            );
+            self.info = VehicleJourneyInfo::Network(id.to_string());
+        }
+
+        self
+    }
+
+    pub fn timezone(mut self, timezone: &chrono_tz::Tz) -> Self {
+        {
+            assert!(
+                self.info == VehicleJourneyInfo::None,
+                "You cannot specify two different info for a vehicle journey"
+            );
+            self.info = VehicleJourneyInfo::Timezone(timezone.clone());
         }
 
         self
@@ -523,16 +578,27 @@ impl<'a> Drop for VehicleJourneyBuilder<'a> {
             .get_or_create(&new_vj.physical_mode_id);
 
         let route = collections.routes.get_or_create(&new_vj.route_id);
-        let line = collections.lines.get_or_create(&route.line_id);
+        let line_id = match &self.info {
+            VehicleJourneyInfo::Line(id) => id.clone(),
+            _ => route.line_id.clone(),
+        };
+        let line = collections.lines.get_or_create(&line_id);
         collections
             .commercial_modes
             .get_or_create(&line.commercial_mode_id);
 
-        let network_id = &line.network_id;
-        collections.networks.get_or_create_with(network_id, || {
+        let network_id = match &self.info {
+            VehicleJourneyInfo::Network(id) => id.clone(),
+            _ => line.network_id.clone(),
+        };
+        let timezone = match &self.info {
+            VehicleJourneyInfo::Timezone(timezone) => Some(timezone.clone()),
+            _ => Some(DEFAULT_TIMEZONE),
+        };
+        collections.networks.get_or_create_with(&network_id, || {
             use loki::typed_index_collection::WithId;
-            let mut network = Network::with_id(network_id);
-            network.timezone = Some(DEFAULT_TIMEZONE);
+            let mut network = Network::with_id(&network_id);
+            network.timezone = timezone;
             network
         });
     }
