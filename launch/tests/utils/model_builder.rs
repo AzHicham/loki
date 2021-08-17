@@ -84,9 +84,7 @@ impl<'a> ModelBuilder {
             .take_while(|date| *date <= end_date)
             .collect();
 
-        let model_builder = model_builder.default_calendar(&dates);
-
-        model_builder
+        model_builder.default_calendar(&dates)
     }
 
     /// Add a new VehicleJourney to the model

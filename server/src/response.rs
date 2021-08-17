@@ -61,7 +61,7 @@ pub fn make_response(
         journeys: journeys
             .iter()
             .enumerate()
-            .map(|(idx, journey)| make_journey(&request_input, &journey, idx, model))
+            .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
 
         ..Default::default()
@@ -492,8 +492,8 @@ fn get_timezone(
     model: &transit_model::Model,
 ) -> Option<Timezone> {
     let route_id = &model.vehicle_journeys[*vehicle_journey_idx].route_id;
-    let route = model.routes.get(&route_id)?;
+    let route = model.routes.get(route_id)?;
     let line = model.lines.get(&route.line_id)?;
     let network = model.networks.get(&line.network_id)?;
-    network.timezone.clone()
+    network.timezone
 }

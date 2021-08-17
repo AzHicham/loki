@@ -390,7 +390,7 @@ where
                 I'm gonna use the default {} as max duration",
                 journey_request.max_duration, config.request_default_params.max_journey_duration
             );
-            config.request_default_params.max_journey_duration.clone()
+            config.request_default_params.max_journey_duration
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {

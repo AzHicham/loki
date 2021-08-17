@@ -67,14 +67,14 @@ where
 
             let model = transit_model::gtfs::Reader::new(configuration)
                 .parse(&launch_params.input_data_path)?;
-            let model = transit_model::transfers::generates_transfers(
+
+            transit_model::transfers::generates_transfers(
                 model,
                 max_distance,
                 walking_speed,
                 waiting_time,
                 None,
-            )?;
-            model
+            )?
         }
     };
 
@@ -116,7 +116,7 @@ pub fn build_transit_data<Data: DataTrait>(
     info!("Number of routes : {}", model.routes.len());
 
     let data_timer = SystemTime::now();
-    let data = Data::new(&model, loads_data, *default_transfer_duration);
+    let data = Data::new(model, loads_data, *default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());
