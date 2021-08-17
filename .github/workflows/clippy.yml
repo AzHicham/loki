@@ -10,15 +10,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  security_audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
-      - uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
   clippy:
     runs-on: ubuntu-latest
     steps:
@@ -40,7 +31,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: --fix
+        args: --fix --all-targets
     - name: Run cargo check
       uses: actions-rs/cargo@v1
       with:
