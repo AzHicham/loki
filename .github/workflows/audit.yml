@@ -7,9 +7,6 @@ on:
     branches: [ master ]
   pull_request:
       branches: [ master ]
-    paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
 
 env:
   CARGO_TERM_COLOR: always
