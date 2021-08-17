@@ -37,12 +37,12 @@
 mod utils;
 use failure::Error;
 use loki::chrono_tz;
-use utils::model_builder::AsDateTime;
 use utils::model_builder::ModelBuilder;
+use utils::model_builder::{AsDate, AsDateTime};
 use utils::{build_and_solve, Config};
 
 #[test]
-fn test_simple_routing() -> Result<(), Error> {
+fn test_daylight_saving_time_switch() -> Result<(), Error> {
     utils::init_logger();
 
     // There is a daylight saving time switch in Europe/paris on 2020-10-25 :
@@ -85,6 +85,92 @@ fn test_simple_routing() -> Result<(), Error> {
         assert_eq!(
             vehicle_sec.from_datetime,
             "2020-10-26T09:00:00".as_datetime()
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
+    utils::init_logger();
+
+    // There is a daylight saving time switch in Europe/paris on 2020-10-25 :
+    // - on 2020-10-24, "10:00:00" in Paris means "08:00:00" UTC
+    // - on 2020-10-26, "10:00:00" in Paris means "09:00:00" UTC
+    let model = ModelBuilder::new("2020-10-23", "2020-10-30")
+        .vj("toto", |vj_builder| {
+            vj_builder
+                .timezone(&chrono_tz::Europe::Paris)
+                .st("A", "00:00:00")
+                .st("B", "01:05:00")
+                .st("C", "02:10:00");
+        })
+        .build();
+
+    {
+        let config = Config::new_timezoned("2020-10-23T22:00:00", &chrono_tz::UTC, "A", "C");
+
+        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        let vehicle_section = &journey.first_vehicle;
+        assert_eq!(
+            vehicle_section.from_datetime,
+            "2020-10-23T22:00:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.to_datetime,
+            "2020-10-24T00:10:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.day_for_vehicle_journey,
+            "2020-10-24".as_date()
+        );
+    }
+
+    {
+        let config = Config::new_timezoned("2020-10-26T22:00:00", &chrono_tz::UTC, "A", "C");
+
+        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        let vehicle_section = &journey.first_vehicle;
+        assert_eq!(
+            vehicle_section.from_datetime,
+            "2020-10-26T23:00:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.to_datetime,
+            "2020-10-27T01:10:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.day_for_vehicle_journey,
+            "2020-10-27".as_date()
+        );
+    }
+
+    {
+        let config = Config::new_timezoned("2020-10-24T22:00:00", &chrono_tz::UTC, "A", "C");
+
+        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        let vehicle_section = &journey.first_vehicle;
+        assert_eq!(
+            vehicle_section.from_datetime,
+            "2020-10-24T23:00:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.to_datetime,
+            "2020-10-25T01:10:00".as_datetime()
+        );
+        assert_eq!(
+            vehicle_section.day_for_vehicle_journey,
+            "2020-10-25".as_date()
         );
     }
 
