@@ -2,3 +2,8 @@ ignore-not-existing: true
 llvm: true
 output-type: lcov
 output-path: ./lcov.info
+ignore:
+  - "./server/*"
+  - "./stop_areas/*"
+  - "./random/*"
+  - "./target/*"
