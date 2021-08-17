@@ -565,7 +565,7 @@ impl<Data: DataTrait> Journey<Data> {
         let to_datetime = data.to_naive_datetime(&end_transfer_time);
         let to_stop_point = data.stop_point_idx(&transfer_to_stop);
         let from_stop_point = data.stop_point_idx(&transfer_from_stop);
-        let transfer_idx = data.transfer_transit_model_idx(&transfer);
+        let transfer_idx = data.transfer_transit_model_idx(transfer);
         TransferSection {
             transfer: transfer_idx,
             from_datetime,

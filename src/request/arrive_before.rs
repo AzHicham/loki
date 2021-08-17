@@ -443,8 +443,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(stop, durations, transfer)| {
             let new_criteria = Criteria {
-                time: self.criteria.time.clone() - durations.total_duration,
-                nb_of_legs: self.criteria.nb_of_legs.clone(),
+                time: self.criteria.time - durations.total_duration,
+                nb_of_legs: self.criteria.nb_of_legs,
                 fallback_duration: self.criteria.fallback_duration,
                 transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
                 loads_count: self.criteria.loads_count.clone(),

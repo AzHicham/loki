@@ -201,14 +201,14 @@ where
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
         let transfer_data = &self.transfers_data[transfer.idx];
         (
-            transfer_data.from_stop.clone(),
-            transfer_data.to_stop.clone(),
+            transfer_data.from_stop,
+            transfer_data.to_stop,
         )
     }
 
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
         let transfer_data = &self.transfers_data[transfer.idx];
-        transfer_data.durations.total_duration.clone()
+        transfer_data.durations.total_duration
     }
 
     fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
