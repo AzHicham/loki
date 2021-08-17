@@ -170,7 +170,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let timetable = self.timetables.timetable_of(&trip.vehicle);
         let timezone = self.timetables.timezone_data(&timetable);
         let day = &trip.day;
-        let time = self.calendar.compose(day, &localtime, timezone);
+        let time = self.calendar.compose(day, localtime, timezone);
         (time, *load)
     }
 
@@ -183,7 +183,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let timetable = self.timetables.timetable_of(&trip.vehicle);
         let timezone = self.timetables.timezone_data(&timetable);
         let day = &trip.day;
-        let time = self.calendar.compose(day, &localtime, timezone);
+        let time = self.calendar.compose(day, localtime, timezone);
         (time, *load)
     }
 
@@ -197,7 +197,7 @@ impl TimetablesTrait for PeriodicTimetables {
             let timetable = self.timetables.timetable_of(&trip.vehicle);
             let timezone = self.timetables.timezone_data(&timetable);
             let day = &trip.day;
-            let time = self.calendar.compose(day, &localtime, timezone);
+            let time = self.calendar.compose(day, localtime, timezone);
             (time, *load)
         })
     }
@@ -212,7 +212,7 @@ impl TimetablesTrait for PeriodicTimetables {
             let timetable = self.timetables.timetable_of(&trip.vehicle);
             let timezone = self.timetables.timezone_data(&timetable);
             let day = &trip.day;
-            let time = self.calendar.compose(day, &localtime, timezone);
+            let time = self.calendar.compose(day, localtime, timezone);
             (time, *load)
         })
     }
@@ -231,7 +231,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let (_earliest_board_time_in_day, _latest_board_time_in_day) =
             has_earliest_and_latest_board_time.map(|(earliest, latest)| (earliest, latest))?;
 
-        let timezone = self.timetables.timezone_data(&mission);
+        let timezone = self.timetables.timezone_data(mission);
 
         let decompositions = self.calendar.decompositions(
             waiting_time,
@@ -250,8 +250,8 @@ impl TimetablesTrait for PeriodicTimetables {
         for (waiting_day, waiting_time_in_day) in decompositions {
             let has_vehicle = self.timetables.earliest_filtered_vehicle_to_board(
                 &waiting_time_in_day,
-                &mission,
-                &position,
+                mission,
+                position,
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
@@ -260,8 +260,8 @@ impl TimetablesTrait for PeriodicTimetables {
             if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
                 let arrival_time_at_next_stop = self.calendar.compose(
                     &waiting_day,
-                    &arrival_time_in_day_at_next_stop,
-                    &timezone,
+                    arrival_time_in_day_at_next_stop,
+                    timezone,
                 );
 
                 if let Some((_, _, best_arrival_time, best_load)) =
@@ -302,7 +302,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let (_earliest_debark_time_in_day, _latest_debark_time_in_day) =
             has_earliest_and_latest_debark_time?;
 
-        let timezone = self.timetables.timezone_data(&mission);
+        let timezone = self.timetables.timezone_data(mission);
 
         let decompositions = self.calendar.decompositions(
             time,
@@ -321,8 +321,8 @@ impl TimetablesTrait for PeriodicTimetables {
         for (waiting_day, waiting_time_in_day) in decompositions {
             let has_vehicle = self.timetables.latest_filtered_vehicle_that_debark(
                 &waiting_time_in_day,
-                &mission,
-                &position,
+                mission,
+                position,
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
@@ -332,7 +332,7 @@ impl TimetablesTrait for PeriodicTimetables {
                 let departure_time_at_previous_stop = self.calendar.compose(
                     &waiting_day,
                     departure_time_in_day_at_previous_stop,
-                    &timezone,
+                    timezone,
                 );
                 if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
@@ -476,7 +476,7 @@ impl<'a> TimetablesIter<'a> for PeriodicTimetables {
     type Trips = TripsIter<'a>;
 
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::Trips {
-        TripsIter::new(&self, mission)
+        TripsIter::new(self, mission)
     }
 
     type Missions = TimetableIter;
@@ -494,7 +494,7 @@ pub struct TripsIter<'a> {
 
 impl<'a> TripsIter<'a> {
     fn new(periodic: &'a PeriodicTimetables, timetable: &Timetable) -> Self {
-        let mut vehicles_iter = periodic.timetables.vehicles(&timetable);
+        let mut vehicles_iter = periodic.timetables.vehicles(timetable);
         let has_current_vehicle = vehicles_iter.next();
         let current_vehicle_days = has_current_vehicle.map(|vehicle| {
             let days_pattern = periodic.timetables.vehicle_data(&vehicle).days_pattern;

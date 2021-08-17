@@ -175,14 +175,14 @@ impl Calendar {
             seconds_since_dataset_start,
             min_seconds_since_timezoned_day_start,
             timezone,
-            &self,
+            self,
         );
         // will decrease the date until `time_in_timezoned_day` becomes greater than `max_seconds_since_timezoned_day_start`
         let mut backward_iter = BackwardDecompose::new(
             seconds_since_dataset_start,
             max_seconds_since_timezoned_day_start,
             timezone,
-            &self,
+            self,
         );
         // we want to skip the first date as it is already provided by `forward_iter`
         backward_iter.next();
@@ -243,7 +243,7 @@ impl Calendar {
         &self,
         datetime: &chrono::NaiveDateTime,
     ) -> Option<SecondsSinceDatasetUTCStart> {
-        if !self.contains_datetime(&datetime) {
+        if !self.contains_datetime(datetime) {
             return None;
         }
         let seconds_i64 = (*datetime - self.first_datetime()).num_seconds();

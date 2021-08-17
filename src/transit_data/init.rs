@@ -187,8 +187,8 @@ where
         );
 
         for mission in missions.iter() {
-            for position in self.timetables.positions(&mission) {
-                let stop = self.timetables.stop_at(&position, &mission);
+            for position in self.timetables.positions(mission) {
+                let stop = self.timetables.stop_at(&position, mission);
                 let stop_data = &mut self.stops_data[stop.idx];
                 stop_data
                     .position_in_timetables
@@ -223,7 +223,7 @@ where
             let stop_point_idx = &stop_time.stop_point_idx;
             let stop = self
                 .stop_point_idx_to_stop
-                .get(&stop_point_idx)
+                .get(stop_point_idx)
                 .cloned()
                 .unwrap_or_else(|| self.add_new_stop_point(*stop_point_idx));
             result.push(stop)
@@ -323,7 +323,7 @@ fn timezone_of(
             );
             return Err(());
         };
-        network.timezone.clone().unwrap()
+        network.timezone.unwrap()
     };
     Ok(timezone)
 }

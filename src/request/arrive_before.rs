@@ -179,24 +179,24 @@ where
             connections,
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
-            &self.transit_data,
+            self.transit_data,
         )
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
-        super::generic_request::stop_name(stop, &self.model, self.transit_data)
+        super::generic_request::stop_name(stop, self.model, self.transit_data)
     }
 
     pub fn trip_name(&self, trip: &Data::Trip) -> String {
-        super::generic_request::trip_name(trip, &self.model, self.transit_data)
+        super::generic_request::trip_name(trip, self.model, self.transit_data)
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
-        super::generic_request::mission_name(mission, &self.model, self.transit_data)
+        super::generic_request::mission_name(mission, self.model, self.transit_data)
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
-        super::generic_request::position_name(position, mission, &self.model, self.transit_data)
+        super::generic_request::position_name(position, mission, self.model, self.transit_data)
     }
 
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {

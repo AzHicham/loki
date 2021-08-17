@@ -430,7 +430,7 @@ where
         let route = &model.routes.get(route_id).unwrap();
         let line = &model.lines.get(&route.line_id).unwrap();
 
-        let mission = data.mission_of(&trip);
+        let mission = data.mission_of(trip);
 
         let from_stop = data.stop_of(&vehicle_leg.board_position, &mission);
         let to_stop = data.stop_of(&vehicle_leg.debark_position, &mission);
@@ -478,7 +478,7 @@ impl<Data: DataTrait> Journey<Data> {
         let to_datetime = data.to_naive_datetime(&to_seconds);
         let position = self.first_vehicle.debark_position.clone();
         let trip = &self.first_vehicle.trip;
-        let mission = data.mission_of(&trip);
+        let mission = data.mission_of(trip);
         let stop = data.stop_of(&position, &mission);
         let to_stop_point = data.stop_point_idx(&stop);
         DepartureSection {
@@ -494,8 +494,8 @@ impl<Data: DataTrait> Journey<Data> {
         let last_vehicle_leg = self.last_vehicle_leg();
         let position = &last_vehicle_leg.debark_position;
         let trip = &last_vehicle_leg.trip;
-        let mission = data.mission_of(&trip);
-        let stop = data.stop_of(&position, &mission);
+        let mission = data.mission_of(trip);
+        let stop = data.stop_of(position, &mission);
         let stop_point = data.stop_point_idx(&stop);
         ArrivalSection {
             from_datetime: data.to_naive_datetime(&from_time),
@@ -516,8 +516,8 @@ impl<Data: DataTrait> Journey<Data> {
         let trip = &vehicle_leg.trip;
         let vehicle_journey = data.vehicle_journey_idx(trip);
 
-        let from_stoptime_idx = data.stoptime_idx(&vehicle_leg.board_position, &trip);
-        let to_stoptime_idx = data.stoptime_idx(&vehicle_leg.debark_position, &trip);
+        let from_stoptime_idx = data.stoptime_idx(&vehicle_leg.board_position, trip);
+        let to_stoptime_idx = data.stoptime_idx(&vehicle_leg.debark_position, trip);
 
         //unwraps below are safe because of checks that happens during Self::new()
         let board_time = data
@@ -532,7 +532,7 @@ impl<Data: DataTrait> Journey<Data> {
         let from_datetime = data.to_naive_datetime(&board_time);
         let to_datetime = data.to_naive_datetime(&debark_time);
 
-        let day_for_vehicle_journey = data.day_of(&trip);
+        let day_for_vehicle_journey = data.day_of(trip);
 
         VehicleSection {
             from_datetime,
@@ -583,7 +583,7 @@ impl<Data: DataTrait> Journey<Data> {
     ) -> ConnectionIter<'journey, 'data, Data> {
         ConnectionIter {
             data,
-            journey: &self,
+            journey: self,
             connection_idx: 0,
         }
     }

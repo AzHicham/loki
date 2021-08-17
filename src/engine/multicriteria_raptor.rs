@@ -265,7 +265,7 @@ where
                 "Identifying missions with new waits at {}",
                 pt.stop_name(stop)
             );
-            for (mission, position) in pt.boardable_missions_at(&stop) {
+            for (mission, position) in pt.boardable_missions_at(stop) {
                 let current_mission_has_new_wait =
                     &mut self.mission_has_new_wait[pt.mission_id(&mission)];
                 // trace!("   mission {}", pt.mission_name(&mission));
@@ -400,7 +400,7 @@ where
                     for (ref wait, ref wait_criteria) in new_wait_front.iter() {
                         // trace!("Trying to board");
                         if let Some((trip, new_board_criteria)) =
-                            pt.best_trip_to_board(&position, &mission, &wait_criteria)
+                            pt.best_trip_to_board(&position, mission, wait_criteria)
                         {
                             // trace!("Try to board at stop {} from {:?} into mission {}", pt.position_name(&position, mission), wait, pt.mission_name(&mission));
                             // trace!("New Board : \n{:#?} \n {:#?}", trip, new_board_criteria);
@@ -420,7 +420,7 @@ where
                                 continue;
                             }
 
-                            let new_board = self.journeys_tree.board(&wait, &trip, &position);
+                            let new_board = self.journeys_tree.board(wait, &trip, &position);
                             trace!(
                                 "    New board {:?} at stop {} into trip {}, parent {:?}",
                                 new_board,
@@ -441,7 +441,7 @@ where
                 //   pareto front along the way
                 {
                     for ((board, trip), criteria) in self.board_front.iter() {
-                        let new_criteria = pt.ride(&trip, &position, &criteria);
+                        let new_criteria = pt.ride(trip, &position, criteria);
                         if !pt.is_valid(&new_criteria) {
                             continue;
                         }
@@ -482,7 +482,7 @@ where
         // TODO : check that new_debarked_front[stop] is empty for all
         //     stops not in stops_with_new_debarked
         for stop in &self.stops_with_new_debark {
-            let stop_id = pt.stop_id(&stop);
+            let stop_id = pt.stop_id(stop);
             let debark_front = &mut self.debark_fronts[stop_id];
             let new_debark_front = &mut self.new_debark_fronts[stop_id];
             debug_assert!(!new_debark_front.is_empty());
@@ -555,8 +555,8 @@ where
                 //     self.arrived_front.add(arrived, arrived_criteria, self.pt);
                 // }
                 // we perform all transfers from the `debarked` path
-                for transfer in pt.transfers_at(&stop) {
-                    let (arrival_stop, arrival_criteria) = pt.transfer(&stop, &transfer, &criteria);
+                for transfer in pt.transfers_at(stop) {
+                    let (arrival_stop, arrival_criteria) = pt.transfer(stop, &transfer, criteria);
                     let arrival_id = pt.stop_id(&arrival_stop);
                     if self.can_be_discarded(&arrival_criteria, pt) {
                         continue;
@@ -580,13 +580,13 @@ where
                         self.stops_with_new_wait.push(arrival_stop.clone());
                     }
 
-                    let waiting = self.journeys_tree.transfer(&debark, &transfer);
+                    let waiting = self.journeys_tree.transfer(debark, &transfer);
                     wait_front.remove_elements_dominated_by(&arrival_criteria, pt);
                     new_wait_front.add_and_remove_elements_dominated(waiting, arrival_criteria, pt);
                     trace!(
                         "Transfer {:?} from {} to {}, parent {:?}",
                         waiting,
-                        pt.stop_name(&stop),
+                        pt.stop_name(stop),
                         pt.stop_name(&arrival_stop),
                         debark
                     );
