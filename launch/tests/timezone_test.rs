@@ -1,4 +1,4 @@
-// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
+// Copyright  (C) 2021, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
@@ -84,7 +84,7 @@ fn test_simple_routing() -> Result<(), Error> {
         // - on 2020-10-26, "10:00:00" in Paris means "09:00:00" UTC
         assert_eq!(
             vehicle_sec.from_datetime,
-            "2020-10-24T09:00:00".as_datetime()
+            "2020-10-26T09:00:00".as_datetime()
         );
     }
 
