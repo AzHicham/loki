@@ -55,9 +55,9 @@ fn test_simple_routing() -> Result<(), Error> {
             vj_builder
                 .calendar("service1")
                 .route("1")
-                .st("A", "10:00:00", "10:00:01")
-                .st("B", "10:05:00", "10:05:01")
-                .st("C", "10:10:00", "10:10:01");
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
         })
         .build();
 
@@ -80,7 +80,7 @@ fn test_simple_routing() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:01".as_datetime()
+        "2020-01-01T09:00:00".as_datetime()
     );
     assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
 
@@ -99,16 +99,16 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         .vj("toto", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .st("A", "10:00:00", "10:00:01")
-                .st("B", "10:05:00", "10:05:01")
-                .st("C", "10:10:00", "10:10:01");
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
         })
         .vj("tata", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .st("E", "10:05:00", "10:05:01")
-                .st("F", "10:20:00", "10:20:01")
-                .st("G", "10:30:00", "10:30:01");
+                .st("E", "10:05:00")
+                .st("F", "10:20:00")
+                .st("G", "10:30:00");
         })
         .add_transfer("B".into(), "F".into(), 120)
         .build();
@@ -134,7 +134,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:01".as_datetime()
+        "2020-01-01T09:00:00".as_datetime()
     );
     assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
 
@@ -163,7 +163,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         waiting_sec.from_datetime,
         "2020-01-01T09:07:00".as_datetime()
     );
-    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:01".as_datetime());
+    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:00".as_datetime());
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
@@ -172,7 +172,7 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(to_sp.name, "G");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:20:01".as_datetime()
+        "2020-01-01T09:20:00".as_datetime()
     );
     assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:30:00".as_datetime());
 
@@ -188,16 +188,16 @@ fn test_routing_backward() -> Result<(), Error> {
         .vj("toto", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .st("A", "10:00:00", "10:00:01")
-                .st("B", "10:05:00", "10:05:01")
-                .st("C", "10:10:00", "10:10:01");
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
         })
         .vj("tata", |vj_builder| {
             vj_builder
                 .calendar("service1")
-                .st("E", "10:05:00", "10:05:01")
-                .st("F", "10:20:00", "10:20:01")
-                .st("G", "10:30:00", "10:30:01");
+                .st("E", "10:05:00")
+                .st("F", "10:20:00")
+                .st("G", "10:30:00");
         })
         .add_transfer("B".into(), "F".into(), 120)
         .build();
@@ -215,7 +215,7 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(journey.nb_of_sections(), 4);
 
     assert_eq!(journey.nb_of_transfers(), 1);
-    assert_eq!(journey.total_duration(), 1799);
+    assert_eq!(journey.total_duration(), 1800);
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
@@ -224,7 +224,7 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:01".as_datetime()
+        "2020-01-01T09:00:00".as_datetime()
     );
     assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
 
@@ -253,7 +253,7 @@ fn test_routing_backward() -> Result<(), Error> {
         waiting_sec.from_datetime,
         "2020-01-01T09:07:00".as_datetime()
     );
-    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:01".as_datetime());
+    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:00".as_datetime());
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
@@ -262,7 +262,7 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(to_sp.name, "G");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:20:01".as_datetime()
+        "2020-01-01T09:20:00".as_datetime()
     );
     assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:30:00".as_datetime());
 

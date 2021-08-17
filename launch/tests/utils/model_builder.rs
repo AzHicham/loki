@@ -301,24 +301,24 @@ impl<'a> ModelBuilder {
 }
 
 pub trait IntoTime {
-    fn into_time(self) -> Time;
+    fn into_time(&self) -> Time;
 }
 
 impl IntoTime for Time {
-    fn into_time(self) -> Time {
-        self
+    fn into_time(&self) -> Time {
+        *self
     }
 }
 
 impl IntoTime for &Time {
-    fn into_time(self) -> Time {
-        *self
+    fn into_time(&self) -> Time {
+        **self
     }
 }
 
 impl IntoTime for &str {
     // Note: if the string is not in the right format, this conversion will fail
-    fn into_time(self) -> Time {
+    fn into_time(&self) -> Time {
         self.parse().expect("invalid time format")
     }
 }
@@ -406,14 +406,14 @@ impl<'a> VehicleJourneyBuilder<'a> {
     /// let model = ModelBuilder::default()
     ///        .vj("toto", |vj_builder| {
     ///            vj_builder
-    ///                .st("A", "10:00:00", "10:01:00")
-    ///                .st("B", "11:00:00", "11:01:00");
+    ///                .st("A", "10:00:00")
+    ///                .st("B", "11:00:00");
     ///        })
     ///        .build();
     /// # }
     /// ```
-    pub fn st(self, name: &str, arrival: impl IntoTime, departure: impl IntoTime) -> Self {
-        self.st_mut(name, arrival, departure, |_st| {})
+    pub fn st(self, name: &str, arrival: impl IntoTime) -> Self {
+        self.st_mut(name, arrival.into_time(), arrival.into_time(), |_st| {})
     }
 
     pub fn st_mut<F>(
@@ -560,14 +560,10 @@ mod test {
     fn simple_model_creation() {
         let model = ModelBuilder::default()
             .vj("toto", |vj_builder| {
-                vj_builder
-                    .st("A", "10:00:00", "10:01:00")
-                    .st("B", "11:00:00", "11:01:00");
+                vj_builder.st("A", "10:00:00").st("B", "11:00:00");
             })
             .vj("tata", |vj_builder| {
-                vj_builder
-                    .st("C", "10:00:00", "10:01:00")
-                    .st("D", "11:00:00", "11:01:00");
+                vj_builder.st("C", "10:00:00").st("D", "11:00:00");
             })
             .build();
 
@@ -597,12 +593,10 @@ mod test {
     fn same_sp_model_creation() {
         let model = ModelBuilder::default()
             .vj("toto", |vj| {
-                vj.st("A", "10:00:00", "10:01:00")
-                    .st("B", "11:00:00", "11:01:00");
+                vj.st("A", "10:00:00").st("B", "11:00:00");
             })
             .vj("tata", |vj| {
-                vj.st("A", "10:00:00", "10:01:00")
-                    .st("D", "11:00:00", "11:01:00");
+                vj.st("A", "10:00:00").st("D", "11:00:00");
             })
             .build();
 
@@ -634,19 +628,17 @@ mod test {
             .vj("toto", |vj_builder| {
                 vj_builder
                     .route("1")
-                    .st("A", "10:00:00", "10:01:00")
-                    .st("B", "11:00:00", "11:01:00");
+                    .st("A", "10:00:00")
+                    .st("B", "11:00:00");
             })
             .vj("tata", |vj_builder| {
                 vj_builder
                     .route("2")
-                    .st("C", "10:00:00", "10:01:00")
-                    .st("D", "11:00:00", "11:01:00");
+                    .st("C", "10:00:00")
+                    .st("D", "11:00:00");
             })
             .vj("tutu", |vj_builder| {
-                vj_builder
-                    .st("C", "10:00:00", "10:01:00")
-                    .st("E", "11:00:00", "11:01:00");
+                vj_builder.st("C", "10:00:00").st("E", "11:00:00");
             })
             .build();
 

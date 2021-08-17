@@ -40,16 +40,12 @@ use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
-use launch::loki::chrono::ParseResult;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
-use loki::log::info;
 use loki::transit_model::Model;
 use loki::{DataWithIters, NaiveDateTime};
 use loki::{LoadsData, PositiveDuration};
-use std::time::SystemTime;
-
 use model_builder::AsDateTime;
 
 pub fn init_logger() {
