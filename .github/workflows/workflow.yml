@@ -24,7 +24,7 @@ jobs:
     - name: Run tests in debug mode
       run: cargo test --workspace
     - name: Run tests in debug mode with vehicle_loads feature
-      run: cargo test --workspace --features="loki_stop_areas/vehicle_loads"
+      run: cargo test --workspace --features="launch/vehicle_loads"
     - name: Run tests in release mode
       run: cargo test --release --workspace
 
