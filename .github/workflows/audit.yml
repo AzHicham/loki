@@ -18,4 +18,4 @@ jobs:
           submodules: 'recursive'
       - uses: actions-rs/audit-check@v1
         with:
-          token: ${{ secrets.SCOPED_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
