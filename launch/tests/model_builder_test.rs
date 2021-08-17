@@ -13,9 +13,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>
 
 mod utils;
-use utils::model_builder::ModelBuilder;
+
 #[cfg(test)]
 mod test {
+    use super::utils::model_builder::ModelBuilder;
     #[test]
     fn simple_model_creation() {
         let model = ModelBuilder::default()

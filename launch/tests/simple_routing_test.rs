@@ -47,13 +47,8 @@ fn test_simple_routing() -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
-        .calendar("service1", &["2020-01-01"])
-        .route("1", |r| {
-            r.name = String::from("bob");
-        })
         .vj("toto", |vj_builder| {
             vj_builder
-                .calendar("service1")
                 .route("1")
                 .st("A", "10:00:00")
                 .st("B", "10:05:00")
@@ -95,17 +90,14 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
-        .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder
-                .calendar("service1")
                 .st("A", "10:00:00")
                 .st("B", "10:05:00")
                 .st("C", "10:10:00");
         })
         .vj("tata", |vj_builder| {
             vj_builder
-                .calendar("service1")
                 .st("E", "10:05:00")
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
@@ -184,17 +176,14 @@ fn test_routing_backward() -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
-        .calendar("service1", &["2020-01-01"])
         .vj("toto", |vj_builder| {
             vj_builder
-                .calendar("service1")
                 .st("A", "10:00:00")
                 .st("B", "10:05:00")
                 .st("C", "10:10:00");
         })
         .vj("tata", |vj_builder| {
             vj_builder
-                .calendar("service1")
                 .st("E", "10:05:00")
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");

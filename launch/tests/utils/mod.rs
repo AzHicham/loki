@@ -33,7 +33,7 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-
+#![allow(dead_code)]
 pub mod model_builder;
 
 use env_logger::Env;
