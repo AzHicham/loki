@@ -174,7 +174,7 @@ impl TimetablesTrait for DailyTimetables {
         position: &Self::Position,
     ) -> Option<(Self::Trip, Time, Load)> {
         self.timetables
-            .earliest_vehicle_to_board(&waiting_time, mission, position)
+            .earliest_vehicle_to_board(waiting_time, mission, position)
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 

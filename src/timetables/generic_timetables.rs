@@ -943,13 +943,13 @@ where
         let ordering = {
             let lower_val = first_not_equal.0;
             let upper_val = first_not_equal.1;
-            lower_val.borrow().cmp(&upper_val.borrow())
+            lower_val.borrow().cmp(upper_val.borrow())
         };
         debug_assert!(ordering != Ordering::Equal);
         // let's see if there is an index where the ordering is not the same
         // as first_ordering
         let found = first_not_equal_iter.find(|(lower_val, upper_val)| {
-            let cmp = lower_val.borrow().cmp(&upper_val.borrow());
+            let cmp = lower_val.borrow().cmp(upper_val.borrow());
             cmp != ordering && cmp != Ordering::Equal
         });
         if found.is_some() {
