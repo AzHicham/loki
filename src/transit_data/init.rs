@@ -162,11 +162,9 @@ where
                     transfer.clone(),
                 ));
                 let to_stop_data = &mut self.stops_data[to_stop.idx];
-                to_stop_data.incoming_transfers.push((
-                    *from_stop,
-                    durations,
-                    transfer,
-                ));
+                to_stop_data
+                    .incoming_transfers
+                    .push((*from_stop, durations, transfer));
             }
             _ => {
                 warn!(
