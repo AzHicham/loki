@@ -49,6 +49,7 @@ pub use chrono_tz;
 pub use log;
 pub use time::PositiveDuration;
 pub use transit_model;
+pub use typed_index_collection;
 
 pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
 

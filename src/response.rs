@@ -556,17 +556,18 @@ impl<Data: DataTrait> Journey<Data> {
             .unwrap()
             .0;
         let from_datetime = data.to_naive_datetime(&prev_debark_time);
-        let prev_mission = data.mission_of(&prev_trip);
-        let prev_debark_stop = data.stop_of(&prev_vehicle_leg.debark_position, &prev_mission);
-        let from_stop_point = data.stop_point_idx(&prev_debark_stop);
 
         let (transfer, _) = &self.connections[connection_idx];
-        let (end_transfer_stop, transfer_duration) = data.transfer(transfer);
+        let (start_transfer_stop, end_transfer_stop, transfer_duration) =
+            data.transfer_start_end_stop(transfer);
+
+        let to_stop_point = data.stop_point_idx(&end_transfer_stop);
+        let from_stop_point = data.stop_point_idx(&start_transfer_stop);
+
         let end_transfer_time = prev_debark_time + transfer_duration;
         let to_datetime = data.to_naive_datetime(&end_transfer_time);
-        let to_stop_point = data.stop_point_idx(&end_transfer_stop);
 
-        let transfer = data.transfer_idx(&transfer);
+        let transfer = data.transfer_idx(transfer);
         TransferSection {
             transfer,
             from_datetime,
