@@ -44,6 +44,7 @@ use launch::datetime::DateTimeRepresent;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
+use loki::log::debug;
 use loki::transit_model::Model;
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData};
 use loki::{LoadsData, PositiveDuration};
@@ -70,7 +71,7 @@ pub struct Config {
 
     pub data_implem: config::DataImplem,
 
-    default_transfer_duration: PositiveDuration,
+    pub default_transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
     pub start: String,
@@ -154,6 +155,9 @@ where
         &config.comparator_type,
         &config.datetime_represent,
     )?;
+    for response in responses.iter() {
+        debug!("{}", response.print(model)?);
+    }
     Ok(responses)
 }
 
