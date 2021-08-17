@@ -1,5 +1,5 @@
 ignore-not-existing: true
-branch: true
+branch: false
 output-type: lcov
 output-path: ./lcov.info
 ignore:
