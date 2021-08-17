@@ -44,6 +44,7 @@ use launch::datetime::DateTimeRepresent;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
+use loki::chrono::TimeZone;
 use loki::log::debug;
 use loki::transit_model::Model;
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData};
@@ -82,9 +83,13 @@ pub struct Config {
 
 impl Config {
     pub fn new(datetime: impl AsDateTime, start: &str, end: &str) -> Self {
+        let naive_datetime = datetime.as_datetime();
+        let timezone = model_builder::DEFAULT_TIMEZONE;
+        let timezoned_datetime = timezone.from_local_datetime(&naive_datetime).unwrap();
+        let utc_datetime = timezoned_datetime.naive_utc();
         Config {
             request_params: Default::default(),
-            datetime: datetime.as_datetime(),
+            datetime: utc_datetime,
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
             data_implem: Default::default(),

@@ -32,15 +32,19 @@
 //! # }
 //! ```
 
+use loki::chrono_tz::{self};
 use loki::transit_model::model::Collections;
 use loki::transit_model::objects::{
-    Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
+    Calendar, Date, Network, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod,
+    VehicleJourney,
 };
 use loki::transit_model::Model;
 use loki::typed_index_collection::Idx;
 use loki::NaiveDateTime;
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
+
+pub const DEFAULT_TIMEZONE: chrono_tz::Tz = chrono_tz::UTC;
 
 /// Builder used to easily create a `Model`
 /// Note: if not explicitly set all the vehicule journeys
@@ -523,6 +527,13 @@ impl<'a> Drop for VehicleJourneyBuilder<'a> {
         collections
             .commercial_modes
             .get_or_create(&line.commercial_mode_id);
-        collections.networks.get_or_create(&line.network_id);
+
+        let network_id = &line.network_id;
+        collections.networks.get_or_create_with(network_id, || {
+            use loki::typed_index_collection::WithId;
+            let mut network = Network::with_id(network_id);
+            network.timezone = Some(DEFAULT_TIMEZONE);
+            network
+        });
     }
 }
