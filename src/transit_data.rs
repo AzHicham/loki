@@ -200,10 +200,7 @@ where
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
         let transfer_data = &self.transfers_data[transfer.idx];
-        (
-            transfer_data.from_stop,
-            transfer_data.to_stop,
-        )
+        (transfer_data.from_stop, transfer_data.to_stop)
     }
 
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {

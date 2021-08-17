@@ -555,8 +555,7 @@ where
                 //     self.arrived_front.add(arrived, arrived_criteria, self.pt);
                 // }
                 // we perform all transfers from the `debarked` path
-                for (arrival_stop, arrival_criteria, transfer) in pt.transfers_at(stop, criteria)
-                {
+                for (arrival_stop, arrival_criteria, transfer) in pt.transfers_at(stop, criteria) {
                     let arrival_id = pt.stop_id(&arrival_stop);
                     if self.can_be_discarded(&arrival_criteria, pt) {
                         continue;
