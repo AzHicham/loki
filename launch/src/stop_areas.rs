@@ -84,7 +84,7 @@ pub fn stops_of_stop_area(
         .iter()
         .map(|idx| {
             let stop_point_uri = model.stop_points[*idx].id.clone();
-            let duration = duration_to_stops.clone();
+            let duration = duration_to_stops;
             (stop_point_uri, duration)
         })
         .collect();

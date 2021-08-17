@@ -161,7 +161,7 @@ where
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let departure_datetime = match &config.departure_datetime {
-        Some(string_datetime) => launch::datetime::parse_datetime(&string_datetime)?,
+        Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
             naive_date.and_hms(8, 0, 0)
