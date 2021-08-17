@@ -149,8 +149,8 @@ where
                     walking_duration,
                 };
                 let transfer_data = TransferData {
-                    from_stop: from_stop.clone(),
-                    to_stop: to_stop.clone(),
+                    from_stop: *from_stop,
+                    to_stop: *to_stop,
                     durations: durations.clone(),
                     transit_model_transfer_idx: transfer_idx,
                 };
@@ -164,8 +164,8 @@ where
                 let to_stop_data = &mut self.stops_data[to_stop.idx];
                 to_stop_data.incoming_transfers.push((
                     *from_stop,
-                    durations.clone(),
-                    transfer.clone(),
+                    durations,
+                    transfer,
                 ));
             }
             _ => {
