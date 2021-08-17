@@ -3,7 +3,7 @@ llvm: true
 output-type: lcov
 output-path: ./lcov.info
 ignore:
-  - "./server/*"
-  - "./stop_areas/*"
-  - "./random/*"
-  - "./target/*"
+  - "server/*"
+  - "stop_areas/*"
+  - "random/*"
+  - "target/*"
