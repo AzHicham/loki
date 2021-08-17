@@ -34,9 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::{Stop, Transfer, TransitData};
+use super::{Stop, Transfer, TransferDurations, TransitData};
 
 use crate::timetables::Timetables as TimetablesTrait;
+
+pub type OutgoingTransfersAtStop<'data> =
+    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
+pub type IncomingTransfersAtStop<'data> =
+    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
 
 impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     pub fn missions_of(&self, stop: &Stop) -> MissionsOfStop<Timetables> {
@@ -46,22 +51,20 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
         }
     }
 
-    pub fn transfers_forward_of(&self, stop: &Stop) -> ForwardTransfersOfStop {
+    pub fn outgoing_transfers_at<'data>(
+        &'data self,
+        stop: &Stop,
+    ) -> OutgoingTransfersAtStop<'data> {
         let stop_data = self.stop_data(stop);
-        let nb_of_transfers = stop_data.transfers_to.len();
-        ForwardTransfersOfStop {
-            stop: *stop,
-            tranfer_idx_iter: 0..nb_of_transfers,
-        }
+        stop_data.outgoing_transfers.iter()
     }
 
-    pub fn transfers_backward_of(&self, stop: &Stop) -> BackwardTransfersOfStop {
+    pub fn incoming_transfers_at<'data>(
+        &'data self,
+        stop: &Stop,
+    ) -> IncomingTransfersAtStop<'data> {
         let stop_data = self.stop_data(stop);
-        let nb_of_transfers = stop_data.transfers_from.len();
-        BackwardTransfersOfStop {
-            stop: *stop,
-            tranfer_idx_iter: 0..nb_of_transfers,
-        }
+        stop_data.incoming_transfers.iter()
     }
 }
 
@@ -80,58 +83,5 @@ impl<'a, Timetables: TimetablesTrait> Iterator for MissionsOfStop<'a, Timetables
 impl<'a, Timetables: TimetablesTrait> ExactSizeIterator for MissionsOfStop<'a, Timetables> {
     fn len(&self) -> usize {
         self.inner.len()
-    }
-}
-
-use crate::transit_data::TransferType;
-use std::ops::Range;
-
-pub struct ForwardTransfersOfStop {
-    stop: Stop,
-    tranfer_idx_iter: Range<usize>,
-}
-
-pub struct BackwardTransfersOfStop {
-    stop: Stop,
-    tranfer_idx_iter: Range<usize>,
-}
-
-impl Iterator for ForwardTransfersOfStop {
-    type Item = Transfer;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.tranfer_idx_iter
-            .next()
-            .map(|idx_in_stop_transfers| Transfer {
-                transfer_type: TransferType::Forward,
-                stop: self.stop,
-                idx_in_stop_transfers,
-            })
-    }
-}
-
-impl ExactSizeIterator for ForwardTransfersOfStop {
-    fn len(&self) -> usize {
-        self.tranfer_idx_iter.len()
-    }
-}
-
-impl Iterator for BackwardTransfersOfStop {
-    type Item = Transfer;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.tranfer_idx_iter
-            .next()
-            .map(|idx_in_stop_transfers| Transfer {
-                transfer_type: TransferType::Backward,
-                stop: self.stop,
-                idx_in_stop_transfers,
-            })
-    }
-}
-
-impl ExactSizeIterator for BackwardTransfersOfStop {
-    fn len(&self) -> usize {
-        self.tranfer_idx_iter.len()
     }
 }

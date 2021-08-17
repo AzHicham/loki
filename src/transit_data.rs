@@ -57,12 +57,27 @@ pub struct TransitData<Timetables: TimetablesTrait> {
 
     pub(super) stops_data: Vec<StopData<Timetables>>,
     pub(super) timetables: Timetables,
+
+    pub(super) transfers_data: Vec<TransferData>,
 }
 pub struct StopData<Timetables: TimetablesTrait> {
     pub(super) stop_point_idx: Idx<StopPoint>,
     pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
-    pub(super) transfers_to: Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>,
-    pub(super) transfers_from: Vec<(Stop, PositiveDuration, Idx<TransitModelTransfer>)>,
+    pub(super) outgoing_transfers: Vec<(Stop, TransferDurations, Transfer)>,
+    pub(super) incoming_transfers: Vec<(Stop, TransferDurations, Transfer)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransferDurations {
+    pub walking_duration: PositiveDuration,
+    pub total_duration: PositiveDuration, // = walking_duration + some waiting time
+}
+
+pub struct TransferData {
+    pub from_stop: Stop,
+    pub to_stop: Stop,
+    pub durations: TransferDurations,
+    pub transit_model_transfer_idx: Idx<TransitModelTransfer>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
@@ -71,16 +86,8 @@ pub struct Stop {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TransferType {
-    Forward,
-    Backward,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Transfer {
-    pub(super) transfer_type: TransferType,
-    pub(super) stop: Stop,
-    pub(super) idx_in_stop_transfers: usize,
+    pub(super) idx: usize,
 }
 
 impl<Timetables: TimetablesTrait> TransitData<Timetables> {
@@ -191,13 +198,22 @@ where
         self.timetables.departure_time_of(trip, position)
     }
 
-    fn transfer(&self, transfer: &Self::Transfer) -> (Self::Stop, PositiveDuration) {
-        let stop_data = self.stop_data(&transfer.stop);
-        let result = match transfer.transfer_type {
-            TransferType::Forward => stop_data.transfers_to[transfer.idx_in_stop_transfers],
-            TransferType::Backward => stop_data.transfers_from[transfer.idx_in_stop_transfers],
-        };
-        (result.0, result.1)
+    fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
+        let transfer_data = &self.transfers_data[transfer.idx];
+        (
+            transfer_data.from_stop.clone(),
+            transfer_data.to_stop.clone(),
+        )
+    }
+
+    fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
+        let transfer_data = &self.transfers_data[transfer.idx];
+        transfer_data.durations.total_duration.clone()
+    }
+
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
+        let transfer_data = &self.transfers_data[transfer.idx];
+        transfer_data.transit_model_transfer_idx
     }
 
     fn earliest_trip_to_board_at(
@@ -259,35 +275,8 @@ where
         self.timetables.stoptime_idx(position, trip)
     }
 
-    fn transfer_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
-        let stop_data = self.stop_data(&transfer.stop);
-        let result = match transfer.transfer_type {
-            TransferType::Forward => stop_data.transfers_to[transfer.idx_in_stop_transfers],
-            TransferType::Backward => stop_data.transfers_from[transfer.idx_in_stop_transfers],
-        };
-        result.2
-    }
-
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
         self.timetables.day_of(trip)
-    }
-
-    fn transfer_start_end_stop(
-        &self,
-        transfer: &Self::Transfer,
-    ) -> (Self::Stop, Self::Stop, PositiveDuration) {
-        match transfer.transfer_type {
-            TransferType::Forward => {
-                let start_stop_data = self.stop_data(&transfer.stop);
-                let end_stop_data = start_stop_data.transfers_to[transfer.idx_in_stop_transfers];
-                (transfer.stop, end_stop_data.0, end_stop_data.1)
-            }
-            TransferType::Backward => {
-                let start_stop_data = self.stop_data(&transfer.stop);
-                let end_stop_data = start_stop_data.transfers_from[transfer.idx_in_stop_transfers];
-                (end_stop_data.0, transfer.stop, end_stop_data.1)
-            }
-        }
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
@@ -307,14 +296,14 @@ where
         self.missions_of(stop)
     }
 
-    type OutgoingTransfersAtStop = iters::ForwardTransfersOfStop;
+    type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
-        self.transfers_forward_of(from_stop)
+        self.outgoing_transfers_at(from_stop)
     }
 
-    type IncomingTransfersAtStop = iters::BackwardTransfersOfStop;
+    type IncomingTransfersAtStop = iters::IncomingTransfersAtStop<'a>;
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
-        self.transfers_backward_of(stop)
+        self.incoming_transfers_at(stop)
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;

@@ -134,18 +134,6 @@ pub trait Request: RequestTypes {
         criteria: &Self::Criteria,
     ) -> Self::Criteria;
 
-    /// Performs `transfer` when being at `from_stop` with `criteria`
-    /// and returns the arrival `Stop` along with the `Criteria`
-    /// obtained after performing the transfer.
-    ///
-    /// Panics if `transfer` cannot be performed from `from_stop`.
-    fn transfer(
-        &self,
-        from_stop: &Self::Stop,
-        transfer: &Self::Transfer,
-        criteria: &Self::Criteria,
-    ) -> (Self::Stop, Self::Criteria);
-
     /// Returns the `Stop` at which this departure occurs
     /// along with the initial `Criteria`
     fn depart(&self, departure: &Self::Departure) -> (Self::Stop, Self::Criteria);
@@ -216,17 +204,26 @@ pub trait RequestIters<'a>: RequestTypes {
     /// Iterator for the `Mission`s that can be boarded at a `stop`
     /// along with the `Position` of `stop` on each `Mission`
     type MissionsAtStop: Iterator<Item = (Self::Mission, Self::Position)>;
+
     /// Returns all the `Mission`s that can be boarded at `stop`.
     ///
     /// Should not return twice the same `Mission`.
     fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
 
     /// Iterator for all `Transfer`s that can be taken at a `Stop`
-    type TransfersAtStop: Iterator<Item = Self::Transfer>;
-    /// Returns all `Transfer`s that can be taken at `from_stop`
+    type TransfersAtStop: Iterator<Item = (Self::Stop, Self::Criteria, Self::Transfer)>;
+
+    /// Provides an iterator over all `transfer`s that can be performed
+    /// when being at `from_stop` with `criteria`.
+    /// The iterator returns the arrival `Stop`, the `Criteria`
+    /// obtained after performing the transfer, and the `transfer` id.
     ///
     /// Should not return twice the same `Transfer`.
-    fn transfers_at(&'a self, from_stop: &Self::Stop) -> Self::TransfersAtStop;
+    fn transfers_at(
+        &'a self,
+        from_stop: &Self::Stop,
+        criteria: &Self::Criteria,
+    ) -> Self::TransfersAtStop;
 
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;

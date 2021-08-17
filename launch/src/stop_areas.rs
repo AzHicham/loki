@@ -40,7 +40,7 @@ use crate::config::RequestParams;
 
 pub fn make_query_stop_areas(
     model: &transit_model::Model,
-    departure_datetime: &NaiveDateTime,
+    datetime: &NaiveDateTime,
     from_stop_area: &str,
     to_stop_area: &str,
     request_params: &RequestParams,
@@ -51,7 +51,7 @@ pub fn make_query_stop_areas(
         stops_of_stop_area(model, to_stop_area, PositiveDuration::zero())?;
 
     let request_input = RequestInput {
-        datetime: *departure_datetime,
+        datetime: *datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
         leg_arrival_penalty: request_params.leg_arrival_penalty,

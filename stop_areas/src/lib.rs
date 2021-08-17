@@ -81,7 +81,7 @@ pub struct ConfigFile {
     #[structopt(parse(from_os_str))]
     file: std::path::PathBuf,
 }
-#[derive(Serialize, Deserialize, StructOpt)]
+#[derive(Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
 pub struct Config {
     #[serde(flatten)]
@@ -92,11 +92,13 @@ pub struct Config {
     #[structopt(flatten)]
     pub request_params: config::RequestParams,
 
-    /// Departure datetime of the query, formatted like 20190628T163215
+    /// Datetime of the query , formatted like 20190628T163215
+    /// This datetime will be interpreted as a departure time or arrival time,
+    /// depending on the value of the datetime_represent parameter.
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
     #[structopt(long)]
-    pub departure_datetime: Option<String>,
+    pub datetime: Option<String>,
 
     /// "departure_datetime" can represent
     /// a DepartureAfter datetime
@@ -187,7 +189,7 @@ where
 {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let departure_datetime = match &config.departure_datetime {
+    let datetime = match &config.datetime {
         Some(string_datetime) => launch::datetime::parse_datetime(&string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
@@ -204,7 +206,7 @@ where
 
     let request_input = launch::stop_areas::make_query_stop_areas(
         model,
-        &departure_datetime,
+        &datetime,
         start_stop_area_uri,
         end_stop_area_uri,
         &config.request_params,

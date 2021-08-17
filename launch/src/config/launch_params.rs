@@ -40,7 +40,7 @@ use structopt::StructOpt;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, StructOpt)]
+#[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
 pub struct LaunchParams {
     /// directory containing ntfs/gtfs files to load

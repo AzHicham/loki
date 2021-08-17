@@ -36,6 +36,7 @@
 
 use failure::Error;
 
+use launch::datetime::DateTimeRepresent;
 use loki_stop_areas::{launch, Config};
 
 // The data consists of  a single line from `massy` to `paris`
@@ -49,38 +50,68 @@ use loki_stop_areas::{launch, Config};
 
 #[test]
 fn test_loads_matin() -> Result<(), Error> {
-    // Here we make a request from `massy` to `paris` at 08:00:00
-    // We use the loads as criteria.
-    // We should obtain two journeys :
+    // Here we make a request from `massy` to `paris` with 08:00:00
+    //   as departure datetime.
+    // When loads are used as a criteria, we should obtain two journeys :
     //  - one with `matin` as it arrives the earliest in `paris`
     //  - one with `midi` as it has a lighter load than `matin`
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
-
+    // Without loads in the criteria, only the `matin` journey should appear
     let config: Config = serde_json::from_str(
         r#" {
             "input_data_path" : "tests/one_line",
             "input_data_type" : "ntfs",
             "loads_data_path" : "tests/one_line/loads.csv",
             "data_implem" : "periodic",
-            "departure_datetime" : "20210101T080000",
+            "datetime" : "20210101T080000",
+            "datetime_represents" : "departure",
             "comparator_type" : "loads",
             "start" : "stop_area:massy",
             "end" : "stop_area:paris",
             "too_late_threshold" : "24:00:00"
           } "#,
     )?;
+    {
+        let (model, mut responses) = launch(config.clone())?;
 
-    let (model, mut responses) = launch(config)?;
+        if cfg!(feature = "vehicle_loads") {
+            assert!(responses.len() == 2);
+            responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
+            assert!(responses[0].first_vj_uri(&model) == "matin");
+            assert!(responses[1].first_vj_uri(&model) == "midi");
+        } else {
+            assert!(responses.len() == 1);
+            assert!(responses[0].first_vj_uri(&model) == "matin");
+        }
+    }
 
-    if cfg!(feature = "vehicle_loads") {
-        assert!(responses.len() == 2);
-        responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-        assert!(responses[0].first_vj_uri(&model) == "matin");
-        assert!(responses[1].first_vj_uri(&model) == "midi");
-    } else {
-        assert!(responses.len() == 1);
-        assert!(responses[0].first_vj_uri(&model) == "matin");
+    // Now we make a request from `massy` to `paris` with 20:00:00
+    //   as the *ARRIVAL* datetime.
+    // When loads are used as a criteria, we should obtain two journeys :
+    //  - one with `soir` as it *departs* the latest from `massy`
+    //  - one with `midi` as it has a lighter load than `soir`
+    // The `matin` trip departs earlier and has a high load, and thus should
+    //  not be present.
+    // Without loads in the criteria, only the `soir` journey should appear
+    {
+        let config_backward = Config {
+            datetime: Some(String::from("20210101T200000")),
+            datetime_represent: DateTimeRepresent::Arrival,
+            ..config
+        };
+        let (model, mut responses) = launch(config_backward)?;
+
+        if cfg!(feature = "vehicle_loads") {
+            assert!(responses.len() == 2);
+            responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
+            assert!(responses[0].first_vj_uri(&model) == "midi");
+            assert!(responses[1].first_vj_uri(&model) == "soir");
+        } else {
+            dbg!(responses.len());
+            assert!(responses.len() == 1);
+            assert!(responses[0].first_vj_uri(&model) == "soir");
+        }
     }
 
     Ok(())
@@ -100,7 +131,8 @@ fn test_loads_midi() -> Result<(), Error> {
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
         "data_implem": "periodic",
-        "departure_datetime": "20210101T100000",
+        "datetime": "20210101T100000",
+        "datetime_represents" : "departure",
         "comparator_type": "loads",
         "start" : "stop_area:massy",
         "end" : "stop_area:paris",
@@ -129,7 +161,8 @@ fn test_without_loads_matin() -> Result<(), Error> {
         "input_data_type": "ntfs",
         "loads_data_path": "tests/one_line/loads.csv",
         "data_implem": "periodic",
-        "departure_datetime": "20210101T080000",
+        "datetime": "20210101T080000",
+        "datetime_represents" : "departure",
         "comparator_type": "basic",
         "start" : "stop_area:massy",
         "end" : "stop_area:paris",
