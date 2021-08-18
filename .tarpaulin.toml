@@ -1,0 +1,10 @@
+[feature_no_vehicle_loads]
+features = ""
+release = false
+
+[feature_vehicle_loads]
+features = "vehicle_loads"
+release = false
+
+[report]
+out = ["Xml"]
