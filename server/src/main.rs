@@ -231,9 +231,10 @@ where
                 comparator_type,
             );
             let result = respond(solve_result, model, &mut response_bytes, socket);
-            result
-                .err()
-                .map(|err| error!("Error while sending zmq response : {}", err));
+
+            if let Some(err) = result.err() {
+                error!("Error while sending zmq response : {}", err);
+            }
         }
 
         if items[1].is_readable() {
@@ -249,9 +250,9 @@ where
                 comparator_type,
             );
             let result = respond(solve_result, model, &mut response_bytes, socket);
-            result
-                .err()
-                .map(|err| error!("Error while sending zmq response : {}", err));
+            if let Some(err) = result.err() {
+                error!("Error while sending zmq response : {}", err);
+            }
         }
     }
 }

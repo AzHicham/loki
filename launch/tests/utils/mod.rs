@@ -44,8 +44,11 @@ use launch::datetime::DateTimeRepresent;
 use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
+use loki::chrono::TimeZone;
+use loki::chrono_tz;
+use loki::log::debug;
 use loki::transit_model::Model;
-use loki::{DataWithIters, NaiveDateTime};
+use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
 
@@ -68,7 +71,9 @@ pub struct Config {
 
     pub comparator_type: config::ComparatorType,
 
-    default_transfer_duration: PositiveDuration,
+    pub data_implem: config::DataImplem,
+
+    pub default_transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
     pub start: String,
@@ -79,11 +84,24 @@ pub struct Config {
 
 impl Config {
     pub fn new(datetime: impl AsDateTime, start: &str, end: &str) -> Self {
+        Self::new_timezoned(datetime, &model_builder::DEFAULT_TIMEZONE, start, end)
+    }
+
+    pub fn new_timezoned(
+        datetime: impl AsDateTime,
+        timezone: &chrono_tz::Tz,
+        start: &str,
+        end: &str,
+    ) -> Self {
+        let naive_datetime = datetime.as_datetime();
+        let timezoned_datetime = timezone.from_local_datetime(&naive_datetime).unwrap();
+        let utc_datetime = timezoned_datetime.naive_utc();
         Config {
             request_params: Default::default(),
-            datetime: datetime.as_datetime(),
+            datetime: utc_datetime,
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
+            data_implem: Default::default(),
             default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
@@ -116,7 +134,20 @@ fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
     Ok(request_input)
 }
 
-pub fn build_and_solve<Data>(
+pub fn build_and_solve(
+    model: &Model,
+    loads_data: &LoadsData,
+    config: &Config,
+) -> Result<Vec<response::Response>, Error> {
+    match config.data_implem {
+        config::DataImplem::Periodic => {
+            build_and_solve_inner::<PeriodicData>(model, loads_data, config)
+        }
+        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, loads_data, config),
+    }
+}
+
+fn build_and_solve_inner<Data>(
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
@@ -138,6 +169,9 @@ where
         &config.comparator_type,
         &config.datetime_represent,
     )?;
+    for response in responses.iter() {
+        debug!("{}", response.print(model)?);
+    }
     Ok(responses)
 }
 

@@ -37,7 +37,6 @@
 mod utils;
 use failure::Error;
 use launch::datetime::DateTimeRepresent;
-use loki::PeriodicData;
 use utils::model_builder::AsDateTime;
 use utils::model_builder::ModelBuilder;
 use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
@@ -56,9 +55,9 @@ fn test_simple_routing() -> Result<(), Error> {
         })
         .build();
 
-    let config = Config::new("2020-01-01T08:59:00", "A", "B");
+    let config = Config::new("2020-01-01T09:59:00", "A", "B");
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 1);
     assert_eq!(responses.len(), 1);
@@ -75,9 +74,9 @@ fn test_simple_routing() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:00".as_datetime()
+        "2020-01-01T10:00:00".as_datetime()
     );
-    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:05:00".as_datetime());
 
     assert_eq!(journey.nb_of_transfers(), 0);
     assert_eq!(journey.total_duration(), 360);
@@ -105,9 +104,9 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let config = Config::new("2020-01-01T08:59:00", "A", "G");
+    let config = Config::new("2020-01-01T09:59:00", "A", "G");
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);
@@ -126,9 +125,9 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:00".as_datetime()
+        "2020-01-01T10:00:00".as_datetime()
     );
-    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:05:00".as_datetime());
 
     // Transfer section
     assert_eq!(journey.connections.len(), 1);
@@ -137,14 +136,14 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(start_transfer_sp.name, "B");
     assert_eq!(
         transfer_sec.from_datetime,
-        "2020-01-01T09:05:00".as_datetime()
+        "2020-01-01T10:05:00".as_datetime()
     );
 
     let end_transfer_sp = make_stop_point(&transfer_sec.to_stop_point, &model);
     assert_eq!(end_transfer_sp.name, "F");
     assert_eq!(
         transfer_sec.to_datetime,
-        "2020-01-01T09:07:00".as_datetime()
+        "2020-01-01T10:07:00".as_datetime()
     );
 
     // Waiting section
@@ -153,9 +152,9 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(sp_waiting_section.name, "F");
     assert_eq!(
         waiting_sec.from_datetime,
-        "2020-01-01T09:07:00".as_datetime()
+        "2020-01-01T10:07:00".as_datetime()
     );
-    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:00".as_datetime());
+    assert_eq!(waiting_sec.to_datetime, "2020-01-01T10:20:00".as_datetime());
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
@@ -164,9 +163,9 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     assert_eq!(to_sp.name, "G");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:20:00".as_datetime()
+        "2020-01-01T10:20:00".as_datetime()
     );
-    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:30:00".as_datetime());
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:30:00".as_datetime());
 
     Ok(())
 }
@@ -194,7 +193,7 @@ fn test_routing_backward() -> Result<(), Error> {
     let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
     config.datetime_represent = DateTimeRepresent::Arrival;
 
-    let responses = build_and_solve::<PeriodicData>(&model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);
@@ -213,9 +212,9 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(to_sp.name, "B");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:00:00".as_datetime()
+        "2020-01-01T10:00:00".as_datetime()
     );
-    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:05:00".as_datetime());
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:05:00".as_datetime());
 
     // Transfer section
     assert_eq!(journey.connections.len(), 1);
@@ -224,14 +223,14 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(start_transfer_sp.name, "B");
     assert_eq!(
         transfer_sec.from_datetime,
-        "2020-01-01T09:05:00".as_datetime()
+        "2020-01-01T10:05:00".as_datetime()
     );
 
     let end_transfer_sp = make_stop_point(&transfer_sec.to_stop_point, &model);
     assert_eq!(end_transfer_sp.name, "F");
     assert_eq!(
         transfer_sec.to_datetime,
-        "2020-01-01T09:07:00".as_datetime()
+        "2020-01-01T10:07:00".as_datetime()
     );
 
     // Waiting section
@@ -240,9 +239,9 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(sp_waiting_section.name, "F");
     assert_eq!(
         waiting_sec.from_datetime,
-        "2020-01-01T09:07:00".as_datetime()
+        "2020-01-01T10:07:00".as_datetime()
     );
-    assert_eq!(waiting_sec.to_datetime, "2020-01-01T09:20:00".as_datetime());
+    assert_eq!(waiting_sec.to_datetime, "2020-01-01T10:20:00".as_datetime());
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
@@ -251,9 +250,9 @@ fn test_routing_backward() -> Result<(), Error> {
     assert_eq!(to_sp.name, "G");
     assert_eq!(
         vehicle_sec.from_datetime,
-        "2020-01-01T09:20:00".as_datetime()
+        "2020-01-01T10:20:00".as_datetime()
     );
-    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T09:30:00".as_datetime());
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:30:00".as_datetime());
 
     Ok(())
 }

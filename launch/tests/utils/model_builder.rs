@@ -32,15 +32,22 @@
 //! # }
 //! ```
 
+use loki::chrono_tz::{self};
 use loki::transit_model::model::Collections;
 use loki::transit_model::objects::{
-    Calendar, Date, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
+    Calendar, Date, Network, Route, StopPoint, StopTime, Time, Transfer, ValidityPeriod,
+    VehicleJourney,
 };
 use loki::transit_model::Model;
 use loki::typed_index_collection::Idx;
 use loki::NaiveDateTime;
 
 const DEFAULT_CALENDAR_ID: &str = "default_service";
+const DEFAULT_ROUTE_ID: &str = "default_route";
+const DEFAULT_LINE_ID: &str = "default_line";
+const DEFAULT_NETWORK_ID: &str = "default_network";
+
+pub const DEFAULT_TIMEZONE: chrono_tz::Tz = chrono_tz::UTC;
 
 /// Builder used to easily create a `Model`
 /// Note: if not explicitly set all the vehicule journeys
@@ -57,6 +64,16 @@ pub struct ModelBuilder {
 pub struct VehicleJourneyBuilder<'a> {
     model: &'a mut ModelBuilder,
     vj_idx: Idx<VehicleJourney>,
+    info: VehicleJourneyInfo,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum VehicleJourneyInfo {
+    Route(String),
+    Line(String),
+    Network(String),
+    Timezone(chrono_tz::Tz),
+    None,
 }
 
 impl Default for ModelBuilder {
@@ -113,6 +130,8 @@ impl<'a> ModelBuilder {
     {
         let new_vj = VehicleJourney {
             id: name.into(),
+            service_id: DEFAULT_CALENDAR_ID.to_string(),
+            route_id: DEFAULT_ROUTE_ID.to_string(),
             ..Default::default()
         };
         let vj_idx = self
@@ -132,6 +151,7 @@ impl<'a> ModelBuilder {
         let vj_builder = VehicleJourneyBuilder {
             model: &mut self,
             vj_idx,
+            info: VehicleJourneyInfo::None,
         };
 
         vj_initer(vj_builder);
@@ -447,14 +467,45 @@ impl<'a> VehicleJourneyBuilder<'a> {
     ///        .build();
     /// # }
     /// ```
-    pub fn route(self, id: &str) -> Self {
+    pub fn route(mut self, id: &str) -> Self {
+        assert!(
+            self.info == VehicleJourneyInfo::None,
+            "You cannot specify two different info for a vehicle journey"
+        );
+        self.info = VehicleJourneyInfo::Route(id.to_string());
+
+        self
+    }
+
+    pub fn line(mut self, id: &str) -> Self {
+        assert!(
+            self.info == VehicleJourneyInfo::None,
+            "You cannot specify two different info for a vehicle journey"
+        );
+        self.info = VehicleJourneyInfo::Line(id.to_string());
+
+        self
+    }
+
+    pub fn network(mut self, id: &str) -> Self {
         {
-            let vj = &mut self
-                .model
-                .collections
-                .vehicle_journeys
-                .index_mut(self.vj_idx);
-            vj.route_id = id.to_owned();
+            assert!(
+                self.info == VehicleJourneyInfo::None,
+                "You cannot specify two different info for a vehicle journey"
+            );
+            self.info = VehicleJourneyInfo::Network(id.to_string());
+        }
+
+        self
+    }
+
+    pub fn timezone(mut self, timezone: &chrono_tz::Tz) -> Self {
+        {
+            assert!(
+                self.info == VehicleJourneyInfo::None,
+                "You cannot specify two different info for a vehicle journey"
+            );
+            self.info = VehicleJourneyInfo::Timezone(timezone.clone());
         }
 
         self
@@ -503,9 +554,10 @@ impl<'a> VehicleJourneyBuilder<'a> {
 
 impl<'a> Drop for VehicleJourneyBuilder<'a> {
     fn drop(&mut self) {
+        use std::ops::DerefMut;
         let collections = &mut self.model.collections;
         // add the missing objects to the model (routes, lines, ...)
-        let new_vj = &collections.vehicle_journeys[self.vj_idx];
+        let mut new_vj = collections.vehicle_journeys.index_mut(self.vj_idx);
         let dataset = collections.datasets.get_or_create(&new_vj.dataset_id);
         collections
             .contributors
@@ -518,11 +570,46 @@ impl<'a> Drop for VehicleJourneyBuilder<'a> {
             .physical_modes
             .get_or_create(&new_vj.physical_mode_id);
 
-        let route = collections.routes.get_or_create(&new_vj.route_id);
-        let line = collections.lines.get_or_create(&route.line_id);
+        let route_id = match &self.info {
+            VehicleJourneyInfo::Route(id) => id.clone(),
+            VehicleJourneyInfo::Line(_)
+            | VehicleJourneyInfo::Network(_)
+            | VehicleJourneyInfo::Timezone(_) => format!("route_{}", new_vj.id),
+            _ => DEFAULT_ROUTE_ID.to_string(),
+        };
+
+        new_vj.deref_mut().route_id = route_id;
+
+        let mut route = collections.routes.get_or_create(&new_vj.route_id);
+        let line_id = match &self.info {
+            VehicleJourneyInfo::Line(id) => id.clone(),
+            VehicleJourneyInfo::Network(_) | VehicleJourneyInfo::Timezone(_) => {
+                format!("line_{}", new_vj.id)
+            }
+            _ => DEFAULT_LINE_ID.to_string(),
+        };
+        route.deref_mut().line_id = line_id.clone();
+        let mut line = collections.lines.get_or_create(&line_id);
         collections
             .commercial_modes
             .get_or_create(&line.commercial_mode_id);
-        collections.networks.get_or_create(&line.network_id);
+
+        let network_id = match &self.info {
+            VehicleJourneyInfo::Network(id) => id.clone(),
+            VehicleJourneyInfo::Timezone(_) => format!("network_{}", new_vj.id),
+            _ => DEFAULT_NETWORK_ID.to_string(),
+        };
+        line.deref_mut().network_id = network_id.clone();
+
+        let timezone = match &self.info {
+            VehicleJourneyInfo::Timezone(timezone) => Some(timezone.clone()),
+            _ => Some(DEFAULT_TIMEZONE),
+        };
+        collections.networks.get_or_create_with(&network_id, || {
+            use loki::typed_index_collection::WithId;
+            let mut network = Network::with_id(&network_id);
+            network.timezone = timezone;
+            network
+        });
     }
 }

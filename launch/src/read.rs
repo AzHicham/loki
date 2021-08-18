@@ -67,7 +67,6 @@ where
 
             let model = transit_model::gtfs::Reader::new(configuration)
                 .parse(&launch_params.input_data_path)?;
-
             transit_model::transfers::generates_transfers(
                 model,
                 max_distance,

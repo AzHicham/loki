@@ -35,9 +35,13 @@
 // www.navitia.io
 
 use failure::Error;
+use launch::config::ComparatorType;
+use loki::transit_model::Model;
+use loki::LoadsData;
+use utils::model_builder::ModelBuilder;
 
-use launch::datetime::DateTimeRepresent;
-use loki_stop_areas::{launch, Config};
+use crate::utils::{build_and_solve, Config};
+mod utils;
 
 // The data consists of  a single line from `massy` to `paris`
 // with three trips. The first and last trip area heavily loaded
@@ -47,6 +51,24 @@ use loki_stop_areas::{launch, Config};
 // leave `massy` at      | 08:00:00  | 12:00:00 | 18:00:00
 // arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
 // load                  |  80%      |  20%     | 80%
+fn create_model() -> (Model, LoadsData) {
+    let model = ModelBuilder::new("2021-01-01", "2021-01-02")
+        .vj("matin", |vj_builder| {
+            vj_builder.st("massy", "08:00:00").st("paris", "09:05:00");
+        })
+        .vj("midi", |vj_builder| {
+            vj_builder.st("massy", "12:00:00").st("paris", "13:05:00");
+        })
+        .vj("soir", |vj_builder| {
+            vj_builder.st("massy", "18:00:00").st("paris", "19:05:00");
+        })
+        .build();
+
+    let filepath = "tests/fixtures/loads_test/loads.csv";
+    let loads_data = loki::loads_data::LoadsData::new(filepath, &model).unwrap();
+
+    (model, loads_data)
+}
 
 #[test]
 fn test_loads_matin() -> Result<(), Error> {
@@ -57,61 +79,27 @@ fn test_loads_matin() -> Result<(), Error> {
     //  - one with `midi` as it has a lighter load than `matin`
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
-    // Without loads in the criteria, only the `matin` journey should appear
-    let config: Config = serde_json::from_str(
-        r#" {
-            "input_data_path" : "tests/one_line",
-            "input_data_type" : "ntfs",
-            "loads_data_path" : "tests/one_line/loads.csv",
-            "data_implem" : "periodic",
-            "datetime" : "20210101T080000",
-            "datetime_represents" : "departure",
-            "comparator_type" : "loads",
-            "start" : "stop_area:massy",
-            "end" : "stop_area:paris",
-            "too_late_threshold" : "24:00:00"
-          } "#,
-    )?;
-    {
-        let (model, mut responses) = launch(config.clone())?;
 
-        if cfg!(feature = "vehicle_loads") {
-            assert!(responses.len() == 2);
-            responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-            assert!(responses[0].first_vj_uri(&model) == "matin");
-            assert!(responses[1].first_vj_uri(&model) == "midi");
-        } else {
-            assert!(responses.len() == 1);
-            assert!(responses[0].first_vj_uri(&model) == "matin");
-        }
-    }
+    utils::init_logger();
 
-    // Now we make a request from `massy` to `paris` with 20:00:00
-    //   as the *ARRIVAL* datetime.
-    // When loads are used as a criteria, we should obtain two journeys :
-    //  - one with `soir` as it *departs* the latest from `massy`
-    //  - one with `midi` as it has a lighter load than `soir`
-    // The `matin` trip departs earlier and has a high load, and thus should
-    //  not be present.
-    // Without loads in the criteria, only the `soir` journey should appear
-    {
-        let config_backward = Config {
-            datetime: Some(String::from("20210101T200000")),
-            datetime_represent: DateTimeRepresent::Arrival,
-            ..config
-        };
-        let (model, mut responses) = launch(config_backward)?;
+    let (model, loads_data) = create_model();
 
-        if cfg!(feature = "vehicle_loads") {
-            assert!(responses.len() == 2);
-            responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-            assert!(responses[0].first_vj_uri(&model) == "midi");
-            assert!(responses[1].first_vj_uri(&model) == "soir");
-        } else {
-            dbg!(responses.len());
-            assert!(responses.len() == 1);
-            assert!(responses[0].first_vj_uri(&model) == "soir");
-        }
+    let config = Config::new("2021-01-01T08:00:00", "massy", "paris");
+    let config = Config {
+        comparator_type: ComparatorType::Loads,
+        ..config
+    };
+
+    let mut responses = build_and_solve(&model, &loads_data, &config).unwrap();
+
+    if cfg!(feature = "vehicle_loads") {
+        assert!(responses.len() == 2);
+        responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
+        assert!(responses[0].first_vj_uri(&model) == "matin");
+        assert!(responses[1].first_vj_uri(&model) == "midi");
+    } else {
+        assert!(responses.len() == 1);
+        assert!(responses[0].first_vj_uri(&model) == "matin");
     }
 
     Ok(())
@@ -124,23 +112,17 @@ fn test_loads_midi() -> Result<(), Error> {
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
+    utils::init_logger();
 
-    let config: Config = serde_json::from_str(
-        r#" {
-        "input_data_path": "tests/one_line",
-        "input_data_type": "ntfs",
-        "loads_data_path": "tests/one_line/loads.csv",
-        "data_implem": "periodic",
-        "datetime": "20210101T100000",
-        "datetime_represents" : "departure",
-        "comparator_type": "loads",
-        "start" : "stop_area:massy",
-        "end" : "stop_area:paris",
-        "too_late_threshold" : "24:00:00"
-      } "#,
-    )?;
+    let (model, loads_data) = create_model();
 
-    let (model, mut responses) = launch(config)?;
+    let config = Config::new("2021-01-01T10:00:00", "massy", "paris");
+    let config = Config {
+        comparator_type: ComparatorType::Loads,
+        ..config
+    };
+
+    let mut responses = build_and_solve(&model, &loads_data, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
@@ -155,22 +137,17 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
-    let config: Config = serde_json::from_str(
-        r#" {
-        "input_data_path": "tests/one_line",
-        "input_data_type": "ntfs",
-        "loads_data_path": "tests/one_line/loads.csv",
-        "data_implem": "periodic",
-        "datetime": "20210101T080000",
-        "datetime_represents" : "departure",
-        "comparator_type": "basic",
-        "start" : "stop_area:massy",
-        "end" : "stop_area:paris",
-        "too_late_threshold" : "24:00:00"
-      } "#,
-    )?;
+    utils::init_logger();
 
-    let (model, mut responses) = launch(config)?;
+    let (model, loads_data) = create_model();
+
+    let config = Config::new("2021-01-01T08:00:00", "massy", "paris");
+    let config = Config {
+        comparator_type: ComparatorType::Basic,
+        ..config
+    };
+
+    let mut responses = build_and_solve(&model, &loads_data, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
