@@ -99,13 +99,13 @@ impl TimetablesTrait for DailyTimetables {
         self.timetables.vehicle_data(trip).vehicle_journey_idx
     }
 
+    fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
+        self.timetables.stoptime_idx(position)
+    }
+
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate {
         let day = self.timetables.vehicle_data(trip).day;
         self.calendar().to_naive_date(&day)
-    }
-
-    fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
-        self.timetables.stoptime_idx(position)
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {

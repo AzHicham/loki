@@ -116,22 +116,6 @@ impl<Timetables: TimetablesTrait> data_interface::Data for TransitData<Timetable
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
-        self.stop_point_idx_to_stop.get(stop_point_idx).copied()
-    }
-
-    fn new(
-        model: &transit_model::Model,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
-    ) -> Self {
-        Self::_new(model, loads_data, default_transfer_duration)
-    }
-
-    fn calendar(&self) -> &Calendar {
-        self.timetables.calendar()
-    }
-
     fn is_upstream(
         &self,
         upstream: &Self::Position,
@@ -233,26 +217,6 @@ where
             .latest_trip_that_debark_at(waiting_time, mission, position)
     }
 
-    fn nb_of_trips(&self) -> usize {
-        self.timetables.nb_of_trips()
-    }
-
-    fn nb_of_stops(&self) -> usize {
-        self.stops_data.len()
-    }
-
-    fn stop_id(&self, stop: &Stop) -> usize {
-        stop.idx
-    }
-
-    fn nb_of_missions(&self) -> usize {
-        self.timetables.nb_of_missions()
-    }
-
-    fn mission_id(&self, mission: &Self::Mission) -> usize {
-        self.timetables.mission_id(mission)
-    }
-
     fn to_naive_datetime(
         &self,
         seconds: &crate::time::SecondsSinceDatasetUTCStart,
@@ -278,6 +242,42 @@ where
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
         stop_a.idx == stop_b.idx
+    }
+
+    fn new(
+        model: &transit_model::Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
+    ) -> Self {
+        Self::_new(model, loads_data, default_transfer_duration)
+    }
+
+    fn calendar(&self) -> &Calendar {
+        self.timetables.calendar()
+    }
+
+    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
+        self.stop_point_idx_to_stop.get(stop_point_idx).copied()
+    }
+
+    fn nb_of_trips(&self) -> usize {
+        self.timetables.nb_of_trips()
+    }
+
+    fn nb_of_stops(&self) -> usize {
+        self.stops_data.len()
+    }
+
+    fn stop_id(&self, stop: &Stop) -> usize {
+        stop.idx
+    }
+
+    fn nb_of_missions(&self) -> usize {
+        self.timetables.nb_of_missions()
+    }
+
+    fn mission_id(&self, mission: &Self::Mission) -> usize {
+        self.timetables.mission_id(mission)
     }
 }
 
