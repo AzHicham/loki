@@ -505,7 +505,7 @@ impl<'a> VehicleJourneyBuilder<'a> {
                 self.info == VehicleJourneyInfo::None,
                 "You cannot specify two different info for a vehicle journey"
             );
-            self.info = VehicleJourneyInfo::Timezone(timezone.clone());
+            self.info = VehicleJourneyInfo::Timezone(*timezone);
         }
 
         self
@@ -602,7 +602,7 @@ impl<'a> Drop for VehicleJourneyBuilder<'a> {
         line.deref_mut().network_id = network_id.clone();
 
         let timezone = match &self.info {
-            VehicleJourneyInfo::Timezone(timezone) => Some(timezone.clone()),
+            VehicleJourneyInfo::Timezone(timezone) => Some(*timezone),
             _ => Some(DEFAULT_TIMEZONE),
         };
         collections.networks.get_or_create_with(&network_id, || {
