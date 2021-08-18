@@ -473,14 +473,6 @@ impl<'a> VehicleJourneyBuilder<'a> {
             "You cannot specify two different info for a vehicle journey"
         );
         self.info = VehicleJourneyInfo::Route(id.to_string());
-        {
-            let vj = &mut self
-                .model
-                .collections
-                .vehicle_journeys
-                .index_mut(self.vj_idx);
-            vj.route_id = id.to_owned();
-        }
 
         self
     }
@@ -562,9 +554,10 @@ impl<'a> VehicleJourneyBuilder<'a> {
 
 impl<'a> Drop for VehicleJourneyBuilder<'a> {
     fn drop(&mut self) {
+        use std::ops::DerefMut;
         let collections = &mut self.model.collections;
         // add the missing objects to the model (routes, lines, ...)
-        let new_vj = &collections.vehicle_journeys[self.vj_idx];
+        let mut new_vj = collections.vehicle_journeys.index_mut(self.vj_idx);
         let dataset = collections.datasets.get_or_create(&new_vj.dataset_id);
         collections
             .contributors
@@ -577,20 +570,37 @@ impl<'a> Drop for VehicleJourneyBuilder<'a> {
             .physical_modes
             .get_or_create(&new_vj.physical_mode_id);
 
-        let route = collections.routes.get_or_create(&new_vj.route_id);
+        let route_id = match &self.info {
+            VehicleJourneyInfo::Route(id) => id.clone(),
+            VehicleJourneyInfo::Line(_)
+            | VehicleJourneyInfo::Network(_)
+            | VehicleJourneyInfo::Timezone(_) => format!("route_{}", new_vj.id),
+            _ => DEFAULT_ROUTE_ID.to_string(),
+        };
+
+        new_vj.deref_mut().route_id = route_id;
+
+        let mut route = collections.routes.get_or_create(&new_vj.route_id);
         let line_id = match &self.info {
             VehicleJourneyInfo::Line(id) => id.clone(),
-            _ => route.line_id.clone(),
+            VehicleJourneyInfo::Network(_) | VehicleJourneyInfo::Timezone(_) => {
+                format!("line_{}", new_vj.id)
+            }
+            _ => DEFAULT_LINE_ID.to_string(),
         };
-        let line = collections.lines.get_or_create(&line_id);
+        route.deref_mut().line_id = line_id.clone();
+        let mut line = collections.lines.get_or_create(&line_id);
         collections
             .commercial_modes
             .get_or_create(&line.commercial_mode_id);
 
         let network_id = match &self.info {
             VehicleJourneyInfo::Network(id) => id.clone(),
-            _ => line.network_id.clone(),
+            VehicleJourneyInfo::Timezone(_) => format!("network_{}", new_vj.id),
+            _ => DEFAULT_NETWORK_ID.to_string(),
         };
+        line.deref_mut().network_id = network_id.clone();
+
         let timezone = match &self.info {
             VehicleJourneyInfo::Timezone(timezone) => Some(timezone.clone()),
             _ => Some(DEFAULT_TIMEZONE),
