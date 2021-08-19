@@ -3,7 +3,7 @@ features = ""
 release = false
 
 [feature_vehicle_loads]
-features = "vehicle_loads"
+features = "launch/vehicle_loads"
 release = false
 
 [report]
