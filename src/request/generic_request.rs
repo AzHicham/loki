@@ -47,7 +47,54 @@ use crate::engine::engine_interface::BadRequest;
 use crate::transit_data::data_interface::Data as DataTrait;
 use chrono::NaiveDateTime;
 use log::warn;
+use std::fmt::Debug;
 use transit_model::Model;
+
+#[derive(Clone)]
+pub enum MinimizeArrivalTimeError<Data: DataTrait> {
+    NoBoardTime(Data::Trip, Data::Position),
+    NoDebarkTime(Data::Trip, Data::Position),
+    NoTrip(SecondsSinceDatasetUTCStart, Data::Mission, Data::Position),
+}
+
+impl<Data: DataTrait> Debug for MinimizeArrivalTimeError<Data> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MinimizeArrivalTimeError::NoTrip(_, _, _) => {
+                write!(f, "NoTrip")
+            }
+            MinimizeArrivalTimeError::NoBoardTime(_, _) => {
+                write!(f, "NoBoardTime")
+            }
+            MinimizeArrivalTimeError::NoDebarkTime(_, _) => {
+                write!(f, "NoDebarkTime")
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum MaximizeDepartureTimeError<Data: DataTrait> {
+    NoBoardTime(Data::Trip, Data::Position),
+    NoDebarkTime(Data::Trip, Data::Position),
+    NoTrip(SecondsSinceDatasetUTCStart, Data::Mission, Data::Position),
+}
+
+impl<Data: DataTrait> Debug for MaximizeDepartureTimeError<Data> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MaximizeDepartureTimeError::NoTrip(_, _, _) => {
+                write!(f, "NoTrip")
+            }
+            MaximizeDepartureTimeError::NoBoardTime(_, _) => {
+                write!(f, "NoBoardTime")
+            }
+            MaximizeDepartureTimeError::NoDebarkTime(_, _) => {
+                write!(f, "NoDebarkTime")
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Criteria {

@@ -45,6 +45,7 @@ use crate::transit_data::data_interface::Data as DataTrait;
 
 use std::fmt::Debug;
 
+use crate::request::generic_request::{MaximizeDepartureTimeError, MinimizeArrivalTimeError};
 use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
 pub use typed_index_collection::Idx;
 
@@ -130,6 +131,30 @@ pub enum VehicleLegIdx {
     First,
     Connection(usize),
 }
+
+#[derive(Clone)]
+pub enum JourneyError<Data: DataTrait> {
+    BadJourney(BadJourney<Data>),
+    MinimizeArrivalTimeError(MinimizeArrivalTimeError<Data>),
+    MaximizeDepartureTimeError(MaximizeDepartureTimeError<Data>),
+}
+
+impl<Data: DataTrait> Debug for JourneyError<Data> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JourneyError::BadJourney(err) => {
+                write!(f, "BadJourney : {:?}", err)
+            }
+            JourneyError::MinimizeArrivalTimeError(err) => {
+                write!(f, "MinimizeArrivalTimeError : {:?}", err)
+            }
+            JourneyError::MaximizeDepartureTimeError(err) => {
+                write!(f, "MaximizeDepartureTimeError : {:?}", err)
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum BadJourney<Data: DataTrait> {
     DebarkIsUpstreamBoard(VehicleLeg<Data>, VehicleLegIdx),

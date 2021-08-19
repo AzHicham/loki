@@ -50,6 +50,8 @@ use transit_model::Model;
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
 
 use crate::engine::engine_interface::Journey as PTJourney;
+use crate::request::generic_request::MaximizeDepartureTimeError;
+use crate::request::generic_request::MaximizeDepartureTimeError::{NoBoardTime, NoTrip};
 use crate::response;
 
 pub struct GenericDepartAfterRequest<'data, 'model, Data: DataTrait> {
@@ -113,7 +115,7 @@ where
     pub fn create_response<R>(
         &self,
         pt_journey: &PTJourney<R>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    ) -> Result<response::Journey<Data>, response::JourneyError<Data>>
     where
         R: RequestTypes<
             Departure = Departure,
@@ -156,8 +158,11 @@ where
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
-        )?;
-        let new_journey = self.second_pass(journey)?;
+        )
+        .map_err(|err| response::JourneyError::BadJourney(err))?;
+        let new_journey = self
+            .maximize_departure_time(journey)
+            .map_err(|err| response::JourneyError::MaximizeDepartureTimeError(err))?;
         Ok(new_journey)
     }
 
@@ -356,32 +361,37 @@ where
         self.transit_data.mission_id(mission)
     }
 
-    fn _second_pass(
+    // Given a 'debark_time' + 'vehicle_leg' (ie trip + board and debark positions)
+    // replace the original trip by a later trip (latest possible debark_time)
+    // and return the new associated board_time
+    fn _maximize_leg_board_time(
         &self,
         vehicle_leg: &mut response::VehicleLeg<Data>,
-        time: SecondsSinceDatasetUTCStart,
-    ) -> Result<SecondsSinceDatasetUTCStart, response::BadJourney<Data>> {
+        debark_time: SecondsSinceDatasetUTCStart,
+    ) -> Result<SecondsSinceDatasetUTCStart, MaximizeDepartureTimeError<Data>> {
         let board_position = &vehicle_leg.board_position;
         let debark_position = &vehicle_leg.debark_position;
         let trip = &mut vehicle_leg.trip;
         let mission = &self.transit_data.mission_of(trip);
         let (new_trip, _, _) = self
             .transit_data
-            .latest_trip_that_debark_at(&time, mission, debark_position)
-            .unwrap();
+            .latest_trip_that_debark_at(&debark_time, mission, debark_position)
+            .ok_or_else(|| NoTrip(debark_time, mission.clone(), debark_position.clone()))?;
         let board_time = self
             .transit_data
             .board_time_of(trip, board_position)
-            .unwrap()
+            .ok_or_else(|| NoBoardTime(trip.clone(), board_position.clone()))?
             .0;
         *trip = new_trip;
         Ok(board_time)
     }
 
-    fn second_pass(
+    // Given a 'journey' (ie arrival_time + list of tranfers and vehicle_leg)
+    // return a journey with the same path and the latest possible departure
+    fn maximize_departure_time(
         &self,
         mut journey: response::Journey<Data>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
+    ) -> Result<response::Journey<Data>, MaximizeDepartureTimeError<Data>> {
         let last_vehicle_leg = journey
             .connections
             .last()
@@ -391,11 +401,16 @@ where
         let mut current_time = self
             .transit_data
             .debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
-            .unwrap()
+            .ok_or_else(|| {
+                NoBoardTime(
+                    last_vehicle_leg.trip.clone(),
+                    last_vehicle_leg.board_position.clone(),
+                )
+            })?
             .0;
 
         for (transfer, vehicle) in journey.connections.iter_mut() {
-            let new_board_time = self._second_pass(vehicle, current_time)?;
+            let new_board_time = self._maximize_leg_board_time(vehicle, current_time)?;
             current_time = new_board_time;
 
             let transfer_duration = self.transit_data.transfer_duration(transfer);
@@ -403,7 +418,7 @@ where
         }
 
         let vehicle = &mut journey.first_vehicle;
-        let _ = self._second_pass(vehicle, current_time)?;
+        let _ = self._maximize_leg_board_time(vehicle, current_time)?;
 
         Ok(journey)
     }
