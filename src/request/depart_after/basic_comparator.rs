@@ -127,12 +127,12 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         self.generic.depart(departure)
     }
 
-    fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
-        self.generic.arrival_stop(arrival)
-    }
-
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {
         self.generic.arrive(arrival, criteria)
+    }
+
+    fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
+        self.generic.arrival_stop(arrival)
     }
 
     fn is_upstream(

@@ -148,7 +148,7 @@ where
             (transfer, vehicle_leg)
         });
 
-        response::Journey::new(
+        let journey = response::Journey::new(
             departure_datetime,
             *departure_fallback_duration,
             first_vehicle,
@@ -156,7 +156,9 @@ where
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
-        )
+        )?;
+        let new_journey = self.second_pass(journey)?;
+        Ok(new_journey)
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
@@ -352,6 +354,58 @@ where
 
     fn mission_id(&self, mission: &Data::Mission) -> usize {
         self.transit_data.mission_id(mission)
+    }
+
+    fn _second_pass(
+        &self,
+        vehicle_leg: &mut response::VehicleLeg<Data>,
+        time: SecondsSinceDatasetUTCStart,
+    ) -> Result<SecondsSinceDatasetUTCStart, response::BadJourney<Data>> {
+        let board_position = &vehicle_leg.board_position;
+        let debark_position = &vehicle_leg.debark_position;
+        let trip = &mut vehicle_leg.trip;
+        let mission = &self.transit_data.mission_of(trip);
+        let (new_trip, _, _) = self
+            .transit_data
+            .latest_trip_that_debark_at(&time, mission, debark_position)
+            .unwrap();
+        let board_time = self
+            .transit_data
+            .board_time_of(trip, board_position)
+            .unwrap()
+            .0;
+        *trip = new_trip;
+        Ok(board_time)
+    }
+
+    fn second_pass(
+        &self,
+        mut journey: response::Journey<Data>,
+    ) -> Result<response::Journey<Data>, response::BadJourney<Data>> {
+        let last_vehicle_leg = journey
+            .connections
+            .last()
+            .map(|(_, vehicle_leg)| vehicle_leg)
+            .unwrap_or(&journey.first_vehicle);
+
+        let mut current_time = self
+            .transit_data
+            .debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
+            .unwrap()
+            .0;
+
+        for (transfer, vehicle) in journey.connections.iter_mut() {
+            let new_board_time = self._second_pass(vehicle, current_time)?;
+            current_time = new_board_time;
+
+            let transfer_duration = self.transit_data.transfer_duration(transfer);
+            current_time = current_time - transfer_duration;
+        }
+
+        let vehicle = &mut journey.first_vehicle;
+        let _ = self._second_pass(vehicle, current_time)?;
+
+        Ok(journey)
     }
 }
 

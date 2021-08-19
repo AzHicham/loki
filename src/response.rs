@@ -118,12 +118,12 @@ impl<Data: DataTrait> Clone for VehicleLeg<Data> {
 
 #[derive(Clone)]
 pub struct Journey<Data: DataTrait> {
-    departure_datetime: SecondsSinceDatasetUTCStart,
-    departure_fallback_duration: PositiveDuration,
-    first_vehicle: VehicleLeg<Data>,
-    connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
-    arrival_fallback_duration: PositiveDuration,
-    loads_count: LoadsCount,
+    pub(crate) departure_datetime: SecondsSinceDatasetUTCStart,
+    pub(crate) departure_fallback_duration: PositiveDuration,
+    pub(crate) first_vehicle: VehicleLeg<Data>,
+    pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
+    pub(crate) arrival_fallback_duration: PositiveDuration,
+    pub(crate) loads_count: LoadsCount,
 }
 #[derive(Debug, Clone)]
 pub enum VehicleLegIdx {

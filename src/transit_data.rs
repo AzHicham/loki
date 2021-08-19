@@ -91,7 +91,7 @@ pub struct Transfer {
 }
 
 impl<Timetables: TimetablesTrait> TransitData<Timetables> {
-    pub fn stop_data<'a>(&'a self, stop: &Stop) -> &'a StopData<Timetables> {
+    pub fn stop_data(&self, stop: &Stop) -> &StopData<Timetables> {
         &self.stops_data[stop.idx]
     }
 
