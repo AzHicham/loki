@@ -256,3 +256,108 @@ fn test_routing_backward() -> Result<(), Error> {
 
     Ok(())
 }
+
+#[test]
+fn test_second_pass_forward() -> Result<(), Error> {
+    utils::init_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("toto", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .vj("tutu", |vj_builder| {
+            vj_builder
+                .st("A", "10:05:00")
+                .st("B", "10:10:00")
+                .st("C", "10:20:00");
+        })
+        .vj("tata", |vj_builder| {
+            vj_builder
+                .st("E", "10:05:00")
+                .st("F", "10:20:00")
+                .st("G", "10:30:00");
+        })
+        .add_transfer("B", "F", "00:02:00")
+        .build();
+
+    let config = Config::new("2020-01-01T09:59:00", "A", "G");
+
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+
+    assert_eq!(responses.len(), 1);
+
+    let journey = &responses[0];
+    // global check not specific to this test
+    assert_eq!(journey.nb_of_sections(), 4);
+    assert_eq!(journey.nb_of_transfers(), 1);
+
+    // Thanks to the second pass we take the 'tutu" vehicle and not 'toto'
+    // Second pass = Maximize departure datetime
+    let vehicle_sec = &journey.first_vehicle;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
+    assert_eq!(from_sp.name, "A");
+    assert_eq!(to_sp.name, "B");
+    assert_eq!(
+        vehicle_sec.from_datetime,
+        "2020-01-01T10:05:00".as_datetime()
+    );
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:10:00".as_datetime());
+    Ok(())
+}
+
+#[test]
+fn test_second_pass_backward() -> Result<(), Error> {
+    utils::init_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("toto", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .vj("tata", |vj_builder| {
+            vj_builder
+                .st("E", "10:05:00")
+                .st("F", "10:20:00")
+                .st("G", "10:30:00");
+        })
+        .vj("titi", |vj_builder| {
+            vj_builder
+                .st("E", "10:00:00")
+                .st("F", "10:15:00")
+                .st("G", "10:25:00");
+        })
+        .add_transfer("B", "F", "00:02:00")
+        .build();
+
+    let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
+    config.datetime_represent = DateTimeRepresent::Arrival;
+
+    let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+
+    assert_eq!(model.vehicle_journeys.len(), 3);
+    assert_eq!(responses.len(), 1);
+
+    let journey = &responses[0];
+    // global check not specific to this test
+    assert_eq!(journey.nb_of_sections(), 4);
+    assert_eq!(journey.nb_of_transfers(), 1);
+
+    // Thanks to the second pass we take the 'titi" vehicle and not 'tata'
+    // Second pass = Minimize arrival datetime
+    let vehicle_sec = &journey.connections[0].2;
+    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &model)?;
+    assert_eq!(from_sp.name, "F");
+    assert_eq!(to_sp.name, "G");
+    assert_eq!(
+        vehicle_sec.from_datetime,
+        "2020-01-01T10:15:00".as_datetime()
+    );
+    assert_eq!(vehicle_sec.to_datetime, "2020-01-01T10:25:00".as_datetime());
+
+    Ok(())
+}

@@ -251,7 +251,7 @@ where
     fn create_response<T>(
         &self,
         pt_journey: &PTJourney<T>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    ) -> Result<response::Journey<Data>, response::JourneyError<Data>>
     where
         Self: Sized,
         T: RequestTypes<

@@ -45,6 +45,7 @@ use crate::transit_data::data_interface::Data as DataTrait;
 
 use std::fmt::Debug;
 
+use crate::request::generic_request::{MaximizeDepartureTimeError, MinimizeArrivalTimeError};
 use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
 pub use typed_index_collection::Idx;
 
@@ -118,18 +119,42 @@ impl<Data: DataTrait> Clone for VehicleLeg<Data> {
 
 #[derive(Clone)]
 pub struct Journey<Data: DataTrait> {
-    departure_datetime: SecondsSinceDatasetUTCStart,
-    departure_fallback_duration: PositiveDuration,
-    first_vehicle: VehicleLeg<Data>,
-    connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
-    arrival_fallback_duration: PositiveDuration,
-    loads_count: LoadsCount,
+    pub(crate) departure_datetime: SecondsSinceDatasetUTCStart,
+    pub(crate) departure_fallback_duration: PositiveDuration,
+    pub(crate) first_vehicle: VehicleLeg<Data>,
+    pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
+    pub(crate) arrival_fallback_duration: PositiveDuration,
+    pub(crate) loads_count: LoadsCount,
 }
 #[derive(Debug, Clone)]
 pub enum VehicleLegIdx {
     First,
     Connection(usize),
 }
+
+#[derive(Clone)]
+pub enum JourneyError<Data: DataTrait> {
+    BadJourney(BadJourney<Data>),
+    MinimizeArrivalTimeError(MinimizeArrivalTimeError<Data>),
+    MaximizeDepartureTimeError(MaximizeDepartureTimeError<Data>),
+}
+
+impl<Data: DataTrait> Debug for JourneyError<Data> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JourneyError::BadJourney(err) => {
+                write!(f, "BadJourney : {:?}", err)
+            }
+            JourneyError::MinimizeArrivalTimeError(err) => {
+                write!(f, "MinimizeArrivalTimeError : {:?}", err)
+            }
+            JourneyError::MaximizeDepartureTimeError(err) => {
+                write!(f, "MaximizeDepartureTimeError : {:?}", err)
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum BadJourney<Data: DataTrait> {
     DebarkIsUpstreamBoard(VehicleLeg<Data>, VehicleLegIdx),

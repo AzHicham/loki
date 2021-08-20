@@ -257,7 +257,7 @@ pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {
     fn create_response<T>(
         &self,
         pt_journey: &Journey<T>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    ) -> Result<response::Journey<Data>, response::JourneyError<Data>>
     where
         Self: Sized,
         T: RequestTypes<

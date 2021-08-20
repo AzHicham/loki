@@ -51,18 +51,12 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
         }
     }
 
-    pub fn outgoing_transfers_at<'data>(
-        &'data self,
-        stop: &Stop,
-    ) -> OutgoingTransfersAtStop<'data> {
+    pub fn outgoing_transfers_at(&self, stop: &Stop) -> OutgoingTransfersAtStop {
         let stop_data = self.stop_data(stop);
         stop_data.outgoing_transfers.iter()
     }
 
-    pub fn incoming_transfers_at<'data>(
-        &'data self,
-        stop: &Stop,
-    ) -> IncomingTransfersAtStop<'data> {
+    pub fn incoming_transfers_at(&self, stop: &Stop) -> IncomingTransfersAtStop {
         let stop_data = self.stop_data(stop);
         stop_data.incoming_transfers.iter()
     }

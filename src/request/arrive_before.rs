@@ -108,7 +108,7 @@ where
     pub fn create_arrive_before_response<R>(
         &self,
         pt_journey: &PTJourney<R>,
-    ) -> Result<response::Journey<Data>, response::BadJourney<Data>>
+    ) -> Result<response::Journey<Data>, response::JourneyError<Data>>
     where
         R: RequestTypes<
             Departure = Departure,
@@ -172,7 +172,7 @@ where
         // reverse iterator
         let connections = transfer_iter.zip(time_forward_vehicle_leg_iter);
 
-        response::Journey::new(
+        let journey = response::Journey::new(
             departure_datetime,
             *departure_fallback_duration,
             first_vehicle,
@@ -181,6 +181,11 @@ where
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
         )
+        .map_err(|err| response::JourneyError::BadJourney(err))?;
+        let new_journey = self
+            .minimize_arrival_time(journey)
+            .map_err(|err| response::JourneyError::MinimizeArrivalTimeError(err))?;
+        Ok(new_journey)
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
@@ -378,12 +383,65 @@ where
     fn mission_id(&self, mission: &Data::Mission) -> usize {
         self.transit_data.mission_id(mission)
     }
+
+    // Given a 'board_time' + 'vehicle_leg' (ie trip + board and debark positions)
+    // replace the original trip by an earlier trip (earliest possible board_time)
+    // and return the new associated debark_time
+    fn _minimize_leg_debark_time(
+        &self,
+        vehicle_leg: &mut response::VehicleLeg<Data>,
+        board_time: SecondsSinceDatasetUTCStart,
+    ) -> Result<SecondsSinceDatasetUTCStart, MinimizeArrivalTimeError<Data>> {
+        let board_position = &vehicle_leg.board_position;
+        let debark_position = &vehicle_leg.debark_position;
+        let trip = &mut vehicle_leg.trip;
+        let mission = &self.transit_data.mission_of(trip);
+        let (new_trip, _, _) = self
+            .transit_data
+            .earliest_trip_to_board_at(&board_time, mission, board_position)
+            .ok_or_else(|| NoTrip(board_time, mission.clone(), board_position.clone()))?;
+        let debark_time = self
+            .transit_data
+            .debark_time_of(trip, debark_position)
+            .ok_or_else(|| NoDebarkTime(trip.clone(), board_position.clone()))?
+            .0;
+        *trip = new_trip;
+        Ok(debark_time)
+    }
+
+    // Given a 'journey' (ie daparture_time + list of tranfers and vehicle_leg)
+    // return a journey with the same path and the earliest possible arrival_time
+    fn minimize_arrival_time(
+        &self,
+        mut journey: response::Journey<Data>,
+    ) -> Result<response::Journey<Data>, MinimizeArrivalTimeError<Data>> {
+        let vehicle = &mut journey.first_vehicle;
+        let mut current_time = self
+            .transit_data
+            .board_time_of(&vehicle.trip, &vehicle.board_position)
+            .ok_or_else(|| NoBoardTime(vehicle.trip.clone(), vehicle.board_position.clone()))?
+            .0;
+        let new_debark_time = self._minimize_leg_debark_time(vehicle, current_time)?;
+        current_time = new_debark_time;
+
+        for (transfer, vehicle) in journey.connections.iter_mut() {
+            // increase time by transfer_duration
+            let transfer_duration = self.transit_data.transfer_duration(&transfer);
+            current_time = current_time + transfer_duration;
+
+            let new_debark_time = self._minimize_leg_debark_time(vehicle, current_time)?;
+            current_time = new_debark_time;
+        }
+        Ok(journey)
+    }
 }
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
+use crate::request::generic_request::MinimizeArrivalTimeError;
+use crate::request::generic_request::MinimizeArrivalTimeError::*;
 
 impl<'data, 'model, 'outer, Data> GenericArriveBeforeRequest<'data, 'model, Data>
 where
