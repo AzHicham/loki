@@ -159,10 +159,10 @@ where
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
         )
-        .map_err(|err| response::JourneyError::BadJourney(err))?;
+        .map_err(response::JourneyError::BadJourney)?;
         let new_journey = self
             .maximize_departure_time(journey)
-            .map_err(|err| response::JourneyError::MaximizeDepartureTimeError(err))?;
+            .map_err(response::JourneyError::MaximizeDepartureTimeError)?;
         Ok(new_journey)
     }
 
