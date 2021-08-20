@@ -181,10 +181,10 @@ where
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
         )
-        .map_err(|err| response::JourneyError::BadJourney(err))?;
+        .map_err(response::JourneyError::BadJourney)?;
         let new_journey = self
             .minimize_arrival_time(journey)
-            .map_err(|err| response::JourneyError::MinimizeArrivalTimeError(err))?;
+            .map_err(response::JourneyError::MinimizeArrivalTimeError)?;
         Ok(new_journey)
     }
 
@@ -426,7 +426,7 @@ where
 
         for (transfer, vehicle) in journey.connections.iter_mut() {
             // increase time by transfer_duration
-            let transfer_duration = self.transit_data.transfer_duration(&transfer);
+            let transfer_duration = self.transit_data.transfer_duration(transfer);
             current_time = current_time + transfer_duration;
 
             let new_debark_time = self._minimize_leg_debark_time(vehicle, current_time)?;
