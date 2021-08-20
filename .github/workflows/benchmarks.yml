@@ -1,0 +1,46 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Install libzmq
+      run: |
+        sudo apt update
+        sudo apt install -y libzmq3-dev
+
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+
+    - name: Run cargo bench
+      run: cargo +nightly bench --workspace | tee bench-output.txt
+
+    - name: Store benchmark result
+      uses: rhysd/github-action-benchmark@v1
+      with:
+        name: Loki Benchmark
+        tool: 'cargo'
+        output-file-path: bench-output.txt
+        benchmark-data-dir-path: '.'
+        max-items-in-chart: 30
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        # Show alert with commit comment on detecting possible performance regression
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: true
+        alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
