@@ -35,6 +35,8 @@ jobs:
         name: Loki Benchmark
         tool: 'cargo'
         output-file-path: bench-output.txt
+        benchmark-data-dir-path: '.'
+        max-items-in-chart: 30
         github-token: ${{ secrets.GITHUB_TOKEN }}
         auto-push: true
         # Show alert with commit comment on detecting possible performance regression
