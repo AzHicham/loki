@@ -36,7 +36,7 @@
 
 mod utils;
 use failure::Error;
-use launch::config::{ComparatorType, DataImplem};
+use launch::config::{DataImplem, ComparatorType};
 use launch::datetime::DateTimeRepresent;
 use rstest::rstest;
 use utils::model_builder::AsDateTime;

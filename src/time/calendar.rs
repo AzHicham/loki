@@ -35,10 +35,10 @@
 // www.navitia.io
 
 use super::{
-    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart,
-    MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
+    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    SecondsSinceUTCDayStart, MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
 };
-use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use chrono_tz::Tz as Timezone;
 use std::convert::TryFrom;
 
@@ -212,18 +212,17 @@ impl Calendar {
         max_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
         min_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
-
         // will advance the date until `time_in_timezoned_day` becomes smaller than `min_seconds_since_timezoned_day_start`
         let forward_iter = ForwardDecomposeUtc::new(
             seconds_since_dataset_start,
             min_seconds_since_timezoned_day_start,
-            &self,
+            self,
         );
         // will decrease the date until `time_in_timezoned_day` becomes greater than `max_seconds_since_timezoned_day_start`
         let mut backward_iter = BackwardDecomposeUtc::new(
             seconds_since_dataset_start,
             max_seconds_since_timezoned_day_start,
-            &self,
+            self,
         );
         // we want to skip the first date as it is already provided by `forward_iter`
         backward_iter.next();
@@ -231,13 +230,14 @@ impl Calendar {
         forward_iter.chain(backward_iter)
     }
 
-
-    pub fn compose_utc(&self,
+    pub fn compose_utc(
+        &self,
         day: &DaysSinceDatasetStart,
-        seconds_in_day: &SecondsSinceUTCDayStart) -> SecondsSinceDatasetUTCStart{
-            SecondsSinceDatasetUTCStart{
-                seconds: day.days as u32 * MAX_SECONDS_IN_DAY as u32 + seconds_in_day.seconds as u32
-            }
+        seconds_in_day: &SecondsSinceUTCDayStart,
+    ) -> SecondsSinceDatasetUTCStart {
+        SecondsSinceDatasetUTCStart {
+            seconds: day.days as u32 * MAX_SECONDS_IN_DAY as u32 + seconds_in_day.seconds as u32,
+        }
     }
 
     pub fn compose(
@@ -483,7 +483,6 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
         None
     }
 }
-
 
 pub struct BackwardDecomposeUtc<'calendar> {
     datetime_utc_to_decompose: chrono::DateTime<Utc>,

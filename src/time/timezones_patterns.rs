@@ -34,59 +34,56 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
 use std::collections::HashMap;
 
-use crate::time::{Calendar};
-use super::days_patterns::{DaysPatterns, DaysPattern};
+use super::days_patterns::{DaysPattern, DaysPatterns};
+use crate::time::Calendar;
 
-use chrono::NaiveDate;
 use chrono::FixedOffset;
+use chrono::NaiveDate;
 use chrono::Offset;
 use chrono::TimeZone as TimeZoneTrait;
 use chrono_tz::Tz as TimeZone;
 
 #[derive(Debug)]
 pub struct TimezonesPatterns {
-    timezones_patterns: HashMap<TimeZone, Vec<(FixedOffset, DaysPattern)> >,
-    buffer: HashMap< FixedOffset , Vec<NaiveDate>>,
+    timezones_patterns: HashMap<TimeZone, Vec<(FixedOffset, DaysPattern)>>,
+    buffer: HashMap<FixedOffset, Vec<NaiveDate>>,
 }
 
 impl TimezonesPatterns {
     pub fn new() -> Self {
         Self {
-            timezones_patterns : HashMap::new(),
-            buffer : HashMap::new(),
+            timezones_patterns: HashMap::new(),
+            buffer: HashMap::new(),
         }
     }
 
-    pub fn fetch_or_insert(&mut self,
-        timezone : & TimeZone, 
-        days_patterns : & mut DaysPatterns, 
-        calendar : & Calendar
-    ) -> & [(FixedOffset, DaysPattern)] {
-
+    pub fn fetch_or_insert(
+        &mut self,
+        timezone: &TimeZone,
+        days_patterns: &mut DaysPatterns,
+        calendar: &Calendar,
+    ) -> &[(FixedOffset, DaysPattern)] {
         use std::collections::hash_map::Entry;
-        if let Entry::Vacant(vacant_entry) =  self.timezones_patterns.entry(*timezone){
+        if let Entry::Vacant(vacant_entry) = self.timezones_patterns.entry(*timezone) {
             self.buffer.clear();
 
             for day in calendar.days() {
-                let naive_date : NaiveDate = calendar.to_naive_date(&day);
-                print!("naive_date: {:?} \n", naive_date);
+                let naive_date: NaiveDate = calendar.to_naive_date(&day);
+                println!("naive_date: {:?} ", naive_date);
                 // https://developers.google.com/transit/gtfs/reference#field_types
                 let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0)
-                - chrono::Duration::hours(12);
+                    - chrono::Duration::hours(12);
                 let offset = datetime_timezoned.offset().fix();
-                let dates_for_offset = self.buffer.entry(offset).or_insert_with(|| Vec::new());
+                let dates_for_offset = self.buffer.entry(offset).or_insert_with(Vec::new);
                 dates_for_offset.push(naive_date);
             }
-    
+
             let mut patterns = Vec::with_capacity(self.buffer.len());
             for (offset, dates) in self.buffer.iter() {
                 let days_pattern = days_patterns.get_or_insert(dates.iter(), calendar);
                 patterns.push((*offset, days_pattern));
-    
             }
             vacant_entry.insert(patterns);
         }
@@ -94,4 +91,3 @@ impl TimezonesPatterns {
         self.timezones_patterns.get(timezone).unwrap().as_slice()
     }
 }
-

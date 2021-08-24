@@ -245,7 +245,6 @@ impl SecondsSinceTimezonedDayStart {
     }
 }
 
-
 impl SecondsSinceUTCDayStart {
     pub fn from_seconds_i64(seconds_i64: i64) -> Option<Self> {
         let max_i64 = i64::from(MAX_SECONDS_IN_DAY);

@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::iter::{Enumerate};
+use std::iter::Enumerate;
 
 use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::NaiveDate;
@@ -80,7 +80,7 @@ impl DaysPatterns {
         }
     }
 
-    fn insert(&mut self) -> DaysPattern{
+    fn insert(&mut self) -> DaysPattern {
         let has_days_pattern = self
             .days_patterns
             .iter()
@@ -121,16 +121,20 @@ impl DaysPatterns {
         self.insert()
     }
 
-    pub fn intersection(&mut self, a: &DaysPattern, b: &DaysPattern ) -> DaysPattern {
+    pub fn intersection(&mut self, a: &DaysPattern, b: &DaysPattern) -> DaysPattern {
         let a = &self.days_patterns[a.idx].allowed_dates;
         let b = &self.days_patterns[b.idx].allowed_dates;
-        
 
-        for (day_allowed, day_buffer) in a.iter().zip(b.iter()).map(|(&x, &y)| x && y).zip(self.buffer.iter_mut()){
+        for (day_allowed, day_buffer) in a
+            .iter()
+            .zip(b.iter())
+            .map(|(&x, &y)| x && y)
+            .zip(self.buffer.iter_mut())
+        {
             *day_buffer = day_allowed;
         }
         print!("intersection: {:?}", self.buffer);
-        
+
         self.insert()
     }
 }

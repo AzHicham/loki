@@ -48,7 +48,7 @@ use launch::solver::Solver;
 use loki::log::{debug, error, info, warn};
 use loki::transit_model;
 use loki::RequestInput;
-use loki::{DailyData, PeriodicData, PositiveDuration};
+use loki::{DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration};
 
 use prost::Message;
 use structopt::StructOpt;
@@ -164,6 +164,7 @@ fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
+        config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
     }
 }
 
