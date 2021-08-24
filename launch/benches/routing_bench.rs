@@ -39,13 +39,13 @@
 mod utils;
 
 extern crate test;
-use launch::config::ComparatorType;
+use launch::config::DataImplem;
 use test::Bencher;
 use utils::model_builder::ModelBuilder;
 use utils::{build_and_solve, Config};
 
 #[bench]
-fn routing_loads_bench(bencher: &mut Bencher) {
+fn routing_daily_bench(bencher: &mut Bencher) {
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
             vj_builder
@@ -70,7 +70,7 @@ fn routing_loads_bench(bencher: &mut Bencher) {
 
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
     let config = Config {
-        comparator_type: ComparatorType::Loads,
+        data_implem: DataImplem::Daily,
         ..config
     };
 
@@ -80,7 +80,7 @@ fn routing_loads_bench(bencher: &mut Bencher) {
 }
 
 #[bench]
-fn setup_routing_basic_bench(bencher: &mut Bencher) {
+fn routing_periodic_bench(bencher: &mut Bencher) {
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
             vj_builder
@@ -105,7 +105,7 @@ fn setup_routing_basic_bench(bencher: &mut Bencher) {
 
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
     let config = Config {
-        comparator_type: ComparatorType::Loads,
+        data_implem: DataImplem::Periodic,
         ..config
     };
 
