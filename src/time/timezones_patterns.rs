@@ -50,7 +50,6 @@ use chrono_tz::Tz as TimeZone;
 #[derive(Debug)]
 pub struct TimezonesPatterns {
     timezones_patterns: HashMap<TimeZone, Vec<(FixedOffset, DaysPattern)> >,
-
     buffer: HashMap< FixedOffset , Vec<NaiveDate>>,
 }
 
@@ -62,7 +61,7 @@ impl TimezonesPatterns {
         }
     }
 
-    pub fn get_or_insert(& mut self, 
+    pub fn fetch_or_insert(&mut self,
         timezone : & TimeZone, 
         days_patterns : & mut DaysPatterns, 
         calendar : & Calendar
@@ -74,6 +73,8 @@ impl TimezonesPatterns {
 
             for day in calendar.days() {
                 let naive_date : NaiveDate = calendar.to_naive_date(&day);
+                print!("naive_date: {:?} \n", naive_date);
+                // https://developers.google.com/transit/gtfs/reference#field_types
                 let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0)
                 - chrono::Duration::hours(12);
                 let offset = datetime_timezoned.offset().fix();
@@ -88,13 +89,9 @@ impl TimezonesPatterns {
     
             }
             vacant_entry.insert(patterns);
-            // self.timezones_patterns.entry(*timezone).or_insert(patterns);
-    
-            // self.timezones_patterns.get(timezone).unwrap().as_slice()
         }
         // unwrap is safe since we just added a value for this key above in case of a vacant entry
         self.timezones_patterns.get(timezone).unwrap().as_slice()
-
     }
 }
 

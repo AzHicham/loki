@@ -142,6 +142,7 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 pub fn launch(config: Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
+        config::DataImplem::PeriodicSplitVj => config_launch::
         config::DataImplem::Daily => config_launch::<DailyData>(config),
     }
 }

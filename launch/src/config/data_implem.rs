@@ -40,6 +40,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum DataImplem {
     Periodic,
+    PeriodicSplitVj,
     Daily,
 }
 
@@ -55,6 +56,7 @@ impl std::str::FromStr for DataImplem {
         use DataImplem::*;
         let implem = match s {
             "periodic" => Periodic,
+            "periodic_split_vj" => PeriodicSplitVj,
             "daily" => Daily,
             _ => {
                 return Err(DataImplemConfigError {
@@ -76,6 +78,7 @@ impl std::fmt::Display for DataImplem {
         use DataImplem::*;
         match self {
             Periodic => write!(f, "periodic"),
+            PeriodicSplitVj => write!(f, "periodic_split_vj"),
             Daily => write!(f, "daily"),
         }
     }

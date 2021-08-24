@@ -485,7 +485,7 @@ where
             let stop_id = pt.stop_id(stop);
             let debark_front = &mut self.debark_fronts[stop_id];
             let new_debark_front = &mut self.new_debark_fronts[stop_id];
-            debug_assert!(!new_debark_front.is_empty());
+            //debug_assert!(!new_debark_front.is_empty());
             for (debark, criteria) in new_debark_front.iter() {
                 // we do not need to check, because
                 //  - new_debarked_front is a pareto front

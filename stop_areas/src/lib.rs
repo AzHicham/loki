@@ -39,7 +39,7 @@ use launch::solver::Solver;
 use launch::{
     config,
     datetime::DateTimeRepresent,
-    loki::{DailyData, PeriodicData},
+    loki::{DailyData, PeriodicData, PeriodicSplitVjData},
 };
 
 use loki::log;
@@ -165,6 +165,7 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
+        config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
     }
 }
