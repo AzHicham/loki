@@ -50,6 +50,7 @@ use loki::chrono_tz::{self, Tz as Timezone};
 use failure::{format_err, Error};
 use transit_model::Model;
 
+use launch::loki::transit_model::objects::StopTime;
 use std::convert::TryFrom;
 
 pub fn make_response(
@@ -226,6 +227,7 @@ fn make_public_transport_section(
     let stop_times = &vehicle_journey.stop_times[from_stoptime_idx..=to_stoptime_idx];
     let day = &vehicle_section.day_for_vehicle_journey;
     let timezone = get_timezone(&vehicle_section.vehicle_journey, model).unwrap_or(chrono_tz::UTC);
+    let additional_informations = make_additional_informations(stop_times);
 
     let mut proto = navitia_proto::Section {
         origin: Some(make_stop_point_pt_object(from_stop_point_idx, model)?),
@@ -249,6 +251,7 @@ fn make_public_transport_section(
         begin_date_time: Some(to_u64_timestamp(&vehicle_section.from_datetime)?),
         end_date_time: Some(to_u64_timestamp(&vehicle_section.to_datetime)?),
         id: Some(section_id),
+        additional_informations,
         ..Default::default()
     };
 
@@ -430,6 +433,36 @@ fn make_stop_datetime(
         ..Default::default()
     };
     Ok(proto)
+}
+
+fn make_additional_informations(
+    stop_times: &[StopTime],
+    /*stop_points: &Vec<StopPoint>,*/
+) -> Vec<i32> {
+    let mut result = Vec::new();
+
+    let st_is_empty = stop_times.is_empty();
+    let has_datetime_estimated = !st_is_empty
+        && (stop_times.first().unwrap().datetime_estimated
+            || stop_times.last().unwrap().datetime_estimated);
+    let has_odt = false;
+    let is_zonal = false;
+
+    if has_datetime_estimated {
+        result.push(navitia_proto::SectionAdditionalInformationType::HasDatetimeEstimated as i32);
+    }
+    if is_zonal {
+        result.push(navitia_proto::SectionAdditionalInformationType::OdtWithZone as i32);
+    } else if has_odt && has_datetime_estimated {
+        result.push(navitia_proto::SectionAdditionalInformationType::OdtWithStopPoint as i32);
+    } else if has_odt {
+        result.push(navitia_proto::SectionAdditionalInformationType::OdtWithStopTime as i32);
+    }
+    if result.is_empty() {
+        result.push(navitia_proto::SectionAdditionalInformationType::Regular as i32);
+    }
+
+    result
 }
 
 fn to_utc_timestamp(
