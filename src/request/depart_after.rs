@@ -377,12 +377,12 @@ where
             .transit_data
             .latest_trip_that_debark_at(&debark_time, mission, debark_position)
             .ok_or_else(|| NoTrip(debark_time, mission.clone(), debark_position.clone()))?;
+        *trip = new_trip;
         let board_time = self
             .transit_data
             .board_time_of(trip, board_position)
             .ok_or_else(|| NoBoardTime(trip.clone(), board_position.clone()))?
             .0;
-        *trip = new_trip;
         Ok(board_time)
     }
 
