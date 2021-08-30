@@ -235,8 +235,28 @@ impl Calendar {
         day: &DaysSinceDatasetStart,
         seconds_in_day: &SecondsSinceUTCDayStart,
     ) -> SecondsSinceDatasetUTCStart {
+        debug_assert!(day.days < self.nb_of_days);
+        let date = *self.first_date() + chrono::Duration::days(day.days as i64);
+        // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
+        debug_assert!(self.contains_date(&date));
+
+        let datetime =
+            date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds_in_day.seconds as i64);
+        debug_assert!(self.contains_datetime(&datetime));
+
+        let seconds_i64 = (datetime - self.first_datetime()).num_seconds();
+        debug_assert!(seconds_i64 >= 0);
+        static_assertions::const_assert!(
+            (MAX_DAYS_IN_CALENDAR as i64) * 24 * 60 * 60
+                + (MAX_SECONDS_IN_DAY as i64)
+                + (MAX_TIMEZONE_OFFSET as i64)
+                <= u32::MAX as i64
+        );
+        debug_assert!(seconds_i64 <= u32::MAX as i64);
+
+        let seconds_u32 = seconds_i64 as u32;
         SecondsSinceDatasetUTCStart {
-            seconds: day.days as u32 * MAX_SECONDS_IN_DAY as u32 + seconds_in_day.seconds as u32,
+            seconds: seconds_u32,
         }
     }
 

@@ -53,10 +53,7 @@ pub struct TimezonesPatterns {
 
 impl TimezonesPatterns {
     pub fn new() -> Self {
-        Self {
-            timezones_patterns: HashMap::new(),
-            buffer: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn fetch_or_insert(
@@ -89,5 +86,14 @@ impl TimezonesPatterns {
         }
         // unwrap is safe since we just added a value for this key above in case of a vacant entry
         self.timezones_patterns.get(timezone).unwrap().as_slice()
+    }
+}
+
+impl Default for TimezonesPatterns {
+    fn default() -> Self {
+        Self {
+            timezones_patterns: HashMap::new(),
+            buffer: HashMap::new(),
+        }
     }
 }
