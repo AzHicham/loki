@@ -362,6 +362,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
         let mut result = Vec::new();
 
+        let nb_of_positions = stops.len();
+        let default_loads = vec![Load::default(); cmp::max(nb_of_positions - 1, 0)];
+
         for (offset, tz_days_pattern) in
             self.tz_patterns
                 .fetch_or_insert(timezone, &mut self.days_patterns, &self.calendar)
@@ -375,12 +378,6 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 vehicle_journey_idx,
             };
 
-            let nb_of_positions = stops.clone().len();
-            let default_loads = if nb_of_positions > 0 {
-                vec![Load::default(); nb_of_positions - 1]
-            } else {
-                vec![Load::default(); 0]
-            };
             // let loads = loads_data
             //     .loads(&vehicle_journey_idx, date)
             //     .unwrap_or_else(|| default_loads.as_slice());
@@ -416,6 +413,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
 use super::generic_timetables::VehicleTimesError;
 use crate::timetables::generic_timetables::{Position, Timetable};
+use core::cmp;
 
 fn handle_vehicletimes_error(vehicle_journey: &VehicleJourney, error: &VehicleTimesError) {
     match error {

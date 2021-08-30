@@ -54,6 +54,7 @@ use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes}
 use crate::log::{trace, warn};
 
 use crate::loads_data::Load;
+use core::cmp;
 
 pub type Time = SecondsSinceDatasetUTCStart;
 #[derive(Debug)]
@@ -209,11 +210,7 @@ impl TimetablesTrait for DailyTimetables {
     {
         let mut result = Vec::new();
         let nb_of_positions = stops.len();
-        let default_loads = if nb_of_positions > 0 {
-            vec![Load::default(); nb_of_positions - 1]
-        } else {
-            vec![Load::default(); 0]
-        };
+        let default_loads = vec![Load::default(); cmp::max(nb_of_positions - 1, 0)];
 
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);

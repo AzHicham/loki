@@ -58,6 +58,7 @@ use chrono_tz::Tz as TimeZone;
 use crate::log::warn;
 
 use crate::loads_data::Load;
+use core::cmp;
 
 pub type Time = SecondsSinceTimezonedDayStart;
 #[derive(Debug)]
@@ -378,11 +379,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
-        let default_loads = if nb_of_positions > 0 {
-            vec![Load::default(); nb_of_positions - 1]
-        } else {
-            vec![Load::default(); 0]
-        };
+        let default_loads = vec![Load::default(); cmp::max(nb_of_positions - 1, 0)];
         for date in valid_dates {
             let loads = loads_data
                 .loads(&vehicle_journey_idx, date)
