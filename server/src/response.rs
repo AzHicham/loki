@@ -289,6 +289,7 @@ fn make_stop_point(
             lat: stop_point.coord.lat,
             lon: stop_point.coord.lon,
         }),
+        label: Some(stop_point.name.clone()),
         stop_area: Some(make_stop_area(&stop_point.stop_area_id, model)?),
         codes: stop_point
             .codes
@@ -325,6 +326,7 @@ fn make_stop_area(
             lat: stop_area.coord.lat,
             lon: stop_area.coord.lon,
         }),
+        label: Some(stop_area.name.clone()),
         codes: stop_area
             .codes
             .iter()
