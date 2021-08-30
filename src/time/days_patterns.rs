@@ -133,7 +133,6 @@ impl DaysPatterns {
         {
             *day_buffer = day_allowed;
         }
-        print!("intersection: {:?}", self.buffer);
 
         self.insert()
     }

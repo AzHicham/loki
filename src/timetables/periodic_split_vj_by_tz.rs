@@ -58,7 +58,7 @@ use crate::timetables::{
 use crate::log::warn;
 #[derive(Debug)]
 pub struct PeriodicSplitVjByTzTimetables {
-    timetables: Timetables<SecondsSinceUTCDayStart, (), (), VehicleData>,
+    timetables: Timetables<SecondsSinceUTCDayStart, Load, (), VehicleData>,
     calendar: Calendar,
     days_patterns: DaysPatterns,
     tz_patterns: TimezonesPatterns,
@@ -164,9 +164,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let (time_in_day, _load) = self.timetables.arrival_time(&trip.vehicle, position);
+        let (time_in_day, load) = self.timetables.arrival_time(&trip.vehicle, position);
         let time_utc = self.calendar.compose_utc(&trip.day, time_in_day);
-        (time_utc, Load::default())
+        (time_utc, *load)
     }
 
     fn departure_time_of(
@@ -174,9 +174,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let (time_in_day, _load) = self.timetables.departure_time(&trip.vehicle, position);
+        let (time_in_day, load) = self.timetables.departure_time(&trip.vehicle, position);
         let time_utc = self.calendar.compose_utc(&trip.day, time_in_day);
-        (time_utc, Load::default())
+        (time_utc, *load)
     }
 
     fn debark_time_of(
@@ -185,10 +185,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         let has_timeload_in_day = self.timetables.debark_time(&trip.vehicle, position);
-        has_timeload_in_day.map(|(time_in_day, _load)| {
+        has_timeload_in_day.map(|(time_in_day, load)| {
             let day = &trip.day;
             let time = self.calendar.compose_utc(day, time_in_day);
-            (time, Load::default())
+            (time, *load)
         })
     }
 
@@ -198,10 +198,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         let has_timeload_in_day = self.timetables.board_time(&trip.vehicle, position);
-        has_timeload_in_day.map(|(time_in_day, _load)| {
+        has_timeload_in_day.map(|(time_in_day, load)| {
             let day = &trip.day;
             let time = self.calendar.compose_utc(day, time_in_day);
-            (time, Load::default())
+            (time, *load)
         })
     }
 
@@ -229,6 +229,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             Vehicle,
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
+            Load,
         )> = None;
 
         for (waiting_day, waiting_time_in_day) in decompositions {
@@ -241,28 +242,31 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
                 },
             );
-            if let Some((vehicle, arrival_time_in_day_at_next_stop, _load)) = has_vehicle {
+            if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
                 let arrival_time_at_next_stop = self
                     .calendar
                     .compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
-                if let Some((_, _, best_arrival_time)) =
+
+                if let Some((_, _, best_arrival_time, best_load)) =
                     &best_vehicle_day_and_its_arrival_time_at_next_position
                 {
-                    if arrival_time_at_next_stop < *best_arrival_time {
+                    if arrival_time_at_next_stop < *best_arrival_time
+                        || (arrival_time_at_next_stop == *best_arrival_time && load < best_load)
+                    {
                         best_vehicle_day_and_its_arrival_time_at_next_position =
-                            Some((vehicle, waiting_day, arrival_time_at_next_stop));
+                            Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
                     }
                 } else {
                     best_vehicle_day_and_its_arrival_time_at_next_position =
-                        Some((vehicle, waiting_day, arrival_time_at_next_stop));
+                        Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
                 }
             }
         }
 
         best_vehicle_day_and_its_arrival_time_at_next_position.map(
-            |(vehicle, day, arrival_time_at_next_stop)| {
+            |(vehicle, day, arrival_time_at_next_stop, load)| {
                 let trip = Trip { vehicle, day };
-                (trip, arrival_time_at_next_stop, Load::default())
+                (trip, arrival_time_at_next_stop, load)
             },
         )
     }
@@ -304,28 +308,24 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
                 },
             );
-            if let Some((vehicle, departure_time_in_day_at_previous_stop, _load)) = has_vehicle {
+            if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {
                 let departure_time_at_previous_stop = self
                     .calendar
                     .compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
-                if let Some((_, _, best_departure_time, _best_load)) =
+
+                if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {
-                    if departure_time_at_previous_stop >= *best_departure_time {
-                        best_vehicle_day_and_its_departure_time_at_previous_position = Some((
-                            vehicle,
-                            waiting_day,
-                            departure_time_at_previous_stop,
-                            Load::default(),
-                        ));
+                    if departure_time_at_previous_stop >= *best_departure_time
+                        || (departure_time_at_previous_stop == *best_departure_time
+                            && load < best_load)
+                    {
+                        best_vehicle_day_and_its_departure_time_at_previous_position =
+                            Some((vehicle, waiting_day, departure_time_at_previous_stop, *load));
                     }
                 } else {
-                    best_vehicle_day_and_its_departure_time_at_previous_position = Some((
-                        vehicle,
-                        waiting_day,
-                        departure_time_at_previous_stop,
-                        Load::default(),
-                    ));
+                    best_vehicle_day_and_its_departure_time_at_previous_position =
+                        Some((vehicle, waiting_day, departure_time_at_previous_stop, *load));
                 }
             }
         }
@@ -344,7 +344,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         flows: Flows,
         board_times: Times,
         debark_times: Times,
-        _loads_data: &LoadsData,
+        loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
@@ -362,8 +362,6 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
         let mut result = Vec::new();
 
-        print!("timezone: {:?}", timezone);
-
         for (offset, tz_days_pattern) in
             self.tz_patterns
                 .fetch_or_insert(timezone, &mut self.days_patterns, &self.calendar)
@@ -378,29 +376,25 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             };
 
             let nb_of_positions = stops.clone().len();
-            let loads = if nb_of_positions > 0 {
-                vec![(); nb_of_positions - 1]
+            let default_loads = if nb_of_positions > 0 {
+                vec![Load::default(); nb_of_positions - 1]
             } else {
-                vec![(); 0]
+                vec![Load::default(); 0]
             };
+            // let loads = loads_data
+            //     .loads(&vehicle_journey_idx, date)
+            //     .unwrap_or_else(|| default_loads.as_slice());
+
             let apply_offset = |x: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
                 x.to_utc(offset.utc_minus_local())
             };
-
-            for b_t in board_times.clone() {
-                println!("board time before: {:?} ", b_t);
-            }
-
-            for b_t in board_times.clone().map(apply_offset) {
-                println!("board time after: {:?} ", b_t);
-            }
 
             let insert_error = self.timetables.insert(
                 stops.clone(),
                 flows.clone(),
                 board_times.clone().map(apply_offset),
                 debark_times.clone().map(apply_offset),
-                loads.into_iter(),
+                default_loads.iter().cloned(),
                 (),
                 vehicle_data,
             );
