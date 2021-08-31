@@ -53,6 +53,9 @@ use transit_model::Model;
 use launch::loki::transit_model::objects::StopTime;
 use std::convert::TryFrom;
 
+const N_DEG_TO_RAD: f64 = 0.01745329238;
+const EARTH_RADIUS_IN_METERS: f64 = 6372797.560856;
+
 pub fn make_response(
     request_input: &RequestInput,
     journeys: Vec<loki::Response>,
@@ -64,7 +67,7 @@ pub fn make_response(
             .enumerate()
             .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
-
+        feed_publishers: make_feed_publishers(model),
         ..Default::default()
     };
 
@@ -131,6 +134,8 @@ fn make_journey(
             proto.sections.push(proto_section);
         }
     }
+
+    proto.co2_emission = compute_journey_co2_emission(proto.sections.as_slice());
 
     Ok(proto)
 }
@@ -228,6 +233,13 @@ fn make_public_transport_section(
     let day = &vehicle_section.day_for_vehicle_journey;
     let timezone = get_timezone(&vehicle_section.vehicle_journey, model).unwrap_or(chrono_tz::UTC);
     let additional_informations = make_additional_informations(stop_times);
+    let shape = make_shape_from_stop_points(
+        stop_times.iter().map(|stop_time| stop_time.stop_point_idx),
+        model,
+    );
+    let length_f64 = compute_length_public_transport_section(shape.as_slice());
+    let co2_emission =
+        compute_section_co2_emission(length_f64, &vehicle_section.vehicle_journey, model);
 
     let mut proto = navitia_proto::Section {
         origin: Some(make_stop_point_pt_object(from_stop_point_idx, model)?),
@@ -240,10 +252,9 @@ fn make_public_transport_section(
             .iter()
             .map(|stop_time| make_stop_datetime(stop_time, day, &timezone, model))
             .collect::<Result<Vec<_>, _>>()?,
-        shape: make_shape_from_stop_points(
-            stop_times.iter().map(|stop_time| stop_time.stop_point_idx),
-            model,
-        ),
+        shape,
+        length: Some(length_f64 as i32),
+        co2_emission,
         duration: Some(duration_to_i32(
             &vehicle_section.from_datetime,
             &vehicle_section.to_datetime,
@@ -490,7 +501,56 @@ fn to_utc_timestamp(
     })
 }
 
-fn make_feed_publisher(model: &Model) -> Vec<navitia_proto::FeedPublisher> {
+fn compute_length_public_transport_section(shape: &[navitia_proto::GeographicalCoord]) -> f64 {
+    if shape.len() > 1 {
+        let from_iter = shape.iter();
+        let to_iter = shape.iter().skip(1);
+        let shape_iter = from_iter.zip(to_iter);
+        shape_iter.fold(0.0, |acc, from_to| {
+            acc + distance_coord_to_coord(from_to.0, from_to.1)
+        })
+    } else {
+        0.0
+    }
+}
+
+fn compute_section_co2_emission(
+    length: f64,
+    vehicle_journey_idx: &Idx<VehicleJourney>,
+    model: &Model,
+) -> Option<navitia_proto::Co2Emission> {
+    let vehicle_journey = &model.vehicle_journeys[*vehicle_journey_idx];
+    let physical_mode_str = &vehicle_journey.physical_mode_id;
+
+    model
+        .physical_modes
+        .get(physical_mode_str)
+        .and_then(|physical_mode| physical_mode.co2_emission)
+        .map(|co2_emission| navitia_proto::Co2Emission {
+            unit: Some("gEC".to_string()),
+            value: Some(co2_emission as f64 * length * 1e-3_f64),
+        })
+}
+
+fn compute_journey_co2_emission(
+    sections: &[navitia_proto::Section],
+) -> Option<navitia_proto::Co2Emission> {
+    let total_co2 = sections
+        .iter()
+        .map(|section| &section.co2_emission)
+        .map(|co2_emission| match co2_emission {
+            Some(co2) => co2.value.unwrap_or(0_f64),
+            None => 0_f64,
+        })
+        .fold(0_f64, |acc, value| acc + value);
+
+    Some(navitia_proto::Co2Emission {
+        unit: Some("gEC".to_string()),
+        value: Some(total_co2),
+    })
+}
+
+fn make_feed_publishers(model: &Model) -> Vec<navitia_proto::FeedPublisher> {
     model
         .contributors
         .iter()
@@ -550,4 +610,18 @@ fn get_timezone(
     let line = model.lines.get(&route.line_id)?;
     let network = model.networks.get(&line.network_id)?;
     network.timezone
+}
+
+fn distance_coord_to_coord(
+    from: &navitia_proto::GeographicalCoord,
+    to: &navitia_proto::GeographicalCoord,
+) -> f64 {
+    let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
+    let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
+    let latitude_h = (latitude_arc * 0.5).sin();
+    let latitude_h = latitude_h * latitude_h;
+    let longitude_h = (longitude_arc * 0.5).sin();
+    let longitude_h = longitude_h * longitude_h;
+    let tmp = (from.lat * N_DEG_TO_RAD).cos() * (to.lat * N_DEG_TO_RAD).cos();
+    EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }
