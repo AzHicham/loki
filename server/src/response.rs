@@ -296,6 +296,24 @@ fn make_stop_point(
     stop_point: &StopPoint,
     model: &transit_model::Model,
 ) -> Result<navitia_proto::StopPoint, Error> {
+    let proto_address = stop_point
+        .address_id
+        .as_ref()
+        .and_then(|address_id| model.addresses.get(address_id.as_str()))
+        .map(|address| navitia_proto::Address {
+            uri: Some(format!("{};{}", stop_point.coord.lat, stop_point.coord.lon)),
+            house_number: Some(address.house_number.as_ref().map_or(0, |str_number| {
+                str_number.parse::<i32>().unwrap_or_default()
+            })),
+            coord: Some(navitia_proto::GeographicalCoord {
+                lat: stop_point.coord.lat,
+                lon: stop_point.coord.lon,
+            }),
+            name: Some(address.street_name.clone()),
+            label: Some(address.street_name.clone()),
+            ..Default::default()
+        });
+
     let proto = navitia_proto::StopPoint {
         name: Some(stop_point.name.clone()),
         // uri: Some(stop_point.id.clone()),
@@ -304,6 +322,7 @@ fn make_stop_point(
             lat: stop_point.coord.lat,
             lon: stop_point.coord.lon,
         }),
+        address: proto_address,
         label: Some(stop_point.name.clone()),
         stop_area: Some(make_stop_area(&stop_point.stop_area_id, model)?),
         codes: stop_point
@@ -395,14 +414,12 @@ fn make_pt_display_info(
             vehicle_journey.id
         )
     })?;
-    let destination_id = &route.destination_id;
-    let destination_sa_name = match destination_id {
-        Some(destination_id) => model
-            .stop_areas
-            .get(destination_id.as_str())
-            .map(|stop_area| stop_area.name.clone()),
-        None => None,
-    };
+
+    let destination_sa_name = route
+        .destination_id
+        .as_ref()
+        .and_then(|destination_id| model.stop_areas.get(destination_id.as_str()))
+        .map(|stop_area| stop_area.name.clone());
 
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(network.name.clone()),
