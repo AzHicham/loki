@@ -409,7 +409,7 @@ where
             })?
             .0;
 
-        for (transfer, vehicle) in journey.connections.iter_mut() {
+        for (transfer, vehicle) in journey.connections.iter_mut().rev() {
             let new_board_time = self._maximize_leg_board_time(vehicle, current_time)?;
             current_time = new_board_time;
 
