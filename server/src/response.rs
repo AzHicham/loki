@@ -395,12 +395,20 @@ fn make_pt_display_info(
             vehicle_journey.id
         )
     })?;
+    let destination_id = &route.destination_id;
+    let destination_sa_name = match destination_id {
+        Some(destination_id) => model
+            .stop_areas
+            .get(destination_id.as_str())
+            .map(|stop_area| stop_area.name.clone()),
+        None => None,
+    };
 
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(network.name.clone()),
         code: line.code.clone(),
         headsign: vehicle_journey.headsign.clone(),
-        direction: route.destination_id.clone(),
+        direction: destination_sa_name,
         color: line.color.as_ref().map(|color| format!("{}", color)),
         commercial_mode: Some(line.commercial_mode_id.clone()),
         physical_mode: Some(vehicle_journey.physical_mode_id.clone()),
@@ -420,12 +428,15 @@ fn make_pt_display_info(
                 .map(|journey_pattern| format!("journey_pattern:{}", journey_pattern)),
             ..Default::default()
         }),
-        name: Some(route.name.clone()),
+        name: Some(line.name.clone()),
         text_color: line
             .text_color
             .as_ref()
             .map(|text_color| format!("{}", text_color)),
-        trip_short_name: vehicle_journey.short_name.clone(),
+        trip_short_name: vehicle_journey
+            .short_name
+            .clone()
+            .or_else(|| vehicle_journey.headsign.clone()),
         ..Default::default()
     };
 
