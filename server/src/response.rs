@@ -338,7 +338,10 @@ fn make_stop_area(
                 value: value.clone(),
             })
             .collect(),
-        timezone: stop_area.timezone.map(|timezone| timezone.to_string()),
+        timezone: stop_area
+            .timezone
+            .or(Some(chrono_tz::UTC))
+            .map(|timezone| timezone.to_string()),
         ..Default::default()
     };
 
@@ -420,7 +423,7 @@ fn make_pt_display_info(
 }
 
 fn make_stop_datetime(
-    stoptime: &transit_model::objects::StopTime,
+    stoptime: &StopTime,
     day: &NaiveDate,
     timezone: &Timezone,
     model: &transit_model::Model,
@@ -485,6 +488,22 @@ fn to_utc_timestamp(
             time_in_day
         )
     })
+}
+
+fn make_feed_publisher(model: &Model) -> Vec<navitia_proto::FeedPublisher> {
+    model
+        .contributors
+        .iter()
+        .map(|id_contributor| {
+            let contributor = id_contributor.1;
+            navitia_proto::FeedPublisher {
+                id: contributor.id.clone(),
+                name: Some(contributor.name.clone()),
+                license: contributor.license.clone(),
+                url: contributor.website.clone(),
+            }
+        })
+        .collect()
 }
 
 fn duration_to_i32(
