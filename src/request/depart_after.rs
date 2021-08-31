@@ -159,10 +159,10 @@ where
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
         )
-        .map_err(|err| response::JourneyError::BadJourney(err))?;
+        .map_err(response::JourneyError::BadJourney)?;
         let new_journey = self
             .maximize_departure_time(journey)
-            .map_err(|err| response::JourneyError::MaximizeDepartureTimeError(err))?;
+            .map_err(response::JourneyError::MaximizeDepartureTimeError)?;
         Ok(new_journey)
     }
 
@@ -377,12 +377,12 @@ where
             .transit_data
             .latest_trip_that_debark_at(&debark_time, mission, debark_position)
             .ok_or_else(|| NoTrip(debark_time, mission.clone(), debark_position.clone()))?;
+        *trip = new_trip;
         let board_time = self
             .transit_data
             .board_time_of(trip, board_position)
             .ok_or_else(|| NoBoardTime(trip.clone(), board_position.clone()))?
             .0;
-        *trip = new_trip;
         Ok(board_time)
     }
 
