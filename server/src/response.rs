@@ -87,6 +87,7 @@ fn make_journey(
     let nb_of_sections = journey.nb_of_sections();
 
     let mut proto = navitia_proto::Journey {
+        calendars: make_calendars(model),
         duration: Some(i32::try_from(journey.total_duration())?),
         nb_transfers: Some(i32::try_from(journey.nb_of_transfers())?),
         departure_date_time: Some(to_u64_timestamp(&journey.first_vehicle_board_datetime())?),
@@ -383,9 +384,7 @@ fn make_pt_display_info(
             vehicle_journey.id
         )
     })?;
-
     let network_id = &line.network_id;
-
     let network = model.networks.get(network_id).ok_or_else(|| {
         format_err!(
             "Could not find network with id {},\
@@ -530,6 +529,44 @@ fn compute_section_co2_emission(
             unit: Some("gEC".to_string()),
             value: Some(co2_emission as f64 * length * 1e-3_f64),
         })
+}
+
+fn make_calendars(model: &Model) -> Vec<navitia_proto::Calendar> {
+    let mut proto_calendar: Vec<navitia_proto::Calendar> = Vec::new();
+    for calendar in &model.calendars {
+        let dates = &calendar.1.dates;
+        let active_periods = navitia_proto::CalendarPeriod {
+            begin: Some(
+                dates
+                    .iter()
+                    .next()
+                    .map_or("".to_string(), |date| date.format("%Y%m%d").to_string()),
+            ),
+            end: Some(
+                dates
+                    .iter()
+                    .next_back()
+                    .map_or("".to_string(), |date| date.format("%Y%m%d").to_string()),
+            ),
+        };
+        let week_pattern = navitia_proto::WeekPattern {
+            monday: Some(false),
+            tuesday: Some(false),
+            wednesday: Some(false),
+            thursday: Some(false),
+            friday: Some(false),
+            saturday: Some(false),
+            sunday: Some(false),
+        };
+        let calendar = navitia_proto::Calendar {
+            active_periods: vec![active_periods],
+            week_pattern: Some(week_pattern),
+            uri: Some(calendar.1.id.clone()),
+            ..Default::default()
+        };
+        proto_calendar.push(calendar);
+    }
+    proto_calendar
 }
 
 fn compute_journey_co2_emission(
