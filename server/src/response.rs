@@ -603,10 +603,8 @@ fn compute_journey_co2_emission(
     let total_co2 = sections
         .iter()
         .map(|section| &section.co2_emission)
-        .map(|co2_emission| match co2_emission {
-            Some(co2) => co2.value.unwrap_or(0_f64),
-            None => 0_f64,
-        })
+        .filter_map(|co2_emission| co2_emission.as_ref())
+        .filter_map(|co2| co2.value)
         .fold(0_f64, |acc, value| acc + value);
 
     Some(navitia_proto::Co2Emission {
