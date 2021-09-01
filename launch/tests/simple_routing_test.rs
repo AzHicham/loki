@@ -280,10 +280,17 @@ fn test_second_pass_forward() -> Result<(), Error> {
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
+        .vj("titi", |vj_builder| {
+            vj_builder
+                .st("H", "10:35:00")
+                .st("I", "10:40:00")
+                .st("J", "10:45:00");
+        })
         .add_transfer("B", "F", "00:02:00")
+        .add_transfer("G", "H", "00:02:00")
         .build();
 
-    let config = Config::new("2020-01-01T09:59:00", "A", "G");
+    let config = Config::new("2020-01-01T09:59:00", "A", "J");
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -291,8 +298,8 @@ fn test_second_pass_forward() -> Result<(), Error> {
 
     let journey = &responses[0];
     // global check not specific to this test
-    assert_eq!(journey.nb_of_sections(), 4);
-    assert_eq!(journey.nb_of_transfers(), 1);
+    assert_eq!(journey.nb_of_sections(), 7);
+    assert_eq!(journey.nb_of_transfers(), 2);
 
     // Thanks to the second pass we take the 'tutu" vehicle and not 'toto'
     // Second pass = Maximize departure datetime
