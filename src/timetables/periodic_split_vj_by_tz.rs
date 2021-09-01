@@ -356,57 +356,65 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
         Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let days_pattern = self
-            .days_patterns
-            .get_or_insert(valid_dates, &self.calendar);
-
-        let mut result = Vec::new();
+        let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
         let default_loads = vec![Load::default(); cmp::max(nb_of_positions - 1, 0)];
+        for date in valid_dates {
+            let loads = loads_data
+                .loads(&vehicle_journey_idx, date)
+                .unwrap_or_else(|| default_loads.as_slice());
+            load_patterns_dates
+                .entry(loads)
+                .or_insert_with(Vec::new)
+                .push(*date);
+        }
 
-        for (offset, tz_days_pattern) in
-            self.tz_patterns
-                .fetch_or_insert(timezone, &mut self.days_patterns, &self.calendar)
-        {
-            let splited_days_pattern = self
+        let mut result = Vec::new();
+
+        for (loads, dates) in load_patterns_dates.into_iter() {
+            let days_pattern = self
                 .days_patterns
-                .intersection(&days_pattern, tz_days_pattern);
+                .get_or_insert(dates.iter(), &self.calendar);
 
-            let vehicle_data = VehicleData {
-                days_pattern: splited_days_pattern,
-                vehicle_journey_idx,
-            };
+            for (offset, tz_days_pattern) in
+                self.tz_patterns
+                    .fetch_or_insert(timezone, &mut self.days_patterns, &self.calendar)
+            {
+                let splited_days_pattern = self
+                    .days_patterns
+                    .intersection(&days_pattern, tz_days_pattern);
 
-            // let loads = loads_data
-            //     .loads(&vehicle_journey_idx, date)
-            //     .unwrap_or_else(|| default_loads.as_slice());
+                let vehicle_data = VehicleData {
+                    days_pattern: splited_days_pattern,
+                    vehicle_journey_idx,
+                };
 
-            let apply_offset = |x: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
-                x.to_utc(offset.utc_minus_local())
-            };
+                let apply_offset = |x: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
+                    x.to_utc(offset.utc_minus_local())
+                };
 
-            let insert_error = self.timetables.insert(
-                stops.clone(),
-                flows.clone(),
-                board_times.clone().map(apply_offset),
-                debark_times.clone().map(apply_offset),
-                default_loads.iter().cloned(),
-                (),
-                vehicle_data,
-            );
-            match insert_error {
-                Ok(mission) => {
-                    if !result.contains(&mission) {
-                        result.push(mission);
-                    };
-                }
-                Err(error) => {
-                    handle_vehicletimes_error(vehicle_journey, &error);
+                let insert_error = self.timetables.insert(
+                    stops.clone(),
+                    flows.clone(),
+                    board_times.clone().map(apply_offset),
+                    debark_times.clone().map(apply_offset),
+                    loads.iter().cloned(),
+                    (),
+                    vehicle_data,
+                );
+                match insert_error {
+                    Ok(mission) => {
+                        if !result.contains(&mission) {
+                            result.push(mission);
+                        };
+                    }
+                    Err(error) => {
+                        handle_vehicletimes_error(vehicle_journey, &error);
+                    }
                 }
             }
         }
-
         result
     }
 }
@@ -414,6 +422,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 use super::generic_timetables::VehicleTimesError;
 use crate::timetables::generic_timetables::{Position, Timetable};
 use core::cmp;
+use std::collections::BTreeMap;
 
 fn handle_vehicletimes_error(vehicle_journey: &VehicleJourney, error: &VehicleTimesError) {
     match error {
