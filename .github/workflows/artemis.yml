@@ -20,11 +20,6 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
-    - uses: actions/checkout@v2
-      with:
-        repository: 'AzHicham/artemis_references'
-        path: ./artemis_references
-        ref: artemis_ng
     - name: Build docker image
       env:
         ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
