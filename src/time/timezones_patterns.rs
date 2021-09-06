@@ -68,7 +68,6 @@ impl TimezonesPatterns {
 
             for day in calendar.days() {
                 let naive_date: NaiveDate = calendar.to_naive_date(&day);
-                println!("naive_date: {:?} ", naive_date);
                 // https://developers.google.com/transit/gtfs/reference#field_types
                 let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0)
                     - chrono::Duration::hours(12);
