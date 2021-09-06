@@ -36,7 +36,7 @@
 
 mod utils;
 use failure::Error;
-use launch::config::{DataImplem, ComparatorType};
+use launch::config::{ComparatorType, DataImplem};
 use launch::datetime::DateTimeRepresent;
 use rstest::rstest;
 use utils::model_builder::AsDateTime;
@@ -48,6 +48,7 @@ use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
 #[case(ComparatorType::Basic, DataImplem::Periodic)]
 #[case(ComparatorType::Loads, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_simple_routing(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
@@ -103,6 +104,7 @@ fn test_simple_routing(
 #[case(ComparatorType::Basic, DataImplem::Periodic)]
 #[case(ComparatorType::Loads, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_routing_with_transfers(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
@@ -201,6 +203,7 @@ fn test_routing_with_transfers(
 #[case(ComparatorType::Basic, DataImplem::Periodic)]
 #[case(ComparatorType::Loads, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_routing_backward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
@@ -300,6 +303,7 @@ fn test_routing_backward(
 #[case(ComparatorType::Basic, DataImplem::Periodic)]
 #[case(ComparatorType::Loads, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_second_pass_forward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
@@ -370,6 +374,7 @@ fn test_second_pass_forward(
 #[case(ComparatorType::Basic, DataImplem::Periodic)]
 #[case(ComparatorType::Loads, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_second_pass_backward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,

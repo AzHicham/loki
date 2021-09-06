@@ -36,13 +36,19 @@
 
 mod utils;
 use failure::Error;
+use launch::config::DataImplem;
 use loki::chrono_tz;
 use utils::model_builder::ModelBuilder;
 use utils::model_builder::{AsDate, AsDateTime};
 use utils::{build_and_solve, Config};
 
-#[test]
-fn test_daylight_saving_time_switch() -> Result<(), Error> {
+use rstest::rstest;
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(), Error> {
     utils::init_logger();
 
     // There is a daylight saving time switch in Europe/paris on 2020-10-25 :
@@ -60,6 +66,10 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
 
     {
         let config = Config::new_timezoned("2020-10-24T06:00:00", &chrono_tz::UTC, "A", "B");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -91,8 +101,13 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn test_trip_over_daylight_saving_time_switch(
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     // There is a daylight saving time switch in Europe/paris on 2020-10-25 at 02:00:00
@@ -108,6 +123,10 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
 
     {
         let config = Config::new_timezoned("2020-10-23T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -130,6 +149,10 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
 
     {
         let config = Config::new_timezoned("2020-10-26T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -152,6 +175,10 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
 
     {
         let config = Config::new_timezoned("2020-10-24T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -175,8 +202,11 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_paris_london() -> Result<(), Error> {
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
     utils::init_logger();
 
     // There is a daylight saving time switch in Europe/Paris AND Europe/London on 2020-10-25 at 02:00:00
@@ -201,6 +231,10 @@ fn test_paris_london() -> Result<(), Error> {
     // Before the daylight saving time switch
     {
         let config = Config::new_timezoned("2020-10-23T08:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -231,6 +265,10 @@ fn test_paris_london() -> Result<(), Error> {
     // After the daylight saving time switch
     {
         let config = Config::new_timezoned("2020-10-26T08:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -261,8 +299,11 @@ fn test_paris_london() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_paris_new_york() -> Result<(), Error> {
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
     utils::init_logger();
 
     // There is a daylight saving time switch in Europe/Paris  on 2020-10-25 at 02:00:00
@@ -289,6 +330,10 @@ fn test_paris_new_york() -> Result<(), Error> {
     // and hence get a journey from A to E
     {
         let config = Config::new_timezoned("2020-10-23T12:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -320,6 +365,10 @@ fn test_paris_new_york() -> Result<(), Error> {
     // and hence should not get a journey from A to E
     {
         let config = Config::new_timezoned("2020-10-26T12:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config {
+            data_implem,
+            ..config
+        };
 
         let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
