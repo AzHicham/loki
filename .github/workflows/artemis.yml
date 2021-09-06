@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  checks:
+  run:
     runs-on: ubuntu-latest
     steps:
     - name: Make some space
@@ -21,10 +21,14 @@ jobs:
       with:
         submodules: 'recursive'
     - name: Pull sub-repos
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         rm -rf artemis_references
-        git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/AzHicham/artemis_references.git --branch artemis_ng_ga ./artemis_references
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis_references.git --branch artemis_ng_ga ./artemis_references
     - name: Build docker image
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd navitia-docker-compose/builder_from_package && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b release
     - name: Pull remaining images
