@@ -67,7 +67,7 @@ pub struct LaunchParams {
     pub criteria_implem: super::CriteriaImplem,
 
     /// Timetable implementation to use :
-    /// "periodic" (default) or "daily"
+    /// "periodic" (default), "periodic_split_vj" or "daily"
     #[structopt(long, default_value)]
     #[serde(default)]
     pub data_implem: super::DataImplem,
