@@ -20,15 +20,19 @@ jobs:
     - uses: actions/checkout@v2
       with:
         repository: 'CanalTP/artemis'
-        submodules: 'recursive'
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Pull sub-repos
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/navitia-docker-compose.git --branch master ./navitia-docker-compose
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ./artemis_data
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis_references.git --branch artemis_ng ./artemis_references
     - name: Build docker image
       env:
         ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        ls
-        cd navitia-docker-compose
-        ls
-        cd ./builder && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b release
+        cd ./navitia-docker-compose/builder_from_package && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b dev
     - name: Pull remaining images
       run: |
         make pull_available TAG=local || exit 0
