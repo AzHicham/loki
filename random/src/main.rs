@@ -9,6 +9,7 @@ use loki::log;
 
 use loki::{log::debug, transit_model::Model};
 
+use std::convert::TryFrom;
 use std::{fs::File, io::BufReader, time::SystemTime};
 
 use failure::{bail, Error};
@@ -171,11 +172,13 @@ where
 
     let datetime_represent = &config.datetime_represent;
 
-    let compute_timer = SystemTime::now();
+    let start_all = SystemTime::now();
 
     let nb_queries = config.nb_queries;
     use rand::prelude::{IteratorRandom, SeedableRng};
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(config.seed);
+    use hdrhistogram::Histogram;
+    let mut histogram = Histogram::<u64>::new(3)?;
     for _ in 0..nb_queries {
         let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
         let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
@@ -187,6 +190,7 @@ where
             end_stop_area_uri,
             &config.request_params,
         )?;
+        let before_solve = SystemTime::now();
         let solve_result = solver.solve_request(
             data,
             model,
@@ -194,6 +198,9 @@ where
             &config.comparator_type,
             datetime_represent,
         );
+        let solve_duration = before_solve.elapsed().unwrap().as_millis();
+        let solve_duration_u64: u64 = TryFrom::try_from(solve_duration).unwrap();
+        histogram.record(solve_duration_u64).unwrap();
 
         match solve_result {
             Err(err) => {
@@ -206,17 +213,18 @@ where
             }
         }
     }
-    let duration = compute_timer.elapsed().unwrap().as_millis();
+    let total_duration = start_all.elapsed().unwrap().as_millis();
 
     log::info!(
         "Average duration per request : {} ms",
-        (duration as f64) / (nb_queries as f64)
+        (total_duration as f64) / (nb_queries as f64)
     );
-    // info!(
-    //     "Average nb of rounds : {}",
-    //     (total_nb_of_rounds as f64) / (nb_queries as f64)
-    // );
     log::info!("Nb of requests : {}", nb_queries);
+    log::info!("50'th percentile: {}", histogram.value_at_quantile(0.5));
+    log::info!("70'th percentile: {}", histogram.value_at_quantile(0.7));
+    log::info!("90'th percentile: {}", histogram.value_at_quantile(0.9));
+    log::info!("99'th percentile: {}", histogram.value_at_quantile(0.99));
+    log::info!("100'th percentile: {}", histogram.value_at_quantile(1.0));
 
     Ok(())
 }
