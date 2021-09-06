@@ -1,0 +1,54 @@
+name: Artemis
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Make some space
+      run: rm -rf /usr/share/dotnet
+    - uses: actions/setup-python@v2
+      with:
+          python-version: '3.7'
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+    - name: Pull sub-repos
+      run: |
+        rm -rf artemis_references
+        git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/AzHicham/artemis_references.git --branch artemis_ng_ga ./artemis_references
+    - name: Build docker image
+      run: |
+        cd navitia-docker-compose/builder_from_package && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b release
+    - name: Pull remaining images
+      run: |
+        make pull_available TAG=local || exit 0
+    - name: Start dockers
+      run: |
+        make start TAG=local || exit 0
+    - name: Run Artemis Test
+      env:
+        PYTEST: 'itl_test.py'
+        PYTEST_ARGS: ""
+      run: |
+        make test
+    - name: Aggregate logs
+      if: ${{ always() }}
+      run: |
+        make logs TAG=local > logs || exit 0
+    - name: Archive Artemis artifacts (logs + ref)
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs-and-ref
+        path: |
+            output/**/*
+            junit/*.xml
+            logs
