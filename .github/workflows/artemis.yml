@@ -24,6 +24,7 @@ jobs:
       with:
         repository: 'AzHicham/artemis_references'
         path: './artemis_references'
+        ref: 'artemis_ng'
     - name: Build docker image
       env:
         ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
