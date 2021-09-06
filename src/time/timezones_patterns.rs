@@ -68,9 +68,12 @@ impl TimezonesPatterns {
 
             for day in calendar.days() {
                 let naive_date: NaiveDate = calendar.to_naive_date(&day);
-                // https://developers.google.com/transit/gtfs/reference#field_types
-                let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0)
-                    - chrono::Duration::hours(12);
+                // From : https://developers.google.com/transit/gtfs/reference#field_types
+                // The local times of a vehicle journey are interpreted as a duration
+                // since "noon minus 12h" on each day.
+                // Hence the offset between local time and UTC should be computed
+                // at noon on each day.
+                let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0);
                 let offset = datetime_timezoned.offset().fix();
                 let dates_for_offset = self.buffer.entry(offset).or_insert_with(Vec::new);
                 dates_for_offset.push(naive_date);

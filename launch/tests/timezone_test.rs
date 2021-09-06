@@ -121,6 +121,10 @@ fn test_trip_over_daylight_saving_time_switch(
         })
         .build();
 
+    // We depart on 2020-10-23 at 22:00:00 UTC, so before the daylight saving time switch
+    // this means we can board the vehicle journey on date 2020-10-24
+    // as 00:00:00 on this day is 2020-10-23 at 22:00:00 UTC
+    // we should arrive at 02:10:00 on 2020-10-24 which is 00:10:00 on 2020-10-24 UTC"
     {
         let config = Config::new_timezoned("2020-10-23T22:00:00", &chrono_tz::UTC, "A", "C");
         let config = Config {
@@ -147,6 +151,10 @@ fn test_trip_over_daylight_saving_time_switch(
         );
     }
 
+    // We depart on 2020-10-26 at 22:00:00 UTC, so after the daylight saving time switch
+    // this means we can board the vehicle journey on date 2020-10-27
+    // as 00:00:00 on this day is 2020-10-26 at 23:00:00 UTC
+    // we should arrive at 02:10:00 on 2020-10-27 which is 01:10:00 on 2020-10-27 UTC"
     {
         let config = Config::new_timezoned("2020-10-26T22:00:00", &chrono_tz::UTC, "A", "C");
         let config = Config {
@@ -173,6 +181,14 @@ fn test_trip_over_daylight_saving_time_switch(
         );
     }
 
+    // We depart on 2020-10-24 at 22:00:00 UTC,
+    // this is before the the daylight saving time switch.
+    // We should be able to catch the vehicle journey on date 2020-10-25 (the day of the DST switch).
+    // Since the DST switch happens at 02:00:00, and the local time are understood as
+    // duration since "noon minus 12h", this means that local times for the vehicle journey on 2020-10-25
+    // should be interpreted as "after the DST switch", i.e :
+    // we board on A on 2020-10-24 at 23:00:00 UTC
+    // we arrive on C on 2020-10-25 at 01:10:00 UTC
     {
         let config = Config::new_timezoned("2020-10-24T22:00:00", &chrono_tz::UTC, "A", "C");
         let config = Config {
