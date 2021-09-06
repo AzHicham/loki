@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  run:
+  artemis:
     runs-on: ubuntu-latest
     steps:
     - name: Make some space
@@ -19,12 +19,16 @@ jobs:
           python-version: '3.7'
     - uses: actions/checkout@v2
       with:
+        repository: 'CanalTP/artemis'
         submodules: 'recursive'
     - name: Build docker image
       env:
         ARTEMIS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cd navitia-docker-compose/builder && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b release
+        ls
+        cd navitia-docker-compose
+        ls
+        cd ./builder && ./build.sh -o $ARTEMIS_GITHUB_TOKEN -t local -e push -f CanalTP -b release
     - name: Pull remaining images
       run: |
         make pull_available TAG=local || exit 0
