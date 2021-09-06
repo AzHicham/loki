@@ -48,7 +48,7 @@ use loki::chrono::TimeZone;
 use loki::chrono_tz;
 use loki::log::debug;
 use loki::transit_model::Model;
-use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData};
+use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
 
@@ -144,6 +144,9 @@ pub fn build_and_solve(
             build_and_solve_inner::<PeriodicData>(model, loads_data, config)
         }
         config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, loads_data, config),
+        config::DataImplem::PeriodicSplitVj => {
+            build_and_solve_inner::<PeriodicSplitVjData>(model, loads_data, config)
+        }
     }
 }
 

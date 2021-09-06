@@ -55,6 +55,7 @@ pub use transit_data::data_interface::{Data as DataTrait, DataWithIters};
 
 pub type DailyData = transit_data::TransitData<timetables::DailyTimetables>;
 pub type PeriodicData = transit_data::TransitData<timetables::PeriodicTimetables>;
+pub type PeriodicSplitVjData = transit_data::TransitData<timetables::PeriodicSplitVjByTzTimetables>;
 
 pub use loads_data::LoadsData;
 

@@ -38,9 +38,11 @@ mod daily;
 mod generic_timetables;
 mod iters;
 mod periodic;
+mod periodic_split_vj_by_tz;
 
 pub use daily::DailyTimetables;
 pub use periodic::PeriodicTimetables;
+pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
 use std::hash::Hash;
 
@@ -55,7 +57,7 @@ use chrono::NaiveDate;
 
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum FlowDirection {
     BoardOnly,
     DebarkOnly,
