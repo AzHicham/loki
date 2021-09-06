@@ -335,14 +335,12 @@ fn test_second_pass_forward(
         .add_transfer("G", "H", "00:02:00")
         .build();
 
-
-    let config = Config::new("2020-01-01T09:59:00", "A", "G");
+    let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
         data_implem,
         ..config
     };
-
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
