@@ -55,6 +55,7 @@ jobs:
     - name: Run Tests
       run: |
         docker-compose -f ./mc_navitia/docker-compose.yml up --detach
+        cd ./artemis
         docker run  \
         --network host \
         -v $PWD:/usr/src/app  \
@@ -62,7 +63,7 @@ jobs:
         -e ARTEMIS_USE_ARTEMIS_NG=True   \
         -e ARTEMIS_URL_JORMUN=http://localhost:9191 \
         -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
-        artemis py.test ./artemis/artemis/tests/itl_test.py --skip_cities --skip_bina
+        artemis py.test ./artemis/tests/itl_test.py --skip_cities --skip_bina
 
     - name: Archive Artemis artifacts (logs + ref)
       if: ${{ always() }}
