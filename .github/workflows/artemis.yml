@@ -68,6 +68,6 @@ jobs:
       with:
         name: logs-and-ref
         path: |
-            .artemis/output/**/*
-            .artemis/junit/*.xml
-            .artemis/logs
+            ./artemis/output/**/*
+            ./artemis/junit/*.xml
+            ./artemis/logs
