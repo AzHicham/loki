@@ -417,6 +417,14 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         }
         result
     }
+
+    fn remove(
+        &mut self,
+        date: &chrono::NaiveDate,
+        vehicle_journey_idx: Idx<VehicleJourney>,
+    ) -> Result<(), super::RemovalError> {
+        todo!()
+    }
 }
 
 use super::generic_timetables::VehicleTimesError;
