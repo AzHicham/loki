@@ -1,0 +1,73 @@
+name: Artemis
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  artemis:
+    runs-on: ubuntu-latest
+    # Checkout Loki
+    steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.7'
+    - name: Checkout Loki
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    # Checkout Artemis & update submodules
+    - name: Checkout Artemis
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{secrets.ARTEMIS_GITHUB_TOKEN}}
+      run: |
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ./artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ./artemis/artemis_data
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis_references.git --branch artemis_ng ./artemis/artemis_references
+
+    # Build docker images
+    - name: Build bina, Kraken, Jormun & Loki images
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{secrets.ARTEMIS_GITHUB_TOKEN}}
+      run: |
+        ./build_dockers.sh -o $ARTEMIS_GITHUB_TOKEN
+
+    # Copy artemis/data/{coverage}/fusio to ./loki/data/{coverage}/ntfs
+    - name: Copy coverage data
+      run: |
+        rm -rf ./data/*
+        mkdir -p ./data/itl/ntfs
+        cp -r -a ./artemis/artemis_data/itl/fusio/. ./data/itl/ntfs
+
+    # Run binarisation
+    - name: Run Artemis binarisation
+      run: |
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_artemis_bina
+
+    # Start dockers & Run Tests
+    - name: Run Tests
+      run: |
+        docker-compose -f ./mc_navitia/docker-compose.yml up
+        docker run  \
+        --network host \
+        -v $PWD:/usr/src/app  \
+        -e ARTEMIS_LOG_LEVEL=DEBUG \
+        -e ARTEMIS_USE_ARTEMIS_NG=True   \
+        -e ARTEMIS_URL_JORMUN=http://localhost:9191 \
+        -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
+        artemis py.test ./artemis/artemis/tests/itl_test.py --skip_cities --skip_bina
+
+    - name: Archive Artemis artifacts (logs + ref)
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs-and-ref
+        path: |
+            .artemis/output/**/*
+            .artemis/junit/*.xml
+            .artemis/logs
