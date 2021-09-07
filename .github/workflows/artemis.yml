@@ -52,7 +52,7 @@ jobs:
     # Start dockers & Run Tests
     - name: Run Tests
       run: |
-        docker-compose -f ./mc_navitia/docker-compose.yml up
+        docker-compose -f ./mc_navitia/docker-compose.yml up --detach
         docker run  \
         --network host \
         -v $PWD:/usr/src/app  \
