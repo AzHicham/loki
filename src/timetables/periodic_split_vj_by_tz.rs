@@ -375,7 +375,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         for (loads, dates) in load_patterns_dates.into_iter() {
             let days_pattern = self
                 .days_patterns
-                .get_or_insert(dates.iter(), &self.calendar);
+                .get_from_dates(dates.iter(), &self.calendar);
 
             for (offset, tz_days_pattern) in
                 self.tz_patterns
@@ -383,7 +383,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             {
                 let splited_days_pattern = self
                     .days_patterns
-                    .intersection(&days_pattern, tz_days_pattern);
+                    .get_intersection(days_pattern, *tz_days_pattern);
 
                 let vehicle_data = VehicleData {
                     days_pattern: splited_days_pattern,
