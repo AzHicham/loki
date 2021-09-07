@@ -36,6 +36,8 @@ jobs:
         ARTEMIS_GITHUB_TOKEN: ${{secrets.ARTEMIS_GITHUB_TOKEN}}
       run: |
         ./build_dockers.sh -o $ARTEMIS_GITHUB_TOKEN
+        cd ./artemis
+        docker build -t artemis .
 
     # Copy artemis/data/{coverage}/fusio to ./loki/data/{coverage}/ntfs
     - name: Copy coverage data
