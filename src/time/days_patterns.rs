@@ -80,22 +80,7 @@ impl DaysPatterns {
         }
     }
 
-    pub fn get_or_insert<'a, Dates>(&mut self, dates: Dates, calendar: &Calendar) -> DaysPattern
-    where
-        Dates: Iterator<Item = &'a NaiveDate>,
-    {
-        // set all elements of the buffer to false
-        for val in self.buffer.iter_mut() {
-            *val = false
-        }
-
-        for date in dates {
-            let has_offset = calendar.date_to_offset(date);
-            if let Some(offset) = has_offset {
-                self.buffer[offset as usize] = true;
-            }
-        }
-
+    fn insert(&mut self) -> DaysPattern {
         let has_days_pattern = self
             .days_patterns
             .iter()
@@ -115,6 +100,41 @@ impl DaysPatterns {
         };
 
         DaysPattern { idx }
+    }
+
+    pub fn get_or_insert<'a, Dates>(&mut self, dates: Dates, calendar: &Calendar) -> DaysPattern
+    where
+        Dates: Iterator<Item = &'a NaiveDate>,
+    {
+        // set all elements of the buffer to false
+        for val in self.buffer.iter_mut() {
+            *val = false
+        }
+
+        for date in dates {
+            let has_offset = calendar.date_to_offset(date);
+            if let Some(offset) = has_offset {
+                self.buffer[offset as usize] = true;
+            }
+        }
+
+        self.insert()
+    }
+
+    pub fn intersection(&mut self, a: &DaysPattern, b: &DaysPattern) -> DaysPattern {
+        let a = &self.days_patterns[a.idx].allowed_dates;
+        let b = &self.days_patterns[b.idx].allowed_dates;
+
+        for (day_allowed, day_buffer) in a
+            .iter()
+            .zip(b.iter())
+            .map(|(&x, &y)| x && y)
+            .zip(self.buffer.iter_mut())
+        {
+            *day_buffer = day_allowed;
+        }
+
+        self.insert()
     }
 }
 

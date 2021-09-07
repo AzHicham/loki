@@ -39,6 +39,8 @@ use std::fmt::{Display, Formatter};
 
 mod calendar;
 pub mod days_patterns;
+pub mod timezones_patterns;
+pub use timezones_patterns::TimezonesPatterns;
 
 /// Duration since "noon minus 12 hours" on a day in a specific timezone
 /// This corresponds to the "Time" notion found in gtfs/ntfs stop_times.txt
@@ -46,6 +48,11 @@ pub mod days_patterns;
 /// This types accept only times are comprised between -48:00:00 and 48:00:00 (maximum plus/minus 2 days)
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceTimezonedDayStart {
+    seconds: i32,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+pub struct SecondsSinceUTCDayStart {
     seconds: i32,
 }
 
@@ -205,6 +212,12 @@ impl SecondsSinceTimezonedDayStart {
         }
     }
 
+    pub fn to_utc(&self, seconds_i32: i32) -> SecondsSinceUTCDayStart {
+        SecondsSinceUTCDayStart {
+            seconds: self.seconds + seconds_i32,
+        }
+    }
+
     pub fn from_seconds(seconds: i32) -> Option<Self> {
         if seconds > MAX_SECONDS_IN_DAY || seconds < -MAX_SECONDS_IN_DAY {
             None
@@ -228,6 +241,36 @@ impl SecondsSinceTimezonedDayStart {
                 seconds: seconds_i32,
             };
             Some(result)
+        }
+    }
+}
+
+impl SecondsSinceUTCDayStart {
+    pub fn from_seconds_i64(seconds_i64: i64) -> Option<Self> {
+        let max_i64 = i64::from(MAX_SECONDS_IN_DAY);
+        if seconds_i64 > max_i64 || seconds_i64 < -max_i64 {
+            None
+        } else {
+            // since  :
+            //  - seconds_i64 belongs to [-MAX_SECONDS_SINCE_TIMEZONED_DAY_START, MAX_SECONDS_SINCE_TIMEZONED_DAY_START]
+            //  - MAX_SECONDS_SINCE_TIMEZONED_DAY_START <= i32::MAX
+            // we can safely cas seconds_i64 to i32
+            let seconds_i32 = seconds_i64 as i32;
+            let result = Self {
+                seconds: seconds_i32,
+            };
+            Some(result)
+        }
+    }
+    pub fn max() -> Self {
+        Self {
+            seconds: MAX_SECONDS_IN_DAY,
+        }
+    }
+
+    pub fn min() -> Self {
+        Self {
+            seconds: -MAX_SECONDS_IN_DAY,
         }
     }
 }

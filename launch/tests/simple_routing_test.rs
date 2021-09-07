@@ -36,13 +36,23 @@
 
 mod utils;
 use failure::Error;
+use launch::config::{ComparatorType, DataImplem};
 use launch::datetime::DateTimeRepresent;
+use rstest::rstest;
 use utils::model_builder::AsDateTime;
 use utils::model_builder::ModelBuilder;
 use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
 
-#[test]
-fn test_simple_routing() -> Result<(), Error> {
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_simple_routing(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -56,6 +66,11 @@ fn test_simple_routing() -> Result<(), Error> {
         .build();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "B");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        ..config
+    };
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -84,8 +99,16 @@ fn test_simple_routing() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_routing_with_transfers() -> Result<(), Error> {
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_routing_with_transfers(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -105,6 +128,11 @@ fn test_routing_with_transfers() -> Result<(), Error> {
         .build();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        ..config
+    };
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -170,8 +198,16 @@ fn test_routing_with_transfers() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_routing_backward() -> Result<(), Error> {
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_routing_backward(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -190,8 +226,13 @@ fn test_routing_backward() -> Result<(), Error> {
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
-    config.datetime_represent = DateTimeRepresent::Arrival;
+    let config = Config::new("2020-01-01T10:40:00", "A", "G");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        datetime_represent: DateTimeRepresent::Arrival,
+        ..config
+    };
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -257,8 +298,16 @@ fn test_routing_backward() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_second_pass_forward() -> Result<(), Error> {
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_second_pass_forward(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -280,10 +329,22 @@ fn test_second_pass_forward() -> Result<(), Error> {
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
+        .vj("titi", |vj_builder| {
+            vj_builder
+                .st("H", "10:35:00")
+                .st("I", "10:40:00")
+                .st("J", "10:45:00");
+        })
         .add_transfer("B", "F", "00:02:00")
+        .add_transfer("G", "H", "00:02:00")
         .build();
 
-    let config = Config::new("2020-01-01T09:59:00", "A", "G");
+    let config = Config::new("2020-01-01T09:59:00", "A", "J");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        ..config
+    };
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 
@@ -291,8 +352,8 @@ fn test_second_pass_forward() -> Result<(), Error> {
 
     let journey = &responses[0];
     // global check not specific to this test
-    assert_eq!(journey.nb_of_sections(), 4);
-    assert_eq!(journey.nb_of_transfers(), 1);
+    assert_eq!(journey.nb_of_sections(), 7);
+    assert_eq!(journey.nb_of_transfers(), 2);
 
     // Thanks to the second pass we take the 'tutu" vehicle and not 'toto'
     // Second pass = Maximize departure datetime
@@ -308,8 +369,16 @@ fn test_second_pass_forward() -> Result<(), Error> {
     Ok(())
 }
 
-#[test]
-fn test_second_pass_backward() -> Result<(), Error> {
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_second_pass_backward(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -334,8 +403,13 @@ fn test_second_pass_backward() -> Result<(), Error> {
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let mut config = Config::new("2020-01-01T10:40:00", "A", "G");
-    config.datetime_represent = DateTimeRepresent::Arrival;
+    let config = Config::new("2020-01-01T10:40:00", "A", "G");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        datetime_represent: DateTimeRepresent::Arrival,
+        ..config
+    };
 
     let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
 

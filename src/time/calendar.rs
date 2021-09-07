@@ -36,9 +36,9 @@
 
 use super::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
+    SecondsSinceUTCDayStart, MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
 };
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use chrono_tz::Tz as Timezone;
 use std::convert::TryFrom;
 
@@ -159,6 +159,22 @@ impl Calendar {
         }
     }
 
+    fn decompose_utc(
+        &self,
+        datetime_utc_to_decompose: &chrono::DateTime<Utc>,
+        reference_date: &chrono::Date<Utc>,
+    ) -> Option<(DaysSinceDatasetStart, SecondsSinceUTCDayStart)> {
+        let reference_datetime = reference_date.and_hms(0, 0, 0);
+        let seconds_i64 = (*datetime_utc_to_decompose - reference_datetime).num_seconds();
+
+        let has_seconds = SecondsSinceUTCDayStart::from_seconds_i64(seconds_i64);
+        let has_reference_day = self.date_to_days_since_start(&reference_date.naive_local());
+
+        match (has_reference_day, has_seconds) {
+            (Some(reference_day), Some(seconds)) => Some((reference_day, seconds)),
+            _ => None,
+        }
+    }
     // returns an iterator that provides all decompositions of `second_in_dataset_start`
     // of the form (day, time_in_timezoned_day) such that :
     //  - `day` belongs to the calendar
@@ -188,6 +204,60 @@ impl Calendar {
         backward_iter.next();
 
         forward_iter.chain(backward_iter)
+    }
+
+    pub fn decompositions_utc<'a>(
+        &'a self,
+        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        max_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+        min_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+    ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
+        // will advance the date until `time_in_timezoned_day` becomes smaller than `min_seconds_since_timezoned_day_start`
+        let forward_iter = ForwardDecomposeUtc::new(
+            seconds_since_dataset_start,
+            min_seconds_since_timezoned_day_start,
+            self,
+        );
+        // will decrease the date until `time_in_timezoned_day` becomes greater than `max_seconds_since_timezoned_day_start`
+        let mut backward_iter = BackwardDecomposeUtc::new(
+            seconds_since_dataset_start,
+            max_seconds_since_timezoned_day_start,
+            self,
+        );
+        // we want to skip the first date as it is already provided by `forward_iter`
+        backward_iter.next();
+
+        forward_iter.chain(backward_iter)
+    }
+
+    pub fn compose_utc(
+        &self,
+        day: &DaysSinceDatasetStart,
+        seconds_in_day: &SecondsSinceUTCDayStart,
+    ) -> SecondsSinceDatasetUTCStart {
+        debug_assert!(day.days < self.nb_of_days);
+        let date = *self.first_date() + chrono::Duration::days(day.days as i64);
+        // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
+        debug_assert!(self.contains_date(&date));
+
+        let datetime =
+            date.and_hms(0, 0, 0) + chrono::Duration::seconds(seconds_in_day.seconds as i64);
+        debug_assert!(self.contains_datetime(&datetime));
+
+        let seconds_i64 = (datetime - self.first_datetime()).num_seconds();
+        debug_assert!(seconds_i64 >= 0);
+        static_assertions::const_assert!(
+            (MAX_DAYS_IN_CALENDAR as i64) * 24 * 60 * 60
+                + (MAX_SECONDS_IN_DAY as i64)
+                + (MAX_TIMEZONE_OFFSET as i64)
+                <= u32::MAX as i64
+        );
+        debug_assert!(seconds_i64 <= u32::MAX as i64);
+
+        let seconds_u32 = seconds_i64 as u32;
+        SecondsSinceDatasetUTCStart {
+            seconds: seconds_u32,
+        }
     }
 
     pub fn compose(
@@ -337,6 +407,52 @@ impl<'calendar> Iterator for ForwardDecompose<'calendar> {
     }
 }
 
+pub struct ForwardDecomposeUtc<'calendar> {
+    datetime_utc_to_decompose: DateTime<chrono::Utc>,
+    has_reference_date_utc: Option<chrono::Date<Utc>>,
+    min_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+    calendar: &'calendar Calendar,
+}
+
+impl<'calendar> ForwardDecomposeUtc<'calendar> {
+    fn new(
+        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        min_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+        calendar: &'calendar Calendar,
+    ) -> Self {
+        let datetime_utc = calendar.first_datetime()
+            + chrono::Duration::seconds(i64::from(seconds_since_dataset_start.seconds));
+        debug_assert!(calendar.contains_datetime(&datetime_utc));
+
+        let datetime_utc = DateTime::<Utc>::from_utc(datetime_utc, Utc);
+        let date_utc = datetime_utc.date();
+        Self {
+            datetime_utc_to_decompose: datetime_utc,
+            has_reference_date_utc: Some(date_utc),
+            min_seconds_since_timezoned_day_start,
+            calendar,
+        }
+    }
+}
+
+impl<'calendar> Iterator for ForwardDecomposeUtc<'calendar> {
+    type Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ref reference_date) = self.has_reference_date_utc {
+            let has_decomposition = self
+                .calendar
+                .decompose_utc(&self.datetime_utc_to_decompose, reference_date);
+            if let Some((day, seconds)) = has_decomposition {
+                if seconds >= self.min_seconds_since_timezoned_day_start {
+                    self.has_reference_date_utc = reference_date.succ_opt();
+                    return Some((day, seconds));
+                }
+            }
+        }
+        None
+    }
+}
+
 // Iterator that provides decompositions of `datetime_timezoned_to_decompose`
 // in the form of  a `(day, time_in_timezoned_day)`.
 // It will decrease the `day` until `time_in_timezoned_day`
@@ -377,6 +493,53 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
             let has_decomposition = self
                 .calendar
                 .decompose(self.datetime_timezoned_to_decompose, reference_date);
+            if let Some((day, seconds)) = has_decomposition {
+                if seconds <= self.max_seconds_since_timezoned_day_start {
+                    self.has_reference_date = reference_date.pred_opt();
+                    return Some((day, seconds));
+                }
+            }
+        }
+        None
+    }
+}
+
+pub struct BackwardDecomposeUtc<'calendar> {
+    datetime_utc_to_decompose: chrono::DateTime<Utc>,
+    has_reference_date: Option<chrono::Date<Utc>>,
+    max_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+    calendar: &'calendar Calendar,
+}
+
+impl<'calendar> BackwardDecomposeUtc<'calendar> {
+    fn new(
+        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        max_seconds_since_timezoned_day_start: SecondsSinceUTCDayStart,
+        calendar: &'calendar Calendar,
+    ) -> Self {
+        let datetime_utc = calendar.first_datetime()
+            + chrono::Duration::seconds(i64::from(seconds_since_dataset_start.seconds));
+
+        debug_assert!(calendar.contains_datetime(&datetime_utc));
+
+        let datetime_utc = DateTime::<Utc>::from_utc(datetime_utc, Utc);
+        let date_utc = datetime_utc.date();
+        Self {
+            datetime_utc_to_decompose: datetime_utc,
+            has_reference_date: Some(date_utc),
+            max_seconds_since_timezoned_day_start,
+            calendar,
+        }
+    }
+}
+
+impl<'calendar> Iterator for BackwardDecomposeUtc<'calendar> {
+    type Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ref reference_date) = self.has_reference_date {
+            let has_decomposition = self
+                .calendar
+                .decompose_utc(&self.datetime_utc_to_decompose, reference_date);
             if let Some((day, seconds)) = has_decomposition {
                 if seconds <= self.max_seconds_since_timezoned_day_start {
                     self.has_reference_date = reference_date.pred_opt();
