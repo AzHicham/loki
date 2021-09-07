@@ -42,7 +42,7 @@ use crate::{
 use super::{
     day_to_timetable::DayToTimetable,
     generic_timetables::{Timetables, Vehicle},
-    TimetablesIter,
+    RemovalError, TimetablesIter,
 };
 
 use crate::time::{
@@ -63,7 +63,8 @@ pub struct PeriodicSplitVjByTzTimetables {
     calendar: Calendar,
     days_patterns: DaysPatterns,
     timezones_patterns: TimezonesPatterns,
-    vehicle_journey_to_timetables: HashMap<(Idx<VehicleJourney>, FixedOffset), DayToTimetable>,
+    vehicle_journey_to_timetables:
+        BTreeMap<Idx<VehicleJourney>, HashMap<FixedOffset, DayToTimetable>>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +97,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             calendar,
             days_patterns: DaysPatterns::new(nb_of_days),
             timezones_patterns: TimezonesPatterns::new(),
-            vehicle_journey_to_timetables: HashMap::new(),
+            vehicle_journey_to_timetables: BTreeMap::new(),
         }
     }
 
@@ -392,8 +393,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
                 let vj_timetables = self
                     .vehicle_journey_to_timetables
-                    .entry((vehicle_journey_idx, offset.clone()))
-                    .or_insert(DayToTimetable::new());
+                    .entry(vehicle_journey_idx)
+                    .or_insert(HashMap::new())
+                    .entry(*offset)
+                    .or_insert_with(|| DayToTimetable::new());
 
                 if let Some(day) =
                     vj_timetables.has_intersection_with(&offset_days_pattern, &self.days_patterns)
@@ -456,7 +459,57 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: Idx<VehicleJourney>,
     ) -> Result<(), super::RemovalError> {
-        todo!()
+        let day = self
+            .calendar
+            .date_to_days_since_start(date)
+            .ok_or(RemovalError::UnknownDate)?;
+
+        let iter = self
+            .vehicle_journey_to_timetables
+            .get_mut(&vehicle_journey_idx)
+            .ok_or_else(|| RemovalError::UnknownVehicleJourney)?;
+
+        for (offset, day_to_timetable) in iter {
+            let remove_result = day_to_timetable.remove(&day, &mut self.days_patterns);
+            if let Ok(timetable) = remove_result {
+                // we remove day from the day_pattern of the vehicle
+                let timetable_data = self.timetables.timetable_data_mut(&timetable);
+                let days_patterns = &mut self.days_patterns;
+                let update_result = timetable_data.update_vehicles_data(|vehicle_data| {
+                    if vehicle_data.vehicle_journey_idx == vehicle_journey_idx
+                        && vehicle_data.utc_offset == *offset
+                        && days_patterns.is_allowed(&vehicle_data.days_pattern, &day)
+                    {
+                        vehicle_data.days_pattern = days_patterns
+                            .get_pattern_without_day(vehicle_data.days_pattern, &day)
+                            .unwrap(); // unwrap is safe, because we check above that
+                                       // vehicle_data.days_pattern contains day
+                        true
+                    } else {
+                        false
+                    }
+                });
+
+                assert!(
+                    update_result == Ok(1),
+                    "Updated more than one vehicle for one (vehicle_journey_idx, offset, day)."
+                );
+                // by removing a day from the day_pattern, the day_pattern may have become empty
+                // in this case, we remove all vehicle with an empty day_pattern
+                let remove_from_timetable_result = timetable_data.remove_vehicles(|vehicle_data| {
+                    days_patterns.is_empty_pattern(&vehicle_data.days_pattern)
+                });
+
+                assert!(
+                    remove_from_timetable_result == Ok(1),
+                    "Removed more than one vehicle for one (vehicle_journey_idx, day)."
+                );
+
+                return Ok(());
+            }
+        }
+
+        Err(RemovalError::DateInvalidForVehicleJourney)
     }
 }
 
