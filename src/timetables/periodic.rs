@@ -59,7 +59,6 @@ use chrono_tz::Tz as TimeZone;
 use crate::log::warn;
 
 use crate::loads_data::Load;
-use core::cmp;
 
 pub type Time = SecondsSinceTimezonedDayStart;
 #[derive(Debug)]

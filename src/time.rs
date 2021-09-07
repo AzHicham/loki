@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use chrono::NaiveDate;
+use chrono::{FixedOffset, NaiveDate};
 use std::fmt::{Display, Formatter};
 
 mod calendar;
@@ -212,9 +212,9 @@ impl SecondsSinceTimezonedDayStart {
         }
     }
 
-    pub fn to_utc(&self, seconds_i32: i32) -> SecondsSinceUTCDayStart {
+    pub fn to_utc(&self, offset: &FixedOffset) -> SecondsSinceUTCDayStart {
         SecondsSinceUTCDayStart {
-            seconds: self.seconds + seconds_i32,
+            seconds: self.seconds + offset.utc_minus_local(),
         }
     }
 
