@@ -305,7 +305,7 @@ impl TimetablesTrait for DailyTimetables {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: &Idx<VehicleJourney>,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar
@@ -332,7 +332,7 @@ impl TimetablesTrait for DailyTimetables {
 
                 let remove_result = timetable_data.remove_vehicles(|vehicle_data| {
                     vehicle_data.day == day
-                        && vehicle_data.vehicle_journey_idx == vehicle_journey_idx
+                        && vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
                 });
                 assert!(
                     remove_result == Ok(1),

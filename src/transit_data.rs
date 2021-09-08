@@ -50,7 +50,7 @@ use crate::{
 
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesIter};
 
 pub struct TransitData<Timetables: TimetablesTrait> {
     pub(super) stop_point_idx_to_stop: HashMap<Idx<StopPoint>, Stop>,
@@ -278,6 +278,14 @@ where
 
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
+    }
+
+    fn remove_vehicle(
+        &mut self,
+        vehicle_journey_idx: &Idx<VehicleJourney>,
+        date: &chrono::NaiveDate,
+    ) -> Result<(), RemovalError> {
+        self.timetables.remove(date, vehicle_journey_idx)
     }
 }
 

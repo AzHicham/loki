@@ -454,7 +454,7 @@ impl TimetablesTrait for PeriodicTimetables {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: &Idx<VehicleJourney>,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar
@@ -481,7 +481,7 @@ impl TimetablesTrait for PeriodicTimetables {
                 let timetable_data = self.timetables.timetable_data_mut(&timetable);
                 let days_patterns = &mut self.days_patterns;
                 let update_result = timetable_data.update_vehicles_data(|vehicle_data| {
-                    if vehicle_data.vehicle_journey_idx == vehicle_journey_idx
+                    if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
                         && days_patterns.is_allowed(&vehicle_data.days_pattern, &day)
                     {
                         vehicle_data.days_pattern = days_patterns

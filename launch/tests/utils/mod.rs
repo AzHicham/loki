@@ -45,9 +45,9 @@ use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::chrono::TimeZone;
-use loki::chrono_tz;
 use loki::log::debug;
 use loki::transit_model::Model;
+use loki::{chrono_tz, VehicleJourney};
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
@@ -109,7 +109,7 @@ impl Config {
     }
 }
 
-fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
+pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
     let datetime = config.datetime;
 
     let start_stop_point_uri = &config.start;
@@ -217,4 +217,8 @@ pub fn make_pt_from_vehicle<'a>(
 
 pub fn make_stop_point<'a>(stop_point_idx: &Idx<StopPoint>, model: &'a Model) -> &'a StopPoint {
     &model.stop_points[*stop_point_idx]
+}
+
+pub fn get_vehicle_journey_name(vehicle_journey_idx: Idx<VehicleJourney>, model: &Model) -> String {
+    model.vehicle_journeys[vehicle_journey_idx].id.clone()
 }

@@ -168,10 +168,11 @@ pub trait Timetables: Types {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: &Idx<VehicleJourney>,
     ) -> Result<(), RemovalError>;
 }
 
+#[derive(Debug)]
 pub enum RemovalError {
     UnknownDate,
     UnknownVehicleJourney,
