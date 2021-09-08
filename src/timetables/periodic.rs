@@ -494,8 +494,6 @@ impl TimetablesTrait for PeriodicTimetables {
                     }
                 });
 
-                dbg!(update_result);
-
                 assert_eq!(
                     update_result,
                     Ok(1),
@@ -507,8 +505,6 @@ impl TimetablesTrait for PeriodicTimetables {
                 let remove_result = timetable_data.remove_vehicles(|vehicle_data| {
                     days_patterns.is_empty_pattern(&vehicle_data.days_pattern)
                 });
-
-                dbg!(remove_result);
 
                 assert!(
                     remove_result <= 1,

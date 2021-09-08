@@ -60,7 +60,7 @@ impl std::str::FromStr for ComparatorType {
 
 impl Default for ComparatorType {
     fn default() -> Self {
-        Self::Loads
+        Self::Basic
     }
 }
 

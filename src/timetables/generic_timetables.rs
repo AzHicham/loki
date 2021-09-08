@@ -970,10 +970,10 @@ where
             });
         }
 
-        for vehicle_loads in self.vehicle_loads.iter_mut() {
+        {
             let mut index = 0;
             let vehicle_datas = &self.vehicle_datas;
-            vehicle_loads.retain(|_| {
+            self.vehicle_loads.retain(|_| {
                 let to_retain = vehicle_filter(&vehicle_datas[index]).not();
                 index = index + 1;
                 to_retain
