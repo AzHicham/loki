@@ -11,7 +11,6 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     steps:
     - name : Checkout
@@ -135,6 +134,8 @@ jobs:
         rm -rf ./data/*
         mkdir -p ./data/idfm/ntfs
         cp -r -a ./artemis/artemis_data/idfm/fusio/. ./data/idfm/ntfs
+        mkdir -p ./data/idfm/geopal
+        cp -r -a ./artemis/artemis_data/idfm/geopal/. ./data/idfm/geopal
 
     # Run binarisation
     - name: Run Artemis binarisation
