@@ -113,7 +113,7 @@ jobs:
       env:
         ARTEMIS_GITHUB_TOKEN: ${{secrets.oauth_token}}
       run: |
-        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis.git --branch artemis-loki ./artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ./artemis
         git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ./artemis/artemis_data
         git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis_references.git --branch artemis_ng ./artemis/artemis_references
 
