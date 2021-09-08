@@ -504,11 +504,12 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     remove_from_timetable_result == Ok(1),
                     "Removed more than one vehicle for one (vehicle_journey_idx, day)."
                 );
-
+                // day should be valid for at most one offset
+                // so we return as soon as we found one offset for which this day is valid
                 return Ok(());
             }
         }
-
+        // day is not valid for any offset
         Err(RemovalError::DateInvalidForVehicleJourney)
     }
 }
