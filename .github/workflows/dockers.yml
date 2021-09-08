@@ -1,4 +1,4 @@
-name: Dockers
+name: Dockers & Artemis
 
 on:
   push:
@@ -57,8 +57,6 @@ jobs:
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/transilien-kraken/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
         test $result != null
 
-
-
     - name: Test idfm loads
       run: |
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
@@ -93,3 +91,74 @@ jobs:
       if: always()
       run: |
         docker-compose down --rmi all -v
+
+  artemis:
+    #if: ${{ github.event_name == 'push'}}
+    runs-on: ubuntu-latest
+    needs: build
+    # Checkout Loki
+    steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.7'
+    - name: Checkout Loki
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    # Checkout Artemis & submodules
+    - name: Checkout Artemis
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{secrets.oauth_token}}
+      run: |
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ./artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ./artemis/artemis_data
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/AzHicham/artemis_references.git --branch artemis_ng ./artemis/artemis_references
+
+    # Pull & build docker images
+    - name: Build bina, Kraken, Jormun & Loki images
+      run: |
+        echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        docker pull navitia/mc_artemis_bina
+        docker pull navitia/mc_kraken
+        docker pull navitia/mc_jormun
+        docker pull navitia/mc_loki
+        cd ./artemis
+        docker build -t artemis .
+
+    # Copy artemis/data/{coverage}/fusio to ./loki/data/{coverage}/ntfs
+    - name: Copy coverage data
+      run: |
+        rm -rf ./data/*
+        mkdir -p ./data/idfm/ntfs
+        cp -r -a ./artemis/artemis_data/idfm/fusio/. ./data/idfm/ntfs
+
+    # Run binarisation
+    - name: Run Artemis binarisation
+      run: |
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_artemis_bina
+
+    # Start dockers & Run Tests
+    - name: Run Tests
+      continue-on-error: true
+      run: |
+        docker-compose -f ./mc_navitia/docker-compose.yml up --detach
+        cd ./artemis
+        docker run  \
+        --network host \
+        -v $PWD:/usr/src/app  \
+        -e ARTEMIS_LOG_LEVEL=DEBUG \
+        -e ARTEMIS_USE_ARTEMIS_NG=True   \
+        -e ARTEMIS_URL_JORMUN=http://localhost:9191 \
+        -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
+        artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina
+
+    - name: Archive Artemis artifacts (logs + ref)
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs-and-ref
+        path: |
+            ./artemis/output/**/*
+            ./artemis/junit/*.xml
+            ./artemis/logs
