@@ -151,6 +151,20 @@ for folder in $(ls -d */); do
         cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
     fi
 
+    # copy geopal data to output if present
+    if [[ -e ${input}/${coverage}/geopal/ ]]; then
+        rm -f ${output}/${coverage}/geopal/*
+        mkdir -p ${output}/${coverage}/geopal/
+        zip -j -r ${output}/${coverage}/geopal/geopal.zip ${input}/${coverage}/geopal/
+    fi
+
+    # copy fusio-geopal data to output if present
+    if [[ -e ${input}/${coverage}/fusio-geopal/ ]]; then
+        rm -f ${output}/${coverage}/geopal/*
+        mkdir -p ${output}/${coverage}/geopal/
+        zip -j -r ${output}/${coverage}/geopal/geopal.zip ${input}/${coverage}/fusio-geopal/
+    fi
+
     # binarize
     echo "Launch binarisation"
     rm -f ${output}/${coverage}/data.nav.lz4
