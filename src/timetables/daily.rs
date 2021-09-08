@@ -220,7 +220,7 @@ impl TimetablesTrait for DailyTimetables {
     {
         let mut result = Vec::new();
         let nb_of_positions = stops.len();
-        let loads = if nb_of_positions > 0 {
+        let default_loads = if nb_of_positions > 0 {
             vec![Load::default(); nb_of_positions - 1]
         } else {
             vec![Load::default(); 0]
@@ -265,12 +265,16 @@ impl TimetablesTrait for DailyTimetables {
                         vehicle_journey_idx,
                         day,
                     };
+                    let loads = loads_data
+                        .loads(&vehicle_journey_idx, date)
+                        .unwrap_or_else(|| default_loads.as_slice());
+
                     let insert_result = self.timetables.insert(
                         stops.clone(),
                         flows.clone(),
                         board_times_utc,
                         debark_times_utc,
-                        loads.clone().into_iter(),
+                        loads.iter().copied(),
                         (),
                         vehicle_data,
                     );
