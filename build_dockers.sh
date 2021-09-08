@@ -128,6 +128,9 @@ run unzip -q ./tmp/${inside_archive} -d ./tmp/
 # build the docker for binarisation
 run docker build -f docker/bina_dockerfile -t navitia/mc_bina  .
 
+# build the docker for Artemis binarisation
+run docker build -f docker/bina_artemis_dockerfile -t navitia/mc_artemis_bina  .
+
 # build the docker for kraken
 run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken  ./tmp/
 
