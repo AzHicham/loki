@@ -933,7 +933,7 @@ where
         Ok(())
     }
 
-    pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> Result<usize, ()>
+    pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> usize
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -943,7 +943,7 @@ where
             .filter(|vehicle_data| vehicle_filter(&vehicle_data))
             .count();
         if nb_to_remove == 0 {
-            return Err(());
+            return 0;
         }
 
         //  Option 1 : use buffers to copy the data to keep, and then make swaps
@@ -987,7 +987,7 @@ where
             });
         }
 
-        Ok(nb_to_remove)
+        nb_to_remove
     }
 
     pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> Result<usize, ()>

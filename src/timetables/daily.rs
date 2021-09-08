@@ -335,7 +335,7 @@ impl TimetablesTrait for DailyTimetables {
                         && vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
                 });
                 assert!(
-                    remove_result == Ok(1),
+                    remove_result <= 1,
                     "Removed more than one vehicle for one (vehicle_journey_idx, day)."
                 );
 

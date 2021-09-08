@@ -490,8 +490,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     }
                 });
 
-                assert!(
-                    update_result == Ok(1),
+                assert_eq!(
+                    update_result,
+                    Ok(1),
                     "Updated more than one vehicle for one (vehicle_journey_idx, offset, day)."
                 );
                 // by removing a day from the day_pattern, the day_pattern may have become empty
@@ -501,7 +502,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 });
 
                 assert!(
-                    remove_from_timetable_result == Ok(1),
+                    remove_from_timetable_result <= 1,
                     "Removed more than one vehicle for one (vehicle_journey_idx, day)."
                 );
                 // day should be valid for at most one offset

@@ -50,16 +50,14 @@ fn remove_vj_test_periodic() -> Result<(), Error> {
     remove_vj_inner::<PeriodicData>()
 }
 
-// #[test]
-// fn remove_vj_test_daily() -> Result<(), Error> {
-//     remove_vj_inner::<DailyData>()
-
-// }
-// #[test]
-// fn remove_vj_test_periodic_split() -> Result<(), Error> {
-//     remove_vj_inner::<PeriodicSplitVjData>()
-
-// }
+#[test]
+fn remove_vj_test_daily() -> Result<(), Error> {
+    remove_vj_inner::<DailyData>()
+}
+#[test]
+fn remove_vj_test_periodic_split() -> Result<(), Error> {
+    remove_vj_inner::<PeriodicSplitVjData>()
+}
 
 fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
     utils::init_logger();

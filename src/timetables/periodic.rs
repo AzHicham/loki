@@ -494,8 +494,11 @@ impl TimetablesTrait for PeriodicTimetables {
                     }
                 });
 
-                assert!(
-                    update_result == Ok(1),
+                dbg!(update_result);
+
+                assert_eq!(
+                    update_result,
+                    Ok(1),
                     "Updated more than one vehicle for one (vehicle_journey_idx, day)."
                 );
 
@@ -505,8 +508,10 @@ impl TimetablesTrait for PeriodicTimetables {
                     days_patterns.is_empty_pattern(&vehicle_data.days_pattern)
                 });
 
+                dbg!(remove_result);
+
                 assert!(
-                    remove_result == Ok(1),
+                    remove_result <= 1,
                     "Removed more than one vehicle for one (vehicle_journey_idx, day)."
                 );
 
