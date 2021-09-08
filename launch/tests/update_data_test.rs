@@ -35,28 +35,27 @@
 // www.navitia.io
 
 mod utils;
-use std::fmt::Debug;
 
 use failure::Error;
 use launch::config::DataImplem;
 use launch::solver::Solver;
-use loki::{chrono_tz, DailyData, DataTrait, DataWithIters, PeriodicData, PeriodicSplitVjData};
+use loki::{DailyData, DataTrait, DataWithIters, PeriodicData, PeriodicSplitVjData};
+use utils::model_builder::AsDate;
 use utils::model_builder::ModelBuilder;
-use utils::model_builder::{AsDate, AsDateTime};
-use utils::{build_and_solve, Config};
+use utils::Config;
 
-#[test]
-fn remove_vj_test_periodic() -> Result<(), Error> {
-    remove_vj_inner::<PeriodicData>()
-}
+use rstest::rstest;
 
-#[test]
-fn remove_vj_test_daily() -> Result<(), Error> {
-    remove_vj_inner::<DailyData>()
-}
-#[test]
-fn remove_vj_test_periodic_split() -> Result<(), Error> {
-    remove_vj_inner::<PeriodicSplitVjData>()
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn remove_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => remove_vj_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => remove_vj_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => remove_vj_inner::<DailyData>(),
+    }
 }
 
 fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
@@ -151,6 +150,255 @@ fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
         let second_vehicle = &journey.connections[0].2;
         assert_eq!(
             utils::get_vehicle_journey_name(second_vehicle.vehicle_journey, &model),
+            "second"
+        );
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn remove_successive_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => remove_successive_vj_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => remove_successive_vj_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => remove_successive_vj_inner::<DailyData>(),
+    }
+}
+
+fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
+    utils::init_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .vj("second", |vj_builder| {
+            vj_builder
+                .st("A", "11:00:00")
+                .st("B", "11:05:00")
+                .st("C", "11:10:00");
+        })
+        .vj("third", |vj_builder| {
+            vj_builder
+                .st("A", "12:00:00")
+                .st("B", "12:05:00")
+                .st("C", "12:10:00");
+        })
+        .build();
+
+    let config = Config::new("2020-01-01T08:00:00", "A", "C");
+
+    let mut data: Data = launch::read::build_transit_data(
+        &model,
+        &loki::LoadsData::empty(),
+        &config.default_transfer_duration,
+    );
+
+    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            "first"
+        );
+    }
+
+    {
+        let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+            .unwrap();
+    }
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            "second"
+        );
+    }
+
+    {
+        let vehicle_journey_idx = model.vehicle_journeys.get_idx("second").unwrap();
+        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+            .unwrap();
+    }
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            "third"
+        );
+    }
+
+    {
+        let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
+        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+            .unwrap();
+    }
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 0);
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn remove_middle_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => remove_middle_vj_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => remove_middle_vj_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => remove_middle_vj_inner::<DailyData>(),
+    }
+}
+
+fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
+    utils::init_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .vj("second", |vj_builder| {
+            vj_builder
+                .st("A", "11:00:00")
+                .st("B", "11:05:00")
+                .st("C", "11:10:00");
+        })
+        .vj("third", |vj_builder| {
+            vj_builder
+                .st("A", "12:00:00")
+                .st("B", "12:05:00")
+                .st("C", "12:10:00");
+        })
+        .build();
+
+    let config = Config::new("2020-01-01T10:50:00", "A", "C");
+
+    let mut data: Data = launch::read::build_transit_data(
+        &model,
+        &loki::LoadsData::empty(),
+        &config.default_transfer_duration,
+    );
+
+    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            "second"
+        );
+    }
+
+    {
+        let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+            .unwrap();
+    }
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            "second"
+        );
+    }
+
+    {
+        let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
+        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+            .unwrap();
+    }
+
+    {
+        let request_input = utils::make_request_from_config(&config)?;
+        let responses = solver.solve_request(
+            &data,
+            &model,
+            &request_input,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
             "second"
         );
     }
