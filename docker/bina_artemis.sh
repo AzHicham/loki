@@ -168,7 +168,7 @@ for folder in $(ls -d */); do
     # binarize
     echo "Launch binarisation"
     rm -f ${output}/${coverage}/data.nav.lz4
-    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
+    # run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
 
     # copy stoptime_loads if present
     if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
@@ -200,10 +200,17 @@ for folder in $(ls -d */); do
 
     # Jormun config files
     # "loki" with basic comparator
-    jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
+    jq -n --arg instance "${coverage}-loki" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
     key: $instance,
     zmq_socket: $krakenSocket,
     pt_zmq_socket : $lokiSocket
+}'  > ${output}/jormun_conf/${coverage}-loki.json
+
+    # Jormun config files
+    # old fashion Kraken
+    jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{
+    key: $instance,
+    zmq_socket: $krakenSocket
 }'  > ${output}/jormun_conf/${coverage}.json
 
     # kraken config file
