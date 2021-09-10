@@ -97,9 +97,7 @@ jobs:
     #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     needs: build
-    # Checkout Loki
     steps:
-
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
@@ -165,23 +163,8 @@ jobs:
         -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
         artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina --create_ref --benchmark-json benchmark-kraken.json
 
-    - name: Store Kraken benchmark result
-      uses: rhysd/github-action-benchmark@v1
-      with:
-        name: Kraken Benchmark
-        tool: 'python'
-        output-file-path: benchmark-kraken.json
-        benchmark-data-dir-path: './artemis-kraken'
-        max-items-in-chart: 30
-        github-token: ${{ secrets.oauth_token }}
-        auto-push: true
-        alert-threshold: '150%'
-        comment-on-alert: true
-        fail-on-alert: true
-        alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
-
     # Run Tests with Loki & compare with refs
-    - name: Run Tests Kraken
+    - name: Run Tests Loki
       continue-on-error: true
       run: |
         cd ./artemis
@@ -195,11 +178,27 @@ jobs:
         -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
         artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina --benchmark-json benchmark-loki.json
 
+
+    - name: Store Kraken benchmark result
+      uses: rhysd/github-action-benchmark@v1
+      with:
+        name: Kraken Benchmark
+        tool: 'pytest'
+        output-file-path: benchmark-kraken.json
+        benchmark-data-dir-path: './artemis-kraken'
+        max-items-in-chart: 30
+        github-token: ${{ secrets.oauth_token }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: true
+        alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
+
     - name: Store Loki benchmark result
       uses: rhysd/github-action-benchmark@v1
       with:
         name: Loki Benchmark
-        tool: 'python'
+        tool: 'pytest'
         output-file-path: benchmark-loki.json
         benchmark-data-dir-path: './artemis-loki'
         max-items-in-chart: 30
