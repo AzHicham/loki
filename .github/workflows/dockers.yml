@@ -112,8 +112,9 @@ jobs:
       env:
         ARTEMIS_GITHUB_TOKEN: ${{secrets.oauth_token}}
       run: |
-        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ./artemis
-        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ./artemis/artemis_data
+        mkdir -p ../artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ../artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch master ../artemis/artemis_data
 
     # Pull & build docker images
     - name: Build bina, Kraken, Jormun & Loki images
@@ -123,7 +124,7 @@ jobs:
         docker pull navitia/mc_kraken
         docker pull navitia/mc_jormun
         docker pull navitia/mc_loki
-        cd ./artemis
+        cd ../artemis
         docker build -t artemis .
 
     # Copy artemis/data/{coverage}/fusio to ./loki/data/{coverage}/ntfs
@@ -132,10 +133,10 @@ jobs:
       run: |
         rm -rf ./data/*
         mkdir -p ./data/idfm/ntfs
-        cp -r -a ./artemis/artemis_data/idfm/fusio/. ./data/idfm/ntfs
+        cp -r -a ../artemis/artemis_data/idfm/fusio/. ./data/idfm/ntfs
         mkdir -p ./data/idfm/geopal
-        cp -r -a ./artemis/artemis_data/idfm/geopal/. ./data/idfm/geopal
-        mkdir -p ./artemis/artemis_references/TestIdfM
+        cp -r -a ../artemis/artemis_data/idfm/geopal/. ./data/idfm/geopal
+        mkdir -p ../artemis/artemis_references/TestIdfM
 
     # Run binarisation
     - name: Run Artemis binarisation
@@ -150,7 +151,7 @@ jobs:
     # Run Tests with Kraken & create refs
     - name: Run Tests Kraken
       run: |
-        cd ./artemis
+        cd ../artemis
         docker run  \
         --network host \
         -v $PWD:/usr/src/app  \
@@ -165,7 +166,7 @@ jobs:
     - name: Run Tests Loki
       continue-on-error: true
       run: |
-        cd ./artemis
+        cd ../artemis
         docker run  \
         --network host \
         -v $PWD:/usr/src/app  \
@@ -176,13 +177,16 @@ jobs:
         -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
         artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina --benchmark-json benchmark-loki.json
 
+    # Stash modification to upload benchmark to gh-pages
+    - name: Stash
+      run: git stash
 
     - name: Store Kraken benchmark result
       uses: rhysd/github-action-benchmark@v1
       with:
         name: Kraken Benchmark
         tool: 'pytest'
-        output-file-path: ./artemis/benchmark-kraken.json
+        output-file-path: ../artemis/benchmark-kraken.json
         benchmark-data-dir-path: './artemis-kraken'
         max-items-in-chart: 30
         github-token: ${{ secrets.oauth_token }}
@@ -197,7 +201,7 @@ jobs:
       with:
         name: Loki Benchmark
         tool: 'pytest'
-        output-file-path: ./artemis/benchmark-loki.json
+        output-file-path: ../artemis/benchmark-loki.json
         benchmark-data-dir-path: './artemis-loki'
         max-items-in-chart: 30
         github-token: ${{ secrets.oauth_token }}
@@ -213,6 +217,6 @@ jobs:
       with:
         name: logs-and-ref
         path: |
-            ./artemis/output/**/*
-            ./artemis/junit/*.xml
-            ./artemis/logs
+            ../artemis/output/**/*
+            ../artemis/junit/*.xml
+            ../artemis/logs
