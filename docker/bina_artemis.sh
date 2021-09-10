@@ -232,7 +232,7 @@ zmq_socket = tcp://*:${krakenPort}
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,
-    data_implem: "periodic",
+    data_implem: "periodic_split_vj",
     criteria_implem: "loads"
 }' > ${output}/${coverage}/loki_config.json
 
