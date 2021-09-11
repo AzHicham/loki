@@ -229,8 +229,6 @@ jobs:
       run: |
           mkdir -p artemis
           cp -r -a ../artemis/output/ ./artemis/output
-          cp -r -a ../artemis/junit/ ./artemis/junit
-          cp -r -a ../artemis/logs ./artemis/logs
 
     - name: Archive Artemis artifacts (logs + ref)
       if: ${{ always() }}
@@ -239,5 +237,3 @@ jobs:
         name: logs-and-ref
         path: |
             ./artemis/output/**/*
-            ./artemis/junit/*.xml
-            ./artemis/logs
