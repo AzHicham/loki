@@ -181,12 +181,26 @@ jobs:
     - name: Stash
       run: git stash
 
+    - name: Compute Global benchmark for Artemis-Kraken
+      run: |
+          TOTAL_RUN=$(cat ../artemis/benchmark-kraken.json| jq '[.. | objects | .mean] | add' )
+          OPS=$(echo "scale=10; 1.0 /  $TOTAL_RUN " | bc)
+          STD_DEV=$(echo "scale=10; 0.1 /  $TOTAL_RUN " | bc)
+          cat benchmark.json | jq '.benchmarks |= [{"group": "IdfM", "name": "artemis/global_test_", "fullname": "artemis/global_test_", "params": null, "param": null, "extra_info": {}, "stats": { "ops" : "'"$OPS"'", "mean" : "'"$TOTAL_RUN"'", "rounds" : 1, "stddev" : "'"$STD_DEV"'" }  }] + .' >> ../artemis/benchmark-kraken_edit.json
+
+    - name: Compute Global benchmark for Artemis-Loki
+      run: |
+          TOTAL_RUN=$(cat ../artemis/benchmark-loki.json| jq '[.. | objects | .mean] | add' )
+          OPS=$(echo "scale=10; 1.0 /  $TOTAL_RUN " | bc)
+          STD_DEV=$(echo "scale=10; 0.1 /  $TOTAL_RUN " | bc)
+          cat benchmark.json | jq '.benchmarks |= [{"group": "IdfM", "name": "artemis/global_test_", "fullname": "artemis/global_test_", "params": null, "param": null, "extra_info": {}, "stats": { "ops" : "'"$OPS"'", "mean" : "'"$TOTAL_RUN"'", "rounds" : 1, "stddev" : "'"$STD_DEV"'" }  }] + .' >> ../artemis/benchmark-loki_edit.json
+
     - name: Store Kraken benchmark result
       uses: rhysd/github-action-benchmark@v1
       with:
         name: Kraken Benchmark
         tool: 'pytest'
-        output-file-path: ../artemis/benchmark-kraken.json
+        output-file-path: ../artemis/benchmark-kraken_edit.json
         benchmark-data-dir-path: './artemis-kraken'
         max-items-in-chart: 30
         github-token: ${{ secrets.oauth_token }}
@@ -201,7 +215,7 @@ jobs:
       with:
         name: Loki Benchmark
         tool: 'pytest'
-        output-file-path: ../artemis/benchmark-loki.json
+        output-file-path: ../artemis/benchmark-loki_edit.json
         benchmark-data-dir-path: './artemis-loki'
         max-items-in-chart: 30
         github-token: ${{ secrets.oauth_token }}
@@ -211,12 +225,19 @@ jobs:
         fail-on-alert: true
         alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
 
+    - name: Copy artifacts & logs for archive
+      run: |
+          mkdir -p artemis
+          cp -r -a ../artemis/output/ ./artemis/output
+          cp -r -a ../artemis/junit/ ./artemis/junit
+          cp -r -a ../artemis/logs ./artemis/logs
+
     - name: Archive Artemis artifacts (logs + ref)
       if: ${{ always() }}
       uses: actions/upload-artifact@v2
       with:
         name: logs-and-ref
         path: |
-            ../artemis/output/**/*
-            ../artemis/junit/*.xml
-            ../artemis/logs
+            ./artemis/output/**/*
+            ./artemis/junit/*.xml
+            ./artemis/logs
