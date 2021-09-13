@@ -82,7 +82,6 @@ jobs:
         docker push navitia/mc_loki
         docker push navitia/mc_jormun
         docker push navitia/mc_kraken
-        docker push navitia/mc_artemis_bina
         docker logout
 
     - name: cleanup
@@ -120,7 +119,7 @@ jobs:
     - name: Build bina, Kraken, Jormun & Loki images
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker pull navitia/mc_artemis_bina
+        docker pull navitia/mc_bina
         docker pull navitia/mc_kraken
         docker pull navitia/mc_jormun
         docker pull navitia/mc_loki
