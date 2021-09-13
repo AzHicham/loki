@@ -559,7 +559,7 @@ fn compute_section_co2_emission(
         })
 }
 
-fn make_calendars(model: &Model) -> Vec<navitia_proto::Calendar> {
+fn make_calendars(_model: &Model) -> Vec<navitia_proto::Calendar> {
     let proto_calendar: Vec<navitia_proto::Calendar> = Vec::new();
     proto_calendar
 }
