@@ -560,40 +560,7 @@ fn compute_section_co2_emission(
 }
 
 fn make_calendars(model: &Model) -> Vec<navitia_proto::Calendar> {
-    let mut proto_calendar: Vec<navitia_proto::Calendar> = Vec::new();
-    for calendar in &model.calendars {
-        let dates = &calendar.1.dates;
-        let active_periods = navitia_proto::CalendarPeriod {
-            begin: Some(
-                dates
-                    .iter()
-                    .next()
-                    .map_or("".to_string(), |date| date.format("%Y%m%d").to_string()),
-            ),
-            end: Some(
-                dates
-                    .iter()
-                    .next_back()
-                    .map_or("".to_string(), |date| date.format("%Y%m%d").to_string()),
-            ),
-        };
-        let week_pattern = navitia_proto::WeekPattern {
-            monday: Some(false),
-            tuesday: Some(false),
-            wednesday: Some(false),
-            thursday: Some(false),
-            friday: Some(false),
-            saturday: Some(false),
-            sunday: Some(false),
-        };
-        let calendar = navitia_proto::Calendar {
-            active_periods: vec![active_periods],
-            week_pattern: Some(week_pattern),
-            uri: Some(calendar.1.id.clone()),
-            ..Default::default()
-        };
-        proto_calendar.push(calendar);
-    }
+    let proto_calendar: Vec<navitia_proto::Calendar> = Vec::new();
     proto_calendar
 }
 
