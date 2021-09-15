@@ -40,8 +40,8 @@ use super::{
 };
 use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
-use std::convert::TryFrom;
 use std::cmp;
+use std::convert::TryFrom;
 
 impl Calendar {
     pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
@@ -79,18 +79,18 @@ impl Calendar {
 
     fn get_offset(&self) -> chrono::Duration {
         chrono::Duration::seconds(i64::from(self.get_offset_seconds()))
-    }    
+    }
 
     fn get_offset_seconds(&self) -> i32 {
-        // in the west-most/east-most timezone, we are at UTC-/+12, with take some margin (day saving times...) and make it -24h                       
-        MAX_TIMEZONE_OFFSET 
+        // in the west-most/east-most timezone, we are at UTC-/+12, with take some margin (day saving times...) and make it -24h
+        MAX_TIMEZONE_OFFSET
                 // Then we add some margin for boarding/alighting time
                 + MAX_SECONDS_IN_DAY
-    }    
+    }
 
     /// The first datetime that can be obtained
     pub fn first_datetime(&self) -> NaiveDateTime {
-        self.first_date.and_hms(0,0,0) - self.get_offset()
+        self.first_date.and_hms(0, 0, 0) - self.get_offset()
     }
 
     pub fn last_datetime(&self) -> NaiveDateTime {
@@ -202,11 +202,7 @@ impl Calendar {
         &'a self,
         seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
-
-        let iter = DecomposeUtc::new(
-            seconds_since_dataset_start,
-            self
-        );
+        let iter = DecomposeUtc::new(seconds_since_dataset_start, self);
         return iter;
     }
 
@@ -215,10 +211,11 @@ impl Calendar {
         day: &DaysSinceDatasetStart,
         seconds_in_day: &SecondsSinceUTCDayStart,
     ) -> SecondsSinceDatasetUTCStart {
-
         debug_assert!(day.days < self.nb_of_days);
 
-        let seconds = day.days as i32 * MAX_SECONDS_IN_DAY + seconds_in_day.seconds + self.get_offset_seconds();
+        let seconds = day.days as i32 * MAX_SECONDS_IN_DAY
+            + seconds_in_day.seconds
+            + self.get_offset_seconds();
 
         SecondsSinceDatasetUTCStart {
             seconds: seconds as u32,
@@ -379,23 +376,21 @@ pub struct DecomposeUtc {
 }
 
 impl DecomposeUtc {
-    fn new(
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
-        calendar: &Calendar,
-    ) -> Self {
-        // We should remove calendar's offset to get the real time  
-        let seconds_since_start = seconds_since_dataset_start.seconds as i32- calendar.get_offset_seconds();
-        
+    fn new(seconds_since_dataset_start: &SecondsSinceDatasetUTCStart, calendar: &Calendar) -> Self {
+        // We should remove calendar's offset to get the real time
+        let seconds_since_start =
+            seconds_since_dataset_start.seconds as i32 - calendar.get_offset_seconds();
+
         debug_assert!(seconds_since_start >= 0);
 
         // floor: This operation rounds towards zero, truncating any fractional part of the exact result
         let target_day = seconds_since_start / MAX_SECONDS_IN_DAY;
 
         let target_time = (seconds_since_start % MAX_SECONDS_IN_DAY) as i32;
-        
+
         let mut first_day = cmp::max(target_day - 2, 0);
 
-        for i in 0..(target_day - first_day){
+        for i in 0..(target_day - first_day) {
             if (target_time + MAX_SECONDS_IN_DAY as i32 * i) <= MAX_SECONDS_IN_DAY * 2 {
                 first_day = target_day - i;
             }
@@ -411,14 +406,17 @@ impl DecomposeUtc {
 
         debug_assert!(last_day > first_day);
 
-        let first_time = target_time + MAX_SECONDS_IN_DAY as i32 * (target_day - first_day );
-        
-        let iter =  std::ops::Range::<u16>{start: 0, end: (last_day - first_day + 1) as u16};
-                    
+        let first_time = target_time + MAX_SECONDS_IN_DAY as i32 * (target_day - first_day);
+
+        let iter = std::ops::Range::<u16> {
+            start: 0,
+            end: (last_day - first_day + 1) as u16,
+        };
+
         Self {
             first_day: first_day as u16,
             first_time,
-            iter
+            iter,
         }
     }
 }
@@ -426,8 +424,16 @@ impl DecomposeUtc {
 impl Iterator for DecomposeUtc {
     type Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart);
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|n| (DaysSinceDatasetStart{days: self.first_day + n}, 
-                                  SecondsSinceUTCDayStart{seconds: self.first_time - MAX_SECONDS_IN_DAY * n as i32}))
+        self.iter.next().map(|n| {
+            (
+                DaysSinceDatasetStart {
+                    days: self.first_day + n,
+                },
+                SecondsSinceUTCDayStart {
+                    seconds: self.first_time - MAX_SECONDS_IN_DAY * n as i32,
+                },
+            )
+        })
     }
 }
 
