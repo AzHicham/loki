@@ -221,8 +221,6 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
         let decompositions = self.calendar.decompositions_utc(
             waiting_time,
-            SecondsSinceUTCDayStart::max(),
-            SecondsSinceUTCDayStart::min(),
         );
 
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
@@ -287,10 +285,6 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
         let decompositions = self.calendar.decompositions_utc(
             time,
-            SecondsSinceUTCDayStart::max(),
-            SecondsSinceUTCDayStart::min(),
-            // *latest_debark_time_in_day,
-            // *earliest_debark_time_in_day,
         );
         let mut best_vehicle_day_and_its_departure_time_at_previous_position: Option<(
             Vehicle,
