@@ -488,3 +488,130 @@ impl<'calendar> Iterator for BackwardDecompose<'calendar> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use chrono::NaiveDate;
+
+    const SECONDS_PER_HOUR: i32 = 60 * 60;
+
+    use super::Calendar;
+    #[test]
+    fn test_decompositions_utc() {
+        let calendar = Calendar::new(
+            NaiveDate::from_ymd(2020, 1, 1),
+            NaiveDate::from_ymd(2020, 1, 30),
+        );
+
+        {
+            // Jan 1st at 12:00
+            let datetime = NaiveDate::from_ymd(2020, 1, 1).and_hms(12, 0, 0);
+            let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
+
+            let decompositions: Vec<_> = calendar
+                .decompositions_utc(&seconds_since_dataset_start)
+                .collect();
+
+            // Jan 1st + 12h
+            assert_eq!(decompositions[0].0.days, 0);
+            assert_eq!(decompositions[0].1.seconds, 12 * SECONDS_PER_HOUR);
+
+            // Jan 2nd - 12h
+            assert_eq!(decompositions[1].0.days, 1);
+            assert_eq!(decompositions[1].1.seconds, -12 * SECONDS_PER_HOUR);
+
+            // // Jan 3rd - 36h
+            // assert_eq!(decompositions[2].0.days, 2 );
+            // assert_eq!(decompositions[2].1.seconds, -36 * SECONDS_PER_HOUR );
+        }
+
+        {
+            // Jan 10st at 12:00
+            let datetime = NaiveDate::from_ymd(2020, 1, 10).and_hms(12, 0, 0);
+            let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
+
+            let decompositions: Vec<_> = calendar
+                .decompositions_utc(&seconds_since_dataset_start)
+                .collect();
+
+            // Jan 8 at +48h + 12h
+            // assert_eq!(decompositions[0].0.days, 7 );
+            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+
+            // Jan 9 at +24h +12h
+            assert_eq!(decompositions[0].0.days, 8);
+            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+
+            // Jan 10 at +12h
+            assert_eq!(decompositions[1].0.days, 9);
+            assert_eq!(decompositions[1].1.seconds, 12 * SECONDS_PER_HOUR);
+
+            // Jan 11 at -12h
+            assert_eq!(decompositions[2].0.days, 10);
+            assert_eq!(decompositions[2].1.seconds, -12 * SECONDS_PER_HOUR);
+
+            // // Jan 12 at -24h -12h
+            // assert_eq!(decompositions[3].0.days, 10 );
+            // assert_eq!(decompositions[3].1.seconds, (-24 -12) * SECONDS_PER_HOUR );
+        }
+
+        {
+            // Jan 30st at 12:00
+            let datetime = NaiveDate::from_ymd(2020, 1, 30).and_hms(12, 0, 0);
+            let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
+
+            let decompositions: Vec<_> = calendar
+                .decompositions_utc(&seconds_since_dataset_start)
+                .collect();
+
+            // Jan 28 at +48h + 12h
+            // assert_eq!(decompositions[0].0.days, 7 );
+            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+
+            // Jan 29 at +24h +12h
+            assert_eq!(decompositions[0].0.days, 28);
+            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+
+            // Jan 30 at +12h
+            assert_eq!(decompositions[1].0.days, 29);
+            assert_eq!(decompositions[1].1.seconds, 12 * SECONDS_PER_HOUR);
+
+            assert_eq!(decompositions.len(), 2);
+        }
+
+        {
+            // Jan 31st at 12:00
+            let datetime = NaiveDate::from_ymd(2020, 1, 31).and_hms(12, 0, 0);
+            let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
+
+            let decompositions: Vec<_> = calendar
+                .decompositions_utc(&seconds_since_dataset_start)
+                .collect();
+
+            // Jan 28 at +48h + 12h
+            // assert_eq!(decompositions[0].0.days, 7 );
+            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+
+            // Jan 30 at +24h +12h
+            assert_eq!(decompositions[0].0.days, 29);
+            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+
+            assert_eq!(decompositions.len(), 1);
+        }
+
+        {
+            // Dec 31st at 12:00
+            let datetime = NaiveDate::from_ymd(2019, 12, 31).and_hms(12, 0, 0);
+            let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
+
+            let decompositions: Vec<_> = calendar
+                .decompositions_utc(&seconds_since_dataset_start)
+                .collect();
+
+            // Jan 1st - 12h
+            assert_eq!(decompositions[0].0.days, 0);
+            assert_eq!(decompositions[0].1.seconds, -12 * SECONDS_PER_HOUR);
+        }
+    }
+}
