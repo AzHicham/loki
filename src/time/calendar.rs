@@ -49,34 +49,38 @@ use std::convert::TryFrom;
 impl Calendar {
     pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         assert!(first_date <= last_date);
-        let nb_of_days_i64: i64 = (last_date - first_date).num_days() + 1;
+        let last_day_offset_i64: i64 = (last_date - first_date).num_days() + 1;
         assert!(
-            nb_of_days_i64 < MAX_DAYS_IN_CALENDAR as i64,
+            last_day_offset_i64 < MAX_DAYS_IN_CALENDAR as i64,
             "Trying to construct a calendar with {:#} days \
             which is more than the maximum allowed of {:#} days",
-            nb_of_days_i64,
+            last_day_offset_i64,
             MAX_DAYS_IN_CALENDAR
         );
 
         // unwrap here is safe because :
-        // - nb_of_days_i64 >=0 since we asserted above that first_date <= last_date
-        // - nb_of_days_i64 < MAX_DAYS_IN_CALENDAR < u16::MAX
-        let nb_of_days: u16 = TryFrom::try_from(nb_of_days_i64).unwrap();
+        // - last_day_offset >=0 since we asserted above that first_date <= last_date
+        // - last_day_offset < MAX_DAYS_IN_CALENDAR < u16::MAX
+        let last_day_offset: u16 = TryFrom::try_from(last_day_offset_i64).unwrap();
 
         Self {
             first_date,
             last_date,
-            nb_of_days,
+            last_day_offset,
         }
     }
 
     pub fn nb_of_days(&self) -> u16 {
-        self.nb_of_days
+        // +1 will not overflow since we ensured that
+        //  last_day_offset < MAX_DAYS_IN_CALENDAR < u16::MAX
+        // in new()
+        self.last_day_offset + 1
     }
 
     pub fn days(&self) -> DaysIter {
+        let nb_of_days = self.nb_of_days();
         DaysIter {
-            inner: 0..self.nb_of_days,
+            inner: 0..nb_of_days,
         }
     }
 
@@ -205,7 +209,7 @@ impl Calendar {
         day: &DaysSinceDatasetStart,
         seconds_in_day: &SecondsSinceUTCDayStart,
     ) -> SecondsSinceDatasetUTCStart {
-        debug_assert!(day.days < self.nb_of_days);
+        debug_assert!(day.days < self.nb_of_days());
 
         let seconds_i32 = i32::from(day.days) * SECONDS_IN_A_DAY
             + seconds_in_day.seconds
@@ -232,7 +236,7 @@ impl Calendar {
         seconds_in_day: &SecondsSinceTimezonedDayStart,
         timezone: &Timezone,
     ) -> SecondsSinceDatasetUTCStart {
-        debug_assert!(day.days < self.nb_of_days);
+        debug_assert!(day.days < self.nb_of_days());
         let date = *self.first_date() + chrono::Duration::days(day.days as i64);
         // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
         debug_assert!(self.contains_date(&date));
@@ -308,7 +312,7 @@ impl Calendar {
     }
 
     fn make_day_unchecked(&self, days_offset: u16) -> DaysSinceDatasetStart {
-        debug_assert!(days_offset < self.nb_of_days);
+        debug_assert!(days_offset < self.nb_of_days());
         DaysSinceDatasetStart { days: days_offset }
     }
 }
@@ -392,47 +396,75 @@ impl<'calendar> DecomposeUtc<'calendar> {
         seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
         calendar: &'calendar Calendar,
     ) -> Self {
-        // We should remove calendar's offset to get the real time
-        let seconds_since_start =
-            seconds_since_dataset_start.seconds as i32 - MAX_SECONDS_IN_UTC_DAY;
+        // 0
+        //
+        // [------------|----|----| ... |----|----|------------]
+        //
 
-        debug_assert!(seconds_since_start >= 0);
+        let first_day_at_midnight_i64 = i64::from(MAX_SECONDS_IN_UTC_DAY);
+        let last_day_at_midnight_datetime_i64 = first_day_at_midnight_i64
+            + i64::from(calendar.last_day_offset) * i64::from(SECONDS_IN_A_DAY);
+        let (canonical_day, canonical_time_in_day): (u16, i32) = {
+            let datetime_i64 = i64::from(seconds_since_dataset_start.seconds);
+            if datetime_i64 <= first_day_at_midnight_i64 {
+                let day = 0u16;
+                let time_in_day_i64 = datetime_i64 - first_day_at_midnight_i64;
+                // cast to i32 is safe because :
+                //   * time_in_day_i64 <= 0 since
+                //         datetime_i64 <= first_day_at_midnight_i64
+                //   * time_in_day_i64 >= - first_day_at_midnight_i64 >= - i32::MAX since
+                //        datetime_i64 >=0
+                let time_in_day_i32 = time_in_day_i64 as i32;
+                (day, time_in_day_i32)
+            } else if datetime_i64 >= last_day_at_midnight_datetime_i64 {
+                let day = calendar.last_day_offset;
+                let time_in_day_i64 = datetime_i64 - last_day_at_midnight_datetime_i64;
+                // cast to i32 is safe because :
+                //   * time_in_day_i64 <= SECONDS_IN_UTC_DAY < i32::MAX since
+                //         datetime_i64 <= last_day_at_midnight_datetime_i64 + SECONDS_IN_UTC_DAY
+                //         by construction of SecondsSinceDatasetUTCStart
+                //   * time_in_day_i64 >= 0 since
+                //         datetime_i64 >= last_day_at_midnight_datetime_i64
+                let time_in_day_i32 = time_in_day_i64 as i32;
+                (day, time_in_day_i32)
+            } else {
+                // first_day_at_midnight_i64 < datetime_i64 < last_day_at_midnight_datetime_i64
+                let day_i64 =
+                    (datetime_i64 - first_day_at_midnight_i64) / i64::from(SECONDS_IN_A_DAY);
+                let time_in_day_i64 =
+                    (datetime_i64 - first_day_at_midnight_i64) % i64::from(SECONDS_IN_A_DAY);
 
-        // floor: This operation rounds towards zero, truncating any fractional part of the exact result
-        let target_day = seconds_since_start / SECONDS_IN_A_DAY;
+                // cast to u16 is safe because
+                //  * day_i64 >= 0 since
+                //          datetime_i64 - first_day_at_midnight_i64 >= 0
+                //  * day_i64 <= calendar.last_day_offset < MAX_DAYS_IN_CALENDAR < u16::MAX since
+                //          (datetime_i64 - first_day_at_midnight_i64) <= (last_day_at_midnight_datetime_i64 - first_day_at_midnight_i64)
+                //                                                     <= calendar.last_day_offset * SECONDS_IN_A_DAY
+                let day = day_i64 as u16;
 
-        let target_time = (seconds_since_start % SECONDS_IN_A_DAY) as i32;
-
-        let mut first_day = cmp::max(target_day - 2, 0);
-
-        for i in 0..(target_day - first_day) {
-            if (target_time + SECONDS_IN_A_DAY as i32 * i) <= SECONDS_IN_A_DAY * 2 {
-                first_day = target_day - i;
+                // cast to i32 is safe because
+                //  |time_in_day_i64| <= SECONDS_IN_A_DAY <= i32::MAX
+                let time_in_day_i32 = time_in_day_i64 as i32;
+                (day, time_in_day_i32)
             }
-        }
-
-        let mut last_day = cmp::min(target_day + 2, (calendar.nb_of_days() - 1) as i32);
-
-        for i in 0..(last_day - target_day) {
-            if (target_time - SECONDS_IN_A_DAY as i32 * i) >= -SECONDS_IN_A_DAY * 2 {
-                last_day = target_day + i;
-            }
-        }
-
-        debug_assert!(last_day >= first_day);
-
-        let first_time = target_time + SECONDS_IN_A_DAY as i32 * (target_day - first_day);
-
-        let iter = std::ops::Range::<u16> {
-            start: 0,
-            end: (last_day - first_day + 1) as u16,
         };
 
+        // we are going to generate pairs
+        // (canonical_day + k, canonical_time_in_day - k * SECONDS_IN_A_DAY)
+        // where k covers all integers such that
+        //   0 <= canonical_day + k <= calendar.last_day_offset
+        //   - MAX_SECONDS_IN_UTC_DAY <= canonical_time_in_day - k * SECONDS_IN_A_DAY <= MAX_SECONDS_IN_UTC_DAY
+        // so k must satisfies
+        //   k >= - canonical_day
+        //   k >= (canonical_time_in_day - MAX_SECONDS_IN_UTC_DAY) / SECONDS_IN_A_DAY
+        // and
+        //   k <= calendar.last_day_offset - canonical_day
+        //   k <= (canonical_time_in_day + MAX_SECONDS_IN_UTC_DAY) / SECONDS_IN_A_DAY
         Self {
             calendar,
-            first_day: first_day as u16,
-            first_time,
-            iter,
+            first_day: 0,
+            first_time: 0,
+            iter: 0..1,
         }
     }
 }

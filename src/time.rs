@@ -84,7 +84,7 @@ const MAX_DAYS_IN_CALENDAR: u16 = 100 * 366;
 pub struct Calendar {
     first_date: NaiveDate, //first date which may be allowed
     last_date: NaiveDate,  //last date (included) which may be allowed
-    nb_of_days: u16,       // == (last_date - first_date).num_of_days() + 1
+    last_day_offset: u16,  // == (last_date - first_date).num_of_days()
                            // we allow at most MAX_DAYS_IN_CALENDAR days
 }
 
