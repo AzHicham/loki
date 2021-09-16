@@ -267,7 +267,7 @@ impl SecondsSinceUTCDayStart {
         }
     }
 
-    pub fn new_unchecked(seconds_i32: i32) -> Self {
+    fn new_unchecked(seconds_i32: i32) -> Self {
         debug_assert!(seconds_i32 >= -MAX_SECONDS_IN_UTC_DAY);
         debug_assert!(seconds_i32 <= MAX_SECONDS_IN_UTC_DAY);
         Self {
