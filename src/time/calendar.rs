@@ -34,9 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::time::SECONDS_IN_A_DAY;
+
 use super::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    SecondsSinceUTCDayStart, MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_DAY, MAX_TIMEZONE_OFFSET,
+    SecondsSinceUTCDayStart, MAX_DAYS_IN_CALENDAR, MAX_SECONDS_IN_TIMEZONED_DAY,
+    MAX_SECONDS_IN_UTC_DAY, MAX_TIMEZONE_OFFSET,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
@@ -77,24 +80,15 @@ impl Calendar {
         }
     }
 
-    fn get_offset(&self) -> chrono::Duration {
-        chrono::Duration::seconds(i64::from(self.get_offset_seconds()))
-    }
-
-    fn get_offset_seconds(&self) -> i32 {
-        // in the west-most/east-most timezone, we are at UTC-/+12, with take some margin (day saving times...) and make it -24h
-        MAX_TIMEZONE_OFFSET
-                // Then we add some margin for boarding/alighting time
-                + MAX_SECONDS_IN_DAY
-    }
-
     /// The first datetime that can be obtained
     pub fn first_datetime(&self) -> NaiveDateTime {
-        self.first_date.and_hms(0, 0, 0) - self.get_offset()
+        self.first_date.and_hms(0, 0, 0)
+            - chrono::Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY))
     }
 
     pub fn last_datetime(&self) -> NaiveDateTime {
-        self.last_date.and_hms(0, 0, 0) + self.get_offset()
+        self.last_date.and_hms(0, 0, 0)
+            + chrono::Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY))
     }
 
     pub fn contains_datetime(&self, datetime: &NaiveDateTime) -> bool {
@@ -213,11 +207,21 @@ impl Calendar {
     ) -> SecondsSinceDatasetUTCStart {
         debug_assert!(day.days < self.nb_of_days);
 
-        let seconds =
-            day.days as i32 * SECONDS_PER_DAY + seconds_in_day.seconds + self.get_offset_seconds();
+        let seconds_i32 =
+            i32::from(day.days) * SECONDS_PER_DAY + seconds_in_day.seconds + MAX_SECONDS_IN_UTC_DAY;
+
+        // seconds_i32 should be >=0 since
+        //  - i32::from(day.days) * SECONDS_PER_DAY >= 0
+        //         since day.days >= 0 and SECONDS_PER_DAY > 0
+        //  - seconds_in_day.seconds + MAX_SECONDS_IN_UTC_DAY >= 0
+        //        since seconds_in_day.seconds >= - MAX_SECONDS_IN_UTC_DAY by construction on SecondsSinceUTCDayStart
+        // which is exactly how first_datetime() is constructed
+        debug_assert!(seconds_i32 >= 0);
+
+        let seconds_u32 = seconds_i32 as u32;
 
         SecondsSinceDatasetUTCStart {
-            seconds: seconds as u32,
+            seconds: seconds_u32,
         }
     }
 
@@ -250,14 +254,14 @@ impl Calendar {
         debug_assert!(seconds_i64 >= 0);
         // seconds_i64 <= u32::MAX since :
         // - day < MAX_DAYS_IN_CALENDAR
-        // - seconds_in_day < MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+        // - seconds_in_day < MAX_SECONDS_IN_TIMEZONED_DAY
         // thus seconds_i64 <=  MAX_DAYS_IN_CALENDAR * 24 * 60 * 60
-        //                     + MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+        //                     + MAX_SECONDS_IN_TIMEZONED_DAY
         //                     + MAX_TIMEZONE_OFFSET
         // and the latter number is smaller than u32::MAX
         static_assertions::const_assert!(
-            (MAX_DAYS_IN_CALENDAR as i64) * 24 * 60 * 60
-                + (MAX_SECONDS_IN_DAY as i64)
+            (MAX_DAYS_IN_CALENDAR as i64) * (SECONDS_IN_A_DAY as i64)
+                + (MAX_SECONDS_IN_TIMEZONED_DAY as i64)
                 + (MAX_TIMEZONE_OFFSET as i64)
                 <= u32::MAX as i64
         );
@@ -284,12 +288,12 @@ impl Calendar {
         // since calendar.contains_datetime(&datetime) and
         // (last_datetime - first_datetime).num_seconds() <=
         //   MAX_DAYS_IN_CALENDAR * 24 * 60 * 60
-        //    + MAX_SECONDS_SINCE_TIMEZONED_DAY_START
+        //    + MAX_SECONDS_IN_TIMEZONED_DAY
         //    + MAX_TIMEZONE_OFFSET
         // and the latter number is smaller than u32::MAX
         static_assertions::const_assert!(
-            (MAX_DAYS_IN_CALENDAR as i64) * 24 * 60 * 60
-                + (MAX_SECONDS_IN_DAY as i64)
+            (MAX_DAYS_IN_CALENDAR as i64) * (SECONDS_IN_A_DAY as i64)
+                + (MAX_SECONDS_IN_TIMEZONED_DAY as i64)
                 + (MAX_TIMEZONE_OFFSET as i64)
                 <= u32::MAX as i64
         );
@@ -300,6 +304,11 @@ impl Calendar {
             seconds: seconds_u32,
         };
         Some(result)
+    }
+
+    fn make_day_unchecked(&self, days_offset: u16) -> DaysSinceDatasetStart {
+        debug_assert!(days_offset < self.nb_of_days);
+        DaysSinceDatasetStart { days: days_offset }
     }
 }
 
@@ -380,7 +389,7 @@ impl DecomposeUtc {
     fn new(seconds_since_dataset_start: &SecondsSinceDatasetUTCStart, calendar: &Calendar) -> Self {
         // We should remove calendar's offset to get the real time
         let seconds_since_start =
-            seconds_since_dataset_start.seconds as i32 - calendar.get_offset_seconds();
+            seconds_since_dataset_start.seconds as i32 - MAX_SECONDS_IN_UTC_DAY;
 
         debug_assert!(seconds_since_start >= 0);
 
