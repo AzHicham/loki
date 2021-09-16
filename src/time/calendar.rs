@@ -207,8 +207,9 @@ impl Calendar {
     ) -> SecondsSinceDatasetUTCStart {
         debug_assert!(day.days < self.nb_of_days);
 
-        let seconds_i32 =
-            i32::from(day.days) * SECONDS_PER_DAY + seconds_in_day.seconds + MAX_SECONDS_IN_UTC_DAY;
+        let seconds_i32 = i32::from(day.days) * SECONDS_IN_A_DAY
+            + seconds_in_day.seconds
+            + MAX_SECONDS_IN_UTC_DAY;
 
         // seconds_i32 should be >=0 since
         //  - i32::from(day.days) * SECONDS_PER_DAY >= 0
@@ -377,16 +378,20 @@ impl<'calendar> Iterator for ForwardDecompose<'calendar> {
     }
 }
 
-pub struct DecomposeUtc {
+pub struct DecomposeUtc<'calendar> {
     first_day: u16,
     first_time: i32,
     iter: std::ops::Range<u16>,
+    // not really useful, but allows debug_asserting  that this iterator
+    // does not create a DaySinceDatasetStart outside of the range allowed by the calendar
+    calendar: &'calendar Calendar,
 }
 
-const SECONDS_PER_DAY: i32 = 24 * 60 * 60;
-
-impl DecomposeUtc {
-    fn new(seconds_since_dataset_start: &SecondsSinceDatasetUTCStart, calendar: &Calendar) -> Self {
+impl<'calendar> DecomposeUtc<'calendar> {
+    fn new(
+        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        calendar: &'calendar Calendar,
+    ) -> Self {
         // We should remove calendar's offset to get the real time
         let seconds_since_start =
             seconds_since_dataset_start.seconds as i32 - MAX_SECONDS_IN_UTC_DAY;
@@ -394,14 +399,14 @@ impl DecomposeUtc {
         debug_assert!(seconds_since_start >= 0);
 
         // floor: This operation rounds towards zero, truncating any fractional part of the exact result
-        let target_day = seconds_since_start / SECONDS_PER_DAY;
+        let target_day = seconds_since_start / SECONDS_IN_A_DAY;
 
-        let target_time = (seconds_since_start % SECONDS_PER_DAY) as i32;
+        let target_time = (seconds_since_start % SECONDS_IN_A_DAY) as i32;
 
         let mut first_day = cmp::max(target_day - 2, 0);
 
         for i in 0..(target_day - first_day) {
-            if (target_time + SECONDS_PER_DAY as i32 * i) <= SECONDS_PER_DAY * 2 {
+            if (target_time + SECONDS_IN_A_DAY as i32 * i) <= SECONDS_IN_A_DAY * 2 {
                 first_day = target_day - i;
             }
         }
@@ -409,14 +414,14 @@ impl DecomposeUtc {
         let mut last_day = cmp::min(target_day + 2, (calendar.nb_of_days() - 1) as i32);
 
         for i in 0..(last_day - target_day) {
-            if (target_time - SECONDS_PER_DAY as i32 * i) >= -SECONDS_PER_DAY * 2 {
+            if (target_time - SECONDS_IN_A_DAY as i32 * i) >= -SECONDS_IN_A_DAY * 2 {
                 last_day = target_day + i;
             }
         }
 
         debug_assert!(last_day >= first_day);
 
-        let first_time = target_time + SECONDS_PER_DAY as i32 * (target_day - first_day);
+        let first_time = target_time + SECONDS_IN_A_DAY as i32 * (target_day - first_day);
 
         let iter = std::ops::Range::<u16> {
             start: 0,
@@ -424,6 +429,7 @@ impl DecomposeUtc {
         };
 
         Self {
+            calendar,
             first_day: first_day as u16,
             first_time,
             iter,
@@ -431,18 +437,15 @@ impl DecomposeUtc {
     }
 }
 
-impl Iterator for DecomposeUtc {
+impl<'calendar> Iterator for DecomposeUtc<'calendar> {
     type Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart);
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|n| {
-            (
-                DaysSinceDatasetStart {
-                    days: self.first_day + n,
-                },
-                SecondsSinceUTCDayStart {
-                    seconds: self.first_time - SECONDS_PER_DAY * n as i32,
-                },
-            )
+            let day = self.calendar.make_day_unchecked(self.first_day + n);
+            let time_in_day = SecondsSinceUTCDayStart::new_unchecked(
+                self.first_time - SECONDS_IN_A_DAY * (n as i32),
+            );
+            (day, time_in_day)
         })
     }
 }
