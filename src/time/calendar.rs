@@ -48,7 +48,7 @@ use std::convert::TryFrom;
 impl Calendar {
     pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         assert!(first_date <= last_date);
-        let last_day_offset_i64: i64 = (last_date - first_date).num_days() + 1;
+        let last_day_offset_i64: i64 = (last_date - first_date).num_days();
         assert!(
             last_day_offset_i64 < MAX_DAYS_IN_CALENDAR as i64,
             "Trying to construct a calendar with {:#} days \
@@ -598,9 +598,15 @@ mod tests {
             assert_eq!(decompositions[1].0.days, 1);
             assert_eq!(decompositions[1].1.seconds, -12 * SECONDS_PER_HOUR);
 
-            // // Jan 3rd - 36h
-            // assert_eq!(decompositions[2].0.days, 2 );
-            // assert_eq!(decompositions[2].1.seconds, -36 * SECONDS_PER_HOUR );
+            // Jan 3rd - 36h
+            assert_eq!(decompositions[2].0.days, 2);
+            assert_eq!(decompositions[2].1.seconds, -36 * SECONDS_PER_HOUR);
+
+            // Jan 4th - 60h
+            assert_eq!(decompositions[3].0.days, 3);
+            assert_eq!(decompositions[3].1.seconds, -60 * SECONDS_PER_HOUR);
+
+            assert_eq!(decompositions.len(), 4);
         }
 
         {
@@ -613,24 +619,30 @@ mod tests {
                 .collect();
 
             // Jan 8 at +48h + 12h
-            // assert_eq!(decompositions[0].0.days, 7 );
-            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+            assert_eq!(decompositions[0].0.days, 7);
+            assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR);
 
             // Jan 9 at +24h +12h
-            assert_eq!(decompositions[0].0.days, 8);
-            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[1].0.days, 8);
+            assert_eq!(decompositions[1].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
 
             // Jan 10 at +12h
-            assert_eq!(decompositions[1].0.days, 9);
-            assert_eq!(decompositions[1].1.seconds, 12 * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[2].0.days, 9);
+            assert_eq!(decompositions[2].1.seconds, 12 * SECONDS_PER_HOUR);
 
             // Jan 11 at -12h
-            assert_eq!(decompositions[2].0.days, 10);
-            assert_eq!(decompositions[2].1.seconds, -12 * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[3].0.days, 10);
+            assert_eq!(decompositions[3].1.seconds, -12 * SECONDS_PER_HOUR);
 
-            // // Jan 12 at -24h -12h
-            // assert_eq!(decompositions[3].0.days, 10 );
-            // assert_eq!(decompositions[3].1.seconds, (-24 -12) * SECONDS_PER_HOUR );
+            // Jan 12 at -24h -12h
+            assert_eq!(decompositions[4].0.days, 11);
+            assert_eq!(decompositions[4].1.seconds, (-24 - 12) * SECONDS_PER_HOUR);
+
+            // Jan 13 at -48h -12h
+            assert_eq!(decompositions[5].0.days, 12);
+            assert_eq!(decompositions[5].1.seconds, (-48 - 12) * SECONDS_PER_HOUR);
+
+            assert_eq!(decompositions.len(), 6);
         }
 
         {
@@ -643,18 +655,18 @@ mod tests {
                 .collect();
 
             // Jan 28 at +48h + 12h
-            // assert_eq!(decompositions[0].0.days, 7 );
-            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+            assert_eq!(decompositions[0].0.days, 27);
+            assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR);
 
             // Jan 29 at +24h +12h
-            assert_eq!(decompositions[0].0.days, 28);
-            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[1].0.days, 28);
+            assert_eq!(decompositions[1].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
 
             // Jan 30 at +12h
-            assert_eq!(decompositions[1].0.days, 29);
-            assert_eq!(decompositions[1].1.seconds, 12 * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[2].0.days, 29);
+            assert_eq!(decompositions[2].1.seconds, 12 * SECONDS_PER_HOUR);
 
-            assert_eq!(decompositions.len(), 2);
+            assert_eq!(decompositions.len(), 3);
         }
 
         {
@@ -667,14 +679,14 @@ mod tests {
                 .collect();
 
             // Jan 28 at +48h + 12h
-            // assert_eq!(decompositions[0].0.days, 7 );
-            // assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR );
+            assert_eq!(decompositions[0].0.days, 28);
+            assert_eq!(decompositions[0].1.seconds, (48 + 12) * SECONDS_PER_HOUR);
 
             // Jan 30 at +24h +12h
-            assert_eq!(decompositions[0].0.days, 29);
-            assert_eq!(decompositions[0].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
+            assert_eq!(decompositions[1].0.days, 29);
+            assert_eq!(decompositions[1].1.seconds, (24 + 12) * SECONDS_PER_HOUR);
 
-            assert_eq!(decompositions.len(), 1);
+            assert_eq!(decompositions.len(), 2);
         }
 
         {
