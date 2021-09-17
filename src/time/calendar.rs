@@ -401,7 +401,7 @@ impl<'calendar> DecomposeUtc<'calendar> {
         //
 
         let first_day_at_midnight_i64 = i64::from(MAX_SECONDS_IN_UTC_DAY);
-        let last_day_at_midnight_datetime_i64 = first_day_at_midnight_i64
+        let last_day_at_midnight_i64 = first_day_at_midnight_i64
             + i64::from(calendar.last_day_offset) * i64::from(SECONDS_IN_A_DAY);
         let (canonical_day, canonical_time_in_day): (u16, i32) = {
             let datetime_i64 = i64::from(seconds_since_dataset_start.seconds);
@@ -415,19 +415,19 @@ impl<'calendar> DecomposeUtc<'calendar> {
                 //        datetime_i64 >=0
                 let time_in_day_i32 = time_in_day_i64 as i32;
                 (day, time_in_day_i32)
-            } else if datetime_i64 >= last_day_at_midnight_datetime_i64 {
+            } else if datetime_i64 >= last_day_at_midnight_i64 {
                 let day = calendar.last_day_offset;
-                let time_in_day_i64 = datetime_i64 - last_day_at_midnight_datetime_i64;
+                let time_in_day_i64 = datetime_i64 - last_day_at_midnight_i64;
                 // cast to i32 is safe because :
                 //   * time_in_day_i64 <= SECONDS_IN_UTC_DAY < i32::MAX since
-                //         datetime_i64 <= last_day_at_midnight_datetime_i64 + SECONDS_IN_UTC_DAY
+                //         datetime_i64 <= last_day_at_midnight_i64 + SECONDS_IN_UTC_DAY
                 //         by construction of SecondsSinceDatasetUTCStart
                 //   * time_in_day_i64 >= 0 since
-                //         datetime_i64 >= last_day_at_midnight_datetime_i64
+                //         datetime_i64 >= last_day_at_midnight_i64
                 let time_in_day_i32 = time_in_day_i64 as i32;
                 (day, time_in_day_i32)
             } else {
-                // first_day_at_midnight_i64 < datetime_i64 < last_day_at_midnight_datetime_i64
+                // first_day_at_midnight_i64 < datetime_i64 < last_day_at_midnight_i64
                 let day_i64 =
                     (datetime_i64 - first_day_at_midnight_i64) / i64::from(SECONDS_IN_A_DAY);
                 let time_in_day_i64 =
@@ -437,7 +437,7 @@ impl<'calendar> DecomposeUtc<'calendar> {
                 //  * day_i64 >= 0 since
                 //          datetime_i64 - first_day_at_midnight_i64 >= 0
                 //  * day_i64 <= calendar.last_day_offset < MAX_DAYS_IN_CALENDAR < u16::MAX since
-                //          (datetime_i64 - first_day_at_midnight_i64) <= (last_day_at_midnight_datetime_i64 - first_day_at_midnight_i64)
+                //          (datetime_i64 - first_day_at_midnight_i64) <= (last_day_at_midnight_i64 - first_day_at_midnight_i64)
                 //                                                     <= calendar.last_day_offset * SECONDS_IN_A_DAY
                 let day = day_i64 as u16;
 
@@ -503,7 +503,10 @@ impl<'calendar> Iterator for DecomposeUtc<'calendar> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|k| {
             let day_i32 = self.canonical_day + k;
-            // cast to u16 is safe because of all checks performed in new()
+
+            // here we make unsafe things, but everything
+            // is safe because we were extra careful in Self::new()
+
             let day_u16 = day_i32 as u16;
             let day = self.calendar.make_day_unchecked(day_u16);
 
