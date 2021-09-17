@@ -43,7 +43,6 @@ use super::{
 };
 use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
-use std::cmp;
 use std::convert::TryFrom;
 
 impl Calendar {
@@ -383,9 +382,9 @@ impl<'calendar> Iterator for ForwardDecompose<'calendar> {
 }
 
 pub struct DecomposeUtc<'calendar> {
-    first_day: u16,
-    first_time: i32,
-    iter: std::ops::Range<u16>,
+    canonical_day: i32,
+    canonical_time_in_day: i32,
+    iter: std::ops::Range<i32>,
     // not really useful, but allows debug_asserting  that this iterator
     // does not create a DaySinceDatasetStart outside of the range allowed by the calendar
     calendar: &'calendar Calendar,
@@ -460,11 +459,41 @@ impl<'calendar> DecomposeUtc<'calendar> {
         // and
         //   k <= calendar.last_day_offset - canonical_day
         //   k <= (canonical_time_in_day + MAX_SECONDS_IN_UTC_DAY) / SECONDS_IN_A_DAY
+
+        let canonical_day_i32 = i32::from(canonical_day);
+
+        let k_lower_bound_from_time_in_day = {
+            let div = (canonical_time_in_day - MAX_SECONDS_IN_UTC_DAY) / SECONDS_IN_A_DAY;
+            let rem = (canonical_time_in_day - MAX_SECONDS_IN_UTC_DAY) % SECONDS_IN_A_DAY;
+            if rem > 0 {
+                div + 1
+            } else {
+                div
+            }
+        };
+
+        let k_min = std::cmp::max(-canonical_day_i32, k_lower_bound_from_time_in_day);
+
+        let k_upper_bound_from_time_in_day = {
+            let div = (canonical_time_in_day + MAX_SECONDS_IN_UTC_DAY) / SECONDS_IN_A_DAY;
+            let rem = (canonical_time_in_day + MAX_SECONDS_IN_UTC_DAY) % SECONDS_IN_A_DAY;
+            if rem < 0 {
+                div - 1
+            } else {
+                div
+            }
+        };
+
+        let k_max = std::cmp::min(
+            i32::from(calendar.last_day_offset) - canonical_day_i32,
+            k_upper_bound_from_time_in_day,
+        );
+
         Self {
+            canonical_day: canonical_day_i32,
+            canonical_time_in_day,
+            iter: k_min..(k_max + 1),
             calendar,
-            first_day: 0,
-            first_time: 0,
-            iter: 0..1,
         }
     }
 }
@@ -472,10 +501,14 @@ impl<'calendar> DecomposeUtc<'calendar> {
 impl<'calendar> Iterator for DecomposeUtc<'calendar> {
     type Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart);
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|n| {
-            let day = self.calendar.make_day_unchecked(self.first_day + n);
+        self.iter.next().map(|k| {
+            let day_i32 = self.canonical_day + k;
+            // cast to u16 is safe because of all checks performed in new()
+            let day_u16 = day_i32 as u16;
+            let day = self.calendar.make_day_unchecked(day_u16);
+
             let time_in_day = SecondsSinceUTCDayStart::new_unchecked(
-                self.first_time - SECONDS_IN_A_DAY * (n as i32),
+                self.canonical_time_in_day - SECONDS_IN_A_DAY * k,
             );
             (day, time_in_day)
         })
