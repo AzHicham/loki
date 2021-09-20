@@ -55,7 +55,7 @@ use crate::{
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
 
-use crate::log::warn;
+use crate::tracing::warn;
 
 use crate::loads_data::Load;
 use core::cmp;
