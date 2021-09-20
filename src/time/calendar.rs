@@ -199,8 +199,7 @@ impl Calendar {
         &'a self,
         seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
-        let iter = DecomposeUtc::new(seconds_since_dataset_start, self);
-        return iter;
+        DecomposeUtc::new(seconds_since_dataset_start, self)
     }
 
     pub fn compose_utc(
