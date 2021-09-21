@@ -28,12 +28,12 @@ static_assertions = "1.1.0"
 csv = "1"
 serde = "1.0"
 
+[profile.dev]
+opt-level = 3
 
 [profile.release]
 opt-level = 3
 debug = true
-# rpath = false
-# lto = true
-# debug-assertions = false
-# codegen-units = 1
+lto = true
+codegen-units = 1
 panic = 'unwind'
