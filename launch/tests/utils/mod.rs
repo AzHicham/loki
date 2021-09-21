@@ -50,7 +50,7 @@ use loki::chrono_tz;
 use loki::tracing::debug;
 
 use loki::transit_model::Model;
-use loki::{chrono_tz, VehicleJourney};
+use loki::VehicleJourney;
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
