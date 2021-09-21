@@ -42,9 +42,9 @@ use launch::{
     loki::{DailyData, PeriodicData, PeriodicSplitVjData},
 };
 
-use loki::log;
+use loki::tracing::{debug, error, info};
 
-use loki::{log::debug, transit_model::Model};
+use loki::transit_model::Model;
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
@@ -221,11 +221,11 @@ where
     );
 
     let duration = compute_timer.elapsed().unwrap().as_millis();
-    log::info!("Duration : {} ms", duration as f64);
+    info!("Duration : {} ms", duration as f64);
 
     match &solve_result {
         Err(err) => {
-            log::error!("Error while solving request : {}", err);
+            error!("Error while solving request : {}", err);
         }
         Ok(responses) => {
             for response in responses.iter() {

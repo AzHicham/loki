@@ -45,7 +45,7 @@ use launch::config;
 use launch::loki::{self, DataWithIters};
 use launch::solver::Solver;
 
-use loki::log::{debug, error, info, warn};
+use loki::tracing::{debug, error, info, warn};
 use loki::transit_model;
 use loki::RequestInput;
 use loki::{DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration};

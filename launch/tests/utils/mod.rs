@@ -46,7 +46,7 @@ use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::chrono::TimeZone;
 use loki::chrono_tz;
-use loki::log::debug;
+use loki::tracing::debug;
 use loki::transit_model::Model;
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
