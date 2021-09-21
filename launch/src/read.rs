@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use super::config;
-use loki::log::{info, warn};
+use loki::tracing::{info, warn};
 use loki::transit_model::{self, Model};
 use loki::LoadsData;
 use loki::{DataTrait, PositiveDuration};

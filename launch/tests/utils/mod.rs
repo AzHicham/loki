@@ -45,7 +45,10 @@ use launch::loki::response::VehicleSection;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::chrono::TimeZone;
-use loki::log::debug;
+
+use loki::chrono_tz;
+use loki::tracing::debug;
+
 use loki::transit_model::Model;
 use loki::{chrono_tz, VehicleJourney};
 use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};

@@ -151,6 +151,20 @@ for folder in $(ls -d */); do
         cp  ${input}/${coverage}/osm/* ${output}/${coverage}/osm/
     fi
 
+    # copy geopal data to output if present
+    if [[ -e ${input}/${coverage}/geopal/ ]]; then
+        rm -f ${output}/${coverage}/geopal/*
+        mkdir -p ${output}/${coverage}/geopal/
+        zip -j -r ${output}/${coverage}/geopal/geopal.zip ${input}/${coverage}/geopal/
+    fi
+
+    # copy fusio-geopal data to output if present
+    if [[ -e ${input}/${coverage}/fusio-geopal/ ]]; then
+        rm -f ${output}/${coverage}/geopal/*
+        mkdir -p ${output}/${coverage}/geopal/
+        zip -j -r ${output}/${coverage}/geopal/geopal.zip ${input}/${coverage}/fusio-geopal/
+    fi
+
     # binarize
     echo "Launch binarisation"
     rm -f ${output}/${coverage}/data.nav.lz4
@@ -185,29 +199,32 @@ for folder in $(ls -d */); do
     lokiLoadsPort="30002"
 
     # Jormun config files
-    # one for the "kraken" coverage
-    jq -n --arg instance "${coverage}-kraken" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{
+
+    # old fashion Kraken
+    jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{
     key: $instance,
     zmq_socket: $krakenSocket
-}'  > ${output}/jormun_conf/$coverage.json
+}'  > ${output}/jormun_conf/${coverage}.json
 
-    # one for "loki" with loads comparator
+    # "loki" with basic comparator
+    jq -n --arg instance "${coverage}-loki" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
+    key: $instance,
+    zmq_socket: $krakenSocket,
+    pt_zmq_socket : $lokiSocket
+}'  > ${output}/jormun_conf/${coverage}-loki.json
+
+    # "loki" with loads comparator
     jq -n --arg instance "${coverage}-loki-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiLoadsPort}" '{
     key: $instance,
     zmq_socket: $krakenSocket,
     pt_zmq_socket : $lokiSocket
-}'  > ${output}/jormun_conf/${coverage}_loads.json
+}'  > ${output}/jormun_conf/${coverage}-loki-loads.json
 
-    # one for "loki" with basic comparator
-    jq -n --arg instance "${coverage}-loki-basic" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
-    key: $instance,
-    zmq_socket: $krakenSocket,
-    pt_zmq_socket : $lokiSocket
-}'  > ${output}/jormun_conf/${coverage}_classic.json
+
 
     # kraken config file
     echo "[GENERAL]
-instance_name = ${coverage}-kraken
+instance_name = ${coverage}
 database = /data/data.nav.lz4
 zmq_socket = tcp://*:${krakenPort}
 
@@ -224,7 +241,7 @@ zmq_socket = tcp://*:${krakenPort}
     loads_data_path: "/data/stoptimes_loads.csv",
     basic_requests_socket: $basicSocket,
     loads_requests_socket: $loadsSocket,
-    data_implem: "periodic",
+    data_implem: "periodic_split_vj",
     criteria_implem: "loads"
 }' > ${output}/${coverage}/loki_config.json
 

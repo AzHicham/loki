@@ -55,7 +55,7 @@ use chrono::NaiveDate;
 
 use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
 
-use crate::log::{trace, warn};
+use crate::tracing::{trace, warn};
 
 use crate::loads_data::Load;
 use std::collections::BTreeMap;

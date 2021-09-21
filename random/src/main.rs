@@ -5,9 +5,7 @@ use launch::{
     loki::{DailyData, PeriodicData, PeriodicSplitVjData},
 };
 
-use loki::log;
-
-use loki::{log::debug, transit_model::Model};
+use loki::{tracing::debug, transit_model::Model};
 
 use std::convert::TryFrom;
 use std::{fs::File, io::BufReader, time::SystemTime};
