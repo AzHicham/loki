@@ -47,10 +47,7 @@ use crate::{
     time::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     },
-    timetables::{
-        generic_timetables::VehicleDataTrait, Timetables as TimetablesTrait,
-        Types as TimetablesTypes,
-    },
+    timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
     transit_data::{Idx, VehicleJourney},
 };
 use crate::{
@@ -81,12 +78,6 @@ pub struct DailyTimetables {
 pub struct VehicleData {
     vehicle_journey_idx: Idx<VehicleJourney>,
     day: DaysSinceDatasetStart,
-}
-
-impl VehicleDataTrait for VehicleData {
-    fn get_vehicle_journey_idx(&self) -> Idx<VehicleJourney> {
-        self.vehicle_journey_idx
-    }
 }
 
 impl TimetablesTypes for DailyTimetables {
@@ -211,10 +202,17 @@ impl TimetablesTrait for DailyTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, Time, Load)>
     where
-        Filter: Fn(&VehicleData) -> bool,
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
     {
+        let vehicle_data_filter =
+            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
         self.timetables
-            .earliest_filtered_vehicle_to_board(waiting_time, mission, position, filter)
+            .earliest_filtered_vehicle_to_board(
+                waiting_time,
+                mission,
+                position,
+                vehicle_data_filter,
+            )
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 
@@ -237,10 +235,12 @@ impl TimetablesTrait for DailyTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Self::VehicleData) -> bool,
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
     {
+        let vehicle_data_filter =
+            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
         self.timetables
-            .latest_filtered_vehicle_that_debark(time, mission, position, filter)
+            .latest_filtered_vehicle_that_debark(time, mission, position, vehicle_data_filter)
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 

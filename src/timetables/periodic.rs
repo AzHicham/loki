@@ -43,10 +43,7 @@ use super::{
     RemovalError, Stop, TimetablesIter,
 };
 
-use crate::timetables::{
-    generic_timetables::VehicleDataTrait, FlowDirection, Timetables as TimetablesTrait,
-    Types as TimetablesTypes,
-};
+use crate::timetables::{FlowDirection, Timetables as TimetablesTrait, Types as TimetablesTypes};
 use crate::transit_data::{Idx, VehicleJourney};
 use crate::{
     loads_data::LoadsData,
@@ -76,12 +73,6 @@ pub struct PeriodicTimetables {
 pub struct VehicleData {
     days_pattern: DaysPattern,
     vehicle_journey_idx: Idx<VehicleJourney>,
-}
-
-impl VehicleDataTrait for VehicleData {
-    fn get_vehicle_journey_idx(&self) -> Idx<VehicleJourney> {
-        self.vehicle_journey_idx
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -234,12 +225,7 @@ impl TimetablesTrait for PeriodicTimetables {
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.earliest_filtered_trip_to_board_at(
-            waiting_time,
-            mission,
-            position,
-            |_: &VehicleData| true,
-        )
+        self.earliest_filtered_trip_to_board_at(waiting_time, mission, position, |_| true)
     }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -250,7 +236,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&VehicleData) -> bool,
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
     {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
@@ -283,8 +269,8 @@ impl TimetablesTrait for PeriodicTimetables {
                 position,
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
-                    filter(vehicle_data)
-                        && self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                    self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                        && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
             if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
@@ -395,7 +381,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Self::VehicleData) -> bool,
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
     {
         let has_earliest_and_latest_debark_time =
             self.timetables.earliest_and_latest_debark_time(position);
@@ -428,8 +414,8 @@ impl TimetablesTrait for PeriodicTimetables {
                 position,
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
-                    filter(vehicle_data)
-                        && self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                    self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                        && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
             if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {

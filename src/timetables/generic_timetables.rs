@@ -106,10 +106,6 @@ pub struct Vehicle {
     pub(super) idx: usize,
 }
 
-pub trait VehicleDataTrait {
-    fn get_vehicle_journey_idx(&self) -> Idx<VehicleJourney>;
-}
-
 impl<Time, Load, TimezoneData, VehicleData> Timetables<Time, Load, TimezoneData, VehicleData>
 where
     Time: Ord + Clone + Debug,

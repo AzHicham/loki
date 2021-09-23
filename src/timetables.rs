@@ -56,8 +56,6 @@ use crate::{
 };
 
 use chrono::NaiveDate;
-
-use crate::timetables::generic_timetables::VehicleDataTrait;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
@@ -73,7 +71,7 @@ pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone;
     type Trip: Debug + Clone;
-    type VehicleData: Debug + Clone + VehicleDataTrait;
+    type VehicleData: Debug + Clone;
 }
 
 pub trait Timetables: Types {
@@ -151,7 +149,7 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Self::VehicleData) -> bool;
+        Filter: Fn(&Idx<VehicleJourney>) -> bool;
 
     fn latest_trip_that_debark_at(
         &self,
@@ -168,7 +166,7 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Self::VehicleData) -> bool;
+        Filter: Fn(&Idx<VehicleJourney>) -> bool;
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
