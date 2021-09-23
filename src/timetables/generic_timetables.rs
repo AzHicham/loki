@@ -43,8 +43,6 @@ use std::{collections::BTreeMap, fmt::Debug};
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
-use transit_model::objects::VehicleJourney;
-use typed_index_collection::Idx;
 
 #[derive(Debug)]
 pub(super) struct Timetables<Time, Load, TimezoneData, VehicleData> {
