@@ -42,6 +42,7 @@ pub mod navitia_proto {
 mod response;
 
 use launch::config;
+use launch::filters::Filters;
 use launch::loki::{self, TransitData};
 use launch::solver::Solver;
 use loki::transit_data_filtered::DataFilter;
@@ -63,7 +64,6 @@ use failure::{bail, format_err, Error};
 use std::convert::TryFrom;
 
 use launch::datetime::DateTimeRepresent;
-use launch::filter_utility::create_filter;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -419,7 +419,7 @@ where
         config.request_default_params.max_nb_of_legs
     });
 
-    let data_filters = create_filter(
+    let data_filters = Filters::new(
         model,
         &journey_request.forbidden_uris,
         &journey_request.allowed_id,

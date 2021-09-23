@@ -41,7 +41,7 @@ use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
-use launch::filter_utility::create_filter;
+use launch::filters::Filters;
 use launch::loki::response::VehicleSection;
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use launch::loki::{response, Idx, RequestInput, StopPoint};
@@ -182,7 +182,7 @@ where
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let data_filters = create_filter(model, &config.forbidden_uri, &config.allowed_uri);
+    let filters = Filters::new(model, &config.forbidden_uri, &config.allowed_uri);
 
     let request_input = make_request_from_config(config)?;
 
@@ -190,7 +190,7 @@ where
         &data,
         model,
         &request_input,
-        data_filters,
+        filters,
         &config.comparator_type,
         &config.datetime_represent,
     )?;

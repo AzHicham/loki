@@ -51,7 +51,6 @@ use std::{fs::File, io::BufReader, time::SystemTime};
 
 use failure::{bail, Error};
 
-use launch::loki::transit_data_filtered::DataFilter;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use structopt::StructOpt;
@@ -213,8 +212,6 @@ where
     let start_stop_area_uri = &config.start;
     let end_stop_area_uri = &config.end;
 
-    let data_filters = DataFilter::default();
-
     let request_input = launch::stop_areas::make_query_stop_areas(
         model,
         &datetime,
@@ -226,7 +223,7 @@ where
         data,
         model,
         &request_input,
-        data_filters,
+        None,
         &config.comparator_type,
         datetime_represent,
     );
