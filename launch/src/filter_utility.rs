@@ -34,16 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::transit_model::objects::{CommercialMode, PhysicalMode};
+use crate::loki::transit_data_filtered::DataFilter;
+use itertools::Itertools;
 use loki::transit_model::{
-    model::GetCorresponding,
-    objects::{Line, Network, Route, StopPoint, VehicleJourney},
+    objects::{StopPoint, VehicleJourney},
     Model,
 };
-use relational_types::IdxSet;
 
-#[derive(Debug)]
-pub enum FilterType<'a> {
+#[derive(PartialEq, Eq)]
+pub enum FilterPtType<'a> {
     StopPoint(&'a str),
     StopArea(&'a str),
     Line(&'a str),
@@ -53,128 +52,196 @@ pub enum FilterType<'a> {
     CommercialMode(&'a str),
 }
 
-pub struct Filters {
-    pub forbidden_sp_idx: IdxSet<StopPoint>,
-    pub allowed_sp_idx: IdxSet<StopPoint>,
-    pub forbidden_vj_idx: IdxSet<VehicleJourney>,
-    pub allowed_vj_idx: IdxSet<VehicleJourney>,
+pub fn create_filter<T>(model: &Model, forbidden_uri: &[T], allowed_uri: &[T]) -> DataFilter
+where
+    T: AsRef<str> + std::cmp::Eq + std::hash::Hash,
+{
+    // Pre processing
+    let allowed_vj_filter: Vec<_> = allowed_uri
+        .iter()
+        .unique()
+        .filter_map(|uri| parse_filter_vj(model, uri))
+        .collect();
+    let forbidden_vj_filter: Vec<_> = forbidden_uri
+        .iter()
+        .unique()
+        .filter_map(|uri| parse_filter_vj(model, uri))
+        .collect();
+
+    let allowed_sp_filter: Vec<_> = allowed_uri
+        .iter()
+        .unique()
+        .filter_map(|uri| parse_filter_sp(model, uri))
+        .collect();
+    let forbidden_sp_filter: Vec<_> = forbidden_uri
+        .iter()
+        .unique()
+        .filter_map(|uri| parse_filter_sp(model, uri))
+        .collect();
+
+    let empty_filters = allowed_vj_filter.is_empty()
+        && forbidden_vj_filter.is_empty()
+        && allowed_sp_filter.is_empty()
+        && forbidden_sp_filter.is_empty();
+
+    if !empty_filters {
+        let mut filter_vj = vec![allowed_vj_filter.is_empty(); model.vehicle_journeys.len()];
+        let mut filter_sp = vec![allowed_sp_filter.is_empty(); model.stop_points.len()];
+
+        if !(allowed_vj_filter.is_empty() && forbidden_vj_filter.is_empty()) {
+            model
+                .vehicle_journeys
+                .iter()
+                .enumerate()
+                .for_each(|(idx, (_, vj))| {
+                    filter_vj[idx] = (filter_vj[idx]
+                        | parse_filter_list_vj(model, vj, &allowed_vj_filter))
+                        & !parse_filter_list_vj(model, vj, &forbidden_vj_filter);
+                });
+        }
+
+        if !(allowed_sp_filter.is_empty() && forbidden_sp_filter.is_empty()) {
+            model
+                .stop_points
+                .iter()
+                .enumerate()
+                .for_each(|(idx, (_, sp))| {
+                    filter_sp[idx] = (filter_sp[idx]
+                        | parse_filter_list_sp(model, sp, &allowed_sp_filter))
+                        & !parse_filter_list_sp(model, sp, &forbidden_sp_filter);
+                });
+        }
+
+        DataFilter::new(filter_sp, filter_vj, false)
+    } else {
+        DataFilter::default()
+    }
 }
 
-fn parse_filter<T: AsRef<str>>(input: &T) -> Option<FilterType> {
-    if let Some(stop_point) = input.as_ref().strip_prefix("stop_point:") {
-        return Some(FilterType::StopPoint(stop_point));
-    }
-    if let Some(stop_area) = input.as_ref().strip_prefix("stop_area:") {
-        return Some(FilterType::StopArea(stop_area));
-    }
+fn parse_filter_vj<'filter, T: AsRef<str>>(
+    model: &Model,
+    input: &'filter T,
+) -> Option<FilterPtType<'filter>> {
     if let Some(line) = input.as_ref().strip_prefix("line:") {
-        return Some(FilterType::Line(line));
+        return if let Some(_) = model.lines.get(line) {
+            Some(FilterPtType::Line(line))
+        } else {
+            None
+        };
     }
     if let Some(route) = input.as_ref().strip_prefix("route:") {
-        return Some(FilterType::Route(route));
+        return if let Some(_) = model.routes.get(route) {
+            Some(FilterPtType::Route(route))
+        } else {
+            None
+        };
     }
     if let Some(network) = input.as_ref().strip_prefix("network:") {
-        return Some(FilterType::Network(network));
+        return if let Some(_) = model.networks.get(network) {
+            Some(FilterPtType::Network(network))
+        } else {
+            None
+        };
     }
     if let Some(physical_mode) = input.as_ref().strip_prefix("physical_mode:") {
-        return Some(FilterType::PhysicalMode(physical_mode));
+        return if let Some(_) = model.physical_modes.get(physical_mode) {
+            Some(FilterPtType::PhysicalMode(physical_mode))
+        } else {
+            None
+        };
     }
     if let Some(commercial_mode) = input.as_ref().strip_prefix("commercial_mode:") {
-        return Some(FilterType::CommercialMode(commercial_mode));
+        return if let Some(_) = model.commercial_modes.get(commercial_mode) {
+            Some(FilterPtType::CommercialMode(commercial_mode))
+        } else {
+            None
+        };
     }
     None
 }
 
-pub fn create_filter_idx<T: AsRef<str>>(
-    model: &Model,
-    forbidden_uri: &[T],
-    allowed_uri: &[T],
-) -> Filters {
-    let (forbidden_sp_idx, forbidden_vj_idx) = parse_uri(model, forbidden_uri);
-    let (allowed_sp_idx, allowed_vj_idx) = parse_uri(model, allowed_uri);
-
-    Filters {
-        forbidden_sp_idx,
-        allowed_sp_idx,
-        forbidden_vj_idx,
-        allowed_vj_idx,
-    }
-}
-
-fn pt_object_to_vj<T>(
-    model: &Model,
-    pt_index_set: &IdxSet<T>,
-    vj_index_set: &mut IdxSet<VehicleJourney>,
-) where
-    IdxSet<T>: GetCorresponding<VehicleJourney>,
-{
-    let vj_set: IdxSet<VehicleJourney> = pt_index_set.get_corresponding(model);
-    vj_index_set.extend(vj_set);
-}
-
-fn parse_uri<T: AsRef<str>>(
-    model: &Model,
-    uris: &[T],
-) -> (IdxSet<StopPoint>, IdxSet<VehicleJourney>) {
-    let mut set_sp_idx: IdxSet<StopPoint> = IdxSet::new();
-    let mut set_vj_idx: IdxSet<VehicleJourney> = IdxSet::new();
-
-    for str in uris {
-        let parsed_str = parse_filter(str);
-        match parsed_str {
-            Some(FilterType::StopPoint(sp)) => {
-                let sp_idx = model.stop_points.get_idx(sp);
-                if let Some(idx) = sp_idx {
-                    set_sp_idx.insert(idx);
+fn parse_filter_list_vj(model: &Model, vj: &VehicleJourney, filters: &[FilterPtType]) -> bool {
+    for filter in filters.iter() {
+        match filter {
+            FilterPtType::CommercialMode(str) => {
+                if let Some(route) = model.routes.get(&vj.route_id) {
+                    if let Some(line) = model.lines.get(&route.line_id) {
+                        if &line.commercial_mode_id == str {
+                            return true;
+                        }
+                    }
                 }
             }
-            Some(FilterType::StopArea(sa_uri)) => {
-                let opt_idx = model.stop_areas.get_idx(sa_uri);
-                if let Some(idx) = opt_idx {
-                    let mut set_sa = IdxSet::new();
-                    set_sa.insert(idx);
-                    let set_new_sp = set_sa.get_corresponding(model);
-                    set_sp_idx.extend(set_new_sp);
+            FilterPtType::PhysicalMode(str) => {
+                if &vj.physical_mode_id == str {
+                    return true;
                 }
             }
-            Some(FilterType::Line(line)) => {
-                let line_idx = model.lines.get_idx(line);
-                if let Some(idx) = line_idx {
-                    let set: IdxSet<Line> = vec![idx].into_iter().collect();
-                    pt_object_to_vj(model, &set, &mut set_vj_idx);
+            FilterPtType::Route(str) => {
+                if &vj.route_id == str {
+                    return true;
                 }
             }
-            Some(FilterType::Route(route)) => {
-                let route_idx = model.routes.get_idx(route);
-                if let Some(idx) = route_idx {
-                    let set: IdxSet<Route> = vec![idx].into_iter().collect();
-                    pt_object_to_vj(model, &set, &mut set_vj_idx);
+            FilterPtType::Line(str) => {
+                if let Some(route) = model.routes.get(&vj.route_id) {
+                    if &route.line_id == str {
+                        return true;
+                    }
                 }
             }
-            Some(FilterType::Network(network)) => {
-                let network_idx = model.networks.get_idx(network);
-                if let Some(idx) = network_idx {
-                    let set: IdxSet<Network> = vec![idx].into_iter().collect();
-                    pt_object_to_vj(model, &set, &mut set_vj_idx);
-                }
-            }
-            Some(FilterType::PhysicalMode(physical_mode)) => {
-                let physical_mode_idx = model.physical_modes.get_idx(physical_mode);
-                if let Some(idx) = physical_mode_idx {
-                    let set: IdxSet<PhysicalMode> = vec![idx].into_iter().collect();
-                    pt_object_to_vj(model, &set, &mut set_vj_idx);
-                }
-            }
-            Some(FilterType::CommercialMode(commercial_mode)) => {
-                let commercial_mode_idx = model.commercial_modes.get_idx(commercial_mode);
-                if let Some(idx) = commercial_mode_idx {
-                    let set: IdxSet<CommercialMode> = vec![idx].into_iter().collect();
-                    pt_object_to_vj(model, &set, &mut set_vj_idx);
+            FilterPtType::Network(str) => {
+                if let Some(route) = model.routes.get(&vj.route_id) {
+                    if let Some(line) = model.lines.get(&route.line_id) {
+                        if &line.network_id == str {
+                            return true;
+                        }
+                    }
                 }
             }
             _ => (),
         }
     }
+    false
+}
 
-    (set_sp_idx, set_vj_idx)
+fn parse_filter_sp<'filter, T: AsRef<str>>(
+    model: &Model,
+    input: &'filter T,
+) -> Option<FilterPtType<'filter>> {
+    if let Some(stop_point) = input.as_ref().strip_prefix("stop_point:") {
+        return if let Some(_) = model.stop_points.get(stop_point) {
+            Some(FilterPtType::StopPoint(stop_point))
+        } else {
+            None
+        };
+    }
+    if let Some(stop_area) = input.as_ref().strip_prefix("stop_area:") {
+        return if let Some(_) = model.stop_areas.get(stop_area) {
+            Some(FilterPtType::StopArea(stop_area))
+        } else {
+            None
+        };
+    }
+    None
+}
+
+fn parse_filter_list_sp(model: &Model, sp: &StopPoint, filters: &[FilterPtType]) -> bool {
+    for filter in filters.iter() {
+        match filter {
+            FilterPtType::StopPoint(str) => {
+                if &sp.id == str {
+                    return true;
+                }
+            }
+            FilterPtType::StopArea(str) => {
+                if let Some(sa) = model.stop_areas.get(&sp.stop_area_id) {
+                    if &sa.id == str {
+                        return true;
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+    false
 }

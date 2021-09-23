@@ -45,6 +45,7 @@ use launch::config;
 use launch::loki::{self, TransitData};
 use launch::solver::Solver;
 use loki::transit_data_filtered::DataFilter;
+use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use loki::tracing::{debug, error, info, warn};
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use loki::transit_model;
@@ -62,7 +63,7 @@ use failure::{bail, format_err, Error};
 use std::convert::TryFrom;
 
 use launch::datetime::DateTimeRepresent;
-use launch::filter_utility::create_filter_idx;
+use launch::filter_utility::create_filter;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -418,17 +419,11 @@ where
         config.request_default_params.max_nb_of_legs
     });
 
-    let filters = create_filter_idx(
+    let data_filters = create_filter(
         model,
         &journey_request.forbidden_uris,
         &journey_request.allowed_id,
     );
-    let data_filters = DataFilter {
-        forbidden_sp_idx: filters.forbidden_sp_idx.into_iter().collect(),
-        allowed_sp_idx: filters.allowed_sp_idx.into_iter().collect(),
-        forbidden_vj_idx: filters.forbidden_vj_idx.into_iter().collect(),
-        allowed_vj_idx: filters.allowed_vj_idx.into_iter().collect(),
-    };
 
     let request_input = RequestInput {
         datetime: departure_datetime,

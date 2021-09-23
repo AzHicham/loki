@@ -50,37 +50,45 @@ use crate::timetables::generic_timetables::VehicleDataTrait;
 use crate::timetables::{Stop, Timetables as TimetablesTrait, TimetablesIter};
 use crate::transit_data::data_interface::Data;
 use crate::transit_data::{data_interface, iters, StopData, Transfer};
-use rustc_hash::FxHashSet;
 
-#[derive(Default)]
 pub struct DataFilter {
-    pub forbidden_sp_idx: FxHashSet<Idx<StopPoint>>,
-    pub allowed_sp_idx: FxHashSet<Idx<StopPoint>>,
-    pub forbidden_vj_idx: FxHashSet<Idx<VehicleJourney>>,
-    pub allowed_vj_idx: FxHashSet<Idx<VehicleJourney>>,
+    filter_sp: Vec<bool>,
+    filter_vj: Vec<bool>,
+    empty_filters: bool,
+}
+
+impl Default for DataFilter {
+    fn default() -> Self {
+        Self {
+            filter_sp: Vec::default(),
+            filter_vj: Vec::default(),
+            empty_filters: true,
+        }
+    }
 }
 
 impl DataFilter {
-    pub fn is_empty(&self) -> bool {
-        self.forbidden_sp_idx.is_empty()
-            && self.allowed_sp_idx.is_empty()
-            && self.forbidden_vj_idx.is_empty()
-            && self.allowed_vj_idx.is_empty()
-    }
-    pub fn is_sp_allowed(&self, stop_idx: Idx<StopPoint>) -> bool {
-        if self.allowed_sp_idx.is_empty() {
-            !self.forbidden_sp_idx.contains(&stop_idx)
-        } else {
-            self.allowed_sp_idx.contains(&stop_idx) && !self.forbidden_sp_idx.contains(&stop_idx)
+    pub fn new(filter_sp: Vec<bool>, filter_vj: Vec<bool>, empty_filters: bool) -> Self {
+        Self {
+            filter_sp,
+            filter_vj,
+            empty_filters,
         }
     }
 
-    pub fn is_vj_allowed(&self, vj_idx: Idx<VehicleJourney>) -> bool {
-        if self.allowed_vj_idx.is_empty() {
-            !self.forbidden_vj_idx.contains(&vj_idx)
-        } else {
-            self.allowed_vj_idx.contains(&vj_idx) && !self.forbidden_vj_idx.contains(&vj_idx)
-        }
+    pub fn is_empty(&self) -> bool {
+        self.empty_filters
+    }
+    pub fn is_sp_allowed(&self, stop_idx: Idx<StopPoint>) -> bool {
+        self.filter_sp[stop_idx.get()]
+    }
+
+    pub fn is_vj_allowed<Timetables>(&self, vehicle_data: &Timetables::VehicleData) -> bool
+    where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    {
+        let vj_idx = vehicle_data.get_vehicle_journey_idx();
+        self.filter_vj[vj_idx.get()]
     }
 }
 
@@ -241,8 +249,7 @@ where
                     mission,
                     position,
                     |vehicle_data: &Timetables::VehicleData| {
-                        let vj_idx = vehicle_data.get_vehicle_journey_idx();
-                        self.filters.is_vj_allowed(vj_idx)
+                        self.filters.is_vj_allowed::<Timetables>(vehicle_data)
                     },
                 )
         } else {
@@ -267,8 +274,7 @@ where
                     mission,
                     position,
                     |vehicle_data: &Timetables::VehicleData| {
-                        let vj_idx = vehicle_data.get_vehicle_journey_idx();
-                        self.filters.is_vj_allowed(vj_idx)
+                        self.filters.is_vj_allowed::<Timetables>(vehicle_data)
                     },
                 )
         } else {

@@ -41,10 +41,9 @@ use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
-use launch::filter_utility::create_filter_idx;
+use launch::filter_utility::create_filter;
 use launch::loki::response::VehicleSection;
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use launch::loki::transit_data_filtered::DataFilter;
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::chrono::TimeZone;
@@ -183,13 +182,7 @@ where
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let filters = create_filter_idx(model, &config.forbidden_uri, &config.allowed_uri);
-    let data_filters = DataFilter {
-        forbidden_sp_idx: filters.forbidden_sp_idx.into_iter().collect(),
-        allowed_sp_idx: filters.allowed_sp_idx.into_iter().collect(),
-        forbidden_vj_idx: filters.forbidden_vj_idx.into_iter().collect(),
-        allowed_vj_idx: filters.allowed_vj_idx.into_iter().collect(),
-    };
+    let data_filters = create_filter(model, &config.forbidden_uri, &config.allowed_uri);
 
     let request_input = make_request_from_config(config)?;
 
