@@ -34,12 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::loki::{self, TransitData};
-use launch::solver::Solver;
 use launch::{
     config,
     datetime::DateTimeRepresent,
-    loki::{DailyData, PeriodicData, PeriodicSplitVjData},
+    loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData},
+    solver::Solver,
 };
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 

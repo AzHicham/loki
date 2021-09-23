@@ -40,15 +40,14 @@ use super::{
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, RemovalError, Stop, TimetablesIter,
 };
-use crate::loads_data::Load;
-use crate::time::days_patterns::DaysPatterns;
-use crate::tracing::{trace, warn};
 use crate::{
-    loads_data::LoadsData,
+    loads_data::{Load, LoadsData},
     time::{
-        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+        days_patterns::DaysPatterns, Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
+        SecondsSinceTimezonedDayStart,
     },
     timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
+    tracing::{trace, warn},
     transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;

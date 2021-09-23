@@ -38,9 +38,11 @@ mod utils;
 use failure::Error;
 use launch::config::DataImplem;
 use loki::chrono_tz;
-use utils::model_builder::ModelBuilder;
-use utils::model_builder::{AsDate, AsDateTime};
-use utils::{build_and_solve, Config};
+use utils::{
+    build_and_solve,
+    model_builder::{AsDate, AsDateTime, ModelBuilder},
+    Config,
+};
 
 use rstest::rstest;
 

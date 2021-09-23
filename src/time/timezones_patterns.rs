@@ -39,10 +39,7 @@ use std::collections::HashMap;
 use super::days_patterns::{DaysPattern, DaysPatterns};
 use crate::time::Calendar;
 
-use chrono::FixedOffset;
-use chrono::NaiveDate;
-use chrono::Offset;
-use chrono::TimeZone as TimeZoneTrait;
+use chrono::{FixedOffset, NaiveDate, Offset, TimeZone as TimeZoneTrait};
 use chrono_tz::Tz as TimeZone;
 
 #[derive(Debug)]

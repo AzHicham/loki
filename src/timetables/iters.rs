@@ -35,8 +35,7 @@
 // www.navitia.io
 
 use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
-use std::ops::Range;
-use std::{fmt::Debug, iter::Map};
+use std::{fmt::Debug, iter::Map, ops::Range};
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 

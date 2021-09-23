@@ -43,16 +43,22 @@ use crate::{
     transit_data::data_interface::DataIters,
 };
 
-use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
-use crate::transit_data::data_interface::Data as DataTrait;
+use crate::{
+    engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
+    transit_data::data_interface::Data as DataTrait,
+};
 use transit_model::Model;
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
 
-use crate::engine::engine_interface::Journey as PTJourney;
-use crate::request::generic_request::MaximizeDepartureTimeError;
-use crate::request::generic_request::MaximizeDepartureTimeError::{NoBoardTime, NoTrip};
-use crate::response;
+use crate::{
+    engine::engine_interface::Journey as PTJourney,
+    request::generic_request::{
+        MaximizeDepartureTimeError,
+        MaximizeDepartureTimeError::{NoBoardTime, NoTrip},
+    },
+    response,
+};
 
 pub struct GenericDepartAfterRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,

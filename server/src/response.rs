@@ -38,14 +38,15 @@ use crate::navitia_proto;
 
 use launch::loki::{self, RequestInput};
 
-use loki::transit_model;
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
-    Idx, StopPoint, VehicleJourney,
+    transit_model, Idx, StopPoint, VehicleJourney,
 };
 
-use loki::chrono::{self, NaiveDate, NaiveDateTime};
-use loki::chrono_tz::{self, Tz as Timezone};
+use loki::{
+    chrono::{self, NaiveDate, NaiveDateTime},
+    chrono_tz::{self, Tz as Timezone},
+};
 
 use failure::{format_err, Error};
 use transit_model::Model;

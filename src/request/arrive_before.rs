@@ -43,8 +43,10 @@ use crate::{
     transit_data::data_interface::DataIters,
 };
 
-use crate::engine::engine_interface::{BadRequest, RequestInput, RequestTypes};
-use crate::transit_data::data_interface::Data as DataTrait;
+use crate::{
+    engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
+    transit_data::data_interface::Data as DataTrait,
+};
 use transit_model::Model;
 
 pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
@@ -436,12 +438,10 @@ where
     }
 }
 
-use crate::engine::engine_interface::Journey as PTJourney;
-use crate::response;
+use crate::{engine::engine_interface::Journey as PTJourney, response};
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
-use crate::request::generic_request::MinimizeArrivalTimeError;
-use crate::request::generic_request::MinimizeArrivalTimeError::*;
+use crate::request::generic_request::{MinimizeArrivalTimeError, MinimizeArrivalTimeError::*};
 
 impl<'data, 'model, 'outer, Data> GenericArriveBeforeRequest<'data, 'model, Data>
 where

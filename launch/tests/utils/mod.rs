@@ -38,24 +38,27 @@ pub mod model_builder;
 
 use env_logger::Env;
 use failure::{format_err, Error};
-use launch::config;
-use launch::config::launch_params::default_transfer_duration;
-use launch::datetime::DateTimeRepresent;
-use launch::filters::Filters;
-use launch::loki::response::VehicleSection;
-use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use launch::loki::{response, Idx, RequestInput, StopPoint};
-use launch::solver::Solver;
+use launch::{
+    config,
+    config::launch_params::default_transfer_duration,
+    datetime::DateTimeRepresent,
+    filters::Filters,
+    loki::{
+        response,
+        response::VehicleSection,
+        timetables::{Timetables as TimetablesTrait, TimetablesIter},
+        Idx, RequestInput, StopPoint,
+    },
+    solver::Solver,
+};
 use loki::chrono::TimeZone;
 
-use loki::chrono_tz;
-use loki::tracing::debug;
+use loki::{chrono_tz, tracing::debug};
 
-use loki::transit_model::Model;
-use loki::TransitData;
-use loki::VehicleJourney;
-use loki::{DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
-use loki::{LoadsData, PositiveDuration};
+use loki::{
+    transit_model::Model, DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
+    PositiveDuration, TransitData, VehicleJourney,
+};
 use model_builder::AsDateTime;
 use std::fmt::Debug;
 

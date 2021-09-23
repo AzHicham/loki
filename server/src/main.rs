@@ -41,15 +41,17 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 mod response;
 
-use launch::config;
-use launch::filters::Filters;
-use launch::loki::{self, TransitData};
-use launch::solver::Solver;
-use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use loki::tracing::{debug, error, info, warn};
-use loki::transit_model;
-use loki::RequestInput;
-use loki::{DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration};
+use launch::{
+    config,
+    filters::Filters,
+    loki::{self, TransitData},
+    solver::Solver,
+};
+use loki::{
+    timetables::{Timetables as TimetablesTrait, TimetablesIter},
+    tracing::{debug, error, info, warn},
+    transit_model, DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration, RequestInput,
+};
 
 use prost::Message;
 use structopt::StructOpt;

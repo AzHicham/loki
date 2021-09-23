@@ -36,12 +36,12 @@
 
 mod utils;
 use failure::Error;
-use launch::config::{ComparatorType, DataImplem};
-use launch::loki::transit_model::Model;
-use rstest::fixture;
-use rstest::rstest;
-use utils::model_builder::ModelBuilder;
-use utils::{build_and_solve, make_pt_from_vehicle, Config};
+use launch::{
+    config::{ComparatorType, DataImplem},
+    loki::transit_model::Model,
+};
+use rstest::{fixture, rstest};
+use utils::{build_and_solve, make_pt_from_vehicle, model_builder::ModelBuilder, Config};
 
 #[fixture]
 pub fn fixture_model() -> Model {

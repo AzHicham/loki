@@ -44,8 +44,7 @@ pub mod timetables;
 mod transit_data;
 pub mod transit_data_filtered;
 
-pub use chrono;
-pub use chrono::NaiveDateTime;
+pub use chrono::{self, NaiveDateTime};
 pub use chrono_tz;
 pub use time::PositiveDuration;
 pub use tracing;
