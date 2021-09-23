@@ -40,7 +40,7 @@ use crate::{
     loads_data::LoadsCount,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::TransitTypes,
-    RequestTypes,
+    Idx, RequestTypes,
 };
 
 use crate::engine::engine_interface::BadRequest;
@@ -48,6 +48,7 @@ use crate::transit_data::data_interface::Data as DataTrait;
 use chrono::NaiveDateTime;
 use std::fmt::Debug;
 use tracing::warn;
+use transit_model::objects::StopPoint;
 use transit_model::Model;
 
 #[derive(Clone)]
@@ -111,13 +112,9 @@ pub struct Types<Data> {
 
 impl<'data, Data: DataTrait> TransitTypes for Types<Data> {
     type Stop = Data::Stop;
-
     type Mission = Data::Mission;
-
     type Position = Data::Position;
-
     type Trip = Data::Trip;
-
     type Transfer = Data::Transfer;
 }
 
@@ -153,6 +150,24 @@ pub(super) fn parse_departures<Data>(
 where
     Data: DataTrait,
 {
+    parse_departures_filtered(
+        departures_stop_point_and_fallback_duration,
+        model,
+        transit_data,
+        |_| true,
+    )
+}
+
+pub(super) fn parse_departures_filtered<Data, Filter>(
+    departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    model: &Model,
+    transit_data: &Data,
+    filter: Filter,
+) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
+where
+    Data: DataTrait,
+    Filter: Fn(Idx<StopPoint>) -> bool,
+{
     let result: Vec<_> = departures_stop_point_and_fallback_duration
         .iter()
         .enumerate()
@@ -165,15 +180,19 @@ where
                 );
                 None
             })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
+            if filter(stop_idx) {
+                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                    warn!(
                     "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
                         I ignore it",
                     idx, stop_point_uri, stop_idx
                 );
+                    None
+                })?;
+                Some((stop, *fallback_duration))
+            } else {
                 None
-            })?;
-            Some((stop, *fallback_duration))
+            }
         })
         .collect();
     if result.is_empty() {
@@ -190,6 +209,24 @@ pub(super) fn parse_arrivals<Data>(
 where
     Data: DataTrait,
 {
+    parse_arrivals_filtered(
+        arrivals_stop_point_and_fallback_duration,
+        model,
+        transit_data,
+        |_| true,
+    )
+}
+
+pub(super) fn parse_arrivals_filtered<Data, Filter>(
+    arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    model: &Model,
+    transit_data: &Data,
+    filter: Filter,
+) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
+where
+    Data: DataTrait,
+    Filter: Fn(Idx<StopPoint>) -> bool,
+{
     let result: Vec<_> = arrivals_stop_point_and_fallback_duration
         .iter()
         .enumerate()
@@ -202,15 +239,19 @@ where
                 );
                 None
             })?;
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
+            if filter(stop_idx) {
+                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                    warn!(
                     "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
                         I ignore it",
                     idx, stop_point_uri, stop_idx
                 );
+                    None
+                })?;
+                Some((stop, *fallback_duration))
+            } else {
                 None
-            })?;
-            Some((stop, *fallback_duration))
+            }
         })
         .collect();
     if result.is_empty() {

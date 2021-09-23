@@ -164,7 +164,6 @@ where
         timetable: &Timetable,
     ) -> bool {
         assert!(upstream.timetable == *timetable);
-        assert!(upstream.timetable == *timetable);
         upstream.idx < downstream.idx
     }
 
@@ -264,7 +263,12 @@ where
         timetable: &Timetable,
         position: &Position,
     ) -> Option<(Vehicle, &Time, &Load)> {
-        self.earliest_filtered_vehicle_to_board(waiting_time, timetable, position, |_| true)
+        self.earliest_filtered_vehicle_to_board(
+            waiting_time,
+            timetable,
+            position,
+            |_: &VehicleData| true,
+        )
     }
 
     pub(super) fn earliest_filtered_vehicle_to_board<Filter>(

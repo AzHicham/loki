@@ -68,7 +68,7 @@ pub struct PeriodicSplitVjByTzTimetables {
 }
 
 #[derive(Debug, Clone)]
-struct VehicleData {
+pub struct VehicleData {
     days_pattern: DaysPattern,
     vehicle_journey_idx: Idx<VehicleJourney>,
     utc_offset: FixedOffset,
@@ -82,10 +82,9 @@ pub struct Trip {
 
 impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
     type Mission = Timetable;
-
     type Position = Position;
-
     type Trip = Trip;
+    type VehicleData = VehicleData;
 }
 
 impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
@@ -216,6 +215,19 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.earliest_filtered_trip_to_board_at(waiting_time, mission, position, |_| true)
+    }
+
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+    {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
 
@@ -241,6 +253,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                        && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
             if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
@@ -278,6 +291,19 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.latest_filtered_trip_that_debark_at(time, mission, position, |_| true)
+    }
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+    {
         let has_earliest_and_latest_debark_time =
             self.timetables.earliest_and_latest_debark_time(position);
 
@@ -301,6 +327,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 |vehicle_data| {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
+                        && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
             if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {
@@ -384,7 +411,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 let vj_timetables = self
                     .vehicle_journey_to_timetables
                     .entry(vehicle_journey_idx)
-                    .or_insert(HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(*offset)
                     .or_insert_with(DayToTimetable::new);
 

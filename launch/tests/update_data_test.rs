@@ -36,10 +36,14 @@
 
 mod utils;
 
+use std::fmt::Debug;
+
 use failure::Error;
 use launch::config::DataImplem;
 use launch::solver::Solver;
-use loki::{DailyData, DataTrait, DataWithIters, PeriodicData, PeriodicSplitVjData};
+
+use loki::timetables::{Timetables, TimetablesIter};
+use loki::{DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData};
 use utils::model_builder::AsDate;
 use utils::model_builder::ModelBuilder;
 use utils::Config;
@@ -58,7 +62,12 @@ fn remove_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
     }
 }
 
-fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
+fn remove_vj_inner<T>() -> Result<(), Error>
+where
+    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -79,13 +88,13 @@ fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
-    let mut data: Data = launch::read::build_transit_data(
+    let mut data = launch::read::build_transit_data::<T>(
         &model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
@@ -93,6 +102,7 @@ fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -122,6 +132,7 @@ fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -136,6 +147,7 @@ fn remove_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -169,7 +181,12 @@ fn remove_successive_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
     }
 }
 
-fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
+fn remove_successive_vj_inner<T>() -> Result<(), Error>
+where
+    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -195,13 +212,13 @@ fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), E
 
     let config = Config::new("2020-01-01T08:00:00", "A", "C");
 
-    let mut data: Data = launch::read::build_transit_data(
+    let mut data = launch::read::build_transit_data::<T>(
         &model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
@@ -209,6 +226,7 @@ fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), E
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -233,6 +251,7 @@ fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), E
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -257,6 +276,7 @@ fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), E
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -281,6 +301,7 @@ fn remove_successive_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), E
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -303,7 +324,12 @@ fn remove_middle_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
     }
 }
 
-fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error> {
+fn remove_middle_vj_inner<T>() -> Result<(), Error>
+where
+    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
     utils::init_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -329,13 +355,13 @@ fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error
 
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
 
-    let mut data: Data = launch::read::build_transit_data(
+    let mut data = launch::read::build_transit_data::<T>(
         &model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
@@ -343,6 +369,7 @@ fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -367,6 +394,7 @@ fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;
@@ -391,6 +419,7 @@ fn remove_middle_vj_inner<Data: DataTrait + DataWithIters>() -> Result<(), Error
             &data,
             &model,
             &request_input,
+            None,
             &config.comparator_type,
             &config.datetime_represent,
         )?;

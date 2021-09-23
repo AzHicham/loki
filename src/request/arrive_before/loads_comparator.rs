@@ -195,8 +195,8 @@ where
     }
 
     type MissionsAtStop = Data::MissionsAtStop;
-    fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.generic.boardable_missions_at(stop)
+    fn missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
+        self.generic.missions_at(stop)
     }
 
     type TransfersAtStop = super::TransferAtStop<'outer, Data>;
@@ -214,13 +214,8 @@ where
     }
 }
 
-impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data>
-where
-    Data: DataWithIters,
-    Data::Transfer: 'static,
-    Data::Stop: 'static,
-{
-}
+impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where Data: DataWithIters
+{}
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;

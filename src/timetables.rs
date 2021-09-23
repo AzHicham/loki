@@ -35,8 +35,9 @@
 // www.navitia.io
 
 mod daily;
+
 mod day_to_timetable;
-mod generic_timetables;
+pub(crate) mod generic_timetables;
 mod iters;
 mod periodic;
 mod periodic_split_vj_by_tz;
@@ -55,7 +56,6 @@ use crate::{
 };
 
 use chrono::NaiveDate;
-
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
@@ -71,6 +71,7 @@ pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone;
     type Trip: Debug + Clone;
+    type VehicleData: Debug + Clone;
 }
 
 pub trait Timetables: Types {
@@ -140,12 +141,32 @@ pub trait Timetables: Types {
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool;
+
     fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool;
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,

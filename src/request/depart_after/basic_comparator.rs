@@ -49,9 +49,9 @@ pub struct Request<'data, 'model, Data: DataTrait> {
 impl<'data, 'model, Data: DataTrait> TransitTypes for Request<'data, 'model, Data> {
     type Stop = Data::Stop;
     type Mission = Data::Mission;
+    type Position = Data::Position;
     type Trip = Data::Trip;
     type Transfer = Data::Transfer;
-    type Position = Data::Position;
 }
 
 impl<'data, 'model, Data: DataTrait> RequestTypes for Request<'data, 'model, Data> {
@@ -194,8 +194,8 @@ where
     }
 
     type MissionsAtStop = Data::MissionsAtStop;
-    fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.generic.boardable_missions_at(stop)
+    fn missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
+        self.generic.missions_at(stop)
     }
 
     type TransfersAtStop = super::TransferAtStop<'outer, Data>;

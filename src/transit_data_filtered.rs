@@ -34,76 +34,53 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod data_interface;
-pub mod init;
-pub mod iters;
-
-use iters::MissionsOfStop;
+use crate::transit_data::iters::MissionsOfStop;
+use crate::{
+    loads_data::Load,
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    TransitData,
+};
 pub use transit_model::objects::Time as TransitModelTime;
 pub use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
 pub use typed_index_collection::Idx;
 
-use crate::{
-    loads_data::{Load, LoadsData},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-};
+use crate::timetables::{Stop, Timetables as TimetablesTrait, TimetablesIter};
+use crate::transit_data::data_interface::Data;
+use crate::transit_data::{data_interface, iters, Transfer};
+use std::fmt::Debug;
 
-use std::{collections::HashMap, fmt::Debug};
-
-use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesIter};
-
-use crate::transit_model::Model;
-
-pub struct TransitData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx_to_stop: HashMap<Idx<StopPoint>, Stop>,
-
-    pub(super) stops_data: Vec<StopData<Timetables>>,
-    pub(super) timetables: Timetables,
-
-    pub(super) transfers_data: Vec<TransferData>,
+pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
+    transit_data: &'data TransitData<Timetables>,
+    allowed_stop_points: &'filter [bool],
+    allowed_vehicle_journeys: &'filter [bool],
 }
 
-pub struct StopData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx: Idx<StopPoint>,
-    pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
-    pub(super) outgoing_transfers: Vec<(Stop, TransferDurations, Transfer)>,
-    pub(super) incoming_transfers: Vec<(Stop, TransferDurations, Transfer)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TransferDurations {
-    pub walking_duration: PositiveDuration,
-    pub total_duration: PositiveDuration, // = walking_duration + some waiting time
-}
-
-pub struct TransferData {
-    pub from_stop: Stop,
-    pub to_stop: Stop,
-    pub durations: TransferDurations,
-    pub transit_model_transfer_idx: Idx<TransitModelTransfer>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
-pub struct Stop {
-    pub(super) idx: usize,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Transfer {
-    pub(super) idx: usize,
-}
-
-impl<Timetables: TimetablesTrait> TransitData<Timetables> {
-    pub fn stop_data(&self, stop: &Stop) -> &StopData<Timetables> {
-        &self.stops_data[stop.idx]
+impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
+    pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
+        let stop_idx = self.stop_point_idx(stop);
+        self.allowed_stop_points[stop_idx.get()]
     }
 
-    pub fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<&Stop> {
-        self.stop_point_idx_to_stop.get(stop_point_idx)
+    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &Idx<VehicleJourney>) -> bool {
+        self.allowed_vehicle_journeys[vehicle_journey_idx.get()]
+    }
+
+    pub fn new(
+        data: &'data TransitData<Timetables>,
+        allowed_stop_points: &'filter [bool],
+        allowed_vehicle_journeys: &'filter [bool],
+    ) -> Self {
+        Self {
+            transit_data: data,
+            allowed_stop_points,
+            allowed_vehicle_journeys,
+        }
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::TransitTypes for TransitData<Timetables> {
+impl<Timetables: TimetablesTrait> data_interface::TransitTypes
+    for TransitDataFiltered<'_, '_, Timetables>
+{
     type Stop = Stop;
     type Mission = Timetables::Mission;
     type Position = Timetables::Position;
@@ -111,9 +88,9 @@ impl<Timetables: TimetablesTrait> data_interface::TransitTypes for TransitData<T
     type Transfer = Transfer;
 }
 
-impl<Timetables: TimetablesTrait> data_interface::Data for TransitData<Timetables>
+impl<Timetables: TimetablesTrait> data_interface::Data for TransitDataFiltered<'_, '_, Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait,
 {
     fn is_upstream(
         &self,
@@ -121,7 +98,8 @@ where
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.timetables
+        self.transit_data
+            .timetables
             .is_upstream_in_mission(upstream, downstream, mission)
     }
 
@@ -130,7 +108,9 @@ where
         position: &Self::Position,
         mission: &Self::Mission,
     ) -> Option<Self::Position> {
-        self.timetables.next_position(position, mission)
+        self.transit_data
+            .timetables
+            .next_position(position, mission)
     }
 
     fn previous_on_mission(
@@ -138,15 +118,17 @@ where
         position: &Self::Position,
         mission: &Self::Mission,
     ) -> Option<Self::Position> {
-        self.timetables.previous_position(position, mission)
+        self.transit_data
+            .timetables
+            .previous_position(position, mission)
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
-        self.timetables.mission_of(trip)
+        self.transit_data.timetables.mission_of(trip)
     }
 
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
-        self.timetables.stop_at(position, mission)
+        self.transit_data.timetables.stop_at(position, mission)
     }
 
     fn board_time_of(
@@ -154,7 +136,14 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.board_time_of(trip, position)
+        let mission = self.mission_of(trip);
+        let stop = self.stop_of(position, &mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.timetables.board_time_of(trip, position)
+        } else {
+            None
+        }
     }
 
     fn debark_time_of(
@@ -162,7 +151,14 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.debark_time_of(trip, position)
+        let mission = self.mission_of(trip);
+        let stop = self.stop_of(position, &mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.timetables.debark_time_of(trip, position)
+        } else {
+            None
+        }
     }
 
     fn arrival_time_of(
@@ -170,7 +166,7 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.timetables.arrival_time_of(trip, position)
+        self.transit_data.timetables.arrival_time_of(trip, position)
     }
 
     fn departure_time_of(
@@ -178,21 +174,23 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.timetables.departure_time_of(trip, position)
+        self.transit_data
+            .timetables
+            .departure_time_of(trip, position)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
-        let transfer_data = &self.transfers_data[transfer.idx];
+        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
         (transfer_data.from_stop, transfer_data.to_stop)
     }
 
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
-        let transfer_data = &self.transfers_data[transfer.idx];
+        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
         transfer_data.durations.total_duration
     }
 
     fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
-        let transfer_data = &self.transfers_data[transfer.idx];
+        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
         transfer_data.transit_model_transfer_idx
     }
 
@@ -202,8 +200,22 @@ where
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables
-            .earliest_trip_to_board_at(waiting_time, mission, position)
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data
+                .timetables
+                .earliest_filtered_trip_to_board_at(
+                    waiting_time,
+                    mission,
+                    position,
+                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                        self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                    },
+                )
+        } else {
+            None
+        }
     }
 
     fn latest_trip_that_debark_at(
@@ -212,31 +224,48 @@ where
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables
-            .latest_trip_that_debark_at(waiting_time, mission, position)
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data
+                .timetables
+                .latest_filtered_trip_that_debark_at(
+                    waiting_time,
+                    mission,
+                    position,
+                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                        self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                    },
+                )
+        } else {
+            None
+        }
     }
 
     fn to_naive_datetime(
         &self,
         seconds: &crate::time::SecondsSinceDatasetUTCStart,
     ) -> chrono::NaiveDateTime {
-        self.timetables.calendar().to_naive_datetime(seconds)
+        self.transit_data
+            .timetables
+            .calendar()
+            .to_naive_datetime(seconds)
     }
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
-        self.timetables.vehicle_journey_idx(trip)
+        self.transit_data.timetables.vehicle_journey_idx(trip)
     }
 
     fn stop_point_idx(&self, stop: &Stop) -> Idx<StopPoint> {
-        self.stops_data[stop.idx].stop_point_idx
+        self.transit_data.stops_data[stop.idx].stop_point_idx
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
-        self.timetables.stoptime_idx(position, trip)
+        self.transit_data.timetables.stoptime_idx(position, trip)
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
-        self.timetables.day_of(trip)
+        self.transit_data.timetables.day_of(trip)
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
@@ -244,19 +273,22 @@ where
     }
 
     fn calendar(&self) -> &Calendar {
-        self.timetables.calendar()
+        self.transit_data.timetables.calendar()
     }
 
     fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
-        self.stop_point_idx_to_stop.get(stop_point_idx).copied()
+        self.transit_data
+            .stop_point_idx_to_stop
+            .get(stop_point_idx)
+            .copied()
     }
 
     fn nb_of_trips(&self) -> usize {
-        self.timetables.nb_of_trips()
+        self.transit_data.timetables.nb_of_trips()
     }
 
     fn nb_of_stops(&self) -> usize {
-        self.stops_data.len()
+        self.transit_data.stops_data.len()
     }
 
     fn stop_id(&self, stop: &Stop) -> usize {
@@ -264,67 +296,45 @@ where
     }
 
     fn nb_of_missions(&self) -> usize {
-        self.timetables.nb_of_missions()
+        self.transit_data.timetables.nb_of_missions()
     }
 
     fn mission_id(&self, mission: &Self::Mission) -> usize {
-        self.timetables.mission_id(mission)
+        self.transit_data.timetables.mission_id(mission)
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::DataUpdate for TransitData<Timetables> {
-    fn remove_vehicle(
-        &mut self,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
-        date: &chrono::NaiveDate,
-    ) -> Result<(), RemovalError> {
-        self.timetables.remove(date, vehicle_journey_idx)
-    }
-}
-
-impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetables>
+impl<'a, Timetables> data_interface::DataIters<'a> for TransitDataFiltered<'_, '_, Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-{
-    fn new(
-        model: &Model,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
-    ) -> Self {
-        Self::_new(model, loads_data, default_transfer_duration)
-    }
-}
-
-impl<'a, Timetables> data_interface::DataIters<'a> for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + TimetablesIter<'a>,
+    Timetables: TimetablesTrait + for<'b> TimetablesIter<'b> + Debug,
     Timetables::Mission: 'a,
     Timetables::Position: 'a,
 {
     type MissionsAtStop = MissionsOfStop<'a, Timetables>;
 
     fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.missions_of(stop)
+        self.transit_data
+            .missions_of_filtered(stop, |_| self.is_stop_allowed(&stop))
     }
 
     type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
-        self.outgoing_transfers_at(from_stop)
+        self.transit_data.outgoing_transfers_at(from_stop)
     }
 
     type IncomingTransfersAtStop = iters::IncomingTransfersAtStop<'a>;
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
-        self.incoming_transfers_at(stop)
+        self.transit_data.incoming_transfers_at(stop)
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
 
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.timetables.trips_of(mission)
+        self.transit_data.timetables.trips_of(mission)
     }
 }
 
-impl<Timetables> data_interface::DataWithIters for TransitData<Timetables>
+impl<Timetables> data_interface::DataWithIters for TransitDataFiltered<'_, '_, Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,

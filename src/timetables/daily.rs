@@ -40,27 +40,22 @@ use super::{
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, RemovalError, Stop, TimetablesIter,
 };
-
+use crate::loads_data::Load;
+use crate::time::days_patterns::DaysPatterns;
+use crate::tracing::{trace, warn};
 use crate::{
     loads_data::LoadsData,
     time::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     },
-};
-use crate::{
-    time::days_patterns::DaysPatterns,
+    timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
     transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
-
-use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
-
-use crate::tracing::{trace, warn};
-
-use crate::loads_data::Load;
 use std::collections::BTreeMap;
 
 pub type Time = SecondsSinceDatasetUTCStart;
+
 #[derive(Debug)]
 pub struct DailyTimetables {
     timetables: Timetables<Time, Load, (), VehicleData>,
@@ -68,18 +63,18 @@ pub struct DailyTimetables {
     days_patterns: DaysPatterns,
     vehicle_journey_to_timetables: BTreeMap<Idx<VehicleJourney>, DayToTimetable>,
 }
+
 #[derive(Clone, Debug)]
-struct VehicleData {
+pub struct VehicleData {
     vehicle_journey_idx: Idx<VehicleJourney>,
     day: DaysSinceDatasetStart,
 }
 
 impl TimetablesTypes for DailyTimetables {
     type Mission = Timetable;
-
     type Position = Position;
-
     type Trip = Vehicle;
+    type VehicleData = VehicleData;
 }
 
 impl TimetablesTrait for DailyTimetables {
@@ -189,6 +184,28 @@ impl TimetablesTrait for DailyTimetables {
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, Time, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+    {
+        let vehicle_data_filter =
+            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
+        self.timetables
+            .earliest_filtered_vehicle_to_board(
+                waiting_time,
+                mission,
+                position,
+                vehicle_data_filter,
+            )
+            .map(|(trip, time, load)| (trip, *time, *load))
+    }
+
     fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
@@ -197,6 +214,23 @@ impl TimetablesTrait for DailyTimetables {
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .latest_vehicle_that_debark(time, mission, position)
+            .map(|(trip, time, load)| (trip, *time, *load))
+    }
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+    {
+        let vehicle_data_filter =
+            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
+        self.timetables
+            .latest_filtered_vehicle_that_debark(time, mission, position, vehicle_data_filter)
             .map(|(trip, time, load)| (trip, *time, *load))
     }
 
@@ -228,7 +262,7 @@ impl TimetablesTrait for DailyTimetables {
         let vj_timetables = self
             .vehicle_journey_to_timetables
             .entry(vehicle_journey_idx)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(DayToTimetable::new);
 
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);

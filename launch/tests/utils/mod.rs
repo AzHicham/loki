@@ -41,7 +41,9 @@ use failure::{format_err, Error};
 use launch::config;
 use launch::config::launch_params::default_transfer_duration;
 use launch::datetime::DateTimeRepresent;
+use launch::filters::Filters;
 use launch::loki::response::VehicleSection;
+use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use launch::loki::{response, Idx, RequestInput, StopPoint};
 use launch::solver::Solver;
 use loki::chrono::TimeZone;
@@ -50,10 +52,12 @@ use loki::chrono_tz;
 use loki::tracing::debug;
 
 use loki::transit_model::Model;
+use loki::TransitData;
 use loki::VehicleJourney;
-use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
+use loki::{DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
+use std::fmt::Debug;
 
 pub fn init_logger() {
     let _ = env_logger::Builder::from_env(
@@ -65,7 +69,7 @@ pub fn init_logger() {
     .try_init();
 }
 
-pub struct Config {
+pub struct Config<'a> {
     pub request_params: config::RequestParams,
 
     pub datetime: NaiveDateTime,
@@ -83,9 +87,15 @@ pub struct Config {
 
     /// name of the end stop_area
     pub end: String,
+
+    // Allowed_uri
+    pub allowed_uri: Vec<&'a str>,
+
+    // Forbidden_uri
+    pub forbidden_uri: Vec<&'a str>,
 }
 
-impl Config {
+impl<'a> Config<'a> {
     pub fn new(datetime: impl AsDateTime, start: &str, end: &str) -> Self {
         Self::new_timezoned(datetime, &model_builder::DEFAULT_TIMEZONE, start, end)
     }
@@ -108,6 +118,8 @@ impl Config {
             default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
+            allowed_uri: Default::default(),
+            forbidden_uri: Default::default(),
         }
     }
 }
@@ -153,18 +165,23 @@ pub fn build_and_solve(
     }
 }
 
-fn build_and_solve_inner<Data>(
+fn build_and_solve_inner<Timetables>(
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
 where
-    Data: DataWithIters,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables::Mission: 'static,
+    Timetables::Position: 'static,
 {
-    let data: Data =
+    use loki::DataTrait;
+    let data: TransitData<Timetables> =
         launch::read::build_transit_data(model, loads_data, &config.default_transfer_duration);
 
-    let mut solver = Solver::<Data>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+
+    let filters = Filters::new(model, &config.forbidden_uri, &config.allowed_uri);
 
     let request_input = make_request_from_config(config)?;
 
@@ -172,6 +189,7 @@ where
         &data,
         model,
         &request_input,
+        filters,
         &config.comparator_type,
         &config.datetime_represent,
     )?;

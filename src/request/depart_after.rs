@@ -444,8 +444,8 @@ where
         }
     }
 
-    fn boardable_missions_at(&'outer self, stop: &Data::Stop) -> Data::MissionsAtStop {
-        self.transit_data.boardable_missions_at(stop)
+    fn missions_at(&'outer self, stop: &Data::Stop) -> Data::MissionsAtStop {
+        self.transit_data.missions_at(stop)
     }
 
     fn transfers_at(
@@ -465,17 +465,17 @@ where
     }
 }
 
-pub struct TransferAtStop<'data, Data>
+pub struct TransferAtStop<'outer, Data>
 where
-    Data: DataTrait + DataIters<'data>,
+    Data: DataTrait + DataIters<'outer>,
 {
     inner: Data::OutgoingTransfersAtStop,
     criteria: Criteria,
 }
 
-impl<'data, Data> Iterator for TransferAtStop<'data, Data>
+impl<'outer, Data> Iterator for TransferAtStop<'outer, Data>
 where
-    Data: DataTrait + DataIters<'data>,
+    Data: DataTrait + DataIters<'outer>,
 {
     type Item = (Data::Stop, Criteria, Data::Transfer);
 

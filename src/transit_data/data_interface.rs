@@ -22,6 +22,7 @@ pub trait TransitTypes {
     type Mission: Debug + Clone;
 
     /// Identify a step along a `Mission`
+    /// Identify a step along a `Mission`
     type Position: Debug + Clone;
 
     /// A trip of a vehicle along a `Mission`
@@ -130,12 +131,6 @@ pub trait Data: TransitTypes {
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool;
 
-    fn new(
-        model: &Model,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
-    ) -> Self;
-
     fn calendar(&self) -> &crate::time::Calendar;
 
     fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
@@ -155,12 +150,22 @@ pub trait Data: TransitTypes {
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
+}
 
+pub trait DataUpdate {
     fn remove_vehicle(
         &mut self,
         vehicle_journey_id: &Idx<VehicleJourney>,
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
+}
+
+pub trait DataIO {
+    fn new(
+        model: &Model,
+        loads_data: &LoadsData,
+        default_transfer_duration: PositiveDuration,
+    ) -> Self;
 }
 
 pub trait DataIters<'a>: TransitTypes
@@ -174,7 +179,7 @@ where
     /// Returns all the `Mission`s that can be boarded at `stop`.
     ///
     /// Should not return twice the same `Mission`.
-    fn boardable_missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
+    fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop;
 
     /// Iterator for all `Transfer`s that can be taken at a `Stop`
     type OutgoingTransfersAtStop: Iterator<

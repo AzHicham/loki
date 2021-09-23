@@ -51,9 +51,9 @@ pub struct Request<'data, 'model, Data: DataTrait> {
 impl<'data, 'model, Data: DataTrait> TransitTypes for Request<'data, 'model, Data> {
     type Stop = Data::Stop;
     type Mission = Data::Mission;
+    type Position = Data::Position;
     type Trip = Data::Trip;
     type Transfer = Data::Transfer;
-    type Position = Data::Position;
 }
 
 impl<'data, 'model, Data: DataTrait> RequestTypes for Request<'data, 'model, Data> {
@@ -131,12 +131,12 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         self.generic.depart(departure)
     }
 
-    fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
-        self.generic.arrival_stop(arrival)
-    }
-
     fn arrive(&self, arrival: &Self::Arrival, criteria: &Self::Criteria) -> Self::Criteria {
         self.generic.arrive(arrival, criteria)
+    }
+
+    fn arrival_stop(&self, arrival: &Self::Arrival) -> Self::Stop {
+        self.generic.arrival_stop(arrival)
     }
 
     fn is_upstream(
@@ -187,19 +187,19 @@ where
     Data::Transfer: 'outer,
     Data::Stop: 'outer,
 {
-    type Departures = Departures;
-    fn departures(&'outer self) -> Self::Departures {
-        self.generic.departures()
-    }
-
     type Arrivals = Arrivals;
     fn arrivals(&'outer self) -> Self::Arrivals {
         self.generic.arrivals()
     }
 
+    type Departures = Departures;
+    fn departures(&'outer self) -> Self::Departures {
+        self.generic.departures()
+    }
+
     type MissionsAtStop = Data::MissionsAtStop;
-    fn boardable_missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.generic.boardable_missions_at(stop)
+    fn missions_at(&'outer self, stop: &Self::Stop) -> Self::MissionsAtStop {
+        self.generic.missions_at(stop)
     }
 
     type TransfersAtStop = super::TransferAtStop<'outer, Data>;
@@ -217,13 +217,8 @@ where
     }
 }
 
-impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data>
-where
-    Data: DataWithIters,
-    Data::Transfer: 'static,
-    Data::Stop: 'static,
-{
-}
+impl<'data, 'model, Data> RequestWithIters for Request<'data, 'model, Data> where Data: DataWithIters
+{}
 
 use crate::engine::engine_interface::Journey as PTJourney;
 use crate::response;
