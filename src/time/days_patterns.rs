@@ -146,7 +146,7 @@ impl DaysPatterns {
 
         // let's put the actual pattern of allowed days into self.buffer
         debug_assert!(original_allowed_dates.len() == self.buffer.len());
-        self.buffer.copy_from_slice(&original_allowed_dates);
+        self.buffer.copy_from_slice(original_allowed_dates);
         self.buffer[day_to_remove.days as usize] = false;
 
         let result = self.get_or_insert_from_buffer();
@@ -166,7 +166,7 @@ impl DaysPatterns {
 
         // let's put the actual pattern of allowed days into self.buffer
         debug_assert!(original_allowed_dates.len() == self.buffer.len());
-        self.buffer.copy_from_slice(&original_allowed_dates);
+        self.buffer.copy_from_slice(original_allowed_dates);
         self.buffer[day_to_add.days as usize] = true;
 
         let result = self.get_or_insert_from_buffer();

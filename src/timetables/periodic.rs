@@ -463,7 +463,7 @@ impl TimetablesTrait for PeriodicTimetables {
 
         let has_timetables = self
             .vehicle_journey_to_timetables
-            .get_mut(&vehicle_journey_idx);
+            .get_mut(vehicle_journey_idx);
         let result = match has_timetables {
             None => {
                 // There is no timetable with this vehicle_journey_index

@@ -386,7 +386,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     .entry(vehicle_journey_idx)
                     .or_insert(HashMap::new())
                     .entry(*offset)
-                    .or_insert_with(|| DayToTimetable::new());
+                    .or_insert_with(DayToTimetable::new);
 
                 if let Some(day) =
                     vj_timetables.has_intersection_with(&offset_days_pattern, &self.days_patterns)
@@ -406,7 +406,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 let vehicle_data = VehicleData {
                     days_pattern: offset_days_pattern,
                     vehicle_journey_idx,
-                    utc_offset: offset.clone(),
+                    utc_offset: *offset,
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
@@ -456,8 +456,8 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
         let iter = self
             .vehicle_journey_to_timetables
-            .get_mut(&vehicle_journey_idx)
-            .ok_or_else(|| RemovalError::UnknownVehicleJourney)?;
+            .get_mut(vehicle_journey_idx)
+            .ok_or(RemovalError::UnknownVehicleJourney)?;
 
         for (offset, day_to_timetable) in iter {
             let remove_result = day_to_timetable.remove(&day, &mut self.days_patterns);
