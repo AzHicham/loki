@@ -54,29 +54,33 @@ pub enum FilterPtType<'a> {
 
 pub fn create_filter<T>(model: &Model, forbidden_uri: &[T], allowed_uri: &[T]) -> DataFilter
 where
-    T: AsRef<str> + std::cmp::Eq + std::hash::Hash,
+    T: AsRef<str>,
 {
     // Pre processing
     let allowed_vj_filter: Vec<_> = allowed_uri
         .iter()
+        .map(|uri| uri.as_ref())
         .unique()
         .filter_map(|uri| parse_filter_vj(model, uri))
         .collect();
     let forbidden_vj_filter: Vec<_> = forbidden_uri
         .iter()
+        .map(|uri| uri.as_ref())
         .unique()
         .filter_map(|uri| parse_filter_vj(model, uri))
         .collect();
 
     let allowed_sp_filter: Vec<_> = allowed_uri
         .iter()
+        .map(|uri| uri.as_ref())
         .unique()
-        .filter_map(|uri| parse_filter_sp(model, uri))
+        .filter_map(|uri| parse_filter_sp(model, &uri))
         .collect();
     let forbidden_sp_filter: Vec<_> = forbidden_uri
         .iter()
+        .map(|uri| uri.as_ref())
         .unique()
-        .filter_map(|uri| parse_filter_sp(model, uri))
+        .filter_map(|uri| parse_filter_sp(model, &uri))
         .collect();
 
     let empty_filters = allowed_vj_filter.is_empty()
@@ -118,39 +122,36 @@ where
     }
 }
 
-fn parse_filter_vj<'filter, T: AsRef<str>>(
-    model: &Model,
-    input: &'filter T,
-) -> Option<FilterPtType<'filter>> {
-    if let Some(line) = input.as_ref().strip_prefix("line:") {
+fn parse_filter_vj<'filter>(model: &Model, input: &'filter str) -> Option<FilterPtType<'filter>> {
+    if let Some(line) = input.strip_prefix("line:") {
         return if model.lines.get(line).is_some() {
             Some(FilterPtType::Line(line))
         } else {
             None
         };
     }
-    if let Some(route) = input.as_ref().strip_prefix("route:") {
+    if let Some(route) = input.strip_prefix("route:") {
         return if model.routes.get(route).is_some() {
             Some(FilterPtType::Route(route))
         } else {
             None
         };
     }
-    if let Some(network) = input.as_ref().strip_prefix("network:") {
+    if let Some(network) = input.strip_prefix("network:") {
         return if model.networks.get(network).is_some() {
             Some(FilterPtType::Network(network))
         } else {
             None
         };
     }
-    if let Some(physical_mode) = input.as_ref().strip_prefix("physical_mode:") {
+    if let Some(physical_mode) = input.strip_prefix("physical_mode:") {
         return if model.physical_modes.get(physical_mode).is_some() {
             Some(FilterPtType::PhysicalMode(physical_mode))
         } else {
             None
         };
     }
-    if let Some(commercial_mode) = input.as_ref().strip_prefix("commercial_mode:") {
+    if let Some(commercial_mode) = input.strip_prefix("commercial_mode:") {
         return if model.commercial_modes.get(commercial_mode).is_some() {
             Some(FilterPtType::CommercialMode(commercial_mode))
         } else {
@@ -204,18 +205,15 @@ fn parse_filter_list_vj(model: &Model, vj: &VehicleJourney, filters: &[FilterPtT
     false
 }
 
-fn parse_filter_sp<'filter, T: AsRef<str>>(
-    model: &Model,
-    input: &'filter T,
-) -> Option<FilterPtType<'filter>> {
-    if let Some(stop_point) = input.as_ref().strip_prefix("stop_point:") {
+fn parse_filter_sp<'filter>(model: &Model, input: &'filter str) -> Option<FilterPtType<'filter>> {
+    if let Some(stop_point) = input.strip_prefix("stop_point:") {
         return if model.stop_points.get(stop_point).is_some() {
             Some(FilterPtType::StopPoint(stop_point))
         } else {
             None
         };
     }
-    if let Some(stop_area) = input.as_ref().strip_prefix("stop_area:") {
+    if let Some(stop_area) = input.strip_prefix("stop_area:") {
         return if model.stop_areas.get(stop_area).is_some() {
             Some(FilterPtType::StopArea(stop_area))
         } else {
