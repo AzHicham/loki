@@ -314,7 +314,7 @@ where
 
     fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.transit_data
-            .missions_of_filtered(stop, |_| self.is_stop_allowed(&stop))
+            .missions_of_filtered(stop, |_| self.is_stop_allowed(stop))
     }
 
     type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
