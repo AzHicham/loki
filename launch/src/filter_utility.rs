@@ -123,35 +123,35 @@ fn parse_filter_vj<'filter, T: AsRef<str>>(
     input: &'filter T,
 ) -> Option<FilterPtType<'filter>> {
     if let Some(line) = input.as_ref().strip_prefix("line:") {
-        return if let Some(_) = model.lines.get(line) {
+        return if model.lines.get(line).is_some() {
             Some(FilterPtType::Line(line))
         } else {
             None
         };
     }
     if let Some(route) = input.as_ref().strip_prefix("route:") {
-        return if let Some(_) = model.routes.get(route) {
+        return if model.routes.get(route).is_some() {
             Some(FilterPtType::Route(route))
         } else {
             None
         };
     }
     if let Some(network) = input.as_ref().strip_prefix("network:") {
-        return if let Some(_) = model.networks.get(network) {
+        return if model.networks.get(network).is_some() {
             Some(FilterPtType::Network(network))
         } else {
             None
         };
     }
     if let Some(physical_mode) = input.as_ref().strip_prefix("physical_mode:") {
-        return if let Some(_) = model.physical_modes.get(physical_mode) {
+        return if model.physical_modes.get(physical_mode).is_some() {
             Some(FilterPtType::PhysicalMode(physical_mode))
         } else {
             None
         };
     }
     if let Some(commercial_mode) = input.as_ref().strip_prefix("commercial_mode:") {
-        return if let Some(_) = model.commercial_modes.get(commercial_mode) {
+        return if model.commercial_modes.get(commercial_mode).is_some() {
             Some(FilterPtType::CommercialMode(commercial_mode))
         } else {
             None
@@ -209,14 +209,14 @@ fn parse_filter_sp<'filter, T: AsRef<str>>(
     input: &'filter T,
 ) -> Option<FilterPtType<'filter>> {
     if let Some(stop_point) = input.as_ref().strip_prefix("stop_point:") {
-        return if let Some(_) = model.stop_points.get(stop_point) {
+        return if model.stop_points.get(stop_point).is_some() {
             Some(FilterPtType::StopPoint(stop_point))
         } else {
             None
         };
     }
     if let Some(stop_area) = input.as_ref().strip_prefix("stop_area:") {
-        return if let Some(_) = model.stop_areas.get(stop_area) {
+        return if model.stop_areas.get(stop_area).is_some() {
             Some(FilterPtType::StopArea(stop_area))
         } else {
             None
