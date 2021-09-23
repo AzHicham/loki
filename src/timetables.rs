@@ -35,6 +35,7 @@
 // www.navitia.io
 
 mod daily;
+mod day_to_timetable;
 mod generic_timetables;
 mod iters;
 mod periodic;
@@ -163,6 +164,19 @@ pub trait Timetables: Types {
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
         Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
+
+    fn remove(
+        &mut self,
+        date: &chrono::NaiveDate,
+        vehicle_journey_idx: &Idx<VehicleJourney>,
+    ) -> Result<(), RemovalError>;
+}
+
+#[derive(Debug)]
+pub enum RemovalError {
+    UnknownDate,
+    UnknownVehicleJourney,
+    DateInvalidForVehicleJourney,
 }
 
 pub trait TimetablesIter<'a>: Types {

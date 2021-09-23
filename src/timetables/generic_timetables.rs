@@ -37,6 +37,7 @@
 use std::{
     borrow::Borrow,
     cmp::{max, min, Ordering},
+    ops::Not,
 };
 use std::{collections::BTreeMap, fmt::Debug};
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
@@ -129,6 +130,13 @@ where
         timetable: &Timetable,
     ) -> &TimetableData<Time, Load, TimezoneData, VehicleData> {
         &self.timetable_datas[timetable.idx]
+    }
+
+    pub(super) fn timetable_data_mut(
+        &mut self,
+        timetable: &Timetable,
+    ) -> &mut TimetableData<Time, Load, TimezoneData, VehicleData> {
+        &mut self.timetable_datas[timetable.idx]
     }
 
     pub(super) fn vehicle_data(&self, vehicle: &Vehicle) -> &VehicleData {
@@ -905,6 +913,99 @@ where
         let board_debark_cmp = combine(board_cmp, debark_cmp)?;
         let loads_cmp = partial_cmp(loads, self.vehicle_loads(vehicle_idx))?;
         combine(board_debark_cmp, loads_cmp)
+    }
+
+    pub(super) fn remove_vehicle(&mut self, vehicle_idx: usize) -> Result<(), ()> {
+        if vehicle_idx >= self.nb_of_vehicle() {
+            return Err(());
+        }
+
+        for board_times in self.board_times_by_position.iter_mut() {
+            board_times.remove(vehicle_idx);
+        }
+        for debark_times in self.debark_times_by_position.iter_mut() {
+            debark_times.remove(vehicle_idx);
+        }
+
+        self.vehicle_loads.remove(vehicle_idx);
+        self.vehicle_datas.remove(vehicle_idx);
+
+        Ok(())
+    }
+
+    pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> usize
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        let nb_to_remove = self
+            .vehicle_datas
+            .iter()
+            .filter(|vehicle_data| vehicle_filter(&vehicle_data))
+            .count();
+        if nb_to_remove == 0 {
+            return 0;
+        }
+
+        //  Option 1 : use buffers to copy the data to keep, and then make swaps
+        //             to obtain the data to keep : iterate on the zip(vec_to_modify, vehicle_data)
+        //
+        //   Option 2 : use retain with a closure whose state tracks the current index/vehicle
+        //              see https://stackoverflow.com/a/59602788
+        for board_times in self.board_times_by_position.iter_mut() {
+            let mut index = 0;
+            let vehicle_datas = &self.vehicle_datas;
+            board_times.retain(|_| {
+                let to_retain = vehicle_filter(&vehicle_datas[index]).not();
+                index = index + 1;
+                to_retain
+            });
+        }
+        for debark_times in self.debark_times_by_position.iter_mut() {
+            let mut index = 0;
+            let vehicle_datas = &self.vehicle_datas;
+            debark_times.retain(|_| {
+                let to_retain = vehicle_filter(&vehicle_datas[index]).not();
+                index = index + 1;
+                to_retain
+            });
+        }
+
+        {
+            let mut index = 0;
+            let vehicle_datas = &self.vehicle_datas;
+            self.vehicle_loads.retain(|_| {
+                let to_retain = vehicle_filter(&vehicle_datas[index]).not();
+                index = index + 1;
+                to_retain
+            });
+        }
+
+        {
+            self.vehicle_datas.retain(|vehicle_data| {
+                let to_retain = vehicle_filter(&vehicle_data).not();
+                to_retain
+            });
+        }
+
+        nb_to_remove
+    }
+
+    pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> Result<usize, ()>
+    where
+        Updater: FnMut(&mut VehicleData) -> bool, // returns true when an update took place
+    {
+        let mut nb_updated = 0usize;
+        for vehicle_data in self.vehicle_datas.iter_mut() {
+            let updated = updater(vehicle_data);
+            if updated {
+                nb_updated = nb_updated + 1;
+            }
+        }
+
+        match nb_updated {
+            0 => Err(()),
+            _ => Ok(nb_updated),
+        }
     }
 }
 
