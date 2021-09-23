@@ -36,12 +36,16 @@
 
 mod utils;
 use failure::Error;
-use launch::config::{ComparatorType, DataImplem};
-use launch::datetime::DateTimeRepresent;
+use launch::{
+    config::{ComparatorType, DataImplem},
+    datetime::DateTimeRepresent,
+};
 use rstest::rstest;
-use utils::model_builder::AsDateTime;
-use utils::model_builder::ModelBuilder;
-use utils::{build_and_solve, make_pt_from_vehicle, make_stop_point, Config};
+use utils::{
+    build_and_solve, make_pt_from_vehicle, make_stop_point,
+    model_builder::{AsDateTime, ModelBuilder},
+    Config,
+};
 
 #[rstest]
 #[case(ComparatorType::Loads, DataImplem::Periodic)]

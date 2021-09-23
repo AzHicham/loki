@@ -41,8 +41,7 @@ mod utils;
 extern crate test;
 use launch::config::DataImplem;
 use test::Bencher;
-use utils::model_builder::ModelBuilder;
-use utils::{build_and_solve, Config};
+use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
 #[bench]
 fn routing_daily_bench(bencher: &mut Bencher) {

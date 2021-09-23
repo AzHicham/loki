@@ -35,13 +35,9 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use std::collections::BTreeMap;
-use std::error::Error;
-use std::fmt::Display;
-use std::path::Path;
+use std::{collections::BTreeMap, error::Error, fmt::Display, path::Path};
 use tracing::{debug, trace};
-use transit_model::objects::VehicleJourney;
-use transit_model::Model;
+use transit_model::{objects::VehicleJourney, Model};
 use typed_index_collection::Idx;
 
 type StopSequence = u32;

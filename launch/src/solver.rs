@@ -43,14 +43,15 @@ use loki::{
     RequestInput, RequestTypes, RequestWithIters,
 };
 
-use crate::datetime::DateTimeRepresent;
-use crate::filters::Filters;
+use crate::{datetime::DateTimeRepresent, filters::Filters};
 
 use super::config;
 use crate::loki::{DataTrait, TransitData};
-use loki::request::{self, generic_request::Types};
-use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use loki::transit_data_filtered::TransitDataFiltered;
+use loki::{
+    request::{self, generic_request::Types},
+    timetables::{Timetables as TimetablesTrait, TimetablesIter},
+    transit_data_filtered::TransitDataFiltered,
+};
 
 pub struct Solver<Timetables>
 where

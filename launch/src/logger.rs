@@ -1,7 +1,5 @@
 use crate::loki::tracing::level_filters::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub fn init_logger() {
     let default_level = LevelFilter::INFO;

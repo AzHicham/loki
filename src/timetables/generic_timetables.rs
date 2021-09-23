@@ -37,9 +37,10 @@
 use std::{
     borrow::Borrow,
     cmp::{max, min, Ordering},
+    collections::BTreeMap,
+    fmt::Debug,
     ops::Not,
 };
-use std::{collections::BTreeMap, fmt::Debug};
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};

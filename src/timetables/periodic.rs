@@ -43,8 +43,6 @@ use super::{
     RemovalError, Stop, TimetablesIter,
 };
 
-use crate::timetables::{FlowDirection, Timetables as TimetablesTrait, Types as TimetablesTypes};
-use crate::transit_data::{Idx, VehicleJourney};
 use crate::{
     loads_data::LoadsData,
     time::{
@@ -52,6 +50,8 @@ use crate::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
+    timetables::{FlowDirection, Timetables as TimetablesTrait, Types as TimetablesTypes},
+    transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;

@@ -39,8 +39,9 @@ pub mod init;
 pub mod iters;
 
 use iters::MissionsOfStop;
-pub use transit_model::objects::Time as TransitModelTime;
-pub use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
+pub use transit_model::objects::{
+    StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
+};
 pub use typed_index_collection::Idx;
 
 use crate::{

@@ -41,8 +41,10 @@ use crate::{
     transit_data::{Stop, TransitData},
 };
 
-use crate::time::{PositiveDuration, SecondsSinceTimezonedDayStart};
-use crate::timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter};
+use crate::{
+    time::{PositiveDuration, SecondsSinceTimezonedDayStart},
+    timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
+};
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},

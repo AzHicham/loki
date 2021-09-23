@@ -39,14 +39,16 @@ mod utils;
 use std::fmt::Debug;
 
 use failure::Error;
-use launch::config::DataImplem;
-use launch::solver::Solver;
+use launch::{config::DataImplem, solver::Solver};
 
-use loki::timetables::{Timetables, TimetablesIter};
-use loki::{DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData};
-use utils::model_builder::AsDate;
-use utils::model_builder::ModelBuilder;
-use utils::Config;
+use loki::{
+    timetables::{Timetables, TimetablesIter},
+    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
+};
+use utils::{
+    model_builder::{AsDate, ModelBuilder},
+    Config,
+};
 
 use rstest::rstest;
 

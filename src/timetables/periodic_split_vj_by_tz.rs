@@ -45,11 +45,13 @@ use super::{
     RemovalError, TimetablesIter,
 };
 
-use crate::time::{
-    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    SecondsSinceUTCDayStart, TimezonesPatterns,
+use crate::{
+    time::{
+        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
+        SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart, TimezonesPatterns,
+    },
+    transit_data::{Idx, VehicleJourney},
 };
-use crate::transit_data::{Idx, VehicleJourney};
 use chrono::{FixedOffset, NaiveDate};
 
 use crate::timetables::{

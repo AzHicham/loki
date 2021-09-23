@@ -1,15 +1,13 @@
-use launch::loki::{self, TransitData};
-use launch::solver::Solver;
 use launch::{
     config,
-    loki::{DailyData, PeriodicData, PeriodicSplitVjData},
+    loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData},
+    solver::Solver,
 };
 
 use loki::{tracing::debug, transit_model::Model};
 
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use std::convert::TryFrom;
-use std::{fs::File, io::BufReader, time::SystemTime};
+use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};
 
 use failure::{bail, Error};
 

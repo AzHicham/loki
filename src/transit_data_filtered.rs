@@ -34,19 +34,21 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::transit_data::iters::MissionsOfStop;
 use crate::{
     loads_data::Load,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::iters::MissionsOfStop,
     TransitData,
 };
-pub use transit_model::objects::Time as TransitModelTime;
-pub use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
+pub use transit_model::objects::{
+    StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
+};
 pub use typed_index_collection::Idx;
 
-use crate::timetables::{Stop, Timetables as TimetablesTrait, TimetablesIter};
-use crate::transit_data::data_interface::Data;
-use crate::transit_data::{data_interface, iters, Transfer};
+use crate::{
+    timetables::{Stop, Timetables as TimetablesTrait, TimetablesIter},
+    transit_data::{data_interface, data_interface::Data, iters, Transfer},
+};
 use std::fmt::Debug;
 
 pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
