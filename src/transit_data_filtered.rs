@@ -57,7 +57,7 @@ pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
 
 impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
     pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
-        let stop_idx = self.stop_point_idx(&stop);
+        let stop_idx = self.stop_point_idx(stop);
         self.allowed_stop_points[stop_idx.get()]
     }
 

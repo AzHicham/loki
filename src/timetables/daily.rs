@@ -262,7 +262,7 @@ impl TimetablesTrait for DailyTimetables {
         let vj_timetables = self
             .vehicle_journey_to_timetables
             .entry(vehicle_journey_idx)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(DayToTimetable::new);
 
         for date in valid_dates {
             let has_day = self.calendar.date_to_days_since_start(date);

@@ -411,7 +411,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 let vj_timetables = self
                     .vehicle_journey_to_timetables
                     .entry(vehicle_journey_idx)
-                    .or_insert(HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(*offset)
                     .or_insert_with(DayToTimetable::new);
 

@@ -490,7 +490,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let vj_timetables = self
             .vehicle_journey_to_timetables
             .entry(vehicle_journey_idx)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(DayToTimetable::new);
 
         for (loads, dates) in load_patterns_dates.into_iter() {
             let days_pattern = self
