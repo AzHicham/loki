@@ -52,7 +52,7 @@ pub use tracing;
 pub use transit_model;
 pub use typed_index_collection;
 
-pub use transit_data::data_interface::{Data as DataTrait, DataIO, DataWithIters};
+pub use transit_data::data_interface::{Data as DataTrait, DataIO, DataUpdate, DataWithIters};
 
 pub type DailyData = timetables::DailyTimetables;
 pub type PeriodicData = timetables::PeriodicTimetables;

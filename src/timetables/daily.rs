@@ -41,7 +41,8 @@ use super::{
     FlowDirection, RemovalError, Stop, TimetablesIter,
 };
 use crate::loads_data::Load;
-use crate::log::{trace, warn};
+use crate::time::days_patterns::DaysPatterns;
+use crate::tracing::{trace, warn};
 use crate::{
     loads_data::LoadsData,
     time::{
@@ -50,20 +51,9 @@ use crate::{
     timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
     transit_data::{Idx, VehicleJourney},
 };
-use crate::{
-    time::days_patterns::DaysPatterns,
-    transit_data::{Idx, VehicleJourney},
-};
 use chrono::NaiveDate;
-
-use crate::timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes};
-
-use crate::tracing::{trace, warn};
-
-use crate::loads_data::Load;
 use std::collections::BTreeMap;
 
-use core::cmp;
 pub type Time = SecondsSinceDatasetUTCStart;
 
 #[derive(Debug)]

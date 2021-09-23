@@ -150,7 +150,9 @@ pub trait Data: TransitTypes {
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
+}
 
+pub trait DataUpdate {
     fn remove_vehicle(
         &mut self,
         vehicle_journey_id: &Idx<VehicleJourney>,

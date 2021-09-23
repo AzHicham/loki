@@ -270,7 +270,9 @@ where
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
     }
+}
 
+impl<Timetables: TimetablesTrait> data_interface::DataUpdate for TransitData<Timetables> {
     fn remove_vehicle(
         &mut self,
         vehicle_journey_idx: &Idx<VehicleJourney>,

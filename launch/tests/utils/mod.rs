@@ -52,9 +52,8 @@ use loki::chrono_tz;
 use loki::tracing::debug;
 
 use loki::transit_model::Model;
+use loki::TransitData;
 use loki::VehicleJourney;
-use loki::{DailyData, DataWithIters, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
-use loki::{chrono_tz, TransitData};
 use loki::{DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData};
 use loki::{LoadsData, PositiveDuration};
 use model_builder::AsDateTime;
@@ -125,7 +124,7 @@ impl<'a> Config<'a> {
     }
 }
 
-fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
+pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
     let datetime = config.datetime;
 
     let start_stop_point_uri = &config.start;
