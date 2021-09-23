@@ -88,7 +88,7 @@ impl TimetablesTrait for DailyTimetables {
         let nb_of_days: usize = calendar.nb_of_days().into();
         Self {
             timetables: Timetables::new(),
-            calendar: calendar,
+            calendar,
             days_patterns: DaysPatterns::new(nb_of_days),
             vehicle_journey_to_timetables: BTreeMap::new(),
         }
@@ -314,7 +314,7 @@ impl TimetablesTrait for DailyTimetables {
 
         let has_timetables = self
             .vehicle_journey_to_timetables
-            .get_mut(&vehicle_journey_idx);
+            .get_mut(vehicle_journey_idx);
         let result = match has_timetables {
             None => {
                 // There is no timetable with this vehicle_journey_index

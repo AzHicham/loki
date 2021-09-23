@@ -940,7 +940,7 @@ where
         let nb_to_remove = self
             .vehicle_datas
             .iter()
-            .filter(|vehicle_data| vehicle_filter(&vehicle_data))
+            .filter(|vehicle_data| vehicle_filter(vehicle_data))
             .count();
         if nb_to_remove == 0 {
             return 0;
@@ -956,7 +956,7 @@ where
             let vehicle_datas = &self.vehicle_datas;
             board_times.retain(|_| {
                 let to_retain = vehicle_filter(&vehicle_datas[index]).not();
-                index = index + 1;
+                index += 1;
                 to_retain
             });
         }
@@ -965,7 +965,7 @@ where
             let vehicle_datas = &self.vehicle_datas;
             debark_times.retain(|_| {
                 let to_retain = vehicle_filter(&vehicle_datas[index]).not();
-                index = index + 1;
+                index += 1;
                 to_retain
             });
         }
@@ -975,16 +975,14 @@ where
             let vehicle_datas = &self.vehicle_datas;
             self.vehicle_loads.retain(|_| {
                 let to_retain = vehicle_filter(&vehicle_datas[index]).not();
-                index = index + 1;
+                index += 1;
                 to_retain
             });
         }
 
         {
-            self.vehicle_datas.retain(|vehicle_data| {
-                let to_retain = vehicle_filter(&vehicle_data).not();
-                to_retain
-            });
+            self.vehicle_datas
+                .retain(|vehicle_data| vehicle_filter(vehicle_data).not());
         }
 
         nb_to_remove
@@ -998,7 +996,7 @@ where
         for vehicle_data in self.vehicle_datas.iter_mut() {
             let updated = updater(vehicle_data);
             if updated {
-                nb_updated = nb_updated + 1;
+                nb_updated += 1;
             }
         }
 
