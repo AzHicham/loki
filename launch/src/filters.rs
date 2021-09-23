@@ -151,7 +151,7 @@ impl<'a> Filters<'a> {
         }
 
         // there is some allowed filters, but none of them applies, so the vehicle_journey is invalid
-        return false;
+        false
     }
     pub fn is_stop_point_valid(&self, idx: &Idx<StopPoint>, model: &Model) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
@@ -173,7 +173,7 @@ impl<'a> Filters<'a> {
         }
 
         // there is some allowed filters, but none of them applies, so the idx is invalid
-        return false;
+        false
     }
 
     pub fn new<T>(
@@ -221,7 +221,7 @@ impl<'a> Filters<'a> {
         let has_no_filter = allowed_stop_filters.is_empty()
             && allowed_vehicle_filters.is_empty()
             && forbidden_stop_filters.is_empty()
-            && allowed_vehicle_filters.is_empty();
+            && forbiddden_vehicle_filters.is_empty();
 
         if has_no_filter {
             None
