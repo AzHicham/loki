@@ -48,6 +48,8 @@ pub mod zmq_worker;
 
 pub mod compute_worker;
 pub mod master_worker;
+mod realtime;
+mod response;
 
 use launch::{
     config,
@@ -61,6 +63,10 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use failure::{bail, Error};
 
+use std::convert::TryFrom;
+
+use crate::realtime::{BrockerConfig, RealTimeWorker};
+use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
