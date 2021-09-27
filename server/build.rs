@@ -34,6 +34,26 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use std::{fs::File, io::Write};
+
+extern crate protoc_rust;
+
+static MOD_RS: &[u8] = b"
+/// Generated from protobuf.
+/// @generated
+pub mod gtfs_realtime;
+
+/// Generated from protobuf.
+/// @generated
+/// This file is a protobuf extension, for test so far.
+pub mod kirin;
+
+/// Generated from protobuf.
+/// @generated
+/// This file is a protobuf extension, for test so far.
+pub mod chaos;
+";
+
 fn main() {
     // create rust usable structs from protobuf files
     // see https://docs.rs/prost-build/0.6.1/prost_build/
@@ -53,16 +73,18 @@ fn main() {
     .unwrap();
     println!("Writing protobuf code in {}/pbnavitia.rs", out_dir);
 
-    prost_build::compile_protos(
-        &[
+    protoc_rust::Codegen::new()
+        .out_dir(&out_dir)
+        .inputs(&[
             "chaos-proto/gtfs-realtime.proto",
             "chaos-proto/chaos.proto",
             "chaos-proto/kirin.proto",
-        ],
-        &["chaos-proto/"],
-    )
-    .unwrap();
-    println!("Writing protobuf code in {}/transit_realtime.rs", out_dir);
-    println!("Writing protobuf code in {}/chaos.rs", out_dir);
-    println!("Writing protobuf code in {}/kirin.rs", out_dir);
+        ])
+        .include("chaos-proto/")
+        .run()
+        .expect("Codegen failed.");
+    File::create(out_dir + "/mod.rs")
+        .expect("Could not create File mod.rs")
+        .write_all(MOD_RS)
+        .unwrap();
 }

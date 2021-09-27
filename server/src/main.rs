@@ -59,7 +59,7 @@ use loki::tracing::{debug, info};
 
 use structopt::StructOpt;
 
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::PathBuf, thread};
 
 use failure::{bail, Error};
 

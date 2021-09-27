@@ -34,15 +34,20 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod transit_realtime_proto {
-    include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
+pub mod navitia_proto {
+    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
 }
+pub mod chaos_proto {
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+}
+
+pub use chaos_proto::*;
 
 use failure::{format_err, Error};
 use lapin::{options::*, types::FieldTable, Channel, Connection, ConnectionProperties, Queue};
-use launch::loki::tracing::{error, info};
-use launch::realtime::{handle_realtime, RealTimeMessage};
+use launch::loki::tracing::{error, info, trace, warn};
 use prost::Message;
+use protobuf::parse_from_bytes;
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
@@ -107,16 +112,15 @@ pub struct BrockerConfig {
     pub queue_auto_delete: bool,
 }
 
-pub struct RealTimeWorker<'config> {
-    pub config: &'config BrockerConfig,
+pub struct RealTimeWorker {
     connection: Connection,
     channel: Channel,
     queue_task: Queue,
     queue_rt: Queue,
 }
 
-impl<'config> RealTimeWorker<'config> {
-    pub fn new(config: &'config BrockerConfig) -> Result<Self, Error> {
+impl RealTimeWorker {
+    pub fn new(config: &BrockerConfig) -> Result<Self, Error> {
         let connection = RealTimeWorker::create_connection(config)?;
         let channel = RealTimeWorker::create_channel(&connection)?;
         let queue_task =
@@ -124,7 +128,6 @@ impl<'config> RealTimeWorker<'config> {
         let queue_rt =
             RealTimeWorker::declare_queue(&channel, format!("{}_rt", "loki_hostname").as_str())?;
         Ok(Self {
-            config,
             connection,
             channel,
             queue_task,
@@ -161,35 +164,26 @@ impl<'config> RealTimeWorker<'config> {
         Ok(queue)
     }
 
-    async fn consume(&self) {
-        let consumer = self
+    fn consume(&self) {
+        let task_consumer = self
             .channel
             .basic_consume(
-                self.queue_rt.name().as_str(),
+                self.queue_task.name().as_str(),
                 "my_consumer",
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
-            .await
+            .wait()
             .expect("basic_consume");
 
-        for delivery in consumer {
+        for delivery in task_consumer {
             info!("received message: {:?}", delivery);
             if let Ok((_, delivery)) = delivery {
-                delivery
-                    .ack(BasicAckOptions::default())
-                    .await
-                    .expect("basic_ack");
-
                 println!("{:?}", delivery);
 
-                let proto_message = decode_amqp_message(&delivery);
+                let proto_message = decode_amqp_task_message(&delivery);
                 match proto_message {
-                    Ok(proto_message) => {
-                        // map to RealTimeMessage
-                        let rt_message = RealTimeMessage::default();
-                        handle_realtime(&rt_message);
-                    }
+                    Ok(proto_message) => handle_task_message(&proto_message),
                     Err(err) => {
                         error!("{}", err.to_string())
                     }
@@ -198,17 +192,64 @@ impl<'config> RealTimeWorker<'config> {
         }
     }
 
-    pub async fn listen(&self) {
+    pub fn listen(&self) {
         loop {
-            self.consume().await;
+            self.consume();
         }
     }
 }
 
-fn decode_amqp_message(
+fn decode_amqp_rt_message(
     message: &lapin::message::Delivery,
-) -> Result<transit_realtime_proto::FeedMessage, Error> {
+) -> Result<gtfs_realtime::FeedMessage, Error> {
     let payload = &message.data;
-    transit_realtime_proto::FeedMessage::decode(&payload[..])
-        .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))
+    parse_from_bytes::<gtfs_realtime::FeedMessage>(&payload[..]).map_err(|err| {
+        format_err!(
+            "Could not decode rabbitmq realtime message into protobuf: \n {}",
+            err
+        )
+    })
+}
+
+fn decode_amqp_task_message(
+    message: &lapin::message::Delivery,
+) -> Result<navitia_proto::Task, Error> {
+    let payload = &message.data;
+    navitia_proto::Task::decode(&payload[..]).map_err(|err| {
+        format_err!(
+            "Could not decode rabbitmq task message into protobuf: \n {}",
+            err
+        )
+    })
+}
+
+fn handle_task_message(proto: &navitia_proto::Task) {
+    let has_action = navitia_proto::Action::from_i32(proto.action);
+    match has_action {
+        Some(navitia_proto::Action::Reload) => {
+            info!("Reload")
+            // TODO!
+            // load_data
+            // as for realtime -> send message to kirin
+        }
+        _ => trace!("Task ignored"),
+    }
+}
+
+fn handle_realtime_message(proto: &gtfs_realtime::FeedMessage) {
+    for entity in proto.entity.iter() {
+        if entity.get_is_deleted() {
+            // delete_disruption(entity.id)
+            unimplemented!();
+        } else if entity.alert.is_some()
+        /* has extension disruption */
+        {
+            // apply_disruption(entity.disruption)
+            todo!();
+        } else if entity.trip_update.is_some() {
+            unimplemented!();
+        } else {
+            warn!("Unsupported gtfs rt feed")
+        }
+    }
 }

@@ -17,8 +17,8 @@ failure = "0.1"
 serde = "1.0"
 serde_json = "1.0"
 lapin = "1"
-tokio = { version = "1", features = ["full"] }
-# log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+protobuf = "2"
 
 [build-dependencies]
 prost-build = "0.8"
+protoc-rust = "2.0"

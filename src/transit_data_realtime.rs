@@ -33,15 +33,3 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-
-pub use transit_model::objects::{
-    StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
-};
-pub use typed_index_collection::Idx;
-
-use crate::{
-    loads_data::{Load, LoadsData},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-};
-
-pub struct TransitDataRealTime {}
