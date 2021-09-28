@@ -267,7 +267,7 @@ fn parse_filter<'a>(
         }
     }
     if let Some(network_id) = filter_str.strip_prefix("network:") {
-        if model.lines.contains_id(network_id) {
+        if model.networks.contains_id(network_id) {
             let filter = Filter::Vehicle(VehicleFilter::Network(network_id));
             return Ok(filter);
         } else {
