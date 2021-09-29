@@ -35,7 +35,9 @@
 // www.navitia.io
 
 use crate::chrono::Duration;
-use crate::realtime::rt_model::RealTimeUpdate::{LineUpdate, NetworkUpdate, RouteUpdate};
+use crate::realtime::rt_model::RealTimeUpdate::{
+    LineUpdate, NetworkUpdate, RouteUpdate, VehicleUpdate,
+};
 use crate::realtime::rt_model::UpdateType::Delete;
 use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesIter};
 use crate::transit_model::{
@@ -43,13 +45,14 @@ use crate::transit_model::{
     objects::{Line, Network, Route, StopPoint, VehicleJourney},
     Model,
 };
-use crate::{DataUpdate, NaiveDateTime, TransitData};
+use crate::{DataUpdate, Idx, NaiveDateTime, TransitData};
 use chrono::NaiveDate;
 use relational_types::IdxSet;
 use std::cmp::{max, min};
 use std::error::Error;
 use std::fmt::Debug;
 use std::mem;
+use std::ops::Index;
 use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
@@ -106,14 +109,18 @@ impl RealTimeModel {
         self.new_updates.extend(trip_update)
     }
 
-    pub fn update_data<Timetables>(&self, model: &Model, data: &mut TransitData<Timetables>)
+    pub fn update_data<Timetables>(&mut self, model: &Model, data: &mut TransitData<Timetables>)
     where
         Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
         Timetables::Mission: 'static,
         Timetables::Position: 'static,
     {
-        for trip_update in self.new_updates.iter() {
-            match trip_update {
+        while !self.new_updates.is_empty() {
+            let trip_update = self.new_updates.pop().unwrap();
+            match &trip_update {
+                VehicleUpdate(Delete(info)) => {
+                    Self::delete_vehicle(info, model, data);
+                }
                 RouteUpdate(Delete(info)) => {
                     Self::delete_route(info, model, data);
                 }
@@ -125,7 +132,72 @@ impl RealTimeModel {
                 }
                 _ => (),
             }
+            self.applied_updated.push(trip_update);
         }
+    }
+
+    fn do_delete_vehicle<Timetables>(
+        vj_idx: &Idx<VehicleJourney>,
+        application_periods: &[DateTimePeriod],
+        data: &mut TransitData<Timetables>,
+    ) where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        application_periods.iter().for_each(|period| {
+            period.into_iter().for_each(|day| {
+                data.remove_vehicle(&vj_idx, &day.date());
+            });
+        });
+    }
+
+    fn delete_vehicle<Timetables>(
+        update_info: &DeleteInfo,
+        model: &Model,
+        data: &mut TransitData<Timetables>,
+    ) where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        let (start, end) = model
+            .calculate_validity_period()
+            .expect("Invalid Validity period");
+        let dataset_validity_period = DateTimePeriod {
+            start: start.and_hms(0, 0, 0),
+            end: end.and_hms(0, 0, 0),
+        };
+        if let SeverityEffect::NoService = update_info.severity_effect {
+            if let Some(vj_idx) = model.vehicle_journeys.get_idx(&update_info.pt_object_id) {
+                let application_periods: Vec<_> = update_info
+                    .application_periods
+                    .iter()
+                    .filter_map(|period| clamp_date(period, &dataset_validity_period))
+                    .collect();
+                Self::do_delete_vehicle(&vj_idx, &application_periods, data);
+            }
+        } else {
+            info!("Disruption has no effect on data");
+        }
+    }
+
+    fn do_delete_route<Timetables>(
+        route_idx: Idx<Route>,
+        application_periods: &[DateTimePeriod],
+        model: &Model,
+        data: &mut TransitData<Timetables>,
+    ) where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        let route_id = &model.routes.index(route_idx).id;
+        model.vehicle_journeys.iter().for_each(|(vj_idx, vj)| {
+            if &vj.route_id == route_id {
+                Self::do_delete_vehicle(&vj_idx, application_periods, data);
+            }
+        });
     }
 
     fn delete_route<Timetables>(
@@ -140,31 +212,43 @@ impl RealTimeModel {
         let (start, end) = model
             .calculate_validity_period()
             .expect("Invalid Validity period");
-        let validity_period = DateTimePeriod {
+        let dataset_validity_period = DateTimePeriod {
             start: start.and_hms(0, 0, 0),
             end: end.and_hms(0, 0, 0),
         };
+        let application_periods: Vec<_> = update_info
+            .application_periods
+            .iter()
+            .filter_map(|period| clamp_date(period, &dataset_validity_period))
+            .collect();
 
         if let SeverityEffect::NoService = update_info.severity_effect {
-            if model.routes.contains_id(&update_info.pt_object_id) {
-                for (vj_idx, vj) in model.vehicle_journeys.iter() {
-                    if vj.route_id == update_info.pt_object_id {
-                        for period in update_info.application_periods.iter() {
-                            let clamp = clamp_date(&validity_period, period);
-                            if let Some(clamp) = clamp {
-                                for day in clamp.into_iter() {
-                                    data.remove_vehicle(&vj_idx, &day.date());
-                                }
-                            }
-                        }
-                    }
-                }
+            if let Some(route_idx) = model.routes.get_idx(&update_info.pt_object_id) {
+                Self::do_delete_route(route_idx, &application_periods, model, data);
             } else {
                 warn!("Route id:{} not found", update_info.pt_object_id);
             }
         } else {
             info!("Disruption has no effect on data");
         }
+    }
+
+    fn do_delete_line<Timetables>(
+        line_idx: Idx<Line>,
+        application_periods: &[DateTimePeriod],
+        model: &Model,
+        data: &mut TransitData<Timetables>,
+    ) where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        let line_id = &model.lines.index(line_idx).id;
+        model.routes.iter().for_each(|(route_idx, route)| {
+            if &route.line_id == line_id {
+                Self::do_delete_route(route_idx, application_periods, model, data);
+            }
+        });
     }
 
     fn delete_line<Timetables>(
@@ -176,21 +260,46 @@ impl RealTimeModel {
         Timetables::Mission: 'static,
         Timetables::Position: 'static,
     {
-        if model.lines.contains_id(&update_info.pt_object_id) {
-            for (_, route) in model.routes.iter() {
-                if route.line_id == update_info.pt_object_id {
-                    let delete_info = DeleteInfo {
-                        disruption_id: update_info.disruption_id.clone(),
-                        pt_object_id: route.id.clone(),
-                        severity_effect: update_info.severity_effect.clone(),
-                        application_periods: update_info.application_periods.clone(),
-                    };
-                    Self::delete_route(&delete_info, model, data);
-                }
+        let (start, end) = model
+            .calculate_validity_period()
+            .expect("Invalid Validity period");
+        let dataset_validity_period = DateTimePeriod {
+            start: start.and_hms(0, 0, 0),
+            end: end.and_hms(0, 0, 0),
+        };
+        let application_periods: Vec<_> = update_info
+            .application_periods
+            .iter()
+            .filter_map(|period| clamp_date(period, &dataset_validity_period))
+            .collect();
+
+        if let SeverityEffect::NoService = update_info.severity_effect {
+            if let Some(line_idx) = model.lines.get_idx(&update_info.pt_object_id) {
+                Self::do_delete_line(line_idx, &application_periods, model, data);
+            } else {
+                warn!("Line id:{} not found", update_info.pt_object_id);
             }
         } else {
-            warn!("Line not found");
+            info!("Disruption has no effect on data");
         }
+    }
+
+    fn do_delete_network<Timetables>(
+        network_idx: Idx<Network>,
+        application_periods: &[DateTimePeriod],
+        model: &Model,
+        data: &mut TransitData<Timetables>,
+    ) where
+        Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        let network_id = &model.networks.index(network_idx).id;
+        model.lines.iter().for_each(|(lines_idx, lines)| {
+            if &lines.network_id == network_id {
+                Self::do_delete_line(lines_idx, application_periods, model, data);
+            }
+        });
     }
 
     fn delete_network<Timetables>(
@@ -202,20 +311,27 @@ impl RealTimeModel {
         Timetables::Mission: 'static,
         Timetables::Position: 'static,
     {
-        if model.networks.contains_id(&update_info.pt_object_id) {
-            for (_, line) in model.lines.iter() {
-                if line.network_id == update_info.pt_object_id {
-                    let delete_info = DeleteInfo {
-                        disruption_id: update_info.disruption_id.clone(),
-                        pt_object_id: line.id.clone(),
-                        severity_effect: update_info.severity_effect.clone(),
-                        application_periods: update_info.application_periods.clone(),
-                    };
-                    Self::delete_line(&delete_info, model, data);
-                }
+        let (start, end) = model
+            .calculate_validity_period()
+            .expect("Invalid Validity period");
+        let dataset_validity_period = DateTimePeriod {
+            start: start.and_hms(0, 0, 0),
+            end: end.and_hms(0, 0, 0),
+        };
+        let application_periods: Vec<_> = update_info
+            .application_periods
+            .iter()
+            .filter_map(|period| clamp_date(period, &dataset_validity_period))
+            .collect();
+
+        if let SeverityEffect::NoService = update_info.severity_effect {
+            if let Some(network_idx) = model.networks.get_idx(&update_info.pt_object_id) {
+                Self::do_delete_network(network_idx, &application_periods, model, data);
+            } else {
+                warn!("Network id:{} not found", update_info.pt_object_id);
             }
         } else {
-            warn!("Network not found");
+            info!("Disruption has no effect on data");
         }
     }
 }
