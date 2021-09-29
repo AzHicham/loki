@@ -34,42 +34,51 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+use crate::transit_model::objects::{Line, Network, Route, StopArea, StopPoint};
+use typed_index_collection::Idx;
 
-mod engine;
-pub mod loads_data;
-pub mod realtime;
-pub mod request;
-pub mod time;
-pub mod timetables;
-mod transit_data;
-pub mod transit_data_filtered;
-mod transit_data_realtime;
+#[derive(Debug)]
+pub enum PtObject {
+    StopPoint(Idx<StopPoint>),
+    StopArea(Idx<StopArea>),
+    Line(Idx<Line>),
+    Route(Idx<Route>),
+    Network(Idx<Network>),
+    LineSection,
+    RouteSection,
+    Trip,
+    Unknown,
+}
 
-pub use chrono::{self, NaiveDateTime};
-pub use chrono_tz;
-pub use time::PositiveDuration;
-pub use tracing;
-pub use transit_model;
-pub use typed_index_collection;
+#[derive(Debug)]
+pub enum RealTimeLevel {
+    Base,
+    Adapted,
+    RealTime,
+}
 
-pub use transit_data::data_interface::{Data as DataTrait, DataIO, DataUpdate, DataWithIters};
+#[derive(Debug)]
+pub enum Effect {
+    NoService,
+    ReducedService,
+    SignificantDelays,
+    Detour,
+    AdditionalService,
+    ModifiedService,
+    OtherEffect,
+    UnknownEffect,
+    StopMoved,
+}
 
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
+#[derive(Debug)]
+pub struct Disruption {
+    //pub uri: String,
+    pub contributor: String, // Provider of the distruption
+    pub reference: String,   // Title of the distruption
+    pub impacts: Vec<Impact>,
+}
 
-pub use loads_data::LoadsData;
-
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
-
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
-
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub mod response;
-
-pub type Response = response::Response;
+#[derive(Debug)]
+pub struct Impact {
+    pub informed_entities: Vec<PtObject>,
+}

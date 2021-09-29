@@ -40,15 +40,23 @@ pub mod navitia_proto {
 pub mod chaos_proto {
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }
-
 pub use chaos_proto::*;
 
 use failure::{format_err, Error};
-use lapin::{options::*, types::FieldTable, Channel, Connection, ConnectionProperties, Queue};
+use lapin::{
+    options::*, types::FieldTable, Channel, Connection, ConnectionProperties, ExchangeKind, Queue,
+};
+use launch::loki::realtime::rt_model::UpdateType::{Delete, Update};
+use launch::loki::realtime::rt_model::{
+    DateTimePeriod, DeleteInfo, RealTimeModel, RealTimeUpdate, SeverityEffect, UpdateInfo,
+};
+use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use launch::loki::tracing::{error, info, trace, warn};
-use prost::Message;
-use protobuf::parse_from_bytes;
+use launch::loki::{Idx, NaiveDateTime, StopPoint};
+use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 
 pub fn default_host() -> String {
@@ -117,21 +125,33 @@ pub struct RealTimeWorker {
     channel: Channel,
     queue_task: Queue,
     queue_rt: Queue,
+    rt_model: Arc<Mutex<RealTimeModel>>,
 }
 
 impl RealTimeWorker {
-    pub fn new(config: &BrockerConfig) -> Result<Self, Error> {
+    pub fn new(config: &BrockerConfig, rt_model: Arc<Mutex<RealTimeModel>>) -> Result<Self, Error> {
         let connection = RealTimeWorker::create_connection(config)?;
-        let channel = RealTimeWorker::create_channel(&connection)?;
-        let queue_task =
-            RealTimeWorker::declare_queue(&channel, format!("{}_task", "loki_hostname").as_str())?;
-        let queue_rt =
-            RealTimeWorker::declare_queue(&channel, format!("{}_rt", "loki_hostname").as_str())?;
+        let channel = RealTimeWorker::create_channel(config, &connection)?;
+
+        let rt_queue_name = format!("{}_rt", "loki_hostname");
+        let queue_task = RealTimeWorker::declare_queue(config, &channel, rt_queue_name.as_str())?;
+        RealTimeWorker::bind_queue(
+            &channel,
+            config.rt_topics.as_slice(),
+            &config.exchange,
+            rt_queue_name.as_str(),
+        )?;
+
+        let task_queue_name = format!("{}_task", "loki_hostname");
+        let queue_rt = RealTimeWorker::declare_queue(config, &channel, task_queue_name.as_str())?;
+        RealTimeWorker::bind_queue(&channel, &[], &config.exchange, task_queue_name.as_str())?;
+
         Ok(Self {
             connection,
             channel,
             queue_task,
             queue_rt,
+            rt_model,
         })
     }
 
@@ -147,13 +167,28 @@ impl RealTimeWorker {
         Ok(connection)
     }
 
-    fn create_channel(connection: &Connection) -> Result<Channel, Error> {
+    fn create_channel(config: &BrockerConfig, connection: &Connection) -> Result<Channel, Error> {
         let channel = connection.create_channel().wait()?;
+        channel
+            .exchange_declare(
+                &config.exchange,
+                ExchangeKind::Topic,
+                ExchangeDeclareOptions {
+                    durable: true,
+                    ..Default::default()
+                },
+                FieldTable::default(),
+            )
+            .wait()?;
         info!("channel created successfully");
         Ok(channel)
     }
 
-    fn declare_queue(channel: &Channel, queue_name: &str) -> Result<Queue, Error> {
+    fn declare_queue(
+        config: &BrockerConfig,
+        channel: &Channel,
+        queue_name: &str,
+    ) -> Result<Queue, Error> {
         let queue = channel
             .queue_declare(
                 queue_name,
@@ -161,32 +196,65 @@ impl RealTimeWorker {
                 FieldTable::default(),
             )
             .wait()?;
+        for topic in &config.rt_topics {
+            channel
+                .queue_bind(
+                    queue_name,
+                    &config.exchange,
+                    topic,
+                    QueueBindOptions::default(),
+                    FieldTable::default(),
+                )
+                .wait()?;
+        }
+
         Ok(queue)
     }
 
+    fn bind_queue(
+        channel: &Channel,
+        topics: &[String],
+        exchange: &str,
+        queue_name: &str,
+    ) -> Result<(), Error> {
+        for topic in topics {
+            channel
+                .queue_bind(
+                    queue_name,
+                    exchange,
+                    topic,
+                    QueueBindOptions::default(),
+                    FieldTable::default(),
+                )
+                .wait()?;
+        }
+        Ok(())
+    }
+
     fn consume(&self) {
-        let task_consumer = self
+        let rt_consumer = self
             .channel
             .basic_consume(
-                self.queue_task.name().as_str(),
-                "my_consumer",
+                self.queue_rt.name().as_str(),
+                "rt_consumer",
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
             .wait()
             .expect("basic_consume");
 
-        for delivery in task_consumer {
-            info!("received message: {:?}", delivery);
-            if let Ok((_, delivery)) = delivery {
-                println!("{:?}", delivery);
+        for delivery in rt_consumer.into_iter().flatten() {
+            let (channel, delivery) = delivery;
+            channel
+                .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                .wait()
+                .expect("ack");
 
-                let proto_message = decode_amqp_task_message(&delivery);
-                match proto_message {
-                    Ok(proto_message) => handle_task_message(&proto_message),
-                    Err(err) => {
-                        error!("{}", err.to_string())
-                    }
+            let proto_message = decode_amqp_rt_message(&delivery);
+            match proto_message {
+                Ok(proto_message) => handle_realtime_message(&proto_message, &self.rt_model),
+                Err(err) => {
+                    error!("{}", err.to_string())
                 }
             }
         }
@@ -197,18 +265,6 @@ impl RealTimeWorker {
             self.consume();
         }
     }
-}
-
-fn decode_amqp_rt_message(
-    message: &lapin::message::Delivery,
-) -> Result<gtfs_realtime::FeedMessage, Error> {
-    let payload = &message.data;
-    parse_from_bytes::<gtfs_realtime::FeedMessage>(&payload[..]).map_err(|err| {
-        format_err!(
-            "Could not decode rabbitmq realtime message into protobuf: \n {}",
-            err
-        )
-    })
 }
 
 fn decode_amqp_task_message(
@@ -236,20 +292,106 @@ fn handle_task_message(proto: &navitia_proto::Task) {
     }
 }
 
-fn handle_realtime_message(proto: &gtfs_realtime::FeedMessage) {
+fn decode_amqp_rt_message(
+    message: &lapin::message::Delivery,
+) -> Result<gtfs_realtime::FeedMessage, Error> {
+    use protobuf::Message;
+    let payload = &message.data;
+    gtfs_realtime::FeedMessage::parse_from_bytes(&payload[..]).map_err(|err| {
+        format_err!(
+            "Could not decode rabbitmq realtime message into protobuf: \n {}",
+            err
+        )
+    })
+}
+
+fn handle_realtime_message(
+    proto: &gtfs_realtime::FeedMessage,
+    rt_model: &Arc<Mutex<RealTimeModel>>,
+) {
+    info!("proto : {:?}", proto);
+
+    let mut rt_model = rt_model.lock().unwrap();
+
     for entity in proto.entity.iter() {
         if entity.get_is_deleted() {
-            // delete_disruption(entity.id)
             unimplemented!();
-        } else if entity.alert.is_some()
-        /* has extension disruption */
-        {
-            // apply_disruption(entity.disruption)
-            todo!();
+        } else if let Some(disruption) = chaos::exts::disruption.get(entity) {
+            let trip_updates = chaos_updates(&disruption);
+            info!("add_trip_update : {:?}", trip_updates);
+            rt_model.add_trip_update(trip_updates);
         } else if entity.trip_update.is_some() {
             unimplemented!();
         } else {
             warn!("Unsupported gtfs rt feed")
         }
+    }
+}
+
+fn chaos_updates(disruption: &chaos::Disruption) -> Vec<RealTimeUpdate> {
+    let mut trip_updates = Vec::new();
+
+    for impact in disruption.get_impacts().iter() {
+        for pt_object in impact.get_informed_entities().iter() {
+            match pt_object.get_pt_object_type() {
+                chaos::PtObject_Type::trip => {
+                    let update_info = generate_delete_info(disruption.get_id(), impact, pt_object);
+                    trip_updates.push(RealTimeUpdate::VehicleUpdate(Delete(update_info)))
+                }
+                chaos::PtObject_Type::route => {
+                    let update_info = generate_delete_info(disruption.get_id(), impact, pt_object);
+                    trip_updates.push(RealTimeUpdate::RouteUpdate(Delete(update_info)))
+                }
+                chaos::PtObject_Type::line => {
+                    let update_info = generate_delete_info(disruption.get_id(), impact, pt_object);
+                    trip_updates.push(RealTimeUpdate::LineUpdate(Delete(update_info)))
+                }
+                chaos::PtObject_Type::network => {
+                    let update_info = generate_delete_info(disruption.get_id(), impact, pt_object);
+                    trip_updates.push(RealTimeUpdate::NetworkUpdate(Delete(update_info)))
+                }
+                _ => (),
+            }
+        }
+    }
+    info!("updates {:?}", trip_updates);
+    trip_updates
+}
+
+fn generate_delete_info(
+    disruption_id: &str,
+    impact: &chaos::Impact,
+    pt_object: &chaos::PtObject,
+) -> DeleteInfo {
+    DeleteInfo {
+        disruption_id: disruption_id.to_string(),
+        pt_object_id: pt_object.get_uri().to_string(),
+        severity_effect: make_severity_effect(&impact.get_severity().get_effect()),
+        application_periods: impact
+            .get_application_periods()
+            .iter()
+            .map(|period| make_datetime_period(period))
+            .collect(),
+    }
+}
+
+fn make_severity_effect(proto_severity_effect: &gtfs_realtime::Alert_Effect) -> SeverityEffect {
+    match proto_severity_effect {
+        gtfs_realtime::Alert_Effect::NO_SERVICE => SeverityEffect::NoService,
+        gtfs_realtime::Alert_Effect::REDUCED_SERVICE => SeverityEffect::ReducedService,
+        gtfs_realtime::Alert_Effect::SIGNIFICANT_DELAYS => SeverityEffect::SignificantDelay,
+        gtfs_realtime::Alert_Effect::DETOUR => SeverityEffect::Detour,
+        gtfs_realtime::Alert_Effect::ADDITIONAL_SERVICE => SeverityEffect::AdditionalService,
+        gtfs_realtime::Alert_Effect::MODIFIED_SERVICE => SeverityEffect::ModifiedService,
+        gtfs_realtime::Alert_Effect::OTHER_EFFECT => SeverityEffect::OtherEffect,
+        gtfs_realtime::Alert_Effect::UNKNOWN_EFFECT => SeverityEffect::UnknownEffect,
+        gtfs_realtime::Alert_Effect::STOP_MOVED => SeverityEffect::StopMoved,
+    }
+}
+
+fn make_datetime_period(proto_period: &gtfs_realtime::TimeRange) -> DateTimePeriod {
+    DateTimePeriod {
+        start: NaiveDateTime::from_timestamp(proto_period.get_start() as i64, 0),
+        end: NaiveDateTime::from_timestamp(proto_period.get_end() as i64, 0),
     }
 }
