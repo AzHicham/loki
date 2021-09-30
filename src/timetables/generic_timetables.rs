@@ -921,24 +921,6 @@ where
         combine(board_debark_cmp, loads_cmp)
     }
 
-    pub(super) fn remove_vehicle(&mut self, vehicle_idx: usize) -> Result<(), ()> {
-        if vehicle_idx >= self.nb_of_vehicle() {
-            return Err(());
-        }
-
-        for board_times in self.board_times_by_position.iter_mut() {
-            board_times.remove(vehicle_idx);
-        }
-        for debark_times in self.debark_times_by_position.iter_mut() {
-            debark_times.remove(vehicle_idx);
-        }
-
-        self.vehicle_loads.remove(vehicle_idx);
-        self.vehicle_datas.remove(vehicle_idx);
-
-        Ok(())
-    }
-
     pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> usize
     where
         Filter: Fn(&VehicleData) -> bool,
