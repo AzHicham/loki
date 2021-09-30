@@ -66,7 +66,7 @@ use failure::{bail, Error};
 
 use std::convert::TryFrom;
 
-use crate::realtime::{BrockerConfig, RealTimeWorker};
+use crate::realtime::{ChaosBrokerConfig, RealTimeWorker};
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

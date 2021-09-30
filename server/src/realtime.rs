@@ -85,7 +85,7 @@ pub fn default_queue_auto_delete() -> bool {
 
 #[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
-pub struct BrockerConfig {
+pub struct ChaosBrokerConfig {
     #[structopt(long, default_value = "default_host")]
     #[serde(default = "default_host")]
     pub host: String,
@@ -128,7 +128,10 @@ pub struct RealTimeWorker {
 }
 
 impl RealTimeWorker {
-    pub fn new(config: &BrockerConfig, rt_model: Arc<Mutex<RealTimeModel>>) -> Result<Self, Error> {
+    pub fn new(
+        config: &ChaosBrokerConfig,
+        rt_model: Arc<Mutex<RealTimeModel>>,
+    ) -> Result<Self, Error> {
         let connection = RealTimeWorker::create_connection(config)?;
         let channel = RealTimeWorker::create_channel(config, &connection)?;
 
@@ -154,7 +157,7 @@ impl RealTimeWorker {
         })
     }
 
-    fn create_connection(config: &BrockerConfig) -> Result<Connection, Error> {
+    fn create_connection(config: &ChaosBrokerConfig) -> Result<Connection, Error> {
         let address = format!(
             "amqp://{}:{}@{}:{}{}",
             config.username, config.password, config.host, config.port, config.vhost
@@ -166,7 +169,10 @@ impl RealTimeWorker {
         Ok(connection)
     }
 
-    fn create_channel(config: &BrockerConfig, connection: &Connection) -> Result<Channel, Error> {
+    fn create_channel(
+        config: &ChaosBrokerConfig,
+        connection: &Connection,
+    ) -> Result<Channel, Error> {
         let channel = connection.create_channel().wait()?;
         channel
             .exchange_declare(
@@ -184,7 +190,7 @@ impl RealTimeWorker {
     }
 
     fn declare_queue(
-        config: &BrockerConfig,
+        config: &ChaosBrokerConfig,
         channel: &Channel,
         queue_name: &str,
     ) -> Result<Queue, Error> {
