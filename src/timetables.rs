@@ -193,7 +193,7 @@ pub trait Timetables: Types {
     ) -> Result<(), RemovalError>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum RemovalError {
     UnknownDate,
     UnknownVehicleJourney,

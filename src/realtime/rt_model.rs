@@ -46,14 +46,17 @@ use crate::transit_model::{
     Model,
 };
 use crate::{DataUpdate, Idx, NaiveDateTime, TransitData};
-use chrono::NaiveDate;
-use relational_types::IdxSet;
 use std::cmp::{max, min};
-use std::error::Error;
 use std::fmt::Debug;
 use std::mem;
 use std::ops::Index;
 use tracing::{debug, error, info, warn};
+
+#[derive(Clone, Debug)]
+pub enum RealTimeError {
+    DeleteError(RemovalError),
+    UpdateError,
+}
 
 #[derive(Debug, Clone)]
 pub enum SeverityEffect {
@@ -71,7 +74,6 @@ pub enum SeverityEffect {
 #[derive(Debug)]
 pub struct UpdateInfo {
     pub disruption_id: String,
-    pub id: String,
 }
 
 #[derive(Debug)]
@@ -130,7 +132,7 @@ impl RealTimeModel {
                 NetworkUpdate(Delete(info)) => {
                     Self::delete_network(info, model, data);
                 }
-                _ => (),
+                _ => error!("realtime info not handled"),
             }
             self.applied_updated.push(trip_update);
         }
@@ -140,16 +142,20 @@ impl RealTimeModel {
         vj_idx: &Idx<VehicleJourney>,
         application_periods: &[DateTimePeriod],
         data: &mut TransitData<Timetables>,
-    ) where
+    ) -> Result<(), RealTimeError>
+    where
         Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
         Timetables::Mission: 'static,
         Timetables::Position: 'static,
     {
-        application_periods.iter().for_each(|period| {
-            period.into_iter().for_each(|day| {
-                data.remove_vehicle(&vj_idx, &day.date());
-            });
-        });
+        application_periods
+            .iter()
+            .try_for_each(|period| {
+                period
+                    .into_iter()
+                    .try_for_each(|day| data.remove_vehicle(vj_idx, &day.date()))
+            })
+            .map_err(RealTimeError::DeleteError)
     }
 
     fn delete_vehicle<Timetables>(

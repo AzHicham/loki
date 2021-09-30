@@ -317,11 +317,10 @@ fn handle_realtime_message(
         if entity.get_is_deleted() {
             unimplemented!();
         } else if let Some(disruption) = chaos::exts::disruption.get(entity) {
-            let trip_updates = chaos_updates(&disruption);
-            info!("add_trip_update : {:?}", trip_updates);
-            rt_model.add_trip_update(trip_updates);
-        } else if entity.trip_update.is_some() {
-            unimplemented!();
+            let info_updates = chaos_updates(&disruption);
+            rt_model.add_trip_update(info_updates);
+        } else if entity.has_trip_update() {
+            let info_updates = kirin_updates(entity, entity.get_trip_update());
         } else {
             warn!("Unsupported gtfs rt feed")
         }
@@ -373,6 +372,31 @@ fn generate_delete_info(
             .map(|period| make_datetime_period(period))
             .collect(),
     }
+}
+
+fn kirin_updates(
+    entity: &gtfs_realtime::FeedEntity,
+    trip_update: &gtfs_realtime::TripUpdate,
+) -> RealTimeUpdate {
+    let disruption_id = entity.get_id().to_string();
+    if let Some(effect) = kirin::exts::effect.get(trip_update) {
+        let effect = make_severity_effect(&effect);
+        if let SeverityEffect::NoService = effect {
+            let delete_info = DeleteInfo {
+                disruption_id,
+                pt_object_id: "".to_string(),
+                severity_effect: effect,
+                application_periods: vec![],
+            };
+            return RealTimeUpdate::VehicleUpdate(Delete(delete_info));
+        } else {
+        }
+    } else {
+        error!("Kirin message must have an effect extension")
+    }
+
+    let update_info = UpdateInfo { disruption_id };
+    RealTimeUpdate::VehicleUpdate(Update(update_info))
 }
 
 fn make_severity_effect(proto_severity_effect: &gtfs_realtime::Alert_Effect) -> SeverityEffect {
