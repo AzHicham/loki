@@ -41,6 +41,7 @@ use std::{
     fmt::Debug,
     ops::Not,
 };
+use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
@@ -1077,14 +1078,18 @@ where
     Value: Ord,
 {
     let has_previous = enumerated_values.next();
-    let (mut prev_position, mut prev_value) = has_previous.unwrap();
-    for (position, value) in enumerated_values {
-        if value < prev_value {
-            return Err((prev_position, position));
+    if let Some((mut prev_position, mut prev_value)) = has_previous {
+        for (position, value) in enumerated_values {
+            if value < prev_value {
+                return Err((prev_position, position));
+            }
+            prev_position = position;
+            prev_value = value;
         }
-        prev_position = position;
-        prev_value = value;
+    } else {
+        debug!("Called is_increasing on an empty sequence of values.");
     }
+
     Ok(())
 }
 
