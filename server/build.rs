@@ -36,8 +36,6 @@
 
 use std::{fs::File, io::Write};
 
-extern crate protoc_rust;
-
 static MOD_RS: &[u8] = b"
 /// Generated from protobuf.
 /// @generated
@@ -70,19 +68,19 @@ fn main() {
         ],
         &["navitia-proto/"],
     )
-    .unwrap();
+    .expect("Failed to generate protobuf code for navitia-proto.");
     println!("Writing protobuf code in {}/pbnavitia.rs", out_dir);
 
-    protoc_rust::Codegen::new()
-        .out_dir(&out_dir)
+    protobuf_codegen_pure::Codegen::new()
+        .out_dir(out_dir.as_str())
         .inputs(&[
             "chaos-proto/gtfs-realtime.proto",
             "chaos-proto/chaos.proto",
             "chaos-proto/kirin.proto",
         ])
-        .include("chaos-proto/")
+        .include("chaos-proto")
         .run()
-        .expect("Codegen failed.");
+        .expect("Failed to generate protobuf code for chaos-proto.");
     File::create(out_dir + "/mod.rs")
         .expect("Could not create File mod.rs")
         .write_all(MOD_RS)

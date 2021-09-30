@@ -34,13 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
 pub mod chaos_proto {
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }
 pub use chaos_proto::*;
+
+use super::navitia_proto;
 
 use failure::{format_err, Error};
 use lapin::{
@@ -50,9 +49,9 @@ use launch::loki::realtime::rt_model::UpdateType::{Delete, Update};
 use launch::loki::realtime::rt_model::{
     DateTimePeriod, DeleteInfo, RealTimeModel, RealTimeUpdate, SeverityEffect, UpdateInfo,
 };
-use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+
 use launch::loki::tracing::{error, info, trace, warn};
-use launch::loki::{Idx, NaiveDateTime, StopPoint};
+use launch::loki::NaiveDateTime;
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
