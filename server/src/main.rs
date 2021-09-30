@@ -49,22 +49,14 @@ pub mod zmq_worker;
 pub mod compute_worker;
 pub mod master_worker;
 mod realtime;
-mod response;
 
-use launch::{
-    config,
-    loki::{self},
-    filters::Filters,
-    loki::{self, TransitData},
-    solver::Solver,
-};
-use loki::{
+use launch::loki::{
     realtime::rt_model::RealTimeModel,
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     tracing::{debug, error, info, warn},
     transit_model, DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration, RequestInput,
 };
-use loki::tracing::{debug, info};
+
 
 use structopt::StructOpt;
 
