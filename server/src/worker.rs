@@ -34,239 +34,118 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
+use failure::{format_err, Error};
+use std::ops::Deref;
+use std::sync::{Arc, RwLock};
 
-// pub mod navitia_proto;
-pub mod response;
-
-pub mod program;
-pub mod worker;
-
+use launch::loki::{
+    self,
+    tracing::{debug, error, info, warn},
+};
 use launch::{
     config,
+    datetime::DateTimeRepresent,
     filters::Filters,
-    loki::{self, TransitData},
+    loki::{
+        timetables::PeriodicSplitVjByTzTimetables, transit_model::Model, PositiveDuration,
+        RequestInput, TransitData,
+    },
     solver::Solver,
 };
-use loki::{
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
-    tracing::{debug, error, info, warn},
-    transit_model, DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration, RequestInput,
-};
-
-use prost::Message;
-use structopt::StructOpt;
-use transit_model::Model;
-
-use std::{fs::File, io::BufReader, path::PathBuf};
-
-use failure::{bail, format_err, Error};
-
 use std::convert::TryFrom;
 
-use launch::datetime::DateTimeRepresent;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use super::navitia_proto;
+use super::response;
+use prost::Message;
 
-#[derive(StructOpt)]
-#[structopt(
-    name = "loki_server",
-    about = "Run loki server.",
-    rename_all = "snake_case"
-)]
-pub enum Options {
-    /// Create a config file from cli arguments
-    CreateConfig(ConfigCreator),
-    /// Launch from a config file
-    ConfigFile(ConfigFile),
-    /// Launch from cli arguments
-    Launch(Config),
-}
+pub type MyTimetable = PeriodicSplitVjByTzTimetables;
 
-#[derive(StructOpt)]
-#[structopt(rename_all = "snake_case")]
-pub struct ConfigCreator {
-    #[structopt(flatten)]
-    pub config: Config,
-}
-
-#[derive(StructOpt)]
-pub struct ConfigFile {
-    /// path to the json config file
-    #[structopt(parse(from_os_str))]
-    file: PathBuf,
-}
-
-#[derive(Serialize, Deserialize, StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
-pub struct Config {
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    launch_params: config::LaunchParams,
-
-    /// zmq socket to listen for protobuf requests
-    /// that will be handled with "basic" comparator
-    #[structopt(long)]
-    basic_requests_socket: String,
-
-    /// zmq socket to listen for protobuf requests
-    /// that will be handled with "loads" comparator
-    #[structopt(long)]
-    loads_requests_socket: Option<String>,
-
-    #[serde(flatten)]
-    #[structopt(flatten)]
+pub struct Worker {
+    data_and_model: Arc<RwLock<(TransitData<MyTimetable>, Model)>>,
+    solver: Solver<MyTimetable>,
+    socket: zmq::Socket,
+    worker_id: usize,
+    zmq_message: zmq::Message, // used to store incoming messages
+    response_bytes: Vec<u8>,   // used to build the response before sending it
     request_default_params: config::RequestParams,
 }
 
-fn main() {
-    let _log_guard = launch::logger::init_logger();
-    if let Err(err) = launch_server() {
-        for cause in err.iter_chain() {
-            eprintln!("{}", cause);
-        }
-        std::process::exit(1);
-    }
-}
-
-fn launch_server() -> Result<(), Error> {
-    let options = Options::from_args();
-    match options {
-        Options::ConfigFile(config_file) => {
-            let config = read_config(&config_file)?;
-            launch(config)?;
-            Ok(())
-        }
-        Options::CreateConfig(config_creator) => {
-            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
-
-            println!("{}", json_string);
-
-            Ok(())
-        }
-        Options::Launch(config) => {
-            launch(config)?;
-            Ok(())
-        }
-    }
-}
-
-pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
-    info!("Reading config from file {:?}", &config_file.file);
-    let file = match File::open(&config_file.file) {
-        Ok(file) => file,
-        Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file.file, e)
-        }
-    };
-    let reader = BufReader::new(file);
-    let config: Config = serde_json::from_reader(reader)?;
-    debug!("Launching with config : {:#?}", config);
-    Ok(config)
-}
-
-fn launch(config: Config) -> Result<(), Error> {
-    match config.launch_params.data_implem {
-        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
-        config::DataImplem::Daily => config_launch::<DailyData>(config),
-        config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
-    }
-}
-
-fn config_launch<Timetables>(config: Config) -> Result<(), Error>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
-    let (data, model) = launch::read::<Timetables>(&config.launch_params)?;
-
-    server_loop(&model, &data, &config)
-}
-
-fn server_loop<Timetables>(
-    model: &Model,
-    data: &TransitData<Timetables>,
-    config: &Config,
-) -> Result<(), Error>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
-    use loki::DataTrait;
-    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
-    let context = zmq::Context::new();
-    let basic_requests_socket = context
-        .socket(zmq::REP)
-        .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
-
-    basic_requests_socket
-        .bind(&config.basic_requests_socket)
-        .map_err(|err| {
+impl Worker {
+    pub fn new(
+        data_and_model: Arc<RwLock<(TransitData<MyTimetable>, Model)>>,
+        model: Arc<RwLock<Model>>,
+        zmq_context: &zmq::Context,
+        socket_address: &str,
+        worker_id: usize,
+        request_default_params: config::RequestParams,
+    ) -> Result<Self, Error> {
+        let socket = zmq_context.socket(zmq::REQ).map_err(|err| {
             format_err!(
-                "Could not bind socket {}. Error : {}",
-                config.basic_requests_socket,
+                "Worker {} could not create a socket. Error : {}",
+                worker_id,
                 err
             )
         })?;
 
-    let loads_requests_socket = context
-        .socket(zmq::REP)
-        .map_err(|err| format_err!("Could not create a socket. Error : {}", err))?;
+        socket
+            .bind(socket_address)
+            .map_err(|err| {
+                format_err!(
+                    "Worker {} could not bind socket  to communicate with main thread at {}. Error : {}",
+                    worker_id,
+                    socket_address,
+                    err
+                )
+            })?;
 
-    if let Some(socket) = &config.loads_requests_socket {
-        loads_requests_socket
-            .bind(socket)
-            .map_err(|err| format_err!("Could not bind socket {}. Error : {}", socket, err))?;
+        let solver = Solver::<MyTimetable>::new(0, 0);
+
+        let result = Self {
+            data_and_model,
+            socket,
+            solver,
+            worker_id,
+            zmq_message: zmq::Message::new(),
+            response_bytes: Vec::new(),
+            request_default_params,
+        };
+
+        Ok(result)
     }
 
-    info!("Ready to receive requests");
+    pub fn run(self) -> Result<(), Error> {
+        loop {
+            // block on zmq message
+            self.socket
+                .recv(&mut self.zmq_message, 0)
+                // if there is an error reading the socket, we return from this function and thus stop the worker thread
+                .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
 
-    let mut zmq_message = zmq::Message::new();
-    let mut response_bytes: Vec<u8> = Vec::new();
-    loop {
-        let mut items = [
-            basic_requests_socket.as_poll_item(zmq::POLLIN),
-            loads_requests_socket.as_poll_item(zmq::POLLIN),
-        ];
-        zmq::poll(&mut items, -1)
-            .map_err(|err| format_err!("Error while polling zmq sockets : {}", err))?;
+            // try to acquire the read lock
+            let rw_lock_read_guard = self
+                .data_and_model
+                .read()
+                // if the read lock cannot be acquired, it means the lock is poisoned
+                // and we return from this function and stop the thread
+                .map_err(|err| {
+                    format_err!(
+                        "Worker {} failed to acquire read lock on data_and_model. Error : {}",
+                        self.worker_id,
+                        err
+                    )
+                })?;
 
-        if items[0].is_readable() {
-            let socket = &basic_requests_socket;
-            let comparator_type = config::ComparatorType::Basic;
+            let (data, model) = rw_lock_read_guard.deref();
             let solve_result = solve(
-                socket,
-                &mut zmq_message,
+                &self.zmq_message,
                 data,
                 model,
-                &mut solver,
-                config,
-                comparator_type,
+                &mut self.solver,
+                &self.request_default_params,
+                config::ComparatorType::Basic,
             );
-            let result = respond(solve_result, model, &mut response_bytes, socket);
+            let result = respond(solve_result, &model, &mut self.response_bytes, &self.socket);
 
-            if let Some(err) = result.err() {
-                error!("Error while sending zmq response : {}", err);
-            }
-        }
-
-        if items[1].is_readable() {
-            let socket = &loads_requests_socket;
-            let comparator_type = config::ComparatorType::Loads;
-            let solve_result = solve(
-                socket,
-                &mut zmq_message,
-                data,
-                model,
-                &mut solver,
-                config,
-                comparator_type,
-            );
-            let result = respond(solve_result, model, &mut response_bytes, socket);
             if let Some(err) = result.err() {
                 error!("Error while sending zmq response : {}", err);
             }
@@ -274,40 +153,16 @@ where
     }
 }
 
-fn solve<Timetables>(
-    socket: &zmq::Socket,
-    zmq_message: &mut zmq::Message,
-    data: &TransitData<Timetables>,
+fn solve(
+    zmq_message: &zmq::Message,
+    data: &TransitData<MyTimetable>,
     model: &Model,
-    solver: &mut Solver<Timetables>,
-    config: &Config,
+    solver: &mut Solver<MyTimetable>,
+    request_default_params: &config::RequestParams,
     comparator_type: config::ComparatorType,
-) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
-    let proto_request = decode_zmq_message(socket, zmq_message)?;
-    info!(
-        "Received request {:?} of type {:?}",
-        proto_request.request_id, comparator_type
-    );
-
-    if proto_request.requested_api != (navitia_proto::Api::PtPlanner as i32) {
-        let has_api = navitia_proto::Api::from_i32(proto_request.requested_api);
-        if let Some(api) = has_api {
-            bail!(
-                "Api requested is {:?} whereas only PtPlanner is supported",
-                api
-            );
-        } else {
-            bail!(
-                "Invalid \"requested_api\" provided {:?}",
-                proto_request.requested_api
-            );
-        }
-    }
+) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
+    let proto_request = navitia_proto::Request::decode((*zmq_message).deref())
+        .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))?;
 
     let journey_request = proto_request
         .journeys
@@ -408,18 +263,18 @@ where
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, config.request_default_params.max_journey_duration
+                journey_request.max_duration, request_default_params.max_journey_duration
             );
-            config.request_default_params.max_journey_duration
+            request_default_params.max_journey_duration
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, config.request_default_params.max_nb_of_legs
+            journey_request.max_transfers, request_default_params.max_nb_of_legs
         );
-        config.request_default_params.max_nb_of_legs
+        request_default_params.max_nb_of_legs
     });
 
     let data_filters = Filters::new(
@@ -432,11 +287,11 @@ where
         datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        leg_arrival_penalty: config.request_default_params.leg_arrival_penalty,
-        leg_walking_penalty: config.request_default_params.leg_walking_penalty,
+        leg_arrival_penalty: request_default_params.leg_arrival_penalty,
+        leg_walking_penalty: request_default_params.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
-        too_late_threshold: config.request_default_params.too_late_threshold,
+        too_late_threshold: request_default_params.too_late_threshold,
     };
 
     let datetime_represent = match journey_request.clockwise {
@@ -513,16 +368,4 @@ fn make_error_response(error: Error) -> navitia_proto::Response {
     proto_error.message = Some(format!("{}", error));
     proto_response.error = Some(proto_error);
     proto_response
-}
-
-fn decode_zmq_message(
-    socket: &zmq::Socket,
-    zmq_message: &mut zmq::Message,
-) -> Result<navitia_proto::Request, Error> {
-    socket
-        .recv(zmq_message, 0)
-        .map_err(|err| format_err!("Could not receive zmq message : \n {}", err))?;
-    use std::ops::Deref;
-    navitia_proto::Request::decode((*zmq_message).deref())
-        .map_err(|err| format_err!("Could not decode zmq message into protobuf: \n {}", err))
 }
