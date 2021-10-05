@@ -9,6 +9,9 @@ edition = "2018"
 [dependencies]
 prost = "0.8"
 zmq = "0.9"
+tmq = "0.3"
+tokio = { version = "1", features = ["sync", "macros", "rt"] }
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
 launch = { path = "../launch"}
 structopt = "0.3"
 failure = "0.1"

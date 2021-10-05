@@ -41,8 +41,10 @@ pub mod navitia_proto {
 // pub mod navitia_proto;
 pub mod response;
 
-pub mod program;
-pub mod worker;
+// pub mod program;
+// pub mod worker;
+
+pub mod networker;
 
 use launch::{
     config,
@@ -69,6 +71,8 @@ use std::convert::TryFrom;
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+use crate::networker::ResponseBlob;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -123,12 +127,32 @@ pub struct Config {
 
 fn main() {
     let _log_guard = launch::logger::init_logger();
-    if let Err(err) = launch_server() {
+    if let Err(err) = launch_test() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }
         std::process::exit(1);
     }
+}
+
+fn launch_test() -> Result<(), Error> {
+    let endpoint = "tcp://127.0.0.1:30000";
+    let mut networker_handle = networker::Networker::new(endpoint.to_string()).unwrap();
+
+    info!("Coucou");
+
+    while let Some(request_blob) = networker_handle.requests_channel.blocking_recv() {
+        info!("Receive request");
+        let client_id = request_blob.client_id;
+        let payload = request_blob.payload;
+        let response = ResponseBlob { client_id, payload };
+        networker_handle
+            .responses_channel
+            .blocking_send(response)
+            .expect("Could not send response");
+    }
+
+    Ok(())
 }
 
 fn launch_server() -> Result<(), Error> {
