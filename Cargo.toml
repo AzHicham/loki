@@ -22,7 +22,7 @@ vehicle_loads = []
 transit_model = "0.41"
 typed_index_collection = { version = "2", features = ["expose-inner"] }
 chrono = "0.4"
-chrono-tz = "0.5"
+chrono-tz = "0.6"
 tracing = { version = "0.1", features = ["log", "release_max_level_info"] }
 static_assertions = "1.1.0"
 csv = "1"
