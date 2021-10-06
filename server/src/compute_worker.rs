@@ -96,12 +96,13 @@ impl ComputeWorker {
     }
 
     pub fn run(mut self) -> Result<(), Error> {
+        info!("Worker {} has launched.", self.worker_id.id);
         loop {
             // block on receiving message
 
             let has_request = self.request_channel.blocking_recv();
 
-            debug!("Worker {} received a request.", self.worker_id.id);
+            info!("Worker {} received a request.", self.worker_id.id);
 
             let request_message = has_request.ok_or_else(|| {
                 format_err!(

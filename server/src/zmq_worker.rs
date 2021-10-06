@@ -137,6 +137,7 @@ impl ZmqWorker {
     async fn run_loop(&mut self, mut zmq_socket: tmq::router::Router) {
         use futures::StreamExt;
         loop {
+            info!("Zmq worker is waiting.");
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness

@@ -136,6 +136,8 @@ impl MasterWorker {
                             None
                         }
                     });
+
+            info!("Master worker is waiting {:?}", has_available_worker);
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness
@@ -147,6 +149,7 @@ impl MasterWorker {
                 // receive responses from worker threads
                 has_response = self.workers_response_receiver.recv() => {
                     if let Some((worker_id, response)) = has_response {
+                        info!("Master received response from worker {:?}", worker_id);
                         let forward_response_result = self.forward_worker_response(worker_id, response).await;
                         if let Err(err) = forward_response_result {
                             error!("Could not sent response to zmq worker : {}. I'll stop.", err);
@@ -162,8 +165,10 @@ impl MasterWorker {
                 // receive requests from the zmq socket, and dispatch them to an available worker
                 has_request = self.zmq_worker_handle.requests_receiver.recv(), if has_available_worker.is_some() => {
                     if let Some(request) = has_request {
+
                         // unwrap is safe here, because we enter this block only if has_available_worker.is_some()
                         let worker_id = has_available_worker.unwrap();
+                        info!("Master is sending request to worker {:?}", worker_id);
                         let sender = &self.worker_request_senders[worker_id];
                         let forward_request_result = sender.send(request).await;
                         if let Err(err) = forward_request_result {
