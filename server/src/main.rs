@@ -44,7 +44,10 @@ pub mod response;
 // pub mod program;
 // pub mod worker;
 
-pub mod networker;
+pub mod zmq_worker;
+
+pub mod compute_worker;
+pub mod master_worker;
 
 use launch::{
     config,
@@ -71,8 +74,6 @@ use std::convert::TryFrom;
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-
-use crate::networker::ResponseBlob;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -123,11 +124,23 @@ pub struct Config {
     #[serde(flatten)]
     #[structopt(flatten)]
     request_default_params: config::RequestParams,
+
+    /// number of workers that solve requests in parallel
+    #[structopt(long, default_value = DEFAULT_NB_THREADS)]
+    #[serde(default = "default_nb_thread")]
+    nb_workers: usize,
+}
+
+pub const DEFAULT_NB_THREADS: &str = "2";
+
+pub fn default_nb_thread() -> usize {
+    use std::str::FromStr;
+    usize::from_str(DEFAULT_NB_THREADS).unwrap()
 }
 
 fn main() {
     let _log_guard = launch::logger::init_logger();
-    if let Err(err) = launch_test() {
+    if let Err(err) = launch_server() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }
@@ -135,32 +148,12 @@ fn main() {
     }
 }
 
-fn launch_test() -> Result<(), Error> {
-    let endpoint = "tcp://127.0.0.1:30000";
-    let mut networker_handle = networker::Networker::new(endpoint.to_string()).unwrap();
-
-    info!("Coucou");
-
-    while let Some(request_blob) = networker_handle.requests_channel.blocking_recv() {
-        info!("Receive request");
-        let client_id = request_blob.client_id;
-        let payload = request_blob.payload;
-        let response = ResponseBlob { client_id, payload };
-        networker_handle
-            .responses_channel
-            .blocking_send(response)
-            .expect("Could not send response");
-    }
-
-    Ok(())
-}
-
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
     match options {
         Options::ConfigFile(config_file) => {
             let config = read_config(&config_file)?;
-            launch(config)?;
+            launch_master_worker(config)?;
             Ok(())
         }
         Options::CreateConfig(config_creator) => {
@@ -171,7 +164,7 @@ fn launch_server() -> Result<(), Error> {
             Ok(())
         }
         Options::Launch(config) => {
-            launch(config)?;
+            launch_master_worker(config)?;
             Ok(())
         }
     }
@@ -189,6 +182,18 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     let config: Config = serde_json::from_reader(reader)?;
     debug!("Launching with config : {:#?}", config);
     Ok(config)
+}
+
+fn launch_master_worker(config: Config) -> Result<(), Error> {
+    let (data, model) = launch::read::<master_worker::MyTimetable>(&config.launch_params)?;
+    let master_worker = master_worker::MasterWorker::new(
+        model,
+        data,
+        config.nb_workers,
+        config.basic_requests_socket,
+        &config.request_default_params,
+    )?;
+    master_worker.run_blocking()
 }
 
 fn launch(config: Config) -> Result<(), Error> {
