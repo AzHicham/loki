@@ -39,7 +39,7 @@ use std::thread;
 
 use failure::{format_err, Error};
 
-use launch::loki::tracing::{error, info};
+use launch::loki::tracing::{debug, error, info};
 use prost::Message;
 use tmq;
 
@@ -175,7 +175,7 @@ impl ZmqWorker {
                                     &mut self.responses_sender,
                                 );
                                 if let Err(()) = result {
-                                    error!("The response channel is closed. I'll stop.")
+                                    error!("The response channel is closed. I'll stop.");
                                     break;
                                 }
 
