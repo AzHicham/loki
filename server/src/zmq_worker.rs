@@ -62,19 +62,19 @@ pub struct ResponseMessage {
 
 pub struct ZmqWorker {
     endpoint: String,
-    requests_sender: mpsc::Sender<RequestMessage>,
-    responses_receiver: mpsc::Receiver<ResponseMessage>,
+    requests_sender: mpsc::UnboundedSender<RequestMessage>,
+    responses_receiver: mpsc::UnboundedReceiver<ResponseMessage>,
 }
 
 pub struct ZmqWorkerChannels {
-    pub requests_receiver: mpsc::Receiver<RequestMessage>,
-    pub responses_sender: mpsc::Sender<ResponseMessage>,
+    pub requests_receiver: mpsc::UnboundedReceiver<RequestMessage>,
+    pub responses_sender: mpsc::UnboundedSender<ResponseMessage>,
 }
 
 impl ZmqWorker {
     pub fn new(endpoint: String) -> (Self, ZmqWorkerChannels) {
-        let (requests_sender, requests_receiver) = mpsc::channel(1);
-        let (responses_sender, responses_receiver) = mpsc::channel(1);
+        let (requests_sender, requests_receiver) = mpsc::unbounded_channel();
+        let (responses_sender, responses_receiver) = mpsc::unbounded_channel();
 
         let actor = Self {
             endpoint,
@@ -211,7 +211,7 @@ async fn send_response_to_zmq(zmq_socket: &mut tmq::router::Router, response: Re
 }
 
 async fn handle_incoming_request(
-    requests_channel: &mut mpsc::Sender<RequestMessage>,
+    requests_channel: &mut mpsc::UnboundedSender<RequestMessage>,
     zmq_socket: &mut tmq::router::Router,
     mut zmq_message: tmq::Multipart,
 ) -> Result<(), ()> {
@@ -240,7 +240,7 @@ async fn handle_incoming_request(
                 client_id: client_id_message,
                 payload: proto_request,
             };
-            let send_result = requests_channel.send(request_message).await;
+            let send_result = requests_channel.send(request_message);
             if let Err(err) = send_result {
                 warn!("Error while forwarding request  : {}", err);
                 // TODO : what to do here ?

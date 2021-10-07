@@ -150,7 +150,7 @@ impl MasterWorker {
                 has_response = self.workers_response_receiver.recv() => {
                     if let Some((worker_id, response)) = has_response {
                         info!("Master received response from worker {:?}", worker_id);
-                        let forward_response_result = self.forward_worker_response(worker_id, response).await;
+                        let forward_response_result = self.forward_worker_response(worker_id, response);
                         if let Err(err) = forward_response_result {
                             error!("Could not sent response to zmq worker : {}. I'll stop.", err);
                             break;
@@ -195,14 +195,14 @@ impl MasterWorker {
         }
     }
 
-    async fn forward_worker_response(
+    fn forward_worker_response(
         &mut self,
         worker_id: WorkerId,
         response: ResponseMessage,
     ) -> Result<(), Error> {
         // let's forward to response to the zmq worker
         // who will forward it to the client
-        let send_result = self.zmq_worker_handle.responses_sender.send(response).await;
+        let send_result = self.zmq_worker_handle.responses_sender.send(response);
         if let Err(err) = send_result {
             return Err(format_err!(
                 "Channel to send responses to zmq worker has closed : {}",
