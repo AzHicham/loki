@@ -39,7 +39,7 @@ use std::thread;
 
 use failure::{format_err, Error};
 
-use launch::loki::tracing::{error, info, warn};
+use launch::loki::tracing::{error, info};
 use prost::Message;
 use tmq;
 
@@ -62,8 +62,12 @@ pub struct ResponseMessage {
 
 pub struct ZmqWorker {
     endpoint: String,
+    // to send request to master_worker
     requests_sender: mpsc::UnboundedSender<RequestMessage>,
+    // to receive responses from master_worker
     responses_receiver: mpsc::UnboundedReceiver<ResponseMessage>,
+    // to send response to itself, useful when an incoming zmq message is not a valid navitia_proto::Request
+    responses_sender: mpsc::UnboundedSender<ResponseMessage>,
 }
 
 pub struct ZmqWorkerChannels {
@@ -80,6 +84,7 @@ impl ZmqWorker {
             endpoint,
             requests_sender,
             responses_receiver,
+            responses_sender: responses_sender.clone(),
         };
 
         let handle = ZmqWorkerChannels {
@@ -137,7 +142,7 @@ impl ZmqWorker {
     async fn run_loop(&mut self, mut zmq_socket: tmq::router::Router) {
         use futures::StreamExt;
         loop {
-            info!("Zmq worker is waiting.");
+            debug!("Zmq worker is waiting.");
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness
@@ -150,11 +155,11 @@ impl ZmqWorker {
                 // and send them back to the zmq socket
                 has_response = self.responses_receiver.recv() => {
                     if let Some(response) = has_response {
-                        info!("Received a response");
+                        debug!("Received a response");
                         send_response_to_zmq(& mut zmq_socket, response).await
                     }
                     else {
-                        warn!("The response channel has been closed. I'll stop.");
+                        error!("The response channel is closed. I'll stop.");
                         break;
                     }
                 }
@@ -163,20 +168,25 @@ impl ZmqWorker {
                     if let Some(zmq_message_result) = has_zmq_message {
                         match zmq_message_result {
                             Ok(zmq_message) => {
-                                info!("Received a zmq request");
-                                handle_incoming_request(&mut self.requests_sender,
-                                    &mut zmq_socket,
-                                    zmq_message
-                                ).await;
+                                debug!("Received a zmq request");
+                                let result = handle_incoming_request(
+                                    zmq_message,
+                                    &mut self.requests_sender,
+                                    &mut self.responses_sender,
+                                );
+                                if let Err(()) = result {
+                                    error!("The response channel is closed. I'll stop.")
+                                    break;
+                                }
 
                             },
                             Err(err) => {
-                                warn!("Error while reading zmq socket : {}", err);
+                                error!("Error while reading zmq socket : {}", err);
                             }
                         }
                     }
                     else {
-                        warn!("The zmq socket has been closed. I'll stop.");
+                        error!("The zmq socket has been closed. I'll stop.");
                         break;
                     }
 
@@ -206,21 +216,21 @@ async fn send_response_to_zmq(zmq_socket: &mut tmq::router::Router, response: Re
     use futures::SinkExt;
     let send_result = zmq_socket.send(multipart_msg).await;
     if let Err(err) = send_result {
-        warn!("Error while sending response to zmq socket : {}", err);
+        error!("Error while sending response to zmq socket : {}", err);
     }
 }
 
-async fn handle_incoming_request(
-    requests_channel: &mut mpsc::UnboundedSender<RequestMessage>,
-    zmq_socket: &mut tmq::router::Router,
+fn handle_incoming_request(
     mut zmq_message: tmq::Multipart,
+    requests_sender: &mut mpsc::UnboundedSender<RequestMessage>,
+    responses_sender: &mut mpsc::UnboundedSender<ResponseMessage>,
 ) -> Result<(), ()> {
     // The Router socket should always provides 3 parts messages with an empty second part.
     // see https://zguide.zeromq.org/docs/chapter3/#The-Extended-Reply-Envelope
     let nb_parts = zmq_message.len();
     if nb_parts != 3 {
-        warn!("Received a zmq message with {} parts. I only know how to handle messages with 3 parts. I'll ignore it", nb_parts);
-        return Err(());
+        error!("Received a zmq message with {} parts. I only know how to handle messages with 3 parts. I'll ignore it", nb_parts);
+        return Ok(());
     }
     // the 3 unwraps are safe since we just checked that the message has lenght 3
     let client_id_message = zmq_message.pop_front().unwrap();
@@ -228,8 +238,8 @@ async fn handle_incoming_request(
     let payload_message = zmq_message.pop_front().unwrap();
 
     if empty_message.len() > 0 {
-        warn!("Received a zmq message with a non empty second part. Since this is invalid, I'll skip this message");
-        return Err(());
+        error!("Received a zmq message with a non empty second part. Since this is invalid, I'll skip this message");
+        return Ok(());
     }
 
     use std::ops::Deref;
@@ -240,22 +250,19 @@ async fn handle_incoming_request(
                 client_id: client_id_message,
                 payload: proto_request,
             };
-            let send_result = requests_channel.send(request_message);
+            let send_result = requests_sender.send(request_message);
             if let Err(err) = send_result {
-                warn!("Error while forwarding request  : {}", err);
+                error!("Error while forwarding request to master_worker : {}", err);
                 // TODO : what to do here ?
                 // if an error occurs while sending
                 // it means that the receiver of the channel is closed
                 // so we won't be able to send messages anywhere
                 // We could panic, or gracefully shutdown this thread
                 // For now, we keep going, as we may still receive responses and send them to zmq
-                Err(())
-            } else {
-                Ok(())
             }
         }
         Err(err) => {
-            warn!(
+            error!(
                 "Could not decode zmq message into protobuf. Error : {}",
                 err
             );
@@ -270,11 +277,20 @@ async fn handle_incoming_request(
                 payload: response_proto,
             };
 
-            send_response_to_zmq(zmq_socket, response_message).await;
+            let send_result = responses_sender.send(response_message);
 
-            Err(())
+            if let Err(err) = send_result {
+                error!("Error while sending error response to zmq_worker : {}", err);
+                // if an error occurs while sending
+                // it means that the receiver of the channel is closed
+                // so we won't be able to receive response messages anywhere
+                // The only sensible thing is to shutdown.
+                // TODO : can we do something else ?
+                return Err(());
+            }
         }
     }
+    Ok(())
 }
 
 fn make_error_response(error: Error) -> navitia_proto::Response {
