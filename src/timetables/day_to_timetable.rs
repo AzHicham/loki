@@ -74,48 +74,6 @@ impl DayToTimetable {
             })
     }
 
-    pub fn insert_one_day(
-        &mut self,
-        day_to_insert: &DaysSinceDatasetStart,
-        timetable_to_insert: &Timetable,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<(), InsertError> {
-        // let's check if this day is already set
-        for (days_pattern, _) in self.pattern_timetables.iter() {
-            if days_patterns.is_allowed(days_pattern, day_to_insert) {
-                return Err(InsertError::DayAlreadySet);
-            }
-        }
-
-        // We try to find the first element whose timetable contains timetable_to_insert .
-        // Because of our invariant 2., if such an element is found we know that
-        // timetable_to_insert does not appears in any other element of the vec.
-        let has_days_pattern = self
-            .pattern_timetables
-            .iter_mut()
-            .find(|(_days_pattern, timetable)| timetable == timetable_to_insert)
-            .map(|(days_pattern, _)| days_pattern); // we are just interested in the pattern
-
-        if let Some(old_days_pattern) = has_days_pattern {
-            // so now timetable_to_insert is valid on old_days_pattern and day_to_insert
-            // let's create a new days_pattern for that
-            let new_days_pattern = days_patterns
-                .get_pattern_with_additional_day(*old_days_pattern, day_to_insert)
-                .map_err(|()| InsertError::DayAlreadySet)?;
-
-            *old_days_pattern = new_days_pattern;
-        } else {
-            // if timetable_to_insert does not appears in the Vec,
-            // let's push a new element to the Vec with it
-
-            let days_pattern = days_patterns.get_for_day(day_to_insert);
-            self.pattern_timetables
-                .push((days_pattern, timetable_to_insert.clone()));
-        }
-
-        Ok(())
-    }
-
     pub fn insert_days_pattern(
         &mut self,
         days_pattern_to_insert: &DaysPattern,
@@ -193,17 +151,6 @@ impl DayToTimetable {
         }
 
         Ok(removed_timetable)
-    }
-
-    fn get_timetable_for(
-        &self,
-        day: &DaysSinceDatasetStart,
-        days_patterns: &DaysPatterns,
-    ) -> Option<Timetable> {
-        self.pattern_timetables
-            .iter()
-            .find(|(days_pattern, _timetable)| days_patterns.is_allowed(days_pattern, day))
-            .map(|(_days_pattern, timetable)| timetable.clone())
     }
 }
 

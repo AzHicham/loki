@@ -41,6 +41,7 @@ use std::{
     fmt::Debug,
     ops::Not,
 };
+use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
@@ -920,24 +921,6 @@ where
         combine(board_debark_cmp, loads_cmp)
     }
 
-    pub(super) fn remove_vehicle(&mut self, vehicle_idx: usize) -> Result<(), ()> {
-        if vehicle_idx >= self.nb_of_vehicle() {
-            return Err(());
-        }
-
-        for board_times in self.board_times_by_position.iter_mut() {
-            board_times.remove(vehicle_idx);
-        }
-        for debark_times in self.debark_times_by_position.iter_mut() {
-            debark_times.remove(vehicle_idx);
-        }
-
-        self.vehicle_loads.remove(vehicle_idx);
-        self.vehicle_datas.remove(vehicle_idx);
-
-        Ok(())
-    }
-
     pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> usize
     where
         Filter: Fn(&VehicleData) -> bool,
@@ -1077,14 +1060,18 @@ where
     Value: Ord,
 {
     let has_previous = enumerated_values.next();
-    let (mut prev_position, mut prev_value) = has_previous.unwrap();
-    for (position, value) in enumerated_values {
-        if value < prev_value {
-            return Err((prev_position, position));
+    if let Some((mut prev_position, mut prev_value)) = has_previous {
+        for (position, value) in enumerated_values {
+            if value < prev_value {
+                return Err((prev_position, position));
+            }
+            prev_position = position;
+            prev_value = value;
         }
-        prev_position = position;
-        prev_value = value;
+    } else {
+        debug!("Called is_increasing on an empty sequence of values.");
     }
+
     Ok(())
 }
 
