@@ -28,10 +28,6 @@ jobs:
     - name: install test depedencies
       run: sudo apt install -y httpie jq
 
-    - name: Test corse loads
-      run: |
-        result=$( http GET 'http://127.0.0.1:9191/v1/coverage/corse-loki-loads/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
-        test $result != null
     - name: Test corse basic
       run: |
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/corse-loki/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
@@ -41,11 +37,6 @@ jobs:
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/corse/journeys?from=8.73421%3B41.91907&to=8.76055%3B41.92878&datetime=20200505T091505&_override_scenario=distributed&' | jq .journeys[0].duration)
         test $result != null
 
-
-    - name: Test transilien loads
-      run: |
-        result=$( http GET 'http://127.0.0.1:9191/v1/coverage/transilien-loki-loads/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
-        test $result != null
     - name: Test transilien basic
       run: |
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/transilien-loki/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
@@ -55,10 +46,6 @@ jobs:
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/transilien/journeys?from=stop_area%3ADUA8775810&to=stop_area%3ADUA8739357&datetime=20210322T142346&_override_scenario=distributed&' | jq .journeys[0].duration)
         test $result != null
 
-    - name: Test idfm loads
-      run: |
-        result=$( http GET 'http://127.0.0.1:9191/v1/coverage/idfm-loki-loads/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
-        test $result != null
     - name: Test idfm basic
       run: |
         result=$( http GET 'http://127.0.0.1:9191/v1/coverage/idfm-loki/journeys?from=stop_area%3Astop_area%3A8775810&to=stop_area%3Astop_area%3A59033&datetime=20200505T080000&_override_scenario=distributed&' | jq .journeys[0].duration)
