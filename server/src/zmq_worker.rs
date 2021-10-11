@@ -244,6 +244,7 @@ fn handle_incoming_request(
 
     use std::ops::Deref;
     let proto_request_result = navitia_proto::Request::decode(payload_message.deref());
+    // TODO : if deadline is expired, do not send to master
     match proto_request_result {
         Ok(proto_request) => {
             let request_message = RequestMessage {

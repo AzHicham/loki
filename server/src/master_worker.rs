@@ -162,6 +162,9 @@ impl MasterWorker {
                     }
 
                 }
+                has_realtime = realtime_receiver.recv() => {
+                    handle_realtime()
+                }
                 // receive requests from the zmq socket, and dispatch them to an available worker
                 has_request = self.zmq_worker_handle.requests_receiver.recv(), if has_available_worker.is_some() => {
                     if let Some(request) = has_request {
