@@ -35,31 +35,33 @@
 // www.navitia.io
 
 use failure::{format_err, Error};
-use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::{
+    ops::Deref,
+    sync::{Arc, RwLock},
+};
 use tokio::sync::mpsc;
 
-use launch::loki::{
-    self,
-    tracing::{debug, error, info, warn},
-};
 use launch::{
     config,
     datetime::DateTimeRepresent,
     filters::Filters,
     loki::{
-        timetables::PeriodicSplitVjByTzTimetables, transit_model::Model, PositiveDuration,
-        RequestInput, TransitData,
+        self,
+        timetables::PeriodicSplitVjByTzTimetables,
+        tracing::{debug, error, info, warn},
+        transit_model::Model,
+        PositiveDuration, RequestInput, TransitData,
     },
     solver::Solver,
 };
 use std::convert::TryFrom;
 
-use crate::master_worker::WorkerId;
-use crate::zmq_worker::{RequestMessage, ResponseMessage};
+use crate::{
+    master_worker::WorkerId,
+    zmq_worker::{RequestMessage, ResponseMessage},
+};
 
-use super::navitia_proto;
-use super::response;
+use super::{navitia_proto, response};
 
 pub type MyTimetable = PeriodicSplitVjByTzTimetables;
 
