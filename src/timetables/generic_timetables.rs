@@ -45,6 +45,7 @@ use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::timetables::{FlowDirection, Stop, StopFlows};
+use std::cmp::Ordering::{Greater, Less};
 
 #[derive(Debug)]
 pub(super) struct Timetables<Time, Load, TimezoneData, VehicleData> {
@@ -538,27 +539,32 @@ where
         // we should not be able to board at the last position
         assert!(next_position_idx < self.nb_of_positions());
 
-        let search_result = self.board_times_by_position[position_idx].binary_search(waiting_time);
-        let first_boardable_vehicle = match search_result {
-            // here it means that
-            //    waiting_time < board_time(idx)    if idx < len
-            //    waiting_time > board_time(idx -1) if idx > 0
-            // so idx is indeed the first vehicle that can be boarded
-            Err(idx) => idx,
-            // here it means that
-            //    waiting_time == board_time(idx)
-            // but maybe idx is not the smallest idx such hat waiting_time == board_time(idx)
-            Ok(idx) => {
-                let mut first_idx = None;
-                for i in (0..idx).rev() {
-                    if self.board_times_by_position[position_idx][i] != *waiting_time {
-                        first_idx = Some(i + 1);
-                        break;
-                    }
-                }
-                first_idx.unwrap_or(0)
-            }
-        };
+        let last_vehicle_idx = self.board_times_by_position[position_idx].len() - 1;
+        if waiting_time > &self.board_times_by_position[position_idx][last_vehicle_idx] {
+            return None;
+        }
+
+        let first_boardable_vehicle =
+            if waiting_time <= &self.board_times_by_position[position_idx][0] {
+                0
+            } else {
+                // We are looking for the smallest index in slice (board_times_by_position here)
+                // such that slice(idx) >= waiting_time.
+                // In order to do so we use binary_search_by with the comparator
+                // function F : |time| if time < waiting_time { Less } else { Greater }
+                // binary_search_by on slice with a comparator function F will return :
+                // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
+                // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
+                // and F(slice(idx-1)) == Less if idx >= 1
+                // Since our comparator will never return Equal,
+                // binary_search_by will always return Err(idx).
+                // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
+                // And slice(idx-1) < waiting_time
+                // So idx is the smallest index such that slice(idx) >= waiting_time
+                self.board_times_by_position[position_idx]
+                    .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
+                    .unwrap_err()
+            };
 
         for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicle() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
@@ -578,7 +584,7 @@ where
     // that debark at the subsequent positions at the latest time
     fn latest_filtered_vehicle_that_debark<Filter>(
         &self,
-        time: &Time,
+        waiting_time: &Time,
         position_idx: usize,
         filter: Filter,
     ) -> Option<(usize, &Time)>
@@ -590,30 +596,35 @@ where
         }
         // we should not be able to debark at the first position
         assert!(position_idx > 0);
-        let search_result = self.debark_times_by_position[position_idx].binary_search(time);
-        let last_debarkable_vehicle = match search_result {
-            // here it means that
-            //    time < debark_time(idx)    if idx < len
-            //    time > debark_time(idx -1) if idx > 0
-            // so idx - 1 is indeed the last vehicle that debark at position
-            Err(0) => return None,
-            Err(idx) => idx - 1,
-            // here it means that
-            //    waiting_time == debark_time(idx)
-            // but maybe idx is not the greatest idx such as time == debark_time(idx)
-            Ok(idx) => {
-                let size_vec_debark = self.debark_times_by_position[position_idx].len();
-                let mut last_idx = idx;
-                while last_idx < size_vec_debark
-                    && self.debark_times_by_position[position_idx][last_idx] == *time
-                {
-                    last_idx += 1;
-                }
-                last_idx - 1
-            }
-        };
 
-        for vehicle_idx in (0..=last_debarkable_vehicle).rev() {
+        if waiting_time < &self.debark_times_by_position[position_idx][0] {
+            return None;
+        }
+
+        let last_vehicle_idx = self.debark_times_by_position[position_idx].len() - 1;
+        let after_last_debarkable_vehicle =
+            if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+                last_vehicle_idx + 1
+            } else {
+                // We are looking for the greatest index in slice (debark_times_by_position here)
+                // such that slice(idx) <= waiting_time.
+                // In order to do so we use binary_search_by with the comparator
+                // function F : |time| if time <= waiting_time { Less } else { Greater }
+                // binary_search_by on slice with a comparator function F will return :
+                // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
+                // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
+                // and F(slice(idx-1)) == Less if idx >= 1
+                // Since our comparator will never return Equal,
+                // binary_search_by will always return Err(idx).
+                // So when we obtain Err(idx) it means that slice(idx) > waiting_time
+                // And slice(idx-1) <= waiting_time
+                // So idx-1 is the greatest index such that slice(idx-1) <= waiting_time
+                self.board_times_by_position[position_idx]
+                    .binary_search_by(|time| if time <= waiting_time { Less } else { Greater })
+                    .unwrap_err()
+            };
+
+        for vehicle_idx in (0..after_last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             if filter(vehicle_data) {
                 let departure_time_at_previous_position =
@@ -996,7 +1007,7 @@ where
 }
 
 fn combine(a: Ordering, b: Ordering) -> Option<Ordering> {
-    use Ordering::{Equal, Greater, Less};
+    use Ordering::Equal;
     match (a, b) {
         (Less, Less) | (Less, Equal) | (Equal, Less) => Some(Less),
         (Equal, Equal) => Some(Equal),
