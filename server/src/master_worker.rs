@@ -34,13 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
-use std::{
-    sync::{Arc, RwLock},
-    thread::{self},
-};
-use tokio::{runtime::Builder, sync::mpsc};
-
 use launch::{
     config,
     loki::{
@@ -50,7 +45,13 @@ use launch::{
         TransitData,
     },
 };
+use std::{
+    sync::{Arc, RwLock},
+    thread::{self},
+};
+use tokio::{runtime::Builder, sync::mpsc};
 
+use crate::rabbitmq_worker::{BrokerConfig, RabbitMqWorker};
 use crate::{
     compute_worker::ComputeWorker,
     zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
@@ -76,6 +77,8 @@ pub struct MasterWorker {
     workers_response_receiver: mpsc::Receiver<(WorkerId, ResponseMessage)>,
     worker_states: Vec<WorkerState>,
 
+    amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
+
     zmq_worker_handle: ZmqWorkerChannels,
 }
 
@@ -91,8 +94,8 @@ impl MasterWorker {
         let mut worker_request_senders = Vec::new();
         let mut worker_states = Vec::new();
 
+        // Compute workers
         let (workers_response_sender, workers_response_receiver) = mpsc::channel(1);
-
         for id in 0..nb_workers {
             let builder = thread::Builder::new().name(format!("loki_worker_{}", id));
 
@@ -109,8 +112,13 @@ impl MasterWorker {
             worker_states.push(WorkerState::Available);
         }
 
-        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
+        // AMQP worker
+        let broker_config = BrokerConfig::default();
+        let (amqp_worker, amqp_message_receiver) = RabbitMqWorker::new(&broker_config)?;
+        let _amqp_thread_handle = amqp_worker.run_in_a_thread()?;
 
+        // ZMQ worker
+        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
         let result = Self {
@@ -118,6 +126,7 @@ impl MasterWorker {
             worker_request_senders,
             workers_response_receiver,
             worker_states,
+            amqp_message_receiver,
             zmq_worker_handle,
         };
         Ok(result)
@@ -163,9 +172,9 @@ impl MasterWorker {
                     }
 
                 }
-                has_realtime = realtime_receiver.recv() => {
-                    handle_realtime()
-                }
+               // has_realtime = realtime_receiver.recv() => {
+               //     handle_realtime()
+               // }
                 // receive requests from the zmq socket, and dispatch them to an available worker
                 has_request = self.zmq_worker_handle.requests_receiver.recv(), if has_available_worker.is_some() => {
                     if let Some(request) = has_request {

@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::chaos_proto::{chaos, gtfs_realtime, kirin};
+use super::chaos_proto::gtfs_realtime;
 use super::navitia_proto;
 
 use failure::{format_err, Error};
@@ -48,8 +48,11 @@ use launch::loki::tracing::{error, info, trace, warn};
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::thread;
 
 use structopt::StructOpt;
+use tokio::runtime::Builder;
+use tokio::sync::mpsc;
 
 pub fn default_exchange() -> String {
     "navitia".to_string()
@@ -61,7 +64,7 @@ pub fn default_queue_auto_delete() -> bool {
     true
 }
 
-#[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
 pub struct BrokerConfig {
     pub endpoint: String,
@@ -84,12 +87,15 @@ pub struct RabbitMqWorker {
     channel: Channel,
     queue: Queue,
     proto_messages: Vec<gtfs_realtime::FeedMessage>,
+    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
 }
 
 // TODO : listen to both queue_task and queue_rt -> later
 // handle init : ask kirin to send
 impl RabbitMqWorker {
-    pub fn new(config: &BrokerConfig) -> Result<Self, Error> {
+    pub fn new(
+        config: &BrokerConfig,
+    ) -> Result<(Self, mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>), Error> {
         let connection = create_connection(config)?;
         let channel = create_channel(config, &connection)?;
 
@@ -104,14 +110,20 @@ impl RabbitMqWorker {
             queue_name.as_str(),
         )?;
 
-        Ok(Self {
-            connection,
-            channel,
-            queue,
-        })
+        let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
+        Ok((
+            Self {
+                connection,
+                channel,
+                queue,
+                proto_messages: Vec::new(),
+                amqp_message_sender,
+            },
+            amqp_message_receiver,
+        ))
     }
 
-    async fn consume(&self) {
+    async fn consume(&mut self) -> Result<(), Error> {
         let rt_consumer = self
             .channel
             .basic_consume(
@@ -142,13 +154,34 @@ impl RabbitMqWorker {
             }
         }
 
+        let proto = self.proto_messages.pop().unwrap();
         // TODO : send self.proto_messages to master
+        self.amqp_message_sender
+            .blocking_send(vec![proto])
+            .map_err(|err| {
+                format_err!(
+                    "AMQP Worker could not send response : {}. This worker will stop.",
+                    err
+                )
+            })?;
+        Ok(())
     }
 
-    pub fn listen(&self) {
+    async fn listen(&mut self) -> Result<(), Error> {
         loop {
-            self.consume();
+            self.consume().await?;
         }
+    }
+
+    pub fn run_in_a_thread(mut self) -> Result<std::thread::JoinHandle<Result<(), Error>>, Error> {
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+        let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
+        let handle = thread_builder.spawn(move || runtime.block_on(self.listen()))?;
+        Ok(handle)
     }
 }
 
