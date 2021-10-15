@@ -34,8 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::iter::FromIterator;
-use std::thread;
+use std::{iter::FromIterator, thread};
 
 use failure::{format_err, Error};
 
@@ -43,8 +42,7 @@ use launch::loki::tracing::{debug, error, info};
 use prost::Message;
 use tmq;
 
-use tokio::runtime::Builder;
-use tokio::sync::mpsc;
+use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::navitia_proto;
 
@@ -118,7 +116,7 @@ impl ZmqWorker {
             .build()
             .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
 
-        let thread_builder = thread::Builder::new().name(format!("loki_zmq_worker"));
+        let thread_builder = thread::Builder::new().name("loki_zmq_worker".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
         Ok(handle)
     }

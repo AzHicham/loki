@@ -41,11 +41,12 @@ use std::{
 };
 use tokio::{runtime::Builder, sync::mpsc};
 
-use launch::loki::tracing::info;
 use launch::{
     config,
     loki::{
-        timetables::PeriodicSplitVjByTzTimetables, tracing::log::error, transit_model::Model,
+        timetables::PeriodicSplitVjByTzTimetables,
+        tracing::{info, log::error},
+        transit_model::Model,
         TransitData,
     },
 };
@@ -108,7 +109,7 @@ impl MasterWorker {
             worker_states.push(WorkerState::Available);
         }
 
-        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint.to_string());
+        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
 
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
@@ -224,7 +225,7 @@ impl MasterWorker {
                 *worker_state = WorkerState::Available;
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     // run by blocking the current thread

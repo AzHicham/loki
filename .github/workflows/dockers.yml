@@ -127,7 +127,7 @@ jobs:
     # Run binarisation
     - name: Run Artemis binarisation
       run: |
-        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_artemis_bina
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina
 
     # Start dockers
     - name: Start dockers
