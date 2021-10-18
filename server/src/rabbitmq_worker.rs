@@ -44,7 +44,7 @@ use lapin::options::{
 };
 use lapin::{types::FieldTable, Channel, Connection, ConnectionProperties, ExchangeKind, Queue};
 
-use launch::loki::tracing::{error, info, trace, warn};
+use launch::loki::tracing::{error, info, trace};
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -95,7 +95,8 @@ pub struct RabbitMqWorker {
 impl RabbitMqWorker {
     pub fn new(
         config: &BrokerConfig,
-    ) -> Result<(Self, mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>), Error> {
+        amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+    ) -> Result<Self, Error> {
         let connection = create_connection(config)?;
         let channel = create_channel(config, &connection)?;
 
@@ -105,25 +106,21 @@ impl RabbitMqWorker {
         let queue = declare_queue(config, &channel, queue_name.as_str())?;
         bind_queue(
             &channel,
-            &config.rt_topics.as_slice(),
+            config.rt_topics.as_slice(),
             &config.exchange,
             queue_name.as_str(),
         )?;
 
-        let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
-        Ok((
-            Self {
-                connection,
-                channel,
-                queue,
-                proto_messages: Vec::new(),
-                amqp_message_sender,
-            },
-            amqp_message_receiver,
-        ))
+        Ok(Self {
+            connection,
+            channel,
+            queue,
+            proto_messages: Vec::new(),
+            amqp_message_sender,
+        })
     }
 
-    async fn consume(&mut self) -> Result<(), Error> {
+    fn consume(&mut self) -> Result<(), Error> {
         let rt_consumer = self
             .channel
             .basic_consume(
@@ -132,7 +129,7 @@ impl RabbitMqWorker {
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
-            .await
+            .wait()
             .expect("basic_consume");
 
         for (channel, delivery) in rt_consumer.into_iter().flatten() {
@@ -154,10 +151,11 @@ impl RabbitMqWorker {
             }
         }
 
-        let proto = self.proto_messages.pop().unwrap();
-        // TODO : send self.proto_messages to master
+        let proto_message = std::mem::take(&mut self.proto_messages);
+
+        // send proto_messages to master
         self.amqp_message_sender
-            .blocking_send(vec![proto])
+            .blocking_send(proto_message)
             .map_err(|err| {
                 format_err!(
                     "AMQP Worker could not send response : {}. This worker will stop.",
@@ -169,7 +167,7 @@ impl RabbitMqWorker {
 
     async fn listen(&mut self) -> Result<(), Error> {
         loop {
-            self.consume().await?;
+            self.consume()?;
         }
     }
 

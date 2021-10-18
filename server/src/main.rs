@@ -51,6 +51,7 @@ pub mod response;
 pub mod zmq_worker;
 
 pub mod compute_worker;
+pub mod load_balancer;
 pub mod master_worker;
 pub mod rabbitmq_worker;
 
