@@ -38,6 +38,10 @@ pub mod navitia_proto {
     include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
 }
 
+pub mod chaos_proto {
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+}
+
 // pub mod navitia_proto;
 pub mod response;
 

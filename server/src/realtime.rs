@@ -34,9 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod chaos_proto {
-    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
-}
 pub use chaos_proto::*;
 
 use super::navitia_proto;
