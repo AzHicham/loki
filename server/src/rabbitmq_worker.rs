@@ -172,14 +172,12 @@ impl RabbitMqWorker {
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
-            .wait()
-            .expect("basic_consume");
+            .await?;
 
         for (channel, delivery) in rt_consumer.into_iter().flatten() {
             channel
                 .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
-                .wait()
-                .expect("ack"); // TODO : what to do when ack fail ?
+                .await?; // TODO : what to do when ack fail ?
 
             info!("delivery");
             let proto_message = decode_amqp_rt_message(&delivery);
@@ -189,6 +187,7 @@ impl RabbitMqWorker {
                     let proto_message = std::mem::take(&mut self.proto_messages);
                     info!("{:?}", proto_message);
                     //send proto_messages to master
+                    // 1 by 1 for the moment
                     self.amqp_message_sender
                         .send(proto_message)
                         .await
@@ -204,18 +203,6 @@ impl RabbitMqWorker {
                 }
             }
         }
-        let proto_message = std::mem::take(&mut self.proto_messages);
-        info!("{:?}", proto_message);
-        // send proto_messages to master
-        self.amqp_message_sender
-            .send(proto_message)
-            .await
-            .map_err(|err| {
-                format_err!(
-                    "AMQP Worker could not send response : {}. This worker will stop.",
-                    err
-                )
-            })?;
 
         Ok(())
     }
