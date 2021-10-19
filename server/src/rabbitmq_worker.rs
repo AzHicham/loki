@@ -34,25 +34,25 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::chaos_proto::gtfs_realtime;
-use super::navitia_proto;
+use super::{chaos_proto::gtfs_realtime, navitia_proto};
 
 use failure::{format_err, Error};
-use lapin::options::{
-    BasicAckOptions, BasicConsumeOptions, ExchangeDeclareOptions, QueueBindOptions,
-    QueueDeclareOptions,
+use lapin::{
+    options::{
+        BasicAckOptions, BasicConsumeOptions, ExchangeDeclareOptions, QueueBindOptions,
+        QueueDeclareOptions,
+    },
+    types::FieldTable,
+    Channel, Connection, ConnectionProperties, ExchangeKind, Queue,
 };
-use lapin::{types::FieldTable, Channel, Connection, ConnectionProperties, ExchangeKind, Queue};
 
-use launch::loki::tracing::{error, info, trace};
+use launch::loki::tracing::{debug, error, info, trace};
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::thread;
+use std::{fmt::Debug, thread};
 
 use structopt::StructOpt;
-use tokio::runtime::Builder;
-use tokio::sync::mpsc;
+use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub fn default_exchange() -> String {
     "navitia".to_string()
@@ -62,6 +62,9 @@ pub fn default_rt_topics() -> Vec<String> {
 }
 pub fn default_queue_auto_delete() -> bool {
     true
+}
+pub fn default_timeout() -> u64 {
+    5000
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, StructOpt, Clone)]
@@ -80,30 +83,71 @@ pub struct BrokerConfig {
     #[structopt(long)]
     #[serde(default = "default_queue_auto_delete")]
     pub queue_auto_delete: bool,
+
+    #[structopt(long)]
+    #[serde(default = "default_timeout")]
+    pub timeout: u64,
 }
 
 pub struct RabbitMqWorker {
-    connection: Connection,
     channel: Channel,
     queue: Queue,
     proto_messages: Vec<gtfs_realtime::FeedMessage>,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
 }
 
+pub fn listen_amqp_in_a_thread(
+    config: BrokerConfig,
+    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+) -> Result<std::thread::JoinHandle<()>, Error> {
+    let runtime = Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+    let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
+    let handle = thread_builder
+        .spawn(move || runtime.block_on(init_and_listen_amqp(config, amqp_message_sender)))?;
+    Ok(handle)
+}
+
+async fn init_and_listen_amqp(
+    config: BrokerConfig,
+    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+) {
+    let mut retry_interval = tokio::time::interval(Duration::from_millis(config.timeout));
+    loop {
+        let amqp_worker = RabbitMqWorker::new(config.clone(), amqp_message_sender.clone());
+        match amqp_worker {
+            Ok(mut worker) => {
+                let res = worker.listen().await;
+                // if let Err(err) = res {
+                //     error!("RabbitmqWorker: An error occurred: {}", err);
+                // }
+            }
+            Err(err) => {
+                error!("Connection to rabbitmq failed: {}", err);
+            }
+        };
+        // If connection fails retry after x seconds
+        retry_interval.tick().await;
+    }
+}
+
 // TODO : listen to both queue_task and queue_rt -> later
 // handle init : ask kirin to send
 impl RabbitMqWorker {
     pub fn new(
-        config: &BrokerConfig,
+        config: BrokerConfig,
         amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
     ) -> Result<Self, Error> {
-        let connection = create_connection(config)?;
-        let channel = create_channel(config, &connection)?;
+        let connection = create_connection(&config)?;
+        let channel = create_channel(&config, &connection)?;
 
         // TODO : create a name unique to this instance of loki
         // for example : hostname_instance
         let queue_name = format!("{}_rt", "loki_hostname");
-        let queue = declare_queue(config, &channel, queue_name.as_str())?;
+        let queue = declare_queue(&config, &channel, queue_name.as_str())?;
         bind_queue(
             &channel,
             config.rt_topics.as_slice(),
@@ -112,7 +156,6 @@ impl RabbitMqWorker {
         )?;
 
         Ok(Self {
-            connection,
             channel,
             queue,
             proto_messages: Vec::new(),
@@ -120,7 +163,7 @@ impl RabbitMqWorker {
         })
     }
 
-    fn consume(&mut self) -> Result<(), Error> {
+    async fn consume(&mut self) -> Result<(), Error> {
         let rt_consumer = self
             .channel
             .basic_consume(
@@ -138,48 +181,49 @@ impl RabbitMqWorker {
                 .wait()
                 .expect("ack"); // TODO : what to do when ack fail ?
 
+            info!("delivery");
             let proto_message = decode_amqp_rt_message(&delivery);
             match proto_message {
                 Ok(proto_message) => {
-                    self.proto_messages.push(proto_message)
-                    // TODO :
-                    // handle_realtime_message(&proto_message, &self.rt_model)
+                    self.proto_messages.push(proto_message);
+                    let proto_message = std::mem::take(&mut self.proto_messages);
+                    info!("{:?}", proto_message);
+                    //send proto_messages to master
+                    self.amqp_message_sender
+                        .send(proto_message)
+                        .await
+                        .map_err(|err| {
+                            format_err!(
+                                "AMQP Worker could not send response : {}. This worker will stop.",
+                                err
+                            )
+                        })?;
                 }
                 Err(err) => {
                     error!("{}", err.to_string())
                 }
             }
         }
-
         let proto_message = std::mem::take(&mut self.proto_messages);
-
+        info!("{:?}", proto_message);
         // send proto_messages to master
         self.amqp_message_sender
-            .blocking_send(proto_message)
+            .send(proto_message)
+            .await
             .map_err(|err| {
                 format_err!(
                     "AMQP Worker could not send response : {}. This worker will stop.",
                     err
                 )
             })?;
+
         Ok(())
     }
 
     async fn listen(&mut self) -> Result<(), Error> {
         loop {
-            self.consume()?;
+            self.consume().await?;
         }
-    }
-
-    pub fn run_in_a_thread(mut self) -> Result<std::thread::JoinHandle<Result<(), Error>>, Error> {
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
-
-        let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
-        let handle = thread_builder.spawn(move || runtime.block_on(self.listen()))?;
-        Ok(handle)
     }
 }
 
@@ -230,7 +274,7 @@ fn create_channel(config: &BrokerConfig, connection: &Connection) -> Result<Chan
             FieldTable::default(),
         )
         .wait()?;
-    info!("channel created successfully");
+    debug!("channel created successfully");
     Ok(channel)
 }
 
@@ -258,6 +302,7 @@ fn declare_queue(
             .wait()?;
     }
 
+    debug!("queue {} declared successfully", queue_name);
     Ok(queue)
 }
 
@@ -278,6 +323,10 @@ fn bind_queue(
             )
             .wait()?;
     }
+    debug!(
+        "queue {} binded successfully, exchange : {}, topics : {:?}",
+        queue_name, exchange, topics
+    );
     Ok(())
 }
 

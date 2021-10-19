@@ -49,10 +49,9 @@ use std::{
 };
 use tokio::{runtime::Builder, sync::mpsc};
 
-use crate::compute_worker::MyTimetable;
-use crate::master_worker::{LoadBalancerChannels, LoadBalancerOrder};
 use crate::{
-    compute_worker::ComputeWorker,
+    compute_worker::{ComputeWorker, MyTimetable},
+    master_worker::{LoadBalancerChannels, LoadBalancerOrder},
     zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
 };
 
@@ -61,12 +60,6 @@ pub enum WorkerState {
     Available,
     Busy,
     Error,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum LoadBalancerState {
-    Stopped,
-    Working,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -80,7 +73,7 @@ pub struct LoadBalancer {
     worker_states: Vec<WorkerState>,
 
     load_balancer_order_receiver: mpsc::Receiver<LoadBalancerOrder>,
-    load_balancer_state_sender: mpsc::Sender<LoadBalancerState>,
+    load_balancer_is_stopped_sender: mpsc::Sender<()>,
     master_worker_order: LoadBalancerOrder,
 
     zmq_worker_handle: ZmqWorkerChannels,
@@ -119,12 +112,12 @@ impl LoadBalancer {
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
         let (load_balancer_order_sender, load_balancer_order_receiver) = mpsc::channel(1);
-        let (load_balancer_state_sender, load_balancer_state_receiver) = mpsc::channel(1);
+        let (load_balancer_is_stopped_sender, load_balancer_is_stopped_receiver) = mpsc::channel(1);
 
         // Master worker
         let load_balancer_handle = LoadBalancerChannels {
             load_balancer_order_sender,
-            load_balancer_state_receiver,
+            load_balancer_is_stopped_receiver,
         };
 
         let result = Self {
@@ -132,7 +125,7 @@ impl LoadBalancer {
             workers_response_receiver,
             worker_states,
             load_balancer_order_receiver,
-            load_balancer_state_sender,
+            load_balancer_is_stopped_sender,
             master_worker_order: LoadBalancerOrder::Start,
             zmq_worker_handle,
         };
@@ -168,18 +161,15 @@ impl LoadBalancer {
                         }
                     });
 
-            let is_load_balancer_stopped = self.worker_states.iter().all(|state| {
-                if *state == WorkerState::Available {
-                    true
-                } else {
-                    false
-                }
-            });
-            if is_load_balancer_stopped && self.master_worker_order == LoadBalancerOrder::Stop {
-                let res = self
-                    .load_balancer_state_sender
-                    .send(LoadBalancerState::Stopped)
-                    .await;
+            let all_workers_available = self
+                .worker_states
+                .iter()
+                .all(|state| *state == WorkerState::Available);
+            // if we receive from master and order to stop and all workers are available
+            // we inform master that we stopped successfully
+            if all_workers_available && self.master_worker_order == LoadBalancerOrder::Stop {
+                info!("all_workers_available");
+                let res = self.load_balancer_is_stopped_sender.send(()).await;
                 if let Err(err) = res {
                     error!("Channel to send LoadBalancer state to Master has closed : {}. I'll stop using this worker.", err);
                 }

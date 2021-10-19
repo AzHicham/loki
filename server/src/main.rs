@@ -67,6 +67,7 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use failure::{bail, Error};
 
+use crate::rabbitmq_worker::BrokerConfig;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -119,6 +120,10 @@ pub struct Config {
     #[serde(flatten)]
     #[structopt(flatten)]
     request_default_params: config::RequestParams,
+
+    #[serde(flatten)]
+    #[structopt(flatten)]
+    amqp_params: BrokerConfig,
 
     /// number of workers that solve requests in parallel
     #[structopt(long, default_value = DEFAULT_NB_THREADS)]
@@ -187,6 +192,7 @@ fn launch_master_worker(config: Config) -> Result<(), Error> {
         config.nb_workers,
         config.basic_requests_socket,
         &config.request_default_params,
+        &config.amqp_params,
     )?;
     master_worker.run_blocking()
 }

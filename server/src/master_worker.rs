@@ -48,9 +48,10 @@ use launch::{
 use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, sync::mpsc};
 
-use crate::load_balancer::LoadBalancer;
-use crate::load_balancer::LoadBalancerState;
-use crate::rabbitmq_worker::{BrokerConfig, RabbitMqWorker};
+use crate::{
+    load_balancer::LoadBalancer,
+    rabbitmq_worker::{listen_amqp_in_a_thread, BrokerConfig},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LoadBalancerOrder {
@@ -62,7 +63,7 @@ pub type MyTimetable = PeriodicSplitVjByTzTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
-    pub load_balancer_state_receiver: mpsc::Receiver<LoadBalancerState>,
+    pub load_balancer_is_stopped_receiver: mpsc::Receiver<()>,
 }
 
 pub struct MasterWorker {
@@ -78,6 +79,7 @@ impl MasterWorker {
         nb_workers: usize,
         zmq_endpoint: String,
         request_default_params: &config::RequestParams,
+        broker_config: &BrokerConfig,
     ) -> Result<Self, Error> {
         let data_and_model = Arc::new(RwLock::new((data, model)));
 
@@ -92,9 +94,8 @@ impl MasterWorker {
 
         // AMQP worker
         let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
-        let broker_config = BrokerConfig::default();
-        let amqp_worker = RabbitMqWorker::new(&broker_config, amqp_message_sender)?;
-        let _amqp_thread_handle = amqp_worker.run_in_a_thread()?;
+        let _amqp_thread_handle =
+            listen_amqp_in_a_thread(broker_config.clone(), amqp_message_sender);
 
         // Master worker
         let result = Self {
@@ -109,7 +110,6 @@ impl MasterWorker {
         info!("Starting Master worker");
         loop {
             tokio::select! {
-
                 // We receive protobuf from amqp broker
                 has_proto_vec = self.amqp_message_receiver.recv() => {
                     if let Some(vec_protobuf) = has_proto_vec {
@@ -117,7 +117,8 @@ impl MasterWorker {
                         // convert_realtime & stop the load balancer from receiving more request
                         let res = self.load_balancer_handle
                                     .load_balancer_order_sender
-                                    .blocking_send(LoadBalancerOrder::Stop);
+                                    .send(LoadBalancerOrder::Stop)
+                                    .await;
                         if let Err(err) = res {
                             error!("Could not sent Stop order to LoadBalancer : {}. I'll stop.", err);
                             break;
@@ -127,15 +128,14 @@ impl MasterWorker {
                         break;
                     }
                 }
-
                 // We receive load balancer status, if load balancer is stopped
                 // we apply realtime disruption on data
-                has_load_balancer_status = self
+                has_load_balancer_is_stopped = self
                                             .load_balancer_handle
-                                            .load_balancer_state_receiver
+                                            .load_balancer_is_stopped_receiver
                                             .recv() => {
-                    if let Some(load_balancer_status) = has_load_balancer_status {
-                        info!("Master received LoadBalancer status");
+                    if let Some(_) = has_load_balancer_is_stopped {
+                        info!("Master received LoadBalancer is stoped");
                         // apply_realtime
                     } else {
                         error!("Channel to receive LoadBalancer status' responses has closed. I'll stop.");
