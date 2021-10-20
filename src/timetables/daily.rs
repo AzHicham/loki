@@ -42,12 +42,12 @@ use super::{
 };
 use crate::{
     loads_data::{Load, LoadsData},
+    realtime::real_time_model::VehicleJourneyIdx,
     time::{
         days_patterns::DaysPatterns, Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
     timetables::{InsertionError, Timetables as TimetablesTrait, Types as TimetablesTypes},
-    transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
 use std::collections::BTreeMap;
@@ -59,12 +59,12 @@ pub struct DailyTimetables {
     timetables: Timetables<Time, Load, (), VehicleData>,
     calendar: Calendar,
     days_patterns: DaysPatterns,
-    vehicle_journey_to_timetables: BTreeMap<Idx<VehicleJourney>, DayToTimetable>,
+    vehicle_journey_to_timetables: BTreeMap<VehicleJourneyIdx, DayToTimetable>,
 }
 
 #[derive(Clone, Debug)]
 pub struct VehicleData {
-    vehicle_journey_idx: Idx<VehicleJourney>,
+    vehicle_journey_idx: VehicleJourneyIdx,
     day: DaysSinceDatasetStart,
 }
 
@@ -99,7 +99,7 @@ impl TimetablesTrait for DailyTimetables {
         mission.idx
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables.vehicle_data(trip).vehicle_journey_idx
     }
 
@@ -190,7 +190,7 @@ impl TimetablesTrait for DailyTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, Time, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let vehicle_data_filter =
             |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
@@ -223,7 +223,7 @@ impl TimetablesTrait for DailyTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let vehicle_data_filter =
             |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
@@ -241,7 +241,7 @@ impl TimetablesTrait for DailyTimetables {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -331,7 +331,7 @@ impl TimetablesTrait for DailyTimetables {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar

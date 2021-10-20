@@ -1,5 +1,6 @@
 use crate::{
     loads_data::{Load, LoadsData},
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::RemovalError,
 };
@@ -105,7 +106,7 @@ pub trait Data: TransitTypes {
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer>;
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
 
     fn earliest_trip_to_board_at(
         &self,
@@ -123,8 +124,8 @@ pub trait Data: TransitTypes {
 
     fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
-    fn stop_point_idx(&self, stop: &Self::Stop) -> Idx<StopPoint>;
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
+    fn stop_point_idx(&self, stop: &Self::Stop) -> StopPointIdx;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
 
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
@@ -133,7 +134,7 @@ pub trait Data: TransitTypes {
 
     fn calendar(&self) -> &crate::time::Calendar;
 
-    fn stop_point_idx_to_stop(&self, stop_idx: &Idx<StopPoint>) -> Option<Self::Stop>;
+    fn stop_point_idx_to_stop(&self, stop_idx: &StopPointIdx) -> Option<Self::Stop>;
 
     fn nb_of_trips(&self) -> usize;
 
@@ -155,7 +156,7 @@ pub trait Data: TransitTypes {
 pub trait DataUpdate {
     fn remove_vehicle(
         &mut self,
-        vehicle_journey_id: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
 }

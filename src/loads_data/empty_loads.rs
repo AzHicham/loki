@@ -39,8 +39,6 @@ use std::{error::Error, fmt::Display, path::Path};
 use transit_model::{objects::VehicleJourney, Model};
 use typed_index_collection::Idx;
 
-type VehicleJourneyIdx = Idx<VehicleJourney>;
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
     Unknown,
@@ -59,6 +57,8 @@ impl Default for Load {
 }
 
 use std::cmp::Ordering;
+
+use crate::realtime::real_time_model::VehicleJourneyIdx;
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {

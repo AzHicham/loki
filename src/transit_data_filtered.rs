@@ -36,6 +36,7 @@
 
 use crate::{
     loads_data::Load,
+    realtime::real_time_model::{StopPointIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::iters::MissionsOfStop,
     TransitData,
@@ -63,7 +64,7 @@ impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'fi
         self.allowed_stop_points[stop_idx.get()]
     }
 
-    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &Idx<VehicleJourney>) -> bool {
+    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
         self.allowed_vehicle_journeys[vehicle_journey_idx.get()]
     }
 
@@ -211,7 +212,7 @@ where
                     waiting_time,
                     mission,
                     position,
-                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                    |vehicle_journey_idx: &VehicleJourneyIdx| {
                         self.is_vehicle_journey_allowed(vehicle_journey_idx)
                     },
                 )
@@ -235,7 +236,7 @@ where
                     waiting_time,
                     mission,
                     position,
-                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                    |vehicle_journey_idx: &VehicleJourneyIdx| {
                         self.is_vehicle_journey_allowed(vehicle_journey_idx)
                     },
                 )
@@ -254,11 +255,11 @@ where
             .to_naive_datetime(seconds)
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.transit_data.timetables.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop: &Stop) -> Idx<StopPoint> {
+    fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
         self.transit_data.stops_data[stop.idx].stop_point_idx
     }
 
@@ -278,7 +279,7 @@ where
         self.transit_data.timetables.calendar()
     }
 
-    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
+    fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.transit_data
             .stop_point_idx_to_stop
             .get(stop_point_idx)

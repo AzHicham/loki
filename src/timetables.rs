@@ -52,6 +52,7 @@ pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
 use crate::{
     loads_data::{Load, LoadsData},
+    realtime::real_time_model::VehicleJourneyIdx,
     time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
 };
 
@@ -84,7 +85,7 @@ pub trait Timetables: Types {
     fn nb_of_missions(&self) -> usize;
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
 
@@ -151,7 +152,7 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool;
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
     fn latest_trip_that_debark_at(
         &self,
@@ -168,7 +169,7 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool;
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
     fn insert<'date, Stops, Flows, Dates, Times>(
         &mut self,
@@ -179,7 +180,7 @@ pub trait Timetables: Types {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey: VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -190,7 +191,7 @@ pub trait Timetables: Types {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError>;
 }
 

@@ -46,6 +46,7 @@ pub use typed_index_collection::Idx;
 
 use crate::{
     loads_data::{Load, LoadsData},
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 
@@ -56,7 +57,7 @@ use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesI
 use crate::transit_model::Model;
 
 pub struct TransitData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx_to_stop: HashMap<Idx<StopPoint>, Stop>,
+    pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,
 
     pub(super) stops_data: Vec<StopData<Timetables>>,
     pub(super) timetables: Timetables,
@@ -65,7 +66,7 @@ pub struct TransitData<Timetables: TimetablesTrait> {
 }
 
 pub struct StopData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx: Idx<StopPoint>,
+    pub(super) stop_point_idx: StopPointIdx,
     pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
     pub(super) outgoing_transfers: Vec<(Stop, TransferDurations, Transfer)>,
     pub(super) incoming_transfers: Vec<(Stop, TransferDurations, Transfer)>,
@@ -81,7 +82,7 @@ pub struct TransferData {
     pub from_stop: Stop,
     pub to_stop: Stop,
     pub durations: TransferDurations,
-    pub transit_model_transfer_idx: Idx<TransitModelTransfer>,
+    pub transit_model_transfer_idx: TransferIdx,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
@@ -99,7 +100,7 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
         &self.stops_data[stop.idx]
     }
 
-    pub fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<&Stop> {
+    pub fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<&Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx)
     }
 }
@@ -192,7 +193,7 @@ where
         transfer_data.durations.total_duration
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transfers_data[transfer.idx];
         transfer_data.transit_model_transfer_idx
     }
@@ -224,11 +225,11 @@ where
         self.timetables.calendar().to_naive_datetime(seconds)
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop: &Stop) -> Idx<StopPoint> {
+    fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
         self.stops_data[stop.idx].stop_point_idx
     }
 
@@ -248,7 +249,7 @@ where
         self.timetables.calendar()
     }
 
-    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
+    fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx).copied()
     }
 
@@ -276,7 +277,7 @@ where
 impl<Timetables: TimetablesTrait> data_interface::DataUpdate for TransitData<Timetables> {
     fn remove_vehicle(
         &mut self,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
         self.timetables.remove(date, vehicle_journey_idx)

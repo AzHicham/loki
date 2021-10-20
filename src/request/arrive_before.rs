@@ -39,6 +39,7 @@ pub mod loads_comparator;
 
 use crate::{
     loads_data::LoadsCount,
+    realtime::real_time_model::RealTimeModel,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
 };
@@ -51,7 +52,7 @@ use transit_model::Model;
 
 pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
-    pub(super) model: &'model Model,
+    pub(super) model: &'model RealTimeModel,
     pub(super) arrival_datetime: SecondsSinceDatasetUTCStart,
     pub(super) entry_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) exit_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -67,7 +68,7 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        model: &'model transit_model::Model,
+        model: &'model RealTimeModel,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -199,7 +200,7 @@ where
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
-        super::generic_request::mission_name(mission, self.model, self.transit_data)
+        super::generic_request::mission_name(mission, self.transit_data)
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {

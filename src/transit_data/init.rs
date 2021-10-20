@@ -38,6 +38,7 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     timetables::generic_timetables::VehicleTimesError,
     transit_data::{Stop, TransitData},
 };
@@ -116,6 +117,9 @@ where
                         .map_or(PositiveDuration::zero(), |seconds| PositiveDuration {
                             seconds,
                         });
+                    let from_stop_point_idx = StopPointIdx::Base(from_stop_point_idx);
+                    let to_stop_point_idx = StopPointIdx::Base(to_stop_point_idx);
+                    let transfer_idx = TransferIdx::Base(transfer_idx);
                     self.insert_transfer(
                         from_stop_point_idx,
                         to_stop_point_idx,
@@ -134,9 +138,9 @@ where
 
     fn insert_transfer(
         &mut self,
-        from_stop_point_idx: Idx<StopPoint>,
-        to_stop_point_idx: Idx<StopPoint>,
-        transfer_idx: Idx<TransitModelTransfer>,
+        from_stop_point_idx: StopPointIdx,
+        to_stop_point_idx: StopPointIdx,
+        transfer_idx: TransferIdx,
         duration: PositiveDuration,
         walking_duration: PositiveDuration,
     ) {
@@ -205,6 +209,8 @@ where
         let board_times = board_timezoned_times(vehicle_journey)?;
         let debark_times = debark_timezoned_times(vehicle_journey)?;
 
+        let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+
         let (missions, insertion_errors) = self.timetables.insert(
             stops.into_iter(),
             flows.into_iter(),
@@ -256,7 +262,7 @@ where
         Ok(())
     }
 
-    fn add_new_stop_point(&mut self, stop_point_idx: Idx<StopPoint>) -> Stop {
+    fn add_new_stop_point(&mut self, stop_point_idx: StopPointIdx) -> Stop {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
 
         use super::StopData;
@@ -277,12 +283,12 @@ where
     fn create_stops(&mut self, vehicle_journey: &VehicleJourney) -> Vec<Stop> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for stop_time in vehicle_journey.stop_times.iter() {
-            let stop_point_idx = &stop_time.stop_point_idx;
+            let stop_point_idx = StopPointIdx::Base(stop_time.stop_point_idx);
             let stop = self
                 .stop_point_idx_to_stop
-                .get(stop_point_idx)
+                .get(&stop_point_idx)
                 .cloned()
-                .unwrap_or_else(|| self.add_new_stop_point(*stop_point_idx));
+                .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
             result.push(stop)
         }
         result

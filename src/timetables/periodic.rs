@@ -38,25 +38,23 @@ use std::collections::BTreeMap;
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Position, Timetable, Timetables, Vehicle, VehicleTimesError},
+    generic_timetables::{Position, Timetable, Timetables, Vehicle},
     iters::{PositionsIter, TimetableIter, VehicleIter},
     InsertionError, RemovalError, Stop, TimetablesIter,
 };
 
 use crate::{
     loads_data::LoadsData,
+    realtime::real_time_model::VehicleJourneyIdx,
     time::{
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
     timetables::{FlowDirection, Timetables as TimetablesTrait, Types as TimetablesTypes},
-    transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
-
-use crate::tracing::warn;
 
 use crate::loads_data::Load;
 
@@ -66,13 +64,13 @@ pub struct PeriodicTimetables {
     timetables: Timetables<Time, Load, TimeZone, VehicleData>,
     calendar: Calendar,
     days_patterns: DaysPatterns,
-    vehicle_journey_to_timetables: BTreeMap<Idx<VehicleJourney>, DayToTimetable>,
+    vehicle_journey_to_timetables: BTreeMap<VehicleJourneyIdx, DayToTimetable>,
 }
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     days_pattern: DaysPattern,
-    vehicle_journey_idx: Idx<VehicleJourney>,
+    vehicle_journey_idx: VehicleJourneyIdx,
 }
 
 #[derive(Debug, Clone)]
@@ -112,7 +110,7 @@ impl TimetablesTrait for PeriodicTimetables {
         mission.idx
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
@@ -236,7 +234,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
@@ -381,7 +379,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_debark_time =
             self.timetables.earliest_and_latest_debark_time(position);
@@ -458,7 +456,7 @@ impl TimetablesTrait for PeriodicTimetables {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -548,7 +546,7 @@ impl TimetablesTrait for PeriodicTimetables {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar

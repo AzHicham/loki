@@ -36,6 +36,7 @@
 
 use crate::{
     loads_data::{Load, LoadsData},
+    realtime::real_time_model::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
 };
 
@@ -65,13 +66,13 @@ pub struct PeriodicSplitVjByTzTimetables {
     days_patterns: DaysPatterns,
     timezones_patterns: TimezonesPatterns,
     vehicle_journey_to_timetables:
-        BTreeMap<Idx<VehicleJourney>, HashMap<FixedOffset, DayToTimetable>>,
+        BTreeMap<VehicleJourneyIdx, HashMap<FixedOffset, DayToTimetable>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     days_pattern: DaysPattern,
-    vehicle_journey_idx: Idx<VehicleJourney>,
+    vehicle_journey_idx: VehicleJourneyIdx,
     utc_offset: FixedOffset,
 }
 
@@ -113,7 +114,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         mission.idx
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
@@ -227,7 +228,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
@@ -303,7 +304,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_debark_time =
             self.timetables.earliest_and_latest_debark_time(position);
@@ -370,7 +371,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_idx: VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -477,7 +478,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), super::RemovalError> {
         let day = self
             .calendar

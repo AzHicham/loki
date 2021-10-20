@@ -36,17 +36,20 @@
 
 use crate::{
     loads_data::LoadsCount,
+    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use transit_model::Model;
+
+use crate::realtime::real_time_model::RealTimeModel as Model;
 
 use crate::transit_data::data_interface::Data as DataTrait;
 
 use std::fmt::Debug;
 
 use crate::request::generic_request::{MaximizeDepartureTimeError, MinimizeArrivalTimeError};
-use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney};
+
+use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer};
 pub use typed_index_collection::Idx;
 
 pub struct Response {
@@ -60,7 +63,7 @@ pub struct Response {
 pub struct VehicleSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub vehicle_journey: Idx<VehicleJourney>,
+    pub vehicle_journey: VehicleJourneyIdx,
     pub day_for_vehicle_journey: NaiveDate,
     // the index (in vehicle_journey.stop_times) of the stop_time we board at
     pub from_stoptime_idx: usize,
@@ -69,35 +72,35 @@ pub struct VehicleSection {
 }
 
 pub struct TransferSection {
-    pub transfer: Idx<TransitModelTransfer>,
+    pub transfer: TransferIdx,
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub from_stop_point: Idx<StopPoint>,
-    pub to_stop_point: Idx<StopPoint>,
+    pub from_stop_point: StopPointIdx,
+    pub to_stop_point: StopPointIdx,
 }
 
 pub struct WaitingSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub stop_point: Idx<StopPoint>,
+    pub stop_point: StopPointIdx,
 }
 
 pub struct DepartureSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub to_stop_point: Idx<StopPoint>,
+    pub to_stop_point: StopPointIdx,
 }
 
 pub struct ArrivalSection {
     pub from_datetime: NaiveDateTime,
     pub to_datetime: NaiveDateTime,
-    pub from_stop_point: Idx<StopPoint>,
+    pub from_stop_point: StopPointIdx,
 }
 
 impl Response {
-    pub fn first_vj_uri<'model>(&self, model: &'model Model) -> &'model str {
+    pub fn first_vj_uri<'model>(&self, model: &'model RealTimeModel) -> &'model str {
         let idx = self.first_vehicle.vehicle_journey;
-        &model.vehicle_journeys[idx].id
+        model.vehicle_journey_name(&idx)
     }
 }
 
@@ -406,7 +409,7 @@ where
     pub fn write<Writer: std::fmt::Write>(
         &self,
         data: &Data,
-        model: &Model,
+        model: &RealTimeModel,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;
@@ -447,14 +450,13 @@ where
         &self,
         vehicle_leg: &VehicleLeg<Data>,
         data: &Data,
-        model: &Model,
+        model: &RealTimeModel,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let trip = &vehicle_leg.trip;
         let vehicle_journey_idx = data.vehicle_journey_idx(trip);
-        let route_id = &model.vehicle_journeys[vehicle_journey_idx].route_id;
-        let route = &model.routes.get(route_id).unwrap();
-        let line = &model.lines.get(&route.line_id).unwrap();
+        let route_id = model.route_name(&vehicle_journey_idx);
+        let line_id = model.line_name(&vehicle_journey_idx);
 
         let mission = data.mission_of(trip);
 
@@ -462,8 +464,8 @@ where
         let to_stop = data.stop_of(&vehicle_leg.debark_position, &mission);
         let from_stop_idx = data.stop_point_idx(&from_stop);
         let to_stop_idx = data.stop_point_idx(&to_stop);
-        let from_stop_id = &model.stop_points[from_stop_idx].id;
-        let to_stop_id = &model.stop_points[to_stop_idx].id;
+        let from_stop_id = model.stop_point_name(&from_stop_idx);
+        let to_stop_id = model.stop_point_name(&to_stop_idx);
 
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
@@ -481,7 +483,7 @@ where
         writeln!(
             writer,
             "{} from {} at {} to {} at {} ",
-            line.id, from_stop_id, from_datetime, to_stop_id, to_datetime
+            line_id, from_stop_id, from_datetime, to_stop_id, to_datetime
         )?;
         Ok(())
     }
@@ -654,26 +656,42 @@ impl VehicleSection {
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = self.vehicle_journey;
-        let route_id = &model.vehicle_journeys[vehicle_journey_idx].route_id;
-        let route = &model.routes.get(route_id).unwrap();
-        let line = &model.lines.get(&route.line_id).unwrap();
+        let route_id = model.route_name(&vehicle_journey_idx);
+        let line_id = model.line_name(&vehicle_journey_idx);
 
-        let from_stoptime =
-            &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
-        let to_stoptime =
-            &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
+        // let from_stoptime =
+        //     &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
+        // let to_stoptime =
+        //     &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
 
-        let from_stop_idx = &from_stoptime.stop_point_idx;
-        let to_stop_idx = &to_stoptime.stop_point_idx;
-        let from_stop_id = &model.stop_points[*from_stop_idx].id;
-        let to_stop_id = &model.stop_points[*to_stop_idx].id;
+        // let from_stop_idx = &from_stoptime.stop_point_idx;
+        // let to_stop_idx = &to_stoptime.stop_point_idx;
+        // let from_stop_id = &model.stop_points[*from_stop_idx].id;
+        // let to_stop_id = &model.stop_points[*to_stop_idx].id;
+
+        let from_stop_id = model
+            .stop_point_at(
+                &vehicle_journey_idx,
+                self.from_stoptime_idx,
+                &self.day_for_vehicle_journey,
+            )
+            .map(|stop_idx| model.stop_point_name(&stop_idx))
+            .unwrap_or("unknown_stop");
+        let to_stop_id = model
+            .stop_point_at(
+                &vehicle_journey_idx,
+                self.to_stoptime_idx,
+                &self.day_for_vehicle_journey,
+            )
+            .map(|stop_idx| model.stop_point_name(&stop_idx))
+            .unwrap_or("unknown_stop");
 
         let from_datetime = write_date(&self.from_datetime);
         let to_datetime = write_date(&self.to_datetime);
         writeln!(
             writer,
             "{} from {} at {} to {} at {} ",
-            line.id, from_stop_id, from_datetime, to_stop_id, to_datetime
+            line_id, from_stop_id, from_datetime, to_stop_id, to_datetime
         )?;
         Ok(())
     }
