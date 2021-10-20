@@ -36,7 +36,7 @@
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Position, Timetable, Timetables, Vehicle, VehicleTimesError},
+    generic_timetables::{Position, Timetable, Timetables, Vehicle},
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, RemovalError, Stop, TimetablesIter,
 };
@@ -46,8 +46,7 @@ use crate::{
         days_patterns::DaysPatterns, Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
-    timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
-    tracing::{trace, warn},
+    timetables::{InsertionError, Timetables as TimetablesTrait, Types as TimetablesTypes},
     transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
@@ -243,15 +242,16 @@ impl TimetablesTrait for DailyTimetables {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
+    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
         Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let mut result = Vec::new();
+        let mut missions = Vec::new();
+        let mut insertion_errors = Vec::new();
+
         let nb_of_positions = stops.len();
         let default_loads = if nb_of_positions > 0 {
             vec![Load::default(); nb_of_positions - 1]
@@ -267,23 +267,14 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    trace!(
-                        "Skipping vehicle journey {} on day {} because  \
-                        this day is not allowed by the calendar. \
-                        Allowed days are between {} and {}",
-                        vehicle_journey.id,
-                        date,
-                        self.calendar.first_date(),
-                        self.calendar.last_date(),
-                    );
+                    let error = InsertionError::DateOutOfCalendar(date.clone());
+                    insertion_errors.push(error);
                     continue;
                 }
                 Some(day) => {
                     if vj_timetables.contains_day(&day, &self.days_patterns) {
-                        warn!("Trying to add vehicle journey {} multiple time for day {}. Insertion skipped.",
-                            vehicle_journey.id,
-                            self.calendar.to_naive_date(&day)
-                        );
+                        let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date.clone());
+                        insertion_errors.push(error);
                         continue;
                     }
 
@@ -313,8 +304,8 @@ impl TimetablesTrait for DailyTimetables {
                     );
                     match insert_result {
                         Ok(mission) => {
-                            if !result.contains(&mission) {
-                                result.push(mission.clone());
+                            if !missions.contains(&mission) {
+                                missions.push(mission.clone());
                             }
                             let days_pattern = self.days_patterns.get_for_day(&day);
                             vj_timetables
@@ -325,14 +316,16 @@ impl TimetablesTrait for DailyTimetables {
                                 )
                                 .unwrap(); // unwrap should be safe here, because we check above that vj_timetables has no intersection with days_pattern
                         }
-                        Err(error) => {
-                            handle_vehicletimes_error(vehicle_journey, date, &error);
+                        Err(times_error) => {
+                            let dates = vec![date.clone()];
+                            let error = InsertionError::Times(times_error, dates);
+                            insertion_errors.push(error);
                         }
                     }
                 }
             }
         }
-        result
+        (missions, insertion_errors)
     }
 
     fn remove(
@@ -395,47 +388,5 @@ impl<'a> TimetablesIter<'a> for DailyTimetables {
 
     fn missions(&'a self) -> Self::Missions {
         self.timetables.timetables()
-    }
-}
-
-fn handle_vehicletimes_error(
-    vehicle_journey: &VehicleJourney,
-    date: &NaiveDate,
-    error: &VehicleTimesError,
-) {
-    match error {
-        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    debark time at : \n {:?} \n\
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    board time at : \n {:?} \n \
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {} on day {} because its \
-                    debark time at : \n {:?} \n \
-                    is earlier than its \
-                    debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, date, downstream_stop_time, upstream_stop_time
-            );
-        }
     }
 }

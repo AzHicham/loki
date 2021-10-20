@@ -1164,12 +1164,12 @@ where
     Ok(())
 }
 
-pub(super) struct PositionPair {
+pub struct PositionPair {
     pub upstream: usize,
     pub downstream: usize,
 }
 
-pub(super) enum VehicleTimesError {
+pub enum VehicleTimesError {
     DebarkBeforeUpstreamBoard(PositionPair), // board_time[upstream] > debark_time[downstream]
     DecreasingBoardTime(PositionPair),       // board_time[upstream] > board_time[downstream]
     DecreasingDebarkTime(PositionPair),      // debark_time[upstream] > debark_time[downstream]

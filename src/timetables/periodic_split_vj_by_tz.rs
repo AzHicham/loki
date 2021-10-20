@@ -42,7 +42,7 @@ use crate::{
 use super::{
     day_to_timetable::DayToTimetable,
     generic_timetables::{Timetables, Vehicle},
-    RemovalError, TimetablesIter,
+    InsertionError, RemovalError, TimetablesIter,
 };
 
 use crate::{
@@ -58,7 +58,6 @@ use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
 };
 
-use crate::tracing::warn;
 #[derive(Debug)]
 pub struct PeriodicSplitVjByTzTimetables {
     timetables: Timetables<SecondsSinceUTCDayStart, Load, (), VehicleData>,
@@ -372,8 +371,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
+    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -394,7 +392,8 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 .push(*date);
         }
 
-        let mut result = Vec::new();
+        let mut missions = Vec::new();
+        let mut insertion_errors = Vec::new();
 
         for (loads, dates) in load_patterns_dates.into_iter() {
             let days_pattern = self
@@ -420,13 +419,11 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 if let Some(day) =
                     vj_timetables.has_intersection_with(&offset_days_pattern, &self.days_patterns)
                 {
-                    warn!(
-                        "Trying to add vehicle journey {} with offset {} multiple time for day {}.
-                        Insertion skipped for all days with this offset.",
-                        vehicle_journey.id,
-                        offset,
-                        self.calendar.to_naive_date(&day)
-                    );
+                    let date = self.calendar.to_naive_date(&day);
+                    let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date);
+                    insertion_errors.push(error);
+                    // the vehicle already exists on this day
+                    // so let's skip the insertion and keep the old value
                     // TODO : ? remove from days_pattern the days in the intersection and carry on with
                     //          the insertion instead of returning early ?
                     continue;
@@ -453,8 +450,8 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 );
                 match insert_error {
                     Ok(mission) => {
-                        if !result.contains(&mission) {
-                            result.push(mission.clone());
+                        if !missions.contains(&mission) {
+                            missions.push(mission.clone());
                         };
                         vj_timetables
                             .insert_days_pattern(
@@ -464,13 +461,17 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                             )
                             .unwrap(); // unwrap should be safe here, because we check above that vj_timetables has no intersection with offset_days_pattern
                     }
-                    Err(error) => {
-                        handle_vehicletimes_error(vehicle_journey, &error);
+                    Err(times_error) => {
+                        let dates = self
+                            .days_patterns
+                            .make_dates(&offset_days_pattern, &self.calendar);
+                        let error = InsertionError::Times(times_error, dates);
+                        insertion_errors.push(error);
                     }
                 }
             }
         }
-        result
+        (missions, insertion_errors)
     }
 
     fn remove(
@@ -534,48 +535,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
     }
 }
 
-use super::generic_timetables::VehicleTimesError;
 use crate::timetables::generic_timetables::{Position, Timetable};
 use core::cmp;
 use std::collections::{BTreeMap, HashMap};
-
-fn handle_vehicletimes_error(vehicle_journey: &VehicleJourney, error: &VehicleTimesError) {
-    match error {
-        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {}  because its \
-                    debark time at : \n {:?} \n\
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {} because its \
-                    board time at : \n {:?} \n \
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {}  because its \
-                    debark time at : \n {:?} \n \
-                    is earlier than its \
-                    debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
-        }
-    }
-}
 
 impl<'a> TimetablesIter<'a> for PeriodicSplitVjByTzTimetables {
     type Positions = super::iters::PositionsIter;

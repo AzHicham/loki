@@ -119,6 +119,17 @@ impl DaysPatterns {
         self.get_or_insert_from_buffer()
     }
 
+    pub fn make_dates(&self, days_pattern: &DaysPattern, calendar: &Calendar) -> Vec<NaiveDate> {
+        let mut result = Vec::new();
+        for day in calendar.days() {
+            if self.is_allowed(days_pattern, &day) {
+                let date = calendar.to_naive_date(&day);
+                result.push(date)
+            }
+        }
+        result
+    }
+
     pub fn get_for_day(&mut self, day: &DaysSinceDatasetStart) -> DaysPattern {
         // set all elements of the buffer to false
         self.buffer.fill(false);

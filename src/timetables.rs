@@ -58,6 +58,8 @@ use crate::{
 use chrono::NaiveDate;
 use std::fmt::Debug;
 
+use self::generic_timetables::VehicleTimesError;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum FlowDirection {
     BoardOnly,
@@ -178,8 +180,7 @@ pub trait Timetables: Types {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
+    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -191,6 +192,12 @@ pub trait Timetables: Types {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &Idx<VehicleJourney>,
     ) -> Result<(), RemovalError>;
+}
+
+pub enum InsertionError {
+    Times(VehicleTimesError, Vec<NaiveDate>),
+    VehicleJourneyAlreadyExistsOnDate(NaiveDate),
+    DateOutOfCalendar(NaiveDate),
 }
 
 #[derive(Clone, Debug)]

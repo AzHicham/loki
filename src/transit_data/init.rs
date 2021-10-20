@@ -38,6 +38,7 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
+    timetables::generic_timetables::VehicleTimesError,
     transit_data::{Stop, TransitData},
 };
 
@@ -45,13 +46,14 @@ use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
+use chrono::NaiveDate;
 use transit_model::{
     model::Model,
     objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
 };
 use typed_index_collection::Idx;
 
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use super::{Transfer, TransferData, TransferDurations};
 
@@ -203,7 +205,7 @@ where
         let board_times = board_timezoned_times(vehicle_journey)?;
         let debark_times = debark_timezoned_times(vehicle_journey)?;
 
-        let missions = self.timetables.insert(
+        let (missions, insertion_errors) = self.timetables.insert(
             stops.into_iter(),
             flows.into_iter(),
             board_times.into_iter(),
@@ -212,7 +214,6 @@ where
             model_calendar.dates.iter(),
             &timezone,
             vehicle_journey_idx,
-            vehicle_journey,
         );
 
         for mission in missions.iter() {
@@ -222,6 +223,33 @@ where
                 stop_data
                     .position_in_timetables
                     .push((mission.clone(), position));
+            }
+        }
+
+        for error in insertion_errors {
+            use crate::timetables::InsertionError::*;
+            match error {
+                Times(error, dates) => {
+                    handle_vehicletimes_error(vehicle_journey, &dates, &error);
+                }
+                VehicleJourneyAlreadyExistsOnDate(date) => {
+                    error!(
+                        "Trying to insert the vehicle journey {} more than once on day {}",
+                        vehicle_journey.id, date
+                    );
+                }
+                DateOutOfCalendar(date) => {
+                    use crate::transit_data::data_interface::Data;
+                    error!(
+                        "Trying to insert the vehicle journey {} on day {},  \
+                            but this day is not allowed in the calendar.  \
+                            Allowed dates are between {} and {}",
+                        vehicle_journey.id,
+                        date,
+                        self.calendar().first_date(),
+                        self.calendar().last_date(),
+                    );
+                }
             }
         }
 
@@ -392,4 +420,51 @@ fn debark_timezoned_times(
     }
 
     Ok(result)
+}
+
+fn handle_vehicletimes_error(
+    vehicle_journey: &VehicleJourney,
+    dates: &[NaiveDate],
+    error: &VehicleTimesError,
+) {
+    let days_strings: Vec<String> = dates
+        .iter()
+        .map(|date| date.format("%H:%M:%S %d-%b-%y").to_string())
+        .collect();
+
+    match error {
+        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
+            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    debark time at : \n {:?} \n\
+                    is earlier than its \
+                    board time upstream at : \n {:?} \n. ",
+                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
+            );
+        }
+        VehicleTimesError::DecreasingBoardTime(position_pair) => {
+            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    board time at : \n {:?} \n \
+                    is earlier than its \
+                    board time upstream at : \n {:?} \n. ",
+                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
+            );
+        }
+        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
+            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
+            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    debark time at : \n {:?} \n \
+                    is earlier than its \
+                    debark time upstream at : \n {:?} \n. ",
+                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
+            );
+        }
+    }
 }
