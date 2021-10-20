@@ -44,7 +44,6 @@ pub mod time;
 pub mod timetables;
 mod transit_data;
 pub mod transit_data_filtered;
-mod transit_data_realtime;
 
 pub use chrono::{self, NaiveDateTime};
 pub use chrono_tz;

@@ -33,3 +33,30 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
+
+use chrono::NaiveDate;
+
+use crate::{time::SecondsSinceUTCDayStart, timetables::FlowDirection};
+
+pub struct Disruption {
+    pub id: String,
+    pub updates: Vec<Update>,
+}
+
+pub enum Update {
+    Delete(Trip),
+    Add(Trip, Vec<StopTime>),
+    Modify(Trip, Vec<StopTime>),
+}
+
+pub struct Trip {
+    pub vehicle_journey_id: String,
+    pub reference_date: NaiveDate,
+}
+
+pub struct StopTime {
+    pub stop_id: String,
+    pub arrival_time: SecondsSinceUTCDayStart,
+    pub departure_time: SecondsSinceUTCDayStart,
+    pub flow_direction: FlowDirection,
+}

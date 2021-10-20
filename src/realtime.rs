@@ -34,5 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod rt_model;
-pub mod rt_type;
+// pub mod rt_model;
+// pub mod rt_type;
+
+pub mod disruption;
+pub mod real_time_model;
