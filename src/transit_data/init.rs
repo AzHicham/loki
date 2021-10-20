@@ -267,7 +267,7 @@ where
 
         use super::StopData;
         let stop_data = StopData::<Timetables> {
-            stop_point_idx,
+            stop_point_idx: stop_point_idx.clone(),
             position_in_timetables: Vec::new(),
             incoming_transfers: Vec::new(),
             outgoing_transfers: Vec::new(),

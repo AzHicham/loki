@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::Load,
-    realtime::real_time_model::{StopPointIdx, VehicleJourneyIdx},
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::iters::MissionsOfStop,
     TransitData,
@@ -54,29 +54,41 @@ use std::fmt::Debug;
 
 pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
     transit_data: &'data TransitData<Timetables>,
-    allowed_stop_points: &'filter [bool],
-    allowed_vehicle_journeys: &'filter [bool],
+    allowed_base_stop_points: &'filter [bool],
+    allowed_new_stop_points: &'filter [bool],
+    allowed_base_vehicle_journeys: &'filter [bool],
+    allowed_new_vehicle_journeys: &'filter [bool],
 }
 
 impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
     pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
         let stop_idx = self.stop_point_idx(stop);
-        self.allowed_stop_points[stop_idx.get()]
+        match stop_idx {
+            StopPointIdx::Base(idx) => self.allowed_base_stop_points[idx.get()],
+            StopPointIdx::New(idx) => self.allowed_new_stop_points[idx.idx],
+        }
     }
 
     pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
-        self.allowed_vehicle_journeys[vehicle_journey_idx.get()]
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => self.allowed_base_vehicle_journeys[idx.get()],
+            VehicleJourneyIdx::New(idx) => self.allowed_new_vehicle_journeys[idx.idx],
+        }
     }
 
     pub fn new(
         data: &'data TransitData<Timetables>,
-        allowed_stop_points: &'filter [bool],
-        allowed_vehicle_journeys: &'filter [bool],
+        allowed_base_stop_points: &'filter [bool],
+        allowed_new_stop_points: &'filter [bool],
+        allowed_base_vehicle_journeys: &'filter [bool],
+        allowed_new_vehicle_journeys: &'filter [bool],
     ) -> Self {
         Self {
             transit_data: data,
-            allowed_stop_points,
-            allowed_vehicle_journeys,
+            allowed_base_stop_points,
+            allowed_new_stop_points,
+            allowed_base_vehicle_journeys,
+            allowed_new_vehicle_journeys,
         }
     }
 }
@@ -192,9 +204,9 @@ where
         transfer_data.durations.total_duration
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transit_data.transfers_data[transfer.idx];
-        transfer_data.transit_model_transfer_idx
+        transfer_data.transit_model_transfer_idx.clone()
     }
 
     fn earliest_trip_to_board_at(
@@ -260,7 +272,9 @@ where
     }
 
     fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
-        self.transit_data.stops_data[stop.idx].stop_point_idx
+        self.transit_data.stops_data[stop.idx]
+            .stop_point_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {

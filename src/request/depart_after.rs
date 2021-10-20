@@ -47,7 +47,8 @@ use crate::{
     engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
     transit_data::data_interface::Data as DataTrait,
 };
-use transit_model::Model;
+
+use crate::realtime::real_time_model::RealTimeModel as Model;
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
 
@@ -78,7 +79,7 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        model: &'model transit_model::Model,
+        model: &'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -181,7 +182,7 @@ where
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
-        super::generic_request::mission_name(mission, self.model, self.transit_data)
+        super::generic_request::mission_name(mission, self.transit_data)
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {

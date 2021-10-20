@@ -99,7 +99,7 @@ pub struct ArrivalSection {
 
 impl Response {
     pub fn first_vj_uri<'model>(&self, model: &'model RealTimeModel) -> &'model str {
-        let idx = self.first_vehicle.vehicle_journey;
+        let idx = &self.first_vehicle.vehicle_journey;
         model.vehicle_journey_name(&idx)
     }
 }
@@ -637,7 +637,7 @@ impl<'journey, 'data, Data: DataTrait> Iterator for ConnectionIter<'journey, 'da
         let waiting_section = WaitingSection {
             from_datetime: transfer_section.to_datetime,
             to_datetime: vehicle_section.from_datetime,
-            stop_point: transfer_section.to_stop_point,
+            stop_point: transfer_section.to_stop_point.clone(),
         };
         self.connection_idx += 1;
         Some((transfer_section, waiting_section, vehicle_section))
@@ -655,7 +655,7 @@ impl VehicleSection {
         model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
-        let vehicle_journey_idx = self.vehicle_journey;
+        let vehicle_journey_idx = &self.vehicle_journey;
         let route_id = model.route_name(&vehicle_journey_idx);
         let line_id = model.line_name(&vehicle_journey_idx);
 

@@ -114,6 +114,7 @@ impl TimetablesTrait for PeriodicTimetables {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
@@ -487,7 +488,7 @@ impl TimetablesTrait for PeriodicTimetables {
 
         let vj_timetables = self
             .vehicle_journey_to_timetables
-            .entry(vehicle_journey_idx)
+            .entry(vehicle_journey_idx.clone())
             .or_insert_with(DayToTimetable::new);
 
         for (loads, dates) in load_patterns_dates.into_iter() {
@@ -511,7 +512,7 @@ impl TimetablesTrait for PeriodicTimetables {
             }
             let vehicle_data = VehicleData {
                 days_pattern,
-                vehicle_journey_idx,
+                vehicle_journey_idx: vehicle_journey_idx.clone(),
             };
             let insert_result = self.timetables.insert(
                 stops.clone(),

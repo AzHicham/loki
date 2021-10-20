@@ -118,6 +118,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
@@ -385,7 +386,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         let default_loads = vec![Load::default(); cmp::max(nb_of_positions - 1, 0)];
         for date in valid_dates {
             let loads = loads_data
-                .loads(&vehicle_journey_idx, date)
+                .loads(&vehicle_journey_idx.clone(), date)
                 .unwrap_or_else(|| default_loads.as_slice());
             load_patterns_dates
                 .entry(loads)
@@ -412,7 +413,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
                 let vj_timetables = self
                     .vehicle_journey_to_timetables
-                    .entry(vehicle_journey_idx)
+                    .entry(vehicle_journey_idx.clone())
                     .or_insert_with(HashMap::new)
                     .entry(*offset)
                     .or_insert_with(DayToTimetable::new);
@@ -432,7 +433,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
 
                 let vehicle_data = VehicleData {
                     days_pattern: offset_days_pattern,
-                    vehicle_journey_idx,
+                    vehicle_journey_idx: vehicle_journey_idx.clone(),
                     utc_offset: *offset,
                 };
 

@@ -42,6 +42,8 @@ use crate::{
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 
+use crate::realtime::real_time_model::RealTimeModel as Model;
+
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericDepartAfterRequest};
 pub struct Request<'data, 'model, Data: DataTrait> {
     generic: GenericDepartAfterRequest<'data, 'model, Data>,
@@ -224,7 +226,7 @@ where
     Data: DataTrait,
 {
     fn new(
-        model: &'model transit_model::Model,
+        model: &'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>

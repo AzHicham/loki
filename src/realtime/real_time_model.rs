@@ -61,7 +61,7 @@ pub struct RealTimeModel {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct NewVehicleJourney {
-    idx: usize, // position in new_vehicle_journeys_history
+    pub idx: usize, // position in new_vehicle_journeys_history
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -97,7 +97,7 @@ pub struct StopTime {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct NewStop {
-    idx: usize, // position in new_stops
+    pub idx: usize, // position in new_stops
 }
 
 pub type TransitModelStopIdx = Idx<StopPoint>;
@@ -208,7 +208,7 @@ impl RealTimeModel {
                         TripData::Deleted() => None,
                         TripData::Present(stop_times) => stop_times
                             .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop),
+                            .map(|stop_time| stop_time.stop.clone()),
                     }
                 } else {
                     self.base_model.vehicle_journeys[*idx]
@@ -224,7 +224,7 @@ impl RealTimeModel {
                         TripData::Deleted() => None,
                         TripData::Present(stop_times) => stop_times
                             .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop),
+                            .map(|stop_time| stop_time.stop.clone()),
                     }
                 } else {
                     None

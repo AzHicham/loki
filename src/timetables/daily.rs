@@ -100,7 +100,10 @@ impl TimetablesTrait for DailyTimetables {
     }
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
-        self.timetables.vehicle_data(trip).vehicle_journey_idx
+        self.timetables
+            .vehicle_data(trip)
+            .vehicle_journey_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
@@ -260,7 +263,7 @@ impl TimetablesTrait for DailyTimetables {
         };
         let vj_timetables = self
             .vehicle_journey_to_timetables
-            .entry(vehicle_journey_idx)
+            .entry(vehicle_journey_idx.clone())
             .or_insert_with(DayToTimetable::new);
 
         for date in valid_dates {
@@ -286,7 +289,7 @@ impl TimetablesTrait for DailyTimetables {
                         .clone()
                         .map(|time| calendar.compose(&day, &time, timezone));
                     let vehicle_data = VehicleData {
-                        vehicle_journey_idx,
+                        vehicle_journey_idx: vehicle_journey_idx.clone(),
                         day,
                     };
                     let loads = loads_data

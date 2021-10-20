@@ -195,7 +195,7 @@ where
 
     fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transfers_data[transfer.idx];
-        transfer_data.transit_model_transfer_idx
+        transfer_data.transit_model_transfer_idx.clone()
     }
 
     fn earliest_trip_to_board_at(
@@ -230,7 +230,7 @@ where
     }
 
     fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
-        self.stops_data[stop.idx].stop_point_idx
+        self.stops_data[stop.idx].stop_point_idx.clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
