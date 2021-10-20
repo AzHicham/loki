@@ -38,7 +38,7 @@ use failure::{format_err, Error};
 use launch::{
     config,
     loki::{
-        tracing::{info, log::error},
+        tracing::{error, info, warn},
         transit_model::Model,
         TransitData,
     },
@@ -59,7 +59,13 @@ use crate::{
 pub enum WorkerState {
     Available,
     Busy,
-    Error,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum LoadBalancerState {
+    Online,   // accepting requests
+    Stopping, // not accepting new requests, but there is still some requests being processed by workers
+    Stopped,  // not accepting new requests, and all workers are idle
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -73,8 +79,8 @@ pub struct LoadBalancer {
     worker_states: Vec<WorkerState>,
 
     load_balancer_order_receiver: mpsc::Receiver<LoadBalancerOrder>,
-    load_balancer_is_stopped_sender: mpsc::Sender<()>,
-    master_worker_order: LoadBalancerOrder,
+    load_balancer_state_sender: mpsc::Sender<LoadBalancerState>,
+    state: LoadBalancerState,
 
     zmq_worker_handle: ZmqWorkerChannels,
 }
@@ -112,12 +118,12 @@ impl LoadBalancer {
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
         let (load_balancer_order_sender, load_balancer_order_receiver) = mpsc::channel(1);
-        let (load_balancer_is_stopped_sender, load_balancer_is_stopped_receiver) = mpsc::channel(1);
+        let (load_balancer_state_sender, load_balancer_state_receiver) = mpsc::channel(1);
 
         // Master worker
         let load_balancer_handle = LoadBalancerChannels {
             load_balancer_order_sender,
-            load_balancer_is_stopped_receiver,
+            load_balancer_state_receiver,
         };
 
         let result = Self {
@@ -125,8 +131,8 @@ impl LoadBalancer {
             workers_response_receiver,
             worker_states,
             load_balancer_order_receiver,
-            load_balancer_is_stopped_sender,
-            master_worker_order: LoadBalancerOrder::Start,
+            load_balancer_state_sender,
+            state: LoadBalancerState::Online,
             zmq_worker_handle,
         };
         Ok((result, load_balancer_handle))
@@ -161,20 +167,6 @@ impl LoadBalancer {
                         }
                     });
 
-            let all_workers_available = self
-                .worker_states
-                .iter()
-                .all(|state| *state == WorkerState::Available);
-            // if we receive from master and order to stop and all workers are available
-            // we inform master that we stopped successfully
-            if all_workers_available && self.master_worker_order == LoadBalancerOrder::Stop {
-                info!("all_workers_available");
-                let res = self.load_balancer_is_stopped_sender.send(()).await;
-                if let Err(err) = res {
-                    error!("Channel to send LoadBalancer state to Master has closed : {}. I'll stop using this worker.", err);
-                }
-            }
-
             info!("LoadBalancer worker is waiting {:?}", has_available_worker);
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
@@ -187,7 +179,7 @@ impl LoadBalancer {
                 has_response = self.workers_response_receiver.recv() => {
                     if let Some((worker_id, response)) = has_response {
                         info!("LoadBalancer received response from worker {:?}", worker_id);
-                        let forward_response_result = self.forward_worker_response(worker_id, response);
+                        let forward_response_result = self.forward_worker_response(worker_id, response).await;
                         if let Err(err) = forward_response_result {
                             error!("Could not sent response to zmq worker : {}. I'll stop.", err);
                             break;
@@ -200,7 +192,15 @@ impl LoadBalancer {
                 }
                 has_order = self.load_balancer_order_receiver.recv() => {
                     if let Some(order) = has_order {
-                        self.master_worker_order = order;
+                        if order == LoadBalancerOrder::Start && self.state != LoadBalancerState::Online {
+                            self.state = LoadBalancerState::Online;
+                        }
+                        else if order == LoadBalancerOrder::Stop && self.state == LoadBalancerState::Online {
+                            self.state = LoadBalancerState::Stopping;
+                        }
+                        else{
+                            warn!("We received an order to {:?}, but we already are in this state : {:?}", order, self.state);
+                        }
                     }
                     else {
                         error!("Channel to receive Master Worker' order has closed. I'll stop.");
@@ -209,7 +209,7 @@ impl LoadBalancer {
                 }
                 //receive requests from the zmq socket, and dispatch them to an available worker
                 has_request = self.zmq_worker_handle.requests_receiver.recv(),
-                if has_available_worker.is_some() && self.master_worker_order == LoadBalancerOrder::Start => {
+                if has_available_worker.is_some() && self.state == LoadBalancerState::Online => {
                     if let Some(request) = has_request {
 
                         // unwrap is safe here, because we enter this block only if has_available_worker.is_some()
@@ -219,10 +219,8 @@ impl LoadBalancer {
                         let forward_request_result = sender.send(request).await;
                         if let Err(err) = forward_request_result {
                             error!("Channel to forward request to worker {} has closed. I'll stop using this worker.", err);
-                            self.worker_states[worker_id] = WorkerState::Error;
-                            // TODO : here the request is lost and won't be answered.
-                            // should we do something about it ?
-                            // like try to find another available worker ?
+                            // Stop properly the loop and then loki
+                            break;
                         }
                         else {
                             self.worker_states[worker_id] = WorkerState::Busy;
@@ -237,7 +235,7 @@ impl LoadBalancer {
         }
     }
 
-    fn forward_worker_response(
+    async fn forward_worker_response(
         &mut self,
         worker_id: WorkerId,
         response: ResponseMessage,
@@ -255,12 +253,35 @@ impl LoadBalancer {
         // let's mark the worker as available
         let worker_state = &mut self.worker_states[worker_id.id];
         match worker_state {
-            WorkerState::Available | WorkerState::Error => {
-                error!("I received a response from worker {}, but it is marked as {:?}. I'll stop using this worker.", worker_id.id, worker_state );
-                *worker_state = WorkerState::Error;
+            WorkerState::Available => {
+                let error = format_err!(
+                    "I received a response from worker {}, but it is marked as {:?}. I'll stop using this worker.", worker_id.id, worker_state
+                );
+                return Err(error);
             }
             WorkerState::Busy => {
                 *worker_state = WorkerState::Available;
+            }
+        }
+
+        // if state is Stopping and all workers are available
+        // change state to Stopped and
+        // we inform master that we (LoadBalancer) stopped successfully
+        let all_workers_available = self
+            .worker_states
+            .iter()
+            .all(|state| *state == WorkerState::Available);
+        if all_workers_available && self.state == LoadBalancerState::Stopping {
+            self.state = LoadBalancerState::Stopped;
+            let res = self
+                .load_balancer_state_sender
+                .send(LoadBalancerState::Stopped)
+                .await;
+            if let Err(err) = res {
+                error!(
+                    "Channel to send LoadBalancer state to Master has closed : {}",
+                    err
+                );
             }
         }
         Ok(())

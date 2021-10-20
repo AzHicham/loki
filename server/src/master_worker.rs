@@ -49,7 +49,7 @@ use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
-    load_balancer::LoadBalancer,
+    load_balancer::{LoadBalancer, LoadBalancerState},
     rabbitmq_worker::{listen_amqp_in_a_thread, BrokerConfig},
 };
 
@@ -63,7 +63,7 @@ pub type MyTimetable = PeriodicSplitVjByTzTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
-    pub load_balancer_is_stopped_receiver: mpsc::Receiver<()>,
+    pub load_balancer_state_receiver: mpsc::Receiver<LoadBalancerState>,
 }
 
 pub struct MasterWorker {
@@ -130,11 +130,11 @@ impl MasterWorker {
                 }
                 // We receive load balancer status, if load balancer is stopped
                 // we apply realtime disruption on data
-                has_load_balancer_is_stopped = self
+                has_load_balancer_state = self
                                             .load_balancer_handle
-                                            .load_balancer_is_stopped_receiver
+                                            .load_balancer_state_receiver
                                             .recv() => {
-                    if let Some(_) = has_load_balancer_is_stopped {
+                    if let Some(_) = has_load_balancer_state {
                         info!("Master received LoadBalancer is stoped");
                         // apply_realtime
                     } else {

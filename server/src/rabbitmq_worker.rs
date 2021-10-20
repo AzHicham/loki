@@ -61,7 +61,7 @@ pub fn default_rt_topics() -> Vec<String> {
     Vec::new()
 }
 pub fn default_queue_auto_delete() -> bool {
-    true
+    false
 }
 pub fn default_timeout() -> u64 {
     5000
@@ -121,15 +121,15 @@ async fn init_and_listen_amqp(
         match amqp_worker {
             Ok(mut worker) => {
                 let res = worker.listen().await;
-                // if let Err(err) = res {
-                //     error!("RabbitmqWorker: An error occurred: {}", err);
-                // }
+                if let Err(err) = res {
+                    error!("RabbitmqWorker: An error occurred: {}", err);
+                }
             }
             Err(err) => {
                 error!("Connection to rabbitmq failed: {}", err);
             }
         };
-        // If connection fails retry after x seconds
+        // If connection fails or an error occurs then retry connecting after x seconds
         retry_interval.tick().await;
     }
 }
