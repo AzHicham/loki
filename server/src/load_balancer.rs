@@ -38,7 +38,7 @@ use failure::{format_err, Error};
 use launch::{
     config,
     loki::{
-        tracing::{error, info, warn},
+        tracing::{debug, error, info, warn},
         transit_model::Model,
         TransitData,
     },
@@ -167,6 +167,28 @@ impl LoadBalancer {
                         }
                     });
 
+            // if state is Stopping and all workers are available
+            // change state to Stopped and
+            // we inform master that we (LoadBalancer) stopped successfully
+            let all_workers_available = self
+                .worker_states
+                .iter()
+                .all(|state| *state == WorkerState::Available);
+            if all_workers_available && self.state == LoadBalancerState::Stopping {
+                self.state = LoadBalancerState::Stopped;
+                debug!("LoadBalancer new state : {:?}", self.state);
+                let res = self
+                    .load_balancer_state_sender
+                    .send(LoadBalancerState::Stopped)
+                    .await;
+                if let Err(err) = res {
+                    error!(
+                        "Channel to send LoadBalancer state to Master has closed : {}",
+                        err
+                    );
+                }
+            }
+
             info!("LoadBalancer worker is waiting {:?}", has_available_worker);
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
@@ -194,9 +216,11 @@ impl LoadBalancer {
                     if let Some(order) = has_order {
                         if order == LoadBalancerOrder::Start && self.state != LoadBalancerState::Online {
                             self.state = LoadBalancerState::Online;
+                            debug!("LoadBalancer new state : {:?}", self.state);
                         }
                         else if order == LoadBalancerOrder::Stop && self.state == LoadBalancerState::Online {
                             self.state = LoadBalancerState::Stopping;
+                            debug!("LoadBalancer new state : {:?}", self.state);
                         }
                         else{
                             warn!("We received an order to {:?}, but we already are in this state : {:?}", order, self.state);
@@ -219,7 +243,6 @@ impl LoadBalancer {
                         let forward_request_result = sender.send(request).await;
                         if let Err(err) = forward_request_result {
                             error!("Channel to forward request to worker {} has closed. I'll stop using this worker.", err);
-                            // Stop properly the loop and then loki
                             break;
                         }
                         else {
@@ -253,37 +276,17 @@ impl LoadBalancer {
         // let's mark the worker as available
         let worker_state = &mut self.worker_states[worker_id.id];
         match worker_state {
+            WorkerState::Busy => {
+                *worker_state = WorkerState::Available;
+            }
             WorkerState::Available => {
                 let error = format_err!(
                     "I received a response from worker {}, but it is marked as {:?}. I'll stop using this worker.", worker_id.id, worker_state
                 );
                 return Err(error);
             }
-            WorkerState::Busy => {
-                *worker_state = WorkerState::Available;
-            }
         }
 
-        // if state is Stopping and all workers are available
-        // change state to Stopped and
-        // we inform master that we (LoadBalancer) stopped successfully
-        let all_workers_available = self
-            .worker_states
-            .iter()
-            .all(|state| *state == WorkerState::Available);
-        if all_workers_available && self.state == LoadBalancerState::Stopping {
-            self.state = LoadBalancerState::Stopped;
-            let res = self
-                .load_balancer_state_sender
-                .send(LoadBalancerState::Stopped)
-                .await;
-            if let Err(err) = res {
-                error!(
-                    "Channel to send LoadBalancer state to Master has closed : {}",
-                    err
-                );
-            }
-        }
         Ok(())
     }
 

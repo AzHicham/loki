@@ -40,12 +40,13 @@ use launch::{
     config,
     loki::{
         timetables::PeriodicSplitVjByTzTimetables,
-        tracing::{info, log::error},
+        tracing::{debug, error, info},
         transit_model::Model,
         TransitData,
     },
 };
 use std::sync::{Arc, RwLock};
+use tokio::sync::mpsc::error::SendError;
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
@@ -53,7 +54,7 @@ use crate::{
     rabbitmq_worker::{listen_amqp_in_a_thread, BrokerConfig},
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LoadBalancerOrder {
     Start,
     Stop,
@@ -109,39 +110,52 @@ impl MasterWorker {
     async fn run(mut self) {
         info!("Starting Master worker");
         loop {
-            tokio::select! {
-                // We receive protobuf from amqp broker
-                has_proto_vec = self.amqp_message_receiver.recv() => {
-                    if let Some(vec_protobuf) = has_proto_vec {
-                        info!("Master received response from AmqpWorker");
-                        // convert_realtime & stop the load balancer from receiving more request
-                        let res = self.load_balancer_handle
-                                    .load_balancer_order_sender
-                                    .send(LoadBalancerOrder::Stop)
-                                    .await;
-                        if let Err(err) = res {
-                            error!("Could not sent Stop order to LoadBalancer : {}. I'll stop.", err);
+            let has_proto_vec = self.amqp_message_receiver.recv().await;
+            if let Some(vec_protobuf) = has_proto_vec {
+                info!("Master received response from AmqpWorker");
+                // convert protobuf to RT_Message
+
+                // stop the load balancer from receiving more request
+                debug!("Master ask LoadBalancer to Stop");
+                let res = self
+                    .send_order_to_load_balancer(LoadBalancerOrder::Stop)
+                    .await;
+                if res.is_err() {
+                    break;
+                }
+
+                // Wait for the LoadBalancer to Stop
+                debug!("MasterWork waiting for LoadBalancer to Stop");
+                let has_load_balancer_state = self
+                    .load_balancer_handle
+                    .load_balancer_state_receiver
+                    .recv()
+                    .await;
+                if let Some(state) = has_load_balancer_state {
+                    if state == LoadBalancerState::Stopped {
+                        debug!("ApplyRealTime");
+                        // Apply realtime to data
+                        // then start LoadBalancer
+                        debug!("Master ask LoadBalancer to Start");
+                        let res = self
+                            .send_order_to_load_balancer(LoadBalancerOrder::Start)
+                            .await;
+                        if res.is_err() {
                             break;
                         }
                     } else {
-                        error!("Channel to receive realtime protobuf' responses has closed. I'll stop.");
+                        error!("We requested LoadBalancer to stop but it did not. I'll stop");
                         break;
                     }
+                } else {
+                    error!(
+                        "Channel to receive LoadBalancer status responses has closed. I'll stop."
+                    );
+                    break;
                 }
-                // We receive load balancer status, if load balancer is stopped
-                // we apply realtime disruption on data
-                has_load_balancer_state = self
-                                            .load_balancer_handle
-                                            .load_balancer_state_receiver
-                                            .recv() => {
-                    if let Some(_) = has_load_balancer_state {
-                        info!("Master received LoadBalancer is stoped");
-                        // apply_realtime
-                    } else {
-                        error!("Channel to receive LoadBalancer status' responses has closed. I'll stop.");
-                        break;
-                    }
-                }
+            } else {
+                error!("Channel to receive realtime protobuf' responses has closed. I'll stop.");
+                break;
             }
         }
     }
@@ -158,5 +172,23 @@ impl MasterWorker {
         runtime.block_on(self.run());
 
         Ok(())
+    }
+
+    async fn send_order_to_load_balancer(
+        &mut self,
+        order: LoadBalancerOrder,
+    ) -> Result<(), SendError<LoadBalancerOrder>> {
+        let res = self
+            .load_balancer_handle
+            .load_balancer_order_sender
+            .send(order.clone())
+            .await;
+        if let Err(err) = &res {
+            error!(
+                "Could not sent {:?} order to LoadBalancer : {}. I'll stop.",
+                order, err
+            );
+        };
+        res
     }
 }
