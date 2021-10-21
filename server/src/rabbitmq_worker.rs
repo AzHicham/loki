@@ -43,9 +43,11 @@ use lapin::{
         QueueDeclareOptions,
     },
     types::FieldTable,
-    Channel, Connection, ConnectionProperties, ExchangeKind, Queue,
+    Channel, Connection, ConnectionProperties, Consumer, ExchangeKind, Queue,
 };
 
+use futures::StreamExt;
+use lapin::options::BasicGetOptions;
 use launch::loki::tracing::{debug, error, info, trace};
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
@@ -120,7 +122,7 @@ async fn init_and_listen_amqp(
         let amqp_worker = RabbitMqWorker::new(config.clone(), amqp_message_sender.clone());
         match amqp_worker {
             Ok(mut worker) => {
-                let res = worker.listen().await;
+                let res = worker.consume().await;
                 if let Err(err) = res {
                     error!("RabbitmqWorker: An error occurred: {}", err);
                 }
@@ -164,52 +166,53 @@ impl RabbitMqWorker {
     }
 
     async fn consume(&mut self) -> Result<(), Error> {
-        let rt_consumer = self
+        let mut rt_consumer: Consumer = self
             .channel
             .basic_consume(
                 self.queue.name().as_str(),
                 "rt_consumer",
-                BasicConsumeOptions::default(),
+                BasicConsumeOptions {
+                    nowait: false,
+                    ..BasicConsumeOptions::default()
+                },
                 FieldTable::default(),
             )
             .await?;
 
-        for (channel, delivery) in rt_consumer.into_iter().flatten() {
-            channel
-                .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
-                .await?; // TODO : what to do when ack fail ?
+        use tokio::time::timeout;
 
-            info!("delivery");
-            let proto_message = decode_amqp_rt_message(&delivery);
-            match proto_message {
-                Ok(proto_message) => {
-                    self.proto_messages.push(proto_message);
-                    let proto_message = std::mem::take(&mut self.proto_messages);
-                    info!("{:?}", proto_message);
-                    //send proto_messages to master
-                    // 1 by 1 for the moment
-                    self.amqp_message_sender
-                        .send(proto_message)
-                        .await
-                        .map_err(|err| {
-                            format_err!(
-                                "AMQP Worker could not send response : {}. This worker will stop.",
-                                err
-                            )
-                        })?;
-                }
-                Err(err) => {
-                    error!("{}", err.to_string())
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn listen(&mut self) -> Result<(), Error> {
         loop {
-            self.consume().await?;
+            let res = timeout(Duration::from_millis(10), rt_consumer.next()).await;
+            let mut is_queue_empty = false;
+
+            if let Ok(Some(Ok((channel, delivery)))) = res {
+                channel
+                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                    .await?; // TODO : what to do when ack fail ?
+
+                let proto_message = decode_amqp_rt_message(&delivery);
+                match proto_message {
+                    Ok(proto_message) => {
+                        self.proto_messages.push(proto_message);
+                    }
+                    Err(err) => {
+                        error!("{}", err.to_string())
+                    }
+                }
+            } else {
+                is_queue_empty = true;
+            }
+
+            if is_queue_empty && !self.proto_messages.is_empty() {
+                info!("We got {} proto_messages", self.proto_messages.len());
+                let proto_message = std::mem::take(&mut self.proto_messages);
+                self.amqp_message_sender
+                    .send(proto_message)
+                    .await
+                    .map_err(|err| {
+                        format_err!("AMQP Worker could not send proto_message : {}.", err)
+                    })?;
+            }
         }
     }
 }
