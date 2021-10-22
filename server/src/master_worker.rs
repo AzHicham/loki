@@ -46,8 +46,10 @@ use launch::{
     },
 };
 use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::error::SendError;
-use tokio::{runtime::Builder, sync::mpsc};
+use tokio::{
+    runtime::Builder,
+    sync::{mpsc, mpsc::error::SendError},
+};
 
 use crate::{
     load_balancer::{LoadBalancer, LoadBalancerState},

@@ -61,11 +61,12 @@ pub enum WorkerState {
     Busy,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoadBalancerState {
     Online,   // accepting requests
     Stopping, // not accepting new requests, but there is still some requests being processed by workers
     Stopped,  // not accepting new requests, and all workers are idle
+    Broken,   // An error occurred or compute worker is in an Error state -> stop program
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -177,10 +178,7 @@ impl LoadBalancer {
             if all_workers_available && self.state == LoadBalancerState::Stopping {
                 self.state = LoadBalancerState::Stopped;
                 debug!("LoadBalancer new state : {:?}", self.state);
-                let res = self
-                    .load_balancer_state_sender
-                    .send(LoadBalancerState::Stopped)
-                    .await;
+                let res = self.load_balancer_state_sender.send(self.state).await;
                 if let Err(err) = res {
                     error!(
                         "Channel to send LoadBalancer state to Master has closed : {}",
@@ -255,6 +253,19 @@ impl LoadBalancer {
                     }
                 }
             }
+        }
+
+        // If we exited the loop it means we got an error
+        // We need to warn Master worker that we are broken
+        // So MasterWorker can shutdown the program
+        self.state = LoadBalancerState::Broken;
+        debug!("LoadBalancer new state : {:?}", self.state);
+        let res = self.load_balancer_state_sender.send(self.state).await;
+        if let Err(err) = res {
+            error!(
+                "Channel to send LoadBalancer state to Master has closed : {}",
+                err
+            );
         }
     }
 

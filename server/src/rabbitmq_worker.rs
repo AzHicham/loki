@@ -47,7 +47,6 @@ use lapin::{
 };
 
 use futures::StreamExt;
-use lapin::options::BasicGetOptions;
 use launch::loki::tracing::{debug, error, info, trace};
 use prost::Message as MessageTrait;
 use serde::{Deserialize, Serialize};
@@ -66,7 +65,10 @@ pub fn default_queue_auto_delete() -> bool {
     false
 }
 pub fn default_timeout() -> u64 {
-    5000
+    100
+}
+pub fn default_connection_timeout() -> u64 {
+    10000
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, StructOpt, Clone)]
@@ -89,6 +91,10 @@ pub struct BrokerConfig {
     #[structopt(long)]
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+
+    #[structopt(long)]
+    #[serde(default = "default_connection_timeout")]
+    pub connection_timeout: u64,
 }
 
 pub struct RabbitMqWorker {
@@ -96,6 +102,7 @@ pub struct RabbitMqWorker {
     queue: Queue,
     proto_messages: Vec<gtfs_realtime::FeedMessage>,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+    timeout: u64,
 }
 
 pub fn listen_amqp_in_a_thread(
@@ -117,7 +124,8 @@ async fn init_and_listen_amqp(
     config: BrokerConfig,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
 ) {
-    let mut retry_interval = tokio::time::interval(Duration::from_millis(config.timeout));
+    let mut retry_interval =
+        tokio::time::interval(Duration::from_millis(config.connection_timeout));
     loop {
         let amqp_worker = RabbitMqWorker::new(config.clone(), amqp_message_sender.clone());
         match amqp_worker {
@@ -162,6 +170,7 @@ impl RabbitMqWorker {
             queue,
             proto_messages: Vec::new(),
             amqp_message_sender,
+            timeout: config.timeout,
         })
     }
 
@@ -179,39 +188,53 @@ impl RabbitMqWorker {
             )
             .await?;
 
-        use tokio::time::timeout;
-
         loop {
-            let res = timeout(Duration::from_millis(10), rt_consumer.next()).await;
-            let mut is_queue_empty = false;
+            use tokio::time::timeout;
+            let res = timeout(Duration::from_millis(self.timeout), rt_consumer.next()).await;
 
-            if let Ok(Some(Ok((channel, delivery)))) = res {
-                channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
-                    .await?; // TODO : what to do when ack fail ?
+            if let Ok(opt_message) = res {
+                match opt_message {
+                    Some(Ok((channel, delivery))) => {
+                        channel
+                            .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                            .await?;
 
-                let proto_message = decode_amqp_rt_message(&delivery);
-                match proto_message {
-                    Ok(proto_message) => {
-                        self.proto_messages.push(proto_message);
+                        let proto_message = decode_amqp_rt_message(&delivery);
+                        match proto_message {
+                            Ok(proto_message) => {
+                                self.proto_messages.push(proto_message);
+                            }
+                            Err(err) => {
+                                error!("Error decoding proto message : {}", err.to_string())
+                            }
+                        }
                     }
-                    Err(err) => {
-                        error!("{}", err.to_string())
+                    Some(Err(err)) => {
+                        return Err(format_err!(
+                            "An error occurred when consuming amqp message : {}",
+                            err
+                        ));
+                    }
+                    None => {
+                        return Err(format_err!(
+                            "An unknown error occurred when consuming amqp message",
+                        ));
                     }
                 }
             } else {
-                is_queue_empty = true;
-            }
-
-            if is_queue_empty && !self.proto_messages.is_empty() {
-                info!("We got {} proto_messages", self.proto_messages.len());
-                let proto_message = std::mem::take(&mut self.proto_messages);
-                self.amqp_message_sender
-                    .send(proto_message)
-                    .await
-                    .map_err(|err| {
-                        format_err!("AMQP Worker could not send proto_message : {}.", err)
-                    })?;
+                // timeout : we suppose queue is empty
+                // if self.proto_messages contains proto_messages
+                // we send them to MasterWorker
+                if !self.proto_messages.is_empty() {
+                    info!("We got {} proto_messages", self.proto_messages.len());
+                    let proto_message = std::mem::take(&mut self.proto_messages);
+                    self.amqp_message_sender
+                        .send(proto_message)
+                        .await
+                        .map_err(|err| {
+                            format_err!("AMQP Worker could not send proto_message : {}.", err)
+                        })?;
+                }
             }
         }
     }
