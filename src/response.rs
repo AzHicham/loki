@@ -41,7 +41,7 @@ use crate::{
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
-use crate::realtime::real_time_model::RealTimeModel as Model;
+use transit_model::Model;
 
 use crate::transit_data::data_interface::Data as DataTrait;
 
@@ -98,9 +98,9 @@ pub struct ArrivalSection {
 }
 
 impl Response {
-    pub fn first_vj_uri<'model>(&self, model: &'model RealTimeModel) -> &'model str {
+    pub fn first_vj_uri<'model>(&self, real_time_model: &'model RealTimeModel, model : &'model Model) -> &'model str {
         let idx = &self.first_vehicle.vehicle_journey;
-        model.vehicle_journey_name(&idx)
+        real_time_model.vehicle_journey_name(&idx, model)
     }
 }
 
@@ -396,9 +396,9 @@ where
         self.departure_fallback_duration + self.arrival_fallback_duration
     }
 
-    pub fn print(&self, data: &Data, model: &Model) -> Result<String, std::fmt::Error> {
+    pub fn print(&self, data: &Data, real_time_model : & RealTimeModel, model: &Model) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
-        self.write(data, model, &mut result)?;
+        self.write(data, real_time_model, model, &mut result)?;
         Ok(result)
     }
 
@@ -409,7 +409,8 @@ where
     pub fn write<Writer: std::fmt::Write>(
         &self,
         data: &Data,
-        model: &RealTimeModel,
+        real_time_model: &RealTimeModel,
+        model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;
@@ -438,9 +439,9 @@ where
             Self::write_date(&departure_datetime)
         )?;
 
-        self.write_vehicle_leg(&self.first_vehicle, data, model, writer)?;
+        self.write_vehicle_leg(&self.first_vehicle, data, real_time_model, model, writer)?;
         for (_, vehicle_leg) in self.connections.iter() {
-            self.write_vehicle_leg(vehicle_leg, data, model, writer)?;
+            self.write_vehicle_leg(vehicle_leg, data, real_time_model, model, writer)?;
         }
 
         Ok(())
@@ -450,13 +451,14 @@ where
         &self,
         vehicle_leg: &VehicleLeg<Data>,
         data: &Data,
-        model: &RealTimeModel,
+        real_time_model: &RealTimeModel,
+        model : & Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let trip = &vehicle_leg.trip;
         let vehicle_journey_idx = data.vehicle_journey_idx(trip);
-        let route_id = model.route_name(&vehicle_journey_idx);
-        let line_id = model.line_name(&vehicle_journey_idx);
+        let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
+        let line_id = real_time_model.line_name(&vehicle_journey_idx, model);
 
         let mission = data.mission_of(trip);
 
@@ -464,8 +466,8 @@ where
         let to_stop = data.stop_of(&vehicle_leg.debark_position, &mission);
         let from_stop_idx = data.stop_point_idx(&from_stop);
         let to_stop_idx = data.stop_point_idx(&to_stop);
-        let from_stop_id = model.stop_point_name(&from_stop_idx);
-        let to_stop_id = model.stop_point_name(&to_stop_idx);
+        let from_stop_id = real_time_model.stop_point_name(&from_stop_idx, model);
+        let to_stop_id = real_time_model.stop_point_name(&to_stop_idx, model);
 
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
@@ -652,12 +654,13 @@ impl VehicleSection {
 
     fn write<Writer: std::fmt::Write>(
         &self,
+        real_time_model : & RealTimeModel,
         model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
-        let route_id = model.route_name(&vehicle_journey_idx);
-        let line_id = model.line_name(&vehicle_journey_idx);
+        let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
+        let line_id = real_time_model.line_name(&vehicle_journey_idx, model);
 
         // let from_stoptime =
         //     &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
@@ -669,21 +672,23 @@ impl VehicleSection {
         // let from_stop_id = &model.stop_points[*from_stop_idx].id;
         // let to_stop_id = &model.stop_points[*to_stop_idx].id;
 
-        let from_stop_id = model
+        let from_stop_id = real_time_model
             .stop_point_at(
                 &vehicle_journey_idx,
                 self.from_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                model,
             )
-            .map(|stop_idx| model.stop_point_name(&stop_idx))
+            .map(|stop_idx| real_time_model.stop_point_name(&stop_idx, model))
             .unwrap_or("unknown_stop");
-        let to_stop_id = model
+        let to_stop_id = real_time_model
             .stop_point_at(
                 &vehicle_journey_idx,
                 self.to_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                model,
             )
-            .map(|stop_idx| model.stop_point_name(&stop_idx))
+            .map(|stop_idx| real_time_model.stop_point_name(&stop_idx, model))
             .unwrap_or("unknown_stop");
 
         let from_datetime = write_date(&self.from_datetime);
@@ -775,14 +780,15 @@ impl Response {
         self.connections.len() + 1
     }
 
-    pub fn print(&self, model: &Model) -> Result<String, std::fmt::Error> {
+    pub fn print(&self, real_time_model: & RealTimeModel, model: &Model) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
-        self.write(model, &mut result)?;
+        self.write(real_time_model, model, &mut result)?;
         Ok(result)
     }
 
     pub fn write<Writer: std::fmt::Write>(
         &self,
+        real_time_model : & RealTimeModel,
         model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
@@ -810,9 +816,9 @@ impl Response {
             write_date(&self.departure.from_datetime)
         )?;
 
-        self.first_vehicle.write(model, writer)?;
+        self.first_vehicle.write(real_time_model, model, writer)?;
         for (_, _, vehicle) in self.connections.iter() {
-            vehicle.write(model, writer)?;
+            vehicle.write(real_time_model, model, writer)?;
         }
 
         Ok(())

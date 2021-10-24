@@ -52,7 +52,8 @@ use transit_model::Model;
 
 pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
-    pub(super) model: &'model RealTimeModel,
+    pub(super) real_time_model: &'model RealTimeModel,
+    pub(super) model :& 'model Model,
     pub(super) arrival_datetime: SecondsSinceDatasetUTCStart,
     pub(super) entry_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) exit_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -68,7 +69,8 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        model: &'model RealTimeModel,
+        real_time_model: &'model RealTimeModel,
+        model : & 'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -82,18 +84,21 @@ where
 
         let departures = super::generic_request::parse_departures(
             &request_input.departures_stop_point_and_fallback_duration,
+            real_time_model,
             model,
             transit_data,
         )?;
 
         let arrivals: Vec<_> = super::generic_request::parse_arrivals(
             &request_input.arrivals_stop_point_and_fallback_duration,
+            real_time_model,
             model,
             transit_data,
         )?;
 
         let result = Self {
             transit_data,
+            real_time_model,
             model,
             arrival_datetime,
             entry_stop_point_and_fallback_duration: departures,
@@ -192,11 +197,11 @@ where
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
-        super::generic_request::stop_name(stop, self.model, self.transit_data)
+        super::generic_request::stop_name(stop, self.real_time_model, self.model, self.transit_data)
     }
 
     pub fn trip_name(&self, trip: &Data::Trip) -> String {
-        super::generic_request::trip_name(trip, self.model, self.transit_data)
+        super::generic_request::trip_name(trip, self.real_time_model, self.model, self.transit_data)
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
@@ -204,7 +209,7 @@ where
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
-        super::generic_request::position_name(position, mission, self.model, self.transit_data)
+        super::generic_request::position_name(position, mission, self.real_time_model, self.model, self.transit_data)
     }
 
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {

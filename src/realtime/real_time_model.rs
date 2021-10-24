@@ -44,7 +44,7 @@ use crate::{
 type TransitModelVehicleJourneyIdx = Idx<TransitModelVehicleJourney>;
 
 pub struct RealTimeModel {
-    base_model: Model,
+    // base_model: Model,
 
     disruption_impacts: HashMap<String, ImpactedVehicleAndStops>,
 
@@ -130,7 +130,7 @@ impl RealTimeModel {
     //     &self.base_model
     // }
 
-    pub fn new(base_model: Model) -> Self {
+    pub fn new(base_model: &Model) -> Self {
         let nb_of_base_vj = base_model.vehicle_journeys.len();
         let empty_history = VehicleJourneyHistory {
             by_reference_date: HashMap::new(),
@@ -138,7 +138,6 @@ impl RealTimeModel {
         let base_vehicle_journeys_history = vec![empty_history; nb_of_base_vj];
 
         Self {
-            base_model,
             disruption_impacts: HashMap::new(),
             new_vehicle_journeys_id_to_idx: HashMap::new(),
             new_vehicle_journeys_history: Vec::new(),
@@ -148,8 +147,8 @@ impl RealTimeModel {
         }
     }
 
-    pub fn stop_point_idx(&self, stop_id: &str) -> Option<StopPointIdx> {
-        if let Some(base_stop_point_id) = self.base_model.stop_points.get_idx(stop_id) {
+    pub fn stop_point_idx(&self, stop_id: &str, base_model : & Model) -> Option<StopPointIdx> {
+        if let Some(base_stop_point_id) = base_model.stop_points.get_idx(stop_id) {
             Some(StopPointIdx::Base(base_stop_point_id))
         } else if let Some(new_stop_idx) = self.new_stop_id_to_idx.get(stop_id) {
             Some(StopPointIdx::New(new_stop_idx.clone()))
@@ -158,26 +157,25 @@ impl RealTimeModel {
         }
     }
 
-    pub fn stop_point_name(&self, stop_idx: &StopPointIdx) -> &str {
+    pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model : & 'a Model) -> & 'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base_model.stop_points[*idx].id,
+            StopPointIdx::Base(idx) => &base_model.stop_points[*idx].id,
             StopPointIdx::New(idx) => &self.new_stops[idx.idx].name,
         }
     }
 
-    pub fn vehicle_journey_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
+    pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : &'a  Model) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base_model.vehicle_journeys[*idx].id,
+            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].id,
             VehicleJourneyIdx::New(idx) => &self.new_vehicle_journeys_history[idx.idx].0,
         }
     }
 
-    pub fn line_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
+    pub fn line_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : & 'a Model) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let route_id = &self.base_model.vehicle_journeys[*idx].route_id;
-                &self
-                    .base_model
+                let route_id = &base_model.vehicle_journeys[*idx].route_id;
+                &base_model
                     .routes
                     .get(route_id)
                     .map(|route| route.line_id.as_str())
@@ -187,9 +185,9 @@ impl RealTimeModel {
         }
     }
 
-    pub fn route_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
+    pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : & 'a Model) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base_model.vehicle_journeys[*idx].route_id,
+            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].route_id,
             VehicleJourneyIdx::New(idx) => "unknown_route",
         }
     }
@@ -199,6 +197,7 @@ impl RealTimeModel {
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: usize,
         date: &NaiveDate,
+        base_model : & Model
     ) -> Option<StopPointIdx> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -211,7 +210,7 @@ impl RealTimeModel {
                             .map(|stop_time| stop_time.stop.clone()),
                     }
                 } else {
-                    self.base_model.vehicle_journeys[*idx]
+                    base_model.vehicle_journeys[*idx]
                         .stop_times
                         .get(stop_time_idx)
                         .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))

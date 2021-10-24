@@ -244,7 +244,8 @@ pub struct RequestInput {
 
 pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {
     fn new(
-        model: &'model RealTimeModel,
+        real_time_model: &'model RealTimeModel,
+        model : & 'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -312,6 +313,7 @@ impl std::error::Error for BadRequest {}
 use std::fmt;
 
 use chrono::NaiveDateTime;
+use transit_model::Model;
 
 use crate::PositiveDuration;
 
