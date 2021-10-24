@@ -152,7 +152,7 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
 }
 
 pub fn build_and_solve(
-    real_time_model :& RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
@@ -161,7 +161,9 @@ pub fn build_and_solve(
         config::DataImplem::Periodic => {
             build_and_solve_inner::<PeriodicData>(real_time_model, model, loads_data, config)
         }
-        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(real_time_model, model, loads_data, config),
+        config::DataImplem::Daily => {
+            build_and_solve_inner::<DailyData>(real_time_model, model, loads_data, config)
+        }
         config::DataImplem::PeriodicSplitVj => {
             build_and_solve_inner::<PeriodicSplitVjData>(real_time_model, model, loads_data, config)
         }
@@ -169,7 +171,7 @@ pub fn build_and_solve(
 }
 
 fn build_and_solve_inner<Timetables>(
-    real_time_model :& RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &Model,
     loads_data: &LoadsData,
     config: &Config,
@@ -206,41 +208,41 @@ where
 
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
-    real_time_model :& 'a RealTimeModel,
+    real_time_model: &'a RealTimeModel,
     model: &'a Model,
 ) -> Result<(&'a str, &'a str), Error> {
-    let from_stop_idx = real_time_model.stop_point_at(
-        &vehicle_section.vehicle_journey, 
-        vehicle_section.from_stoptime_idx,
-        &vehicle_section.day_for_vehicle_journey, 
-        model
-    )
-    .ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
+    let from_stop_idx = real_time_model
+        .stop_point_at(
+            &vehicle_section.vehicle_journey,
             vehicle_section.from_stoptime_idx,
-            real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            &vehicle_section.day_for_vehicle_journey,
+            model,
         )
-    })?;
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.from_stoptime_idx,
+                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            )
+        })?;
 
-    let to_stop_idx = real_time_model.stop_point_at(
-        &vehicle_section.vehicle_journey, 
-        vehicle_section.to_stoptime_idx,
-        &vehicle_section.day_for_vehicle_journey, 
-        model
-    )
-    .ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
+    let to_stop_idx = real_time_model
+        .stop_point_at(
+            &vehicle_section.vehicle_journey,
             vehicle_section.to_stoptime_idx,
-            real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            &vehicle_section.day_for_vehicle_journey,
+            model,
         )
-    })?;
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.to_stoptime_idx,
+                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            )
+        })?;
 
     let from_stop_name = real_time_model.stop_point_name(&from_stop_idx, &model);
     let to_stop_name = real_time_model.stop_point_name(&to_stop_idx, &model);
-    
 
     Ok((from_stop_name, to_stop_name))
 }
-

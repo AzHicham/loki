@@ -1,0 +1,18 @@
+{
+  "input_data_path": "/home/pascal/artemis/artemis/artemis_data/idfm/fusio/",
+  "input_data_type": "ntfs",
+  "loads_data_path": null,
+  "default_transfer_duration": "00:01:00",
+  "criteria_implem": "basic",
+  "data_implem": "periodic_split_vj",
+  "leg_arrival_penalty": "00:02:00",
+  "leg_walking_penalty": "00:02:00",
+  "max_nb_of_legs": 10,
+  "max_journey_duration": "24:00:00",
+  "too_late_threshold": "02:00:00",
+  "departure_datetime": null,
+  "datetime_represent": "departure",
+  "comparator_type": "loads",
+  "nb_queries": 100,
+  "seed": 0
+}

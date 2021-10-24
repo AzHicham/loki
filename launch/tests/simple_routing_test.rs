@@ -43,7 +43,7 @@ use launch::{
 use loki::realtime::real_time_model::RealTimeModel;
 use rstest::rstest;
 use utils::{
-    build_and_solve, from_to_stop_point_names, 
+    build_and_solve, from_to_stop_point_names,
     model_builder::{AsDateTime, ModelBuilder},
     Config,
 };
@@ -91,7 +91,7 @@ fn test_simple_routing(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&real_time_model, &model), "toto");
-    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model,&model)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &model)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
     assert_eq!(
@@ -244,7 +244,6 @@ fn test_routing_backward(
         datetime_represent: DateTimeRepresent::Arrival,
         ..config
     };
-
 
     let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 

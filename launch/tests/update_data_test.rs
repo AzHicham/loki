@@ -41,7 +41,11 @@ use std::fmt::Debug;
 use failure::Error;
 use launch::{config::DataImplem, solver::Solver};
 
-use loki::{DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, realtime::real_time_model::VehicleJourneyIdx, timetables::{Timetables, TimetablesIter}};
+use loki::{
+    realtime::real_time_model::VehicleJourneyIdx,
+    timetables::{Timetables, TimetablesIter},
+    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
+};
 use utils::{
     model_builder::{AsDate, ModelBuilder},
     Config,
