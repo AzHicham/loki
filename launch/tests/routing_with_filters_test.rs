@@ -41,7 +41,9 @@ use launch::{
     loki::transit_model::Model,
 };
 use rstest::{fixture, rstest};
-use utils::{build_and_solve, make_pt_from_vehicle, model_builder::ModelBuilder, Config};
+use utils::{build_and_solve, from_to_stop_point_names, model_builder::ModelBuilder, Config};
+
+use loki::realtime::real_time_model::RealTimeModel;
 
 #[fixture]
 pub fn fixture_model() -> Model {
@@ -104,8 +106,9 @@ fn test_no_filter(
         data_implem,
         ..config
     };
+    let real_time_model = RealTimeModel::new(&fixture_model);
 
-    let responses = build_and_solve(&fixture_model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&real_time_model, &fixture_model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -115,10 +118,10 @@ fn test_no_filter(
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    assert_eq!(journey.first_vj_uri(&fixture_model), "toto");
-    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &fixture_model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "C");
+    assert_eq!(journey.first_vj_uri(&real_time_model, &fixture_model), "toto");
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &fixture_model)?;
+    assert_eq!(from_sp, "A");
+    assert_eq!(to_sp, "C");
 
     Ok(())
 }
@@ -145,7 +148,9 @@ fn test_filter_forbidden_stop_point(
         ..config
     };
 
-    let responses = build_and_solve(&fixture_model, &loki::LoadsData::empty(), &config)?;
+    let real_time_model = RealTimeModel::new(&fixture_model);
+
+    let responses = build_and_solve(&real_time_model, &fixture_model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -155,10 +160,10 @@ fn test_filter_forbidden_stop_point(
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    assert_eq!(journey.first_vj_uri(&fixture_model), "toto");
-    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &fixture_model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "B");
+    assert_eq!(journey.first_vj_uri(&real_time_model, &fixture_model), "toto");
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &fixture_model)?;
+    assert_eq!(from_sp, "A");
+    assert_eq!(to_sp, "B");
 
     Ok(())
 }
@@ -192,7 +197,9 @@ fn test_filter_allowed_stop_point(
         ..config
     };
 
-    let responses = build_and_solve(&fixture_model, &loki::LoadsData::empty(), &config)?;
+    let real_time_model = RealTimeModel::new(&fixture_model);
+
+    let responses = build_and_solve(&real_time_model, &fixture_model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -202,10 +209,10 @@ fn test_filter_allowed_stop_point(
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    assert_eq!(journey.first_vj_uri(&fixture_model), "toto");
-    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &fixture_model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "B");
+    assert_eq!(journey.first_vj_uri(&real_time_model, &fixture_model), "toto");
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &fixture_model)?;
+    assert_eq!(from_sp, "A");
+    assert_eq!(to_sp, "B");
 
     Ok(())
 }
@@ -231,8 +238,9 @@ fn test_filter_forbidden_route(
         forbidden_uri: vec!["route:R2", "route:R3"],
         ..config
     };
+    let real_time_model = RealTimeModel::new(&fixture_model);
 
-    let responses = build_and_solve(&fixture_model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&real_time_model,&fixture_model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -242,10 +250,10 @@ fn test_filter_forbidden_route(
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    assert_eq!(journey.first_vj_uri(&fixture_model), "toto");
-    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &fixture_model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "C");
+    assert_eq!(journey.first_vj_uri(&real_time_model,&fixture_model), "toto");
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &fixture_model)?;
+    assert_eq!(from_sp, "A");
+    assert_eq!(to_sp, "C");
 
     Ok(())
 }
@@ -271,8 +279,9 @@ fn test_filter_allowed_route(
         allowed_uri: vec!["route:R1", "route:R4"],
         ..config
     };
+    let real_time_model = RealTimeModel::new(&fixture_model);
 
-    let responses = build_and_solve(&fixture_model, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&real_time_model, &fixture_model, &loki::LoadsData::empty(), &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -282,10 +291,10 @@ fn test_filter_allowed_route(
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    assert_eq!(journey.first_vj_uri(&fixture_model), "toto");
-    let (from_sp, to_sp) = make_pt_from_vehicle(vehicle_sec, &fixture_model)?;
-    assert_eq!(from_sp.name, "A");
-    assert_eq!(to_sp.name, "C");
+    assert_eq!(journey.first_vj_uri(&real_time_model, &fixture_model), "toto");
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &real_time_model, &fixture_model)?;
+    assert_eq!(from_sp, "A");
+    assert_eq!(to_sp, "C");
 
     Ok(())
 }

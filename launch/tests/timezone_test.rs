@@ -43,6 +43,7 @@ use utils::{
     model_builder::{AsDate, AsDateTime, ModelBuilder},
     Config,
 };
+use loki::realtime::real_time_model::RealTimeModel;
 
 use rstest::rstest;
 
@@ -65,6 +66,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
                 .st("C", "10:10:00");
         })
         .build();
+    let real_time_model = RealTimeModel::new(&model);
 
     {
         let config = Config::new_timezoned("2020-10-24T06:00:00", &chrono_tz::UTC, "A", "B");
@@ -73,7 +75,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -88,7 +90,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
     {
         let config = Config::new_timezoned("2020-10-26T06:00:00", &chrono_tz::UTC, "A", "B");
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -123,6 +125,8 @@ fn test_trip_over_daylight_saving_time_switch(
         })
         .build();
 
+    let real_time_model = RealTimeModel::new(&model);
+
     // We depart on 2020-10-23 at 22:00:00 UTC, so before the daylight saving time switch
     // this means we can board the vehicle journey on date 2020-10-24
     // as 00:00:00 on this day is 2020-10-23 at 22:00:00 UTC
@@ -134,7 +138,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -164,7 +168,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -198,7 +202,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -246,6 +250,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
+    let real_time_model = RealTimeModel::new(&model);
     // Before the daylight saving time switch
     {
         let config = Config::new_timezoned("2020-10-23T08:00:00", &chrono_tz::UTC, "A", "E");
@@ -254,7 +259,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -288,7 +293,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -344,6 +349,8 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
+    let real_time_model = RealTimeModel::new(&model);
+
     // Before the daylight saving time switch in Paris, we should be able to take the transfer at C
     // and hence get a journey from A to E
     {
@@ -353,7 +360,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -388,7 +395,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
         assert_eq!(responses.len(), 0);
     }

@@ -40,6 +40,7 @@ mod utils;
 
 extern crate test;
 use launch::config::DataImplem;
+use loki::realtime::real_time_model::RealTimeModel;
 use test::Bencher;
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
@@ -73,8 +74,10 @@ fn routing_daily_bench(bencher: &mut Bencher) {
         ..config
     };
 
+    let real_time_model = RealTimeModel::new(&model);
+
     bencher.iter(|| {
-        build_and_solve(&model, &loki::LoadsData::empty(), &config).unwrap();
+        build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config).unwrap();
     });
 }
 
@@ -107,8 +110,9 @@ fn routing_periodic_bench(bencher: &mut Bencher) {
         data_implem: DataImplem::Periodic,
         ..config
     };
+    let real_time_model = RealTimeModel::new(&model);
 
     bencher.iter(|| {
-        build_and_solve(&model, &loki::LoadsData::empty(), &config).unwrap();
+        build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config).unwrap();
     });
 }

@@ -34,12 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::{
-    config,
-    datetime::DateTimeRepresent,
-    loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData},
-    solver::Solver,
-};
+use launch::{config, datetime::DateTimeRepresent, loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData, realtime::real_time_model::RealTimeModel}, solver::Solver};
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 use loki::tracing::{debug, error, info};
@@ -196,6 +191,8 @@ where
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
+    let real_time_model = RealTimeModel::new(&model);
+
     let datetime = match &config.datetime {
         Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
         None => {
@@ -220,6 +217,7 @@ where
     )?;
     let solve_result = solver.solve_request(
         data,
+        &real_time_model,
         model,
         &request_input,
         None,
@@ -236,7 +234,7 @@ where
         }
         Ok(responses) => {
             for response in responses.iter() {
-                debug!("{}", response.print(model)?);
+                debug!("{}", response.print(&real_time_model, model)?);
             }
         }
     }

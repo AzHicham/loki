@@ -41,14 +41,13 @@ use std::fmt::Debug;
 use failure::Error;
 use launch::{config::DataImplem, solver::Solver};
 
-use loki::{
-    timetables::{Timetables, TimetablesIter},
-    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
-};
+use loki::{DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, realtime::real_time_model::VehicleJourneyIdx, timetables::{Timetables, TimetablesIter}};
 use utils::{
     model_builder::{AsDate, ModelBuilder},
     Config,
 };
+
+use loki::realtime::real_time_model::RealTimeModel;
 
 use rstest::rstest;
 
@@ -90,6 +89,8 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
+    let real_time_model = RealTimeModel::new(&model);
+
     let mut data = launch::read::build_transit_data::<T>(
         &model,
         &loki::LoadsData::empty(),
@@ -102,6 +103,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -112,26 +114,28 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "first"
         );
         assert_eq!(journey.connections.len(), 1);
         let second_vehicle = &journey.connections[0].2;
         assert_eq!(
-            utils::get_vehicle_journey_name(second_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&second_vehicle.vehicle_journey, &model),
             "second"
         );
     }
 
     let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+    let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+    data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
         .unwrap();
 
     {
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -147,6 +151,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -157,13 +162,13 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "first"
         );
         assert_eq!(journey.connections.len(), 1);
         let second_vehicle = &journey.connections[0].2;
         assert_eq!(
-            utils::get_vehicle_journey_name(second_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&second_vehicle.vehicle_journey, &model),
             "second"
         );
     }
@@ -212,6 +217,8 @@ where
         })
         .build();
 
+    let real_time_model = RealTimeModel::new(&model);
+
     let config = Config::new("2020-01-01T08:00:00", "A", "C");
 
     let mut data = launch::read::build_transit_data::<T>(
@@ -226,6 +233,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -236,14 +244,15 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "first"
         );
     }
 
     {
         let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
-        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -251,6 +260,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -261,14 +271,15 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "second"
         );
     }
 
     {
         let vehicle_journey_idx = model.vehicle_journeys.get_idx("second").unwrap();
-        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -276,6 +287,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -286,14 +298,15 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "third"
         );
     }
 
     {
         let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
-        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -301,6 +314,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -355,6 +369,8 @@ where
         })
         .build();
 
+    let real_time_model = RealTimeModel::new(&model);
+
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
 
     let mut data = launch::read::build_transit_data::<T>(
@@ -369,6 +385,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -379,14 +396,15 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "second"
         );
     }
 
     {
         let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
-        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -394,6 +412,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -404,14 +423,15 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "second"
         );
     }
 
     {
         let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
-        data.remove_vehicle(&vehicle_journey_idx, &"2020-01-01".as_date())
+        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -419,6 +439,7 @@ where
         let request_input = utils::make_request_from_config(&config)?;
         let responses = solver.solve_request(
             &data,
+            &real_time_model,
             &model,
             &request_input,
             None,
@@ -429,7 +450,7 @@ where
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
         assert_eq!(
-            utils::get_vehicle_journey_name(journey.first_vehicle.vehicle_journey, &model),
+            real_time_model.vehicle_journey_name(&journey.first_vehicle.vehicle_journey, &model),
             "second"
         );
     }
