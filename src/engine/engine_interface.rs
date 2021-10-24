@@ -245,7 +245,7 @@ pub struct RequestInput {
 pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {
     fn new(
         real_time_model: &'model RealTimeModel,
-        model : & 'model Model,
+        model: &'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>

@@ -34,7 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{tracing::warn, transit_model::Model, Idx, StopPoint, VehicleJourney};
+use crate::{
+    realtime::real_time_model::{RealTimeModel, StopPointIdx, VehicleJourneyIdx},
+    tracing::warn,
+    transit_model::Model,
+};
 
 pub enum StopFilter<'a> {
     StopPoint(&'a str),
@@ -50,69 +54,50 @@ pub enum VehicleFilter<'a> {
 }
 
 impl<'a> VehicleFilter<'a> {
-    pub fn applies_on(&self, idx: &Idx<VehicleJourney>, model: &Model) -> bool {
-        let vj = &model.vehicle_journeys[*idx];
+    pub fn applies_on(
+        &self,
+        idx: &VehicleJourneyIdx,
+        real_time_model: &RealTimeModel,
+        base_model: &Model,
+    ) -> bool {
         match self {
             VehicleFilter::Line(line_id) => {
-                let has_route = model.routes.get(&vj.route_id);
-                if let Some(route) = has_route {
-                    route.line_id.as_str() == *line_id
-                } else {
-                    warn!("Applying a filter on an invalid vehicle_journey idx {:?}. Its route id {} is unknown.", idx, vj.route_id);
-                    false
-                }
+                let vj_line_id = real_time_model.line_name(&idx, base_model);
+                vj_line_id == *line_id
             }
-            VehicleFilter::Route(route_id) => vj.route_id.as_str() == *route_id,
+            VehicleFilter::Route(route_id) => {
+                let vj_route_id = real_time_model.route_name(&idx, base_model);
+                vj_route_id == *route_id
+            }
             VehicleFilter::Network(network_id) => {
-                let has_route = model.routes.get(&vj.route_id);
-                if let Some(route) = has_route {
-                    let has_line = model.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.network_id.as_str() == *network_id
-                    } else {
-                        warn!("Applying a filter on an invalid vehicle_journey idx {:?}. Its line id {} is unknown.", idx, route.line_id);
-                        false
-                    }
-                } else {
-                    warn!("Applying a filter on an invalid vehicle_journey idx {:?}. Its route id {} is unknown.", idx, vj.route_id);
-                    false
-                }
+                let vj_network_id = real_time_model.network_name(&idx, base_model);
+                vj_network_id == *network_id
             }
             VehicleFilter::PhysicalMode(physical_mode_id) => {
-                vj.physical_mode_id.as_str() == *physical_mode_id
+                let vj_physical_mode_id = real_time_model.physical_mode_name(&idx, base_model);
+                vj_physical_mode_id == *physical_mode_id
             }
             VehicleFilter::CommercialMode(commercial_mode_id) => {
-                let has_route = model.routes.get(&vj.route_id);
-                if let Some(route) = has_route {
-                    let has_line = model.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.commercial_mode_id.as_str() == *commercial_mode_id
-                    } else {
-                        warn!("Applying a filter on an invalid vehicle_journey idx {:?}. Its line id {} is unknown.", idx, route.line_id);
-                        false
-                    }
-                } else {
-                    warn!("Applying a filter on an invalid vehicle_journey idx {:?}. Its route id {} is unknown.", idx, vj.route_id);
-                    false
-                }
+                let vj_commercial_mode_id = real_time_model.commercial_mode_name(&idx, base_model);
+                vj_commercial_mode_id == *commercial_mode_id
             }
         }
     }
 }
 
 impl<'a> StopFilter<'a> {
-    pub fn applies_on(&self, idx: &Idx<StopPoint>, model: &Model) -> bool {
-        let stop_point = &model.stop_points[*idx];
+    pub fn applies_on(
+        &self,
+        idx: &StopPointIdx,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) -> bool {
         match self {
-            StopFilter::StopPoint(stop_point_id) => stop_point.id.as_str() == *stop_point_id,
+            StopFilter::StopPoint(stop_point_id) => {
+                *stop_point_id == real_time_model.stop_point_name(idx, model)
+            }
             StopFilter::StopArea(stop_area_id) => {
-                let has_stop_area = model.stop_areas.get(&stop_point.stop_area_id);
-                if let Some(stop_area) = has_stop_area {
-                    stop_area.id.as_str() == *stop_area_id
-                } else {
-                    warn!("Applying a filter on an invalid stop_point idx {:?}. Its stop_area id {} is unknown.", idx, stop_point.stop_area_id);
-                    false
-                }
+                *stop_area_id == real_time_model.stop_area_name(idx, model)
             }
         }
     }
@@ -131,10 +116,15 @@ pub struct Filters<'a> {
 }
 
 impl<'a> Filters<'a> {
-    pub fn is_vehicle_journey_valid(&self, idx: &Idx<VehicleJourney>, model: &Model) -> bool {
+    pub fn is_vehicle_journey_valid(
+        &self,
+        idx: &VehicleJourneyIdx,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) -> bool {
         // if *one* forbidden filter applies, then the vehicle_journey is invalid
         for forbid_filter in self.forbidden_vehicles.iter() {
-            if forbid_filter.applies_on(idx, model) {
+            if forbid_filter.applies_on(idx, real_time_model, model) {
                 return false;
             }
         }
@@ -145,7 +135,7 @@ impl<'a> Filters<'a> {
 
         // if *one* allowed_filter applies, then the vehicle_journey is valid
         for allowed_filter in self.allowed_vehicles.iter() {
-            if allowed_filter.applies_on(idx, model) {
+            if allowed_filter.applies_on(idx, real_time_model, model) {
                 return true;
             }
         }
@@ -153,10 +143,15 @@ impl<'a> Filters<'a> {
         // there is some allowed filters, but none of them applies, so the vehicle_journey is invalid
         false
     }
-    pub fn is_stop_point_valid(&self, idx: &Idx<StopPoint>, model: &Model) -> bool {
+    pub fn is_stop_point_valid(
+        &self,
+        idx: &StopPointIdx,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
         for forbid_filter in self.forbidden_stops.iter() {
-            if forbid_filter.applies_on(idx, model) {
+            if forbid_filter.applies_on(idx, real_time_model, model) {
                 return false;
             }
         }
@@ -167,7 +162,7 @@ impl<'a> Filters<'a> {
 
         // if *one* allowed_filter applies, then the idx is valid
         for allowed_filter in self.allowed_stops.iter() {
-            if allowed_filter.applies_on(idx, model) {
+            if allowed_filter.applies_on(idx, real_time_model, model) {
                 return true;
             }
         }

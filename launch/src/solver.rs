@@ -36,14 +36,17 @@
 
 use std::{fmt::Debug, time::SystemTime};
 
+use loki::filters::Filters;
+use loki::realtime::real_time_model::RealTimeModel;
 use loki::tracing::{debug, info, trace};
 
+use loki::transit_data_filtered::FilterMemory;
 use loki::{
     response, transit_model, BadRequest, MultiCriteriaRaptor, RequestDebug, RequestIO,
     RequestInput, RequestTypes, RequestWithIters,
 };
 
-use crate::{datetime::DateTimeRepresent, filters::Filters};
+use crate::datetime::DateTimeRepresent;
 
 use super::config;
 use crate::loki::{DataTrait, TransitData};
@@ -59,8 +62,7 @@ where
 {
     engine: MultiCriteriaRaptor<Types<TransitData<Timetables>>>,
 
-    allowed_vehicle_journey_idxs: Vec<bool>, // memory used for filtered requests
-    allowed_stop_point_idxs: Vec<bool>,      // memory used for filtered requests
+    filter_memory: FilterMemory,
 }
 
 impl<Timetables> Solver<Timetables>
@@ -72,28 +74,24 @@ where
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
-            allowed_stop_point_idxs: Vec::new(),
-            allowed_vehicle_journey_idxs: Vec::new(),
+            filter_memory: FilterMemory::new(),
         }
     }
 
-    fn fill_allowed_stops_and_vehicles(&mut self, model: &transit_model::Model, filters: &Filters) {
-        self.allowed_vehicle_journey_idxs
-            .resize(model.vehicle_journeys.len(), true);
-        for (idx, _) in model.vehicle_journeys.iter() {
-            self.allowed_vehicle_journey_idxs[idx.get()] =
-                filters.is_vehicle_journey_valid(&idx, model);
-        }
-        self.allowed_stop_point_idxs
-            .resize(model.stop_points.len(), true);
-        for (idx, _) in model.stop_points.iter() {
-            self.allowed_stop_point_idxs[idx.get()] = filters.is_stop_point_valid(&idx, model);
-        }
+    fn fill_allowed_stops_and_vehicles(
+        &mut self,
+        real_time_model: &RealTimeModel,
+        model: &transit_model::Model,
+        filters: &Filters,
+    ) {
+        self.filter_memory
+            .fill_allowed_stops_and_vehicles(filters, real_time_model, model);
     }
 
     pub fn solve_request(
         &mut self,
         data: &TransitData<Timetables>,
+        real_time_model: &RealTimeModel,
         model: &transit_model::Model,
         request_input: &RequestInput,
         has_filters: Option<Filters>,
@@ -107,17 +105,14 @@ where
         use config::ComparatorType::*;
 
         if let Some(filters) = has_filters {
-            self.fill_allowed_stops_and_vehicles(model, &filters);
+            self.fill_allowed_stops_and_vehicles(real_time_model, model, &filters);
 
-            let data = TransitDataFiltered::new(
-                data,
-                &self.allowed_stop_point_idxs,
-                &self.allowed_vehicle_journey_idxs,
-            );
+            let data = TransitDataFiltered::new(data, &self.filter_memory);
 
             let responses = match (datetime_represent, comparator_type) {
                 (Arrival, Loads) => {
                     let request = request::arrive_before::loads_comparator::Request::new(
+                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -126,6 +121,7 @@ where
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
+                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -134,6 +130,7 @@ where
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
+                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -142,6 +139,7 @@ where
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
+                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -154,6 +152,7 @@ where
             let responses = match (datetime_represent, comparator_type) {
                 (Arrival, Loads) => {
                     let request = request::arrive_before::loads_comparator::Request::new(
+                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -162,6 +161,7 @@ where
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
+                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -170,6 +170,7 @@ where
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
+                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -178,6 +179,7 @@ where
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
+                        real_time_model,
                         model,
                         data,
                         request_input,

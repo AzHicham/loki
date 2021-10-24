@@ -41,16 +41,15 @@ use transit_model::Model;
 
 use crate::{
     loads_data::LoadsCount,
+    realtime::real_time_model::RealTimeModel,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
-    realtime::real_time_model::RealTimeModel,
 };
 
 use crate::{
     engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
     transit_data::data_interface::Data as DataTrait,
 };
-
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
 
@@ -66,7 +65,7 @@ use crate::{
 pub struct GenericDepartAfterRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
     pub(super) real_time_model: &'model RealTimeModel,
-    pub(super) model :& 'model Model,
+    pub(super) model: &'model Model,
     pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
     pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -82,7 +81,7 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        real_time_model : & 'model RealTimeModel,
+        real_time_model: &'model RealTimeModel,
         model: &'model Model,
         transit_data: &'data Data,
         request_input: &RequestInput,
@@ -193,7 +192,13 @@ where
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
-        super::generic_request::position_name(position, mission, self.real_time_model, self.model, self.transit_data)
+        super::generic_request::position_name(
+            position,
+            mission,
+            self.real_time_model,
+            self.model,
+            self.transit_data,
+        )
     }
 
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {

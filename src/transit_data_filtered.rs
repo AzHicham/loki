@@ -35,8 +35,9 @@
 // www.navitia.io
 
 use crate::{
+    filters::Filters,
     loads_data::Load,
-    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::iters::MissionsOfStop,
     TransitData,
@@ -44,6 +45,7 @@ use crate::{
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
+use transit_model::Model;
 pub use typed_index_collection::Idx;
 
 use crate::{
@@ -54,41 +56,85 @@ use std::fmt::Debug;
 
 pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
     transit_data: &'data TransitData<Timetables>,
-    allowed_base_stop_points: &'filter [bool],
-    allowed_new_stop_points: &'filter [bool],
-    allowed_base_vehicle_journeys: &'filter [bool],
-    allowed_new_vehicle_journeys: &'filter [bool],
+    memory: &'filter FilterMemory,
+}
+
+pub struct FilterMemory {
+    allowed_base_stop_points: Vec<bool>,
+    allowed_new_stop_points: Vec<bool>,
+    allowed_base_vehicle_journeys: Vec<bool>,
+    allowed_new_vehicle_journeys: Vec<bool>,
+}
+
+impl FilterMemory {
+    pub fn new() -> Self {
+        Self {
+            allowed_base_stop_points: Vec::new(),
+            allowed_new_stop_points: Vec::new(),
+            allowed_base_vehicle_journeys: Vec::new(),
+            allowed_new_vehicle_journeys: Vec::new(),
+        }
+    }
+
+    pub fn fill_allowed_stops_and_vehicles(
+        &mut self,
+        filters: &Filters,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) {
+        self.allowed_base_vehicle_journeys
+            .resize(model.vehicle_journeys.len(), true);
+        for (idx, _) in model.vehicle_journeys.iter() {
+            let vj_idx = VehicleJourneyIdx::Base(idx);
+            self.allowed_base_vehicle_journeys[idx.get()] =
+                filters.is_vehicle_journey_valid(&vj_idx, real_time_model, model);
+        }
+        self.allowed_base_stop_points
+            .resize(model.stop_points.len(), true);
+        for (idx, _) in model.stop_points.iter() {
+            let stop_idx = StopPointIdx::Base(idx);
+            self.allowed_base_stop_points[idx.get()] =
+                filters.is_stop_point_valid(&stop_idx, real_time_model, model);
+        }
+
+        self.allowed_new_vehicle_journeys
+            .resize(real_time_model.nb_of_new_vehicle_journeys(), true);
+        for idx in real_time_model.new_vehicle_journeys() {
+            let vj_idx = VehicleJourneyIdx::New(idx.clone());
+            self.allowed_new_vehicle_journeys[idx.idx] =
+                filters.is_vehicle_journey_valid(&vj_idx, real_time_model, model)
+        }
+
+        self.allowed_new_stop_points
+            .resize(real_time_model.nb_of_new_stops(), true);
+        for idx in real_time_model.new_stops() {
+            let stop_idx = StopPointIdx::New(idx.clone());
+            self.allowed_new_stop_points[idx.idx] =
+                filters.is_stop_point_valid(&stop_idx, real_time_model, model);
+        }
+    }
 }
 
 impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
     pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
         let stop_idx = self.stop_point_idx(stop);
         match stop_idx {
-            StopPointIdx::Base(idx) => self.allowed_base_stop_points[idx.get()],
-            StopPointIdx::New(idx) => self.allowed_new_stop_points[idx.idx],
+            StopPointIdx::Base(idx) => self.memory.allowed_base_stop_points[idx.get()],
+            StopPointIdx::New(idx) => self.memory.allowed_new_stop_points[idx.idx],
         }
     }
 
     pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => self.allowed_base_vehicle_journeys[idx.get()],
-            VehicleJourneyIdx::New(idx) => self.allowed_new_vehicle_journeys[idx.idx],
+            VehicleJourneyIdx::Base(idx) => self.memory.allowed_base_vehicle_journeys[idx.get()],
+            VehicleJourneyIdx::New(idx) => self.memory.allowed_new_vehicle_journeys[idx.idx],
         }
     }
 
-    pub fn new(
-        data: &'data TransitData<Timetables>,
-        allowed_base_stop_points: &'filter [bool],
-        allowed_new_stop_points: &'filter [bool],
-        allowed_base_vehicle_journeys: &'filter [bool],
-        allowed_new_vehicle_journeys: &'filter [bool],
-    ) -> Self {
+    pub fn new(data: &'data TransitData<Timetables>, memory: &'filter FilterMemory) -> Self {
         Self {
             transit_data: data,
-            allowed_base_stop_points,
-            allowed_new_stop_points,
-            allowed_base_vehicle_journeys,
-            allowed_new_vehicle_journeys,
+            memory,
         }
     }
 }

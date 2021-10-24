@@ -146,7 +146,7 @@ pub(super) fn parse_datetime(
 pub(super) fn parse_departures<Data>(
     departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
     real_time_model: &RealTimeModel,
-    model : & Model,
+    model: &Model,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
@@ -156,14 +156,16 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = real_time_model.stop_point_idx(stop_point_uri, model).or_else(|| {
-                warn!(
-                    "The {}th departure stop point {} is not found in model. \
+            let stop_idx = real_time_model
+                .stop_point_idx(stop_point_uri, model)
+                .or_else(|| {
+                    warn!(
+                        "The {}th departure stop point {} is not found in model. \
                             I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
+                        idx, stop_point_uri
+                    );
+                    None
+                })?;
 
             let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
                 warn!(
@@ -185,7 +187,7 @@ where
 pub(super) fn parse_arrivals<Data>(
     arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
     real_time_model: &RealTimeModel,
-    model : & Model,
+    model: &Model,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
@@ -195,14 +197,16 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = real_time_model.stop_point_idx(stop_point_uri, model).or_else(|| {
-                warn!(
-                    "The {}th arrival stop point {} is not found in model. \
+            let stop_idx = real_time_model
+                .stop_point_idx(stop_point_uri, model)
+                .or_else(|| {
+                    warn!(
+                        "The {}th arrival stop point {} is not found in model. \
                             I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
+                        idx, stop_point_uri
+                    );
+                    None
+                })?;
 
             let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
                 warn!(
@@ -258,17 +262,19 @@ impl Iterator for Arrivals {
 pub(super) fn stop_name<Data: DataTrait>(
     stop: &Data::Stop,
     real_time_model: &RealTimeModel,
-    model : & Model,
+    model: &Model,
     transit_data: &Data,
 ) -> String {
     let stop_point_idx = transit_data.stop_point_idx(stop);
-    real_time_model.stop_point_name(&stop_point_idx, model).to_string()
+    real_time_model
+        .stop_point_name(&stop_point_idx, model)
+        .to_string()
 }
 
 pub(super) fn trip_name<Data: DataTrait>(
     trip: &Data::Trip,
     real_time_model: &RealTimeModel,
-    model : & Model,
+    model: &Model,
     transit_data: &Data,
 ) -> String {
     let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
@@ -289,7 +295,7 @@ pub(super) fn position_name<Data: DataTrait>(
     position: &Data::Position,
     mission: &Data::Mission,
     real_time_model: &RealTimeModel,
-    model : & Model,
+    model: &Model,
     transit_data: &Data,
 ) -> String {
     let stop = transit_data.stop_of(position, mission);

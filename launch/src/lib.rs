@@ -1,6 +1,5 @@
 pub mod config;
 pub mod datetime;
-pub mod filters;
 pub mod logger;
 pub mod read;
 pub mod solver;

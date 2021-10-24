@@ -98,7 +98,11 @@ pub struct ArrivalSection {
 }
 
 impl Response {
-    pub fn first_vj_uri<'model>(&self, real_time_model: &'model RealTimeModel, model : &'model Model) -> &'model str {
+    pub fn first_vj_uri<'model>(
+        &self,
+        real_time_model: &'model RealTimeModel,
+        model: &'model Model,
+    ) -> &'model str {
         let idx = &self.first_vehicle.vehicle_journey;
         real_time_model.vehicle_journey_name(&idx, model)
     }
@@ -396,7 +400,12 @@ where
         self.departure_fallback_duration + self.arrival_fallback_duration
     }
 
-    pub fn print(&self, data: &Data, real_time_model : & RealTimeModel, model: &Model) -> Result<String, std::fmt::Error> {
+    pub fn print(
+        &self,
+        data: &Data,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
         self.write(data, real_time_model, model, &mut result)?;
         Ok(result)
@@ -452,7 +461,7 @@ where
         vehicle_leg: &VehicleLeg<Data>,
         data: &Data,
         real_time_model: &RealTimeModel,
-        model : & Model,
+        model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let trip = &vehicle_leg.trip;
@@ -654,7 +663,7 @@ impl VehicleSection {
 
     fn write<Writer: std::fmt::Write>(
         &self,
-        real_time_model : & RealTimeModel,
+        real_time_model: &RealTimeModel,
         model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
@@ -780,7 +789,11 @@ impl Response {
         self.connections.len() + 1
     }
 
-    pub fn print(&self, real_time_model: & RealTimeModel, model: &Model) -> Result<String, std::fmt::Error> {
+    pub fn print(
+        &self,
+        real_time_model: &RealTimeModel,
+        model: &Model,
+    ) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
         self.write(real_time_model, model, &mut result)?;
         Ok(result)
@@ -788,7 +801,7 @@ impl Response {
 
     pub fn write<Writer: std::fmt::Write>(
         &self,
-        real_time_model : & RealTimeModel,
+        real_time_model: &RealTimeModel,
         model: &Model,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {

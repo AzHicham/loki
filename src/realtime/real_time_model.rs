@@ -45,7 +45,6 @@ type TransitModelVehicleJourneyIdx = Idx<TransitModelVehicleJourney>;
 
 pub struct RealTimeModel {
     // base_model: Model,
-
     disruption_impacts: HashMap<String, ImpactedVehicleAndStops>,
 
     new_vehicle_journeys_id_to_idx: HashMap<String, NewVehicleJourney>,
@@ -147,7 +146,7 @@ impl RealTimeModel {
         }
     }
 
-    pub fn stop_point_idx(&self, stop_id: &str, base_model : & Model) -> Option<StopPointIdx> {
+    pub fn stop_point_idx(&self, stop_id: &str, base_model: &Model) -> Option<StopPointIdx> {
         if let Some(base_stop_point_id) = base_model.stop_points.get_idx(stop_id) {
             Some(StopPointIdx::Base(base_stop_point_id))
         } else if let Some(new_stop_idx) = self.new_stop_id_to_idx.get(stop_id) {
@@ -157,21 +156,41 @@ impl RealTimeModel {
         }
     }
 
-    pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model : & 'a Model) -> & 'a str {
+    pub fn stop_point_name<'a>(
+        &'a self,
+        stop_idx: &StopPointIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
         match stop_idx {
             StopPointIdx::Base(idx) => &base_model.stop_points[*idx].id,
             StopPointIdx::New(idx) => &self.new_stops[idx.idx].name,
         }
     }
 
-    pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : &'a  Model) -> &'a str {
+    pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model: &'a Model) -> &'a str {
+        match stop_idx {
+            StopPointIdx::Base(idx) => &base_model.stop_points[*idx].stop_area_id,
+            StopPointIdx::New(idx) => "unknown_stop_area",
+        }
+    }
+
+    pub fn vehicle_journey_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].id,
             VehicleJourneyIdx::New(idx) => &self.new_vehicle_journeys_history[idx.idx].0,
         }
     }
 
-    pub fn line_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : & 'a Model) -> &'a str {
+    pub fn line_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
+        let unknown_line = "unknown_line";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
                 let route_id = &base_model.vehicle_journeys[*idx].route_id;
@@ -179,16 +198,82 @@ impl RealTimeModel {
                     .routes
                     .get(route_id)
                     .map(|route| route.line_id.as_str())
-                    .unwrap_or("unknown_line")
+                    .unwrap_or(unknown_line)
             }
-            VehicleJourneyIdx::New(idx) => "unknown_line",
+            VehicleJourneyIdx::New(idx) => unknown_line,
         }
     }
 
-    pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx, base_model : & 'a Model) -> &'a str {
+    pub fn route_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].route_id,
             VehicleJourneyIdx::New(idx) => "unknown_route",
+        }
+    }
+
+    pub fn network_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
+        let unknown_network = "unknown_network";
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => {
+                let route_id = &base_model.vehicle_journeys[*idx].route_id;
+                let has_route = base_model.routes.get(route_id);
+                if let Some(route) = has_route {
+                    let line_id = &route.line_id;
+                    let has_line = base_model.lines.get(route_id);
+                    if let Some(line) = has_line {
+                        line.network_id.as_str()
+                    } else {
+                        unknown_network
+                    }
+                } else {
+                    unknown_network
+                }
+            }
+            VehicleJourneyIdx::New(idx) => unknown_network,
+        }
+    }
+
+    pub fn physical_mode_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].physical_mode_id,
+            VehicleJourneyIdx::New(idx) => "unknown_physical_mode",
+        }
+    }
+
+    pub fn commercial_mode_name<'a>(
+        &'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        base_model: &'a Model,
+    ) -> &'a str {
+        let unknown_commercial_mode = "unknown_commercial_mode";
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => {
+                let vj = &base_model.vehicle_journeys[*idx];
+                let has_route = base_model.routes.get(&vj.route_id);
+                if let Some(route) = has_route {
+                    let has_line = base_model.lines.get(&route.line_id);
+                    if let Some(line) = has_line {
+                        line.commercial_mode_id.as_str()
+                    } else {
+                        unknown_commercial_mode
+                    }
+                } else {
+                    unknown_commercial_mode
+                }
+            }
+            VehicleJourneyIdx::New(idx) => unknown_commercial_mode,
         }
     }
 
@@ -197,7 +282,7 @@ impl RealTimeModel {
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: usize,
         date: &NaiveDate,
-        base_model : & Model
+        base_model: &Model,
     ) -> Option<StopPointIdx> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -232,18 +317,23 @@ impl RealTimeModel {
         }
     }
 
-    // pub fn nb_of_stop_points(&self)-> usize {
-    //     self.new_stops.len() + self.base_model.stop_points.len()
-    // }
+    pub fn nb_of_new_stops(&self) -> usize {
+        self.new_stops.len()
+    }
 
-    // pub fn nb_of_transfers(&self) -> usize {
-    //     self.base_model.transfers.len()
-    // }
+    pub fn new_stops(&self) -> impl Iterator<Item = NewStop> {
+        let range = 0..self.new_stops.len();
+        range.map(|idx| NewStop { idx })
+    }
 
-    // pub fn validity_period(&self) -> (NaiveDate, NaiveDate) {
-    //     self.base_model.calculate_validity_period()
-    //         .expect("Unable to calculate a validity period.")
-    // }
+    pub fn nb_of_new_vehicle_journeys(&self) -> usize {
+        self.new_vehicle_journeys_history.len()
+    }
+
+    pub fn new_vehicle_journeys(&self) -> impl Iterator<Item = NewVehicleJourney> {
+        let range = 0..self.new_vehicle_journeys_history.len();
+        range.map(|idx| NewVehicleJourney { idx })
+    }
 }
 
 impl VehicleJourneyHistory {
