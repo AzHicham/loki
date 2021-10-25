@@ -74,7 +74,7 @@ fn routing_daily_bench(bencher: &mut Bencher) {
         ..config
     };
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     bencher.iter(|| {
         build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config).unwrap();
@@ -110,7 +110,7 @@ fn routing_periodic_bench(bencher: &mut Bencher) {
         data_implem: DataImplem::Periodic,
         ..config
     };
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     bencher.iter(|| {
         build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config).unwrap();

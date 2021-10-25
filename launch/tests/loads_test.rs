@@ -88,7 +88,7 @@ fn test_loads_matin() -> Result<(), Error> {
         comparator_type: ComparatorType::Loads,
         ..config
     };
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
 
@@ -121,7 +121,7 @@ fn test_loads_midi() -> Result<(), Error> {
         comparator_type: ComparatorType::Loads,
         ..config
     };
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
 
@@ -147,7 +147,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
         comparator_type: ComparatorType::Basic,
         ..config
     };
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
 

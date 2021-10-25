@@ -35,11 +35,17 @@
 // www.navitia.io
 
 use std::collections::HashMap;
+use std::hash::Hash;
 
+use crate::time::SecondsSinceTimezonedDayStart;
 use crate::{
     chrono::NaiveDate, time::SecondsSinceUTCDayStart, timetables::FlowDirection,
     transit_model::Model, Idx, StopPoint, VehicleJourney as TransitModelVehicleJourney,
 };
+
+use crate::{DataUpdate, LoadsData, realtime};
+
+use crate::transit_data;
 
 type TransitModelVehicleJourneyIdx = Idx<TransitModelVehicleJourney>;
 
@@ -51,11 +57,13 @@ pub struct RealTimeModel {
     // indexed by NewVehicleJourney.idx
     new_vehicle_journeys_history: Vec<(String, VehicleJourneyHistory)>,
 
-    // indexed by Idx<TransitModel>.get()
+    // gives position in base_vehicle_journeys_history, if any
+    base_vehicle_journeys_idx_to_history : HashMap<TransitModelVehicleJourneyIdx, usize>,
     base_vehicle_journeys_history: Vec<VehicleJourneyHistory>,
 
     new_stop_id_to_idx: HashMap<String, NewStop>,
     new_stops: Vec<StopData>,
+
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -88,10 +96,10 @@ pub enum TripData {
 
 #[derive(Debug, Clone)]
 pub struct StopTime {
-    stop: StopPointIdx,
-    arrival_time: SecondsSinceUTCDayStart,
-    departure_time: SecondsSinceUTCDayStart,
-    flow_direction: FlowDirection,
+    pub stop: StopPointIdx,
+    pub arrival_time: SecondsSinceTimezonedDayStart,
+    pub departure_time: SecondsSinceTimezonedDayStart,
+    pub flow_direction: FlowDirection,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -124,23 +132,197 @@ pub struct ImpactedVehicleAndStops {
     stops: Vec<StopPointIdx>,
 }
 
+
+
 impl RealTimeModel {
     // pub fn base_model(&self) -> & Model {
     //     &self.base_model
     // }
 
-    pub fn new(base_model: &Model) -> Self {
-        let nb_of_base_vj = base_model.vehicle_journeys.len();
-        let empty_history = VehicleJourneyHistory {
-            by_reference_date: HashMap::new(),
-        };
-        let base_vehicle_journeys_history = vec![empty_history; nb_of_base_vj];
+    pub fn apply_disruption<Data : DataUpdate>(&mut self, 
+        disruption : & realtime::disruption::Disruption,
+        data : & mut Data
+    ) 
+    {
+        // call data.remove/add/update
+    }
+
+    pub fn apply_update<Data : DataUpdate>(&mut self, 
+        disruption_id :& str,
+        update : & realtime::disruption::Update,
+        model : & Model,
+        loads_data : & LoadsData,
+        data : & mut Data
+    ) 
+    {
+        match update {
+            realtime::disruption::Update::Delete(trip) => {
+                let vj_idx = self.delete(disruption_id, trip, model);
+                data.remove_vehicle(&vj_idx, &trip.reference_date);
+            },
+            realtime::disruption::Update::Add(trip, stop_times) =>  {
+                let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, model);
+                let dates = std::iter::once(&trip.reference_date);
+                let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction.clone());
+                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time.clone());
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time.clone());
+                data.add_vehicle(
+                    stops, 
+                    flows, 
+                    board_times,
+                    debark_times,
+                    loads_data,
+                    dates,
+                    &chrono_tz::UTC, 
+                    vj_idx,
+                    &self,
+                    model,
+                );
+            },
+            realtime::disruption::Update::Modify(trip, stop_times) => {
+                let (vj_idx, stop_times)= self.modify(disruption_id, trip, stop_times, model);
+                let dates = std::iter::once(&trip.reference_date);
+                let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction.clone());
+                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time.clone());
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time.clone());
+                data.modify_vehicle(
+                    stops, 
+                    flows, 
+                    board_times,
+                    debark_times,
+                    loads_data,
+                    dates,
+                    &chrono_tz::UTC, 
+                    vj_idx,
+                    &self,
+                    model,
+                );
+                
+            },
+        }
+    }
+
+
+
+    pub fn delete(&mut self, disruption_id : &str, trip :& realtime::disruption::Trip, model :& Model) -> VehicleJourneyIdx {
+        let (idx, history) = self.get_or_insert_history(trip, model, disruption_id);
+        history.versions.push((disruption_id.to_string(), TripData::Deleted()));
+        idx
+       
+    }
+
+    pub fn add(&mut self, disruption_id : &str, trip :& realtime::disruption::Trip, stop_times :  & [realtime::disruption::StopTime], model :& Model) -> (VehicleJourneyIdx, Vec<StopTime>) {
+        let stop_times = self.make_stop_times(stop_times, model);
+        let (idx, history) = self.get_or_insert_history(trip, model, disruption_id);
+        history.versions.push((disruption_id.to_string(), TripData::Present(stop_times.clone())));
+        (idx, stop_times)
+    }
+
+    pub fn modify(&mut self, disruption_id : &str, trip :& realtime::disruption::Trip, stop_times :  & [realtime::disruption::StopTime], model :& Model) -> (VehicleJourneyIdx, Vec<StopTime>)  {
+        let stop_times = self.make_stop_times(stop_times, model);
+        let (idx, history) = self.get_or_insert_history(trip, model, disruption_id);
+        history.versions.push((disruption_id.to_string(), TripData::Present(stop_times.clone())));
+        (idx, stop_times)
+    }
+
+    fn get_or_insert_history(&mut self, trip : & realtime::disruption::Trip, model : & Model, disruption_id :& str) -> (VehicleJourneyIdx, & mut TripHistory) {
+        if let Some(transit_model_idx) = model.vehicle_journeys.get_idx(&trip.vehicle_journey_id) {
+            let trip_history = self.get_or_insert_base_vehicle_journey_history(&transit_model_idx, &trip.reference_date);
+            let idx = VehicleJourneyIdx::Base(transit_model_idx);
+            (idx, trip_history)
+        }
+        else {
+            self.get_or_insert_new_vehicle_journey_history(&trip.vehicle_journey_id, &trip.reference_date, disruption_id)
+        }
+    }
+
+
+    fn get_or_insert_base_vehicle_journey_history(&mut self, idx : & TransitModelVehicleJourneyIdx, date : &NaiveDate) -> &mut TripHistory {
+
+        let base_vj_history = & mut self.base_vehicle_journeys_history;
+        let pos = self.base_vehicle_journeys_idx_to_history
+            .entry(*idx)
+            .or_insert_with(|| {
+                let pos = base_vj_history.len();
+                base_vj_history.push(VehicleJourneyHistory::new());
+                pos
+            });
+
+        let vj_history = & mut self.base_vehicle_journeys_history[*pos];
+        vj_history
+            .by_reference_date
+            .entry(date.clone())
+            .or_insert_with(|| TripHistory{
+                versions : Vec::new()
+            })
+
+    }
+
+    fn get_or_insert_new_vehicle_journey_history(&mut self, id : &str, date : &NaiveDate, disruption_id :& str) -> (VehicleJourneyIdx, &mut TripHistory) {
+
+        let new_vj_history = & mut self.new_vehicle_journeys_history;
+        let idx = self.new_vehicle_journeys_id_to_idx
+            .entry(id.to_string())
+            .or_insert_with(|| {
+                let idx = NewVehicleJourney { idx : new_vj_history.len()};
+                new_vj_history.push((disruption_id.to_string(), VehicleJourneyHistory::new()));
+                idx
+            });
+
+        let vj_history = & mut self.new_vehicle_journeys_history[idx.idx].1;
+        let trip_history = vj_history
+            .by_reference_date
+            .entry(date.clone())
+            .or_insert_with(|| TripHistory{
+                versions : Vec::new()
+            });
+
+        let idx = VehicleJourneyIdx::New(idx.clone());
+        (idx, trip_history)
+
+    }
+
+    pub fn make_stop_times(&mut self, stop_times : & [realtime::disruption::StopTime], model :& Model) -> Vec<StopTime> {
+        let mut result = Vec::new(); 
+        for stop_time in stop_times {
+            let stop_id = stop_time.stop_id.as_str();
+            let stop_idx = self.get_or_insert_stop(stop_id, model);
+            result.push(StopTime {
+                stop : stop_idx,
+                departure_time : stop_time.departure_time, 
+                arrival_time : stop_time.arrival_time,
+                flow_direction : stop_time.flow_direction
+            });
+
+        }
+        result
+    }
+
+    pub fn get_or_insert_stop(&mut self, stop_id : &str, model :& Model) -> StopPointIdx {
+        if let Some(idx) = model.stop_points.get_idx(stop_id) {
+            StopPointIdx::Base(idx)
+        }
+        else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
+            StopPointIdx::New(idx.clone())
+        }
+        else {
+            let idx = NewStop{ idx : self.new_stops.len()};
+            self.new_stop_id_to_idx.insert(stop_id.to_string(), idx.clone());
+            StopPointIdx::New(idx.clone())
+        }
+    }
+
+
+    pub fn new() -> Self {
 
         Self {
             disruption_impacts: HashMap::new(),
             new_vehicle_journeys_id_to_idx: HashMap::new(),
             new_vehicle_journeys_history: Vec::new(),
-            base_vehicle_journeys_history,
+            base_vehicle_journeys_idx_to_history : HashMap::new(),
+            base_vehicle_journeys_history : Vec::new(),
             new_stop_id_to_idx: HashMap::new(),
             new_stops: Vec::new(),
         }
@@ -170,7 +352,7 @@ impl RealTimeModel {
     pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model: &'a Model) -> &'a str {
         match stop_idx {
             StopPointIdx::Base(idx) => &base_model.stop_points[*idx].stop_area_id,
-            StopPointIdx::New(idx) => "unknown_stop_area",
+            StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
 
@@ -200,7 +382,7 @@ impl RealTimeModel {
                     .map(|route| route.line_id.as_str())
                     .unwrap_or(unknown_line)
             }
-            VehicleJourneyIdx::New(idx) => unknown_line,
+            VehicleJourneyIdx::New(_idx) => unknown_line,
         }
     }
 
@@ -211,7 +393,7 @@ impl RealTimeModel {
     ) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].route_id,
-            VehicleJourneyIdx::New(idx) => "unknown_route",
+            VehicleJourneyIdx::New(_idx) => "unknown_route",
         }
     }
 
@@ -226,8 +408,7 @@ impl RealTimeModel {
                 let route_id = &base_model.vehicle_journeys[*idx].route_id;
                 let has_route = base_model.routes.get(route_id);
                 if let Some(route) = has_route {
-                    let line_id = &route.line_id;
-                    let has_line = base_model.lines.get(route_id);
+                    let has_line = base_model.lines.get(&route.line_id);
                     if let Some(line) = has_line {
                         line.network_id.as_str()
                     } else {
@@ -237,7 +418,7 @@ impl RealTimeModel {
                     unknown_network
                 }
             }
-            VehicleJourneyIdx::New(idx) => unknown_network,
+            VehicleJourneyIdx::New(_idx) => unknown_network,
         }
     }
 
@@ -248,7 +429,7 @@ impl RealTimeModel {
     ) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].physical_mode_id,
-            VehicleJourneyIdx::New(idx) => "unknown_physical_mode",
+            VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
         }
     }
 
@@ -273,8 +454,21 @@ impl RealTimeModel {
                     unknown_commercial_mode
                 }
             }
-            VehicleJourneyIdx::New(idx) => unknown_commercial_mode,
+            VehicleJourneyIdx::New(_idx) => unknown_commercial_mode,
         }
+    }
+
+
+
+    fn base_vehicle_journey_last_version(&self, idx : & TransitModelVehicleJourneyIdx, date : &NaiveDate) -> Option<&TripData> {
+        self.base_vehicle_journeys_idx_to_history
+            .get(idx)
+            .map(|pos| 
+                self.base_vehicle_journeys_history[*pos]
+                .trip_data(date)
+                .map(|(_, trip_data)| trip_data )
+            )
+            .flatten()
     }
 
     pub fn stop_point_at(
@@ -286,8 +480,8 @@ impl RealTimeModel {
     ) -> Option<StopPointIdx> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.base_vehicle_journeys_history[idx.get()].trip_data(date);
-                if let Some((_, trip_data)) = has_history {
+                let has_history = self.base_vehicle_journey_last_version(idx, date);
+                if let Some(trip_data) = has_history {
                     match trip_data {
                         TripData::Deleted() => None,
                         TripData::Present(stop_times) => stop_times

@@ -199,7 +199,7 @@ where
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let datetime = match &config.datetime {
         Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,

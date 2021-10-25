@@ -36,12 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::{
-    loads_data::LoadsData,
-    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    timetables::generic_timetables::VehicleTimesError,
-    transit_data::{Stop, TransitData},
-};
+use crate::{DataUpdate, loads_data::LoadsData, realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, timetables::generic_timetables::VehicleTimesError, transit_data::{Stop, TransitData}};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
@@ -93,7 +88,7 @@ where
     ) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            let _ = self.insert_vehicle_journey(
+            let _ = self.insert_base_vehicle_journey(
                 vehicle_journey_idx,
                 vehicle_journey,
                 transit_model,
@@ -184,15 +179,20 @@ where
         }
     }
 
-    fn insert_vehicle_journey(
+    fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
         transit_model: &Model,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stops = self.create_stops(vehicle_journey);
-        let flows = self.create_flows(vehicle_journey)?;
+        let stop_points = vehicle_journey.stop_times
+            .iter()
+            .map(|stop_time| 
+                StopPointIdx::Base(stop_time.stop_point_idx)
+            );
+        
+        let flows = self.create_flows_for_base_vehicle_journey(vehicle_journey)?;
 
         let model_calendar = transit_model
             .calendars
@@ -211,53 +211,22 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let (missions, insertion_errors) = self.timetables.insert(
-            stops.into_iter(),
-            flows.into_iter(),
-            board_times.into_iter(),
-            debark_times.into_iter(),
-            loads_data,
-            model_calendar.dates.iter(),
-            &timezone,
-            vehicle_journey_idx,
+        let real_time_model = RealTimeModel::new();
+
+        self.add_vehicle(
+            stop_points, 
+            flows.into_iter(), 
+            board_times.into_iter(), 
+            debark_times.into_iter(), 
+            loads_data, 
+            model_calendar.dates.iter(), 
+            &timezone, 
+            vehicle_journey_idx, 
+            &real_time_model, 
+            transit_model
         );
 
-        for mission in missions.iter() {
-            for position in self.timetables.positions(mission) {
-                let stop = self.timetables.stop_at(&position, mission);
-                let stop_data = &mut self.stops_data[stop.idx];
-                stop_data
-                    .position_in_timetables
-                    .push((mission.clone(), position));
-            }
-        }
-
-        for error in insertion_errors {
-            use crate::timetables::InsertionError::*;
-            match error {
-                Times(error, dates) => {
-                    handle_vehicletimes_error(vehicle_journey, &dates, &error);
-                }
-                VehicleJourneyAlreadyExistsOnDate(date) => {
-                    error!(
-                        "Trying to insert the vehicle journey {} more than once on day {}",
-                        vehicle_journey.id, date
-                    );
-                }
-                DateOutOfCalendar(date) => {
-                    use crate::transit_data::data_interface::Data;
-                    error!(
-                        "Trying to insert the vehicle journey {} on day {},  \
-                            but this day is not allowed in the calendar.  \
-                            Allowed dates are between {} and {}",
-                        vehicle_journey.id,
-                        date,
-                        self.calendar().first_date(),
-                        self.calendar().last_date(),
-                    );
-                }
-            }
-        }
+        
 
         Ok(())
     }
@@ -280,10 +249,10 @@ where
         stop
     }
 
-    fn create_stops(&mut self, vehicle_journey: &VehicleJourney) -> Vec<Stop> {
-        let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-        for stop_time in vehicle_journey.stop_times.iter() {
-            let stop_point_idx = StopPointIdx::Base(stop_time.stop_point_idx);
+
+    pub(super) fn create_stops<StopPoints : Iterator<Item = StopPointIdx> >(&mut self, stop_points : StopPoints) -> Vec<Stop> {
+        let mut result = Vec::new();
+        for stop_point_idx in stop_points {
             let stop = self
                 .stop_point_idx_to_stop
                 .get(&stop_point_idx)
@@ -294,7 +263,7 @@ where
         result
     }
 
-    fn create_flows(&self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()> {
+    fn create_flows_for_base_vehicle_journey(&self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
             let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
@@ -426,51 +395,4 @@ fn debark_timezoned_times(
     }
 
     Ok(result)
-}
-
-fn handle_vehicletimes_error(
-    vehicle_journey: &VehicleJourney,
-    dates: &[NaiveDate],
-    error: &VehicleTimesError,
-) {
-    let days_strings: Vec<String> = dates
-        .iter()
-        .map(|date| date.format("%H:%M:%S %d-%b-%y").to_string())
-        .collect();
-
-    match error {
-        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            error!(
-                "Skipping vehicle journey {} on days {:?} because its \
-                    debark time at : \n {:?} \n\
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            error!(
-                "Skipping vehicle journey {} on days {:?} because its \
-                    board time at : \n {:?} \n \
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            error!(
-                "Skipping vehicle journey {} on days {:?} because its \
-                    debark time at : \n {:?} \n \
-                    is earlier than its \
-                    debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, days_strings, downstream_stop_time, upstream_stop_time
-            );
-        }
-    }
 }

@@ -93,7 +93,7 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let mut data = launch::read::build_transit_data::<T>(
         &model,
@@ -221,7 +221,7 @@ where
         })
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T08:00:00", "A", "C");
 
@@ -373,7 +373,7 @@ where
         })
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
 

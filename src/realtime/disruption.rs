@@ -36,7 +36,7 @@
 
 use chrono::NaiveDate;
 
-use crate::{time::SecondsSinceUTCDayStart, timetables::FlowDirection};
+use crate::{time::{SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart}, timetables::FlowDirection};
 
 pub struct Disruption {
     pub id: String,
@@ -56,7 +56,7 @@ pub struct Trip {
 
 pub struct StopTime {
     pub stop_id: String,
-    pub arrival_time: SecondsSinceUTCDayStart,
-    pub departure_time: SecondsSinceUTCDayStart,
+    pub arrival_time: SecondsSinceTimezonedDayStart,
+    pub departure_time: SecondsSinceTimezonedDayStart,
     pub flow_direction: FlowDirection,
 }

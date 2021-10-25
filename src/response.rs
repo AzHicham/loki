@@ -661,6 +661,28 @@ impl VehicleSection {
         duration.num_seconds()
     }
 
+    pub fn from_stop_point_name<'a>(&self, real_time_model :& 'a RealTimeModel, model :&'a Model) -> Option<&'a str> {
+        real_time_model
+            .stop_point_at(
+                &self.vehicle_journey,
+                self.from_stoptime_idx,
+                &self.day_for_vehicle_journey,
+                model,
+            )
+            .map(|idx| real_time_model.stop_point_name(&idx, model))
+    }
+
+    pub fn to_stop_point_name<'a>(&self, real_time_model :& 'a RealTimeModel, model :&'a Model) -> Option<&'a str> {
+        real_time_model
+            .stop_point_at(
+                &self.vehicle_journey,
+                self.to_stoptime_idx,
+                &self.day_for_vehicle_journey,
+                model,
+            )
+            .map(|idx| real_time_model.stop_point_name(&idx, model))
+    }
+
     fn write<Writer: std::fmt::Write>(
         &self,
         real_time_model: &RealTimeModel,

@@ -106,7 +106,7 @@ fn test_no_filter(
         data_implem,
         ..config
     };
-    let real_time_model = RealTimeModel::new(&fixture_model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(
         &real_time_model,
@@ -156,7 +156,7 @@ fn test_filter_forbidden_stop_point(
         ..config
     };
 
-    let real_time_model = RealTimeModel::new(&fixture_model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(
         &real_time_model,
@@ -213,7 +213,7 @@ fn test_filter_allowed_stop_point(
         ..config
     };
 
-    let real_time_model = RealTimeModel::new(&fixture_model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(
         &real_time_model,
@@ -262,7 +262,7 @@ fn test_filter_forbidden_route(
         forbidden_uri: vec!["route:R2", "route:R3"],
         ..config
     };
-    let real_time_model = RealTimeModel::new(&fixture_model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(
         &real_time_model,
@@ -311,7 +311,7 @@ fn test_filter_allowed_route(
         allowed_uri: vec!["route:R1", "route:R4"],
         ..config
     };
-    let real_time_model = RealTimeModel::new(&fixture_model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(
         &real_time_model,

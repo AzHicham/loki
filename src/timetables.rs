@@ -50,11 +50,7 @@ use std::hash::Hash;
 
 pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
-use crate::{
-    loads_data::{Load, LoadsData},
-    realtime::real_time_model::VehicleJourneyIdx,
-    time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
-};
+use crate::{loads_data::{Load, LoadsData}, realtime::real_time_model::VehicleJourneyIdx, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart}};
 
 use chrono::NaiveDate;
 use std::fmt::Debug;
@@ -171,22 +167,24 @@ pub trait Timetables: Types {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn insert<'date, Stops, Flows, Dates, Times>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
-        board_times: Times,
-        debark_times: Times,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey: VehicleJourneyIdx,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        ;
 
     fn remove(
         &mut self,
@@ -195,17 +193,18 @@ pub trait Timetables: Types {
     ) -> Result<(), RemovalError>;
 }
 
+#[derive(Clone, Debug)]
 pub enum InsertionError {
-    Times(VehicleTimesError, Vec<NaiveDate>),
-    VehicleJourneyAlreadyExistsOnDate(NaiveDate),
+    Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
+    VehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
     DateOutOfCalendar(NaiveDate),
 }
 
 #[derive(Clone, Debug)]
 pub enum RemovalError {
-    UnknownDate,
-    UnknownVehicleJourney,
-    DateInvalidForVehicleJourney,
+    UnknownDate(NaiveDate),
+    UnknownVehicleJourney(VehicleJourneyIdx),
+    DateInvalidForVehicleJourney(NaiveDate, VehicleJourneyIdx),
 }
 
 pub trait TimetablesIter<'a>: Types {

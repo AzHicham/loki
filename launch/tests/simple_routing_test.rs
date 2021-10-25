@@ -70,7 +70,7 @@ fn test_simple_routing(
         })
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "B");
     let config = Config {
@@ -141,7 +141,7 @@ fn test_routing_with_transfers(
         ..config
     };
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let responses = build_and_solve(&real_time_model, &model, &loki::LoadsData::empty(), &config)?;
 
@@ -235,7 +235,7 @@ fn test_routing_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {
@@ -350,7 +350,7 @@ fn test_second_pass_forward(
         .add_transfer("G", "H", "00:02:00")
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
@@ -416,7 +416,7 @@ fn test_second_pass_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let real_time_model = RealTimeModel::new(&model);
+    let real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {

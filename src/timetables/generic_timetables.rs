@@ -1164,11 +1164,13 @@ where
     Ok(())
 }
 
+#[derive(Clone, Debug)]
 pub struct PositionPair {
     pub upstream: usize,
     pub downstream: usize,
 }
 
+#[derive(Clone, Debug)]
 pub enum VehicleTimesError {
     DebarkBeforeUpstreamBoard(PositionPair), // board_time[upstream] > debark_time[downstream]
     DecreasingBoardTime(PositionPair),       // board_time[upstream] > board_time[downstream]

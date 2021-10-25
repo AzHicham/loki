@@ -363,22 +363,23 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn insert<'date, Stops, Flows, Dates, Times>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
-        board_times: Times,
-        debark_times: Times,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
@@ -422,7 +423,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     vj_timetables.has_intersection_with(&offset_days_pattern, &self.days_patterns)
                 {
                     let date = self.calendar.to_naive_date(&day);
-                    let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date);
+                    let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx.clone());
                     insertion_errors.push(error);
                     // the vehicle already exists on this day
                     // so let's skip the insertion and keep the old value
@@ -467,7 +468,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                         let dates = self
                             .days_patterns
                             .make_dates(&offset_days_pattern, &self.calendar);
-                        let error = InsertionError::Times(times_error, dates);
+                        let error = InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
                         insertion_errors.push(error);
                     }
                 }
@@ -484,12 +485,12 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate)?;
+            .ok_or(RemovalError::UnknownDate(date.clone()))?;
 
         let iter = self
             .vehicle_journey_to_timetables
             .get_mut(vehicle_journey_idx)
-            .ok_or(RemovalError::UnknownVehicleJourney)?;
+            .ok_or(RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone()))?;
 
         for (offset, day_to_timetable) in iter {
             let remove_result = day_to_timetable.remove(&day, &mut self.days_patterns);
@@ -533,7 +534,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             }
         }
         // day is not valid for any offset
-        Err(RemovalError::DateInvalidForVehicleJourney)
+        Err(RemovalError::DateInvalidForVehicleJourney(date.clone(), vehicle_journey_idx.clone()))
     }
 }
 
