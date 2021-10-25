@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub use chaos_proto::*;
+pub use crate::chaos_proto::*;
 
 use super::navitia_proto;
 

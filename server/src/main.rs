@@ -52,14 +52,11 @@ pub mod zmq_worker;
 
 pub mod compute_worker;
 pub mod master_worker;
-mod realtime;
+// mod realtime;
 
-use launch::loki::{
-    realtime::rt_model::RealTimeModel,
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
-    tracing::{debug, error, info, warn},
-    transit_model, DailyData, PeriodicData, PeriodicSplitVjData, PositiveDuration, RequestInput,
-};
+use launch::{config, loki::{
+    tracing::{debug, info},
+}};
 
 
 use structopt::StructOpt;
@@ -68,9 +65,6 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use failure::{bail, Error};
 
-use std::convert::TryFrom;
-
-use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

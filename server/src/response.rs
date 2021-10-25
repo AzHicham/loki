@@ -38,7 +38,7 @@ use crate::navitia_proto;
 
 use launch::loki::{
     self,
-    realtime::real_time_model::{NewStop, RealTimeModel, StopPointIdx},
+    realtime::real_time_model::{RealTimeModel, StopPointIdx},
     RequestInput,
 };
 
