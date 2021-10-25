@@ -36,7 +36,10 @@
 
 use chrono::NaiveDate;
 
-use crate::{time::{SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart}, timetables::FlowDirection};
+use crate::{
+    time::{SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart},
+    timetables::FlowDirection,
+};
 
 pub struct Disruption {
     pub id: String,

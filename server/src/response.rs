@@ -36,7 +36,11 @@
 
 use crate::navitia_proto;
 
-use launch::loki::{self, RequestInput, realtime::real_time_model::{NewStop, RealTimeModel, StopPointIdx}};
+use launch::loki::{
+    self,
+    realtime::real_time_model::{NewStop, RealTimeModel, StopPointIdx},
+    RequestInput,
+};
 
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
@@ -60,7 +64,7 @@ const EARTH_RADIUS_IN_METERS: f64 = 6372797.560856;
 pub fn make_response(
     request_input: &RequestInput,
     journeys: Vec<loki::Response>,
-    real_time_model : & RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &Model,
 ) -> Result<navitia_proto::Response, Error> {
     let mut proto = navitia_proto::Response {
@@ -82,7 +86,7 @@ fn make_journey(
     request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
-    real_time_model : & RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &Model,
 ) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,
@@ -123,19 +127,22 @@ fn make_journey(
         {
             let section_id = format!("section_{}_{}", journey_id, 1 + 3 * connection_idx);
             let transfer_section = &connection.0;
-            let proto_section = make_transfer_section(transfer_section, real_time_model, model, section_id)?;
+            let proto_section =
+                make_transfer_section(transfer_section, real_time_model, model, section_id)?;
             proto.sections.push(proto_section);
         }
         {
             let section_id = format!("section_{}_{}", journey_id, 2 + 3 * connection_idx);
             let waiting_section = &connection.1;
-            let proto_section = make_waiting_section(waiting_section, real_time_model, model, section_id)?;
+            let proto_section =
+                make_waiting_section(waiting_section, real_time_model, model, section_id)?;
             proto.sections.push(proto_section);
         }
         {
             let section_id = format!("section_{}_{}", journey_id, 3 + 3 * connection_idx);
             let vehicle_section = &connection.2;
-            let proto_section = make_public_transport_section(vehicle_section, real_time_model, model, section_id)?;
+            let proto_section =
+                make_public_transport_section(vehicle_section, real_time_model, model, section_id)?;
             proto.sections.push(proto_section);
         }
     }
@@ -147,7 +154,7 @@ fn make_journey(
 
 fn make_transfer_section(
     transfer_section: &TransferSection,
-    real_time_model : & RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &transit_model::Model,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
@@ -180,7 +187,7 @@ fn make_transfer_section(
 
 fn make_waiting_section(
     waiting_section: &WaitingSection,
-    real_time_model :& RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &transit_model::Model,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
@@ -210,12 +217,9 @@ fn make_waiting_section(
     Ok(proto)
 }
 
-
-
-
 fn make_public_transport_section(
     vehicle_section: &VehicleSection,
-    real_time_model :& RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &transit_model::Model,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
@@ -257,8 +261,16 @@ fn make_public_transport_section(
         compute_section_co2_emission(length_f64, &vehicle_section.vehicle_journey, model);
 
     let mut proto = navitia_proto::Section {
-        origin: Some(make_stop_point_pt_object(from_stop_point_idx, real_time_model, model)?),
-        destination: Some(make_stop_point_pt_object(to_stop_point_idx, real_time_model, model)?),
+        origin: Some(make_stop_point_pt_object(
+            from_stop_point_idx,
+            real_time_model,
+            model,
+        )?),
+        destination: Some(make_stop_point_pt_object(
+            to_stop_point_idx,
+            real_time_model,
+            model,
+        )?),
         pt_display_informations: Some(make_pt_display_info(
             vehicle_section.vehicle_journey,
             model,
@@ -288,7 +300,7 @@ fn make_public_transport_section(
 
 fn make_stop_point_pt_object(
     stop_point_idx: StopPointIdx,
-    real_time_model : & RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &transit_model::Model,
 ) -> Result<navitia_proto::PtObject, Error> {
     match stop_point_idx {
@@ -305,23 +317,26 @@ fn make_stop_point_pt_object(
                 ..Default::default()
             };
             proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
-        
+
             Ok(proto)
-        },
+        }
         StopPointIdx::New(idx) => {
             let stop_point_uri = real_time_model.stop_point_name(&stop_point_idx, model);
             let mut proto = navitia_proto::PtObject {
                 name: stop_point_uri.to_string(),
                 uri: stop_point_uri.to_string(),
-                stop_point: Some(make_new_stop_point(&stop_point_idx, real_time_model, model)?),
+                stop_point: Some(make_new_stop_point(
+                    &stop_point_idx,
+                    real_time_model,
+                    model,
+                )?),
                 ..Default::default()
             };
             proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
-        
-            Ok(proto)
-        },
-    }
 
+            Ok(proto)
+        }
+    }
 }
 
 fn make_base_stop_point(
@@ -377,21 +392,21 @@ fn make_base_stop_point(
 
 fn make_new_stop_point(
     stop_idx: &StopPointIdx,
-    real_time_model : & RealTimeModel,
+    real_time_model: &RealTimeModel,
     model: &transit_model::Model,
-    ) -> Result<navitia_proto::StopPoint, Error> {
-        let stop_name = real_time_model.stop_point_name(stop_idx, model);
-        let stop_area = real_time_model.stop_area_name(stop_idx, model);
-        let proto = navitia_proto::StopPoint {
-            name: Some(stop_name.to_string()),
-            uri: Some(stop_name.to_string()),
-            label: Some(stop_name.to_string()),
-            stop_area: None,
-            ..Default::default()
-        };
-    
-        Ok(proto)
-    }
+) -> Result<navitia_proto::StopPoint, Error> {
+    let stop_name = real_time_model.stop_point_name(stop_idx, model);
+    let stop_area = real_time_model.stop_area_name(stop_idx, model);
+    let proto = navitia_proto::StopPoint {
+        name: Some(stop_name.to_string()),
+        uri: Some(stop_name.to_string()),
+        label: Some(stop_name.to_string()),
+        stop_area: None,
+        ..Default::default()
+    };
+
+    Ok(proto)
+}
 
 fn make_stop_area(
     stop_area_id: &str,

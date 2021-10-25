@@ -50,7 +50,14 @@ use std::hash::Hash;
 
 pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
-use crate::{loads_data::{Load, LoadsData}, realtime::real_time_model::VehicleJourneyIdx, time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    realtime::real_time_model::VehicleJourneyIdx,
+    time::{
+        Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+        SecondsSinceUTCDayStart,
+    },
+};
 
 use chrono::NaiveDate;
 use std::fmt::Debug;
@@ -183,8 +190,7 @@ pub trait Timetables: Types {
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        ;
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
     fn remove(
         &mut self,

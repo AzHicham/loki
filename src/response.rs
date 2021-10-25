@@ -661,7 +661,11 @@ impl VehicleSection {
         duration.num_seconds()
     }
 
-    pub fn from_stop_point_name<'a>(&self, real_time_model :& 'a RealTimeModel, model :&'a Model) -> Option<&'a str> {
+    pub fn from_stop_point_name<'a>(
+        &self,
+        real_time_model: &'a RealTimeModel,
+        model: &'a Model,
+    ) -> Option<&'a str> {
         real_time_model
             .stop_point_at(
                 &self.vehicle_journey,
@@ -672,7 +676,11 @@ impl VehicleSection {
             .map(|idx| real_time_model.stop_point_name(&idx, model))
     }
 
-    pub fn to_stop_point_name<'a>(&self, real_time_model :& 'a RealTimeModel, model :&'a Model) -> Option<&'a str> {
+    pub fn to_stop_point_name<'a>(
+        &self,
+        real_time_model: &'a RealTimeModel,
+        model: &'a Model,
+    ) -> Option<&'a str> {
         real_time_model
             .stop_point_at(
                 &self.vehicle_journey,

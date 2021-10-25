@@ -1,4 +1,12 @@
-use crate::{loads_data::{Load, LoadsData}, realtime::{self, real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}}, time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, timetables::{FlowDirection, InsertionError, RemovalError}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    realtime::{
+        self,
+        real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    },
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+    timetables::{FlowDirection, InsertionError, RemovalError},
+};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::{
     objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
@@ -155,7 +163,8 @@ pub trait DataUpdate {
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
 
-    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(&mut self, 
+    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
         stops: Stops,
         flows: Flows,
         board_times: BoardTimes,
@@ -164,18 +173,18 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model : &RealTimeModel,
-        model : & Model,
+        real_time_model: &RealTimeModel,
+        model: &Model,
     ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        ;
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(&mut self, 
+    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
         stops: Stops,
         flows: Flows,
         board_times: BoardTimes,
@@ -184,16 +193,15 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model : &RealTimeModel,
-        model : & Model,
+        real_time_model: &RealTimeModel,
+        model: &Model,
     ) -> (Vec<RemovalError>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        ;
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 }
 
 pub trait DataIO {

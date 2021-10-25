@@ -211,20 +211,24 @@ pub fn from_to_stop_point_names<'a>(
     real_time_model: &'a RealTimeModel,
     model: &'a Model,
 ) -> Result<(&'a str, &'a str), Error> {
-    let from_stop_name = vehicle_section.from_stop_point_name(real_time_model, model).ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
-            vehicle_section.from_stoptime_idx,
-            real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
-        )
-    })?;
-    let to_stop_name = vehicle_section.to_stop_point_name(real_time_model, model).ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
-            vehicle_section.to_stoptime_idx,
-            real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
-        )
-    })?;
+    let from_stop_name = vehicle_section
+        .from_stop_point_name(real_time_model, model)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.from_stoptime_idx,
+                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            )
+        })?;
+    let to_stop_name = vehicle_section
+        .to_stop_point_name(real_time_model, model)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.to_stoptime_idx,
+                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+            )
+        })?;
 
     Ok((from_stop_name, to_stop_name))
 }

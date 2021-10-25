@@ -277,7 +277,10 @@ impl TimetablesTrait for DailyTimetables {
                 }
                 Some(day) => {
                     if vj_timetables.contains_day(&day, &self.days_patterns) {
-                        let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date.clone(), vehicle_journey_idx.clone());
+                        let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
+                            date.clone(),
+                            vehicle_journey_idx.clone(),
+                        );
                         insertion_errors.push(error);
                         continue;
                     }
@@ -322,7 +325,11 @@ impl TimetablesTrait for DailyTimetables {
                         }
                         Err(times_error) => {
                             let dates = vec![date.clone()];
-                            let error = InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
+                            let error = InsertionError::Times(
+                                vehicle_journey_idx.clone(),
+                                times_error,
+                                dates,
+                            );
                             insertion_errors.push(error);
                         }
                     }
@@ -348,11 +355,18 @@ impl TimetablesTrait for DailyTimetables {
         let result = match has_timetables {
             None => {
                 // There is no timetable with this vehicle_journey_index
-                Err(RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone()))
+                Err(RemovalError::UnknownVehicleJourney(
+                    vehicle_journey_idx.clone(),
+                ))
             }
             Some(day_to_timetable) => day_to_timetable
                 .remove(&day, &mut self.days_patterns)
-                .map_err(|_| RemovalError::DateInvalidForVehicleJourney(date.clone(), vehicle_journey_idx.clone())),
+                .map_err(|_| {
+                    RemovalError::DateInvalidForVehicleJourney(
+                        date.clone(),
+                        vehicle_journey_idx.clone(),
+                    )
+                }),
         };
 
         match result {

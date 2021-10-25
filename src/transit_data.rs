@@ -44,7 +44,14 @@ pub use transit_model::objects::{
 };
 pub use typed_index_collection::Idx;
 
-use crate::{loads_data::{Load, LoadsData}, realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, timetables::{FlowDirection, InsertionError, generic_timetables::VehicleTimesError}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{
+        Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    },
+    timetables::{generic_timetables::VehicleTimesError, FlowDirection, InsertionError},
+};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -272,9 +279,9 @@ where
     }
 }
 
-impl<Timetables> data_interface::DataUpdate for TransitData<Timetables> 
-where 
-Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
     fn remove_vehicle(
         &mut self,
@@ -283,8 +290,9 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
     ) -> Result<(), RemovalError> {
         self.timetables.remove(date, vehicle_journey_idx)
     }
- 
-    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(&mut self, 
+
+    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
         stop_points: Stops,
         flows: Flows,
         board_times: BoardTimes,
@@ -293,8 +301,8 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model : &RealTimeModel,
-        model : & Model,
+        real_time_model: &RealTimeModel,
+        model: &Model,
     ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -305,14 +313,14 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
     {
         let stops = self.create_stops(stop_points.clone()).into_iter();
         let (missions, insertion_errors) = self.timetables.insert(
-            stops, 
-            flows, 
-            board_times, 
-            debark_times, 
-            loads_data, 
-            valid_dates, 
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            loads_data,
+            valid_dates,
             timezone,
-            &vehicle_journey_idx
+            &vehicle_journey_idx,
         );
 
         for mission in missions.iter() {
@@ -358,8 +366,8 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
         // Ok(())
     }
 
-   
-    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(&mut self, 
+    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
         stops: Stops,
         flows: Flows,
         board_times: BoardTimes,
@@ -368,8 +376,8 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model : &RealTimeModel,
-        model : & Model,
+        real_time_model: &RealTimeModel,
+        model: &Model,
     ) -> (Vec<RemovalError>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -385,19 +393,19 @@ Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
             match removal_result {
                 Ok(()) => {
                     let errors = self.add_vehicle(
-                        stops.clone(), 
-                        flows.clone(), 
-                        board_times.clone(), 
-                        debark_times.clone(), 
-                        loads_data, 
-                        valid_dates.clone(), 
-                        timezone, 
+                        stops.clone(),
+                        flows.clone(),
+                        board_times.clone(),
+                        debark_times.clone(),
+                        loads_data,
+                        valid_dates.clone(),
+                        timezone,
                         vehicle_journey_idx.clone(),
                         real_time_model,
                         model,
                     );
                     insertion_errors.extend_from_slice(errors.as_slice());
-                },
+                }
                 Err(removal_error) => {
                     removal_errors.push(removal_error);
                 }
@@ -457,14 +465,12 @@ where
 {
 }
 
-
-
 fn handle_vehicletimes_error(
     vehicle_journey_name: &str,
     dates: &[NaiveDate],
-    stop_points : impl Iterator<Item=StopPointIdx> + Clone,
-    real_time_model : & RealTimeModel,
-    model : & Model,
+    stop_points: impl Iterator<Item = StopPointIdx> + Clone,
+    real_time_model: &RealTimeModel,
+    model: &Model,
     error: &VehicleTimesError,
 ) {
     let days_strings: Vec<String> = dates
@@ -474,69 +480,75 @@ fn handle_vehicletimes_error(
 
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_name = stop_points.clone()
-                        .nth(position_pair.upstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
-            let downstream_stop_name = stop_points.clone()
-                        .nth(position_pair.downstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
+            let upstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.upstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
+            let downstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.downstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
                     is earlier than its \
                     board time upstream {}-th stop_time ({}). ",
-                vehicle_journey_name, 
-                days_strings, 
+                vehicle_journey_name,
+                days_strings,
                 position_pair.downstream,
-                downstream_stop_name, 
+                downstream_stop_name,
                 position_pair.upstream,
                 upstream_stop_name
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_name = stop_points.clone()
-                        .nth(position_pair.upstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
-            let downstream_stop_name = stop_points.clone()
-                        .nth(position_pair.downstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
+            let upstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.upstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
+            let downstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.downstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     board time at {}-th stop_time ({}) \
                     is earlier than its \
                     board time upstream at {}-th stop_time ({}). ",
-                    vehicle_journey_name, 
-                    days_strings, 
-                    position_pair.downstream,
-                    downstream_stop_name, 
-                    position_pair.upstream,
-                    upstream_stop_name
+                vehicle_journey_name,
+                days_strings,
+                position_pair.downstream,
+                downstream_stop_name,
+                position_pair.upstream,
+                upstream_stop_name
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_name = stop_points.clone()
-                        .nth(position_pair.upstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
-            let downstream_stop_name = stop_points.clone()
-                        .nth(position_pair.downstream)
-                        .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
-                        .unwrap_or_else(|| "unknown_stopp_time");
+            let upstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.upstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
+            let downstream_stop_name = stop_points
+                .clone()
+                .nth(position_pair.downstream)
+                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
                     is earlier than its \
                     debark time upstream at {}-th stop_time ({}). ",
-                    vehicle_journey_name, 
-                    days_strings, 
-                    position_pair.downstream,
-                    downstream_stop_name, 
-                    position_pair.upstream,
-                    upstream_stop_name
+                vehicle_journey_name,
+                days_strings,
+                position_pair.downstream,
+                downstream_stop_name,
+                position_pair.upstream,
+                upstream_stop_name
             );
         }
     }

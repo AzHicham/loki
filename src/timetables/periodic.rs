@@ -203,7 +203,6 @@ impl TimetablesTrait for PeriodicTimetables {
         })
     }
 
-
     fn board_time_of(
         &self,
         trip: &Self::Trip,
@@ -449,7 +448,7 @@ impl TimetablesTrait for PeriodicTimetables {
         )
     }
 
-   fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -458,7 +457,7 @@ impl TimetablesTrait for PeriodicTimetables {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: & VehicleJourneyIdx,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -506,7 +505,10 @@ impl TimetablesTrait for PeriodicTimetables {
                 //     self.calendar.to_naive_date(&day)
                 // );
                 let date = self.calendar.to_naive_date(&day);
-                let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx.clone());
+                let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
+                    date,
+                    vehicle_journey_idx.clone(),
+                );
                 insertion_errors.push(error);
                 // the vehicle already exists on this day
                 // so let's skip the insertion and keep the old value
@@ -537,7 +539,8 @@ impl TimetablesTrait for PeriodicTimetables {
                 }
                 Err(times_error) => {
                     let dates = self.days_patterns.make_dates(&days_pattern, &self.calendar);
-                    let error = InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
+                    let error =
+                        InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
                     insertion_errors.push(error);
                 }
             }
@@ -562,11 +565,18 @@ impl TimetablesTrait for PeriodicTimetables {
         let result = match has_timetables {
             None => {
                 // There is no timetable with this vehicle_journey_index
-                Err(RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone()))
+                Err(RemovalError::UnknownVehicleJourney(
+                    vehicle_journey_idx.clone(),
+                ))
             }
             Some(day_to_timetable) => day_to_timetable
                 .remove(&day, &mut self.days_patterns)
-                .map_err(|_| RemovalError::DateInvalidForVehicleJourney(date.clone(), vehicle_journey_idx.clone())),
+                .map_err(|_| {
+                    RemovalError::DateInvalidForVehicleJourney(
+                        date.clone(),
+                        vehicle_journey_idx.clone(),
+                    )
+                }),
         };
 
         match result {

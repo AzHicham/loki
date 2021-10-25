@@ -36,7 +36,13 @@
 
 use std::fmt::Debug;
 
-use crate::{DataUpdate, loads_data::LoadsData, realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, timetables::generic_timetables::VehicleTimesError, transit_data::{Stop, TransitData}};
+use crate::{
+    loads_data::LoadsData,
+    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    timetables::generic_timetables::VehicleTimesError,
+    transit_data::{Stop, TransitData},
+    DataUpdate,
+};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
@@ -186,12 +192,11 @@ where
         transit_model: &Model,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stop_points = vehicle_journey.stop_times
+        let stop_points = vehicle_journey
+            .stop_times
             .iter()
-            .map(|stop_time| 
-                StopPointIdx::Base(stop_time.stop_point_idx)
-            );
-        
+            .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx));
+
         let flows = self.create_flows_for_base_vehicle_journey(vehicle_journey)?;
 
         let model_calendar = transit_model
@@ -214,19 +219,17 @@ where
         let real_time_model = RealTimeModel::new();
 
         self.add_vehicle(
-            stop_points, 
-            flows.into_iter(), 
-            board_times.into_iter(), 
-            debark_times.into_iter(), 
-            loads_data, 
-            model_calendar.dates.iter(), 
-            &timezone, 
-            vehicle_journey_idx, 
-            &real_time_model, 
-            transit_model
+            stop_points,
+            flows.into_iter(),
+            board_times.into_iter(),
+            debark_times.into_iter(),
+            loads_data,
+            model_calendar.dates.iter(),
+            &timezone,
+            vehicle_journey_idx,
+            &real_time_model,
+            transit_model,
         );
-
-        
 
         Ok(())
     }
@@ -249,8 +252,10 @@ where
         stop
     }
 
-
-    pub(super) fn create_stops<StopPoints : Iterator<Item = StopPointIdx> >(&mut self, stop_points : StopPoints) -> Vec<Stop> {
+    pub(super) fn create_stops<StopPoints: Iterator<Item = StopPointIdx>>(
+        &mut self,
+        stop_points: StopPoints,
+    ) -> Vec<Stop> {
         let mut result = Vec::new();
         for stop_point_idx in stop_points {
             let stop = self
@@ -263,7 +268,10 @@ where
         result
     }
 
-    fn create_flows_for_base_vehicle_journey(&self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()> {
+    fn create_flows_for_base_vehicle_journey(
+        &self,
+        vehicle_journey: &VehicleJourney,
+    ) -> Result<Vec<FlowDirection>, ()> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
             let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
