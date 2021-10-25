@@ -39,13 +39,11 @@ use std::hash::Hash;
 
 use crate::time::SecondsSinceTimezonedDayStart;
 use crate::{
-    chrono::NaiveDate, time::SecondsSinceUTCDayStart, timetables::FlowDirection,
-    transit_model::Model, Idx, StopPoint, VehicleJourney as TransitModelVehicleJourney,
+    chrono::NaiveDate, timetables::FlowDirection, transit_model::Model, Idx, StopPoint,
+    VehicleJourney as TransitModelVehicleJourney,
 };
 
 use crate::{realtime, DataUpdate, LoadsData};
-
-use crate::transit_data;
 
 type TransitModelVehicleJourneyIdx = Idx<TransitModelVehicleJourney>;
 
@@ -139,9 +137,13 @@ impl RealTimeModel {
     pub fn apply_disruption<Data: DataUpdate>(
         &mut self,
         disruption: &realtime::disruption::Disruption,
+        model: &Model,
+        loads_data: &LoadsData,
         data: &mut Data,
     ) {
-        // call data.remove/add/update
+        for update in disruption.updates.iter() {
+            self.apply_update(&disruption.id, update, model, loads_data, data);
+        }
     }
 
     pub fn apply_update<Data: DataUpdate>(
@@ -170,7 +172,7 @@ impl RealTimeModel {
                 let debark_times = stop_times
                     .iter()
                     .map(|stop_time| stop_time.arrival_time.clone());
-                data.add_vehicle(
+                let insertion_errors = data.add_vehicle(
                     stops,
                     flows,
                     board_times,
@@ -179,8 +181,6 @@ impl RealTimeModel {
                     dates,
                     &chrono_tz::UTC,
                     vj_idx,
-                    &self,
-                    model,
                 );
             }
             realtime::disruption::Update::Modify(trip, stop_times) => {
@@ -196,7 +196,7 @@ impl RealTimeModel {
                 let debark_times = stop_times
                     .iter()
                     .map(|stop_time| stop_time.arrival_time.clone());
-                data.modify_vehicle(
+                let (removal_errors, insertion_errors) = data.modify_vehicle(
                     stops,
                     flows,
                     board_times,
@@ -205,8 +205,6 @@ impl RealTimeModel {
                     dates,
                     &chrono_tz::UTC,
                     vj_idx,
-                    &self,
-                    model,
                 );
             }
         }

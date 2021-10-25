@@ -64,7 +64,7 @@ use launch::loki::{
 
 use structopt::StructOpt;
 
-use std::{fs::File, io::BufReader, path::PathBuf, thread};
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 use failure::{bail, Error};
 
@@ -73,7 +73,6 @@ use std::convert::TryFrom;
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
 
 #[derive(StructOpt)]
 #[structopt(

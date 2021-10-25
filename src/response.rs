@@ -49,7 +49,6 @@ use std::fmt::Debug;
 
 use crate::request::generic_request::{MaximizeDepartureTimeError, MinimizeArrivalTimeError};
 
-use transit_model::objects::{StopPoint, Transfer as TransitModelTransfer};
 pub use typed_index_collection::Idx;
 
 pub struct Response {
@@ -466,7 +465,7 @@ where
     ) -> Result<(), std::fmt::Error> {
         let trip = &vehicle_leg.trip;
         let vehicle_journey_idx = data.vehicle_journey_idx(trip);
-        let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
+        // let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
         let line_id = real_time_model.line_name(&vehicle_journey_idx, model);
 
         let mission = data.mission_of(trip);
@@ -698,18 +697,8 @@ impl VehicleSection {
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
-        let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
+        // let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
         let line_id = real_time_model.line_name(&vehicle_journey_idx, model);
-
-        // let from_stoptime =
-        //     &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.from_stoptime_idx];
-        // let to_stoptime =
-        //     &model.vehicle_journeys[vehicle_journey_idx].stop_times[self.to_stoptime_idx];
-
-        // let from_stop_idx = &from_stoptime.stop_point_idx;
-        // let to_stop_idx = &to_stoptime.stop_point_idx;
-        // let from_stop_id = &model.stop_points[*from_stop_idx].id;
-        // let to_stop_id = &model.stop_points[*to_stop_idx].id;
 
         let from_stop_id = real_time_model
             .stop_point_at(

@@ -38,8 +38,7 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
-    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    timetables::generic_timetables::VehicleTimesError,
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     transit_data::{Stop, TransitData},
     DataUpdate,
 };
@@ -48,14 +47,13 @@ use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
-use chrono::NaiveDate;
 use transit_model::{
     model::Model,
-    objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
+    objects::{StopTime, VehicleJourney},
 };
 use typed_index_collection::Idx;
 
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use super::{Transfer, TransferData, TransferDurations};
 
@@ -216,9 +214,7 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let real_time_model = RealTimeModel::new();
-
-        self.add_vehicle(
+        let insertion_errors = self.add_vehicle(
             stop_points,
             flows.into_iter(),
             board_times.into_iter(),
@@ -227,8 +223,6 @@ where
             model_calendar.dates.iter(),
             &timezone,
             vehicle_journey_idx,
-            &real_time_model,
-            transit_model,
         );
 
         Ok(())

@@ -46,7 +46,7 @@ use launch::{
         response,
         response::VehicleSection,
         timetables::{Timetables as TimetablesTrait, TimetablesIter},
-        Idx, RequestInput, StopPoint,
+        RequestInput,
     },
     solver::Solver,
 };
@@ -56,7 +56,7 @@ use loki::{chrono_tz, tracing::debug};
 
 use loki::{
     transit_model::Model, DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
-    PositiveDuration, TransitData, VehicleJourney,
+    PositiveDuration, TransitData,
 };
 use model_builder::AsDateTime;
 use std::fmt::Debug;

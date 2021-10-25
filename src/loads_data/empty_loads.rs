@@ -36,8 +36,7 @@
 
 use chrono::NaiveDate;
 use std::{error::Error, fmt::Display, path::Path};
-use transit_model::{objects::VehicleJourney, Model};
-use typed_index_collection::Idx;
+use transit_model::Model;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {

@@ -301,8 +301,6 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
     ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -376,8 +374,6 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
     ) -> (Vec<RemovalError>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -401,8 +397,6 @@ where
                         valid_dates.clone(),
                         timezone,
                         vehicle_journey_idx.clone(),
-                        real_time_model,
-                        model,
                     );
                     insertion_errors.extend_from_slice(errors.as_slice());
                 }

@@ -40,7 +40,7 @@ use failure::{format_err, Error};
 use launch::loki::{
     chrono::NaiveDate,
     realtime::disruption::{Disruption, StopTime, Trip, Update},
-    time::SecondsSinceUTCDayStart,
+    time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
     NaiveDateTime,
 };
@@ -215,7 +215,7 @@ fn create_stop_time_from_proto(
 fn read_time(
     proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeEvent,
     reference_date: &NaiveDate,
-) -> Result<SecondsSinceUTCDayStart, Error> {
+) -> Result<SecondsSinceTimezonedDayStart, Error> {
     if proto.has_time().not() {
         return Err(format_err!("The protobuf time field is empty."));
     }
@@ -231,9 +231,9 @@ fn read_time(
     let reference_date_at_midnight = reference_date.and_hms(0, 0, 0);
     let duration_from_ref = naive_datetime.signed_duration_since(reference_date_at_midnight);
     let duration_i64 = duration_from_ref.num_seconds();
-    SecondsSinceUTCDayStart::from_seconds_i64(duration_i64).ok_or_else(|| {
+    SecondsSinceTimezonedDayStart::from_seconds_i64(duration_i64).ok_or_else(|| {
         format_err!(
-            "Could not translate the duration of {} seconds to SecondsSinceUTCDayStart.",
+            "Could not translate the duration of {} seconds to SecondsSinceTimezonedDayStart.",
             duration_i64
         )
     })

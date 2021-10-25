@@ -38,10 +38,10 @@ use std::marker::PhantomData;
 
 use crate::{
     loads_data::LoadsCount,
-    realtime::real_time_model::{RealTimeModel, StopPointIdx},
+    realtime::real_time_model::RealTimeModel,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::TransitTypes,
-    Idx, RequestTypes,
+    RequestTypes,
 };
 
 use crate::{
@@ -50,7 +50,7 @@ use crate::{
 use chrono::NaiveDateTime;
 use std::fmt::Debug;
 use tracing::warn;
-use transit_model::{objects::StopPoint, Model};
+use transit_model::Model;
 
 #[derive(Clone)]
 pub enum MinimizeArrivalTimeError<Data: DataTrait> {

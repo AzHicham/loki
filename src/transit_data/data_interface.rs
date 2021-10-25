@@ -1,17 +1,11 @@
 use crate::{
     loads_data::{Load, LoadsData},
-    realtime::{
-        self,
-        real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    },
+    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, RemovalError},
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use transit_model::{
-    objects::{StopPoint, Transfer as TransitModelTransfer, VehicleJourney},
-    Model,
-};
+use transit_model::Model;
 pub use typed_index_collection::Idx;
 
 use std::fmt::Debug;
@@ -173,8 +167,6 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
     ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -193,8 +185,6 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
     ) -> (Vec<RemovalError>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,

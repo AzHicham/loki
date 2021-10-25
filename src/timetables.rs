@@ -53,10 +53,7 @@ pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 use crate::{
     loads_data::{Load, LoadsData},
     realtime::real_time_model::VehicleJourneyIdx,
-    time::{
-        Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-        SecondsSinceUTCDayStart,
-    },
+    time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
 };
 
 use chrono::NaiveDate;
