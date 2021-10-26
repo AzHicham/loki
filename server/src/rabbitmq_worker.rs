@@ -55,6 +55,9 @@ use std::{fmt::Debug, thread};
 use structopt::StructOpt;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
+pub fn default_endpoint() -> String {
+    "amqp://guest:guest@rabbitmq:5672".to_string()
+}
 pub fn default_exchange() -> String {
     "navitia".to_string()
 }
@@ -74,6 +77,8 @@ pub fn default_connection_timeout() -> u64 {
 #[derive(Default, Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
 pub struct BrokerConfig {
+    #[structopt(long, default_value = "default_endpoint")]
+    #[serde(default = "default_endpoint")]
     pub endpoint: String,
 
     #[structopt(long, default_value = "default_exchange")]
