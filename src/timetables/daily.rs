@@ -271,7 +271,10 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    let error = InsertionError::DateOutOfCalendar(date.clone(), vehicle_journey_idx.clone());
+                    let error = InsertionError::DateOutOfCalendar(
+                        date.clone(),
+                        vehicle_journey_idx.clone(),
+                    );
                     insertion_errors.push(error);
                     continue;
                 }
@@ -347,7 +350,10 @@ impl TimetablesTrait for DailyTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(date.clone(), vehicle_journey_idx.clone()))?;
+            .ok_or(RemovalError::UnknownDate(
+                date.clone(),
+                vehicle_journey_idx.clone(),
+            ))?;
 
         let has_timetables = self
             .vehicle_journey_to_timetables

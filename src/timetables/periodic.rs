@@ -557,7 +557,10 @@ impl TimetablesTrait for PeriodicTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(date.clone(), vehicle_journey_idx.clone()))?;
+            .ok_or(RemovalError::UnknownDate(
+                date.clone(),
+                vehicle_journey_idx.clone(),
+            ))?;
 
         let has_timetables = self
             .vehicle_journey_to_timetables

@@ -44,9 +44,17 @@ pub use transit_model::objects::{
 };
 pub use typed_index_collection::Idx;
 
-use crate::{loads_data::{Load, LoadsData}, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{
+use crate::{
+    loads_data::{Load, LoadsData},
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{
         Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    }, timetables::{FlowDirection, InsertionError, generic_timetables::{PositionPair, VehicleTimesError}}};
+    },
+    timetables::{
+        generic_timetables::{PositionPair, VehicleTimesError},
+        FlowDirection, InsertionError,
+    },
+};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -459,12 +467,11 @@ where
 }
 
 pub fn handle_insertion_errors(
-    model : & ModelRefs, 
-    calendar :& Calendar,
-    insertion_errors : & [InsertionError]
+    model: &ModelRefs,
+    calendar: &Calendar,
+    insertion_errors: &[InsertionError],
 ) {
     for error in insertion_errors {
-        
         use crate::timetables::InsertionError::*;
         match error {
             Times(vehicle_journey_idx, error, dates) => {
@@ -493,16 +500,12 @@ pub fn handle_insertion_errors(
     }
 }
 
-
-
 fn handle_vehicletimes_error(
     vehicle_journey_idx: &VehicleJourneyIdx,
     dates: &[NaiveDate],
     model: &ModelRefs<'_>,
     error: &VehicleTimesError,
 ) -> Result<(), ()> {
-
-
     if dates.is_empty() {
         error!("Received a vehicle times error with no date");
         return Err(());
@@ -519,7 +522,8 @@ fn handle_vehicletimes_error(
 
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
@@ -534,7 +538,8 @@ fn handle_vehicletimes_error(
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     board time at {}-th stop_time ({}) \
@@ -547,10 +552,10 @@ fn handle_vehicletimes_error(
                 position_pair.upstream,
                 upstream_stop_name
             );
-
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
@@ -569,48 +574,47 @@ fn handle_vehicletimes_error(
 }
 
 fn upstream_downstream_stop_names<'model>(
-    model : & 'model ModelRefs<'model>, 
-    vehicle_journey_idx : & VehicleJourneyIdx, 
-    date :& NaiveDate,
-    position_pair : &PositionPair
+    model: &'model ModelRefs<'model>,
+    vehicle_journey_idx: &VehicleJourneyIdx,
+    date: &NaiveDate,
+    position_pair: &PositionPair,
 ) -> Result<(&'model str, &'model str), ()> {
     let upstream_stop = model
         .stop_point_at(vehicle_journey_idx, position_pair.upstream, date)
-        .ok_or_else(|| 
-            error!("Received a position pair with invalid upstream stop. \
+        .ok_or_else(|| {
+            error!(
+                "Received a position pair with invalid upstream stop. \
                     Vehicle journey {} on {} upstream {}.",
-                    model.vehicle_journey_name(vehicle_journey_idx),
-                    date,
-                    position_pair.upstream
-                )
-        )?;
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date,
+                position_pair.upstream
+            )
+        })?;
     let upstream_stop_name = model.stop_point_name(&upstream_stop);
 
     let dowstream_stop = model
         .stop_point_at(vehicle_journey_idx, position_pair.downstream, date)
-        .ok_or_else(|| 
-            error!("Received a position pair with invalid downstream stop. \
+        .ok_or_else(|| {
+            error!(
+                "Received a position pair with invalid downstream stop. \
                     Vehicle journey {} on {} downstream {}.",
-                    model.vehicle_journey_name(vehicle_journey_idx),
-                    date,
-                    position_pair.downstream
-                )
-        )?;
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date,
+                position_pair.downstream
+            )
+        })?;
 
     let downstream_stop_name = model.stop_point_name(&dowstream_stop);
 
     Ok((upstream_stop_name, downstream_stop_name))
 }
 
-
-
 pub fn handle_removal_errors(
-    model : & ModelRefs, 
-    calendar :& Calendar,
-    removal_errors : impl Iterator<Item = RemovalError>
+    model: &ModelRefs,
+    calendar: &Calendar,
+    removal_errors: impl Iterator<Item = RemovalError>,
 ) {
     for error in removal_errors {
-
         match error {
             RemovalError::UnknownDate(date, vehicle_journey_idx) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
@@ -623,7 +627,7 @@ pub fn handle_removal_errors(
                     calendar.first_date(),
                     calendar.last_date(),
                 );
-            },
+            }
             RemovalError::UnknownVehicleJourney(vehicle_journey_idx) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
@@ -631,16 +635,15 @@ pub fn handle_removal_errors(
                         but this vehicle journey is unknown",
                     vehicle_journey_name,
                 );
-            },
+            }
             RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
                     "Trying to remove the vehicle journey {} on day {},  \
                         but this vehicle journeys does not exists on this day. ",
-                    vehicle_journey_name,
-                    date,
+                    vehicle_journey_name, date,
                 );
-            },
+            }
         }
     }
 }

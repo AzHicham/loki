@@ -39,7 +39,7 @@ pub mod infos;
 pub mod real_time;
 
 use chrono::NaiveDate;
-use typed_index_collection::{Idx};
+use typed_index_collection::Idx;
 
 use crate::transit_data;
 
