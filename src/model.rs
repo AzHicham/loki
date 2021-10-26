@@ -36,6 +36,7 @@
 
 pub mod real_time;
 pub mod disruption;
+pub mod infos;
 
 use chrono::NaiveDate;
 use typed_index_collection::Idx;

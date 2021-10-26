@@ -129,7 +129,7 @@ impl ComputeWorker {
                     &self.request_default_params,
                     config::ComparatorType::Basic,
                 );
-                let proto_response = make_proto_response(solve_result, model);
+                let proto_response = make_proto_response(solve_result, &model_refs);
 
                 ResponseMessage {
                     payload: proto_response,
@@ -316,7 +316,7 @@ fn solve(
 
 fn make_proto_response(
     solve_result: Result<(RequestInput, Vec<loki::Response>), Error>,
-    model: &Model,
+    model: &ModelRefs<'_>,
 ) -> navitia_proto::Response {
     match solve_result {
         Result::Err(err) => {
