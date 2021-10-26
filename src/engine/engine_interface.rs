@@ -312,7 +312,6 @@ impl std::error::Error for BadRequest {}
 use std::fmt;
 
 use chrono::NaiveDateTime;
-use transit_model::Model;
 
 use crate::PositiveDuration;
 

@@ -486,7 +486,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(date.clone()))?;
+            .ok_or(RemovalError::UnknownDate(date.clone(), vehicle_journey_idx.clone()))?;
 
         let iter = self
             .vehicle_journey_to_timetables

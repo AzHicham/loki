@@ -38,14 +38,14 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use crate::time::SecondsSinceTimezonedDayStart;
+use crate::transit_data::{handle_insertion_errors, handle_removal_errors};
 use crate::{
-    chrono::NaiveDate, timetables::FlowDirection, transit_model::Model, Idx, StopPoint,
-    VehicleJourney as TransitModelVehicleJourney,
+    chrono::NaiveDate, timetables::FlowDirection, transit_model::Model, 
 };
 
-use crate::{model, DataUpdate, LoadsData};
+use crate::{DataUpdate, LoadsData};
 
-use super::{StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
+use super::{ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
 
 pub struct RealTimeModel {
     // base_model: Model,
@@ -135,7 +135,12 @@ impl RealTimeModel {
         match update {
             super::disruption::Update::Delete(trip) => {
                 let vj_idx = self.delete(disruption_id, trip, model);
-                data.remove_vehicle(&vj_idx, &trip.reference_date);
+                let removal_result = data.remove_vehicle(&vj_idx, &trip.reference_date);
+                if let Err(removal_error) = removal_result {
+                    let model_ref = ModelRefs{ base : model, real_time : &self};
+                    handle_removal_errors(&model_ref, data.calendar(), std::iter::once(removal_error))
+                }
+                
             }
             super::disruption::Update::Add(trip, stop_times) => {
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, model);
@@ -160,6 +165,8 @@ impl RealTimeModel {
                     &chrono_tz::UTC,
                     vj_idx,
                 );
+                let model_ref = ModelRefs{ base : model, real_time : &self};
+                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
             }
             super::disruption::Update::Modify(trip, stop_times) => {
                 let (vj_idx, stop_times) = self.modify(disruption_id, trip, stop_times, model);
@@ -184,6 +191,9 @@ impl RealTimeModel {
                     &chrono_tz::UTC,
                     vj_idx,
                 );
+                let model_ref = ModelRefs{ base : model, real_time : &self};
+                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
+                handle_removal_errors(&model_ref, data.calendar(), removal_errors.into_iter())
             }
         }
     }

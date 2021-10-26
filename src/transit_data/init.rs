@@ -36,12 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::{
-    loads_data::LoadsData,
-    model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    transit_data::{Stop, TransitData},
-    DataUpdate,
-};
+use crate::{DataUpdate, loads_data::LoadsData, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, real_time::RealTimeModel}, transit_data::{Stop, TransitData}};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
@@ -55,7 +50,7 @@ use typed_index_collection::Idx;
 
 use tracing::{info, warn};
 
-use super::{Transfer, TransferData, TransferDurations};
+use super::{Transfer, TransferData, TransferDurations, handle_insertion_errors};
 
 impl<Timetables> TransitData<Timetables>
 where
@@ -224,6 +219,13 @@ where
             &timezone,
             vehicle_journey_idx,
         );
+
+        let real_time_model = RealTimeModel::new();
+        let model = ModelRefs{ base : transit_model, real_time : &real_time_model};
+
+        
+        handle_insertion_errors(&model, self.timetables.calendar(), &insertion_errors);
+        
 
         Ok(())
     }

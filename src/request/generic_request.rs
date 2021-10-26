@@ -50,7 +50,6 @@ use crate::{
 use chrono::NaiveDateTime;
 use std::fmt::Debug;
 use tracing::warn;
-use transit_model::Model;
 
 #[derive(Clone)]
 pub enum MinimizeArrivalTimeError<Data: DataTrait> {

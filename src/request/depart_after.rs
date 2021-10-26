@@ -37,7 +37,6 @@
 pub mod basic_comparator;
 pub mod loads_comparator;
 
-use transit_model::Model;
 
 use crate::{
     loads_data::LoadsCount,

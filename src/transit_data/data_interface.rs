@@ -1,9 +1,4 @@
-use crate::{
-    loads_data::{Load, LoadsData},
-    model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
-    timetables::{FlowDirection, InsertionError, RemovalError},
-};
+use crate::{loads_data::{Load, LoadsData}, model::{StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, timetables::{FlowDirection, InsertionError, RemovalError}};
 use chrono::{NaiveDate, NaiveDateTime};
 use transit_model::Model;
 pub use typed_index_collection::Idx;
@@ -192,6 +187,9 @@ pub trait DataUpdate {
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
+
+
+    fn calendar(&self) -> &Calendar;
 }
 
 pub trait DataIO {

@@ -42,7 +42,6 @@ use crate::{
     model::ModelRefs,
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
-use transit_model::Model;
 
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericArriveBeforeRequest};
 pub struct Request<'data, 'model, Data: DataTrait> {

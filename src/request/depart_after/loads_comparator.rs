@@ -48,7 +48,6 @@ use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericDepartAft
 pub struct Request<'data, 'model, Data: DataTrait> {
     generic: GenericDepartAfterRequest<'data, 'model, Data>,
 }
-use transit_model::Model;
 
 impl<'data, 'model, Data: DataTrait> TransitTypes for Request<'data, 'model, Data> {
     type Stop = Data::Stop;
