@@ -66,7 +66,6 @@ pub enum LoadBalancerState {
     Online,   // accepting requests
     Stopping, // not accepting new requests, but there is still some requests being processed by workers
     Stopped,  // not accepting new requests, and all workers are idle
-    Broken,   // An error occurred or compute worker is in an Error state -> stop program
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -81,6 +80,7 @@ pub struct LoadBalancer {
 
     load_balancer_order_receiver: mpsc::Receiver<LoadBalancerOrder>,
     load_balancer_state_sender: mpsc::Sender<LoadBalancerState>,
+    load_balancer_error_sender: mpsc::Sender<()>,
     state: LoadBalancerState,
 
     zmq_worker_handle: ZmqWorkerChannels,
@@ -120,11 +120,13 @@ impl LoadBalancer {
 
         let (load_balancer_order_sender, load_balancer_order_receiver) = mpsc::channel(1);
         let (load_balancer_state_sender, load_balancer_state_receiver) = mpsc::channel(1);
+        let (load_balancer_error_sender, load_balancer_error_receiver) = mpsc::channel(1);
 
         // Master worker
         let load_balancer_handle = LoadBalancerChannels {
             load_balancer_order_sender,
             load_balancer_state_receiver,
+            load_balancer_error_receiver,
         };
 
         let result = Self {
@@ -133,6 +135,7 @@ impl LoadBalancer {
             worker_states,
             load_balancer_order_receiver,
             load_balancer_state_sender,
+            load_balancer_error_sender,
             state: LoadBalancerState::Online,
             zmq_worker_handle,
         };
@@ -258,9 +261,8 @@ impl LoadBalancer {
         // If we exited the loop it means we got an error
         // We need to warn Master worker that we are broken
         // So MasterWorker can shutdown the program
-        self.state = LoadBalancerState::Broken;
-        debug!("LoadBalancer new state : {:?}", self.state);
-        let res = self.load_balancer_state_sender.send(self.state).await;
+        debug!("LoadBalancer : Send error to MasterWorker & exiting thread");
+        let res = self.load_balancer_error_sender.send(()).await;
         if let Err(err) = res {
             error!(
                 "Channel to send LoadBalancer state to Master has closed : {}",

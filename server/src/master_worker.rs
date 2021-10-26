@@ -67,6 +67,7 @@ pub type MyTimetable = PeriodicSplitVjByTzTimetables;
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
     pub load_balancer_state_receiver: mpsc::Receiver<LoadBalancerState>,
+    pub load_balancer_error_receiver: mpsc::Receiver<()>,
 }
 
 pub struct MasterWorker {
@@ -112,52 +113,64 @@ impl MasterWorker {
     async fn run(mut self) {
         info!("Starting Master worker");
         loop {
-            let has_proto_vec = self.amqp_message_receiver.recv().await;
-            if let Some(vec_protobuf) = has_proto_vec {
-                info!("Master received response from AmqpWorker");
-                // convert protobuf to RT_Message
+            tokio::select! {
+                has_proto_vec = self.amqp_message_receiver.recv() => {
+                    if let Some(_vec_protobuf) = has_proto_vec {
+                        info!("Master received response from AmqpWorker");
+                        // convert protobuf to RT_Message
 
-                // stop the load balancer from receiving more request
-                debug!("Master ask LoadBalancer to Stop");
-                let res = self
-                    .send_order_to_load_balancer(LoadBalancerOrder::Stop)
-                    .await;
-                if res.is_err() {
-                    break;
-                }
-
-                // Wait for the LoadBalancer to Stop
-                debug!("MasterWork waiting for LoadBalancer to Stop");
-                let has_load_balancer_state = self
-                    .load_balancer_handle
-                    .load_balancer_state_receiver
-                    .recv()
-                    .await;
-                if let Some(state) = has_load_balancer_state {
-                    if state == LoadBalancerState::Stopped {
-                        debug!("ApplyRealTime");
-                        // Apply realtime to data
-                        // then start LoadBalancer
-                        debug!("Master ask LoadBalancer to Start");
+                        // stop the load balancer from receiving more request
+                        debug!("Master ask LoadBalancer to Stop");
                         let res = self
-                            .send_order_to_load_balancer(LoadBalancerOrder::Start)
+                            .send_order_to_load_balancer(LoadBalancerOrder::Stop)
                             .await;
                         if res.is_err() {
                             break;
                         }
+
+                        // Wait for the LoadBalancer to Stop
+                        debug!("MasterWork waiting for LoadBalancer to Stop");
+                        let has_load_balancer_state = self
+                            .load_balancer_handle
+                            .load_balancer_state_receiver
+                            .recv()
+                            .await;
+                        if let Some(state) = has_load_balancer_state {
+                            if state == LoadBalancerState::Stopped {
+                                debug!("ApplyRealTime");
+                                // Apply realtime to data
+                                // then start LoadBalancer
+                                debug!("Master ask LoadBalancer to Start");
+                                let res = self
+                                    .send_order_to_load_balancer(LoadBalancerOrder::Start)
+                                    .await;
+                                if res.is_err() {
+                                    break;
+                                }
+                            } else {
+                                error!("We requested LoadBalancer to stop but it did not. I'll stop");
+                                break;
+                            }
+                        } else {
+                            error!(
+                                "Channel to receive LoadBalancer status responses has closed. I'll stop."
+                            );
+                            break;
+                        }
                     } else {
-                        error!("We requested LoadBalancer to stop but it did not. I'll stop");
+                        error!("Channel to receive realtime protobuf' responses has closed. I'll stop.");
                         break;
                     }
-                } else {
-                    error!(
-                        "Channel to receive LoadBalancer status responses has closed. I'll stop."
-                    );
-                    break;
                 }
-            } else {
-                error!("Channel to receive realtime protobuf' responses has closed. I'll stop.");
-                break;
+                _has_load_balancer_error = self
+                    .load_balancer_handle
+                    .load_balancer_error_receiver
+                    .recv() => {
+                        // We don't even need to know if _has_load_balancer_error is None or not
+                        // is LoadBalancer send an Error we must shutdown
+                        error!("Load Balancer is broken, exit program safely");
+                        break;
+                    }
             }
         }
     }
