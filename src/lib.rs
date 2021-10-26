@@ -39,12 +39,12 @@ extern crate static_assertions;
 mod engine;
 pub mod filters;
 pub mod loads_data;
+pub mod model;
 pub mod request;
 pub mod time;
 pub mod timetables;
 mod transit_data;
 pub mod transit_data_filtered;
-pub mod model;
 
 pub use chrono::{self, NaiveDateTime};
 pub use chrono_tz;

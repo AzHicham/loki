@@ -36,7 +36,13 @@
 
 use crate::navitia_proto;
 
-use launch::loki::{self, RequestInput, model::{ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx, infos::StopTimes}};
+use launch::loki::{
+    self,
+    model::{
+        infos::StopTimes, ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx,
+    },
+    RequestInput,
+};
 
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
@@ -60,7 +66,7 @@ const EARTH_RADIUS_IN_METERS: f64 = 6372797.560856;
 pub fn make_response(
     request_input: &RequestInput,
     journeys: Vec<loki::Response>,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Response, Error> {
     let mut proto = navitia_proto::Response {
         journeys: journeys
@@ -81,7 +87,7 @@ fn make_journey(
     request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,
     // and then for each connection, the 3 sections : transfer, waiting, vehicle
@@ -120,22 +126,19 @@ fn make_journey(
         {
             let section_id = format!("section_{}_{}", journey_id, 1 + 3 * connection_idx);
             let transfer_section = &connection.0;
-            let proto_section =
-                make_transfer_section(transfer_section, model, section_id)?;
+            let proto_section = make_transfer_section(transfer_section, model, section_id)?;
             proto.sections.push(proto_section);
         }
         {
             let section_id = format!("section_{}_{}", journey_id, 2 + 3 * connection_idx);
             let waiting_section = &connection.1;
-            let proto_section =
-                make_waiting_section(waiting_section, model, section_id)?;
+            let proto_section = make_waiting_section(waiting_section, model, section_id)?;
             proto.sections.push(proto_section);
         }
         {
             let section_id = format!("section_{}_{}", journey_id, 3 + 3 * connection_idx);
             let vehicle_section = &connection.2;
-            let proto_section =
-                make_public_transport_section(vehicle_section, model, section_id)?;
+            let proto_section = make_public_transport_section(vehicle_section, model, section_id)?;
             proto.sections.push(proto_section);
         }
     }
@@ -147,7 +150,7 @@ fn make_journey(
 
 fn make_transfer_section(
     transfer_section: &TransferSection,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
     let mut proto = navitia_proto::Section {
@@ -177,7 +180,7 @@ fn make_transfer_section(
 
 fn make_waiting_section(
     waiting_section: &WaitingSection,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
     let mut proto = navitia_proto::Section {
@@ -206,59 +209,62 @@ fn make_waiting_section(
 
 fn make_public_transport_section(
     vehicle_section: &VehicleSection,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
     let date = &vehicle_section.day_for_vehicle_journey;
     let timezone = model.timezone(vehicle_journey_idx, date);
 
-
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
-    let from_stop_point_idx = model.stop_point_at(vehicle_journey_idx, from_stoptime_idx, date)
-        .ok_or_else(|| format_err!(
-            "No stoptime at idx {} for vehicle journey {} on {}",
-            from_stoptime_idx,
-            model.vehicle_journey_name(vehicle_journey_idx),
-            date
-        ))?;
+    let from_stop_point_idx = model
+        .stop_point_at(vehicle_journey_idx, from_stoptime_idx, date)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {} on {}",
+                from_stoptime_idx,
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date
+            )
+        })?;
 
     let to_stoptime_idx = vehicle_section.from_stoptime_idx;
-    let to_stop_point_idx = model.stop_point_at(vehicle_journey_idx, to_stoptime_idx, date)
-        .ok_or_else(|| format_err!(
-            "No stoptime at idx {} for vehicle journey {} on {}",
-            to_stoptime_idx,
-            model.vehicle_journey_name(vehicle_journey_idx),
-            date
-        ))?;
+    let to_stop_point_idx = model
+        .stop_point_at(vehicle_journey_idx, to_stoptime_idx, date)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {} on {}",
+                to_stoptime_idx,
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date
+            )
+        })?;
 
-    let stop_times = model.stop_times(vehicle_journey_idx, date, from_stoptime_idx, to_stoptime_idx)
-        .ok_or_else(|| format_err!(
-            "On vehicle journey {} on {}, could not get stoptimes range [{}, {}] ",
-            model.vehicle_journey_name(vehicle_journey_idx),
+    let stop_times = model
+        .stop_times(
+            vehicle_journey_idx,
             date,
             from_stoptime_idx,
             to_stoptime_idx,
-        ))?;
-    
+        )
+        .ok_or_else(|| {
+            format_err!(
+                "On vehicle journey {} on {}, could not get stoptimes range [{}, {}] ",
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date,
+                from_stoptime_idx,
+                to_stoptime_idx,
+            )
+        })?;
+
     let additional_informations = make_additional_informations(&stop_times);
-    let shape = make_shape_from_stop_points(
-        &stop_times,
-        model,
-    );
+    let shape = make_shape_from_stop_points(&stop_times, model);
     let length_f64 = compute_length_public_transport_section(shape.as_slice());
-    let co2_emission =
-        compute_section_co2_emission(length_f64, vehicle_journey_idx,model);
+    let co2_emission = compute_section_co2_emission(length_f64, vehicle_journey_idx, model);
 
     let mut proto = navitia_proto::Section {
-        origin: Some(make_stop_point_pt_object(
-            &from_stop_point_idx,
-            model,
-        )?),
-        destination: Some(make_stop_point_pt_object(
-            &to_stop_point_idx,
-            model,
-        )?),
+        origin: Some(make_stop_point_pt_object(&from_stop_point_idx, model)?),
+        destination: Some(make_stop_point_pt_object(&to_stop_point_idx, model)?),
         pt_display_informations: Some(make_pt_display_info(
             &vehicle_section.vehicle_journey,
             date,
@@ -282,15 +288,12 @@ fn make_public_transport_section(
     proto.set_type(navitia_proto::SectionType::PublicTransport);
 
     Ok(proto)
-
 }
-
 
 fn make_stop_point_pt_object(
     stop_point_idx: &StopPointIdx,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::PtObject, Error> {
-
     let mut proto = navitia_proto::PtObject {
         name: model.stop_point_name(&stop_point_idx).to_string(),
         uri: model.stop_point_uri(&stop_point_idx).to_string(),
@@ -307,30 +310,29 @@ fn make_stop_point(
     model: &ModelRefs,
 ) -> Result<navitia_proto::StopPoint, Error> {
     let has_coord = model.coord(stop_point_idx);
-    
 
-    let coord_proto =  has_coord.as_ref().map(|coord| navitia_proto::GeographicalCoord {
-        lat: coord.lat,
-        lon: coord.lon,
-    });
+    let coord_proto = has_coord
+        .as_ref()
+        .map(|coord| navitia_proto::GeographicalCoord {
+            lat: coord.lat,
+            lon: coord.lon,
+        });
 
     let has_street_name = model.street_name(stop_point_idx);
 
     // we create Some(navitia_proto::Address) only if we have a street name for this stop point
-    let proto_address = has_street_name.map(|street_name| {
-        navitia_proto::Address {
-            uri: has_coord.as_ref().map(|coord| format!("{};{}", coord.lat, coord.lon)),
-            house_number: model.house_numer(stop_point_idx).map(
-                |number_str| 
-                number_str.parse::<i32>().unwrap_or_default()
-            ),
-            coord: coord_proto.clone(),
-            name: Some(street_name.to_string()),
-            label: Some(street_name.to_string()),
-            ..Default::default()
-        }
+    let proto_address = has_street_name.map(|street_name| navitia_proto::Address {
+        uri: has_coord
+            .as_ref()
+            .map(|coord| format!("{};{}", coord.lat, coord.lon)),
+        house_number: model
+            .house_numer(stop_point_idx)
+            .map(|number_str| number_str.parse::<i32>().unwrap_or_default()),
+        coord: coord_proto.clone(),
+        name: Some(street_name.to_string()),
+        label: Some(street_name.to_string()),
+        ..Default::default()
     });
-
 
     let stop_point_name = model.stop_point_name(stop_point_idx);
     let proto = navitia_proto::StopPoint {
@@ -341,28 +343,24 @@ fn make_stop_point(
         address: proto_address,
         label: Some(stop_point_name.to_string()),
         stop_area: make_stop_area(stop_point_idx, model),
-        codes: model
-            .codes(stop_point_idx)
-            .map_or(Vec::new(), 
-                |iter| iter.map(|(key, value)| 
-                    navitia_proto::Code {
-                        r#type: key.clone(),
-                        value: value.clone(),
-                    })
-                    .collect()
-            ),
+        codes: model.codes(stop_point_idx).map_or(Vec::new(), |iter| {
+            iter.map(|(key, value)| navitia_proto::Code {
+                r#type: key.clone(),
+                value: value.clone(),
+            })
+            .collect()
+        }),
         platform_code: model.platform_code(stop_point_idx).map(|s| s.to_string()),
-        fare_zone: model.fare_zone_id(stop_point_idx).map(|s| 
-            navitia_proto::FareZone {
-                name: Some(s.to_string())
-            }
-        ),
+        fare_zone: model
+            .fare_zone_id(stop_point_idx)
+            .map(|s| navitia_proto::FareZone {
+                name: Some(s.to_string()),
+            }),
         ..Default::default()
     };
 
     Ok(proto)
 }
-
 
 fn make_stop_area(
     stop_point_idx: &StopPointIdx,
@@ -400,42 +398,56 @@ fn make_stop_area(
 
 fn make_pt_display_info(
     vehicle_journey_idx: &VehicleJourneyIdx,
-    date : & NaiveDate,
+    date: &NaiveDate,
     model: &ModelRefs,
 ) -> Result<navitia_proto::PtDisplayInfo, Error> {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
-        code: model.line_code(vehicle_journey_idx).map(|s|s.to_string()),
-        headsign: model.headsign(vehicle_journey_idx, date).map(|s|s.to_string()),
-        direction: model.direction(vehicle_journey_idx, date).map(|s|s.to_string()),
-        color: model.line_color(vehicle_journey_idx, date).map(|color| format!("{}", color)),
+        code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
+        headsign: model
+            .headsign(vehicle_journey_idx, date)
+            .map(|s| s.to_string()),
+        direction: model
+            .direction(vehicle_journey_idx, date)
+            .map(|s| s.to_string()),
+        color: model
+            .line_color(vehicle_journey_idx, date)
+            .map(|color| format!("{}", color)),
         commercial_mode: Some(model.commercial_mode_name(vehicle_journey_idx).to_string()),
         physical_mode: Some(model.physical_mode_name(vehicle_journey_idx).to_string()),
         uris: Some(navitia_proto::Uris {
-            vehicle_journey: Some(format!("vehicle_journey:{}", model.vehicle_journey_name(vehicle_journey_idx))),
+            vehicle_journey: Some(format!(
+                "vehicle_journey:{}",
+                model.vehicle_journey_name(vehicle_journey_idx)
+            )),
             line: Some(format!("line:{}", model.line_name(vehicle_journey_idx))),
             route: Some(format!("route:{}", model.route_name(vehicle_journey_idx))),
-            commercial_mode: Some(format!("commercial_mode:{}", model.commercial_mode_name(vehicle_journey_idx))),
+            commercial_mode: Some(format!(
+                "commercial_mode:{}",
+                model.commercial_mode_name(vehicle_journey_idx)
+            )),
             physical_mode: Some(format!(
                 "physical_mode:{}",
                 model.physical_mode_name(vehicle_journey_idx)
             )),
-            network: Some(format!("network:{}", model.network_name(vehicle_journey_idx))),
+            network: Some(format!(
+                "network:{}",
+                model.network_name(vehicle_journey_idx)
+            )),
             ..Default::default()
         }),
         name: Some(model.line_name(vehicle_journey_idx).to_string()),
-        text_color: model.text_color(vehicle_journey_idx, date)
+        text_color: model
+            .text_color(vehicle_journey_idx, date)
             .map(|text_color| format!("{}", text_color)),
-        trip_short_name: model.trip_short_name(vehicle_journey_idx, date)
+        trip_short_name: model
+            .trip_short_name(vehicle_journey_idx, date)
             .map(|s| s.to_string()),
         ..Default::default()
     };
 
     Ok(proto)
 }
-
-
-
 
 fn make_stop_datetimes(
     stop_times: &StopTimes,
@@ -458,7 +470,7 @@ fn make_stop_datetimes(
                 };
                 result.push(proto)
             }
-        },
+        }
         StopTimes::New(stop_times, date) => {
             for stop_time in stop_times.iter() {
                 let arrival_seconds = i64::from(stop_time.arrival_time.total_seconds());
@@ -473,13 +485,13 @@ fn make_stop_datetimes(
                 };
                 result.push(proto)
             }
-        },
+        }
     }
     Ok(result)
 }
 
 fn make_additional_informations(
-    stop_times: & StopTimes,
+    stop_times: &StopTimes,
     /*stop_points: &Vec<StopPoint>,*/
 ) -> Vec<i32> {
     match stop_times {
@@ -492,28 +504,29 @@ fn make_additional_informations(
                     || stop_times.last().unwrap().datetime_estimated);
             let has_odt = false;
             let is_zonal = false;
-        
+
             if has_datetime_estimated {
-                result.push(navitia_proto::SectionAdditionalInformationType::HasDatetimeEstimated as i32);
+                result.push(
+                    navitia_proto::SectionAdditionalInformationType::HasDatetimeEstimated as i32,
+                );
             }
             if is_zonal {
                 result.push(navitia_proto::SectionAdditionalInformationType::OdtWithZone as i32);
             } else if has_odt && has_datetime_estimated {
-                result.push(navitia_proto::SectionAdditionalInformationType::OdtWithStopPoint as i32);
+                result
+                    .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopPoint as i32);
             } else if has_odt {
-                result.push(navitia_proto::SectionAdditionalInformationType::OdtWithStopTime as i32);
+                result
+                    .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopTime as i32);
             }
             if result.is_empty() {
                 result.push(navitia_proto::SectionAdditionalInformationType::Regular as i32);
             }
-        
+
             result
-        },
-        StopTimes::New(_, _) => {
-            Vec::new()
-        },
+        }
+        StopTimes::New(_, _) => Vec::new(),
     }
-    
 }
 
 fn to_utc_timestamp(
@@ -522,8 +535,7 @@ fn to_utc_timestamp(
     time_in_day: i64, //nb of seconds since local day start
 ) -> Result<u64, Error> {
     use chrono::TimeZone;
-    let local_datetime =
-        day.and_hms(0, 0, 0) + chrono::Duration::seconds(time_in_day);
+    let local_datetime = day.and_hms(0, 0, 0) + chrono::Duration::seconds(time_in_day);
     let timezoned_datetime = timezone
         .from_local_datetime(&local_datetime)
         .earliest()
@@ -558,7 +570,8 @@ fn compute_section_co2_emission(
 ) -> Option<navitia_proto::Co2Emission> {
     let physical_mode_id = model.physical_mode_name(vehicle_journey_idx);
 
-    model.base
+    model
+        .base
         .physical_modes
         .get(physical_mode_id)
         .and_then(|physical_mode| physical_mode.co2_emission)
@@ -568,7 +581,7 @@ fn compute_section_co2_emission(
         })
 }
 
-fn make_calendars(_model : & ModelRefs<'_>,) -> Vec<navitia_proto::Calendar> {
+fn make_calendars(_model: &ModelRefs<'_>) -> Vec<navitia_proto::Calendar> {
     let proto_calendar: Vec<navitia_proto::Calendar> = Vec::new();
     proto_calendar
 }
@@ -589,8 +602,9 @@ fn compute_journey_co2_emission(
     })
 }
 
-fn make_feed_publishers(model : & ModelRefs<'_>,) -> Vec<navitia_proto::FeedPublisher> {
-    model.base
+fn make_feed_publishers(model: &ModelRefs<'_>) -> Vec<navitia_proto::FeedPublisher> {
+    model
+        .base
         .contributors
         .iter()
         .map(|id_contributor| {
@@ -626,12 +640,11 @@ fn to_u64_timestamp(datetime: &NaiveDateTime) -> Result<u64, Error> {
 }
 
 fn make_shape_from_stop_points(
-    stoptimes: & StopTimes,
+    stoptimes: &StopTimes,
     model: &ModelRefs,
 ) -> Vec<navitia_proto::GeographicalCoord> {
     match stoptimes {
-        StopTimes::Base(stop_times,_,_) => {
-            stop_times
+        StopTimes::Base(stop_times, _, _) => stop_times
             .iter()
             .map(|stop_time| {
                 let stop_point_idx = stop_time.stop_point_idx;
@@ -641,11 +654,8 @@ fn make_shape_from_stop_points(
                     lon: stop_point.coord.lon,
                 }
             })
-            .collect()
-        },
-        StopTimes::New(_,_) => {
-            Vec::new()
-        },
+            .collect(),
+        StopTimes::New(_, _) => Vec::new(),
     }
 }
 

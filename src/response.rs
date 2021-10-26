@@ -34,7 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{loads_data::LoadsCount, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{PositiveDuration, SecondsSinceDatasetUTCStart}};
+use crate::{
+    loads_data::LoadsCount,
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+};
 use chrono::{NaiveDate, NaiveDateTime};
 
 use crate::transit_data::data_interface::Data as DataTrait;
@@ -91,10 +95,7 @@ pub struct ArrivalSection {
 }
 
 impl Response {
-    pub fn first_vj_uri<'model>(
-        &self,
-        model: &'model ModelRefs<'model>,
-    ) -> &'model str {
+    pub fn first_vj_uri<'model>(&self, model: &'model ModelRefs<'model>) -> &'model str {
         let idx = &self.first_vehicle.vehicle_journey;
         model.vehicle_journey_name(&idx)
     }
@@ -392,11 +393,7 @@ where
         self.departure_fallback_duration + self.arrival_fallback_duration
     }
 
-    pub fn print(
-        &self,
-        data: &Data,
-        model: & ModelRefs<'_>,
-    ) -> Result<String, std::fmt::Error> {
+    pub fn print(&self, data: &Data, model: &ModelRefs<'_>) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
         self.write(data, model, &mut result)?;
         Ok(result)
@@ -409,7 +406,7 @@ where
     pub fn write<Writer: std::fmt::Write>(
         &self,
         data: &Data,
-        model: & ModelRefs<'_>,
+        model: &ModelRefs<'_>,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;
@@ -450,7 +447,7 @@ where
         &self,
         vehicle_leg: &VehicleLeg<Data>,
         data: &Data,
-        model: & ModelRefs<'_>,
+        model: &ModelRefs<'_>,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let trip = &vehicle_leg.trip;
@@ -650,10 +647,7 @@ impl VehicleSection {
         duration.num_seconds()
     }
 
-    pub fn from_stop_point_name<'a>(
-        &self,
-        model: & 'a ModelRefs<'a>,
-    ) -> Option<&'a str> {
+    pub fn from_stop_point_name<'a>(&self, model: &'a ModelRefs<'a>) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
@@ -663,10 +657,7 @@ impl VehicleSection {
             .map(|idx| model.stop_point_name(&idx))
     }
 
-    pub fn to_stop_point_name<'a>(
-        &self,
-        model: & 'a ModelRefs<'a>,
-    ) -> Option<&'a str> {
+    pub fn to_stop_point_name<'a>(&self, model: &'a ModelRefs<'a>) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
@@ -678,7 +669,7 @@ impl VehicleSection {
 
     fn write<Writer: std::fmt::Write>(
         &self,
-        model: & ModelRefs<'_>,
+        model: &ModelRefs<'_>,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
@@ -791,10 +782,7 @@ impl Response {
         self.connections.len() + 1
     }
 
-    pub fn print(
-        &self,
-        model: & ModelRefs<'_>,
-    ) -> Result<String, std::fmt::Error> {
+    pub fn print(&self, model: &ModelRefs<'_>) -> Result<String, std::fmt::Error> {
         let mut result = String::new();
         self.write(model, &mut result)?;
         Ok(result)
@@ -802,7 +790,7 @@ impl Response {
 
     pub fn write<Writer: std::fmt::Write>(
         &self,
-        model: & ModelRefs<'_>,
+        model: &ModelRefs<'_>,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;

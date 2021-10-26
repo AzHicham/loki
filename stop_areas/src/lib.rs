@@ -34,7 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::{config, datetime::DateTimeRepresent, loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData, model::{ModelRefs, real_time::RealTimeModel}}, solver::Solver};
+use launch::{
+    config,
+    datetime::DateTimeRepresent,
+    loki::{
+        self,
+        model::{real_time::RealTimeModel, ModelRefs},
+        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
+    },
+    solver::Solver,
+};
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 use loki::tracing::{debug, error, info};

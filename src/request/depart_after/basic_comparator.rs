@@ -34,11 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{engine::engine_interface::{
+use crate::{
+    engine::engine_interface::{
         BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
         RequestTypes, RequestWithIters,
-    }, model::ModelRefs, transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes}};
-
+    },
+    model::ModelRefs,
+    transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
+};
 
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericDepartAfterRequest};
 pub struct Request<'data, 'model, Data: DataTrait> {
@@ -229,8 +232,7 @@ where
     where
         Self: Sized,
     {
-        let generic_result =
-            GenericDepartAfterRequest::new(model, transit_data, request_input);
+        let generic_result = GenericDepartAfterRequest::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 

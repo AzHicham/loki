@@ -40,7 +40,7 @@ mod utils;
 
 extern crate test;
 use launch::config::DataImplem;
-use loki::model::{ModelRefs, real_time::RealTimeModel};
+use loki::model::{real_time::RealTimeModel, ModelRefs};
 use test::Bencher;
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 

@@ -34,7 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{TransitData, filters::Filters, loads_data::Load, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::iters::MissionsOfStop};
+use crate::{
+    filters::Filters,
+    loads_data::Load,
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::iters::MissionsOfStop,
+    TransitData,
+};
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
@@ -68,11 +75,7 @@ impl FilterMemory {
         }
     }
 
-    pub fn fill_allowed_stops_and_vehicles(
-        &mut self,
-        filters: &Filters,
-        model : & ModelRefs<'_>,
-    ) {
+    pub fn fill_allowed_stops_and_vehicles(&mut self, filters: &Filters, model: &ModelRefs<'_>) {
         self.allowed_base_vehicle_journeys
             .resize(model.nb_of_base_vehicle_journeys(), true);
         for idx in model.base_vehicle_journeys() {
@@ -100,8 +103,7 @@ impl FilterMemory {
             .resize(model.nb_of_new_stops(), true);
         for idx in model.new_stops() {
             let stop_idx = StopPointIdx::New(idx.clone());
-            self.allowed_new_stop_points[idx.idx] =
-                filters.is_stop_point_valid(&stop_idx, model);
+            self.allowed_new_stop_points[idx.idx] = filters.is_stop_point_valid(&stop_idx, model);
         }
     }
 }

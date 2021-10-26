@@ -42,8 +42,8 @@ use loki::tracing::{debug, info, trace};
 
 use loki::transit_data_filtered::FilterMemory;
 use loki::{
-    response, BadRequest, MultiCriteriaRaptor, RequestDebug, RequestIO,
-    RequestInput, RequestTypes, RequestWithIters,
+    response, BadRequest, MultiCriteriaRaptor, RequestDebug, RequestIO, RequestInput, RequestTypes,
+    RequestWithIters,
 };
 
 use crate::datetime::DateTimeRepresent;
@@ -78,11 +78,7 @@ where
         }
     }
 
-    fn fill_allowed_stops_and_vehicles(
-        &mut self,
-        model: &ModelRefs<'_>,
-        filters: &Filters,
-    ) {
+    fn fill_allowed_stops_and_vehicles(&mut self, model: &ModelRefs<'_>, filters: &Filters) {
         self.filter_memory
             .fill_allowed_stops_and_vehicles(filters, model);
     }
@@ -103,7 +99,7 @@ where
         use config::ComparatorType::*;
 
         if let Some(filters) = has_filters {
-            self.fill_allowed_stops_and_vehicles( model, &filters);
+            self.fill_allowed_stops_and_vehicles(model, &filters);
 
             let data = TransitDataFiltered::new(data, &self.filter_memory);
 

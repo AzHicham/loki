@@ -44,9 +44,14 @@ pub use transit_model::objects::{
 };
 pub use typed_index_collection::Idx;
 
-use crate::{loads_data::{Load, LoadsData}, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{
+use crate::{
+    loads_data::{Load, LoadsData},
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{
         Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    }, timetables::{generic_timetables::VehicleTimesError, FlowDirection, InsertionError}};
+    },
+    timetables::{generic_timetables::VehicleTimesError, FlowDirection, InsertionError},
+};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -458,7 +463,7 @@ fn handle_vehicletimes_error(
     vehicle_journey_name: &str,
     dates: &[NaiveDate],
     stop_points: impl Iterator<Item = StopPointIdx> + Clone,
-    model : & ModelRefs<'_>,
+    model: &ModelRefs<'_>,
     error: &VehicleTimesError,
 ) {
     let days_strings: Vec<String> = dates

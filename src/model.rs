@@ -34,14 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod real_time;
 pub mod disruption;
 pub mod infos;
+pub mod real_time;
 
 use chrono::NaiveDate;
 use typed_index_collection::{Id, Idx};
 
-use crate::{transit_data};
+use crate::transit_data;
 
 use self::real_time::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeModel, TripData};
 
@@ -58,9 +58,8 @@ pub type TransitModelStopPointIdx = Idx<transit_data::StopPoint>;
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum StopPointIdx {
     Base(TransitModelStopPointIdx), // Stop_id in ntfs
-    New(NewStopPointIdx),              // Id of a stop added by real time
+    New(NewStopPointIdx),           // Id of a stop added by real time
 }
-
 
 pub type TransitModelTransferIdx = Idx<transit_model::objects::Transfer>;
 
@@ -71,21 +70,13 @@ pub enum TransferIdx {
 }
 
 pub struct ModelRefs<'model> {
-    pub base : & 'model transit_model::Model,
-    pub real_time : & 'model RealTimeModel,
+    pub base: &'model transit_model::Model,
+    pub real_time: &'model RealTimeModel,
 }
 
-
 impl<'model> ModelRefs<'model> {
-
-    pub fn new(    
-        base : & 'model transit_model::Model,
-        real_time : & 'model RealTimeModel,
-    ) -> Self {
-        Self {
-            base, 
-            real_time
-        }
+    pub fn new(base: &'model transit_model::Model, real_time: &'model RealTimeModel) -> Self {
+        Self { base, real_time }
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<StopPointIdx> {
@@ -98,10 +89,7 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn stop_point_name<'a>(
-        &'a self,
-        stop_idx: &StopPointIdx,
-    ) -> &'a str {
+    pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
             StopPointIdx::Base(idx) => &self.base.stop_points[*idx].id,
             StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
@@ -115,62 +103,48 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn vehicle_journey_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].id,
             VehicleJourneyIdx::New(idx) => &self.real_time.new_vehicle_journeys_history[idx.idx].0,
         }
     }
 
-    pub fn line_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn line_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         let unknown_line = "unknown_line";
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                self.base_vehicle_journey_route(idx)
-                    .map(|route| route.line_id.as_str())
-                    .unwrap_or(unknown_line)
-            }
+            VehicleJourneyIdx::Base(idx) => self
+                .base_vehicle_journey_route(idx)
+                .map(|route| route.line_id.as_str())
+                .unwrap_or(unknown_line),
             VehicleJourneyIdx::New(_idx) => unknown_line,
         }
     }
 
-
-    fn base_vehicle_journey_line(&self, idx : TransitModelVehicleJourneyIdx) -> Option<& transit_model::objects::Line> {
+    fn base_vehicle_journey_line(
+        &self,
+        idx: TransitModelVehicleJourneyIdx,
+    ) -> Option<&transit_model::objects::Line> {
         self.base_vehicle_journey_route(&idx)
-            .map(|route|
-                self.base.lines.get(route.line_id.as_str())
-            )
+            .map(|route| self.base.lines.get(route.line_id.as_str()))
             .flatten()
-
     }
 
-    pub fn route_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].route_id,
             VehicleJourneyIdx::New(_idx) => "unknown_route",
         }
     }
 
-
-    fn base_vehicle_journey_route(&self, idx : &TransitModelVehicleJourneyIdx) -> Option<& transit_model::objects::Route> {
+    fn base_vehicle_journey_route(
+        &self,
+        idx: &TransitModelVehicleJourneyIdx,
+    ) -> Option<&transit_model::objects::Route> {
         let route_id = &self.base.vehicle_journeys[*idx].route_id;
-        self.base
-            .routes
-            .get(route_id)
+        self.base.routes.get(route_id)
     }
-    pub fn network_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn network_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         let unknown_network = "unknown_network";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -191,20 +165,14 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn physical_mode_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn physical_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].physical_mode_id,
             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
         }
     }
 
-    pub fn commercial_mode_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> &'a str {
+    pub fn commercial_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         let unknown_commercial_mode = "unknown_commercial_mode";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -224,7 +192,6 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::New(_idx) => unknown_commercial_mode,
         }
     }
-
 
     pub fn stop_point_at(
         &self,
@@ -250,7 +217,9 @@ impl<'model> ModelRefs<'model> {
                 }
             }
             VehicleJourneyIdx::New(idx) => {
-                let has_history = self.real_time.new_vehicle_journeys_history[idx.idx].1.trip_data(date);
+                let has_history = self.real_time.new_vehicle_journeys_history[idx.idx]
+                    .1
+                    .trip_data(date);
                 if let Some((_, trip_data)) = has_history {
                     match trip_data {
                         TripData::Deleted() => None,
@@ -279,8 +248,7 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn base_stop_points(&self) -> impl Iterator<Item = TransitModelStopPointIdx> + 'model {
-        self.base.stop_points.iter()
-            .map(|(idx, _)| idx)
+        self.base.stop_points.iter().map(|(idx, _)| idx)
     }
 
     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
@@ -296,42 +264,41 @@ impl<'model> ModelRefs<'model> {
         self.base.vehicle_journeys.len()
     }
 
-    pub fn base_vehicle_journeys(&self) -> impl Iterator<Item = TransitModelVehicleJourneyIdx> + 'model {
-        self.base.vehicle_journeys.iter()
-            .map(|(idx, _)| idx)
+    pub fn base_vehicle_journeys(
+        &self,
+    ) -> impl Iterator<Item = TransitModelVehicleJourneyIdx> + 'model {
+        self.base.vehicle_journeys.iter().map(|(idx, _)| idx)
     }
 
-    pub fn contains_line_id(&self, id : &str) -> bool {
+    pub fn contains_line_id(&self, id: &str) -> bool {
         self.base.lines.contains_id(id)
     }
 
-    pub fn contains_route_id(&self, id : &str) -> bool {
+    pub fn contains_route_id(&self, id: &str) -> bool {
         self.base.routes.contains_id(id)
     }
 
-    pub fn contains_network_id(&self, id : &str) -> bool {
+    pub fn contains_network_id(&self, id: &str) -> bool {
         self.base.networks.contains_id(id)
     }
 
-    pub fn contains_physical_mode_id(&self, id : &str) -> bool {
+    pub fn contains_physical_mode_id(&self, id: &str) -> bool {
         self.base.physical_modes.contains_id(id)
     }
 
-    pub fn contains_commercial_model_id(&self, id : &str) -> bool {
+    pub fn contains_commercial_model_id(&self, id: &str) -> bool {
         self.base.commercial_modes.contains_id(id)
     }
 
-    pub fn contains_stop_point_id(&self, id : &str) -> bool {
-        if self.base.stop_points.contains_id(id){
+    pub fn contains_stop_point_id(&self, id: &str) -> bool {
+        if self.base.stop_points.contains_id(id) {
             true
-        }
-        else {
+        } else {
             self.real_time.new_stop_id_to_idx.contains_key(id)
         }
     }
 
-    pub fn contains_stop_area_id(&self, id : &str) -> bool {
+    pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.base.stop_areas.contains_id(id)
     }
-
 }

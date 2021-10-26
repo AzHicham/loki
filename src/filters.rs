@@ -53,11 +53,7 @@ pub enum VehicleFilter<'a> {
 }
 
 impl<'a> VehicleFilter<'a> {
-    pub fn applies_on(
-        &self,
-        idx: &VehicleJourneyIdx,
-        model : & ModelRefs<'_>
-    ) -> bool {
+    pub fn applies_on(&self, idx: &VehicleJourneyIdx, model: &ModelRefs<'_>) -> bool {
         match self {
             VehicleFilter::Line(line_id) => {
                 let vj_line_id = model.line_name(&idx);
@@ -84,18 +80,10 @@ impl<'a> VehicleFilter<'a> {
 }
 
 impl<'a> StopFilter<'a> {
-    pub fn applies_on(
-        &self,
-        idx: &StopPointIdx,
-        model : & ModelRefs<'_>,
-    ) -> bool {
+    pub fn applies_on(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         match self {
-            StopFilter::StopPoint(stop_point_id) => {
-                *stop_point_id == model.stop_point_name(idx)
-            }
-            StopFilter::StopArea(stop_area_id) => {
-                *stop_area_id == model.stop_area_name(idx)
-            }
+            StopFilter::StopPoint(stop_point_id) => *stop_point_id == model.stop_point_name(idx),
+            StopFilter::StopArea(stop_area_id) => *stop_area_id == model.stop_area_name(idx),
         }
     }
 }
@@ -113,11 +101,7 @@ pub struct Filters<'a> {
 }
 
 impl<'a> Filters<'a> {
-    pub fn is_vehicle_journey_valid(
-        &self,
-        idx: &VehicleJourneyIdx,
-        model : & ModelRefs<'_>,
-    ) -> bool {
+    pub fn is_vehicle_journey_valid(&self, idx: &VehicleJourneyIdx, model: &ModelRefs<'_>) -> bool {
         // if *one* forbidden filter applies, then the vehicle_journey is invalid
         for forbid_filter in self.forbidden_vehicles.iter() {
             if forbid_filter.applies_on(idx, model) {
@@ -139,11 +123,7 @@ impl<'a> Filters<'a> {
         // there is some allowed filters, but none of them applies, so the vehicle_journey is invalid
         false
     }
-    pub fn is_stop_point_valid(
-        &self,
-        idx: &StopPointIdx,
-        model : & ModelRefs<'_>,
-    ) -> bool {
+    pub fn is_stop_point_valid(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
         for forbid_filter in self.forbidden_stops.iter() {
             if forbid_filter.applies_on(idx, model) {

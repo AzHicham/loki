@@ -155,16 +155,14 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model
-                .stop_point_idx(stop_point_uri)
-                .or_else(|| {
-                    warn!(
-                        "The {}th departure stop point {} is not found in model. \
+            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
+                warn!(
+                    "The {}th departure stop point {} is not found in model. \
                             I ignore it.",
-                        idx, stop_point_uri
-                    );
-                    None
-                })?;
+                    idx, stop_point_uri
+                );
+                None
+            })?;
 
             let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
                 warn!(
@@ -195,16 +193,14 @@ where
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model
-                .stop_point_idx(stop_point_uri)
-                .or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point {} is not found in model. \
+            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
+                warn!(
+                    "The {}th arrival stop point {} is not found in model. \
                             I ignore it.",
-                        idx, stop_point_uri
-                    );
-                    None
-                })?;
+                    idx, stop_point_uri
+                );
+                None
+            })?;
 
             let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
                 warn!(
@@ -263,9 +259,7 @@ pub(super) fn stop_name<Data: DataTrait>(
     transit_data: &Data,
 ) -> String {
     let stop_point_idx = transit_data.stop_point_idx(stop);
-    model
-        .stop_point_name(&stop_point_idx)
-        .to_string()
+    model.stop_point_name(&stop_point_idx).to_string()
 }
 
 pub(super) fn trip_name<Data: DataTrait>(

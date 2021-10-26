@@ -39,7 +39,12 @@ pub mod loads_comparator;
 
 use transit_model::Model;
 
-use crate::{loads_data::LoadsCount, model::ModelRefs, time::{PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::DataIters};
+use crate::{
+    loads_data::LoadsCount,
+    model::ModelRefs,
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+    transit_data::data_interface::DataIters,
+};
 
 use crate::{
     engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
@@ -182,12 +187,7 @@ where
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {
-        super::generic_request::position_name(
-            position,
-            mission,
-            self.model,
-            self.transit_data,
-        )
+        super::generic_request::position_name(position, mission, self.model, self.transit_data)
     }
 
     pub fn leg_arrival_penalty(&self) -> PositiveDuration {

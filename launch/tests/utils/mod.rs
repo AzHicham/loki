@@ -55,8 +55,8 @@ use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs};
 use loki::{chrono_tz, tracing::debug};
 
 use loki::{
-    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
-    PositiveDuration, TransitData,
+    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration,
+    TransitData,
 };
 use model_builder::AsDateTime;
 use std::fmt::Debug;
@@ -160,9 +160,7 @@ pub fn build_and_solve(
         config::DataImplem::Periodic => {
             build_and_solve_inner::<PeriodicData>(model, loads_data, config)
         }
-        config::DataImplem::Daily => {
-            build_and_solve_inner::<DailyData>(model, loads_data, config)
-        }
+        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, loads_data, config),
         config::DataImplem::PeriodicSplitVj => {
             build_and_solve_inner::<PeriodicSplitVjData>(model, loads_data, config)
         }
@@ -205,26 +203,22 @@ where
 
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
-    model: & 'a ModelRefs<'a>,
+    model: &'a ModelRefs<'a>,
 ) -> Result<(&'a str, &'a str), Error> {
-    let from_stop_name = vehicle_section
-        .from_stop_point_name(model)
-        .ok_or_else(|| {
-            format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
-                vehicle_section.from_stoptime_idx,
-                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
-            )
-        })?;
-    let to_stop_name = vehicle_section
-        .to_stop_point_name(model)
-        .ok_or_else(|| {
-            format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
-                vehicle_section.to_stoptime_idx,
-                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
-            )
-        })?;
+    let from_stop_name = vehicle_section.from_stop_point_name(model).ok_or_else(|| {
+        format_err!(
+            "No stoptime at idx {} for vehicle journey {}",
+            vehicle_section.from_stoptime_idx,
+            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+        )
+    })?;
+    let to_stop_name = vehicle_section.to_stop_point_name(model).ok_or_else(|| {
+        format_err!(
+            "No stoptime at idx {} for vehicle journey {}",
+            vehicle_section.to_stoptime_idx,
+            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+        )
+    })?;
 
     Ok((from_stop_name, to_stop_name))
 }

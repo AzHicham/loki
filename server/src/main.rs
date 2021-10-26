@@ -54,10 +54,10 @@ pub mod compute_worker;
 pub mod master_worker;
 // mod realtime;
 
-use launch::{config, loki::{
-    tracing::{debug, info},
-}};
-
+use launch::{
+    config,
+    loki::tracing::{debug, info},
+};
 
 use structopt::StructOpt;
 

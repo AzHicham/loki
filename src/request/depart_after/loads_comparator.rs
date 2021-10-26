@@ -236,8 +236,7 @@ where
     where
         Self: Sized,
     {
-        let generic_result =
-            GenericDepartAfterRequest::new(model, transit_data, request_input);
+        let generic_result = GenericDepartAfterRequest::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 

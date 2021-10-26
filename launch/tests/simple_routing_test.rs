@@ -73,7 +73,6 @@ fn test_simple_routing(
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&model, &real_time_model);
-    
 
     let config = Config::new("2020-01-01T09:59:00", "A", "B");
     let config = Config {

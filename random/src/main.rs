@@ -1,4 +1,12 @@
-use launch::{config, loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData, model::{ModelRefs, real_time::RealTimeModel}}, solver::Solver};
+use launch::{
+    config,
+    loki::{
+        self,
+        model::{real_time::RealTimeModel, ModelRefs},
+        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
+    },
+    solver::Solver,
+};
 
 use loki::{tracing::debug, transit_model::Model};
 

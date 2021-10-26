@@ -41,7 +41,20 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use launch::{config, datetime::DateTimeRepresent, loki::{self, PositiveDuration, RequestInput, TransitData, filters::Filters, model::{ModelRefs, real_time::RealTimeModel}, timetables::PeriodicSplitVjByTzTimetables, tracing::{debug, error, info, warn}, transit_model::Model}, solver::Solver};
+use launch::{
+    config,
+    datetime::DateTimeRepresent,
+    loki::{
+        self,
+        filters::Filters,
+        model::{real_time::RealTimeModel, ModelRefs},
+        timetables::PeriodicSplitVjByTzTimetables,
+        tracing::{debug, error, info, warn},
+        transit_model::Model,
+        PositiveDuration, RequestInput, TransitData,
+    },
+    solver::Solver,
+};
 use std::convert::TryFrom;
 
 use crate::{

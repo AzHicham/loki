@@ -36,7 +36,11 @@
 
 use failure::Error;
 use launch::config::ComparatorType;
-use loki::{LoadsData, model::{ModelRefs, real_time::RealTimeModel}, transit_model::Model};
+use loki::{
+    model::{real_time::RealTimeModel, ModelRefs},
+    transit_model::Model,
+    LoadsData,
+};
 use utils::model_builder::ModelBuilder;
 
 use crate::utils::{build_and_solve, Config};

@@ -68,8 +68,6 @@ pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
     by_reference_date: HashMap<NaiveDate, TripHistory>,
@@ -100,11 +98,9 @@ pub struct NewStopPointIdx {
     pub idx: usize, // position in new_stops
 }
 
-
 pub struct StopData {
     pub(super) name: String,
 }
-
 
 pub struct ImpactedVehicleAndStops {
     vehicle_journey: VehicleJourneyIdx,
@@ -118,7 +114,7 @@ impl RealTimeModel {
 
     pub fn apply_disruption<Data: DataUpdate>(
         &mut self,
-        disruption: & super::disruption::Disruption,
+        disruption: &super::disruption::Disruption,
         model: &Model,
         loads_data: &LoadsData,
         data: &mut Data,
@@ -371,7 +367,6 @@ impl RealTimeModel {
             .1
             .trip_data(date)
             .map(|(_, trip_data)| trip_data)
-            
     }
 
     pub fn new() -> Self {
@@ -385,7 +380,6 @@ impl RealTimeModel {
             new_stops: Vec::new(),
         }
     }
-
 }
 
 impl VehicleJourneyHistory {
