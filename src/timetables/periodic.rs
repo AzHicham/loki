@@ -45,7 +45,7 @@ use super::{
 
 use crate::{
     loads_data::LoadsData,
-    realtime::real_time_model::VehicleJourneyIdx,
+    model::VehicleJourneyIdx,
     time::{
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,

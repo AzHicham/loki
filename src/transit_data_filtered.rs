@@ -34,18 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{
-    filters::Filters,
-    loads_data::Load,
-    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    transit_data::iters::MissionsOfStop,
-    TransitData,
-};
+use crate::{TransitData, filters::Filters, loads_data::Load, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::iters::MissionsOfStop};
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
-use transit_model::Model;
 pub use typed_index_collection::Idx;
 
 use crate::{
@@ -79,38 +71,37 @@ impl FilterMemory {
     pub fn fill_allowed_stops_and_vehicles(
         &mut self,
         filters: &Filters,
-        real_time_model: &RealTimeModel,
-        model: &Model,
+        model : & ModelRefs<'_>,
     ) {
         self.allowed_base_vehicle_journeys
-            .resize(model.vehicle_journeys.len(), true);
-        for (idx, _) in model.vehicle_journeys.iter() {
+            .resize(model.nb_of_base_vehicle_journeys(), true);
+        for idx in model.base_vehicle_journeys() {
             let vj_idx = VehicleJourneyIdx::Base(idx);
             self.allowed_base_vehicle_journeys[idx.get()] =
-                filters.is_vehicle_journey_valid(&vj_idx, real_time_model, model);
+                filters.is_vehicle_journey_valid(&vj_idx, model);
         }
         self.allowed_base_stop_points
-            .resize(model.stop_points.len(), true);
-        for (idx, _) in model.stop_points.iter() {
+            .resize(model.nb_of_base_stops(), true);
+        for idx in model.base_stop_points() {
             let stop_idx = StopPointIdx::Base(idx);
             self.allowed_base_stop_points[idx.get()] =
-                filters.is_stop_point_valid(&stop_idx, real_time_model, model);
+                filters.is_stop_point_valid(&stop_idx, model);
         }
 
         self.allowed_new_vehicle_journeys
-            .resize(real_time_model.nb_of_new_vehicle_journeys(), true);
-        for idx in real_time_model.new_vehicle_journeys() {
+            .resize(model.nb_of_new_vehicle_journeys(), true);
+        for idx in model.new_vehicle_journeys() {
             let vj_idx = VehicleJourneyIdx::New(idx.clone());
             self.allowed_new_vehicle_journeys[idx.idx] =
-                filters.is_vehicle_journey_valid(&vj_idx, real_time_model, model)
+                filters.is_vehicle_journey_valid(&vj_idx, model)
         }
 
         self.allowed_new_stop_points
-            .resize(real_time_model.nb_of_new_stops(), true);
-        for idx in real_time_model.new_stops() {
+            .resize(model.nb_of_new_stops(), true);
+        for idx in model.new_stops() {
             let stop_idx = StopPointIdx::New(idx.clone());
             self.allowed_new_stop_points[idx.idx] =
-                filters.is_stop_point_valid(&stop_idx, real_time_model, model);
+                filters.is_stop_point_valid(&stop_idx, model);
         }
     }
 }

@@ -37,12 +37,12 @@
 use std::{fmt::Debug, time::SystemTime};
 
 use loki::filters::Filters;
-use loki::realtime::real_time_model::RealTimeModel;
+use loki::model::ModelRefs;
 use loki::tracing::{debug, info, trace};
 
 use loki::transit_data_filtered::FilterMemory;
 use loki::{
-    response, transit_model, BadRequest, MultiCriteriaRaptor, RequestDebug, RequestIO,
+    response, BadRequest, MultiCriteriaRaptor, RequestDebug, RequestIO,
     RequestInput, RequestTypes, RequestWithIters,
 };
 
@@ -80,19 +80,17 @@ where
 
     fn fill_allowed_stops_and_vehicles(
         &mut self,
-        real_time_model: &RealTimeModel,
-        model: &transit_model::Model,
+        model: &ModelRefs<'_>,
         filters: &Filters,
     ) {
         self.filter_memory
-            .fill_allowed_stops_and_vehicles(filters, real_time_model, model);
+            .fill_allowed_stops_and_vehicles(filters, model);
     }
 
     pub fn solve_request(
         &mut self,
         data: &TransitData<Timetables>,
-        real_time_model: &RealTimeModel,
-        model: &transit_model::Model,
+        model: &ModelRefs<'_>,
         request_input: &RequestInput,
         has_filters: Option<Filters>,
         comparator_type: &config::ComparatorType,
@@ -105,14 +103,13 @@ where
         use config::ComparatorType::*;
 
         if let Some(filters) = has_filters {
-            self.fill_allowed_stops_and_vehicles(real_time_model, model, &filters);
+            self.fill_allowed_stops_and_vehicles( model, &filters);
 
             let data = TransitDataFiltered::new(data, &self.filter_memory);
 
             let responses = match (datetime_represent, comparator_type) {
                 (Arrival, Loads) => {
                     let request = request::arrive_before::loads_comparator::Request::new(
-                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -121,7 +118,6 @@ where
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
-                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -130,7 +126,6 @@ where
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
-                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -139,7 +134,6 @@ where
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
-                        real_time_model,
                         model,
                         &data,
                         request_input,
@@ -152,7 +146,6 @@ where
             let responses = match (datetime_represent, comparator_type) {
                 (Arrival, Loads) => {
                     let request = request::arrive_before::loads_comparator::Request::new(
-                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -161,7 +154,6 @@ where
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
-                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -170,7 +162,6 @@ where
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
-                        real_time_model,
                         model,
                         data,
                         request_input,
@@ -179,7 +170,6 @@ where
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
-                        real_time_model,
                         model,
                         data,
                         request_input,

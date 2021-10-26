@@ -36,11 +36,7 @@
 
 use crate::navitia_proto;
 
-use launch::loki::{
-    self,
-    realtime::real_time_model::{RealTimeModel, StopPointIdx},
-    RequestInput,
-};
+use launch::loki::{self, RequestInput, model::{StopPointIdx, TransitModelVehicleJourneyIdx}};
 
 use loki::{
     response::{TransferSection, VehicleSection, WaitingSection},
@@ -223,7 +219,27 @@ fn make_public_transport_section(
     model: &transit_model::Model,
     section_id: String,
 ) -> Result<navitia_proto::Section, Error> {
-    let vehicle_journey = &model.vehicle_journeys[vehicle_section.vehicle_journey];
+    match vehicle_section.vehicle_journey {
+        loki::realtime::real_time_model::VehicleJourneyIdx::Base(idx) => {
+            make_base_public_transport_section(idx, vehicle_section, real_time_model, model, section_id)
+        },
+        loki::realtime::real_time_model::VehicleJourneyIdx::New(_) => {
+            todo!()
+        },
+    }
+
+}
+
+
+
+fn make_base_public_transport_section(
+    transit_model_vehicle_journey_idx : TransitModelVehicleJourneyIdx,
+    vehicle_section: &VehicleSection,
+    real_time_model: &RealTimeModel,
+    model: &transit_model::Model,
+    section_id: String,
+) -> Result<navitia_proto::Section, Error> {
+    let vehicle_journey = &model.vehicle_journeys[transit_model_vehicle_journey_idx];
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let from_stoptime = vehicle_journey
         .stop_times
@@ -250,7 +266,7 @@ fn make_public_transport_section(
     let to_stop_point_idx = to_stoptime.stop_point_idx;
     let stop_times = &vehicle_journey.stop_times[from_stoptime_idx..=to_stoptime_idx];
     let day = &vehicle_section.day_for_vehicle_journey;
-    let timezone = get_timezone(&vehicle_section.vehicle_journey, model).unwrap_or(chrono_tz::UTC);
+    let timezone = get_timezone(&transit_model_vehicle_journey_idx, model).unwrap_or(chrono_tz::UTC);
     let additional_informations = make_additional_informations(stop_times);
     let shape = make_shape_from_stop_points(
         stop_times.iter().map(|stop_time| stop_time.stop_point_idx),
@@ -258,16 +274,16 @@ fn make_public_transport_section(
     );
     let length_f64 = compute_length_public_transport_section(shape.as_slice());
     let co2_emission =
-        compute_section_co2_emission(length_f64, &vehicle_section.vehicle_journey, model);
+        compute_section_co2_emission(length_f64, &transit_model_vehicle_journey_idx, model);
 
     let mut proto = navitia_proto::Section {
         origin: Some(make_stop_point_pt_object(
-            from_stop_point_idx,
+            StopPointIdx::Base(from_stop_point_idx),
             real_time_model,
             model,
         )?),
         destination: Some(make_stop_point_pt_object(
-            to_stop_point_idx,
+            StopPointIdx::Base(to_stop_point_idx),
             real_time_model,
             model,
         )?),

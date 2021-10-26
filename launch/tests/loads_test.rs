@@ -36,7 +36,7 @@
 
 use failure::Error;
 use launch::config::ComparatorType;
-use loki::{realtime::real_time_model::RealTimeModel, transit_model::Model, LoadsData};
+use loki::{LoadsData, model::{ModelRefs, real_time::RealTimeModel}, transit_model::Model};
 use utils::model_builder::ModelBuilder;
 
 use crate::utils::{build_and_solve, Config};
@@ -89,17 +89,18 @@ fn test_loads_matin() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&model, &real_time_model);
 
-    let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
 
     if cfg!(feature = "vehicle_loads") {
         assert!(responses.len() == 2);
         responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-        assert!(responses[0].first_vj_uri(&real_time_model, &model) == "matin");
-        assert!(responses[1].first_vj_uri(&real_time_model, &model) == "midi");
+        assert!(responses[0].first_vj_uri(&model_refs) == "matin");
+        assert!(responses[1].first_vj_uri(&model_refs) == "midi");
     } else {
         assert!(responses.len() == 1);
-        assert!(responses[0].first_vj_uri(&real_time_model, &model) == "matin");
+        assert!(responses[0].first_vj_uri(&model_refs) == "matin");
     }
 
     Ok(())
@@ -122,12 +123,13 @@ fn test_loads_midi() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&model, &real_time_model);
 
-    let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-    assert!(responses[0].first_vj_uri(&real_time_model, &model) == "midi");
+    assert!(responses[0].first_vj_uri(&model_refs) == "midi");
 
     Ok(())
 }
@@ -148,12 +150,13 @@ fn test_without_loads_matin() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&model, &real_time_model);
 
-    let mut responses = build_and_solve(&real_time_model, &model, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
-    assert!(responses[0].first_vj_uri(&real_time_model, &model) == "matin");
+    assert!(responses[0].first_vj_uri(&model_refs) == "matin");
 
     Ok(())
 }

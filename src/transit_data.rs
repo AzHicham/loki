@@ -44,14 +44,9 @@ pub use transit_model::objects::{
 };
 pub use typed_index_collection::Idx;
 
-use crate::{
-    loads_data::{Load, LoadsData},
-    realtime::real_time_model::{RealTimeModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{
+use crate::{loads_data::{Load, LoadsData}, model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{
         Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    },
-    timetables::{generic_timetables::VehicleTimesError, FlowDirection, InsertionError},
-};
+    }, timetables::{generic_timetables::VehicleTimesError, FlowDirection, InsertionError}};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -463,8 +458,7 @@ fn handle_vehicletimes_error(
     vehicle_journey_name: &str,
     dates: &[NaiveDate],
     stop_points: impl Iterator<Item = StopPointIdx> + Clone,
-    real_time_model: &RealTimeModel,
-    model: &Model,
+    model : & ModelRefs<'_>,
     error: &VehicleTimesError,
 ) {
     let days_strings: Vec<String> = dates
@@ -477,12 +471,12 @@ fn handle_vehicletimes_error(
             let upstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.upstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             let downstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.downstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
@@ -501,12 +495,12 @@ fn handle_vehicletimes_error(
             let upstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.upstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             let downstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.downstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
@@ -525,12 +519,12 @@ fn handle_vehicletimes_error(
             let upstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.upstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             let downstream_stop_name = stop_points
                 .clone()
                 .nth(position_pair.downstream)
-                .map(|stop_point_idx| real_time_model.stop_point_name(&stop_point_idx, model))
+                .map(|stop_point_idx| model.stop_point_name(&stop_point_idx))
                 .unwrap_or_else(|| "unknown_stopp_time");
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \

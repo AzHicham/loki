@@ -1,11 +1,4 @@
-use launch::{
-    config,
-    loki::{
-        self, realtime::real_time_model::RealTimeModel, DailyData, PeriodicData,
-        PeriodicSplitVjData, TransitData,
-    },
-    solver::Solver,
-};
+use launch::{config, loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData, model::{ModelRefs, real_time::RealTimeModel}}, solver::Solver};
 
 use loki::{tracing::debug, transit_model::Model};
 
@@ -170,6 +163,7 @@ where
     Timetables::Position: 'static,
 {
     let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&model, &real_time_model);
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -204,8 +198,7 @@ where
         let before_solve = SystemTime::now();
         let solve_result = solver.solve_request(
             data,
-            &real_time_model,
-            model,
+            &model_refs,
             &request_input,
             None,
             &config.comparator_type,
@@ -221,7 +214,7 @@ where
             }
             Ok(responses) => {
                 for response in responses.iter() {
-                    debug!("{}", response.print(&real_time_model, model)?);
+                    debug!("{}", response.print(&model_refs)?);
                 }
             }
         }

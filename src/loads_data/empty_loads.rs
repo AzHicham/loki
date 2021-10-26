@@ -57,7 +57,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::realtime::real_time_model::VehicleJourneyIdx;
+use crate::model::VehicleJourneyIdx;
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {

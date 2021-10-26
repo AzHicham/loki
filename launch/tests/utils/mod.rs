@@ -50,12 +50,12 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::{chrono::TimeZone, filters::Filters, realtime::real_time_model::RealTimeModel};
+use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs};
 
 use loki::{chrono_tz, tracing::debug};
 
 use loki::{
-    transit_model::Model, DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
+    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
     PositiveDuration, TransitData,
 };
 use model_builder::AsDateTime;
@@ -152,27 +152,25 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
 }
 
 pub fn build_and_solve(
-    real_time_model: &RealTimeModel,
-    model: &Model,
+    model: &ModelRefs<'_>,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error> {
     match config.data_implem {
         config::DataImplem::Periodic => {
-            build_and_solve_inner::<PeriodicData>(real_time_model, model, loads_data, config)
+            build_and_solve_inner::<PeriodicData>(model, loads_data, config)
         }
         config::DataImplem::Daily => {
-            build_and_solve_inner::<DailyData>(real_time_model, model, loads_data, config)
+            build_and_solve_inner::<DailyData>(model, loads_data, config)
         }
         config::DataImplem::PeriodicSplitVj => {
-            build_and_solve_inner::<PeriodicSplitVjData>(real_time_model, model, loads_data, config)
+            build_and_solve_inner::<PeriodicSplitVjData>(model, loads_data, config)
         }
     }
 }
 
 fn build_and_solve_inner<Timetables>(
-    real_time_model: &RealTimeModel,
-    model: &Model,
+    model: &ModelRefs<'_>,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
@@ -183,7 +181,7 @@ where
 {
     use loki::DataTrait;
     let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model, loads_data, &config.default_transfer_duration);
+        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -193,7 +191,6 @@ where
 
     let responses = solver.solve_request(
         &data,
-        real_time_model,
         model,
         &request_input,
         filters,
@@ -201,32 +198,31 @@ where
         &config.datetime_represent,
     )?;
     for response in responses.iter() {
-        debug!("{}", response.print(real_time_model, model)?);
+        debug!("{}", response.print(model)?);
     }
     Ok(responses)
 }
 
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
-    real_time_model: &'a RealTimeModel,
-    model: &'a Model,
+    model: & 'a ModelRefs<'a>,
 ) -> Result<(&'a str, &'a str), Error> {
     let from_stop_name = vehicle_section
-        .from_stop_point_name(real_time_model, model)
+        .from_stop_point_name(model)
         .ok_or_else(|| {
             format_err!(
                 "No stoptime at idx {} for vehicle journey {}",
                 vehicle_section.from_stoptime_idx,
-                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
             )
         })?;
     let to_stop_name = vehicle_section
-        .to_stop_point_name(real_time_model, model)
+        .to_stop_point_name(model)
         .ok_or_else(|| {
             format_err!(
                 "No stoptime at idx {} for vehicle journey {}",
                 vehicle_section.to_stoptime_idx,
-                real_time_model.vehicle_journey_name(&vehicle_section.vehicle_journey, &model)
+                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
             )
         })?;
 

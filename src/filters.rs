@@ -35,9 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    realtime::real_time_model::{RealTimeModel, StopPointIdx, VehicleJourneyIdx},
+    model::{ModelRefs, StopPointIdx, VehicleJourneyIdx},
     tracing::warn,
-    transit_model::Model,
 };
 
 pub enum StopFilter<'a> {
@@ -57,28 +56,27 @@ impl<'a> VehicleFilter<'a> {
     pub fn applies_on(
         &self,
         idx: &VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        base_model: &Model,
+        model : & ModelRefs<'_>
     ) -> bool {
         match self {
             VehicleFilter::Line(line_id) => {
-                let vj_line_id = real_time_model.line_name(&idx, base_model);
+                let vj_line_id = model.line_name(&idx);
                 vj_line_id == *line_id
             }
             VehicleFilter::Route(route_id) => {
-                let vj_route_id = real_time_model.route_name(&idx, base_model);
+                let vj_route_id = model.route_name(&idx);
                 vj_route_id == *route_id
             }
             VehicleFilter::Network(network_id) => {
-                let vj_network_id = real_time_model.network_name(&idx, base_model);
+                let vj_network_id = model.network_name(&idx);
                 vj_network_id == *network_id
             }
             VehicleFilter::PhysicalMode(physical_mode_id) => {
-                let vj_physical_mode_id = real_time_model.physical_mode_name(&idx, base_model);
+                let vj_physical_mode_id = model.physical_mode_name(&idx);
                 vj_physical_mode_id == *physical_mode_id
             }
             VehicleFilter::CommercialMode(commercial_mode_id) => {
-                let vj_commercial_mode_id = real_time_model.commercial_mode_name(&idx, base_model);
+                let vj_commercial_mode_id = model.commercial_mode_name(&idx);
                 vj_commercial_mode_id == *commercial_mode_id
             }
         }
@@ -89,15 +87,14 @@ impl<'a> StopFilter<'a> {
     pub fn applies_on(
         &self,
         idx: &StopPointIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
+        model : & ModelRefs<'_>,
     ) -> bool {
         match self {
             StopFilter::StopPoint(stop_point_id) => {
-                *stop_point_id == real_time_model.stop_point_name(idx, model)
+                *stop_point_id == model.stop_point_name(idx)
             }
             StopFilter::StopArea(stop_area_id) => {
-                *stop_area_id == real_time_model.stop_area_name(idx, model)
+                *stop_area_id == model.stop_area_name(idx)
             }
         }
     }
@@ -119,12 +116,11 @@ impl<'a> Filters<'a> {
     pub fn is_vehicle_journey_valid(
         &self,
         idx: &VehicleJourneyIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
+        model : & ModelRefs<'_>,
     ) -> bool {
         // if *one* forbidden filter applies, then the vehicle_journey is invalid
         for forbid_filter in self.forbidden_vehicles.iter() {
-            if forbid_filter.applies_on(idx, real_time_model, model) {
+            if forbid_filter.applies_on(idx, model) {
                 return false;
             }
         }
@@ -135,7 +131,7 @@ impl<'a> Filters<'a> {
 
         // if *one* allowed_filter applies, then the vehicle_journey is valid
         for allowed_filter in self.allowed_vehicles.iter() {
-            if allowed_filter.applies_on(idx, real_time_model, model) {
+            if allowed_filter.applies_on(idx, model) {
                 return true;
             }
         }
@@ -146,12 +142,11 @@ impl<'a> Filters<'a> {
     pub fn is_stop_point_valid(
         &self,
         idx: &StopPointIdx,
-        real_time_model: &RealTimeModel,
-        model: &Model,
+        model : & ModelRefs<'_>,
     ) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
         for forbid_filter in self.forbidden_stops.iter() {
-            if forbid_filter.applies_on(idx, real_time_model, model) {
+            if forbid_filter.applies_on(idx, model) {
                 return false;
             }
         }
@@ -162,7 +157,7 @@ impl<'a> Filters<'a> {
 
         // if *one* allowed_filter applies, then the idx is valid
         for allowed_filter in self.allowed_stops.iter() {
-            if allowed_filter.applies_on(idx, real_time_model, model) {
+            if allowed_filter.applies_on(idx, model) {
                 return true;
             }
         }
@@ -172,7 +167,7 @@ impl<'a> Filters<'a> {
     }
 
     pub fn new<T>(
-        model: &Model,
+        model: &ModelRefs<'_>,
         forbidden_uri: &'a [T],
         allowed_uri: &'a [T],
     ) -> Option<Filters<'a>>
@@ -233,12 +228,12 @@ impl<'a> Filters<'a> {
 }
 
 fn parse_filter<'a>(
-    model: &Model,
+    model: &ModelRefs<'_>,
     filter_str: &'a str,
     filter_provenance: &str,
 ) -> Result<Filter<'a>, ()> {
     if let Some(line_id) = filter_str.strip_prefix("line:") {
-        if model.lines.contains_id(line_id) {
+        if model.contains_line_id(line_id) {
             let filter = Filter::Vehicle(VehicleFilter::Line(line_id));
             return Ok(filter);
         } else {
@@ -250,7 +245,7 @@ fn parse_filter<'a>(
         }
     }
     if let Some(route_id) = filter_str.strip_prefix("route:") {
-        if model.routes.contains_id(route_id) {
+        if model.contains_route_id(route_id) {
             let filter = Filter::Vehicle(VehicleFilter::Route(route_id));
             return Ok(filter);
         } else {
@@ -262,7 +257,7 @@ fn parse_filter<'a>(
         }
     }
     if let Some(network_id) = filter_str.strip_prefix("network:") {
-        if model.networks.contains_id(network_id) {
+        if model.contains_network_id(network_id) {
             let filter = Filter::Vehicle(VehicleFilter::Network(network_id));
             return Ok(filter);
         } else {
@@ -275,7 +270,7 @@ fn parse_filter<'a>(
     }
 
     if let Some(physical_mode_id) = filter_str.strip_prefix("physical_mode:") {
-        if model.physical_modes.contains_id(physical_mode_id) {
+        if model.contains_physical_mode_id(physical_mode_id) {
             let filter = Filter::Vehicle(VehicleFilter::PhysicalMode(physical_mode_id));
             return Ok(filter);
         } else {
@@ -288,7 +283,7 @@ fn parse_filter<'a>(
     }
 
     if let Some(commercial_model_id) = filter_str.strip_prefix("commercial_mode:") {
-        if model.commercial_modes.contains_id(commercial_model_id) {
+        if model.contains_commercial_model_id(commercial_model_id) {
             let filter = Filter::Vehicle(VehicleFilter::CommercialMode(commercial_model_id));
             return Ok(filter);
         } else {
@@ -301,7 +296,7 @@ fn parse_filter<'a>(
     }
 
     if let Some(stop_point_id) = filter_str.strip_prefix("stop_point:") {
-        if model.stop_points.contains_id(stop_point_id) {
+        if model.contains_stop_point_id(stop_point_id) {
             let filter = Filter::Stop(StopFilter::StopPoint(stop_point_id));
             return Ok(filter);
         } else {
@@ -314,7 +309,7 @@ fn parse_filter<'a>(
     }
 
     if let Some(stop_area_id) = filter_str.strip_prefix("stop_area:") {
-        if model.stop_areas.contains_id(stop_area_id) {
+        if model.contains_stop_area_id(stop_area_id) {
             let filter = Filter::Stop(StopFilter::StopArea(stop_area_id));
             return Ok(filter);
         } else {

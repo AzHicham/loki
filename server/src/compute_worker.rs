@@ -41,7 +41,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use launch::{config, datetime::DateTimeRepresent, loki::{self, PositiveDuration, RequestInput, TransitData, filters::Filters, timetables::PeriodicSplitVjByTzTimetables, tracing::{debug, error, info, warn}, transit_model::Model}, solver::Solver};
+use launch::{config, datetime::DateTimeRepresent, loki::{self, PositiveDuration, RequestInput, TransitData, filters::Filters, model::{ModelRefs, real_time::RealTimeModel}, timetables::PeriodicSplitVjByTzTimetables, tracing::{debug, error, info, warn}, transit_model::Model}, solver::Solver};
 use std::convert::TryFrom;
 
 use crate::{
@@ -119,10 +119,12 @@ impl ComputeWorker {
                 let proto_request = request_message.payload;
 
                 let (data, model) = rw_lock_read_guard.deref();
+                let real_time_model = RealTimeModel::new();
+                let model_refs = ModelRefs::new(&model, &real_time_model);
                 let solve_result = solve(
                     proto_request,
                     data,
-                    model,
+                    &model_refs,
                     &mut self.solver,
                     &self.request_default_params,
                     config::ComparatorType::Basic,
@@ -157,7 +159,7 @@ impl ComputeWorker {
 fn solve(
     proto_request: navitia_proto::Request,
     data: &TransitData<MyTimetable>,
-    model: &Model,
+    model: &ModelRefs<'_>,
     solver: &mut Solver<MyTimetable>,
     request_default_params: &config::RequestParams,
     comparator_type: config::ComparatorType,

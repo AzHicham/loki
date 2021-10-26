@@ -38,7 +38,7 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
-    realtime::real_time_model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
     transit_data::{Stop, TransitData},
     DataUpdate,
 };

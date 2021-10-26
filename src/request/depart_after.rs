@@ -39,12 +39,7 @@ pub mod loads_comparator;
 
 use transit_model::Model;
 
-use crate::{
-    loads_data::LoadsCount,
-    realtime::real_time_model::RealTimeModel,
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
-    transit_data::data_interface::DataIters,
-};
+use crate::{loads_data::LoadsCount, model::ModelRefs, time::{PositiveDuration, SecondsSinceDatasetUTCStart}, transit_data::data_interface::DataIters};
 
 use crate::{
     engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
@@ -64,8 +59,7 @@ use crate::{
 
 pub struct GenericDepartAfterRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
-    pub(super) real_time_model: &'model RealTimeModel,
-    pub(super) model: &'model Model,
+    pub(super) model: &'model ModelRefs<'model>,
     pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
     pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -81,8 +75,7 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        real_time_model: &'model RealTimeModel,
-        model: &'model Model,
+        model: &'model ModelRefs<'model>,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -96,21 +89,18 @@ where
 
         let departures = super::generic_request::parse_departures(
             &request_input.departures_stop_point_and_fallback_duration,
-            real_time_model,
             model,
             transit_data,
         )?;
 
         let arrivals: Vec<_> = super::generic_request::parse_arrivals(
             &request_input.arrivals_stop_point_and_fallback_duration,
-            real_time_model,
             model,
             transit_data,
         )?;
 
         let result = Self {
             transit_data,
-            real_time_model,
             model,
             departure_datetime,
             departures_stop_point_and_fallback_duration: departures,
@@ -180,11 +170,11 @@ where
     }
 
     pub fn stop_name(&self, stop: &Data::Stop) -> String {
-        super::generic_request::stop_name(stop, self.real_time_model, self.model, self.transit_data)
+        super::generic_request::stop_name(stop, self.model, self.transit_data)
     }
 
     pub fn trip_name(&self, trip: &Data::Trip) -> String {
-        super::generic_request::trip_name(trip, self.real_time_model, self.model, self.transit_data)
+        super::generic_request::trip_name(trip, self.model, self.transit_data)
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
@@ -195,7 +185,6 @@ where
         super::generic_request::position_name(
             position,
             mission,
-            self.real_time_model,
             self.model,
             self.transit_data,
         )

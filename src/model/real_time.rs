@@ -43,36 +43,32 @@ use crate::{
     VehicleJourney as TransitModelVehicleJourney,
 };
 
-use crate::{realtime, DataUpdate, LoadsData};
+use crate::{model, DataUpdate, LoadsData};
 
-type TransitModelVehicleJourneyIdx = Idx<TransitModelVehicleJourney>;
+use super::{StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
 
 pub struct RealTimeModel {
     // base_model: Model,
-    disruption_impacts: HashMap<String, ImpactedVehicleAndStops>,
+    pub(super) disruption_impacts: HashMap<String, ImpactedVehicleAndStops>,
 
-    new_vehicle_journeys_id_to_idx: HashMap<String, NewVehicleJourney>,
+    pub(super) new_vehicle_journeys_id_to_idx: HashMap<String, NewVehicleJourneyIdx>,
     // indexed by NewVehicleJourney.idx
-    new_vehicle_journeys_history: Vec<(String, VehicleJourneyHistory)>,
+    pub(super) new_vehicle_journeys_history: Vec<(String, VehicleJourneyHistory)>,
 
     // gives position in base_vehicle_journeys_history, if any
-    base_vehicle_journeys_idx_to_history: HashMap<TransitModelVehicleJourneyIdx, usize>,
-    base_vehicle_journeys_history: Vec<VehicleJourneyHistory>,
+    pub(super) base_vehicle_journeys_idx_to_history: HashMap<TransitModelVehicleJourneyIdx, usize>,
+    pub(super) base_vehicle_journeys_history: Vec<VehicleJourneyHistory>,
 
-    new_stop_id_to_idx: HashMap<String, NewStop>,
-    new_stops: Vec<StopData>,
+    pub(super) new_stop_id_to_idx: HashMap<String, NewStopPointIdx>,
+    pub(super) new_stops: Vec<StopData>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct NewVehicleJourney {
+pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum VehicleJourneyIdx {
-    Base(TransitModelVehicleJourneyIdx),
-    New(NewVehicleJourney),
-}
+
 
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
@@ -100,29 +96,15 @@ pub struct StopTime {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct NewStop {
+pub struct NewStopPointIdx {
     pub idx: usize, // position in new_stops
 }
 
-pub type TransitModelStopIdx = Idx<StopPoint>;
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum StopPointIdx {
-    Base(TransitModelStopIdx), // Stop_id in ntfs
-    New(NewStop),              // Id of a stop added by real time
-}
 
 pub struct StopData {
-    name: String,
+    pub(super) name: String,
 }
 
-type TransitModelTransferIdx = Idx<transit_model::objects::Transfer>;
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum TransferIdx {
-    Base(TransitModelTransferIdx),
-    New(usize),
-}
 
 pub struct ImpactedVehicleAndStops {
     vehicle_journey: VehicleJourneyIdx,
@@ -136,7 +118,7 @@ impl RealTimeModel {
 
     pub fn apply_disruption<Data: DataUpdate>(
         &mut self,
-        disruption: &realtime::disruption::Disruption,
+        disruption: & super::disruption::Disruption,
         model: &Model,
         loads_data: &LoadsData,
         data: &mut Data,
@@ -149,17 +131,17 @@ impl RealTimeModel {
     pub fn apply_update<Data: DataUpdate>(
         &mut self,
         disruption_id: &str,
-        update: &realtime::disruption::Update,
+        update: &super::disruption::Update,
         model: &Model,
         loads_data: &LoadsData,
         data: &mut Data,
     ) {
         match update {
-            realtime::disruption::Update::Delete(trip) => {
+            super::disruption::Update::Delete(trip) => {
                 let vj_idx = self.delete(disruption_id, trip, model);
                 data.remove_vehicle(&vj_idx, &trip.reference_date);
             }
-            realtime::disruption::Update::Add(trip, stop_times) => {
+            super::disruption::Update::Add(trip, stop_times) => {
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, model);
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
@@ -183,7 +165,7 @@ impl RealTimeModel {
                     vj_idx,
                 );
             }
-            realtime::disruption::Update::Modify(trip, stop_times) => {
+            super::disruption::Update::Modify(trip, stop_times) => {
                 let (vj_idx, stop_times) = self.modify(disruption_id, trip, stop_times, model);
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
@@ -213,7 +195,7 @@ impl RealTimeModel {
     pub fn delete(
         &mut self,
         disruption_id: &str,
-        trip: &realtime::disruption::Trip,
+        trip: &super::disruption::Trip,
         model: &Model,
     ) -> VehicleJourneyIdx {
         let (idx, history) = self.get_or_insert_history(trip, model, disruption_id);
@@ -226,8 +208,8 @@ impl RealTimeModel {
     pub fn add(
         &mut self,
         disruption_id: &str,
-        trip: &realtime::disruption::Trip,
-        stop_times: &[realtime::disruption::StopTime],
+        trip: &super::disruption::Trip,
+        stop_times: &[super::disruption::StopTime],
         model: &Model,
     ) -> (VehicleJourneyIdx, Vec<StopTime>) {
         let stop_times = self.make_stop_times(stop_times, model);
@@ -242,8 +224,8 @@ impl RealTimeModel {
     pub fn modify(
         &mut self,
         disruption_id: &str,
-        trip: &realtime::disruption::Trip,
-        stop_times: &[realtime::disruption::StopTime],
+        trip: &super::disruption::Trip,
+        stop_times: &[super::disruption::StopTime],
         model: &Model,
     ) -> (VehicleJourneyIdx, Vec<StopTime>) {
         let stop_times = self.make_stop_times(stop_times, model);
@@ -257,7 +239,7 @@ impl RealTimeModel {
 
     fn get_or_insert_history(
         &mut self,
-        trip: &realtime::disruption::Trip,
+        trip: &super::disruption::Trip,
         model: &Model,
         disruption_id: &str,
     ) -> (VehicleJourneyIdx, &mut TripHistory) {
@@ -312,7 +294,7 @@ impl RealTimeModel {
             .new_vehicle_journeys_id_to_idx
             .entry(id.to_string())
             .or_insert_with(|| {
-                let idx = NewVehicleJourney {
+                let idx = NewVehicleJourneyIdx {
                     idx: new_vj_history.len(),
                 };
                 new_vj_history.push((disruption_id.to_string(), VehicleJourneyHistory::new()));
@@ -333,7 +315,7 @@ impl RealTimeModel {
 
     pub fn make_stop_times(
         &mut self,
-        stop_times: &[realtime::disruption::StopTime],
+        stop_times: &[super::disruption::StopTime],
         model: &Model,
     ) -> Vec<StopTime> {
         let mut result = Vec::new();
@@ -356,7 +338,7 @@ impl RealTimeModel {
         } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
             StopPointIdx::New(idx.clone())
         } else {
-            let idx = NewStop {
+            let idx = NewStopPointIdx {
                 idx: self.new_stops.len(),
             };
             self.new_stop_id_to_idx
@@ -365,149 +347,7 @@ impl RealTimeModel {
         }
     }
 
-    pub fn new() -> Self {
-        Self {
-            disruption_impacts: HashMap::new(),
-            new_vehicle_journeys_id_to_idx: HashMap::new(),
-            new_vehicle_journeys_history: Vec::new(),
-            base_vehicle_journeys_idx_to_history: HashMap::new(),
-            base_vehicle_journeys_history: Vec::new(),
-            new_stop_id_to_idx: HashMap::new(),
-            new_stops: Vec::new(),
-        }
-    }
-
-    pub fn stop_point_idx(&self, stop_id: &str, base_model: &Model) -> Option<StopPointIdx> {
-        if let Some(base_stop_point_id) = base_model.stop_points.get_idx(stop_id) {
-            Some(StopPointIdx::Base(base_stop_point_id))
-        } else if let Some(new_stop_idx) = self.new_stop_id_to_idx.get(stop_id) {
-            Some(StopPointIdx::New(new_stop_idx.clone()))
-        } else {
-            None
-        }
-    }
-
-    pub fn stop_point_name<'a>(
-        &'a self,
-        stop_idx: &StopPointIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        match stop_idx {
-            StopPointIdx::Base(idx) => &base_model.stop_points[*idx].id,
-            StopPointIdx::New(idx) => &self.new_stops[idx.idx].name,
-        }
-    }
-
-    pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model: &'a Model) -> &'a str {
-        match stop_idx {
-            StopPointIdx::Base(idx) => &base_model.stop_points[*idx].stop_area_id,
-            StopPointIdx::New(_idx) => "unknown_stop_area",
-        }
-    }
-
-    pub fn vehicle_journey_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].id,
-            VehicleJourneyIdx::New(idx) => &self.new_vehicle_journeys_history[idx.idx].0,
-        }
-    }
-
-    pub fn line_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        let unknown_line = "unknown_line";
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let route_id = &base_model.vehicle_journeys[*idx].route_id;
-                &base_model
-                    .routes
-                    .get(route_id)
-                    .map(|route| route.line_id.as_str())
-                    .unwrap_or(unknown_line)
-            }
-            VehicleJourneyIdx::New(_idx) => unknown_line,
-        }
-    }
-
-    pub fn route_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].route_id,
-            VehicleJourneyIdx::New(_idx) => "unknown_route",
-        }
-    }
-
-    pub fn network_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        let unknown_network = "unknown_network";
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let route_id = &base_model.vehicle_journeys[*idx].route_id;
-                let has_route = base_model.routes.get(route_id);
-                if let Some(route) = has_route {
-                    let has_line = base_model.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.network_id.as_str()
-                    } else {
-                        unknown_network
-                    }
-                } else {
-                    unknown_network
-                }
-            }
-            VehicleJourneyIdx::New(_idx) => unknown_network,
-        }
-    }
-
-    pub fn physical_mode_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].physical_mode_id,
-            VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
-        }
-    }
-
-    pub fn commercial_mode_name<'a>(
-        &'a self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        base_model: &'a Model,
-    ) -> &'a str {
-        let unknown_commercial_mode = "unknown_commercial_mode";
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let vj = &base_model.vehicle_journeys[*idx];
-                let has_route = base_model.routes.get(&vj.route_id);
-                if let Some(route) = has_route {
-                    let has_line = base_model.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.commercial_mode_id.as_str()
-                    } else {
-                        unknown_commercial_mode
-                    }
-                } else {
-                    unknown_commercial_mode
-                }
-            }
-            VehicleJourneyIdx::New(_idx) => unknown_commercial_mode,
-        }
-    }
-
-    fn base_vehicle_journey_last_version(
+    pub(super) fn base_vehicle_journey_last_version(
         &self,
         idx: &TransitModelVehicleJourneyIdx,
         date: &NaiveDate,
@@ -522,64 +362,212 @@ impl RealTimeModel {
             .flatten()
     }
 
-    pub fn stop_point_at(
-        &self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        stop_time_idx: usize,
-        date: &NaiveDate,
-        base_model: &Model,
-    ) -> Option<StopPointIdx> {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.base_vehicle_journey_last_version(idx, date);
-                if let Some(trip_data) = has_history {
-                    match trip_data {
-                        TripData::Deleted() => None,
-                        TripData::Present(stop_times) => stop_times
-                            .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop.clone()),
-                    }
-                } else {
-                    base_model.vehicle_journeys[*idx]
-                        .stop_times
-                        .get(stop_time_idx)
-                        .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
-                }
-            }
-            VehicleJourneyIdx::New(idx) => {
-                let has_history = self.new_vehicle_journeys_history[idx.idx].1.trip_data(date);
-                if let Some((_, trip_data)) = has_history {
-                    match trip_data {
-                        TripData::Deleted() => None,
-                        TripData::Present(stop_times) => stop_times
-                            .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop.clone()),
-                    }
-                } else {
-                    None
-                }
-            }
+    pub fn new() -> Self {
+        Self {
+            disruption_impacts: HashMap::new(),
+            new_vehicle_journeys_id_to_idx: HashMap::new(),
+            new_vehicle_journeys_history: Vec::new(),
+            base_vehicle_journeys_idx_to_history: HashMap::new(),
+            base_vehicle_journeys_history: Vec::new(),
+            new_stop_id_to_idx: HashMap::new(),
+            new_stops: Vec::new(),
         }
     }
 
-    pub fn nb_of_new_stops(&self) -> usize {
-        self.new_stops.len()
-    }
-
-    pub fn new_stops(&self) -> impl Iterator<Item = NewStop> {
-        let range = 0..self.new_stops.len();
-        range.map(|idx| NewStop { idx })
-    }
-
-    pub fn nb_of_new_vehicle_journeys(&self) -> usize {
-        self.new_vehicle_journeys_history.len()
-    }
-
-    pub fn new_vehicle_journeys(&self) -> impl Iterator<Item = NewVehicleJourney> {
-        let range = 0..self.new_vehicle_journeys_history.len();
-        range.map(|idx| NewVehicleJourney { idx })
-    }
 }
+
+// impl RealTimeModel {
+
+//     pub fn stop_point_idx(&self, stop_id: &str, base_model: &Model) -> Option<StopPointIdx> {
+//         if let Some(base_stop_point_id) = base_model.stop_points.get_idx(stop_id) {
+//             Some(StopPointIdx::Base(base_stop_point_id))
+//         } else if let Some(new_stop_idx) = self.new_stop_id_to_idx.get(stop_id) {
+//             Some(StopPointIdx::New(new_stop_idx.clone()))
+//         } else {
+//             None
+//         }
+//     }
+
+//     pub fn stop_point_name<'a>(
+//         &'a self,
+//         stop_idx: &StopPointIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         match stop_idx {
+//             StopPointIdx::Base(idx) => &base_model.stop_points[*idx].id,
+//             StopPointIdx::New(idx) => &self.new_stops[idx.idx].name,
+//         }
+//     }
+
+//     pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx, base_model: &'a Model) -> &'a str {
+//         match stop_idx {
+//             StopPointIdx::Base(idx) => &base_model.stop_points[*idx].stop_area_id,
+//             StopPointIdx::New(_idx) => "unknown_stop_area",
+//         }
+//     }
+
+//     pub fn vehicle_journey_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].id,
+//             VehicleJourneyIdx::New(idx) => &self.new_vehicle_journeys_history[idx.idx].0,
+//         }
+//     }
+
+//     pub fn line_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         let unknown_line = "unknown_line";
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => {
+//                 let route_id = &base_model.vehicle_journeys[*idx].route_id;
+//                 &base_model
+//                     .routes
+//                     .get(route_id)
+//                     .map(|route| route.line_id.as_str())
+//                     .unwrap_or(unknown_line)
+//             }
+//             VehicleJourneyIdx::New(_idx) => unknown_line,
+//         }
+//     }
+
+//     pub fn route_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].route_id,
+//             VehicleJourneyIdx::New(_idx) => "unknown_route",
+//         }
+//     }
+
+//     pub fn network_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         let unknown_network = "unknown_network";
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => {
+//                 let route_id = &base_model.vehicle_journeys[*idx].route_id;
+//                 let has_route = base_model.routes.get(route_id);
+//                 if let Some(route) = has_route {
+//                     let has_line = base_model.lines.get(&route.line_id);
+//                     if let Some(line) = has_line {
+//                         line.network_id.as_str()
+//                     } else {
+//                         unknown_network
+//                     }
+//                 } else {
+//                     unknown_network
+//                 }
+//             }
+//             VehicleJourneyIdx::New(_idx) => unknown_network,
+//         }
+//     }
+
+//     pub fn physical_mode_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => &base_model.vehicle_journeys[*idx].physical_mode_id,
+//             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
+//         }
+//     }
+
+//     pub fn commercial_mode_name<'a>(
+//         &'a self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         base_model: &'a Model,
+//     ) -> &'a str {
+//         let unknown_commercial_mode = "unknown_commercial_mode";
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => {
+//                 let vj = &base_model.vehicle_journeys[*idx];
+//                 let has_route = base_model.routes.get(&vj.route_id);
+//                 if let Some(route) = has_route {
+//                     let has_line = base_model.lines.get(&route.line_id);
+//                     if let Some(line) = has_line {
+//                         line.commercial_mode_id.as_str()
+//                     } else {
+//                         unknown_commercial_mode
+//                     }
+//                 } else {
+//                     unknown_commercial_mode
+//                 }
+//             }
+//             VehicleJourneyIdx::New(_idx) => unknown_commercial_mode,
+//         }
+//     }
+
+
+
+//     pub fn stop_point_at(
+//         &self,
+//         vehicle_journey_idx: &VehicleJourneyIdx,
+//         stop_time_idx: usize,
+//         date: &NaiveDate,
+//         base_model: &Model,
+//     ) -> Option<StopPointIdx> {
+//         match vehicle_journey_idx {
+//             VehicleJourneyIdx::Base(idx) => {
+//                 let has_history = self.base_vehicle_journey_last_version(idx, date);
+//                 if let Some(trip_data) = has_history {
+//                     match trip_data {
+//                         TripData::Deleted() => None,
+//                         TripData::Present(stop_times) => stop_times
+//                             .get(stop_time_idx)
+//                             .map(|stop_time| stop_time.stop.clone()),
+//                     }
+//                 } else {
+//                     base_model.vehicle_journeys[*idx]
+//                         .stop_times
+//                         .get(stop_time_idx)
+//                         .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
+//                 }
+//             }
+//             VehicleJourneyIdx::New(idx) => {
+//                 let has_history = self.new_vehicle_journeys_history[idx.idx].1.trip_data(date);
+//                 if let Some((_, trip_data)) = has_history {
+//                     match trip_data {
+//                         TripData::Deleted() => None,
+//                         TripData::Present(stop_times) => stop_times
+//                             .get(stop_time_idx)
+//                             .map(|stop_time| stop_time.stop.clone()),
+//                     }
+//                 } else {
+//                     None
+//                 }
+//             }
+//         }
+//     }
+
+//     pub fn nb_of_new_stops(&self) -> usize {
+//         self.new_stops.len()
+//     }
+
+//     pub fn new_stops(&self) -> impl Iterator<Item = NewStopPointIdx> {
+//         let range = 0..self.new_stops.len();
+//         range.map(|idx| NewStopPointIdx { idx })
+//     }
+
+//     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
+//         self.new_vehicle_journeys_history.len()
+//     }
+
+//     pub fn new_vehicle_journeys(&self) -> impl Iterator<Item = NewVehicleJourneyIdx> {
+//         let range = 0..self.new_vehicle_journeys_history.len();
+//         range.map(|idx| NewVehicleJourneyIdx { idx })
+//     }
+// }
 
 impl VehicleJourneyHistory {
     pub fn new() -> Self {
