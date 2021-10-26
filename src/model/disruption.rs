@@ -38,22 +38,26 @@ use chrono::NaiveDate;
 
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 
+#[derive(Debug, Clone)]
 pub struct Disruption {
     pub id: String,
     pub updates: Vec<Update>,
 }
 
+#[derive(Debug, Clone)]
 pub enum Update {
     Delete(Trip),
     Add(Trip, Vec<StopTime>),
     Modify(Trip, Vec<StopTime>),
 }
 
+#[derive(Debug, Clone)]
 pub struct Trip {
     pub vehicle_journey_id: String,
     pub reference_date: NaiveDate,
 }
 
+#[derive(Debug, Clone)]
 pub struct StopTime {
     pub stop_id: String,
     pub arrival_time: SecondsSinceTimezonedDayStart,

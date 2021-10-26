@@ -202,8 +202,8 @@ impl<'model> ModelRefs<'model> {
     ) -> Option<StopPointIdx> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
-                if let Some(trip_data) = has_history {
+                let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
+                if let Some(trip_data) = has_realtime {
                     match trip_data {
                         TripData::Deleted() => None,
                         TripData::Present(stop_times) => stop_times
@@ -218,10 +218,8 @@ impl<'model> ModelRefs<'model> {
                 }
             }
             VehicleJourneyIdx::New(idx) => {
-                let has_history = self.real_time.new_vehicle_journeys_history[idx.idx]
-                    .1
-                    .trip_data(date);
-                if let Some((_, trip_data)) = has_history {
+                let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
+                if let Some(trip_data) = has_realtime {
                     match trip_data {
                         TripData::Deleted() => None,
                         TripData::Present(stop_times) => stop_times
