@@ -39,7 +39,7 @@ pub mod disruption;
 pub mod infos;
 
 use chrono::NaiveDate;
-use typed_index_collection::Idx;
+use typed_index_collection::{Id, Idx};
 
 use crate::{transit_data};
 
@@ -132,15 +132,22 @@ impl<'model> ModelRefs<'model> {
         let unknown_line = "unknown_line";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let route_id = &self.base.vehicle_journeys[*idx].route_id;
-                &self.base
-                    .routes
-                    .get(route_id)
+                self.base_vehicle_journey_route(idx)
                     .map(|route| route.line_id.as_str())
                     .unwrap_or(unknown_line)
             }
             VehicleJourneyIdx::New(_idx) => unknown_line,
         }
+    }
+
+
+    fn base_vehicle_journey_line(&self, idx : TransitModelVehicleJourneyIdx) -> Option<& transit_model::objects::Line> {
+        self.base_vehicle_journey_route(&idx)
+            .map(|route|
+                self.base.lines.get(route.line_id.as_str())
+            )
+            .flatten()
+
     }
 
     pub fn route_name<'a>(
@@ -153,6 +160,13 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
+
+    fn base_vehicle_journey_route(&self, idx : &TransitModelVehicleJourneyIdx) -> Option<& transit_model::objects::Route> {
+        let route_id = &self.base.vehicle_journeys[*idx].route_id;
+        self.base
+            .routes
+            .get(route_id)
+    }
     pub fn network_name<'a>(
         &'a self,
         vehicle_journey_idx: &VehicleJourneyIdx,
