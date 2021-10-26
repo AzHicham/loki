@@ -271,17 +271,15 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    let error = InsertionError::DateOutOfCalendar(
-                        date.clone(),
-                        vehicle_journey_idx.clone(),
-                    );
+                    let error =
+                        InsertionError::DateOutOfCalendar(*date, vehicle_journey_idx.clone());
                     insertion_errors.push(error);
                     continue;
                 }
                 Some(day) => {
                     if vj_timetables.contains_day(&day, &self.days_patterns) {
                         let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
-                            date.clone(),
+                            *date,
                             vehicle_journey_idx.clone(),
                         );
                         insertion_errors.push(error);
@@ -300,7 +298,7 @@ impl TimetablesTrait for DailyTimetables {
                         day,
                     };
                     let loads = loads_data
-                        .loads(&vehicle_journey_idx, date)
+                        .loads(vehicle_journey_idx, date)
                         .unwrap_or_else(|| default_loads.as_slice());
 
                     let insert_result = self.timetables.insert(
@@ -327,7 +325,7 @@ impl TimetablesTrait for DailyTimetables {
                                 .unwrap(); // unwrap should be safe here, because we check above that vj_timetables has no intersection with days_pattern
                         }
                         Err(times_error) => {
-                            let dates = vec![date.clone()];
+                            let dates = vec![*date];
                             let error = InsertionError::Times(
                                 vehicle_journey_idx.clone(),
                                 times_error,
@@ -350,10 +348,7 @@ impl TimetablesTrait for DailyTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(
-                date.clone(),
-                vehicle_journey_idx.clone(),
-            ))?;
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
         let has_timetables = self
             .vehicle_journey_to_timetables
@@ -368,10 +363,7 @@ impl TimetablesTrait for DailyTimetables {
             Some(day_to_timetable) => day_to_timetable
                 .remove(&day, &mut self.days_patterns)
                 .map_err(|_| {
-                    RemovalError::DateInvalidForVehicleJourney(
-                        date.clone(),
-                        vehicle_journey_idx.clone(),
-                    )
+                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
                 }),
         };
 

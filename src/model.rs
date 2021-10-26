@@ -82,10 +82,11 @@ impl<'model> ModelRefs<'model> {
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<StopPointIdx> {
         if let Some(base_stop_point_id) = self.base.stop_points.get_idx(stop_id) {
             Some(StopPointIdx::Base(base_stop_point_id))
-        } else if let Some(new_stop_idx) = self.real_time.new_stop_id_to_idx.get(stop_id) {
-            Some(StopPointIdx::New(new_stop_idx.clone()))
         } else {
-            None
+            self.real_time
+                .new_stop_id_to_idx
+                .get(stop_id)
+                .map(|idx| StopPointIdx::New(idx.clone()))
         }
     }
 

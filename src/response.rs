@@ -97,7 +97,7 @@ pub struct ArrivalSection {
 impl Response {
     pub fn first_vj_uri<'model>(&self, model: &'model ModelRefs<'model>) -> &'model str {
         let idx = &self.first_vehicle.vehicle_journey;
-        model.vehicle_journey_name(&idx)
+        model.vehicle_journey_name(idx)
     }
 }
 
@@ -674,11 +674,11 @@ impl VehicleSection {
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
         // let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
-        let line_id = model.line_name(&vehicle_journey_idx);
+        let line_id = model.line_name(vehicle_journey_idx);
 
         let from_stop_id = model
             .stop_point_at(
-                &vehicle_journey_idx,
+                vehicle_journey_idx,
                 self.from_stoptime_idx,
                 &self.day_for_vehicle_journey,
             )
@@ -686,7 +686,7 @@ impl VehicleSection {
             .unwrap_or("unknown_stop");
         let to_stop_id = model
             .stop_point_at(
-                &vehicle_journey_idx,
+                vehicle_journey_idx,
                 self.to_stoptime_idx,
                 &self.day_for_vehicle_journey,
             )

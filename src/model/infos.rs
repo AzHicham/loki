@@ -67,7 +67,7 @@ impl<'model> ModelRefs<'model> {
                 let stop_point = &self.base.stop_points[*idx];
                 let has_address_id = &stop_point.address_id;
                 if let Some(address_id) = has_address_id {
-                    let address = &self.base.addresses.get(&address_id)?;
+                    let address = &self.base.addresses.get(address_id)?;
                     Some(address.street_name.as_str())
                 } else {
                     None
@@ -83,7 +83,7 @@ impl<'model> ModelRefs<'model> {
                 let stop_point = &self.base.stop_points[*idx];
                 let has_address_id = &stop_point.address_id;
                 if let Some(address_id) = has_address_id {
-                    let address = &self.base.addresses.get(&address_id)?;
+                    let address = &self.base.addresses.get(address_id)?;
                     Some(address.street_name.as_str())
                 } else {
                     None
@@ -122,7 +122,7 @@ impl<'model> ModelRefs<'model> {
         match stop_point_idx {
             StopPointIdx::Base(idx) => {
                 let stop_point = &self.base.stop_points[*idx];
-                stop_point.fare_zone_id.as_ref().map(|s| s.as_str())
+                stop_point.fare_zone_id.as_deref()
             }
             StopPointIdx::New(_) => None,
         }
@@ -161,7 +161,7 @@ impl<'model> ModelRefs<'model> {
                     .unwrap_or(chrono_tz::UTC);
             }
         }
-        return chrono_tz::UTC;
+        chrono_tz::UTC
     }
 
     fn base_vehicle_journey_timezone(
@@ -195,7 +195,7 @@ impl<'model> ModelRefs<'model> {
                         {
                             Some(StopTimes::New(
                                 &stop_times[from_stoptime_idx..=to_stoptime_idx],
-                                date.clone(),
+                                *date,
                             ))
                         } else {
                             None
@@ -211,7 +211,7 @@ impl<'model> ModelRefs<'model> {
                         {
                             Some(StopTimes::Base(
                                 &stop_times[from_stoptime_idx..=to_stoptime_idx],
-                                date.clone(),
+                                *date,
                                 timezone,
                             ))
                         } else {
@@ -223,7 +223,7 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::New(idx) => {
                 let trip_data = self.real_time.new_vehicle_journey_last_version(idx, date)?;
                 if let TripData::Present(stop_times) = trip_data {
-                    Some(StopTimes::New(stop_times.as_slice(), date.clone()))
+                    Some(StopTimes::New(stop_times.as_slice(), *date))
                 } else {
                     None
                 }
@@ -251,10 +251,7 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::Base(idx) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    self.base.vehicle_journeys[*idx]
-                        .headsign
-                        .as_ref()
-                        .map(|s| s.as_str())
+                    self.base.vehicle_journeys[*idx].headsign.as_deref()
                 } else {
                     None
                 }
@@ -276,7 +273,7 @@ impl<'model> ModelRefs<'model> {
                     route
                         .destination_id
                         .as_ref()
-                        .and_then(|destination_id| self.base.stop_areas.get(&destination_id))
+                        .and_then(|destination_id| self.base.stop_areas.get(destination_id))
                         .map(|stop_area| stop_area.name.as_str())
                 } else {
                     None

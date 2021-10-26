@@ -312,7 +312,7 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let stops = self.create_stops(stop_points.clone()).into_iter();
+        let stops = self.create_stops(stop_points).into_iter();
         let (missions, insertion_errors) = self.timetables.insert(
             stops,
             flows,
@@ -475,17 +475,17 @@ pub fn handle_insertion_errors(
         use crate::timetables::InsertionError::*;
         match error {
             Times(vehicle_journey_idx, error, dates) => {
-                let _ = handle_vehicletimes_error(vehicle_journey_idx, &dates, model, &error);
+                let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
             }
             VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
-                let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
                 error!(
                     "Trying to insert the vehicle journey {} more than once on day {}",
                     vehicle_journey_name, date
                 );
             }
             DateOutOfCalendar(date, vehicle_journey_idx) => {
-                let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
                 error!(
                     "Trying to insert the vehicle journey {} on day {},  \
                         but this day is not allowed in the calendar.  \
@@ -570,7 +570,8 @@ fn handle_vehicletimes_error(
             );
         }
     }
-    return Ok(());
+
+    Ok(())
 }
 
 fn upstream_downstream_stop_names<'model>(

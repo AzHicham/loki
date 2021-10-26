@@ -486,17 +486,12 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(
-                date.clone(),
-                vehicle_journey_idx.clone(),
-            ))?;
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
         let iter = self
             .vehicle_journey_to_timetables
             .get_mut(vehicle_journey_idx)
-            .ok_or(RemovalError::UnknownVehicleJourney(
-                vehicle_journey_idx.clone(),
-            ))?;
+            .ok_or_else(|| RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone()))?;
 
         for (offset, day_to_timetable) in iter {
             let remove_result = day_to_timetable.remove(&day, &mut self.days_patterns);
@@ -541,7 +536,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         }
         // day is not valid for any offset
         Err(RemovalError::DateInvalidForVehicleJourney(
-            date.clone(),
+            *date,
             vehicle_journey_idx.clone(),
         ))
     }

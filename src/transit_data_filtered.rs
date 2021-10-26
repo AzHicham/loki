@@ -65,6 +65,12 @@ pub struct FilterMemory {
     allowed_new_vehicle_journeys: Vec<bool>,
 }
 
+impl Default for FilterMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FilterMemory {
     pub fn new() -> Self {
         Self {

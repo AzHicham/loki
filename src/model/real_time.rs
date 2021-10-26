@@ -137,7 +137,7 @@ impl RealTimeModel {
                 if let Err(removal_error) = removal_result {
                     let model_ref = ModelRefs {
                         base: model,
-                        real_time: &self,
+                        real_time: self,
                     };
                     handle_removal_errors(
                         &model_ref,
@@ -150,15 +150,9 @@ impl RealTimeModel {
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, model);
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
-                let flows = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.flow_direction.clone());
-                let board_times = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.departure_time.clone());
-                let debark_times = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.arrival_time.clone());
+                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
                 let insertion_errors = data.add_vehicle(
                     stops,
                     flows,
@@ -171,7 +165,7 @@ impl RealTimeModel {
                 );
                 let model_ref = ModelRefs {
                     base: model,
-                    real_time: &self,
+                    real_time: self,
                 };
                 handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
             }
@@ -179,15 +173,9 @@ impl RealTimeModel {
                 let (vj_idx, stop_times) = self.modify(disruption_id, trip, stop_times, model);
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
-                let flows = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.flow_direction.clone());
-                let board_times = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.departure_time.clone());
-                let debark_times = stop_times
-                    .iter()
-                    .map(|stop_time| stop_time.arrival_time.clone());
+                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
                 let (removal_errors, insertion_errors) = data.modify_vehicle(
                     stops,
                     flows,
@@ -200,7 +188,7 @@ impl RealTimeModel {
                 );
                 let model_ref = ModelRefs {
                     base: model,
-                    real_time: &self,
+                    real_time: self,
                 };
                 handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
                 handle_removal_errors(&model_ref, data.calendar(), removal_errors.into_iter())
@@ -293,7 +281,7 @@ impl RealTimeModel {
         let vj_history = &mut self.base_vehicle_journeys_history[*pos];
         vj_history
             .by_reference_date
-            .entry(date.clone())
+            .entry(*date)
             .or_insert_with(|| TripHistory {
                 versions: Vec::new(),
             })
@@ -320,7 +308,7 @@ impl RealTimeModel {
         let vj_history = &mut self.new_vehicle_journeys_history[idx.idx].1;
         let trip_history = vj_history
             .by_reference_date
-            .entry(date.clone())
+            .entry(*date)
             .or_insert_with(|| TripHistory {
                 versions: Vec::new(),
             });
@@ -359,7 +347,7 @@ impl RealTimeModel {
             };
             self.new_stop_id_to_idx
                 .insert(stop_id.to_string(), idx.clone());
-            StopPointIdx::New(idx.clone())
+            StopPointIdx::New(idx)
         }
     }
 
@@ -399,6 +387,18 @@ impl RealTimeModel {
             new_stop_id_to_idx: HashMap::new(),
             new_stops: Vec::new(),
         }
+    }
+}
+
+impl Default for RealTimeModel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for VehicleJourneyHistory {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

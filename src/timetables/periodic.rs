@@ -476,7 +476,7 @@ impl TimetablesTrait for PeriodicTimetables {
         };
         for date in valid_dates {
             let loads = loads_data
-                .loads(&vehicle_journey_idx, date)
+                .loads(vehicle_journey_idx, date)
                 .unwrap_or_else(|| default_loads.as_slice());
             load_patterns_dates
                 .entry(loads)
@@ -557,10 +557,7 @@ impl TimetablesTrait for PeriodicTimetables {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate(
-                date.clone(),
-                vehicle_journey_idx.clone(),
-            ))?;
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
         let has_timetables = self
             .vehicle_journey_to_timetables
@@ -575,10 +572,7 @@ impl TimetablesTrait for PeriodicTimetables {
             Some(day_to_timetable) => day_to_timetable
                 .remove(&day, &mut self.days_patterns)
                 .map_err(|_| {
-                    RemovalError::DateInvalidForVehicleJourney(
-                        date.clone(),
-                        vehicle_journey_idx.clone(),
-                    )
+                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
                 }),
         };
 

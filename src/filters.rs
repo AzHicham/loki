@@ -56,23 +56,23 @@ impl<'a> VehicleFilter<'a> {
     pub fn applies_on(&self, idx: &VehicleJourneyIdx, model: &ModelRefs<'_>) -> bool {
         match self {
             VehicleFilter::Line(line_id) => {
-                let vj_line_id = model.line_name(&idx);
+                let vj_line_id = model.line_name(idx);
                 vj_line_id == *line_id
             }
             VehicleFilter::Route(route_id) => {
-                let vj_route_id = model.route_name(&idx);
+                let vj_route_id = model.route_name(idx);
                 vj_route_id == *route_id
             }
             VehicleFilter::Network(network_id) => {
-                let vj_network_id = model.network_name(&idx);
+                let vj_network_id = model.network_name(idx);
                 vj_network_id == *network_id
             }
             VehicleFilter::PhysicalMode(physical_mode_id) => {
-                let vj_physical_mode_id = model.physical_mode_name(&idx);
+                let vj_physical_mode_id = model.physical_mode_name(idx);
                 vj_physical_mode_id == *physical_mode_id
             }
             VehicleFilter::CommercialMode(commercial_mode_id) => {
-                let vj_commercial_mode_id = model.commercial_mode_name(&idx);
+                let vj_commercial_mode_id = model.commercial_mode_name(idx);
                 vj_commercial_mode_id == *commercial_mode_id
             }
         }
