@@ -58,7 +58,7 @@ use launch::{
 use std::convert::TryFrom;
 
 use crate::{
-    master_worker::WorkerId,
+    load_balancer::WorkerId,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 

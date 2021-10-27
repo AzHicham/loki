@@ -268,6 +268,7 @@ pub(super) fn trip_name<Data: DataTrait>(
 ) -> String {
     let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
     let date = transit_data.day_of(trip);
+
     let name = model.vehicle_journey_name(&vehicle_journey_idx);
     format!("{}_{}", name, date.to_string(),)
 }
