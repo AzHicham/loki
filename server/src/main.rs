@@ -56,7 +56,6 @@ pub mod master_worker;
 
 pub mod rabbitmq_worker;
 
-
 use launch::{
     config,
     loki::tracing::{debug, info},
