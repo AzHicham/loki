@@ -37,8 +37,10 @@
 mod utils;
 use failure::Error;
 use launch::config::DataImplem;
-use loki::model::real_time::RealTimeModel;
-use loki::{chrono_tz, model::ModelRefs};
+use loki::{
+    chrono_tz,
+    model::{real_time::RealTimeModel, ModelRefs},
+};
 use utils::{
     build_and_solve,
     model_builder::{AsDate, AsDateTime, ModelBuilder},

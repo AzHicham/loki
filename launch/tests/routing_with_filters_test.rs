@@ -40,8 +40,7 @@ use launch::{
     config::{ComparatorType, DataImplem},
     loki::transit_model::Model,
 };
-use loki::model::real_time::RealTimeModel;
-use loki::model::ModelRefs;
+use loki::model::{real_time::RealTimeModel, ModelRefs};
 use rstest::{fixture, rstest};
 use utils::{build_and_solve, from_to_stop_point_names, model_builder::ModelBuilder, Config};
 

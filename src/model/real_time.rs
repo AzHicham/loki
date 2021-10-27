@@ -34,14 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::collections::HashMap;
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use tracing::error;
 
-use crate::time::SecondsSinceTimezonedDayStart;
-use crate::transit_data::{handle_insertion_errors, handle_removal_errors};
-use crate::{chrono::NaiveDate, timetables::FlowDirection, transit_model::Model};
+use crate::{
+    chrono::NaiveDate,
+    time::SecondsSinceTimezonedDayStart,
+    timetables::FlowDirection,
+    transit_data::{handle_insertion_errors, handle_removal_errors},
+    transit_model::Model,
+};
 
 use crate::{DataUpdate, LoadsData};
 

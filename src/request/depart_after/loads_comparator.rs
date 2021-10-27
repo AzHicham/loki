@@ -34,9 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::model::ModelRefs;
-use crate::transit_data::data_interface::{
-    Data as DataTrait, DataIters, DataWithIters, TransitTypes,
+use crate::{
+    model::ModelRefs,
+    transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 
 use crate::engine::engine_interface::{

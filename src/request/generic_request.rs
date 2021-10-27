@@ -270,7 +270,7 @@ pub(super) fn trip_name<Data: DataTrait>(
     let date = transit_data.day_of(trip);
 
     let name = model.vehicle_journey_name(&vehicle_journey_idx);
-    format!("{}_{}", name, date.to_string(),)
+    format!("{}_{}", name, date,)
 }
 
 pub(super) fn mission_name<Data: DataTrait>(

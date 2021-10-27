@@ -39,8 +39,7 @@ use failure::Error;
 use launch::{
     config::{ComparatorType, DataImplem},
     datetime::DateTimeRepresent,
-    loki::model::real_time::RealTimeModel,
-    loki::model::ModelRefs,
+    loki::model::{real_time::RealTimeModel, ModelRefs},
 };
 use rstest::rstest;
 use utils::{
