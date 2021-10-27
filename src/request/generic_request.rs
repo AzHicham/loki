@@ -314,9 +314,7 @@ pub(super) fn trip_name<Data: DataTrait>(
     let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
     format!(
         "{}_{}_{}",
-        vehicle_journey.id,
-        date.to_string(),
-        vehicle_journey.route_id
+        vehicle_journey.id, date, vehicle_journey.route_id
     )
 }
 
