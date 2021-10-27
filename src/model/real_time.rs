@@ -48,9 +48,6 @@ use crate::{DataUpdate, LoadsData};
 use super::{ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
 
 pub struct RealTimeModel {
-    // base_model: Model,
-    pub(super) disruption_impacts: HashMap<String, ImpactedVehicleAndStops>,
-
     pub(super) new_vehicle_journeys_id_to_idx: HashMap<String, NewVehicleJourneyIdx>,
     // indexed by NewVehicleJourney.idx
     pub(super) new_vehicle_journeys_history: Vec<(String, VehicleJourneyHistory)>,
@@ -99,11 +96,6 @@ pub struct NewStopPointIdx {
 
 pub struct StopData {
     pub(super) name: String,
-}
-
-pub struct ImpactedVehicleAndStops {
-    vehicle_journey: VehicleJourneyIdx,
-    stops: Vec<StopPointIdx>,
 }
 
 #[derive(Debug, Clone)]
@@ -390,7 +382,6 @@ impl RealTimeModel {
 
     pub fn new() -> Self {
         Self {
-            disruption_impacts: HashMap::new(),
             new_vehicle_journeys_id_to_idx: HashMap::new(),
             new_vehicle_journeys_history: Vec::new(),
             base_vehicle_journeys_idx_to_history: HashMap::new(),

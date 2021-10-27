@@ -285,9 +285,9 @@ fn make_stop_point_pt_object(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::PtObject, Error> {
     let mut proto = navitia_proto::PtObject {
-        name: model.stop_point_name(&stop_point_idx).to_string(),
-        uri: model.stop_point_uri(&stop_point_idx).to_string(),
-        stop_point: Some(make_stop_point(&stop_point_idx, model)?),
+        name: model.stop_point_name(stop_point_idx).to_string(),
+        uri: model.stop_point_uri(stop_point_idx),
+        stop_point: Some(make_stop_point(stop_point_idx, model)?),
         ..Default::default()
     };
     proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
@@ -383,7 +383,7 @@ fn make_stop_area(
         return Some(proto);
     }
 
-    return None;
+    None
 }
 
 fn make_pt_display_info(

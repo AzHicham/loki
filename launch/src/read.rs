@@ -107,7 +107,7 @@ pub fn read_loads_data(launch_params: &LaunchParams, model: &transit_model::Mode
         .loads_data_path
         .as_ref()
         .map(|path| {
-            LoadsData::new(&path, &model).unwrap_or_else(|err| {
+            LoadsData::new(&path, model).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
                     &path,

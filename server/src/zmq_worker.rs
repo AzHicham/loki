@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{iter::FromIterator, thread};
+use std::thread;
 
 use failure::{format_err, Error};
 
@@ -210,7 +210,7 @@ async fn send_response_to_zmq(zmq_socket: &mut tmq::router::Router, response: Re
         .chain(std::iter::once(empty_message))
         .chain(std::iter::once(payload_message));
 
-    let multipart_msg = tmq::Multipart::from_iter(iter);
+    let multipart_msg: tmq::Multipart = iter.collect();
     use futures::SinkExt;
     let send_result = zmq_socket.send(multipart_msg).await;
     if let Err(err) = send_result {

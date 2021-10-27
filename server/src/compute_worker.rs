@@ -153,7 +153,8 @@ impl ComputeWorker {
         let journeys_request_result = extract_journey_request(proto_request);
         match journeys_request_result {
             Err(err) => {
-                return Ok(make_error_response(err));
+                // send a response saying that the journey request could not be handled
+                Ok(make_error_response(err))
             }
             Ok(journeys_request) => {
                 let real_time_level = journeys_request.realtime_level();
@@ -187,7 +188,7 @@ impl ComputeWorker {
 
         let (data, model) = rw_lock_read_guard.deref();
         let real_time_model = RealTimeModel::new();
-        let model_refs = ModelRefs::new(&model, &real_time_model);
+        let model_refs = ModelRefs::new(model, &real_time_model);
 
         let solve_result = solve(
             journey_request,
@@ -236,7 +237,7 @@ impl ComputeWorker {
             })?;
 
         let (real_time_data, real_time_model) = real_time_rw_lock_read_guard.deref();
-        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+        let model_refs = ModelRefs::new(base_model, real_time_model);
 
         let solve_result = solve(
             journey_request,

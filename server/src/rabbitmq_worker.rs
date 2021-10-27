@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::{chaos_proto::gtfs_realtime, navitia_proto};
+use super::chaos_proto::gtfs_realtime;
 
 use failure::{format_err, Error};
 use lapin::{
@@ -47,8 +47,7 @@ use lapin::{
 };
 
 use futures::StreamExt;
-use launch::loki::tracing::{debug, error, info, trace};
-use prost::Message as MessageTrait;
+use launch::loki::tracing::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, thread};
 
@@ -242,31 +241,6 @@ impl RabbitMqWorker {
                 }
             }
         }
-    }
-}
-
-fn decode_amqp_task_message(
-    message: &lapin::message::Delivery,
-) -> Result<navitia_proto::Task, Error> {
-    let payload = &message.data;
-    navitia_proto::Task::decode(&payload[..]).map_err(|err| {
-        format_err!(
-            "Could not decode rabbitmq task message into protobuf: \n {}",
-            err
-        )
-    })
-}
-
-fn handle_task_message(proto: &navitia_proto::Task) {
-    let has_action = navitia_proto::Action::from_i32(proto.action);
-    match has_action {
-        Some(navitia_proto::Action::Reload) => {
-            info!("Reload")
-            // TODO!
-            // load_data
-            // as for realtime -> send message to kirin
-        }
-        _ => trace!("Task ignored"),
     }
 }
 
