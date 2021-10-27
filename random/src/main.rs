@@ -171,7 +171,7 @@ where
     Timetables::Position: 'static,
 {
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(model, &real_time_model);
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

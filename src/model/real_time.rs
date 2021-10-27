@@ -269,7 +269,11 @@ impl RealTimeModel {
     }
 
     fn is_present(&self, trip: &super::disruption::Trip, model: &Model) -> bool {
-        if let Some(_) = model.vehicle_journeys.get_idx(&trip.vehicle_journey_id) {
+        if model
+            .vehicle_journeys
+            .get_idx(&trip.vehicle_journey_id)
+            .is_some()
+        {
             true
         } else {
             self.new_vehicle_journeys_id_to_idx

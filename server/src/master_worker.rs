@@ -160,7 +160,8 @@ impl MasterWorker {
                     if load_balancer_state == LoadBalancerState::Stopped {
 
                         debug!("Master start handling real time messages.");
-                        self.handle_realtime_messages(vec_protobuf);
+                        self.handle_realtime_messages(vec_protobuf)
+                            .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
 
                         debug!("Master has finished handling real time messages.");
                         debug!("Master ask LoadBalancer to Start");
