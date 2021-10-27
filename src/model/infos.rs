@@ -58,7 +58,11 @@ pub enum StopTimes<'model> {
 
 impl<'model> ModelRefs<'model> {
     pub fn stop_point_uri(&self, stop_point_idx: &StopPointIdx) -> String {
-        format!("stop_point:{}", self.stop_point_name(stop_point_idx))
+        let id = match stop_point_idx {
+            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].id,
+            StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
+        };
+        format!("stop_point:{}", id)
     }
 
     pub fn house_numer(&self, stop_point_idx: &StopPointIdx) -> Option<&'model str> {

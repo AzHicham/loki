@@ -228,7 +228,7 @@ fn make_public_transport_section(
             )
         })?;
 
-    let to_stoptime_idx = vehicle_section.from_stoptime_idx;
+    let to_stoptime_idx = vehicle_section.to_stoptime_idx;
     let to_stop_point_idx = model
         .stop_point_at(vehicle_journey_idx, to_stoptime_idx, date)
         .ok_or_else(|| {

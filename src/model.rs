@@ -80,8 +80,8 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<StopPointIdx> {
-        if let Some(base_stop_point_id) = self.base.stop_points.get_idx(stop_id) {
-            Some(StopPointIdx::Base(base_stop_point_id))
+        if let Some(base_stop_point_idx) = self.base.stop_points.get_idx(stop_id) {
+            Some(StopPointIdx::Base(base_stop_point_idx))
         } else {
             self.real_time
                 .new_stop_id_to_idx
@@ -92,7 +92,7 @@ impl<'model> ModelRefs<'model> {
 
     pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].id,
+            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].name,
             StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
         }
     }
