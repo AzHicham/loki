@@ -38,16 +38,11 @@ use crate::navitia_proto;
 
 use launch::loki::{
     self,
-    model::{
-        infos::StopTimes, ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx, VehicleJourneyIdx,
-    },
+    model::{infos::StopTimes, ModelRefs, StopPointIdx, VehicleJourneyIdx},
     RequestInput,
 };
 
-use loki::{
-    response::{TransferSection, VehicleSection, WaitingSection},
-    transit_model, Idx, StopPoint, VehicleJourney,
-};
+use loki::response::{TransferSection, VehicleSection, WaitingSection};
 
 use loki::{
     chrono::{self, NaiveDate, NaiveDateTime},
@@ -55,9 +50,6 @@ use loki::{
 };
 
 use failure::{format_err, Error};
-use transit_model::Model;
-
-use launch::loki::transit_model::objects::StopTime;
 use std::convert::TryFrom;
 
 const N_DEG_TO_RAD: f64 = 0.01745329238;
@@ -214,8 +206,6 @@ fn make_public_transport_section(
 ) -> Result<navitia_proto::Section, Error> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
     let date = &vehicle_section.day_for_vehicle_journey;
-    let timezone = model.timezone(vehicle_journey_idx, date);
-
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let from_stop_point_idx = model
         .stop_point_at(vehicle_journey_idx, from_stoptime_idx, date)
@@ -657,17 +647,6 @@ fn make_shape_from_stop_points(
             .collect(),
         StopTimes::New(_, _) => Vec::new(),
     }
-}
-
-fn get_timezone(
-    vehicle_journey_idx: &Idx<VehicleJourney>,
-    model: &transit_model::Model,
-) -> Option<Timezone> {
-    let route_id = &model.vehicle_journeys[*vehicle_journey_idx].route_id;
-    let route = model.routes.get(route_id)?;
-    let line = model.lines.get(&route.line_id)?;
-    let network = model.networks.get(&line.network_id)?;
-    network.timezone
 }
 
 fn distance_coord_to_coord(

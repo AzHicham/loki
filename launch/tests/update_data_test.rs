@@ -44,7 +44,6 @@ use launch::{config::DataImplem, solver::Solver};
 use loki::{
     model::{real_time::RealTimeModel, ModelRefs, VehicleJourneyIdx},
     timetables::{Timetables, TimetablesIter},
-    transit_model::Model,
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
 };
 use utils::{

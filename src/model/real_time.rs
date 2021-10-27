@@ -35,8 +35,9 @@
 // www.navitia.io
 
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::hash::Hash;
+
+use tracing::error;
 
 use crate::time::SecondsSinceTimezonedDayStart;
 use crate::transit_data::{handle_insertion_errors, handle_removal_errors};
@@ -105,6 +106,7 @@ pub struct ImpactedVehicleAndStops {
     stops: Vec<StopPointIdx>,
 }
 
+#[derive(Debug, Clone)]
 pub enum UpdateError {
     DeleteAbsentTrip(super::disruption::Trip),
     ModifyAbsentTrip(super::disruption::Trip),
@@ -112,10 +114,6 @@ pub enum UpdateError {
 }
 
 impl RealTimeModel {
-    // pub fn base_model(&self) -> & Model {
-    //     &self.base_model
-    // }
-
     pub fn apply_disruption<Data: DataUpdate>(
         &mut self,
         disruption: &super::disruption::Disruption,
@@ -124,7 +122,10 @@ impl RealTimeModel {
         data: &mut Data,
     ) {
         for update in disruption.updates.iter() {
-            self.apply_update(&disruption.id, update, model, loads_data, data);
+            let apply_result = self.apply_update(&disruption.id, update, model, loads_data, data);
+            if let Err(err) = apply_result {
+                error!("Error occured while applying real time update {:?}", err);
+            }
         }
     }
 

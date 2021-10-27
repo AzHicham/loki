@@ -41,15 +41,19 @@ use launch::loki::{
     timetables::PeriodicSplitVjByTzTimetables,
     tracing::{debug, error, info},
     transit_model::Model,
-    TransitData,
+    LoadsData, TransitData,
 };
-use std::sync::{Arc, RwLock};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, RwLock},
+};
 use tokio::{
     runtime::Builder,
     sync::{mpsc, mpsc::error::SendError},
 };
 
 use crate::{
+    handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancer, LoadBalancerState},
     rabbitmq_worker::listen_amqp_in_a_thread,
     Config,
@@ -73,6 +77,7 @@ pub struct LoadBalancerChannels {
 pub struct MasterWorker {
     base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
     real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
+    loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     load_balancer_handle: LoadBalancerChannels,
 }
@@ -117,63 +122,56 @@ impl MasterWorker {
         let result = Self {
             base_data_and_model,
             real_time_data_and_model,
+            loads_data,
             amqp_message_receiver,
             load_balancer_handle,
         };
         Ok(result)
     }
 
-    async fn run(mut self) {
+    async fn run(mut self) -> Result<(), Error> {
         info!("Starting Master worker");
         loop {
             tokio::select! {
                 has_proto_vec = self.amqp_message_receiver.recv() => {
-                    if let Some(_vec_protobuf) = has_proto_vec {
-                        info!("Master received response from AmqpWorker");
-                        // convert protobuf to RT_Message
+                    let vec_protobuf = has_proto_vec
+                        .ok_or_else(||
+                            format_err!("Channel to receive realtime protobuf' responses has closed. I'll stop.")
+                        )?;
 
-                        // stop the load balancer from receiving more request
-                        debug!("Master ask LoadBalancer to Stop");
-                        let res = self
-                            .send_order_to_load_balancer(LoadBalancerOrder::Stop)
-                            .await;
-                        if res.is_err() {
-                            break;
-                        }
+                    info!("Master received response from AmqpWorker");
 
-                        // Wait for the LoadBalancer to Stop
-                        debug!("MasterWork waiting for LoadBalancer to Stop");
-                        let has_load_balancer_state = self
-                            .load_balancer_handle
-                            .load_balancer_state_receiver
-                            .recv()
-                            .await;
-                        if let Some(state) = has_load_balancer_state {
-                            if state == LoadBalancerState::Stopped {
-                                debug!("ApplyRealTime");
-                                // Apply realtime to data
-                                // then start LoadBalancer
-                                debug!("Master ask LoadBalancer to Start");
-                                let res = self
-                                    .send_order_to_load_balancer(LoadBalancerOrder::Start)
-                                    .await;
-                                if res.is_err() {
-                                    break;
-                                }
-                            } else {
-                                error!("We requested LoadBalancer to stop but it did not. I'll stop");
-                                break;
-                            }
-                        } else {
-                            error!(
-                                "Channel to receive LoadBalancer status responses has closed. I'll stop."
-                            );
-                            break;
-                        }
+                    // stop the load balancer from receiving more request
+                    debug!("Master ask LoadBalancer to Stop");
+                    self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
+                        .await
+                        .map_err(|err| format_err!("Master could not send Stop order to load balancer. {}", err))?;
+
+
+                    // Wait for the LoadBalancer to Stop
+                    debug!("MasterWork waiting for LoadBalancer to Stop");
+                    let load_balancer_state = self
+                        .load_balancer_handle
+                        .load_balancer_state_receiver
+                        .recv()
+                        .await
+                        .ok_or_else(|| format_err!("Channel to receive LoadBalancer status responses has closed."))?;
+
+                    if load_balancer_state == LoadBalancerState::Stopped {
+
+                        debug!("Master start handling real time messages.");
+                        self.handle_realtime_messages(vec_protobuf);
+
+                        debug!("Master has finished handling real time messages.");
+                        debug!("Master ask LoadBalancer to Start");
+                        self.send_order_to_load_balancer(LoadBalancerOrder::Start)
+                            .await
+                            .map_err(|err| format_err!("Master could not send Start order to load balancer. {}", err))?;
                     } else {
-                        error!("Channel to receive realtime protobuf' responses has closed. I'll stop.");
+                        error!("Master requested LoadBalancer to Stop, but it is in state {:?}.", load_balancer_state);
                         break;
                     }
+
                 }
                 _has_load_balancer_error = self
                     .load_balancer_handle
@@ -186,6 +184,7 @@ impl MasterWorker {
                     }
             }
         }
+        Ok(())
     }
 
     // run by blocking the current thread
@@ -197,9 +196,7 @@ impl MasterWorker {
             .build()
             .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
 
-        runtime.block_on(self.run());
-
-        Ok(())
+        runtime.block_on(self.run())
     }
 
     async fn send_order_to_load_balancer(
@@ -218,5 +215,49 @@ impl MasterWorker {
             );
         };
         res
+    }
+
+    fn handle_realtime_messages(
+        &mut self,
+        messages: Vec<gtfs_realtime::FeedMessage>,
+    ) -> Result<(), Error> {
+        let base_lock_guard = self.base_data_and_model.read().map_err(|err| {
+            format_err!(
+                "Master worker failed to acquire read lock on base_time_data_and_model. {}.",
+                err
+            )
+        })?;
+
+        let mut real_time_lock_guard = self.real_time_data_and_model.write().map_err(|err| {
+            format_err!(
+                "Master worker failed to acquire write lock on real_time_data_and_model. {}.",
+                err
+            )
+        })?;
+
+        let (_, base_model) = base_lock_guard.deref();
+        let (real_time_data, real_time_model) = real_time_lock_guard.deref_mut();
+
+        for message in messages.into_iter() {
+            for feed_entity in message.entity {
+                let disruption_result = handle_kirin_protobuf(&feed_entity);
+                match disruption_result {
+                    Err(err) => {
+                        error!("Could not handle a kirin message {}", err);
+                    }
+                    Ok(disruption) => {
+                        real_time_model.apply_disruption(
+                            &disruption,
+                            base_model,
+                            &self.loads_data,
+                            real_time_data,
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+        // RwLocks are released here
     }
 }
