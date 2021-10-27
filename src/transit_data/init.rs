@@ -38,7 +38,9 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
+    model::{real_time::RealTimeModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     transit_data::{Stop, TransitData},
+    DataUpdate,
 };
 
 use crate::{
@@ -47,13 +49,13 @@ use crate::{
 };
 use transit_model::{
     model::Model,
-    objects::{StopPoint, StopTime, Transfer as TransitModelTransfer, VehicleJourney},
+    objects::{StopTime, VehicleJourney},
 };
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
 
-use super::{Transfer, TransferData, TransferDurations};
+use super::{handle_insertion_errors, Transfer, TransferData, TransferDurations};
 
 impl<Timetables> TransitData<Timetables>
 where
@@ -90,7 +92,7 @@ where
     ) {
         info!("Inserting vehicle journeys");
         for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
-            let _ = self.insert_vehicle_journey(
+            let _ = self.insert_base_vehicle_journey(
                 vehicle_journey_idx,
                 vehicle_journey,
                 transit_model,
@@ -114,6 +116,9 @@ where
                         .map_or(PositiveDuration::zero(), |seconds| PositiveDuration {
                             seconds,
                         });
+                    let from_stop_point_idx = StopPointIdx::Base(from_stop_point_idx);
+                    let to_stop_point_idx = StopPointIdx::Base(to_stop_point_idx);
+                    let transfer_idx = TransferIdx::Base(transfer_idx);
                     self.insert_transfer(
                         from_stop_point_idx,
                         to_stop_point_idx,
@@ -132,9 +137,9 @@ where
 
     fn insert_transfer(
         &mut self,
-        from_stop_point_idx: Idx<StopPoint>,
-        to_stop_point_idx: Idx<StopPoint>,
-        transfer_idx: Idx<TransitModelTransfer>,
+        from_stop_point_idx: StopPointIdx,
+        to_stop_point_idx: StopPointIdx,
+        transfer_idx: TransferIdx,
         duration: PositiveDuration,
         walking_duration: PositiveDuration,
     ) {
@@ -178,15 +183,19 @@ where
         }
     }
 
-    fn insert_vehicle_journey(
+    fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
         transit_model: &Model,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stops = self.create_stops(vehicle_journey);
-        let flows = self.create_flows(vehicle_journey)?;
+        let stop_points = vehicle_journey
+            .stop_times
+            .iter()
+            .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx));
+
+        let flows = self.create_flows_for_base_vehicle_journey(vehicle_journey)?;
 
         let model_calendar = transit_model
             .calendars
@@ -203,8 +212,10 @@ where
         let board_times = board_timezoned_times(vehicle_journey)?;
         let debark_times = debark_timezoned_times(vehicle_journey)?;
 
-        let missions = self.timetables.insert(
-            stops.into_iter(),
+        let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+
+        let insertion_errors = self.add_vehicle(
+            stop_points,
             flows.into_iter(),
             board_times.into_iter(),
             debark_times.into_iter(),
@@ -212,28 +223,25 @@ where
             model_calendar.dates.iter(),
             &timezone,
             vehicle_journey_idx,
-            vehicle_journey,
         );
 
-        for mission in missions.iter() {
-            for position in self.timetables.positions(mission) {
-                let stop = self.timetables.stop_at(&position, mission);
-                let stop_data = &mut self.stops_data[stop.idx];
-                stop_data
-                    .position_in_timetables
-                    .push((mission.clone(), position));
-            }
-        }
+        let real_time_model = RealTimeModel::new();
+        let model = ModelRefs {
+            base: transit_model,
+            real_time: &real_time_model,
+        };
+
+        handle_insertion_errors(&model, self.timetables.calendar(), &insertion_errors);
 
         Ok(())
     }
 
-    fn add_new_stop_point(&mut self, stop_point_idx: Idx<StopPoint>) -> Stop {
+    fn add_new_stop_point(&mut self, stop_point_idx: StopPointIdx) -> Stop {
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
 
         use super::StopData;
         let stop_data = StopData::<Timetables> {
-            stop_point_idx,
+            stop_point_idx: stop_point_idx.clone(),
             position_in_timetables: Vec::new(),
             incoming_transfers: Vec::new(),
             outgoing_transfers: Vec::new(),
@@ -246,21 +254,26 @@ where
         stop
     }
 
-    fn create_stops(&mut self, vehicle_journey: &VehicleJourney) -> Vec<Stop> {
-        let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-        for stop_time in vehicle_journey.stop_times.iter() {
-            let stop_point_idx = &stop_time.stop_point_idx;
+    pub(super) fn create_stops<StopPoints: Iterator<Item = StopPointIdx>>(
+        &mut self,
+        stop_points: StopPoints,
+    ) -> Vec<Stop> {
+        let mut result = Vec::new();
+        for stop_point_idx in stop_points {
             let stop = self
                 .stop_point_idx_to_stop
-                .get(stop_point_idx)
+                .get(&stop_point_idx)
                 .cloned()
-                .unwrap_or_else(|| self.add_new_stop_point(*stop_point_idx));
+                .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
             result.push(stop)
         }
         result
     }
 
-    fn create_flows(&self, vehicle_journey: &VehicleJourney) -> Result<Vec<FlowDirection>, ()> {
+    fn create_flows_for_base_vehicle_journey(
+        &self,
+        vehicle_journey: &VehicleJourney,
+    ) -> Result<Vec<FlowDirection>, ()> {
         let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
         for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
             let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {

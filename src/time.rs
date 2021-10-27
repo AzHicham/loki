@@ -216,6 +216,10 @@ impl SecondsSinceTimezonedDayStart {
         }
     }
 
+    pub fn total_seconds(&self) -> i32 {
+        self.seconds
+    }
+
     pub fn to_utc(&self, offset: &FixedOffset) -> SecondsSinceUTCDayStart {
         SecondsSinceUTCDayStart {
             seconds: self.seconds + offset.utc_minus_local(),

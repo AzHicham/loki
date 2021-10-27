@@ -42,22 +42,21 @@ use launch::{
     config,
     config::launch_params::default_transfer_duration,
     datetime::DateTimeRepresent,
-    filters::Filters,
     loki::{
         response,
         response::VehicleSection,
         timetables::{Timetables as TimetablesTrait, TimetablesIter},
-        Idx, RequestInput, StopPoint,
+        RequestInput,
     },
     solver::Solver,
 };
-use loki::chrono::TimeZone;
+use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs};
 
 use loki::{chrono_tz, tracing::debug};
 
 use loki::{
-    transit_model::Model, DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
-    PositiveDuration, TransitData, VehicleJourney,
+    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration,
+    TransitData,
 };
 use model_builder::AsDateTime;
 use std::fmt::Debug;
@@ -153,7 +152,7 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
 }
 
 pub fn build_and_solve(
-    model: &Model,
+    model: &ModelRefs<'_>,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error> {
@@ -169,7 +168,7 @@ pub fn build_and_solve(
 }
 
 fn build_and_solve_inner<Timetables>(
-    model: &Model,
+    model: &ModelRefs<'_>,
     loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
@@ -180,7 +179,7 @@ where
 {
     use loki::DataTrait;
     let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model, loads_data, &config.default_transfer_duration);
+        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -202,47 +201,24 @@ where
     Ok(responses)
 }
 
-pub fn make_pt_from_vehicle<'a>(
+pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
-    model: &'a Model,
-) -> Result<(&'a StopPoint, &'a StopPoint), Error> {
-    let vehicle_journey = &model.vehicle_journeys[vehicle_section.vehicle_journey];
+    model: &'a ModelRefs<'a>,
+) -> Result<(&'a str, &'a str), Error> {
+    let from_stop_name = vehicle_section.from_stop_point_name(model).ok_or_else(|| {
+        format_err!(
+            "No stoptime at idx {} for vehicle journey {}",
+            vehicle_section.from_stoptime_idx,
+            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+        )
+    })?;
+    let to_stop_name = vehicle_section.to_stop_point_name(model).ok_or_else(|| {
+        format_err!(
+            "No stoptime at idx {} for vehicle journey {}",
+            vehicle_section.to_stoptime_idx,
+            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+        )
+    })?;
 
-    let from_stoptime_idx = vehicle_section.from_stoptime_idx;
-    let from_stoptime = vehicle_journey
-        .stop_times
-        .get(from_stoptime_idx)
-        .ok_or_else(|| {
-            format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
-                vehicle_section.from_stoptime_idx,
-                vehicle_journey.id
-            )
-        })?;
-    let from_stop_point_idx = from_stoptime.stop_point_idx;
-    let from_stop_point = make_stop_point(&from_stop_point_idx, model);
-
-    let to_stoptime_idx = vehicle_section.to_stoptime_idx;
-    let to_stoptime = vehicle_journey
-        .stop_times
-        .get(to_stoptime_idx)
-        .ok_or_else(|| {
-            format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
-                vehicle_section.from_stoptime_idx,
-                vehicle_journey.id
-            )
-        })?;
-    let to_stop_point_idx = to_stoptime.stop_point_idx;
-    let to_stop_point = make_stop_point(&to_stop_point_idx, model);
-
-    Ok((from_stop_point, to_stop_point))
-}
-
-pub fn make_stop_point<'a>(stop_point_idx: &Idx<StopPoint>, model: &'a Model) -> &'a StopPoint {
-    &model.stop_points[*stop_point_idx]
-}
-
-pub fn get_vehicle_journey_name(vehicle_journey_idx: Idx<VehicleJourney>, model: &Model) -> String {
-    model.vehicle_journeys[vehicle_journey_idx].id.clone()
+    Ok((from_stop_name, to_stop_name))
 }

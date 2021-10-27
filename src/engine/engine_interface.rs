@@ -1,4 +1,4 @@
-use crate::{response, transit_data::data_interface};
+use crate::{model::ModelRefs, response, transit_data::data_interface};
 
 pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey
@@ -244,7 +244,7 @@ pub struct RequestInput {
 
 pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {
     fn new(
-        model: &'model transit_model::Model,
+        model: &'model ModelRefs<'model>,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>

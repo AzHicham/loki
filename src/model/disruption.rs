@@ -35,94 +35,32 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use std::{error::Error, fmt::Display, path::Path};
-use transit_model::Model;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {
-    Unknown,
+use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
+
+#[derive(Debug, Clone)]
+pub struct Disruption {
+    pub id: String,
+    pub updates: Vec<Update>,
 }
 
-impl Display for Load {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Load ()")
-    }
+#[derive(Debug, Clone)]
+pub enum Update {
+    Delete(Trip),
+    Add(Trip, Vec<StopTime>),
+    Modify(Trip, Vec<StopTime>),
 }
 
-impl Default for Load {
-    fn default() -> Self {
-        Load::Unknown
-    }
+#[derive(Debug, Clone)]
+pub struct Trip {
+    pub vehicle_journey_id: String,
+    pub reference_date: NaiveDate,
 }
 
-use std::cmp::Ordering;
-
-use crate::model::VehicleJourneyIdx;
-
-impl Ord for Load {
-    fn cmp(&self, _other: &Self) -> Ordering {
-        Ordering::Equal
-    }
-}
-
-impl PartialOrd for Load {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LoadsCount();
-
-impl Display for LoadsCount {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LoadsCount ()")
-    }
-}
-
-impl LoadsCount {
-    pub fn zero() -> Self {
-        Self {}
-    }
-
-    pub fn add(&self, _load: Load) -> Self {
-        Self {}
-    }
-
-    pub fn max(&self) -> Load {
-        Load::default()
-    }
-
-    pub fn is_lower(&self, _other: &Self) -> bool {
-        true
-    }
-}
-
-impl Default for LoadsCount {
-    fn default() -> Self {
-        Self::zero()
-    }
-}
-
-pub struct LoadsData();
-
-impl LoadsData {
-    pub fn loads(
-        &self,
-        _vehicle_journey_idx: &VehicleJourneyIdx,
-        _date: &NaiveDate,
-    ) -> Option<&[Load]> {
-        None
-    }
-
-    pub fn empty() -> Self {
-        LoadsData {}
-    }
-
-    pub fn new<P: AsRef<Path>>(
-        _csv_occupancys_filepath: P,
-        _model: &Model,
-    ) -> Result<Self, Box<dyn Error>> {
-        Ok(LoadsData::empty())
-    }
+#[derive(Debug, Clone)]
+pub struct StopTime {
+    pub stop_id: String,
+    pub arrival_time: SecondsSinceTimezonedDayStart,
+    pub departure_time: SecondsSinceTimezonedDayStart,
+    pub flow_direction: FlowDirection,
 }

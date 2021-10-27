@@ -135,7 +135,7 @@ impl DayToTimetable {
             Some((idx, (old_days_pattern, timetable))) => {
                 let new_days_pattern = days_patterns
                     .get_pattern_without_day(*old_days_pattern, day_to_remove)
-                    .map_err(|()| RemoveError::DayNotSet)?;
+                    .ok_or(RemoveError::DayNotSet)?;
 
                 if days_patterns.is_empty_pattern(&new_days_pattern) {
                     (timetable.clone(), Some(idx))

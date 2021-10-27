@@ -52,11 +52,14 @@ pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
 use crate::{
     loads_data::{Load, LoadsData},
+    model::VehicleJourneyIdx,
     time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
 };
 
 use chrono::NaiveDate;
 use std::fmt::Debug;
+
+use self::generic_timetables::VehicleTimesError;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum FlowDirection {
@@ -82,7 +85,7 @@ pub trait Timetables: Types {
     fn nb_of_missions(&self) -> usize;
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney>;
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
 
@@ -149,7 +152,7 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool;
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
     fn latest_trip_that_debark_at(
         &self,
@@ -166,38 +169,45 @@ pub trait Timetables: Types {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool;
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn insert<'date, Stops, Flows, Dates, Times>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
-        board_times: Times,
-        debark_times: Times,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub enum InsertionError {
+    Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
+    VehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
+    DateOutOfCalendar(NaiveDate, VehicleJourneyIdx),
+}
+
+#[derive(Clone, Debug)]
 pub enum RemovalError {
-    UnknownDate,
-    UnknownVehicleJourney,
-    DateInvalidForVehicleJourney,
+    UnknownDate(NaiveDate, VehicleJourneyIdx),
+    UnknownVehicleJourney(VehicleJourneyIdx),
+    DateInvalidForVehicleJourney(NaiveDate, VehicleJourneyIdx),
 }
 
 pub trait TimetablesIter<'a>: Types {

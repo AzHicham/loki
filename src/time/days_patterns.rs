@@ -119,6 +119,17 @@ impl DaysPatterns {
         self.get_or_insert_from_buffer()
     }
 
+    pub fn make_dates(&self, days_pattern: &DaysPattern, calendar: &Calendar) -> Vec<NaiveDate> {
+        let mut result = Vec::new();
+        for day in calendar.days() {
+            if self.is_allowed(days_pattern, &day) {
+                let date = calendar.to_naive_date(&day);
+                result.push(date)
+            }
+        }
+        result
+    }
+
     pub fn get_for_day(&mut self, day: &DaysSinceDatasetStart) -> DaysPattern {
         // set all elements of the buffer to false
         self.buffer.fill(false);
@@ -138,9 +149,9 @@ impl DaysPatterns {
         &mut self,
         original_pattern: DaysPattern,
         day_to_remove: &DaysSinceDatasetStart,
-    ) -> Result<DaysPattern, ()> {
+    ) -> Option<DaysPattern> {
         if self.is_allowed(&original_pattern, day_to_remove).not() {
-            return Err(());
+            return None;
         }
         let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
 
@@ -151,28 +162,28 @@ impl DaysPatterns {
 
         let result = self.get_or_insert_from_buffer();
 
-        Ok(result)
+        Some(result)
     }
 
-    pub fn get_pattern_with_additional_day(
-        &mut self,
-        original_pattern: DaysPattern,
-        day_to_add: &DaysSinceDatasetStart,
-    ) -> Result<DaysPattern, ()> {
-        if self.is_allowed(&original_pattern, day_to_add) {
-            return Err(());
-        }
-        let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
+    // pub fn get_pattern_with_additional_day(
+    //     &mut self,
+    //     original_pattern: DaysPattern,
+    //     day_to_add: &DaysSinceDatasetStart,
+    // ) -> Result<DaysPattern, ()> {
+    //     if self.is_allowed(&original_pattern, day_to_add) {
+    //         return Err(());
+    //     }
+    //     let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
 
-        // let's put the actual pattern of allowed days into self.buffer
-        debug_assert!(original_allowed_dates.len() == self.buffer.len());
-        self.buffer.copy_from_slice(original_allowed_dates);
-        self.buffer[day_to_add.days as usize] = true;
+    //     // let's put the actual pattern of allowed days into self.buffer
+    //     debug_assert!(original_allowed_dates.len() == self.buffer.len());
+    //     self.buffer.copy_from_slice(original_allowed_dates);
+    //     self.buffer[day_to_add.days as usize] = true;
 
-        let result = self.get_or_insert_from_buffer();
+    //     let result = self.get_or_insert_from_buffer();
 
-        Ok(result)
-    }
+    //     Ok(result)
+    // }
 
     pub fn get_intersection(
         &mut self,

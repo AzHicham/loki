@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::model::ModelRefs;
 use crate::transit_data::data_interface::{
     Data as DataTrait, DataIters, DataWithIters, TransitTypes,
 };
@@ -227,7 +228,7 @@ where
     Data: DataTrait,
 {
     fn new(
-        model: &'model transit_model::Model,
+        model: &'model ModelRefs<'model>,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>

@@ -42,7 +42,8 @@ use typed_index_collection::Idx;
 
 type StopSequence = u32;
 type Occupancy = u8;
-type VehicleJourneyIdx = Idx<VehicleJourney>;
+
+use crate::model::{TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
@@ -185,7 +186,7 @@ fn occupancy_to_load(occupancy: Occupancy) -> Load {
 }
 
 pub struct LoadsData {
-    per_vehicle_journey: BTreeMap<VehicleJourneyIdx, VehicleJourneyLoads>,
+    per_vehicle_journey: BTreeMap<TransitModelVehicleJourneyIdx, VehicleJourneyLoads>,
 }
 
 struct VehicleJourneyLoads {
@@ -227,10 +228,15 @@ impl LoadsData {
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Option<&[Load]> {
-        let vehicle_journey_load = self.per_vehicle_journey.get(vehicle_journey_idx)?;
-        let trip_load = vehicle_journey_load.per_date.get(date)?;
-        let nb_of_stops = trip_load.per_stop.len();
-        Some(&trip_load.per_stop[..(nb_of_stops - 1)])
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => {
+                let vehicle_journey_load = self.per_vehicle_journey.get(&idx)?;
+                let trip_load = vehicle_journey_load.per_date.get(date)?;
+                let nb_of_stops = trip_load.per_stop.len();
+                Some(&trip_load.per_stop[..(nb_of_stops - 1)])
+            }
+            VehicleJourneyIdx::New(_) => None,
+        }
     }
 
     pub fn empty() -> Self {
@@ -350,7 +356,15 @@ impl LoadsData {
 fn parse_record(
     record: &csv::StringRecord,
     model: &Model,
-) -> Result<(VehicleJourneyIdx, StopSequence, Occupancy, NaiveDate), Box<dyn Error>> {
+) -> Result<
+    (
+        TransitModelVehicleJourneyIdx,
+        StopSequence,
+        Occupancy,
+        NaiveDate,
+    ),
+    Box<dyn Error>,
+> {
     if record.len() != 4 {
         let msg = format!("Expected 4 fields, but got {}", record.len());
         return Err(From::from(msg));

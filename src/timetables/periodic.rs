@@ -38,25 +38,23 @@ use std::collections::BTreeMap;
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Position, Timetable, Timetables, Vehicle, VehicleTimesError},
+    generic_timetables::{Position, Timetable, Timetables, Vehicle},
     iters::{PositionsIter, TimetableIter, VehicleIter},
-    RemovalError, Stop, TimetablesIter,
+    InsertionError, RemovalError, Stop, TimetablesIter,
 };
 
 use crate::{
     loads_data::LoadsData,
+    model::VehicleJourneyIdx,
     time::{
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
     timetables::{FlowDirection, Timetables as TimetablesTrait, Types as TimetablesTypes},
-    transit_data::{Idx, VehicleJourney},
 };
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
-
-use crate::tracing::warn;
 
 use crate::loads_data::Load;
 
@@ -66,13 +64,13 @@ pub struct PeriodicTimetables {
     timetables: Timetables<Time, Load, TimeZone, VehicleData>,
     calendar: Calendar,
     days_patterns: DaysPatterns,
-    vehicle_journey_to_timetables: BTreeMap<Idx<VehicleJourney>, DayToTimetable>,
+    vehicle_journey_to_timetables: BTreeMap<VehicleJourneyIdx, DayToTimetable>,
 }
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     days_pattern: DaysPattern,
-    vehicle_journey_idx: Idx<VehicleJourney>,
+    vehicle_journey_idx: VehicleJourneyIdx,
 }
 
 #[derive(Debug, Clone)]
@@ -112,10 +110,11 @@ impl TimetablesTrait for PeriodicTimetables {
         mission.idx
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
@@ -236,7 +235,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_board_time =
             self.timetables.earliest_and_latest_board_time(position);
@@ -381,7 +380,7 @@ impl TimetablesTrait for PeriodicTimetables {
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
-        Filter: Fn(&Idx<VehicleJourney>) -> bool,
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
         let has_earliest_and_latest_debark_time =
             self.timetables.earliest_and_latest_debark_time(position);
@@ -449,23 +448,23 @@ impl TimetablesTrait for PeriodicTimetables {
         )
     }
 
-    fn insert<'date, Stops, Flows, Dates, Times>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
-        board_times: Times,
-        debark_times: Times,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
-    ) -> Vec<Self::Mission>
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate>,
-        Times: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
@@ -477,7 +476,7 @@ impl TimetablesTrait for PeriodicTimetables {
         };
         for date in valid_dates {
             let loads = loads_data
-                .loads(&vehicle_journey_idx, date)
+                .loads(vehicle_journey_idx, date)
                 .unwrap_or_else(|| default_loads.as_slice());
             load_patterns_dates
                 .entry(loads)
@@ -485,11 +484,12 @@ impl TimetablesTrait for PeriodicTimetables {
                 .push(*date);
         }
 
-        let mut result = Vec::new();
+        let mut missions = Vec::new();
+        let mut insertion_errors = Vec::new();
 
         let vj_timetables = self
             .vehicle_journey_to_timetables
-            .entry(vehicle_journey_idx)
+            .entry(vehicle_journey_idx.clone())
             .or_insert_with(DayToTimetable::new);
 
         for (loads, dates) in load_patterns_dates.into_iter() {
@@ -500,17 +500,23 @@ impl TimetablesTrait for PeriodicTimetables {
             if let Some(day) =
                 vj_timetables.has_intersection_with(&days_pattern, &self.days_patterns)
             {
-                warn!("Trying to add vehicle journey {} multiple time for day {}. Insertion skipped for all days.",
-                    vehicle_journey.id,
-                    self.calendar.to_naive_date(&day)
+                // warn!("Trying to add vehicle journey {} multiple time for day {}.",
+                //     vehicle_journey.id,
+                //     self.calendar.to_naive_date(&day)
+                // );
+                let date = self.calendar.to_naive_date(&day);
+                let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
+                    date,
+                    vehicle_journey_idx.clone(),
                 );
-                // TODO : ? remove from days_pattern the days in the intersection and carry on with
-                //          the insertion instead of returning early ?
-                return result;
+                insertion_errors.push(error);
+                // the vehicle already exists on this day
+                // so let's skip the insertion and keep the old value
+                continue;
             }
             let vehicle_data = VehicleData {
                 days_pattern,
-                vehicle_journey_idx,
+                vehicle_journey_idx: vehicle_journey_idx.clone(),
             };
             let insert_result = self.timetables.insert(
                 stops.clone(),
@@ -523,32 +529,35 @@ impl TimetablesTrait for PeriodicTimetables {
             );
             match insert_result {
                 Ok(mission) => {
-                    if !result.contains(&mission) {
-                        result.push(mission.clone());
+                    if !missions.contains(&mission) {
+                        missions.push(mission.clone());
                     }
 
                     vj_timetables
                         .insert_days_pattern(&days_pattern, &mission, &mut self.days_patterns)
                         .unwrap(); // unwrap should be safe here, because we check above that vj_timetables has no intersection with days_pattern
                 }
-                Err(error) => {
-                    handle_vehicletimes_error(vehicle_journey, &error);
+                Err(times_error) => {
+                    let dates = self.days_patterns.make_dates(&days_pattern, &self.calendar);
+                    let error =
+                        InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
+                    insertion_errors.push(error);
                 }
             }
         }
 
-        result
+        (missions, insertion_errors)
     }
 
     fn remove(
         &mut self,
         date: &chrono::NaiveDate,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or(RemovalError::UnknownDate)?;
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
         let has_timetables = self
             .vehicle_journey_to_timetables
@@ -556,11 +565,15 @@ impl TimetablesTrait for PeriodicTimetables {
         let result = match has_timetables {
             None => {
                 // There is no timetable with this vehicle_journey_index
-                Err(RemovalError::UnknownVehicleJourney)
+                Err(RemovalError::UnknownVehicleJourney(
+                    vehicle_journey_idx.clone(),
+                ))
             }
             Some(day_to_timetable) => day_to_timetable
                 .remove(&day, &mut self.days_patterns)
-                .map_err(|_| RemovalError::DateInvalidForVehicleJourney),
+                .map_err(|_| {
+                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
+                }),
         };
 
         match result {
@@ -602,44 +615,6 @@ impl TimetablesTrait for PeriodicTimetables {
 
                 Ok(())
             }
-        }
-    }
-}
-
-fn handle_vehicletimes_error(vehicle_journey: &VehicleJourney, error: &VehicleTimesError) {
-    match error {
-        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {}  because its \
-                    debark time at : \n {:?} \n\
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {} because its \
-                    board time at : \n {:?} \n \
-                    is earlier than its \
-                    board time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
-        }
-        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let upstream_stop_time = &vehicle_journey.stop_times[position_pair.upstream];
-            let downstream_stop_time = &vehicle_journey.stop_times[position_pair.downstream];
-            warn!(
-                "Skipping vehicle journey {}  because its \
-                    debark time at : \n {:?} \n \
-                    is earlier than its \
-                    debark time upstream at : \n {:?} \n. ",
-                vehicle_journey.id, downstream_stop_time, upstream_stop_time
-            );
         }
     }
 }

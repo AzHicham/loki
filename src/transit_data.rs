@@ -33,11 +33,11 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-
 pub mod data_interface;
 pub mod init;
 pub mod iters;
 
+use chrono::NaiveDate;
 use iters::MissionsOfStop;
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
@@ -46,7 +46,14 @@ pub use typed_index_collection::Idx;
 
 use crate::{
     loads_data::{Load, LoadsData},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{
+        Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    },
+    timetables::{
+        generic_timetables::{PositionPair, VehicleTimesError},
+        FlowDirection, InsertionError,
+    },
 };
 
 use std::{collections::HashMap, fmt::Debug};
@@ -55,8 +62,10 @@ use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesI
 
 use crate::transit_model::Model;
 
+use crate::tracing::error;
+
 pub struct TransitData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx_to_stop: HashMap<Idx<StopPoint>, Stop>,
+    pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,
 
     pub(super) stops_data: Vec<StopData<Timetables>>,
     pub(super) timetables: Timetables,
@@ -65,7 +74,7 @@ pub struct TransitData<Timetables: TimetablesTrait> {
 }
 
 pub struct StopData<Timetables: TimetablesTrait> {
-    pub(super) stop_point_idx: Idx<StopPoint>,
+    pub(super) stop_point_idx: StopPointIdx,
     pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
     pub(super) outgoing_transfers: Vec<(Stop, TransferDurations, Transfer)>,
     pub(super) incoming_transfers: Vec<(Stop, TransferDurations, Transfer)>,
@@ -81,7 +90,7 @@ pub struct TransferData {
     pub from_stop: Stop,
     pub to_stop: Stop,
     pub durations: TransferDurations,
-    pub transit_model_transfer_idx: Idx<TransitModelTransfer>,
+    pub transit_model_transfer_idx: TransferIdx,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
@@ -99,7 +108,7 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
         &self.stops_data[stop.idx]
     }
 
-    pub fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<&Stop> {
+    pub fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<&Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx)
     }
 }
@@ -192,9 +201,9 @@ where
         transfer_data.durations.total_duration
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transfers_data[transfer.idx];
-        transfer_data.transit_model_transfer_idx
+        transfer_data.transit_model_transfer_idx.clone()
     }
 
     fn earliest_trip_to_board_at(
@@ -224,12 +233,12 @@ where
         self.timetables.calendar().to_naive_datetime(seconds)
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.timetables.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop: &Stop) -> Idx<StopPoint> {
-        self.stops_data[stop.idx].stop_point_idx
+    fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
+        self.stops_data[stop.idx].stop_point_idx.clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
@@ -248,7 +257,7 @@ where
         self.timetables.calendar()
     }
 
-    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
+    fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx).copied()
     }
 
@@ -273,13 +282,137 @@ where
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::DataUpdate for TransitData<Timetables> {
+impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+{
     fn remove_vehicle(
         &mut self,
-        vehicle_journey_idx: &Idx<VehicleJourney>,
+        vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
         self.timetables.remove(date, vehicle_journey_idx)
+    }
+
+    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
+        stop_points: Stops,
+        flows: Flows,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads_data: &LoadsData,
+        valid_dates: Dates,
+        timezone: &chrono_tz::Tz,
+        vehicle_journey_idx: VehicleJourneyIdx,
+    ) -> Vec<InsertionError>
+    where
+        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+    {
+        let stops = self.create_stops(stop_points).into_iter();
+        let (missions, insertion_errors) = self.timetables.insert(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            loads_data,
+            valid_dates,
+            timezone,
+            &vehicle_journey_idx,
+        );
+
+        for mission in missions.iter() {
+            for position in self.timetables.positions(mission) {
+                let stop = self.timetables.stop_at(&position, mission);
+                let stop_data = &mut self.stops_data[stop.idx];
+                stop_data
+                    .position_in_timetables
+                    .push((mission.clone(), position));
+            }
+        }
+
+        insertion_errors
+
+        // for error in insertion_errors {
+        //     let vehicle_journey_name = real_time_model.vehicle_journey_name(&vehicle_journey_idx, model);
+        //     use crate::timetables::InsertionError::*;
+        //     match error {
+        //         Times(error, dates) => {
+        //             handle_vehicletimes_error(vehicle_journey_name, &dates, stop_points.clone(), real_time_model, model, &error);
+        //         }
+        //         VehicleJourneyAlreadyExistsOnDate(date) => {
+        //             error!(
+        //                 "Trying to insert the vehicle journey {} more than once on day {}",
+        //                 vehicle_journey_name, date
+        //             );
+        //         }
+        //         DateOutOfCalendar(date) => {
+        //             use crate::transit_data::data_interface::Data;
+        //             error!(
+        //                 "Trying to insert the vehicle journey {} on day {},  \
+        //                     but this day is not allowed in the calendar.  \
+        //                     Allowed dates are between {} and {}",
+        //                 vehicle_journey_name,
+        //                 date,
+        //                 self.calendar().first_date(),
+        //                 self.calendar().last_date(),
+        //             );
+        //         }
+        //     }
+        // }
+
+        // Ok(())
+    }
+
+    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
+        stops: Stops,
+        flows: Flows,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads_data: &LoadsData,
+        valid_dates: Dates,
+        timezone: &chrono_tz::Tz,
+        vehicle_journey_idx: VehicleJourneyIdx,
+    ) -> (Vec<RemovalError>, Vec<InsertionError>)
+    where
+        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+    {
+        let mut removal_errors = Vec::new();
+        let mut insertion_errors = Vec::new();
+        for date in valid_dates.clone() {
+            let removal_result = self.remove_vehicle(&vehicle_journey_idx, date);
+            match removal_result {
+                Ok(()) => {
+                    let errors = self.add_vehicle(
+                        stops.clone(),
+                        flows.clone(),
+                        board_times.clone(),
+                        debark_times.clone(),
+                        loads_data,
+                        valid_dates.clone(),
+                        timezone,
+                        vehicle_journey_idx.clone(),
+                    );
+                    insertion_errors.extend_from_slice(errors.as_slice());
+                }
+                Err(removal_error) => {
+                    removal_errors.push(removal_error);
+                }
+            }
+        }
+        (removal_errors, insertion_errors)
+    }
+
+    fn calendar(&self) -> &Calendar {
+        self.timetables.calendar()
     }
 }
 
@@ -331,4 +464,187 @@ where
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
+}
+
+pub fn handle_insertion_errors(
+    model: &ModelRefs,
+    calendar: &Calendar,
+    insertion_errors: &[InsertionError],
+) {
+    for error in insertion_errors {
+        use crate::timetables::InsertionError::*;
+        match error {
+            Times(vehicle_journey_idx, error, dates) => {
+                let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
+            }
+            VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
+                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+                error!(
+                    "Trying to insert the vehicle journey {} more than once on day {}",
+                    vehicle_journey_name, date
+                );
+            }
+            DateOutOfCalendar(date, vehicle_journey_idx) => {
+                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+                error!(
+                    "Trying to insert the vehicle journey {} on day {},  \
+                        but this day is not allowed in the calendar.  \
+                        Allowed dates are between {} and {}",
+                    vehicle_journey_name,
+                    date,
+                    calendar.first_date(),
+                    calendar.last_date(),
+                );
+            }
+        }
+    }
+}
+
+fn handle_vehicletimes_error(
+    vehicle_journey_idx: &VehicleJourneyIdx,
+    dates: &[NaiveDate],
+    model: &ModelRefs<'_>,
+    error: &VehicleTimesError,
+) -> Result<(), ()> {
+    if dates.is_empty() {
+        error!("Received a vehicle times error with no date");
+        return Err(());
+    }
+
+    let days_strings: Vec<String> = dates
+        .iter()
+        .map(|date| date.format("%H:%M:%S %d-%b-%y").to_string())
+        .collect();
+
+    let date = dates.first().unwrap();
+
+    let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+
+    match error {
+        VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    debark time at {}-th stop_time ({}) \
+                    is earlier than its \
+                    board time upstream {}-th stop_time ({}). ",
+                vehicle_journey_name,
+                days_strings,
+                position_pair.downstream,
+                downstream_stop_name,
+                position_pair.upstream,
+                upstream_stop_name
+            );
+        }
+        VehicleTimesError::DecreasingBoardTime(position_pair) => {
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    board time at {}-th stop_time ({}) \
+                    is earlier than its \
+                    board time upstream at {}-th stop_time ({}). ",
+                vehicle_journey_name,
+                days_strings,
+                position_pair.downstream,
+                downstream_stop_name,
+                position_pair.upstream,
+                upstream_stop_name
+            );
+        }
+        VehicleTimesError::DecreasingDebarkTime(position_pair) => {
+            let (upstream_stop_name, downstream_stop_name) =
+                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            error!(
+                "Skipping vehicle journey {} on days {:?} because its \
+                    debark time at {}-th stop_time ({}) \
+                    is earlier than its \
+                    debark time upstream at {}-th stop_time ({}). ",
+                vehicle_journey_name,
+                days_strings,
+                position_pair.downstream,
+                downstream_stop_name,
+                position_pair.upstream,
+                upstream_stop_name
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn upstream_downstream_stop_names<'model>(
+    model: &'model ModelRefs<'model>,
+    vehicle_journey_idx: &VehicleJourneyIdx,
+    date: &NaiveDate,
+    position_pair: &PositionPair,
+) -> Result<(&'model str, &'model str), ()> {
+    let upstream_stop = model
+        .stop_point_at(vehicle_journey_idx, position_pair.upstream, date)
+        .ok_or_else(|| {
+            error!(
+                "Received a position pair with invalid upstream stop. \
+                    Vehicle journey {} on {} upstream {}.",
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date,
+                position_pair.upstream
+            )
+        })?;
+    let upstream_stop_name = model.stop_point_name(&upstream_stop);
+
+    let dowstream_stop = model
+        .stop_point_at(vehicle_journey_idx, position_pair.downstream, date)
+        .ok_or_else(|| {
+            error!(
+                "Received a position pair with invalid downstream stop. \
+                    Vehicle journey {} on {} downstream {}.",
+                model.vehicle_journey_name(vehicle_journey_idx),
+                date,
+                position_pair.downstream
+            )
+        })?;
+
+    let downstream_stop_name = model.stop_point_name(&dowstream_stop);
+
+    Ok((upstream_stop_name, downstream_stop_name))
+}
+
+pub fn handle_removal_errors(
+    model: &ModelRefs,
+    calendar: &Calendar,
+    removal_errors: impl Iterator<Item = RemovalError>,
+) {
+    for error in removal_errors {
+        match error {
+            RemovalError::UnknownDate(date, vehicle_journey_idx) => {
+                let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+                error!(
+                    "Trying to remove the vehicle journey {} on day {},  \
+                        but this day is not allowed in the calendar.  \
+                        Allowed dates are between {} and {}",
+                    vehicle_journey_name,
+                    date,
+                    calendar.first_date(),
+                    calendar.last_date(),
+                );
+            }
+            RemovalError::UnknownVehicleJourney(vehicle_journey_idx) => {
+                let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+                error!(
+                    "Trying to remove the vehicle journey {},  \
+                        but this vehicle journey is unknown",
+                    vehicle_journey_name,
+                );
+            }
+            RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
+                let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+                error!(
+                    "Trying to remove the vehicle journey {} on day {},  \
+                        but this vehicle journeys does not exists on this day. ",
+                    vehicle_journey_name, date,
+                );
+            }
+        }
+    }
 }

@@ -39,6 +39,7 @@ use crate::{
         BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
         RequestTypes, RequestWithIters,
     },
+    model::ModelRefs,
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 
@@ -225,7 +226,7 @@ where
     Data: DataTrait,
 {
     fn new(
-        model: &'model transit_model::Model,
+        model: &'model ModelRefs<'model>,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>

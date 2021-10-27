@@ -35,7 +35,9 @@
 // www.navitia.io
 
 use crate::{
+    filters::Filters,
     loads_data::Load,
+    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::iters::MissionsOfStop,
     TransitData,
@@ -53,29 +55,85 @@ use std::fmt::Debug;
 
 pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
     transit_data: &'data TransitData<Timetables>,
-    allowed_stop_points: &'filter [bool],
-    allowed_vehicle_journeys: &'filter [bool],
+    memory: &'filter FilterMemory,
+}
+
+pub struct FilterMemory {
+    allowed_base_stop_points: Vec<bool>,
+    allowed_new_stop_points: Vec<bool>,
+    allowed_base_vehicle_journeys: Vec<bool>,
+    allowed_new_vehicle_journeys: Vec<bool>,
+}
+
+impl Default for FilterMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FilterMemory {
+    pub fn new() -> Self {
+        Self {
+            allowed_base_stop_points: Vec::new(),
+            allowed_new_stop_points: Vec::new(),
+            allowed_base_vehicle_journeys: Vec::new(),
+            allowed_new_vehicle_journeys: Vec::new(),
+        }
+    }
+
+    pub fn fill_allowed_stops_and_vehicles(&mut self, filters: &Filters, model: &ModelRefs<'_>) {
+        self.allowed_base_vehicle_journeys
+            .resize(model.nb_of_base_vehicle_journeys(), true);
+        for idx in model.base_vehicle_journeys() {
+            let vj_idx = VehicleJourneyIdx::Base(idx);
+            self.allowed_base_vehicle_journeys[idx.get()] =
+                filters.is_vehicle_journey_valid(&vj_idx, model);
+        }
+        self.allowed_base_stop_points
+            .resize(model.nb_of_base_stops(), true);
+        for idx in model.base_stop_points() {
+            let stop_idx = StopPointIdx::Base(idx);
+            self.allowed_base_stop_points[idx.get()] =
+                filters.is_stop_point_valid(&stop_idx, model);
+        }
+
+        self.allowed_new_vehicle_journeys
+            .resize(model.nb_of_new_vehicle_journeys(), true);
+        for idx in model.new_vehicle_journeys() {
+            let vj_idx = VehicleJourneyIdx::New(idx.clone());
+            self.allowed_new_vehicle_journeys[idx.idx] =
+                filters.is_vehicle_journey_valid(&vj_idx, model)
+        }
+
+        self.allowed_new_stop_points
+            .resize(model.nb_of_new_stops(), true);
+        for idx in model.new_stops() {
+            let stop_idx = StopPointIdx::New(idx.clone());
+            self.allowed_new_stop_points[idx.idx] = filters.is_stop_point_valid(&stop_idx, model);
+        }
+    }
 }
 
 impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
     pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
         let stop_idx = self.stop_point_idx(stop);
-        self.allowed_stop_points[stop_idx.get()]
+        match stop_idx {
+            StopPointIdx::Base(idx) => self.memory.allowed_base_stop_points[idx.get()],
+            StopPointIdx::New(idx) => self.memory.allowed_new_stop_points[idx.idx],
+        }
     }
 
-    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &Idx<VehicleJourney>) -> bool {
-        self.allowed_vehicle_journeys[vehicle_journey_idx.get()]
+    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => self.memory.allowed_base_vehicle_journeys[idx.get()],
+            VehicleJourneyIdx::New(idx) => self.memory.allowed_new_vehicle_journeys[idx.idx],
+        }
     }
 
-    pub fn new(
-        data: &'data TransitData<Timetables>,
-        allowed_stop_points: &'filter [bool],
-        allowed_vehicle_journeys: &'filter [bool],
-    ) -> Self {
+    pub fn new(data: &'data TransitData<Timetables>, memory: &'filter FilterMemory) -> Self {
         Self {
             transit_data: data,
-            allowed_stop_points,
-            allowed_vehicle_journeys,
+            memory,
         }
     }
 }
@@ -191,9 +249,9 @@ where
         transfer_data.durations.total_duration
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> Idx<TransitModelTransfer> {
+    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transit_data.transfers_data[transfer.idx];
-        transfer_data.transit_model_transfer_idx
+        transfer_data.transit_model_transfer_idx.clone()
     }
 
     fn earliest_trip_to_board_at(
@@ -211,7 +269,7 @@ where
                     waiting_time,
                     mission,
                     position,
-                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                    |vehicle_journey_idx: &VehicleJourneyIdx| {
                         self.is_vehicle_journey_allowed(vehicle_journey_idx)
                     },
                 )
@@ -235,7 +293,7 @@ where
                     waiting_time,
                     mission,
                     position,
-                    |vehicle_journey_idx: &Idx<VehicleJourney>| {
+                    |vehicle_journey_idx: &VehicleJourneyIdx| {
                         self.is_vehicle_journey_allowed(vehicle_journey_idx)
                     },
                 )
@@ -254,12 +312,14 @@ where
             .to_naive_datetime(seconds)
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> Idx<VehicleJourney> {
+    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
         self.transit_data.timetables.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop: &Stop) -> Idx<StopPoint> {
-        self.transit_data.stops_data[stop.idx].stop_point_idx
+    fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
+        self.transit_data.stops_data[stop.idx]
+            .stop_point_idx
+            .clone()
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
@@ -278,7 +338,7 @@ where
         self.transit_data.timetables.calendar()
     }
 
-    fn stop_point_idx_to_stop(&self, stop_point_idx: &Idx<StopPoint>) -> Option<Self::Stop> {
+    fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.transit_data
             .stop_point_idx_to_stop
             .get(stop_point_idx)

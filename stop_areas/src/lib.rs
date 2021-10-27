@@ -37,7 +37,11 @@
 use launch::{
     config,
     datetime::DateTimeRepresent,
-    loki::{self, DailyData, PeriodicData, PeriodicSplitVjData, TransitData},
+    loki::{
+        self,
+        model::{real_time::RealTimeModel, ModelRefs},
+        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
+    },
     solver::Solver,
 };
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
@@ -196,6 +200,9 @@ where
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(model, &real_time_model);
+
     let datetime = match &config.datetime {
         Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
         None => {
@@ -220,7 +227,7 @@ where
     )?;
     let solve_result = solver.solve_request(
         data,
-        model,
+        &model_refs,
         &request_input,
         None,
         &config.comparator_type,
@@ -236,7 +243,7 @@ where
         }
         Ok(responses) => {
             for response in responses.iter() {
-                debug!("{}", response.print(model)?);
+                debug!("{}", response.print(&model_refs)?);
             }
         }
     }

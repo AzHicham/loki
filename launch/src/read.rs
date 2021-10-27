@@ -35,7 +35,10 @@
 // www.navitia.io
 
 use super::config;
-use crate::loki::{timetables::TimetablesIter, TransitData};
+use crate::{
+    config::LaunchParams,
+    loki::{timetables::TimetablesIter, TransitData},
+};
 use loki::{
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
@@ -50,6 +53,22 @@ pub fn read<Timetables>(
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
+    let model = read_model(launch_params)?;
+
+    let loads_data = read_loads_data(launch_params, &model);
+
+    let data = build_transit_data(
+        &model,
+        &loads_data,
+        &launch_params.default_transfer_duration,
+    );
+
+    Ok((data, model))
+}
+
+pub fn read_model(
+    launch_params: &LaunchParams,
+) -> Result<transit_model::Model, transit_model::Error> {
     let model = match launch_params.input_data_type {
         config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
         config::InputDataType::Gtfs => {
@@ -79,12 +98,16 @@ where
             )?
         }
     };
+    info!("Transit model loaded");
+    Ok(model)
+}
 
-    let loads_data = launch_params
+pub fn read_loads_data(launch_params: &LaunchParams, model: &transit_model::Model) -> LoadsData {
+    launch_params
         .loads_data_path
         .as_ref()
         .map(|path| {
-            LoadsData::new(&path, &model).unwrap_or_else(|err| {
+            LoadsData::new(&path, model).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
                     &path,
@@ -94,15 +117,7 @@ where
                 LoadsData::empty()
             })
         })
-        .unwrap_or_else(LoadsData::empty);
-
-    let data = build_transit_data(
-        &model,
-        &loads_data,
-        &launch_params.default_transfer_duration,
-    );
-
-    Ok((data, model))
+        .unwrap_or_else(LoadsData::empty)
 }
 
 pub fn build_transit_data<Timetables>(
@@ -113,7 +128,6 @@ pub fn build_transit_data<Timetables>(
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    info!("Transit model loaded");
     info!(
         "Number of vehicle journeys : {}",
         model.vehicle_journeys.len()

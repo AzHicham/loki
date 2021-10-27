@@ -38,6 +38,7 @@ use failure::{format_err, Error};
 use launch::{
     config,
     loki::{
+        model::real_time::RealTimeModel,
         tracing::{debug, error, info, warn},
         transit_model::Model,
         TransitData,
@@ -50,8 +51,8 @@ use std::{
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
-    compute_worker::{ComputeWorker, MyTimetable},
-    master_worker::{LoadBalancerChannels, LoadBalancerOrder},
+    compute_worker::ComputeWorker,
+    master_worker::{BaseTimetable, LoadBalancerChannels, LoadBalancerOrder, RealTimeTimetable},
     zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
 };
 
@@ -88,9 +89,10 @@ pub struct LoadBalancer {
 
 impl LoadBalancer {
     pub fn new(
-        data_and_model: Arc<RwLock<(TransitData<MyTimetable>, Model)>>,
+        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+        real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
         nb_workers: usize,
-        zmq_endpoint: String,
+        zmq_endpoint: &str,
         request_default_params: &config::RequestParams,
     ) -> Result<(Self, LoadBalancerChannels), Error> {
         let mut worker_request_senders = Vec::new();
@@ -105,7 +107,8 @@ impl LoadBalancer {
 
             let (worker, request_channel) = ComputeWorker::new(
                 worker_id,
-                data_and_model.clone(),
+                base_data_and_model.clone(),
+                real_time_data_and_model.clone(),
                 request_default_params.clone(),
                 workers_response_sender.clone(),
             );

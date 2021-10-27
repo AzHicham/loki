@@ -39,6 +39,7 @@ pub mod loads_comparator;
 
 use crate::{
     loads_data::LoadsCount,
+    model::ModelRefs,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
 };
@@ -47,7 +48,6 @@ use crate::{
     engine::engine_interface::{BadRequest, RequestInput, RequestTypes},
     transit_data::data_interface::Data as DataTrait,
 };
-use transit_model::Model;
 
 use super::generic_request::{Arrival, Arrivals, Criteria, Departure, Departures};
 
@@ -62,7 +62,7 @@ use crate::{
 
 pub struct GenericDepartAfterRequest<'data, 'model, Data: DataTrait> {
     pub(super) transit_data: &'data Data,
-    pub(super) model: &'model Model,
+    pub(super) model: &'model ModelRefs<'model>,
     pub(super) departure_datetime: SecondsSinceDatasetUTCStart,
     pub(super) departures_stop_point_and_fallback_duration: Vec<(Data::Stop, PositiveDuration)>,
     pub(super) arrivals_stop_point_and_fallbrack_duration: Vec<(Data::Stop, PositiveDuration)>,
@@ -78,7 +78,7 @@ where
     Data: DataTrait,
 {
     pub fn new(
-        model: &'model transit_model::Model,
+        model: &'model ModelRefs<'model>,
         transit_data: &'data Data,
         request_input: &RequestInput,
     ) -> Result<Self, BadRequest>
@@ -181,7 +181,7 @@ where
     }
 
     pub fn mission_name(&self, mission: &Data::Mission) -> String {
-        super::generic_request::mission_name(mission, self.model, self.transit_data)
+        super::generic_request::mission_name(mission, self.transit_data)
     }
 
     pub fn position_name(&self, position: &Data::Position, mission: &Data::Mission) -> String {

@@ -37,7 +37,9 @@
 extern crate static_assertions;
 
 mod engine;
+pub mod filters;
 pub mod loads_data;
+pub mod model;
 pub mod request;
 pub mod time;
 pub mod timetables;

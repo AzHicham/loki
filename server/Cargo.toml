@@ -31,6 +31,7 @@ structopt = "0.3"
 failure = "0.1"
 serde = "1.0"
 serde_json = "1.0"
+relational_types = "2.0.0"
 
 [build-dependencies]
 prost-build = "0.8"

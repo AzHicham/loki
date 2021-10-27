@@ -38,9 +38,10 @@ use std::marker::PhantomData;
 
 use crate::{
     loads_data::LoadsCount,
+    model::ModelRefs,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::TransitTypes,
-    Idx, RequestTypes,
+    RequestTypes,
 };
 
 use crate::{
@@ -49,7 +50,6 @@ use crate::{
 use chrono::NaiveDateTime;
 use std::fmt::Debug;
 use tracing::warn;
-use transit_model::{objects::StopPoint, Model};
 
 #[derive(Clone)]
 pub enum MinimizeArrivalTimeError<Data: DataTrait> {
@@ -144,35 +144,17 @@ pub(super) fn parse_datetime(
 
 pub(super) fn parse_departures<Data>(
     departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
-    model: &Model,
+    model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
     Data: DataTrait,
-{
-    parse_departures_filtered(
-        departures_stop_point_and_fallback_duration,
-        model,
-        transit_data,
-        |_| true,
-    )
-}
-
-pub(super) fn parse_departures_filtered<Data, Filter>(
-    departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
-    model: &Model,
-    transit_data: &Data,
-    filter: Filter,
-) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
-where
-    Data: DataTrait,
-    Filter: Fn(Idx<StopPoint>) -> bool,
 {
     let result: Vec<_> = departures_stop_point_and_fallback_duration
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
+            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
                 warn!(
                     "The {}th departure stop point {} is not found in model. \
                             I ignore it.",
@@ -180,19 +162,16 @@ where
                 );
                 None
             })?;
-            if filter(stop_idx) {
-                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                    warn!(
+
+            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                warn!(
                     "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
-                        I ignore it",
+                    I ignore it",
                     idx, stop_point_uri, stop_idx
                 );
-                    None
-                })?;
-                Some((stop, *fallback_duration))
-            } else {
                 None
-            }
+            })?;
+            Some((stop, *fallback_duration))
         })
         .collect();
     if result.is_empty() {
@@ -203,35 +182,17 @@ where
 
 pub(super) fn parse_arrivals<Data>(
     arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
-    model: &Model,
+    model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
     Data: DataTrait,
-{
-    parse_arrivals_filtered(
-        arrivals_stop_point_and_fallback_duration,
-        model,
-        transit_data,
-        |_| true,
-    )
-}
-
-pub(super) fn parse_arrivals_filtered<Data, Filter>(
-    arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
-    model: &Model,
-    transit_data: &Data,
-    filter: Filter,
-) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
-where
-    Data: DataTrait,
-    Filter: Fn(Idx<StopPoint>) -> bool,
 {
     let result: Vec<_> = arrivals_stop_point_and_fallback_duration
         .iter()
         .enumerate()
         .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model.stop_points.get_idx(stop_point_uri).or_else(|| {
+            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
                 warn!(
                     "The {}th arrival stop point {} is not found in model. \
                             I ignore it.",
@@ -239,19 +200,16 @@ where
                 );
                 None
             })?;
-            if filter(stop_idx) {
-                let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                    warn!(
+
+            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
+                warn!(
                     "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
                         I ignore it",
                     idx, stop_point_uri, stop_idx
                 );
-                    None
-                })?;
-                Some((stop, *fallback_duration))
-            } else {
                 None
-            }
+            })?;
+            Some((stop, *fallback_duration))
         })
         .collect();
     if result.is_empty() {
@@ -296,31 +254,27 @@ impl Iterator for Arrivals {
 
 pub(super) fn stop_name<Data: DataTrait>(
     stop: &Data::Stop,
-    model: &Model,
+    model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> String {
     let stop_point_idx = transit_data.stop_point_idx(stop);
-    let stop_point = &model.stop_points[stop_point_idx];
-    stop_point.id.clone()
+    model.stop_point_name(&stop_point_idx).to_string()
 }
 
 pub(super) fn trip_name<Data: DataTrait>(
     trip: &Data::Trip,
-    model: &Model,
+    model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> String {
     let vehicle_journey_idx = transit_data.vehicle_journey_idx(trip);
     let date = transit_data.day_of(trip);
-    let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
-    format!(
-        "{}_{}_{}",
-        vehicle_journey.id, date, vehicle_journey.route_id
-    )
+
+    let name = model.vehicle_journey_name(&vehicle_journey_idx);
+    format!("{}_{}", name, date.to_string(),)
 }
 
 pub(super) fn mission_name<Data: DataTrait>(
     mission: &Data::Mission,
-    _model: &Model,
     transit_data: &Data,
 ) -> String {
     let mission_id = transit_data.mission_id(mission);
@@ -330,11 +284,11 @@ pub(super) fn mission_name<Data: DataTrait>(
 pub(super) fn position_name<Data: DataTrait>(
     position: &Data::Position,
     mission: &Data::Mission,
-    model: &Model,
+    model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> String {
     let stop = transit_data.stop_of(position, mission);
     let stop_name = stop_name(&stop, model, transit_data);
-    let mission_name = mission_name(mission, model, transit_data);
+    let mission_name = mission_name(mission, transit_data);
     format!("{}_{}", stop_name, mission_name,)
 }

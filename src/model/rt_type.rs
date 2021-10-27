@@ -34,95 +34,51 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use chrono::NaiveDate;
-use std::{error::Error, fmt::Display, path::Path};
-use transit_model::Model;
+use crate::transit_model::objects::{Line, Network, Route, StopArea, StopPoint};
+use typed_index_collection::Idx;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {
+#[derive(Debug)]
+pub enum PtObject {
+    StopPoint(Idx<StopPoint>),
+    StopArea(Idx<StopArea>),
+    Line(Idx<Line>),
+    Route(Idx<Route>),
+    Network(Idx<Network>),
+    LineSection,
+    RouteSection,
+    Trip,
     Unknown,
 }
 
-impl Display for Load {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Load ()")
-    }
+#[derive(Debug)]
+pub enum RealTimeLevel {
+    Base,
+    Adapted,
+    RealTime,
 }
 
-impl Default for Load {
-    fn default() -> Self {
-        Load::Unknown
-    }
+#[derive(Debug)]
+pub enum Effect {
+    NoService,
+    ReducedService,
+    SignificantDelays,
+    Detour,
+    AdditionalService,
+    ModifiedService,
+    OtherEffect,
+    UnknownEffect,
+    StopMoved,
 }
 
-use std::cmp::Ordering;
-
-use crate::model::VehicleJourneyIdx;
-
-impl Ord for Load {
-    fn cmp(&self, _other: &Self) -> Ordering {
-        Ordering::Equal
-    }
+#[derive(Debug)]
+pub struct Disruption {
+    //pub uri: String,
+    pub contributor: String, // Provider of the distruption
+    pub reference: String,   // Title of the distruption
+    pub impacts: Vec<Impact>,
 }
 
-impl PartialOrd for Load {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LoadsCount();
-
-impl Display for LoadsCount {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LoadsCount ()")
-    }
-}
-
-impl LoadsCount {
-    pub fn zero() -> Self {
-        Self {}
-    }
-
-    pub fn add(&self, _load: Load) -> Self {
-        Self {}
-    }
-
-    pub fn max(&self) -> Load {
-        Load::default()
-    }
-
-    pub fn is_lower(&self, _other: &Self) -> bool {
-        true
-    }
-}
-
-impl Default for LoadsCount {
-    fn default() -> Self {
-        Self::zero()
-    }
-}
-
-pub struct LoadsData();
-
-impl LoadsData {
-    pub fn loads(
-        &self,
-        _vehicle_journey_idx: &VehicleJourneyIdx,
-        _date: &NaiveDate,
-    ) -> Option<&[Load]> {
-        None
-    }
-
-    pub fn empty() -> Self {
-        LoadsData {}
-    }
-
-    pub fn new<P: AsRef<Path>>(
-        _csv_occupancys_filepath: P,
-        _model: &Model,
-    ) -> Result<Self, Box<dyn Error>> {
-        Ok(LoadsData::empty())
-    }
+#[derive(Debug)]
+pub struct Impact {
+    pub informed_entities: Vec<PtObject>,
 }

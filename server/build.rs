@@ -40,10 +40,12 @@ static MOD_RS: &[u8] = b"
 /// Generated from protobuf.
 /// @generated
 pub mod gtfs_realtime;
+
 /// Generated from protobuf.
 /// @generated
 /// This file is a protobuf extension, for test so far.
 pub mod kirin;
+
 /// Generated from protobuf.
 /// @generated
 /// This file is a protobuf extension, for test so far.

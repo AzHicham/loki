@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{iter::FromIterator, thread};
+use std::thread;
 
 use failure::{format_err, Error};
 
@@ -74,12 +74,12 @@ pub struct ZmqWorkerChannels {
 }
 
 impl ZmqWorker {
-    pub fn new(endpoint: String) -> (Self, ZmqWorkerChannels) {
+    pub fn new(endpoint: &str) -> (Self, ZmqWorkerChannels) {
         let (requests_sender, requests_receiver) = mpsc::unbounded_channel();
         let (responses_sender, responses_receiver) = mpsc::unbounded_channel();
 
         let actor = Self {
-            endpoint,
+            endpoint: endpoint.to_string(),
             requests_sender,
             responses_receiver,
             responses_sender: responses_sender.clone(),
@@ -210,7 +210,7 @@ async fn send_response_to_zmq(zmq_socket: &mut tmq::router::Router, response: Re
         .chain(std::iter::once(empty_message))
         .chain(std::iter::once(payload_message));
 
-    let multipart_msg = tmq::Multipart::from_iter(iter);
+    let multipart_msg: tmq::Multipart = iter.collect();
     use futures::SinkExt;
     let send_result = zmq_socket.send(multipart_msg).await;
     if let Err(err) = send_result {
