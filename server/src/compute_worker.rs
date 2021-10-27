@@ -36,6 +36,7 @@
 
 use failure::{format_err, Error};
 use std::{
+    fmt::Debug,
     ops::Deref,
     sync::{Arc, RwLock},
 };
@@ -46,12 +47,12 @@ use launch::{
     datetime::DateTimeRepresent,
     loki::{
         self,
+        chrono::Utc,
         filters::Filters,
         model::{real_time::RealTimeModel, ModelRefs},
-        timetables::PeriodicSplitVjByTzTimetables,
         tracing::{debug, error, info, warn},
         transit_model::Model,
-        PositiveDuration, RequestInput, TransitData,
+        NaiveDateTime, PositiveDuration, RequestInput, TransitData,
     },
     solver::Solver,
 };
@@ -59,16 +60,19 @@ use std::convert::TryFrom;
 
 use crate::{
     load_balancer::WorkerId,
+    master_worker::{BaseTimetable, RealTimeTimetable},
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 
 use super::{navitia_proto, response};
 
-pub type MyTimetable = PeriodicSplitVjByTzTimetables;
+type BaseData = TransitData<BaseTimetable>;
+type RealTimeData = TransitData<RealTimeTimetable>;
 
 pub struct ComputeWorker {
-    data_and_model: Arc<RwLock<(TransitData<MyTimetable>, Model)>>,
-    solver: Solver<MyTimetable>,
+    base_data_and_model: Arc<RwLock<(BaseData, Model)>>,
+    real_time_data_and_model: Arc<RwLock<(RealTimeData, RealTimeModel)>>,
+    solver: Solver<BaseTimetable>,
     worker_id: WorkerId,
     request_default_params: config::RequestParams,
     request_channel: mpsc::Receiver<RequestMessage>,
@@ -78,16 +82,18 @@ pub struct ComputeWorker {
 impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
-        data_and_model: Arc<RwLock<(TransitData<MyTimetable>, Model)>>,
+        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+        real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
         request_default_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
-        let solver = Solver::<MyTimetable>::new(0, 0);
+        let solver = Solver::<BaseTimetable>::new(0, 0);
 
         let (requests_channel_sender, requests_channel_receiver) = mpsc::channel(1);
 
         let result = Self {
-            data_and_model,
+            base_data_and_model,
+            real_time_data_and_model,
             solver,
             worker_id,
             request_default_params,
@@ -114,41 +120,13 @@ impl ComputeWorker {
                 )
             })?;
 
-            let response_message = {
-                // try to acquire the read lock
-                let rw_lock_read_guard = self
-                    .data_and_model
-                    .read()
-                    // if the read lock cannot be acquired, it means the lock is poisoned
-                    // and we return from this function and stop the thread
-                    .map_err(|err| {
-                        format_err!(
-                            "Compute worker {} failed to acquire read lock on data_and_model. Error : {}. This worker will stop.",
-                            self.worker_id.id,
-                            err
-                        )
-                    })?;
+            let proto_response = self
+                .handle_request(request_message.payload)
+                .map_err(|err| format_err!("This worker will stop. {}", err))?;
 
-                let proto_request = request_message.payload;
-
-                let (data, model) = rw_lock_read_guard.deref();
-                let real_time_model = RealTimeModel::new();
-                let model_refs = ModelRefs::new(&model, &real_time_model);
-                let solve_result = solve(
-                    proto_request,
-                    data,
-                    &model_refs,
-                    &mut self.solver,
-                    &self.request_default_params,
-                    config::ComparatorType::Basic,
-                );
-                let proto_response = make_proto_response(solve_result, &model_refs);
-
-                ResponseMessage {
-                    payload: proto_response,
-                    client_id: request_message.client_id,
-                }
-                // now the RwLock is released
+            let response_message = ResponseMessage {
+                payload: proto_response,
+                client_id: request_message.client_id,
             };
 
             debug!("Worker {} finished solving.", self.worker_id.id);
@@ -167,21 +145,129 @@ impl ComputeWorker {
             debug!("Worker {} sent his response.", self.worker_id.id);
         }
     }
+
+    fn handle_request(
+        &mut self,
+        proto_request: navitia_proto::Request,
+    ) -> Result<navitia_proto::Response, Error> {
+        let journeys_request_result = extract_journey_request(proto_request);
+        match journeys_request_result {
+            Err(err) => {
+                return Ok(make_error_response(err));
+            }
+            Ok(journeys_request) => {
+                let real_time_level = journeys_request.realtime_level();
+                match real_time_level {
+                    navitia_proto::RtLevel::BaseSchedule
+                    | navitia_proto::RtLevel::AdaptedSchedule => {
+                        self.solve_on_base_schedule(journeys_request)
+                    }
+                    navitia_proto::RtLevel::Realtime => self.solve_on_real_time(journeys_request),
+                }
+            }
+        }
+    }
+
+    fn solve_on_base_schedule(
+        &mut self,
+        journey_request: navitia_proto::JourneysRequest,
+    ) -> Result<navitia_proto::Response, Error> {
+        let rw_lock_read_guard = self
+            .base_data_and_model
+            .read()
+            // if the read lock cannot be acquired, it means the lock is poisoned
+            // and we return from this function and stop the thread
+            .map_err(|err| {
+                format_err!(
+                    "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
+                    self.worker_id.id,
+                    err
+                )
+            })?;
+
+        let (data, model) = rw_lock_read_guard.deref();
+        let real_time_model = RealTimeModel::new();
+        let model_refs = ModelRefs::new(&model, &real_time_model);
+
+        let solve_result = solve(
+            journey_request,
+            data,
+            &model_refs,
+            &mut self.solver,
+            &self.request_default_params,
+            config::ComparatorType::Basic,
+        );
+
+        let response = make_proto_response(solve_result, &model_refs);
+        Ok(response)
+        // RwLock is released
+    }
+
+    fn solve_on_real_time(
+        &mut self,
+        journey_request: navitia_proto::JourneysRequest,
+    ) -> Result<navitia_proto::Response, Error> {
+        let base_rw_lock_read_guard = self
+            .base_data_and_model
+            .read()
+            // if the read lock cannot be acquired, it means the lock is poisoned
+            // and we return from this function and stop the thread
+            .map_err(|err| {
+                format_err!(
+                    "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
+                    self.worker_id.id,
+                    err
+                )
+            })?;
+
+        let (_base_data, base_model) = base_rw_lock_read_guard.deref();
+
+        let real_time_rw_lock_read_guard = self
+            .real_time_data_and_model
+            .read()
+            // if the read lock cannot be acquired, it means the lock is poisoned
+            // and we return from this function and stop the thread
+            .map_err(|err| {
+                format_err!(
+                    "Compute worker {} failed to acquire read lock on real_time_data_and_model. {}.",
+                    self.worker_id.id,
+                    err
+                )
+            })?;
+
+        let (real_time_data, real_time_model) = real_time_rw_lock_read_guard.deref();
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let solve_result = solve(
+            journey_request,
+            real_time_data,
+            &model_refs,
+            &mut self.solver,
+            &self.request_default_params,
+            config::ComparatorType::Basic,
+        );
+
+        let response = make_proto_response(solve_result, &model_refs);
+        Ok(response)
+        // RwLocks are released
+    }
 }
 
-fn solve(
-    proto_request: navitia_proto::Request,
-    data: &TransitData<MyTimetable>,
+use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+
+fn solve<Timetables>(
+    journey_request: navitia_proto::JourneysRequest,
+    data: &TransitData<Timetables>,
     model: &ModelRefs<'_>,
-    solver: &mut Solver<MyTimetable>,
+    solver: &mut Solver<Timetables>,
     request_default_params: &config::RequestParams,
     comparator_type: config::ComparatorType,
-) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
-    let journey_request = proto_request
-        .journeys
-        .as_ref()
-        .ok_or_else(|| format_err!("request.journey should not be empty for api PtPlanner."))?;
-
+) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables::Mission: 'static,
+    Timetables::Position: 'static,
+{
     // println!("{:#?}", journey_request);
     let departures_stop_point_and_fallback_duration = journey_request
         .origin
@@ -363,4 +449,29 @@ fn make_error_response(error: Error) -> navitia_proto::Response {
     proto_error.message = Some(format!("{}", error));
     proto_response.error = Some(proto_error);
     proto_response
+}
+
+fn extract_journey_request(
+    proto_request: navitia_proto::Request,
+) -> Result<navitia_proto::JourneysRequest, Error> {
+    if let Some(deadline_str) = proto_request.deadline {
+        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%5f");
+        match datetime_result {
+            Ok(datetime) => {
+                let now = Utc::now().naive_utc();
+                if now > datetime {
+                    return Err(format_err!("Deadline reached."));
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "Could not parse deadline string {}. Error : {}",
+                    deadline_str, err
+                );
+            }
+        }
+    }
+    proto_request
+        .journeys
+        .ok_or_else(|| format_err!("request.journey should not be empty for api PtPlanner."))
 }

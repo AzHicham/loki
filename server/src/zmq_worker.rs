@@ -74,12 +74,12 @@ pub struct ZmqWorkerChannels {
 }
 
 impl ZmqWorker {
-    pub fn new(endpoint: String) -> (Self, ZmqWorkerChannels) {
+    pub fn new(endpoint: &str) -> (Self, ZmqWorkerChannels) {
         let (requests_sender, requests_receiver) = mpsc::unbounded_channel();
         let (responses_sender, responses_receiver) = mpsc::unbounded_channel();
 
         let actor = Self {
-            endpoint,
+            endpoint: endpoint.to_string(),
             requests_sender,
             responses_receiver,
             responses_sender: responses_sender.clone(),

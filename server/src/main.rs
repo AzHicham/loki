@@ -42,12 +42,8 @@ pub mod chaos_proto {
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }
 
-// pub mod navitia_proto;
+pub mod handle_kirin_message;
 pub mod response;
-
-// pub mod program;
-// pub mod worker;
-
 pub mod zmq_worker;
 
 pub mod compute_worker;
@@ -185,14 +181,6 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 }
 
 fn launch_master_worker(config: Config) -> Result<(), Error> {
-    let (data, model) = launch::read::<master_worker::MyTimetable>(&config.launch_params)?;
-    let master_worker = master_worker::MasterWorker::new(
-        model,
-        data,
-        config.nb_workers,
-        config.basic_requests_socket,
-        &config.request_default_params,
-        &config.amqp_params,
-    )?;
+    let master_worker = master_worker::MasterWorker::new(&config)?;
     master_worker.run_blocking()
 }

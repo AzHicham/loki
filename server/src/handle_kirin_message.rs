@@ -39,7 +39,7 @@ use std::ops::Not;
 use failure::{format_err, Error};
 use launch::loki::{
     chrono::NaiveDate,
-    realtime::disruption::{Disruption, StopTime, Trip, Update},
+    model::disruption::{Disruption, StopTime, Trip, Update},
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
     NaiveDateTime,
