@@ -83,8 +83,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    # inspired by https://github.com/actions/virtual-environments/issues/709
     - name: Free up space
-      run: rm -rf /usr/share/dotnet/*
+      run: |
+        sudo apt clean
+        rm --recursive --force /usr/share/dotnet/*
+        rm --recursive --force "$AGENT_TOOLSDIRECTORY"
+
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
@@ -133,8 +138,8 @@ jobs:
     # we don't need the mc_bina container and image anymore
     - name: Clean unused docker images
       run: |
-        docker rmi navitia/mc_bina
-        docker rm navitia/mc_bina
+        docker rmi --force navitia/mc_bina
+        docker rm --force navitia/mc_bina
 
     # the binarisation step put everything we need in ./mc_navitia,
     # so we can remove ./data and ../artemis/artemis_data/
