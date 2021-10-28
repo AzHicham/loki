@@ -335,36 +335,6 @@ where
         }
 
         insertion_errors
-
-        // for error in insertion_errors {
-        //     let vehicle_journey_name = real_time_model.vehicle_journey_name(&vehicle_journey_idx, model);
-        //     use crate::timetables::InsertionError::*;
-        //     match error {
-        //         Times(error, dates) => {
-        //             handle_vehicletimes_error(vehicle_journey_name, &dates, stop_points.clone(), real_time_model, model, &error);
-        //         }
-        //         VehicleJourneyAlreadyExistsOnDate(date) => {
-        //             error!(
-        //                 "Trying to insert the vehicle journey {} more than once on day {}",
-        //                 vehicle_journey_name, date
-        //             );
-        //         }
-        //         DateOutOfCalendar(date) => {
-        //             use crate::transit_data::data_interface::Data;
-        //             error!(
-        //                 "Trying to insert the vehicle journey {} on day {},  \
-        //                     but this day is not allowed in the calendar.  \
-        //                     Allowed dates are between {} and {}",
-        //                 vehicle_journey_name,
-        //                 date,
-        //                 self.calendar().first_date(),
-        //                 self.calendar().last_date(),
-        //             );
-        //         }
-        //     }
-        // }
-
-        // Ok(())
     }
 
     fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
