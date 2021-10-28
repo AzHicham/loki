@@ -130,6 +130,21 @@ jobs:
       run: |
         docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina
 
+    # we don't need the mc_bina container and image anymore
+    - name: Clean unused docker images
+      run: |
+        docker rmi navitia/mc_bina
+        docker rm navitia/mc_bina
+
+    # the binarisation step put everything we need in ./mc_navitia,
+    # so we can remove ./data and ../artemis/artemis_data/
+    # so let's remove artemis_data
+    - name: Clean unused data
+      run: |
+        rm -rf  ./data/
+        rm -rf ../artemis/artemis_data/
+
+
     # Start dockers
     - name: Start dockers
       run: |
