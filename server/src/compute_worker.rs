@@ -154,6 +154,7 @@ impl ComputeWorker {
         match journeys_request_result {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
+                warn!("Could not handle journey request : {}", err);
                 Ok(make_error_response(err))
             }
             Ok(journeys_request) => {
@@ -456,7 +457,7 @@ fn extract_journey_request(
     proto_request: navitia_proto::Request,
 ) -> Result<navitia_proto::JourneysRequest, Error> {
     if let Some(deadline_str) = proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%5f");
+        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%f");
         match datetime_result {
             Ok(datetime) => {
                 let now = Utc::now().naive_utc();
