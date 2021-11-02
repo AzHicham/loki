@@ -114,10 +114,11 @@ impl RealTimeModel {
         disruption: &super::disruption::Disruption,
         model: &Model,
         loads_data: &LoadsData,
-        data: &mut Data,
+        real_time_data: &mut Data,
     ) {
         for update in disruption.updates.iter() {
-            let apply_result = self.apply_update(&disruption.id, update, model, loads_data, data);
+            let apply_result =
+                self.apply_update(&disruption.id, update, model, loads_data, real_time_data);
             if let Err(err) = apply_result {
                 error!("Error occured while applying real time update {:?}", err);
             }
@@ -264,12 +265,14 @@ impl RealTimeModel {
     }
 
     fn is_present(&self, trip: &super::disruption::Trip, model: &Model) -> bool {
-        if model
-            .vehicle_journeys
-            .get_idx(&trip.vehicle_journey_id)
-            .is_some()
-        {
-            true
+        if let Some(transit_model_idx) = model.vehicle_journeys.get_idx(&trip.vehicle_journey_id) {
+            if let Some(&TripData::Deleted()) =
+                self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date)
+            {
+                false
+            } else {
+                true
+            }
         } else {
             self.new_vehicle_journeys_id_to_idx
                 .contains_key(&trip.vehicle_journey_id)
