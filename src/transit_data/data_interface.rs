@@ -21,8 +21,7 @@ pub trait TransitTypes {
     /// A `Mission` is an ordered sequence of `Position`
     type Mission: Debug + Clone;
 
-    /// Identify a step along a `Mission`
-    /// Identify a step along a `Mission`
+    /// Identify a stop along a `Mission`
     type Position: Debug + Clone;
 
     /// A trip of a vehicle along a `Mission`
@@ -223,6 +222,7 @@ pub trait DataIO {
         model: &Model,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
+        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self;
 }
 

@@ -71,6 +71,9 @@ pub struct TransitData<Timetables: TimetablesTrait> {
     pub(super) timetables: Timetables,
 
     pub(super) transfers_data: Vec<TransferData>,
+
+    pub(super) start_date: NaiveDate,
+    pub(super) end_date: NaiveDate,
 }
 
 pub struct StopData<Timetables: TimetablesTrait> {
@@ -422,8 +425,14 @@ where
         model: &Model,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
+        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
-        Self::_new(model, loads_data, default_transfer_duration)
+        Self::_new(
+            model,
+            loads_data,
+            default_transfer_duration,
+            restrict_calendar,
+        )
     }
 }
 

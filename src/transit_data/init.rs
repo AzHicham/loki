@@ -47,6 +47,7 @@ use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
+use chrono::NaiveDate;
 use transit_model::{
     model::Model,
     objects::{StopTime, VehicleJourney},
@@ -65,18 +66,50 @@ where
         transit_model: &Model,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
+        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
         let nb_of_stop_points = transit_model.stop_points.len();
         let nb_transfers = transit_model.transfers.len();
 
-        let (start_date, end_date) = transit_model
+        let (calendar_start_date, calendar_end_date) = transit_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
+
+        let (start_date, end_date) =
+            if let Some((restricted_start_date, restricted_end_date)) = restrict_calendar {
+                let start_date = if restricted_start_date < calendar_start_date {
+                    warn!(
+                        "Trying to restrict the start date to {} but the calendar starts on {}.\
+                 I'll ignore the restricted start date.",
+                        restricted_start_date, calendar_start_date
+                    );
+                    calendar_start_date
+                } else {
+                    restricted_start_date
+                };
+                let end_date = if restricted_end_date > calendar_end_date {
+                    warn!(
+                        "Trying to restrict the end date to {} but the calendar ends on {}.\
+                 I'll ignore the restricted start date.",
+                        restricted_end_date, calendar_end_date
+                    );
+                    calendar_end_date
+                } else {
+                    restricted_end_date
+                };
+
+                (start_date, end_date)
+            } else {
+                (calendar_start_date, calendar_end_date)
+            };
+
         let mut data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables: Timetables::new(start_date, end_date),
             transfers_data: Vec::with_capacity(nb_transfers),
+            start_date,
+            end_date,
         };
 
         data.init(transit_model, loads_data, default_transfer_duration);
@@ -207,6 +240,13 @@ where
                 );
             })?;
 
+        let start_date = self.start_date.clone();
+        let end_date = self.end_date.clone();
+        let dates = model_calendar
+            .dates
+            .iter()
+            .filter(|&&date| date >= start_date && date <= end_date);
+
         let timezone = timezone_of(vehicle_journey, transit_model)?;
 
         let board_times = board_timezoned_times(vehicle_journey)?;
@@ -220,7 +260,7 @@ where
             board_times.into_iter(),
             debark_times.into_iter(),
             loads_data,
-            model_calendar.dates.iter(),
+            dates,
             &timezone,
             vehicle_journey_idx,
         );

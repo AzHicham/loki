@@ -37,11 +37,12 @@
 use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
+    chrono,
     model::real_time::RealTimeModel,
     timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
     transit_model::Model,
-    LoadsData, TransitData,
+    DataTrait, LoadsData, TransitData,
 };
 use std::{
     ops::{Deref, DerefMut},
@@ -91,13 +92,21 @@ impl MasterWorker {
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
+            None,
         );
+
+        let restrict_calendar_for_realtime = {
+            let start_date = base_data.calendar().first_date().clone();
+            let end_date = start_date + chrono::Duration::days(2);
+            Some((start_date, end_date))
+        };
 
         let real_time_model = RealTimeModel::new();
         let real_time_data = launch::read::build_transit_data::<RealTimeTimetable>(
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
+            restrict_calendar_for_realtime,
         );
 
         let base_data_and_model = Arc::new(RwLock::new((base_data, base_model)));

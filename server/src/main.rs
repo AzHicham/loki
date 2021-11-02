@@ -127,7 +127,7 @@ pub struct Config {
     nb_workers: usize,
 }
 
-pub const DEFAULT_NB_THREADS: &str = "2";
+pub const DEFAULT_NB_THREADS: &str = "1";
 
 pub fn default_nb_thread() -> usize {
     use std::str::FromStr;
