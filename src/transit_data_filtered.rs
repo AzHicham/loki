@@ -39,19 +39,14 @@ use crate::{
     loads_data::Load,
     model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    transit_data::iters::MissionsOfStop,
-    DataWithIters, TransitData,
+    DataWithIters,
 };
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
 pub use typed_index_collection::Idx;
 
-use crate::{
-    timetables::{Stop, Timetables as TimetablesTrait, TimetablesIter},
-    transit_data::{data_interface, data_interface::Data, iters, Transfer},
-};
-use std::fmt::Debug;
+use crate::transit_data::{data_interface, data_interface::Data};
 
 pub struct TransitDataFiltered<'data, 'filter, Data> {
     transit_data: &'data Data,

@@ -36,7 +36,7 @@
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Position, Timetable, Timetables, Trip, Vehicle},
+    generic_timetables::{Position, Timetable, Timetables, Trip},
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, RemovalError, Stop, TimetablesIter,
 };

@@ -34,8 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::marker::PhantomData;
-
 use crate::{
     loads_data::LoadsCount,
     model::ModelRefs,
