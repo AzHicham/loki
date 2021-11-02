@@ -19,9 +19,9 @@ default = [] #["vehicle_loads"]
 vehicle_loads = []
 
 [dependencies]
-transit_model = "0.41"
+transit_model = "0.42"
 typed_index_collection = { version = "2", features = ["expose-inner"] }
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.5"
 tracing = { version = "0.1", features = ["log", "release_max_level_info"] }
 static_assertions = "1.1.0"
