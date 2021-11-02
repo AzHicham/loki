@@ -287,8 +287,7 @@ impl TimetablesTrait for DailyTimetables {
             let has_day = self.calendar.date_to_days_since_start(date);
             match has_day {
                 None => {
-                    let error =
-                        InsertionError::DateOutOfCalendar(*date, vehicle_journey_idx.clone());
+                    let error = InsertionError::InvalidDate(*date, vehicle_journey_idx.clone());
                     insertion_errors.push(error);
                     continue;
                 }

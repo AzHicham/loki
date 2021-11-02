@@ -271,7 +271,7 @@ where
             real_time: &real_time_model,
         };
 
-        handle_insertion_errors(&model, self.timetables.calendar(), &insertion_errors);
+        handle_insertion_errors(&model, &self.start_date, &self.end_date, &insertion_errors);
 
         Ok(())
     }

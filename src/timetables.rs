@@ -201,7 +201,7 @@ pub trait Timetables: Types {
 pub enum InsertionError {
     Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
     VehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
-    DateOutOfCalendar(NaiveDate, VehicleJourneyIdx),
+    InvalidDate(NaiveDate, VehicleJourneyIdx),
 }
 
 #[derive(Clone, Debug)]

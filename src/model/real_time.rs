@@ -144,7 +144,8 @@ impl RealTimeModel {
                     };
                     handle_removal_errors(
                         &model_ref,
-                        data.calendar(),
+                        data.start_date(),
+                        data.end_date(),
                         std::iter::once(removal_error),
                     );
                 }
@@ -171,7 +172,12 @@ impl RealTimeModel {
                     base: model,
                     real_time: self,
                 };
-                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
+                handle_insertion_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    &insertion_errors,
+                );
                 Ok(())
             }
             super::disruption::Update::Modify(trip, stop_times) => {
@@ -195,8 +201,18 @@ impl RealTimeModel {
                     base: model,
                     real_time: self,
                 };
-                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
-                handle_removal_errors(&model_ref, data.calendar(), removal_errors.into_iter());
+                handle_insertion_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    &insertion_errors,
+                );
+                handle_removal_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    removal_errors.into_iter(),
+                );
                 Ok(())
             }
         }

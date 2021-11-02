@@ -39,6 +39,7 @@ pub mod iters;
 
 use chrono::NaiveDate;
 use iters::MissionsOfStop;
+use tracing::warn;
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
@@ -322,7 +323,14 @@ where
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
-        self.timetables.remove(date, vehicle_journey_idx)
+        if *date < self.start_date || *date > self.end_date {
+            Err(RemovalError::UnknownDate(
+                date.clone(),
+                vehicle_journey_idx.clone(),
+            ))
+        } else {
+            self.timetables.remove(date, vehicle_journey_idx)
+        }
     }
 
     fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -339,10 +347,24 @@ where
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
+        let mut errors = Vec::new();
+        let start_date = self.start_date.clone();
+        let end_date = self.end_date.clone();
+        for date in valid_dates.clone() {
+            if *date < start_date || *date > end_date {
+                errors.push(InsertionError::InvalidDate(
+                    date.clone(),
+                    vehicle_journey_idx.clone(),
+                ));
+            }
+        }
+
+        let dates = valid_dates.filter(|&&date| date >= start_date && date <= end_date);
+
         let stops = self.create_stops(stop_points).into_iter();
         let (missions, insertion_errors) = self.timetables.insert(
             stops,
@@ -350,7 +372,7 @@ where
             board_times,
             debark_times,
             loads_data,
-            valid_dates,
+            dates,
             timezone,
             &vehicle_journey_idx,
         );
@@ -365,7 +387,8 @@ where
             }
         }
 
-        insertion_errors
+        errors.extend(insertion_errors);
+        errors
     }
 
     fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -388,7 +411,21 @@ where
     {
         let mut removal_errors = Vec::new();
         let mut insertion_errors = Vec::new();
+
+        let start_date = self.start_date.clone();
+        let end_date = self.end_date.clone();
         for date in valid_dates.clone() {
+            if *date < start_date || *date > end_date {
+                insertion_errors.push(InsertionError::InvalidDate(
+                    date.clone(),
+                    vehicle_journey_idx.clone(),
+                ));
+            }
+        }
+
+        let dates = valid_dates.filter(|&&date| date >= start_date && date <= end_date);
+
+        for date in dates.clone() {
             let removal_result = self.remove_vehicle(&vehicle_journey_idx, date);
             match removal_result {
                 Ok(()) => {
@@ -398,7 +435,7 @@ where
                         board_times.clone(),
                         debark_times.clone(),
                         loads_data,
-                        valid_dates.clone(),
+                        dates.clone(),
                         timezone,
                         vehicle_journey_idx.clone(),
                     );
@@ -412,8 +449,24 @@ where
         (removal_errors, insertion_errors)
     }
 
-    fn calendar(&self) -> &Calendar {
-        self.timetables.calendar()
+    fn remove_all_vehicles_on_date(&mut self, date: &NaiveDate) {
+        if *date < self.start_date || *date > self.end_date {
+            warn!(
+                "Trying to remove all vehicles on day {}, which is invalid for the data. \
+                    Allowed dates are between {} and {}",
+                date, self.start_date, self.end_date
+            );
+            return;
+        }
+        self.timetables.remove_all_vehicle_on_day(date)
+    }
+
+    fn start_date(&self) -> &NaiveDate {
+        &self.start_date
+    }
+
+    fn end_date(&self) -> &NaiveDate {
+        &self.end_date
     }
 }
 
@@ -475,7 +528,8 @@ where
 
 pub fn handle_insertion_errors(
     model: &ModelRefs,
-    calendar: &Calendar,
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
     insertion_errors: &[InsertionError],
 ) {
     for error in insertion_errors {
@@ -491,16 +545,13 @@ pub fn handle_insertion_errors(
                     vehicle_journey_name, date
                 );
             }
-            DateOutOfCalendar(date, vehicle_journey_idx) => {
+            InvalidDate(date, vehicle_journey_idx) => {
                 let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
                 error!(
                     "Trying to insert the vehicle journey {} on day {},  \
-                        but this day is not allowed in the calendar.  \
+                        but this day is not allowed in the date.  \
                         Allowed dates are between {} and {}",
-                    vehicle_journey_name,
-                    date,
-                    calendar.first_date(),
-                    calendar.last_date(),
+                    vehicle_journey_name, date, start_date, end_date,
                 );
             }
         }
@@ -619,7 +670,8 @@ fn upstream_downstream_stop_names<'model>(
 
 pub fn handle_removal_errors(
     model: &ModelRefs,
-    calendar: &Calendar,
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
     removal_errors: impl Iterator<Item = RemovalError>,
 ) {
     for error in removal_errors {
@@ -628,12 +680,9 @@ pub fn handle_removal_errors(
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
                     "Trying to remove the vehicle journey {} on day {},  \
-                        but this day is not allowed in the calendar.  \
+                        but this day is not allowed in the data.  \
                         Allowed dates are between {} and {}",
-                    vehicle_journey_name,
-                    date,
-                    calendar.first_date(),
-                    calendar.last_date(),
+                    vehicle_journey_name, date, start_date, end_date,
                 );
             }
             RemovalError::UnknownVehicleJourney(vehicle_journey_idx) => {

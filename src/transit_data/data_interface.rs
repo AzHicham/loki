@@ -1,9 +1,7 @@
 use crate::{
     loads_data::{Load, LoadsData},
     model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{
-        Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    },
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, RemovalError},
 };
 use chrono::{NaiveDate, NaiveDateTime};
@@ -192,7 +190,7 @@ pub trait DataUpdate {
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
@@ -214,7 +212,10 @@ pub trait DataUpdate {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn calendar(&self) -> &Calendar;
+    fn remove_all_vehicles_on_date(&mut self, date: &NaiveDate);
+
+    fn start_date(&self) -> &NaiveDate;
+    fn end_date(&self) -> &NaiveDate;
 }
 
 pub trait DataIO {
