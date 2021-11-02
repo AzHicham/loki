@@ -50,9 +50,7 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::{
-    chrono::TimeZone, filters::Filters, model::ModelRefs, request::generic_request, TransitTypes,
-};
+use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs, request::generic_request};
 
 use loki::{chrono_tz, tracing::debug};
 

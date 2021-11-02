@@ -51,6 +51,7 @@ use crate::time::{
     SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::{FixedOffset, NaiveDate};
+use tracing::warn;
 
 use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
@@ -532,6 +533,45 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             *date,
             vehicle_journey_idx.clone(),
         ))
+    }
+
+    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate) {
+        let day = {
+            let has_day = self.calendar.date_to_days_since_start(date);
+            if let Some(day) = has_day {
+                day
+            } else {
+                warn!(
+                    "Asked to remove all vehicle on day {}, which is invalid for the calendar. \
+                            Allowed dates are between {} and {}",
+                    date,
+                    self.calendar.first_date(),
+                    self.calendar.last_date(),
+                );
+                return;
+            }
+        };
+
+        let mut vehicle_journeys_to_remove = Vec::new();
+        for (vehicle_journey_idx, offset_to_day_to_timetable) in
+            self.vehicle_journey_to_timetables.iter()
+        {
+            for (_, day_to_timetable) in offset_to_day_to_timetable.iter() {
+                if day_to_timetable.contains_day(&day, &mut self.days_patterns) {
+                    vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
+                }
+            }
+        }
+        for vehicle_journey_idx in vehicle_journeys_to_remove {
+            let removal_result = self.remove(date, &vehicle_journey_idx);
+            if let Err(removal_error) = removal_result {
+                warn!(
+                    "Removal error occured while removing all vehicles on day {}. \
+                    {:?}",
+                    date, removal_error
+                )
+            }
+        }
     }
 }
 

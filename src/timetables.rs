@@ -193,6 +193,8 @@ pub trait Timetables: Types {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError>;
+
+    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate);
 }
 
 #[derive(Clone, Debug)]
