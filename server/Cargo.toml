@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 # for navitia_proto
-prost = "0.8"
+prost = "0.9"
 
 # for chaos_proto which uses protobuf v2 extensions features, which are not supported by prost
 # cf https://github.com/tokio-rs/prost/issues/100
@@ -34,5 +34,5 @@ serde_json = "1.0"
 relational_types = "2.0.0"
 
 [build-dependencies]
-prost-build = "0.8"
+prost-build = "0.9"
 protobuf-codegen-pure = "2"
