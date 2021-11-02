@@ -38,7 +38,7 @@ use std::collections::BTreeMap;
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Position, Timetable, Timetables, Vehicle},
+    generic_timetables::{Position, Timetable, Timetables, Trip, Vehicle},
     iters::{PositionsIter, TimetableIter, VehicleIter},
     InsertionError, RemovalError, Stop, TimetablesIter,
 };
@@ -73,17 +73,10 @@ pub struct VehicleData {
     vehicle_journey_idx: VehicleJourneyIdx,
 }
 
-#[derive(Debug, Clone)]
-pub struct Trip {
-    vehicle: Vehicle,
-    day: DaysSinceDatasetStart,
-}
-
 impl TimetablesTypes for PeriodicTimetables {
     type Mission = Timetable;
     type Position = Position;
     type Trip = Trip;
-    type VehicleData = VehicleData;
 }
 
 impl TimetablesTrait for PeriodicTimetables {

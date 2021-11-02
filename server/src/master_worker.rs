@@ -38,7 +38,7 @@ use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
     model::real_time::RealTimeModel,
-    timetables::PeriodicSplitVjByTzTimetables,
+    timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
     transit_model::Model,
     LoadsData, TransitData,
@@ -66,7 +66,7 @@ pub enum LoadBalancerOrder {
 }
 
 pub type BaseTimetable = PeriodicSplitVjByTzTimetables;
-pub type RealTimeTimetable = PeriodicSplitVjByTzTimetables;
+pub type RealTimeTimetable = DailyTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,

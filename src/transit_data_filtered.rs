@@ -40,7 +40,7 @@ use crate::{
     model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::iters::MissionsOfStop,
-    TransitData,
+    DataWithIters, TransitData,
 };
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
@@ -53,8 +53,8 @@ use crate::{
 };
 use std::fmt::Debug;
 
-pub struct TransitDataFiltered<'data, 'filter, Timetables: TimetablesTrait> {
-    transit_data: &'data TransitData<Timetables>,
+pub struct TransitDataFiltered<'data, 'filter, Data> {
+    transit_data: &'data Data,
     memory: &'filter FilterMemory,
 }
 
@@ -114,8 +114,11 @@ impl FilterMemory {
     }
 }
 
-impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'filter, Timetables> {
-    pub fn is_stop_allowed(&self, stop: &Stop) -> bool {
+impl<'data, 'filter, Data> TransitDataFiltered<'data, 'filter, Data>
+where
+    Data: data_interface::Data,
+{
+    pub fn is_stop_allowed(&self, stop: &Data::Stop) -> bool {
         let stop_idx = self.stop_point_idx(stop);
         match stop_idx {
             StopPointIdx::Base(idx) => self.memory.allowed_base_stop_points[idx.get()],
@@ -130,7 +133,7 @@ impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'fi
         }
     }
 
-    pub fn new(data: &'data TransitData<Timetables>, memory: &'filter FilterMemory) -> Self {
+    pub fn new(data: &'data Data, memory: &'filter FilterMemory) -> Self {
         Self {
             transit_data: data,
             memory,
@@ -138,19 +141,19 @@ impl<'data, 'filter, Timetables: TimetablesTrait> TransitDataFiltered<'data, 'fi
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::TransitTypes
-    for TransitDataFiltered<'_, '_, Timetables>
+impl<Data: data_interface::Data> data_interface::TransitTypes
+    for TransitDataFiltered<'_, '_, Data>
 {
-    type Stop = Stop;
-    type Mission = Timetables::Mission;
-    type Position = Timetables::Position;
-    type Trip = Timetables::Trip;
-    type Transfer = Transfer;
+    type Stop = Data::Stop;
+    type Mission = Data::Mission;
+    type Position = Data::Position;
+    type Trip = Data::Trip;
+    type Transfer = Data::Transfer;
 }
 
-impl<Timetables: TimetablesTrait> data_interface::Data for TransitDataFiltered<'_, '_, Timetables>
+impl<Data> data_interface::Data for TransitDataFiltered<'_, '_, Data>
 where
-    Timetables: TimetablesTrait,
+    Data: data_interface::Data,
 {
     fn is_upstream(
         &self,
@@ -158,9 +161,7 @@ where
         downstream: &Self::Position,
         mission: &Self::Mission,
     ) -> bool {
-        self.transit_data
-            .timetables
-            .is_upstream_in_mission(upstream, downstream, mission)
+        self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
     fn next_on_mission(
@@ -168,9 +169,7 @@ where
         position: &Self::Position,
         mission: &Self::Mission,
     ) -> Option<Self::Position> {
-        self.transit_data
-            .timetables
-            .next_position(position, mission)
+        self.transit_data.next_on_mission(position, mission)
     }
 
     fn previous_on_mission(
@@ -178,17 +177,15 @@ where
         position: &Self::Position,
         mission: &Self::Mission,
     ) -> Option<Self::Position> {
-        self.transit_data
-            .timetables
-            .previous_position(position, mission)
+        self.transit_data.previous_on_mission(position, mission)
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
-        self.transit_data.timetables.mission_of(trip)
+        self.transit_data.mission_of(trip)
     }
 
     fn stop_of(&self, position: &Self::Position, mission: &Self::Mission) -> Self::Stop {
-        self.transit_data.timetables.stop_at(position, mission)
+        self.transit_data.stop_of(position, mission)
     }
 
     fn board_time_of(
@@ -200,7 +197,7 @@ where
         let stop = self.stop_of(position, &mission);
 
         if self.is_stop_allowed(&stop) {
-            self.transit_data.timetables.board_time_of(trip, position)
+            self.transit_data.board_time_of(trip, position)
         } else {
             None
         }
@@ -215,7 +212,7 @@ where
         let stop = self.stop_of(position, &mission);
 
         if self.is_stop_allowed(&stop) {
-            self.transit_data.timetables.debark_time_of(trip, position)
+            self.transit_data.debark_time_of(trip, position)
         } else {
             None
         }
@@ -226,7 +223,7 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.transit_data.timetables.arrival_time_of(trip, position)
+        self.transit_data.arrival_time_of(trip, position)
     }
 
     fn departure_time_of(
@@ -234,24 +231,19 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.transit_data
-            .timetables
-            .departure_time_of(trip, position)
+        self.transit_data.departure_time_of(trip, position)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
-        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
-        (transfer_data.from_stop, transfer_data.to_stop)
+        self.transit_data.transfer_from_to_stop(transfer)
     }
 
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
-        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
-        transfer_data.durations.total_duration
+        self.transit_data.transfer_duration(transfer)
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
-        let transfer_data = &self.transit_data.transfers_data[transfer.idx];
-        transfer_data.transit_model_transfer_idx.clone()
+    fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
+        self.transit_data.transfer_idx(transfer)
     }
 
     fn earliest_trip_to_board_at(
@@ -263,16 +255,40 @@ where
         let stop = self.stop_of(position, mission);
 
         if self.is_stop_allowed(&stop) {
-            self.transit_data
-                .timetables
-                .earliest_filtered_trip_to_board_at(
-                    waiting_time,
-                    mission,
-                    position,
-                    |vehicle_journey_idx: &VehicleJourneyIdx| {
-                        self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                    },
-                )
+            self.transit_data.earliest_filtered_trip_to_board_at(
+                waiting_time,
+                mission,
+                position,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let stop = self.stop_of(position, mission);
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.earliest_filtered_trip_to_board_at(
+                waiting_time,
+                mission,
+                position,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                        && filter(vehicle_journey_idx)
+                },
+            )
         } else {
             None
         }
@@ -287,16 +303,41 @@ where
         let stop = self.stop_of(position, mission);
 
         if self.is_stop_allowed(&stop) {
-            self.transit_data
-                .timetables
-                .latest_filtered_trip_that_debark_at(
-                    waiting_time,
-                    mission,
-                    position,
-                    |vehicle_journey_idx: &VehicleJourneyIdx| {
-                        self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                    },
-                )
+            self.transit_data.latest_filtered_trip_that_debark_at(
+                waiting_time,
+                mission,
+                position,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.latest_filtered_trip_that_debark_at(
+                waiting_time,
+                mission,
+                position,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                        && filter(vehicle_journey_idx)
+                },
+            )
         } else {
             None
         }
@@ -306,100 +347,91 @@ where
         &self,
         seconds: &crate::time::SecondsSinceDatasetUTCStart,
     ) -> chrono::NaiveDateTime {
-        self.transit_data
-            .timetables
-            .calendar()
-            .to_naive_datetime(seconds)
+        self.transit_data.calendar().to_naive_datetime(seconds)
     }
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
-        self.transit_data.timetables.vehicle_journey_idx(trip)
+        self.transit_data.vehicle_journey_idx(trip)
     }
 
-    fn stop_point_idx(&self, stop: &Stop) -> StopPointIdx {
-        self.transit_data.stops_data[stop.idx]
-            .stop_point_idx
-            .clone()
+    fn stop_point_idx(&self, stop: &Self::Stop) -> StopPointIdx {
+        self.transit_data.stop_point_idx(stop)
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
-        self.transit_data.timetables.stoptime_idx(position, trip)
+        self.transit_data.stoptime_idx(position, trip)
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
-        self.transit_data.timetables.day_of(trip)
+        self.transit_data.day_of(trip)
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
-        stop_a.idx == stop_b.idx
+        self.transit_data.is_same_stop(stop_a, stop_b)
     }
 
     fn calendar(&self) -> &Calendar {
-        self.transit_data.timetables.calendar()
+        self.transit_data.calendar()
     }
 
     fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
-        self.transit_data
-            .stop_point_idx_to_stop
-            .get(stop_point_idx)
-            .copied()
+        self.transit_data.stop_point_idx_to_stop(stop_point_idx)
     }
 
     fn nb_of_trips(&self) -> usize {
-        self.transit_data.timetables.nb_of_trips()
+        self.transit_data.nb_of_trips()
     }
 
     fn nb_of_stops(&self) -> usize {
-        self.transit_data.stops_data.len()
+        self.transit_data.nb_of_stops()
     }
 
-    fn stop_id(&self, stop: &Stop) -> usize {
-        stop.idx
+    fn stop_id(&self, stop: &Self::Stop) -> usize {
+        self.transit_data.stop_id(stop)
     }
 
     fn nb_of_missions(&self) -> usize {
-        self.transit_data.timetables.nb_of_missions()
+        self.transit_data.nb_of_missions()
     }
 
     fn mission_id(&self, mission: &Self::Mission) -> usize {
-        self.transit_data.timetables.mission_id(mission)
+        self.transit_data.mission_id(mission)
     }
 }
 
-impl<'a, Timetables> data_interface::DataIters<'a> for TransitDataFiltered<'_, '_, Timetables>
+impl<'a, Data> data_interface::DataIters<'a> for TransitDataFiltered<'_, '_, Data>
 where
-    Timetables: TimetablesTrait + for<'b> TimetablesIter<'b> + Debug,
-    Timetables::Mission: 'a,
-    Timetables::Position: 'a,
+    Data: data_interface::Data + data_interface::DataIters<'a>,
+    Data::Mission: 'a,
+    Data::Position: 'a,
 {
-    type MissionsAtStop = MissionsOfStop<'a, Timetables>;
+    type MissionsAtStop = Data::MissionsAtStop;
 
     fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
-        self.transit_data
-            .missions_of_filtered(stop, |_| self.is_stop_allowed(stop))
+        self.transit_data.missions_at(stop)
     }
 
-    type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
+    type OutgoingTransfersAtStop = Data::OutgoingTransfersAtStop;
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
         self.transit_data.outgoing_transfers_at(from_stop)
     }
 
-    type IncomingTransfersAtStop = iters::IncomingTransfersAtStop<'a>;
+    type IncomingTransfersAtStop = Data::IncomingTransfersAtStop;
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
         self.transit_data.incoming_transfers_at(stop)
     }
 
-    type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
+    type TripsOfMission = Data::TripsOfMission;
 
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.transit_data.timetables.trips_of(mission)
+        self.transit_data.trips_of(mission)
     }
 }
 
-impl<Timetables> data_interface::DataWithIters for TransitDataFiltered<'_, '_, Timetables>
+impl<Data> data_interface::DataWithIters for TransitDataFiltered<'_, '_, Data>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
+    Data: DataWithIters,
+    Data::Mission: 'static,
+    Data::Position: 'static,
 {
 }

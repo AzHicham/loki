@@ -201,7 +201,7 @@ where
         transfer_data.durations.total_duration
     }
 
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
+    fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transfers_data[transfer.idx];
         transfer_data.transit_model_transfer_idx.clone()
     }
@@ -216,6 +216,20 @@ where
             .earliest_trip_to_board_at(waiting_time, mission, position)
     }
 
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        self.timetables
+            .earliest_filtered_trip_to_board_at(waiting_time, mission, position, filter)
+    }
+
     fn latest_trip_that_debark_at(
         &self,
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
@@ -224,6 +238,20 @@ where
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
             .latest_trip_that_debark_at(waiting_time, mission, position)
+    }
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        self.timetables
+            .latest_filtered_trip_that_debark_at(waiting_time, mission, position, filter)
     }
 
     fn to_naive_datetime(

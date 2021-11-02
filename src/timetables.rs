@@ -74,7 +74,6 @@ pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone;
     type Trip: Debug + Clone;
-    type VehicleData: Debug + Clone;
 }
 
 pub trait Timetables: Types {

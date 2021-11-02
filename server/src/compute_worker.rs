@@ -50,6 +50,7 @@ use launch::{
         chrono::Utc,
         filters::Filters,
         model::{real_time::RealTimeModel, ModelRefs},
+        request::generic_request,
         tracing::{debug, error, info, warn},
         transit_model::Model,
         NaiveDateTime, PositiveDuration, RequestInput, TransitData,
@@ -72,7 +73,7 @@ type RealTimeData = TransitData<RealTimeTimetable>;
 pub struct ComputeWorker {
     base_data_and_model: Arc<RwLock<(BaseData, Model)>>,
     real_time_data_and_model: Arc<RwLock<(RealTimeData, RealTimeModel)>>,
-    solver: Solver<BaseTimetable>,
+    solver: Solver,
     worker_id: WorkerId,
     request_default_params: config::RequestParams,
     request_channel: mpsc::Receiver<RequestMessage>,
@@ -87,7 +88,7 @@ impl ComputeWorker {
         request_default_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
-        let solver = Solver::<BaseTimetable>::new(0, 0);
+        let solver = Solver::new(0, 0);
 
         let (requests_channel_sender, requests_channel_receiver) = mpsc::channel(1);
 
@@ -261,12 +262,17 @@ fn solve<Timetables>(
     journey_request: navitia_proto::JourneysRequest,
     data: &TransitData<Timetables>,
     model: &ModelRefs<'_>,
-    solver: &mut Solver<Timetables>,
+    solver: &mut Solver,
     request_default_params: &config::RequestParams,
     comparator_type: config::ComparatorType,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    Timetables: for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

@@ -42,7 +42,7 @@ use crate::{
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Timetables, Vehicle},
+    generic_timetables::{Timetables, Trip, Vehicle},
     InsertionError, RemovalError, TimetablesIter,
 };
 
@@ -73,17 +73,10 @@ pub struct VehicleData {
     utc_offset: FixedOffset,
 }
 
-#[derive(Debug, Clone)]
-pub struct Trip {
-    vehicle: Vehicle,
-    day: DaysSinceDatasetStart,
-}
-
 impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
     type Mission = Timetable;
     type Position = Position;
     type Trip = Trip;
-    type VehicleData = VehicleData;
 }
 
 impl TimetablesTrait for PeriodicSplitVjByTzTimetables {

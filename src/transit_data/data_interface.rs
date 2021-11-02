@@ -105,7 +105,7 @@ pub trait Data: TransitTypes {
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
+    fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
 
     fn earliest_trip_to_board_at(
         &self,
@@ -114,12 +114,32 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
+
     fn latest_trip_that_debark_at(
         &self,
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
     fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 

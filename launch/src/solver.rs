@@ -39,12 +39,13 @@ use std::{fmt::Debug, time::SystemTime};
 use loki::{
     filters::Filters,
     model::ModelRefs,
+    request::generic_request,
     tracing::{debug, info, trace},
 };
 
 use loki::{
     response, transit_data_filtered::FilterMemory, BadRequest, MultiCriteriaRaptor, RequestDebug,
-    RequestIO, RequestInput, RequestTypes, RequestWithIters,
+    RequestIO, RequestInput, RequestTypes as RequestTypesTrait, RequestWithIters,
 };
 
 use crate::datetime::DateTimeRepresent;
@@ -52,26 +53,18 @@ use crate::datetime::DateTimeRepresent;
 use super::config;
 use crate::loki::{DataTrait, TransitData};
 use loki::{
-    request::{self, generic_request::Types},
+    request::{self, generic_request::RequestTypes},
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::TransitDataFiltered,
 };
 
-pub struct Solver<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-{
-    engine: MultiCriteriaRaptor<Types<TransitData<Timetables>>>,
+pub struct Solver {
+    engine: MultiCriteriaRaptor<RequestTypes>,
 
     filter_memory: FilterMemory,
 }
 
-impl<Timetables> Solver<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
+impl Solver {
     pub fn new(nb_of_stops: usize, nb_of_missions: usize) -> Self {
         Self {
             engine: MultiCriteriaRaptor::new(nb_of_stops, nb_of_missions),
@@ -84,7 +77,7 @@ where
             .fill_allowed_stops_and_vehicles(filters, model);
     }
 
-    pub fn solve_request(
+    pub fn solve_request<Timetables>(
         &mut self,
         data: &TransitData<Timetables>,
         model: &ModelRefs<'_>,
@@ -95,6 +88,14 @@ where
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
+        Timetables: TimetablesTrait<
+            Mission = generic_request::Mission,
+            Position = generic_request::Position,
+            Trip = generic_request::Trip,
+        >,
+        Timetables: for<'a> TimetablesIter<'a> + Debug,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
     {
         use crate::datetime::DateTimeRepresent::*;
         use config::ComparatorType::*;
@@ -179,8 +180,8 @@ where
     }
 }
 
-fn solve_request_inner<'data, 'model, Data, Request, Types>(
-    engine: &mut MultiCriteriaRaptor<Types>,
+fn solve_request_inner<'data, 'model, Data, Request>(
+    engine: &mut MultiCriteriaRaptor<RequestTypes>,
     request: &Request,
     data: &'data Data,
 ) -> Vec<response::Response>
@@ -188,17 +189,17 @@ where
     Request: RequestWithIters,
     Request: RequestIO<'data, 'model, Data> + RequestDebug,
     Data: DataTrait,
-    Types: RequestTypes<
-        Position = Request::Position,
-        Mission = Request::Mission,
-        Stop = Request::Stop,
-        Trip = Request::Trip,
-        Transfer = Request::Transfer,
-        Departure = Request::Departure,
-        Arrival = Request::Arrival,
-        Criteria = Request::Criteria,
+    Request: RequestTypesTrait<
+        Position = generic_request::Position,
+        Mission = generic_request::Mission,
+        Stop = generic_request::Stop,
+        Trip = generic_request::Trip,
+        Transfer = generic_request::Transfer,
+        Departure = generic_request::Departure,
+        Arrival = generic_request::Arrival,
+        Criteria = generic_request::Criteria,
     >,
-    Types::Criteria: Debug,
+    Request::Criteria: Debug,
 {
     debug!("Start computing journeys");
     let request_timer = SystemTime::now();

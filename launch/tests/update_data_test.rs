@@ -43,6 +43,7 @@ use launch::{config::DataImplem, solver::Solver};
 
 use loki::{
     model::{real_time::RealTimeModel, ModelRefs, VehicleJourneyIdx},
+    request::generic_request,
     timetables::{Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
 };
@@ -67,7 +68,12 @@ fn remove_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
 
 fn remove_vj_inner<T>() -> Result<(), Error>
 where
-    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a> + Debug,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -100,7 +106,7 @@ where
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
@@ -190,7 +196,12 @@ fn remove_successive_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
 
 fn remove_successive_vj_inner<T>() -> Result<(), Error>
 where
-    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a> + Debug,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -228,7 +239,7 @@ where
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
@@ -339,7 +350,12 @@ fn remove_middle_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
 
 fn remove_middle_vj_inner<T>() -> Result<(), Error>
 where
-    T: Timetables + for<'a> TimetablesIter<'a> + Debug,
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a> + Debug,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -377,7 +393,7 @@ where
         &config.default_transfer_duration,
     );
 
-    let mut solver = Solver::<T>::new(data.nb_of_stops(), data.nb_of_missions());
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
         let request_input = utils::make_request_from_config(&config)?;
