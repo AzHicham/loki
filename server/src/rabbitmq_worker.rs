@@ -38,6 +38,7 @@ use super::chaos_proto::gtfs_realtime;
 
 use failure::{format_err, Error};
 use lapin::{
+    message::Delivery,
     options::{
         BasicAckOptions, BasicConsumeOptions, ExchangeDeclareOptions, QueueBindOptions,
         QueueDeclareOptions,
@@ -178,6 +179,53 @@ impl RabbitMqWorker {
         })
     }
 
+    async fn handle_message(
+        &mut self,
+        message: Option<Result<(Channel, Delivery), lapin::Error>>,
+    ) -> Result<(), Error> {
+        match message {
+            Some(Ok((channel, delivery))) => {
+                channel
+                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                    .await?;
+                let proto_message = decode_amqp_rt_message(&delivery);
+                match proto_message {
+                    Ok(proto_message) => {
+                        self.proto_messages.push(proto_message);
+                        Ok(())
+                    }
+                    Err(err) => {
+                        // There's something wrong when decoding the proto message, but we don't want to interrupt the process
+                        error!("Error decoding proto message : {}", err.to_string());
+                        Ok(())
+                    }
+                }
+            }
+            Some(Err(err)) => {
+                return Err(format_err!(
+                    "An error occurred when consuming amqp message : {}",
+                    err
+                ));
+            }
+            None => {
+                return Err(format_err!(
+                    "An unknown error occurred when consuming amqp message",
+                ));
+            }
+        }
+    }
+
+    async fn send_proto_messages(&mut self) -> Result<(), Error> {
+        if self.proto_messages.is_empty() {
+            return Ok(());
+        }
+        let proto_message = std::mem::take(&mut self.proto_messages);
+        self.amqp_message_sender
+            .send(proto_message)
+            .await
+            .map_err(|err| format_err!("AMQP Worker could not send proto_message : {}.", err))
+    }
+
     async fn consume(&mut self) -> Result<(), Error> {
         let mut rt_consumer: Consumer = self
             .channel
@@ -192,52 +240,25 @@ impl RabbitMqWorker {
             )
             .await?;
 
+        use tokio::time;
+        let interval = time::interval(Duration::from_secs(self.timeout));
+        tokio::pin!(interval);
+
         loop {
-            use tokio::time::timeout;
-            let res = timeout(Duration::from_millis(self.timeout), rt_consumer.next()).await;
+            tokio::select! {
+                _ = interval.tick() => {
+                    debug!("Receiving timed out");
+                    // Timeout, no matter whether there're messages or not in Rabbitmq, we send the messages in buffer
+                    self.send_proto_messages().await?;
 
-            if let Ok(opt_message) = res {
-                match opt_message {
-                    Some(Ok((channel, delivery))) => {
-                        channel
-                            .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
-                            .await?;
-
-                        let proto_message = decode_amqp_rt_message(&delivery);
-                        match proto_message {
-                            Ok(proto_message) => {
-                                self.proto_messages.push(proto_message);
-                            }
-                            Err(err) => {
-                                error!("Error decoding proto message : {}", err.to_string())
-                            }
-                        }
-                    }
-                    Some(Err(err)) => {
-                        return Err(format_err!(
-                            "An error occurred when consuming amqp message : {}",
-                            err
-                        ));
-                    }
-                    None => {
-                        return Err(format_err!(
-                            "An unknown error occurred when consuming amqp message",
-                        ));
-                    }
                 }
-            } else {
-                // timeout : we suppose queue is empty
-                // if self.proto_messages contains proto_messages
-                // we send them to MasterWorker
-                if !self.proto_messages.is_empty() {
-                    info!("We got {} proto_messages", self.proto_messages.len());
-                    let proto_message = std::mem::take(&mut self.proto_messages);
-                    self.amqp_message_sender
-                        .send(proto_message)
-                        .await
-                        .map_err(|err| {
-                            format_err!("AMQP Worker could not send proto_message : {}.", err)
-                        })?;
+                res = rt_consumer.next() => {
+                    self.handle_message(res).await?;
+
+                    if self.proto_messages.len() > 5000 {
+                        self.send_proto_messages().await?;
+                    }
+
                 }
             }
         }
