@@ -64,7 +64,7 @@ where
     ) -> Result<(), RemovalError> {
         if *date < self.start_date || *date > self.end_date {
             Err(RemovalError::UnknownDate(
-                date.clone(),
+                *date,
                 vehicle_journey_idx.clone(),
             ))
         } else {
@@ -91,12 +91,12 @@ where
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
         let mut errors = Vec::new();
-        let start_date = self.start_date.clone();
-        let end_date = self.end_date.clone();
+        let start_date = self.start_date;
+        let end_date = self.end_date;
         for date in valid_dates.clone() {
             if *date < start_date || *date > end_date {
                 errors.push(InsertionError::InvalidDate(
-                    date.clone(),
+                    *date,
                     vehicle_journey_idx.clone(),
                 ));
             }
@@ -151,12 +151,12 @@ where
         let mut removal_errors = Vec::new();
         let mut insertion_errors = Vec::new();
 
-        let start_date = self.start_date.clone();
-        let end_date = self.end_date.clone();
+        let start_date = self.start_date;
+        let end_date = self.end_date;
         for date in valid_dates.clone() {
             if *date < start_date || *date > end_date {
                 insertion_errors.push(InsertionError::InvalidDate(
-                    date.clone(),
+                    *date,
                     vehicle_journey_idx.clone(),
                 ));
             }
@@ -193,8 +193,8 @@ where
         restricted_start_date: &NaiveDate,
         restricted_end_date: &NaiveDate,
     ) -> (Vec<NaiveDate>, Vec<NaiveDate>) {
-        let old_start_date = self.start_date.clone();
-        let old_end_date = self.end_date.clone();
+        let old_start_date = self.start_date;
+        let old_end_date = self.end_date;
         let calendar = self.timetables.calendar();
         let calendar_start_date = calendar.first_date();
         let calendar_end_date = calendar.last_date();
@@ -212,7 +212,7 @@ where
                 for day_offset in 0..=num_days {
                     let date = old_start_date + chrono::Duration::days(day_offset);
                     if date < start_date || date > end_date {
-                        removed_days.push(date.clone());
+                        removed_days.push(date);
                         self.remove_all_vehicles_on_date(&date);
                     }
                 }
@@ -225,7 +225,7 @@ where
                 for day_offset in 0..=num_days {
                     let date = start_date + chrono::Duration::days(day_offset);
                     if date < old_start_date || date > old_end_date {
-                        added_days.push(date.clone());
+                        added_days.push(date);
                     }
                 }
             }

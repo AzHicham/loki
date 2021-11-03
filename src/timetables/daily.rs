@@ -418,7 +418,7 @@ impl TimetablesTrait for DailyTimetables {
         };
         let mut vehicle_journeys_to_remove = Vec::new();
         for (vehicle_journey_idx, day_to_timetable) in self.vehicle_journey_to_timetables.iter() {
-            if day_to_timetable.contains_day(&day, &mut self.days_patterns) {
+            if day_to_timetable.contains_day(&day, &self.days_patterns) {
                 vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
             }
         }

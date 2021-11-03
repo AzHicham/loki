@@ -97,7 +97,7 @@ impl MasterWorker {
         );
 
         let restrict_calendar_for_realtime = {
-            let start_date = base_data.calendar().first_date().clone();
+            let start_date = *base_data.calendar().first_date();
             let end_date = start_date + chrono::Duration::days(2);
             Some((start_date, end_date))
         };

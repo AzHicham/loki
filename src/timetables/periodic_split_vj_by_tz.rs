@@ -557,7 +557,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             self.vehicle_journey_to_timetables.iter()
         {
             for (_, day_to_timetable) in offset_to_day_to_timetable.iter() {
-                if day_to_timetable.contains_day(&day, &mut self.days_patterns) {
+                if day_to_timetable.contains_day(&day, &self.days_patterns) {
                     vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
                 }
             }

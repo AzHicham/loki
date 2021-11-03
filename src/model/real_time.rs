@@ -431,9 +431,8 @@ impl RealTimeModel {
         loads_data: &LoadsData,
         data: &mut Data,
     ) {
-        let new_start_date =
-            new_end_date.clone() - Duration::days(nb_of_realtime_days_to_keep as i64);
-        let (_removed_dates, added_dates) = data.set_start_end_date(&new_start_date, &new_end_date);
+        let new_start_date = *new_end_date - Duration::days(nb_of_realtime_days_to_keep as i64);
+        let (_removed_dates, added_dates) = data.set_start_end_date(&new_start_date, new_end_date);
         let mut insertion_errors = Vec::new();
         for date in added_dates {
             for (base_vj_idx, transit_model_vj) in model.vehicle_journeys.iter() {
@@ -473,7 +472,7 @@ impl RealTimeModel {
             }
             for new_vj_idx in self.new_vehicle_journeys_id_to_idx.values() {
                 if let Some(TripData::Present(stop_times)) =
-                    self.new_vehicle_journey_last_version(&new_vj_idx, &date)
+                    self.new_vehicle_journey_last_version(new_vj_idx, &date)
                 {
                     let dates = std::iter::once(&date);
                     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());

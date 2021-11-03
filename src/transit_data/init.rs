@@ -224,8 +224,8 @@ where
                 );
             })?;
 
-        let start_date = self.start_date.clone();
-        let end_date = self.end_date.clone();
+        let start_date = self.start_date;
+        let end_date = self.end_date;
         let dates = model_calendar
             .dates
             .iter()
@@ -457,5 +457,5 @@ pub(super) fn restrict_dates(
         restricted_end_date
     };
 
-    (start_date.clone(), end_date.clone())
+    (*start_date, *end_date)
 }
