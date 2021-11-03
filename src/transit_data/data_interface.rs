@@ -212,10 +212,14 @@ pub trait DataUpdate {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn remove_all_vehicles_on_date(&mut self, date: &NaiveDate);
-
     fn start_date(&self) -> &NaiveDate;
     fn end_date(&self) -> &NaiveDate;
+
+    fn set_start_end_date(
+        &mut self,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> (Vec<NaiveDate>, Vec<NaiveDate>);
 }
 
 pub trait DataIO {

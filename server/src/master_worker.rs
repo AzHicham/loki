@@ -81,6 +81,7 @@ pub struct MasterWorker {
     loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     load_balancer_handle: LoadBalancerChannels,
+    nb_of_realtime_days_to_keep: u16,
 }
 
 impl MasterWorker {
@@ -134,6 +135,7 @@ impl MasterWorker {
             loads_data,
             amqp_message_receiver,
             load_balancer_handle,
+            nb_of_realtime_days_to_keep: config.nb_of_realtime_days_to_keep,
         };
         Ok(result)
     }
@@ -261,6 +263,7 @@ impl MasterWorker {
                             base_model,
                             &self.loads_data,
                             real_time_data,
+                            self.nb_of_realtime_days_to_keep,
                         );
                     }
                 }

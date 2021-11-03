@@ -125,6 +125,11 @@ pub struct Config {
     #[structopt(long, default_value = DEFAULT_NB_THREADS)]
     #[serde(default = "default_nb_thread")]
     nb_workers: usize,
+
+    /// number of days of realtime history to keep in data
+    #[structopt(long, default_value = DEFAULT_NB_REALTIME_DAYS)]
+    #[serde(default = "default_nb_realtime_days")]
+    nb_of_realtime_days_to_keep: u16,
 }
 
 pub const DEFAULT_NB_THREADS: &str = "1";
@@ -132,6 +137,13 @@ pub const DEFAULT_NB_THREADS: &str = "1";
 pub fn default_nb_thread() -> usize {
     use std::str::FromStr;
     usize::from_str(DEFAULT_NB_THREADS).unwrap()
+}
+
+pub const DEFAULT_NB_REALTIME_DAYS: &str = "2";
+
+pub fn default_nb_realtime_days() -> u16 {
+    use std::str::FromStr;
+    u16::from_str(DEFAULT_NB_REALTIME_DAYS).unwrap()
 }
 
 fn main() {

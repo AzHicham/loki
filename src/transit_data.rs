@@ -34,12 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 pub mod data_interface;
+pub mod data_update;
 pub mod init;
 pub mod iters;
 
 use chrono::NaiveDate;
 use iters::MissionsOfStop;
-use tracing::warn;
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
@@ -48,12 +48,10 @@ pub use typed_index_collection::Idx;
 use crate::{
     loads_data::{Load, LoadsData},
     model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{
-        Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    },
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         generic_timetables::{PositionPair, VehicleTimesError},
-        FlowDirection, InsertionError,
+        InsertionError,
     },
 };
 
@@ -311,162 +309,6 @@ where
 
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
-    }
-}
-
-impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
-{
-    fn remove_vehicle(
-        &mut self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &chrono::NaiveDate,
-    ) -> Result<(), RemovalError> {
-        if *date < self.start_date || *date > self.end_date {
-            Err(RemovalError::UnknownDate(
-                date.clone(),
-                vehicle_journey_idx.clone(),
-            ))
-        } else {
-            self.timetables.remove(date, vehicle_journey_idx)
-        }
-    }
-
-    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stop_points: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
-    where
-        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        let mut errors = Vec::new();
-        let start_date = self.start_date.clone();
-        let end_date = self.end_date.clone();
-        for date in valid_dates.clone() {
-            if *date < start_date || *date > end_date {
-                errors.push(InsertionError::InvalidDate(
-                    date.clone(),
-                    vehicle_journey_idx.clone(),
-                ));
-            }
-        }
-
-        let dates = valid_dates.filter(|&&date| date >= start_date && date <= end_date);
-
-        let stops = self.create_stops(stop_points).into_iter();
-        let (missions, insertion_errors) = self.timetables.insert(
-            stops,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            dates,
-            timezone,
-            &vehicle_journey_idx,
-        );
-
-        for mission in missions.iter() {
-            for position in self.timetables.positions(mission) {
-                let stop = self.timetables.stop_at(&position, mission);
-                let stop_data = &mut self.stops_data[stop.idx];
-                stop_data
-                    .position_in_timetables
-                    .push((mission.clone(), position));
-            }
-        }
-
-        errors.extend(insertion_errors);
-        errors
-    }
-
-    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stops: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> (Vec<RemovalError>, Vec<InsertionError>)
-    where
-        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        let mut removal_errors = Vec::new();
-        let mut insertion_errors = Vec::new();
-
-        let start_date = self.start_date.clone();
-        let end_date = self.end_date.clone();
-        for date in valid_dates.clone() {
-            if *date < start_date || *date > end_date {
-                insertion_errors.push(InsertionError::InvalidDate(
-                    date.clone(),
-                    vehicle_journey_idx.clone(),
-                ));
-            }
-        }
-
-        let dates = valid_dates.filter(|&&date| date >= start_date && date <= end_date);
-
-        for date in dates.clone() {
-            let removal_result = self.remove_vehicle(&vehicle_journey_idx, date);
-            match removal_result {
-                Ok(()) => {
-                    let errors = self.add_vehicle(
-                        stops.clone(),
-                        flows.clone(),
-                        board_times.clone(),
-                        debark_times.clone(),
-                        loads_data,
-                        dates.clone(),
-                        timezone,
-                        vehicle_journey_idx.clone(),
-                    );
-                    insertion_errors.extend_from_slice(errors.as_slice());
-                }
-                Err(removal_error) => {
-                    removal_errors.push(removal_error);
-                }
-            }
-        }
-        (removal_errors, insertion_errors)
-    }
-
-    fn remove_all_vehicles_on_date(&mut self, date: &NaiveDate) {
-        if *date < self.start_date || *date > self.end_date {
-            warn!(
-                "Trying to remove all vehicles on day {}, which is invalid for the data. \
-                    Allowed dates are between {} and {}",
-                date, self.start_date, self.end_date
-            );
-            return;
-        }
-        self.timetables.remove_all_vehicle_on_day(date)
-    }
-
-    fn start_date(&self) -> &NaiveDate {
-        &self.start_date
-    }
-
-    fn end_date(&self) -> &NaiveDate {
-        &self.end_date
     }
 }
 

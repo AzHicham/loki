@@ -77,28 +77,12 @@ where
 
         let (start_date, end_date) =
             if let Some((restricted_start_date, restricted_end_date)) = restrict_calendar {
-                let start_date = if restricted_start_date < calendar_start_date {
-                    warn!(
-                        "Trying to restrict the start date to {} but the calendar starts on {}.\
-                 I'll ignore the restricted start date.",
-                        restricted_start_date, calendar_start_date
-                    );
-                    calendar_start_date
-                } else {
-                    restricted_start_date
-                };
-                let end_date = if restricted_end_date > calendar_end_date {
-                    warn!(
-                        "Trying to restrict the end date to {} but the calendar ends on {}.\
-                 I'll ignore the restricted start date.",
-                        restricted_end_date, calendar_end_date
-                    );
-                    calendar_end_date
-                } else {
-                    restricted_end_date
-                };
-
-                (start_date, end_date)
+                restrict_dates(
+                    &calendar_start_date,
+                    &calendar_end_date,
+                    &restricted_start_date,
+                    &restricted_end_date,
+                )
             } else {
                 (calendar_start_date, calendar_end_date)
             };
@@ -228,7 +212,7 @@ where
             .iter()
             .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx));
 
-        let flows = self.create_flows_for_base_vehicle_journey(vehicle_journey)?;
+        let flows = create_flows_for_base_vehicle_journey(vehicle_journey)?;
 
         let model_calendar = transit_model
             .calendars
@@ -309,43 +293,42 @@ where
         }
         result
     }
+}
 
-    fn create_flows_for_base_vehicle_journey(
-        &self,
-        vehicle_journey: &VehicleJourney,
-    ) -> Result<Vec<FlowDirection>, ()> {
-        let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-        for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-            let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
-                (0, 0) => FlowDirection::BoardAndDebark,
-                (1, 0) => FlowDirection::DebarkOnly,
-                (0, 1) => FlowDirection::BoardOnly,
-                (1, 1) => FlowDirection::NoBoardDebark,
-                _ => {
-                    warn!(
-                        "Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
-                    because of unhandled pickup type {} or dropoff type {}. ",
-                        vehicle_journey.id,
-                        idx,
-                        stop_time,
-                        stop_time.pickup_type,
-                        stop_time.drop_off_type
-                    );
-                    return Err(());
-                }
-            };
-            result.push(to_push);
-        }
-
-        if result.len() < 2 {
-            warn!(
-                "Skipping vehicle journey {} that has less than 2 stop times.",
-                vehicle_journey.id
-            );
-            return Err(());
-        }
-        Ok(result)
+pub fn create_flows_for_base_vehicle_journey(
+    vehicle_journey: &VehicleJourney,
+) -> Result<Vec<FlowDirection>, ()> {
+    let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
+    for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
+        let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
+            (0, 0) => FlowDirection::BoardAndDebark,
+            (1, 0) => FlowDirection::DebarkOnly,
+            (0, 1) => FlowDirection::BoardOnly,
+            (1, 1) => FlowDirection::NoBoardDebark,
+            _ => {
+                warn!(
+                    "Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
+                because of unhandled pickup type {} or dropoff type {}. ",
+                    vehicle_journey.id,
+                    idx,
+                    stop_time,
+                    stop_time.pickup_type,
+                    stop_time.drop_off_type
+                );
+                return Err(());
+            }
+        };
+        result.push(to_push);
     }
+
+    if result.len() < 2 {
+        warn!(
+            "Skipping vehicle journey {} that has less than 2 stop times.",
+            vehicle_journey.id
+        );
+        return Err(());
+    }
+    Ok(result)
 }
 
 fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
@@ -364,7 +347,7 @@ fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
     SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
 
-fn timezone_of(
+pub fn timezone_of(
     vehicle_journey: &VehicleJourney,
     transit_model: &Model,
 ) -> Result<chrono_tz::Tz, ()> {
@@ -410,7 +393,7 @@ fn timezone_of(
     Ok(timezone)
 }
 
-fn board_timezoned_times(
+pub fn board_timezoned_times(
     vehicle_journey: &VehicleJourney,
 ) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
     let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
@@ -428,7 +411,7 @@ fn board_timezoned_times(
     Ok(result)
 }
 
-fn debark_timezoned_times(
+pub fn debark_timezoned_times(
     vehicle_journey: &VehicleJourney,
 ) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
     let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
@@ -445,4 +428,34 @@ fn debark_timezoned_times(
     }
 
     Ok(result)
+}
+
+pub(super) fn restrict_dates(
+    calendar_start_date: &NaiveDate,
+    calendar_end_date: &NaiveDate,
+    restricted_start_date: &NaiveDate,
+    restricted_end_date: &NaiveDate,
+) -> (NaiveDate, NaiveDate) {
+    let start_date = if restricted_start_date < calendar_start_date {
+        warn!(
+            "Trying to restrict the start date to {} but the calendar starts on {}.\
+             I'll ignore the restricted start date.",
+            restricted_start_date, calendar_start_date
+        );
+        calendar_start_date
+    } else {
+        restricted_start_date
+    };
+    let end_date = if restricted_end_date > calendar_end_date {
+        warn!(
+            "Trying to restrict the end date to {} but the calendar ends on {}.\
+        I'll ignore the restricted start date.",
+            restricted_end_date, calendar_end_date
+        );
+        calendar_end_date
+    } else {
+        restricted_end_date
+    };
+
+    (start_date.clone(), end_date.clone())
 }
