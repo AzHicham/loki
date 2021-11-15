@@ -50,7 +50,7 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs};
+use loki::{chrono::TimeZone, filters::Filters, model::ModelRefs, request::generic_request};
 
 use loki::{chrono_tz, tracing::debug};
 
@@ -173,13 +173,22 @@ fn build_and_solve_inner<Timetables>(
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    Timetables: for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
     use loki::DataTrait;
-    let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
+    let data: TransitData<Timetables> = launch::read::build_transit_data(
+        model.base,
+        loads_data,
+        &config.default_transfer_duration,
+        None,
+    );
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

@@ -34,15 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, ops::Not};
 
-use tracing::error;
+use chrono::Duration;
+use tracing::{error, warn};
 
 use crate::{
     chrono::NaiveDate,
     time::SecondsSinceTimezonedDayStart,
-    timetables::FlowDirection,
-    transit_data::{handle_insertion_errors, handle_removal_errors},
+    timetables::{FlowDirection, InsertionError},
+    transit_data::{self, handle_insertion_errors, handle_removal_errors},
     transit_model::Model,
 };
 
@@ -115,10 +116,17 @@ impl RealTimeModel {
         model: &Model,
         loads_data: &LoadsData,
         real_time_data: &mut Data,
+        nb_of_realtime_days_to_keep: u16,
     ) {
         for update in disruption.updates.iter() {
-            let apply_result =
-                self.apply_update(&disruption.id, update, model, loads_data, real_time_data);
+            let apply_result = self.apply_update(
+                &disruption.id,
+                update,
+                model,
+                loads_data,
+                real_time_data,
+                nb_of_realtime_days_to_keep,
+            );
             if let Err(err) = apply_result {
                 error!("Error occured while applying real time update {:?}", err);
             }
@@ -132,7 +140,20 @@ impl RealTimeModel {
         model: &Model,
         loads_data: &LoadsData,
         data: &mut Data,
+        nb_of_realtime_days_to_keep: u16,
     ) -> Result<(), UpdateError> {
+        let date = match update {
+            super::disruption::Update::Delete(trip) => trip.reference_date,
+            super::disruption::Update::Add(trip, _) => trip.reference_date,
+            super::disruption::Update::Modify(trip, _) => trip.reference_date,
+        };
+
+        // if the current update has a date more recent than the end_date in data
+        // we update the days in the data to encompass this more recent date
+        if date > *data.end_date() {
+            self.update_data_days(&date, nb_of_realtime_days_to_keep, model, loads_data, data);
+        }
+
         match update {
             super::disruption::Update::Delete(trip) => {
                 let vj_idx = self.delete(disruption_id, trip, model)?;
@@ -144,7 +165,8 @@ impl RealTimeModel {
                     };
                     handle_removal_errors(
                         &model_ref,
-                        data.calendar(),
+                        data.start_date(),
+                        data.end_date(),
                         std::iter::once(removal_error),
                     );
                 }
@@ -171,7 +193,12 @@ impl RealTimeModel {
                     base: model,
                     real_time: self,
                 };
-                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
+                handle_insertion_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    &insertion_errors,
+                );
                 Ok(())
             }
             super::disruption::Update::Modify(trip, stop_times) => {
@@ -195,8 +222,18 @@ impl RealTimeModel {
                     base: model,
                     real_time: self,
                 };
-                handle_insertion_errors(&model_ref, data.calendar(), &insertion_errors);
-                handle_removal_errors(&model_ref, data.calendar(), removal_errors.into_iter());
+                handle_insertion_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    &insertion_errors,
+                );
+                handle_removal_errors(
+                    &model_ref,
+                    data.start_date(),
+                    data.end_date(),
+                    removal_errors.into_iter(),
+                );
                 Ok(())
             }
         }
@@ -386,6 +423,90 @@ impl RealTimeModel {
             .map(|trip_version| &trip_version.trip_data)
     }
 
+    pub fn update_data_days<Data: DataUpdate>(
+        &self,
+        new_end_date: &NaiveDate,
+        nb_of_realtime_days_to_keep: u16,
+        model: &Model,
+        loads_data: &LoadsData,
+        data: &mut Data,
+    ) {
+        let new_start_date = *new_end_date - Duration::days(nb_of_realtime_days_to_keep as i64);
+        let (_removed_dates, added_dates) = data.set_start_end_date(&new_start_date, new_end_date);
+        let mut insertion_errors = Vec::new();
+        for date in added_dates {
+            for (base_vj_idx, transit_model_vj) in model.vehicle_journeys.iter() {
+                if let Some(TripData::Present(stop_times)) =
+                    self.base_vehicle_journey_last_version(&base_vj_idx, &date)
+                {
+                    let vj_idx = VehicleJourneyIdx::Base(base_vj_idx);
+                    let dates = std::iter::once(&date);
+                    let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+                    let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+                    let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
+                    let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
+                    let errors = data.add_vehicle(
+                        stops,
+                        flows,
+                        board_times,
+                        debark_times,
+                        loads_data,
+                        dates,
+                        &chrono_tz::UTC,
+                        vj_idx,
+                    );
+                    insertion_errors.extend(errors.into_iter());
+                } else {
+                    let insert_result = insert_base_vehicle_journey_in_data(
+                        data,
+                        &date,
+                        base_vj_idx,
+                        transit_model_vj,
+                        model,
+                        loads_data,
+                    );
+                    if let Ok(errors) = insert_result {
+                        insertion_errors.extend(errors.into_iter())
+                    }
+                }
+            }
+            for new_vj_idx in self.new_vehicle_journeys_id_to_idx.values() {
+                if let Some(TripData::Present(stop_times)) =
+                    self.new_vehicle_journey_last_version(new_vj_idx, &date)
+                {
+                    let dates = std::iter::once(&date);
+                    let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+                    let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+                    let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
+                    let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
+                    let vj_idx = VehicleJourneyIdx::New(new_vj_idx.clone());
+                    let errors = data.add_vehicle(
+                        stops,
+                        flows,
+                        board_times,
+                        debark_times,
+                        loads_data,
+                        dates,
+                        &chrono_tz::UTC,
+                        vj_idx,
+                    );
+                    insertion_errors.extend(errors.into_iter())
+                }
+            }
+        }
+
+        let model_ref = ModelRefs {
+            base: model,
+            real_time: self,
+        };
+        handle_insertion_errors(
+            &model_ref,
+            data.start_date(),
+            data.end_date(),
+            &insertion_errors,
+        );
+    }
+
     pub fn new() -> Self {
         Self {
             new_vehicle_journeys_id_to_idx: HashMap::new(),
@@ -396,6 +517,56 @@ impl RealTimeModel {
             new_stops: Vec::new(),
         }
     }
+}
+
+fn insert_base_vehicle_journey_in_data<Data: DataUpdate>(
+    data: &mut Data,
+    date: &NaiveDate,
+    vehicle_journey_idx: TransitModelVehicleJourneyIdx,
+    vehicle_journey: &transit_model::objects::VehicleJourney,
+    transit_model: &Model,
+    loads_data: &LoadsData,
+) -> Result<Vec<InsertionError>, ()> {
+    let stop_points = vehicle_journey
+        .stop_times
+        .iter()
+        .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx));
+
+    let flows = transit_data::init::create_flows_for_base_vehicle_journey(vehicle_journey)?;
+
+    let model_calendar = transit_model
+        .calendars
+        .get(&vehicle_journey.service_id)
+        .ok_or_else(|| {
+            warn!(
+                "Skipping vehicle journey {} because its calendar {} was not found.",
+                vehicle_journey.id, vehicle_journey.service_id,
+            );
+        })?;
+    if model_calendar.dates.contains(date).not() {
+        return Err(());
+    }
+
+    let dates = std::iter::once(date);
+
+    let timezone = transit_data::init::timezone_of(vehicle_journey, transit_model)?;
+
+    let board_times = transit_data::init::board_timezoned_times(vehicle_journey)?;
+    let debark_times = transit_data::init::debark_timezoned_times(vehicle_journey)?;
+
+    let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
+
+    let insertion_errors = data.add_vehicle(
+        stop_points,
+        flows.into_iter(),
+        board_times.into_iter(),
+        debark_times.into_iter(),
+        loads_data,
+        dates,
+        &timezone,
+        vehicle_journey_idx,
+    );
+    Ok(insertion_errors)
 }
 
 impl Default for RealTimeModel {

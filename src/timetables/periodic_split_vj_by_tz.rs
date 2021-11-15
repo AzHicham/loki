@@ -42,7 +42,7 @@ use crate::{
 
 use super::{
     day_to_timetable::DayToTimetable,
-    generic_timetables::{Timetables, Vehicle},
+    generic_timetables::{Timetables, Trip, Vehicle},
     InsertionError, RemovalError, TimetablesIter,
 };
 
@@ -51,6 +51,7 @@ use crate::time::{
     SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::{FixedOffset, NaiveDate};
+use tracing::warn;
 
 use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
@@ -73,17 +74,10 @@ pub struct VehicleData {
     utc_offset: FixedOffset,
 }
 
-#[derive(Debug, Clone)]
-pub struct Trip {
-    vehicle: Vehicle,
-    day: DaysSinceDatasetStart,
-}
-
 impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
     type Mission = Timetable;
     type Position = Position;
     type Trip = Trip;
-    type VehicleData = VehicleData;
 }
 
 impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
@@ -539,6 +533,45 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             *date,
             vehicle_journey_idx.clone(),
         ))
+    }
+
+    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate) {
+        let day = {
+            let has_day = self.calendar.date_to_days_since_start(date);
+            if let Some(day) = has_day {
+                day
+            } else {
+                warn!(
+                    "Asked to remove all vehicle on day {}, which is invalid for the calendar. \
+                            Allowed dates are between {} and {}",
+                    date,
+                    self.calendar.first_date(),
+                    self.calendar.last_date(),
+                );
+                return;
+            }
+        };
+
+        let mut vehicle_journeys_to_remove = Vec::new();
+        for (vehicle_journey_idx, offset_to_day_to_timetable) in
+            self.vehicle_journey_to_timetables.iter()
+        {
+            for (_, day_to_timetable) in offset_to_day_to_timetable.iter() {
+                if day_to_timetable.contains_day(&day, &self.days_patterns) {
+                    vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
+                }
+            }
+        }
+        for vehicle_journey_idx in vehicle_journeys_to_remove {
+            let removal_result = self.remove(date, &vehicle_journey_idx);
+            if let Err(removal_error) = removal_result {
+                warn!(
+                    "Removal error occured while removing all vehicles on day {}. \
+                    {:?}",
+                    date, removal_error
+                )
+            }
+        }
     }
 }
 

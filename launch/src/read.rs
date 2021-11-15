@@ -40,6 +40,7 @@ use crate::{
     loki::{timetables::TimetablesIter, TransitData},
 };
 use loki::{
+    chrono::NaiveDate,
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
     transit_model::{self, Model},
@@ -61,6 +62,7 @@ where
         &model,
         &loads_data,
         &launch_params.default_transfer_duration,
+        None,
     );
 
     Ok((data, model))
@@ -124,6 +126,7 @@ pub fn build_transit_data<Timetables>(
     model: &Model,
     loads_data: &LoadsData,
     default_transfer_duration: &PositiveDuration,
+    restrict_calendar: Option<(NaiveDate, NaiveDate)>,
 ) -> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
@@ -135,7 +138,12 @@ where
     info!("Number of routes : {}", model.routes.len());
 
     let data_timer = SystemTime::now();
-    let data = TransitData::new(model, loads_data, *default_transfer_duration);
+    let data = TransitData::new(
+        model,
+        loads_data,
+        *default_transfer_duration,
+        restrict_calendar,
+    );
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());

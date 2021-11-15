@@ -51,24 +51,6 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
         }
     }
 
-    pub fn missions_of_filtered<Filter>(
-        &self,
-        stop: &Stop,
-        filter: Filter,
-    ) -> MissionsOfStop<Timetables>
-    where
-        Filter: Fn(&Stop) -> bool,
-    {
-        if filter(stop) {
-            let stop_data = self.stop_data(stop);
-            MissionsOfStop {
-                inner: stop_data.position_in_timetables.iter(),
-            }
-        } else {
-            MissionsOfStop { inner: [].iter() }
-        }
-    }
-
     pub fn outgoing_transfers_at(&self, stop: &Stop) -> OutgoingTransfersAtStop {
         let stop_data = self.stop_data(stop);
         stop_data.outgoing_transfers.iter()

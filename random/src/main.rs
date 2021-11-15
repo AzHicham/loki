@@ -3,6 +3,7 @@ use launch::{
     loki::{
         self,
         model::{real_time::RealTimeModel, ModelRefs},
+        request::generic_request,
         DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
     },
     solver::Solver,
@@ -152,7 +153,12 @@ pub fn launch(config: Config) -> Result<(), Error> {
 
 fn config_launch<Timetables>(config: Config) -> Result<(), Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    Timetables: for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -166,7 +172,12 @@ fn build_engine_and_solve<Timetables>(
     config: &Config,
 ) -> Result<(), Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    Timetables: for<'a> TimetablesIter<'a> + Debug,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

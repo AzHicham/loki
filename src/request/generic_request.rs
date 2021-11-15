@@ -34,14 +34,13 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::marker::PhantomData;
-
 use crate::{
     loads_data::LoadsCount,
     model::ModelRefs,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    transit_data::data_interface::TransitTypes,
-    RequestTypes,
+    timetables::generic_timetables,
+    transit_data::{self, data_interface::TransitTypes},
+    RequestTypes as RequestTypesTrait,
 };
 
 use crate::{
@@ -106,25 +105,29 @@ pub struct Criteria {
     pub(super) loads_count: LoadsCount,
 }
 
-pub struct Types<Data> {
-    _phantom: PhantomData<Data>,
+pub struct RequestTypes {}
+
+impl TransitTypes for RequestTypes {
+    type Stop = Stop;
+    type Mission = Mission;
+    type Position = Position;
+    type Trip = Trip;
+    type Transfer = Transfer;
 }
 
-impl<'data, Data: DataTrait> TransitTypes for Types<Data> {
-    type Stop = Data::Stop;
-    type Mission = Data::Mission;
-    type Position = Data::Position;
-    type Trip = Data::Trip;
-    type Transfer = Data::Transfer;
-}
-
-impl<'data, Data: DataTrait> RequestTypes for Types<Data> {
+impl RequestTypesTrait for RequestTypes {
     type Departure = Departure;
 
     type Arrival = Arrival;
 
     type Criteria = Criteria;
 }
+
+pub type Stop = transit_data::Stop;
+pub type Mission = generic_timetables::Timetable;
+pub type Position = generic_timetables::Position;
+pub type Trip = generic_timetables::Trip;
+pub type Transfer = transit_data::Transfer;
 
 pub(super) fn parse_datetime(
     datetime: &NaiveDateTime,

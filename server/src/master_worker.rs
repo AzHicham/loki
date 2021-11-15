@@ -37,11 +37,12 @@
 use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
+    chrono,
     model::real_time::RealTimeModel,
-    timetables::PeriodicSplitVjByTzTimetables,
+    timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
     transit_model::Model,
-    LoadsData, TransitData,
+    DataTrait, LoadsData, TransitData,
 };
 use std::{
     ops::{Deref, DerefMut},
@@ -66,7 +67,7 @@ pub enum LoadBalancerOrder {
 }
 
 pub type BaseTimetable = PeriodicSplitVjByTzTimetables;
-pub type RealTimeTimetable = PeriodicSplitVjByTzTimetables;
+pub type RealTimeTimetable = DailyTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
@@ -80,6 +81,7 @@ pub struct MasterWorker {
     loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     load_balancer_handle: LoadBalancerChannels,
+    nb_of_realtime_days_to_keep: u16,
 }
 
 impl MasterWorker {
@@ -91,13 +93,21 @@ impl MasterWorker {
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
+            None,
         );
+
+        let restrict_calendar_for_realtime = {
+            let start_date = *base_data.calendar().first_date();
+            let end_date = start_date + chrono::Duration::days(2);
+            Some((start_date, end_date))
+        };
 
         let real_time_model = RealTimeModel::new();
         let real_time_data = launch::read::build_transit_data::<RealTimeTimetable>(
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
+            restrict_calendar_for_realtime,
         );
 
         let base_data_and_model = Arc::new(RwLock::new((base_data, base_model)));
@@ -125,6 +135,7 @@ impl MasterWorker {
             loads_data,
             amqp_message_receiver,
             load_balancer_handle,
+            nb_of_realtime_days_to_keep: config.nb_of_realtime_days_to_keep,
         };
         Ok(result)
     }
@@ -252,6 +263,7 @@ impl MasterWorker {
                             base_model,
                             &self.loads_data,
                             real_time_data,
+                            self.nb_of_realtime_days_to_keep,
                         );
                     }
                 }

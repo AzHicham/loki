@@ -1,9 +1,7 @@
 use crate::{
     loads_data::{Load, LoadsData},
     model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{
-        Calendar, PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    },
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, RemovalError},
 };
 use chrono::{NaiveDate, NaiveDateTime};
@@ -21,8 +19,7 @@ pub trait TransitTypes {
     /// A `Mission` is an ordered sequence of `Position`
     type Mission: Debug + Clone;
 
-    /// Identify a step along a `Mission`
-    /// Identify a step along a `Mission`
+    /// Identify a stop along a `Mission`
     type Position: Debug + Clone;
 
     /// A trip of a vehicle along a `Mission`
@@ -105,7 +102,7 @@ pub trait Data: TransitTypes {
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
-    fn transfer_transit_model_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
+    fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
 
     fn earliest_trip_to_board_at(
         &self,
@@ -114,12 +111,32 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
+    fn earliest_filtered_trip_to_board_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
+
     fn latest_trip_that_debark_at(
         &self,
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn latest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
 
     fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
@@ -173,7 +190,7 @@ pub trait DataUpdate {
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate>,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
@@ -195,7 +212,14 @@ pub trait DataUpdate {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn calendar(&self) -> &Calendar;
+    fn start_date(&self) -> &NaiveDate;
+    fn end_date(&self) -> &NaiveDate;
+
+    fn set_start_end_date(
+        &mut self,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> (Vec<NaiveDate>, Vec<NaiveDate>);
 }
 
 pub trait DataIO {
@@ -203,6 +227,7 @@ pub trait DataIO {
         model: &Model,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
+        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self;
 }
 

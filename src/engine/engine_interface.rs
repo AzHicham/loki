@@ -8,7 +8,7 @@ pub trait RequestTypes: data_interface::TransitTypes {
     type Arrival: Clone;
 
     /// Stores data used to determine if a journey is better than another
-    type Criteria: Clone;
+    type Criteria: Clone + Debug;
 }
 
 pub trait Request: RequestTypes {
@@ -309,7 +309,7 @@ pub enum BadRequest {
 }
 impl std::error::Error for BadRequest {}
 
-use std::fmt;
+use std::fmt::{self, Debug};
 
 use chrono::NaiveDateTime;
 

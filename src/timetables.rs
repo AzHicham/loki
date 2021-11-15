@@ -74,7 +74,6 @@ pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone;
     type Trip: Debug + Clone;
-    type VehicleData: Debug + Clone;
 }
 
 pub trait Timetables: Types {
@@ -194,13 +193,15 @@ pub trait Timetables: Types {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError>;
+
+    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate);
 }
 
 #[derive(Clone, Debug)]
 pub enum InsertionError {
     Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
     VehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
-    DateOutOfCalendar(NaiveDate, VehicleJourneyIdx),
+    InvalidDate(NaiveDate, VehicleJourneyIdx),
 }
 
 #[derive(Clone, Debug)]

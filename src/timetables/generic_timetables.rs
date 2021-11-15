@@ -44,7 +44,10 @@ use std::{
 use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
-use crate::timetables::{FlowDirection, Stop, StopFlows};
+use crate::{
+    time::DaysSinceDatasetStart,
+    timetables::{FlowDirection, Stop, StopFlows},
+};
 use std::cmp::Ordering::{Greater, Less};
 
 #[derive(Debug)]
@@ -105,6 +108,12 @@ pub struct Position {
 pub struct Vehicle {
     pub(super) timetable: Timetable,
     pub(super) idx: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Trip {
+    pub(super) vehicle: Vehicle,
+    pub(super) day: DaysSinceDatasetStart,
 }
 
 impl<Time, Load, TimezoneData, VehicleData> Timetables<Time, Load, TimezoneData, VehicleData>
