@@ -37,13 +37,11 @@
 use chrono::NaiveDate;
 use std::{collections::BTreeMap, error::Error, fmt::Display, path::Path};
 use tracing::{debug, trace};
-use transit_model::objects::VehicleJourney;
-use typed_index_collection::Idx;
 
 type StopSequence = u32;
 type Occupancy = u8;
 
-use crate::models::{base_model::BaseModel, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
+use crate::models::{base_model::BaseModel, base_model::BaseVehicleJourneyIdx, VehicleJourneyIdx};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
@@ -186,7 +184,7 @@ fn occupancy_to_load(occupancy: Occupancy) -> Load {
 }
 
 pub struct LoadsData {
-    per_vehicle_journey: BTreeMap<TransitModelVehicleJourneyIdx, VehicleJourneyLoads>,
+    per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyLoads>,
 }
 
 struct VehicleJourneyLoads {
@@ -319,7 +317,7 @@ impl LoadsData {
         Ok(loads_data)
     }
 
-    fn _check(&self, model: &Model) {
+    fn _check(&self, model: &BaseModel) {
         // for each vehicle_journey, check that :
         //  - for each valid date, we have occupancy data for every stop_time
         for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
@@ -355,16 +353,8 @@ impl LoadsData {
 
 fn parse_record(
     record: &csv::StringRecord,
-    model: &Model,
-) -> Result<
-    (
-        TransitModelVehicleJourneyIdx,
-        StopSequence,
-        Occupancy,
-        NaiveDate,
-    ),
-    Box<dyn Error>,
-> {
+    model: &BaseModel,
+) -> Result<(BaseVehicleJourneyIdx, StopSequence, Occupancy, NaiveDate), Box<dyn Error>> {
     if record.len() != 4 {
         let msg = format!("Expected 4 fields, but got {}", record.len());
         return Err(From::from(msg));

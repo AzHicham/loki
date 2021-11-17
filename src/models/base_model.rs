@@ -63,6 +63,17 @@ impl BaseModel {
         }
     }
 
+    pub fn empty() -> Self {
+        let mut result = Self {
+            collections: transit_model::model::Collections::default(),
+        };
+        let _ = result
+            .collections
+            .datasets
+            .push(transit_model::objects::Dataset::default());
+        result
+    }
+
     pub fn new(collections: transit_model::model::Collections) -> Self {
         Self { collections }
     }
