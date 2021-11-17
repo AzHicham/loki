@@ -57,10 +57,14 @@ impl Deref for BaseModel {
 }
 
 impl BaseModel {
-    pub fn new(model: transit_model::Model) -> Self {
+    pub fn from_transit_model(model: transit_model::Model) -> Self {
         Self {
             collections: model.into_collections(),
         }
+    }
+
+    pub fn new(collections: transit_model::model::Collections) -> Self {
+        Self { collections }
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {

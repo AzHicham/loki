@@ -69,8 +69,10 @@ where
 }
 
 pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_model::Error> {
-    let model = match launch_params.input_data_type {
-        config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
+    let collections = match launch_params.input_data_type {
+        config::InputDataType::Ntfs => {
+            transit_model::ntfs::read_collections(&launch_params.input_data_path)?
+        }
         config::InputDataType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
                 contributor: transit_model::objects::Contributor::default(),
@@ -89,17 +91,18 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_mod
 
             let model = transit_model::gtfs::Reader::new(configuration)
                 .parse(&launch_params.input_data_path)?;
-            transit_model::transfers::generates_transfers(
+            let model = transit_model::transfers::generates_transfers(
                 model,
                 max_distance,
                 walking_speed,
                 waiting_time,
                 None,
-            )?
+            )?;
+            model.into_collections()
         }
     };
     info!("Transit model loaded");
-    Ok(BaseModel::new(model))
+    Ok(BaseModel::new(collections))
 }
 
 pub fn read_loads_data(launch_params: &LaunchParams, base_model: &BaseModel) -> LoadsData {

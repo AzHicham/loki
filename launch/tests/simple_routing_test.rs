@@ -71,7 +71,7 @@ fn test_simple_routing(
         })
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -145,7 +145,7 @@ fn test_routing_with_transfers(
         ..config
     };
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -242,7 +242,7 @@ fn test_routing_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -360,7 +360,7 @@ fn test_second_pass_forward(
         .add_transfer("G", "H", "00:02:00")
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -429,7 +429,7 @@ fn test_second_pass_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);

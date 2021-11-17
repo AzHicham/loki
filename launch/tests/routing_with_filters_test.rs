@@ -82,7 +82,7 @@ pub fn fixture_model() -> BaseModel {
         .add_transfer("C", "C", "00:02:00")
         .build();
 
-    BaseModel::new(model)
+    BaseModel::from_transit_model(model)
 }
 
 #[rstest]

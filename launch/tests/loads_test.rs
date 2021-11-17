@@ -66,7 +66,7 @@ fn create_model() -> (BaseModel, LoadsData) {
         })
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
     let loads_data = loki::loads_data::LoadsData::new(filepath, &base_model).unwrap();

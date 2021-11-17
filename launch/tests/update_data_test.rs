@@ -97,7 +97,7 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -231,7 +231,7 @@ where
         })
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -388,7 +388,7 @@ where
         })
         .build();
 
-    let base_model = BaseModel::new(model);
+    let base_model = BaseModel::from_transit_model(model);
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
