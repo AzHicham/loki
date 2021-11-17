@@ -113,8 +113,9 @@ fn routing_periodic_bench(bencher: &mut Bencher) {
         data_implem: DataImplem::Periodic,
         ..config
     };
+    let base_model = BaseModel::new(model);
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     bencher.iter(|| {
         build_and_solve(&model_refs, &loki::LoadsData::empty(), &config).unwrap();

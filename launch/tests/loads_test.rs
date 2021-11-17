@@ -38,7 +38,6 @@ use failure::Error;
 use launch::config::ComparatorType;
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-    transit_model::Model,
     LoadsData,
 };
 use utils::model_builder::ModelBuilder;
