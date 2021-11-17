@@ -37,7 +37,7 @@
 use failure::Error;
 use launch::config::ComparatorType;
 use loki::{
-    model::{real_time::RealTimeModel, ModelRefs},
+    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     transit_model::Model,
     LoadsData,
 };
@@ -54,7 +54,7 @@ mod utils;
 // leave `massy` at      | 08:00:00  | 12:00:00 | 18:00:00
 // arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
 // load                  |  80%      |  20%     | 80%
-fn create_model() -> (Model, LoadsData) {
+fn create_model() -> (BaseModel, LoadsData) {
     let model = ModelBuilder::new("2021-01-01", "2021-01-02")
         .vj("matin", |vj_builder| {
             vj_builder.st("massy", "08:00:00").st("paris", "09:05:00");
@@ -67,10 +67,12 @@ fn create_model() -> (Model, LoadsData) {
         })
         .build();
 
-    let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = loki::loads_data::LoadsData::new(filepath, &model).unwrap();
+    let base_model = BaseModel::new(model);
 
-    (model, loads_data)
+    let filepath = "tests/fixtures/loads_test/loads.csv";
+    let loads_data = loki::loads_data::LoadsData::new(filepath, &base_model).unwrap();
+
+    (base_model, loads_data)
 }
 
 #[test]

@@ -41,36 +41,34 @@ use crate::{
 };
 use loki::{
     chrono::NaiveDate,
+    models::base_model::BaseModel,
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
-    transit_model::{self, Model},
-    DataIO, DataTrait, LoadsData, PositiveDuration,
+    transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
 };
 use std::{collections::BTreeMap, fmt::Debug, time::SystemTime};
 
 pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
-) -> Result<(TransitData<Timetables>, Model), transit_model::Error>
+) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    let model = read_model(launch_params)?;
+    let base_model = read_model(launch_params)?;
 
-    let loads_data = read_loads_data(launch_params, &model);
+    let loads_data = read_loads_data(launch_params, &base_model);
 
     let data = build_transit_data(
-        &model,
+        &base_model,
         &loads_data,
         &launch_params.default_transfer_duration,
         None,
     );
 
-    Ok((data, model))
+    Ok((data, base_model))
 }
 
-pub fn read_model(
-    launch_params: &LaunchParams,
-) -> Result<transit_model::Model, transit_model::Error> {
+pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_model::Error> {
     let model = match launch_params.input_data_type {
         config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
         config::InputDataType::Gtfs => {
@@ -101,15 +99,15 @@ pub fn read_model(
         }
     };
     info!("Transit model loaded");
-    Ok(model)
+    Ok(BaseModel::new(model))
 }
 
-pub fn read_loads_data(launch_params: &LaunchParams, model: &transit_model::Model) -> LoadsData {
+pub fn read_loads_data(launch_params: &LaunchParams, base_model: &BaseModel) -> LoadsData {
     launch_params
         .loads_data_path
         .as_ref()
         .map(|path| {
-            LoadsData::new(&path, model).unwrap_or_else(|err| {
+            LoadsData::new(&path, base_model).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
                     &path,
@@ -123,7 +121,7 @@ pub fn read_loads_data(launch_params: &LaunchParams, model: &transit_model::Mode
 }
 
 pub fn build_transit_data<Timetables>(
-    model: &Model,
+    base_model: &BaseModel,
     loads_data: &LoadsData,
     default_transfer_duration: &PositiveDuration,
     restrict_calendar: Option<(NaiveDate, NaiveDate)>,
@@ -133,13 +131,13 @@ where
 {
     info!(
         "Number of vehicle journeys : {}",
-        model.vehicle_journeys.len()
+        base_model.vehicle_journeys.len()
     );
-    info!("Number of routes : {}", model.routes.len());
+    info!("Number of routes : {}", base_model.routes.len());
 
     let data_timer = SystemTime::now();
     let data = TransitData::new(
-        model,
+        base_model,
         loads_data,
         *default_transfer_duration,
         restrict_calendar,

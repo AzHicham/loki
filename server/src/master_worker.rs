@@ -38,10 +38,9 @@ use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
     chrono,
-    model::real_time::RealTimeModel,
+    models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
-    transit_model::Model,
     DataTrait, LoadsData, TransitData,
 };
 use std::{
@@ -76,7 +75,7 @@ pub struct LoadBalancerChannels {
 }
 
 pub struct MasterWorker {
-    base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+    base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
     real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
     loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,

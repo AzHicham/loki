@@ -39,7 +39,7 @@ use launch::{
     datetime::DateTimeRepresent,
     loki::{
         self,
-        model::{real_time::RealTimeModel, ModelRefs},
+        models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
         DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
     },
@@ -48,8 +48,6 @@ use launch::{
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 use loki::tracing::{debug, error, info};
-
-use loki::transit_model::Model;
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
@@ -168,7 +166,7 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     Ok(config)
 }
 
-pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
+pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
@@ -176,7 +174,7 @@ pub fn launch(config: Config) -> Result<(Model, Vec<loki::Response>), Error> {
     }
 }
 
-fn config_launch<Timetables>(config: Config) -> Result<(Model, Vec<loki::Response>), Error>
+fn config_launch<Timetables>(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
 where
     Timetables: TimetablesTrait<
         Mission = generic_request::Mission,
@@ -194,7 +192,7 @@ where
 }
 
 fn build_engine_and_solve<Timetables>(
-    model: &Model,
+    base_model: &BaseModel,
     data: &TransitData<Timetables>,
     config: &Config,
 ) -> Result<Vec<loki::Response>, Error>
@@ -212,7 +210,7 @@ where
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(model, &real_time_model);
+    let model_refs = ModelRefs::new(base_model, &real_time_model);
 
     let datetime = match &config.datetime {
         Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
@@ -230,7 +228,7 @@ where
     let end_stop_area_uri = &config.end;
 
     let request_input = launch::stop_areas::make_query_stop_areas(
-        model,
+        base_model,
         &datetime,
         start_stop_area_uri,
         end_stop_area_uri,

@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::LoadsCount,
-    model::ModelRefs,
+    models::ModelRefs,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::generic_timetables,
     transit_data::{self, data_interface::TransitTypes},

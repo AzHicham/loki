@@ -47,7 +47,7 @@ pub use typed_index_collection::Idx;
 
 use crate::{
     loads_data::{Load, LoadsData},
-    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         generic_timetables::{PositionPair, VehicleTimesError},
@@ -58,8 +58,6 @@ use crate::{
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesIter};
-
-use crate::transit_model::Model;
 
 use crate::tracing::error;
 
@@ -317,13 +315,13 @@ where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
     fn new(
-        model: &Model,
+        base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
         restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
         Self::_new(
-            model,
+            base_model,
             loads_data,
             default_transfer_duration,
             restrict_calendar,

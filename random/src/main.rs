@@ -2,14 +2,14 @@ use launch::{
     config,
     loki::{
         self,
-        model::{real_time::RealTimeModel, ModelRefs},
+        models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
         DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
     },
     solver::Solver,
 };
 
-use loki::{tracing::debug, transit_model::Model};
+use loki::tracing::debug;
 
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};
@@ -167,7 +167,7 @@ where
 }
 
 fn build_engine_and_solve<Timetables>(
-    model: &Model,
+    base_model: &BaseModel,
     data: &TransitData<Timetables>,
     config: &Config,
 ) -> Result<(), Error>
@@ -182,7 +182,7 @@ where
     Timetables::Position: 'static,
 {
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(model, &real_time_model);
+    let model_refs = ModelRefs::new(base_model, &real_time_model);
     use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -204,11 +204,11 @@ where
     use hdrhistogram::Histogram;
     let mut histogram = Histogram::<u64>::new(3)?;
     for _ in 0..nb_queries {
-        let start_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
-        let end_stop_area_uri = &model.stop_areas.values().choose(&mut rng).unwrap().id;
+        let start_stop_area_uri = &base_model.stop_areas.values().choose(&mut rng).unwrap().id;
+        let end_stop_area_uri = &base_model.stop_areas.values().choose(&mut rng).unwrap().id;
 
         let request_input = launch::stop_areas::make_query_stop_areas(
-            model,
+            base_model,
             &departure_datetime,
             start_stop_area_uri,
             end_stop_area_uri,

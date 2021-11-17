@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use crate::{
-    model::{ModelRefs, StopPointIdx, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, VehicleJourneyIdx},
     tracing::warn,
 };
 

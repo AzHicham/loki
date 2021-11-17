@@ -36,8 +36,6 @@
 
 use chrono::NaiveDate;
 use std::{error::Error, fmt::Display, path::Path};
-use transit_model::Model;
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
     Unknown,
@@ -57,7 +55,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::model::VehicleJourneyIdx;
+use crate::models::{base_model::BaseModel, VehicleJourneyIdx};
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {
@@ -121,7 +119,7 @@ impl LoadsData {
 
     pub fn new<P: AsRef<Path>>(
         _csv_occupancys_filepath: P,
-        _model: &Model,
+        _base_model: &BaseModel,
     ) -> Result<Self, Box<dyn Error>> {
         Ok(LoadsData::empty())
     }

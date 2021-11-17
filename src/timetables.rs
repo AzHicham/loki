@@ -52,7 +52,7 @@ pub use crate::transit_data::{Idx, Stop, VehicleJourney};
 
 use crate::{
     loads_data::{Load, LoadsData},
-    model::VehicleJourneyIdx,
+    models::VehicleJourneyIdx,
     time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
 };
 

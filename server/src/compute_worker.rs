@@ -49,10 +49,9 @@ use launch::{
         self,
         chrono::Utc,
         filters::Filters,
-        model::{real_time::RealTimeModel, ModelRefs},
+        models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
         tracing::{debug, error, info, warn},
-        transit_model::Model,
         NaiveDateTime, PositiveDuration, RequestInput, TransitData,
     },
     solver::Solver,
@@ -71,7 +70,7 @@ type BaseData = TransitData<BaseTimetable>;
 type RealTimeData = TransitData<RealTimeTimetable>;
 
 pub struct ComputeWorker {
-    base_data_and_model: Arc<RwLock<(BaseData, Model)>>,
+    base_data_and_model: Arc<RwLock<(BaseData, BaseModel)>>,
     real_time_data_and_model: Arc<RwLock<(RealTimeData, RealTimeModel)>>,
     solver: Solver,
     worker_id: WorkerId,
@@ -83,7 +82,7 @@ pub struct ComputeWorker {
 impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
-        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
         real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
         request_default_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,

@@ -38,9 +38,8 @@ use failure::{format_err, Error};
 use launch::{
     config,
     loki::{
-        model::real_time::RealTimeModel,
+        models::{base_model::BaseModel, real_time_model::RealTimeModel},
         tracing::{debug, error, info, warn},
-        transit_model::Model,
         TransitData,
     },
 };
@@ -89,7 +88,7 @@ pub struct LoadBalancer {
 
 impl LoadBalancer {
     pub fn new(
-        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
         real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
         nb_workers: usize,
         zmq_endpoint: &str,

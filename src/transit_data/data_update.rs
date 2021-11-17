@@ -38,7 +38,7 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
-    model::{StopPointIdx, VehicleJourneyIdx},
+    models::{StopPointIdx, VehicleJourneyIdx},
     timetables::{InsertionError, RemovalError},
     transit_data::TransitData,
 };

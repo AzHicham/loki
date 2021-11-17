@@ -34,44 +34,53 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+pub mod base_model;
+pub mod model_refs;
+pub mod real_time_disruption;
+pub mod real_time_model;
 
-mod engine;
-pub mod filters;
-pub mod loads_data;
-pub mod models;
-pub mod request;
-pub mod time;
-pub mod timetables;
-mod transit_data;
-pub mod transit_data_filtered;
+use chrono::NaiveDate;
+pub use model_refs::ModelRefs;
+pub use real_time_model::RealTimeModel;
 
-pub use chrono::{self, NaiveDateTime};
-pub use chrono_tz;
-pub use time::PositiveDuration;
-pub use tracing;
-pub use transit_model;
-pub use typed_index_collection;
+use typed_index_collection::Idx;
 
-pub use transit_data::data_interface::{
-    Data as DataTrait, DataIO, DataUpdate, DataWithIters, TransitTypes,
-};
+use crate::transit_data;
 
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
+use self::real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx};
 
-pub use loads_data::LoadsData;
+pub type TransitModelVehicleJourneyIdx = Idx<transit_data::VehicleJourney>;
 
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum VehicleJourneyIdx {
+    Base(TransitModelVehicleJourneyIdx),
+    New(NewVehicleJourneyIdx),
+}
 
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
+pub type TransitModelStopPointIdx = Idx<transit_data::StopPoint>;
 
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum StopPointIdx {
+    Base(TransitModelStopPointIdx), // Stop_id in ntfs
+    New(NewStopPointIdx),           // Id of a stop added by real time
+}
 
-pub mod response;
+pub type TransitModelTransferIdx = Idx<transit_model::objects::Transfer>;
 
-pub type Response = response::Response;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum TransferIdx {
+    Base(TransitModelTransferIdx),
+    New(usize),
+}
+
+#[derive(Debug, Clone)]
+pub struct Coord {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+#[derive(Debug, Clone)]
+pub enum StopTimes<'model> {
+    Base(&'model [base_model::BaseStopTime], NaiveDate, chrono_tz::Tz),
+    New(&'model [real_time_model::StopTime], NaiveDate),
+}

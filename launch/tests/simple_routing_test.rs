@@ -39,8 +39,9 @@ use failure::Error;
 use launch::{
     config::{ComparatorType, DataImplem},
     datetime::DateTimeRepresent,
-    loki::model::{real_time::RealTimeModel, ModelRefs},
+    loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
+use loki::models::base_model::BaseModel;
 use rstest::rstest;
 use utils::{
     build_and_solve, from_to_stop_point_names,
@@ -70,8 +71,10 @@ fn test_simple_routing(
         })
         .build();
 
+    let base_model = BaseModel::new(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T09:59:00", "A", "B");
     let config = Config {
@@ -82,7 +85,7 @@ fn test_simple_routing(
 
     let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
 
-    assert_eq!(model.vehicle_journeys.len(), 1);
+    assert_eq!(base_model.vehicle_journeys.len(), 1);
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];
@@ -142,12 +145,14 @@ fn test_routing_with_transfers(
         ..config
     };
 
+    let base_model = BaseModel::new(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
 
-    assert_eq!(model.vehicle_journeys.len(), 2);
+    assert_eq!(base_model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];
@@ -237,8 +242,10 @@ fn test_routing_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
+    let base_model = BaseModel::new(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {
@@ -250,7 +257,7 @@ fn test_routing_backward(
 
     let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
 
-    assert_eq!(model.vehicle_journeys.len(), 2);
+    assert_eq!(base_model.vehicle_journeys.len(), 2);
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];
@@ -353,8 +360,10 @@ fn test_second_pass_forward(
         .add_transfer("G", "H", "00:02:00")
         .build();
 
+    let base_model = BaseModel::new(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
@@ -420,8 +429,10 @@ fn test_second_pass_backward(
         .add_transfer("B", "F", "00:02:00")
         .build();
 
+    let base_model = BaseModel::new(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {
@@ -433,7 +444,7 @@ fn test_second_pass_backward(
 
     let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
 
-    assert_eq!(model.vehicle_journeys.len(), 3);
+    assert_eq!(base_model.vehicle_journeys.len(), 3);
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];

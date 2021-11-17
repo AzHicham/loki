@@ -37,13 +37,13 @@
 use chrono::NaiveDate;
 use std::{collections::BTreeMap, error::Error, fmt::Display, path::Path};
 use tracing::{debug, trace};
-use transit_model::{objects::VehicleJourney, Model};
+use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
 type StopSequence = u32;
 type Occupancy = u8;
 
-use crate::model::{TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
+use crate::models::{base_model::BaseModel, TransitModelVehicleJourneyIdx, VehicleJourneyIdx};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
@@ -247,7 +247,7 @@ impl LoadsData {
 
     pub fn new<P: AsRef<Path>>(
         csv_occupancys_filepath: P,
-        model: &Model,
+        model: &BaseModel,
     ) -> Result<Self, Box<dyn Error>> {
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),

@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use crate::{
-    model::ModelRefs,
+    models::ModelRefs,
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 

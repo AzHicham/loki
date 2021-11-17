@@ -38,7 +38,7 @@ use crate::navitia_proto;
 
 use launch::loki::{
     self,
-    model::{infos::StopTimes, ModelRefs, StopPointIdx, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, StopTimes, VehicleJourneyIdx},
     RequestInput,
 };
 
