@@ -43,33 +43,24 @@ use chrono::NaiveDate;
 pub use model_refs::ModelRefs;
 pub use real_time_model::RealTimeModel;
 
-use typed_index_collection::Idx;
-
-use crate::transit_data;
-
+use self::base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx};
 use self::real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx};
-
-pub type TransitModelVehicleJourneyIdx = Idx<transit_data::VehicleJourney>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum VehicleJourneyIdx {
-    Base(TransitModelVehicleJourneyIdx),
+    Base(BaseVehicleJourneyIdx),
     New(NewVehicleJourneyIdx),
 }
 
-pub type TransitModelStopPointIdx = Idx<transit_data::StopPoint>;
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum StopPointIdx {
-    Base(TransitModelStopPointIdx), // Stop_id in ntfs
-    New(NewStopPointIdx),           // Id of a stop added by real time
+    Base(BaseStopPointIdx),
+    New(NewStopPointIdx),
 }
-
-pub type TransitModelTransferIdx = Idx<transit_model::objects::Transfer>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TransferIdx {
-    Base(TransitModelTransferIdx),
+    Base(BaseTransferIdx),
     New(usize),
 }
 

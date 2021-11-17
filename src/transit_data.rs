@@ -40,10 +40,6 @@ pub mod iters;
 
 use chrono::NaiveDate;
 use iters::MissionsOfStop;
-pub use transit_model::objects::{
-    StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
-};
-pub use typed_index_collection::Idx;
 
 use crate::{
     loads_data::{Load, LoadsData},

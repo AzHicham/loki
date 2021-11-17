@@ -63,7 +63,7 @@ pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
 
 pub use loads_data::LoadsData;
 
-pub use transit_data::{Idx, StopPoint, TransitData, TransitModelTransfer, VehicleJourney};
+pub use transit_data::TransitData;
 
 pub use engine::engine_interface::{
     BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,

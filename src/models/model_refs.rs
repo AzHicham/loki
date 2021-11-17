@@ -37,10 +37,9 @@
 use crate::chrono::NaiveDate;
 
 use super::{
-    base_model::BaseModel,
+    base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
-    Coord, StopPointIdx, StopTimes, TransitModelStopPointIdx, TransitModelVehicleJourneyIdx,
-    VehicleJourneyIdx,
+    Coord, StopPointIdx, StopTimes, VehicleJourneyIdx,
 };
 
 use super::RealTimeModel;
@@ -100,7 +99,7 @@ impl<'model> ModelRefs<'model> {
 
     fn base_vehicle_journey_line(
         &self,
-        idx: TransitModelVehicleJourneyIdx,
+        idx: BaseVehicleJourneyIdx,
     ) -> Option<&transit_model::objects::Line> {
         self.base_vehicle_journey_route(&idx)
             .map(|route| self.base.lines.get(route.line_id.as_str()))
@@ -116,7 +115,7 @@ impl<'model> ModelRefs<'model> {
 
     fn base_vehicle_journey_route(
         &self,
-        idx: &TransitModelVehicleJourneyIdx,
+        idx: &BaseVehicleJourneyIdx,
     ) -> Option<&transit_model::objects::Route> {
         let route_id = &self.base.vehicle_journeys[*idx].route_id;
         self.base.routes.get(route_id)
@@ -222,7 +221,7 @@ impl<'model> ModelRefs<'model> {
         self.base.stop_points.len()
     }
 
-    pub fn base_stop_points(&self) -> impl Iterator<Item = TransitModelStopPointIdx> + 'model {
+    pub fn base_stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + 'model {
         self.base.stop_points.iter().map(|(idx, _)| idx)
     }
 
@@ -239,9 +238,7 @@ impl<'model> ModelRefs<'model> {
         self.base.vehicle_journeys.len()
     }
 
-    pub fn base_vehicle_journeys(
-        &self,
-    ) -> impl Iterator<Item = TransitModelVehicleJourneyIdx> + 'model {
+    pub fn base_vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + 'model {
         self.base.vehicle_journeys.iter().map(|(idx, _)| idx)
     }
 
@@ -390,10 +387,7 @@ impl<'model> ModelRefs<'model> {
         chrono_tz::UTC
     }
 
-    fn base_vehicle_journey_timezone(
-        &self,
-        idx: &TransitModelVehicleJourneyIdx,
-    ) -> Option<chrono_tz::Tz> {
+    fn base_vehicle_journey_timezone(&self, idx: &BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
         let route_id = &self.base.vehicle_journeys[*idx].route_id;
         let route = self.base.routes.get(route_id)?;
         let line = self.base.lines.get(&route.line_id)?;

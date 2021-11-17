@@ -50,7 +50,7 @@ use crate::{DataUpdate, LoadsData};
 
 use super::real_time_disruption as disruption;
 use super::{
-    base_model::BaseModel, ModelRefs, StopPointIdx, TransitModelVehicleJourneyIdx,
+    base_model::BaseModel, base_model::BaseVehicleJourneyIdx, ModelRefs, StopPointIdx,
     VehicleJourneyIdx,
 };
 
@@ -60,7 +60,7 @@ pub struct RealTimeModel {
     pub(super) new_vehicle_journeys_history: Vec<(String, VehicleJourneyHistory)>,
 
     // gives position in base_vehicle_journeys_history, if any
-    pub(super) base_vehicle_journeys_idx_to_history: HashMap<TransitModelVehicleJourneyIdx, usize>,
+    pub(super) base_vehicle_journeys_idx_to_history: HashMap<BaseVehicleJourneyIdx, usize>,
     pub(super) base_vehicle_journeys_history: Vec<VehicleJourneyHistory>,
 
     pub(super) new_stop_id_to_idx: HashMap<String, NewStopPointIdx>,
@@ -411,7 +411,7 @@ impl RealTimeModel {
 
     pub(super) fn base_vehicle_journey_last_version(
         &self,
-        idx: &TransitModelVehicleJourneyIdx,
+        idx: &BaseVehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Option<&TripData> {
         self.base_vehicle_journeys_idx_to_history
@@ -536,7 +536,7 @@ impl RealTimeModel {
 fn insert_base_vehicle_journey_in_data<Data: DataUpdate>(
     data: &mut Data,
     date: &NaiveDate,
-    vehicle_journey_idx: TransitModelVehicleJourneyIdx,
+    vehicle_journey_idx: BaseVehicleJourneyIdx,
     vehicle_journey: &transit_model::objects::VehicleJourney,
     base_model: &BaseModel,
     loads_data: &LoadsData,
