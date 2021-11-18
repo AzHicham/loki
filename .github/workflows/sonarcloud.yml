@@ -43,6 +43,6 @@ jobs:
           -Dsonar.projectName=loki
           -Dsonar.sources=.
           -Dsonar.sourceEncoding=UTF-8
-          -Dsonar.rust.clippy.reportPaths=sonar.json
+          -Dsonar.externalIssuesReportPaths=sonar.json
           -Dsonar.organization=canaltp
           -Dsonar.verbose=true
