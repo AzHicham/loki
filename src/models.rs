@@ -43,8 +43,10 @@ use chrono::NaiveDate;
 pub use model_refs::ModelRefs;
 pub use real_time_model::RealTimeModel;
 
-use self::base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx};
-use self::real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx};
+use self::{
+    base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx},
+    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx},
+};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum VehicleJourneyIdx {
