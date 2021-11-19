@@ -34,44 +34,44 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+pub mod base_model;
+pub mod model_refs;
+pub mod real_time_disruption;
+pub mod real_time_model;
 
-mod engine;
-pub mod filters;
-pub mod loads_data;
-pub mod models;
-pub mod request;
-pub mod time;
-pub mod timetables;
-mod transit_data;
-pub mod transit_data_filtered;
+use chrono::NaiveDate;
+pub use model_refs::ModelRefs;
+pub use real_time_model::RealTimeModel;
 
-pub use chrono::{self, NaiveDateTime};
-pub use chrono_tz;
-pub use time::PositiveDuration;
-pub use tracing;
-pub use transit_model;
-pub use typed_index_collection;
+use self::base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx};
+use self::real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx};
 
-pub use transit_data::data_interface::{
-    Data as DataTrait, DataIO, DataUpdate, DataWithIters, TransitTypes,
-};
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum VehicleJourneyIdx {
+    Base(BaseVehicleJourneyIdx),
+    New(NewVehicleJourneyIdx),
+}
 
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum StopPointIdx {
+    Base(BaseStopPointIdx),
+    New(NewStopPointIdx),
+}
 
-pub use loads_data::LoadsData;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum TransferIdx {
+    Base(BaseTransferIdx),
+    New(usize),
+}
 
-pub use transit_data::TransitData;
+#[derive(Debug, Clone)]
+pub struct Coord {
+    pub lat: f64,
+    pub lon: f64,
+}
 
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
-
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub mod response;
-
-pub type Response = response::Response;
+#[derive(Debug, Clone)]
+pub enum StopTimes<'model> {
+    Base(&'model [base_model::BaseStopTime], NaiveDate, chrono_tz::Tz),
+    New(&'model [real_time_model::StopTime], NaiveDate),
+}

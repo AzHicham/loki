@@ -39,7 +39,7 @@ use crate::{
         BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
         RequestTypes, RequestWithIters,
     },
-    model::ModelRefs,
+    models::ModelRefs,
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 

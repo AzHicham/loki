@@ -39,7 +39,7 @@ pub mod loads_comparator;
 
 use crate::{
     loads_data::LoadsCount,
-    model::ModelRefs,
+    models::ModelRefs,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
 };

@@ -39,7 +39,7 @@ use failure::Error;
 use launch::config::DataImplem;
 use loki::{
     chrono_tz,
-    model::{real_time::RealTimeModel, ModelRefs},
+    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
 };
 use utils::{
     build_and_solve,
@@ -68,8 +68,10 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
                 .st("C", "10:10:00");
         })
         .build();
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     {
         let config = Config::new_timezoned("2020-10-24T06:00:00", &chrono_tz::UTC, "A", "B");
@@ -128,8 +130,10 @@ fn test_trip_over_daylight_saving_time_switch(
         })
         .build();
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     // We depart on 2020-10-23 at 22:00:00 UTC, so before the daylight saving time switch
     // this means we can board the vehicle journey on date 2020-10-24
@@ -254,8 +258,10 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
     // Before the daylight saving time switch
     {
         let config = Config::new_timezoned("2020-10-23T08:00:00", &chrono_tz::UTC, "A", "E");
@@ -354,8 +360,10 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     // Before the daylight saving time switch in Paris, we should be able to take the transfer at C
     // and hence get a journey from A to E

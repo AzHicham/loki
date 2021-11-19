@@ -38,7 +38,7 @@ use std::{fmt::Debug, time::SystemTime};
 
 use loki::{
     filters::Filters,
-    model::ModelRefs,
+    models::ModelRefs,
     request::generic_request,
     tracing::{debug, info, trace},
 };

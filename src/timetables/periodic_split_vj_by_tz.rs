@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::{Load, LoadsData},
-    model::VehicleJourneyIdx,
+    models::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
 };
 

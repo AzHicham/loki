@@ -38,7 +38,10 @@ use std::fmt::Debug;
 
 use crate::{
     loads_data::LoadsData,
-    model::{real_time::RealTimeModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{
+        base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
+        TransferIdx, VehicleJourneyIdx,
+    },
     transit_data::{Stop, TransitData},
     DataUpdate,
 };
@@ -48,10 +51,7 @@ use crate::{
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
 use chrono::NaiveDate;
-use transit_model::{
-    model::Model,
-    objects::{StopTime, VehicleJourney},
-};
+use transit_model::objects::{StopTime, VehicleJourney};
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
@@ -63,15 +63,15 @@ where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
     pub fn _new(
-        transit_model: &Model,
+        base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
         restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
-        let nb_of_stop_points = transit_model.stop_points.len();
-        let nb_transfers = transit_model.transfers.len();
+        let nb_of_stop_points = base_model.stop_points.len();
+        let nb_transfers = base_model.transfers.len();
 
-        let (calendar_start_date, calendar_end_date) = transit_model
+        let (calendar_start_date, calendar_end_date) = base_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
 
@@ -96,31 +96,31 @@ where
             end_date,
         };
 
-        data.init(transit_model, loads_data, default_transfer_duration);
+        data.init(base_model, loads_data, default_transfer_duration);
 
         data
     }
 
     fn init(
         &mut self,
-        transit_model: &Model,
+        base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
     ) {
         info!("Inserting vehicle journeys");
-        for (vehicle_journey_idx, vehicle_journey) in transit_model.vehicle_journeys.iter() {
+        for (vehicle_journey_idx, vehicle_journey) in base_model.vehicle_journeys.iter() {
             let _ = self.insert_base_vehicle_journey(
                 vehicle_journey_idx,
                 vehicle_journey,
-                transit_model,
+                base_model,
                 loads_data,
             );
         }
         info!("Inserting transfers");
 
-        for (transfer_idx, transfer) in transit_model.transfers.iter() {
-            let has_from_stop_point_idx = transit_model.stop_points.get_idx(&transfer.from_stop_id);
-            let has_to_stop_point_idx = transit_model.stop_points.get_idx(&transfer.to_stop_id);
+        for (transfer_idx, transfer) in base_model.transfers.iter() {
+            let has_from_stop_point_idx = base_model.stop_points.get_idx(&transfer.from_stop_id);
+            let has_to_stop_point_idx = base_model.stop_points.get_idx(&transfer.to_stop_id);
             match (has_from_stop_point_idx, has_to_stop_point_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
                     let duration = transfer
@@ -204,7 +204,7 @@ where
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
         vehicle_journey: &VehicleJourney,
-        transit_model: &Model,
+        base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
         let stop_points = vehicle_journey
@@ -214,7 +214,7 @@ where
 
         let flows = create_flows_for_base_vehicle_journey(vehicle_journey)?;
 
-        let model_calendar = transit_model
+        let model_calendar = base_model
             .calendars
             .get(&vehicle_journey.service_id)
             .ok_or_else(|| {
@@ -231,7 +231,7 @@ where
             .iter()
             .filter(|&&date| date >= start_date && date <= end_date);
 
-        let timezone = timezone_of(vehicle_journey, transit_model)?;
+        let timezone = timezone_of(vehicle_journey, base_model)?;
 
         let board_times = board_timezoned_times(vehicle_journey)?;
         let debark_times = debark_timezoned_times(vehicle_journey)?;
@@ -251,7 +251,7 @@ where
 
         let real_time_model = RealTimeModel::new();
         let model = ModelRefs {
-            base: transit_model,
+            base: base_model,
             real_time: &real_time_model,
         };
 
@@ -349,9 +349,9 @@ fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
 
 pub fn timezone_of(
     vehicle_journey: &VehicleJourney,
-    transit_model: &Model,
+    base_model: &BaseModel,
 ) -> Result<chrono_tz::Tz, ()> {
-    let has_route = transit_model.routes.get(&vehicle_journey.route_id);
+    let has_route = base_model.routes.get(&vehicle_journey.route_id);
     if has_route.is_none() {
         warn!(
             "Skipping vehicle journey {} because its route {} was not found.",
@@ -360,7 +360,7 @@ pub fn timezone_of(
         return Err(());
     };
     let route = has_route.unwrap();
-    let has_line = transit_model.lines.get(&route.line_id);
+    let has_line = base_model.lines.get(&route.line_id);
 
     if has_line.is_none() {
         warn!(
@@ -370,7 +370,7 @@ pub fn timezone_of(
         return Err(());
     }
     let line = has_line.unwrap();
-    let has_network = transit_model.networks.get(&line.network_id);
+    let has_network = base_model.networks.get(&line.network_id);
     if has_network.is_none() {
         warn!(
             "Skipping vehicle journey {} because its network {} was not found.",

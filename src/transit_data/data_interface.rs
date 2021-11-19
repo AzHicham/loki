@@ -1,11 +1,10 @@
 use crate::{
     loads_data::{Load, LoadsData},
-    model::{StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, RemovalError},
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use transit_model::Model;
 pub use typed_index_collection::Idx;
 
 use std::fmt::Debug;
@@ -224,7 +223,7 @@ pub trait DataUpdate {
 
 pub trait DataIO {
     fn new(
-        model: &Model,
+        base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
         restrict_calendar: Option<(NaiveDate, NaiveDate)>,

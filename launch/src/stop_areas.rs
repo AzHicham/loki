@@ -34,21 +34,21 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{transit_model, NaiveDateTime, PositiveDuration, RequestInput};
+use loki::{models::base_model::BaseModel, NaiveDateTime, PositiveDuration, RequestInput};
 
 use crate::config::RequestParams;
 
 pub fn make_query_stop_areas(
-    model: &transit_model::Model,
+    base_model: &BaseModel,
     datetime: &NaiveDateTime,
     from_stop_area: &str,
     to_stop_area: &str,
     request_params: &RequestParams,
 ) -> Result<RequestInput, UnknownStopArea> {
     let departures_stop_point_and_fallback_duration =
-        stops_of_stop_area(model, from_stop_area, PositiveDuration::zero())?;
+        stops_of_stop_area(base_model, from_stop_area, PositiveDuration::zero())?;
     let arrivals_stop_point_and_fallback_duration =
-        stops_of_stop_area(model, to_stop_area, PositiveDuration::zero())?;
+        stops_of_stop_area(base_model, to_stop_area, PositiveDuration::zero())?;
 
     let request_input = RequestInput {
         datetime: *datetime,
@@ -65,29 +65,17 @@ pub fn make_query_stop_areas(
 }
 
 pub fn stops_of_stop_area(
-    model: &transit_model::Model,
+    base_model: &BaseModel,
     stop_area_uri: &str,
     duration_to_stops: PositiveDuration,
 ) -> Result<Vec<(String, PositiveDuration)>, UnknownStopArea> {
-    use std::collections::BTreeSet;
-    let mut stop_area_set = BTreeSet::new();
-    let stop_area_idx = model
-        .stop_areas
-        .get_idx(stop_area_uri)
-        .ok_or_else(|| UnknownStopArea {
-            uri: stop_area_uri.to_string(),
-        })?;
-    stop_area_set.insert(stop_area_idx);
+    let mut result = Vec::new();
+    for (_, stop) in base_model.stop_points.iter() {
+        if stop.stop_area_id == stop_area_uri {
+            result.push((stop.id.clone(), duration_to_stops))
+        }
+    }
 
-    let result: Vec<(String, PositiveDuration)> = model
-        .get_corresponding(&stop_area_set)
-        .iter()
-        .map(|idx| {
-            let stop_point_uri = model.stop_points[*idx].id.clone();
-            let duration = duration_to_stops;
-            (stop_point_uri, duration)
-        })
-        .collect();
     Ok(result)
 }
 

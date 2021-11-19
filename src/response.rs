@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::LoadsCount,
-    model::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
 };
 use chrono::{NaiveDate, NaiveDateTime};

@@ -38,10 +38,9 @@ use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
     chrono,
-    model::real_time::RealTimeModel,
+    models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
-    transit_model::Model,
     DataTrait, LoadsData, TransitData,
 };
 use std::{
@@ -76,7 +75,7 @@ pub struct LoadBalancerChannels {
 }
 
 pub struct MasterWorker {
-    base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, Model)>>,
+    base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
     real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
     loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
@@ -88,6 +87,8 @@ impl MasterWorker {
     pub fn new(config: &Config) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
         let base_model = launch::read::read_model(launch_params)?;
+        info!("Base model loaded");
+        info!("Starting to build base data");
         let loads_data = launch::read::read_loads_data(launch_params, &base_model);
         let base_data = launch::read::build_transit_data::<BaseTimetable>(
             &base_model,
@@ -95,13 +96,14 @@ impl MasterWorker {
             &launch_params.default_transfer_duration,
             None,
         );
-
+        info!("Base data loaded");
         let restrict_calendar_for_realtime = {
             let start_date = *base_data.calendar().first_date();
             let end_date = start_date + chrono::Duration::days(2);
             Some((start_date, end_date))
         };
 
+        info!("Starting to build real time data");
         let real_time_model = RealTimeModel::new();
         let real_time_data = launch::read::build_transit_data::<RealTimeTimetable>(
             &base_model,
@@ -109,6 +111,9 @@ impl MasterWorker {
             &launch_params.default_transfer_duration,
             restrict_calendar_for_realtime,
         );
+        info!("Real time data loaded");
+
+        info!("Starting to build workers");
 
         let base_data_and_model = Arc::new(RwLock::new((base_data, base_model)));
         let real_time_data_and_model = Arc::new(RwLock::new((real_time_data, real_time_model)));
@@ -127,6 +132,8 @@ impl MasterWorker {
         let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
         let _amqp_thread_handle =
             listen_amqp_in_a_thread(config.amqp_params.clone(), amqp_message_sender);
+
+        info!("Workers built");
 
         // Master worker
         let result = Self {

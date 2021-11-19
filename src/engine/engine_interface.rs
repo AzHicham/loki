@@ -1,4 +1,4 @@
-use crate::{model::ModelRefs, response, transit_data::data_interface};
+use crate::{models::ModelRefs, response, transit_data::data_interface};
 
 pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey

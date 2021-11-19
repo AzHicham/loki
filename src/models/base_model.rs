@@ -34,44 +34,40 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+use std::ops::Deref;
 
-mod engine;
-pub mod filters;
-pub mod loads_data;
-pub mod models;
-pub mod request;
-pub mod time;
-pub mod timetables;
-mod transit_data;
-pub mod transit_data_filtered;
+use typed_index_collection::Idx;
 
-pub use chrono::{self, NaiveDateTime};
-pub use chrono_tz;
-pub use time::PositiveDuration;
-pub use tracing;
-pub use transit_model;
-pub use typed_index_collection;
+pub struct BaseModel {
+    collections: transit_model::model::Collections,
+}
 
-pub use transit_data::data_interface::{
-    Data as DataTrait, DataIO, DataUpdate, DataWithIters, TransitTypes,
-};
+pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
+pub type BaseStopPointIdx = Idx<transit_model::objects::StopPoint>;
+pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
+pub type BaseStopTime = transit_model::objects::StopTime;
 
-pub use loads_data::LoadsData;
+impl Deref for BaseModel {
+    type Target = transit_model::model::Collections;
 
-pub use transit_data::TransitData;
+    fn deref(&self) -> &Self::Target {
+        &self.collections
+    }
+}
 
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
+impl BaseModel {
+    pub fn from_transit_model(model: transit_model::Model) -> Self {
+        Self {
+            collections: model.into_collections(),
+        }
+    }
 
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
+    pub fn new(collections: transit_model::model::Collections) -> Self {
+        Self { collections }
+    }
 
-pub mod response;
-
-pub type Response = response::Response;
+    pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {
+        self.collections.stop_points.get_idx(stop_id)
+    }
+}

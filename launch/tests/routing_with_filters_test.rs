@@ -36,17 +36,14 @@
 
 mod utils;
 use failure::Error;
-use launch::{
-    config::{ComparatorType, DataImplem},
-    loki::transit_model::Model,
-};
-use loki::model::{real_time::RealTimeModel, ModelRefs};
+use launch::config::{ComparatorType, DataImplem};
+use loki::models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs};
 use rstest::{fixture, rstest};
 use utils::{build_and_solve, from_to_stop_point_names, model_builder::ModelBuilder, Config};
 
 #[fixture]
-pub fn fixture_model() -> Model {
-    ModelBuilder::new("2020-01-01", "2020-01-02")
+pub fn fixture_model() -> BaseModel {
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .network("N1", |n| n.name = "N1".into())
         .route("R1", |r| r.name = "R1".into())
         .route("R2", |r| r.name = "R2".into())
@@ -83,7 +80,9 @@ pub fn fixture_model() -> Model {
         .add_transfer("G", "H", "00:02:00")
         .add_transfer("C", "I", "00:02:00")
         .add_transfer("C", "C", "00:02:00")
-        .build()
+        .build();
+
+    BaseModel::from_transit_model(model)
 }
 
 #[rstest]
@@ -95,7 +94,7 @@ pub fn fixture_model() -> Model {
 fn test_no_filter(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
-    fixture_model: Model,
+    fixture_model: BaseModel,
 ) -> Result<(), Error> {
     utils::init_logger();
 
@@ -135,7 +134,7 @@ fn test_no_filter(
 fn test_filter_forbidden_stop_point(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
-    fixture_model: Model,
+    fixture_model: BaseModel,
 ) -> Result<(), Error> {
     utils::init_logger();
 
@@ -178,7 +177,7 @@ fn test_filter_forbidden_stop_point(
 fn test_filter_allowed_stop_point(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
-    fixture_model: Model,
+    fixture_model: BaseModel,
 ) -> Result<(), Error> {
     utils::init_logger();
 
@@ -228,7 +227,7 @@ fn test_filter_allowed_stop_point(
 fn test_filter_forbidden_route(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
-    fixture_model: Model,
+    fixture_model: BaseModel,
 ) -> Result<(), Error> {
     utils::init_logger();
 
@@ -270,7 +269,7 @@ fn test_filter_forbidden_route(
 fn test_filter_allowed_route(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
-    fixture_model: Model,
+    fixture_model: BaseModel,
 ) -> Result<(), Error> {
     utils::init_logger();
 

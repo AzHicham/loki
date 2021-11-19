@@ -48,11 +48,11 @@ pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
 use std::hash::Hash;
 
-pub use crate::transit_data::{Idx, Stop, VehicleJourney};
+pub use crate::transit_data::Stop;
 
 use crate::{
     loads_data::{Load, LoadsData},
-    model::VehicleJourneyIdx,
+    models::VehicleJourneyIdx,
     time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
 };
 

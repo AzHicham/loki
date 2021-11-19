@@ -42,7 +42,7 @@ use failure::Error;
 use launch::{config::DataImplem, solver::Solver};
 
 use loki::{
-    model::{real_time::RealTimeModel, ModelRefs, VehicleJourneyIdx},
+    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, VehicleJourneyIdx},
     request::generic_request,
     timetables::{Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
@@ -97,11 +97,13 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let mut data = launch::read::build_transit_data::<T>(
-        &model,
+        &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
         None,
@@ -134,7 +136,7 @@ where
         );
     }
 
-    let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+    let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
     let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
     data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
@@ -229,13 +231,15 @@ where
         })
         .build();
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T08:00:00", "A", "C");
 
     let mut data = launch::read::build_transit_data::<T>(
-        &model,
+        &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
         None,
@@ -263,7 +267,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -289,7 +293,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = model.vehicle_journeys.get_idx("second").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("second").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -315,7 +319,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -384,13 +388,15 @@ where
         })
         .build();
 
+    let base_model = BaseModel::from_transit_model(model);
+
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
 
     let mut data = launch::read::build_transit_data::<T>(
-        &model,
+        &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
         None,
@@ -418,7 +424,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = model.vehicle_journeys.get_idx("first").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -444,7 +450,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = model.vehicle_journeys.get_idx("third").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
