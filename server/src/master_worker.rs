@@ -123,7 +123,7 @@ impl MasterWorker {
             base_data_and_model.clone(),
             real_time_data_and_model.clone(),
             config.nb_workers,
-            &config.basic_requests_socket,
+            &config.requests_socket,
             &config.request_default_params,
         )?;
         let _load_balancer_thread_handle = load_balancer.run_in_a_thread()?;

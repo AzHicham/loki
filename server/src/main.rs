@@ -104,14 +104,8 @@ pub struct Config {
     launch_params: config::LaunchParams,
 
     /// zmq socket to listen for protobuf requests
-    /// that will be handled with "basic" comparator
     #[structopt(long)]
-    basic_requests_socket: String,
-
-    /// zmq socket to listen for protobuf requests
-    /// that will be handled with "loads" comparator
-    #[structopt(long)]
-    loads_requests_socket: Option<String>,
+    requests_socket: String,
 
     #[serde(flatten)]
     #[structopt(flatten)]
