@@ -48,10 +48,9 @@ use crate::{
 
 use crate::{DataUpdate, LoadsData};
 
-use super::real_time_disruption as disruption;
 use super::{
-    base_model::BaseModel, base_model::BaseVehicleJourneyIdx, ModelRefs, StopPointIdx,
-    VehicleJourneyIdx,
+    base_model::{BaseModel, BaseVehicleJourneyIdx},
+    real_time_disruption as disruption, ModelRefs, StopPointIdx, VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {

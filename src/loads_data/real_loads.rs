@@ -41,7 +41,10 @@ use tracing::{debug, trace};
 type StopSequence = u32;
 type Occupancy = u8;
 
-use crate::models::{base_model::BaseModel, base_model::BaseVehicleJourneyIdx, VehicleJourneyIdx};
+use crate::models::{
+    base_model::{BaseModel, BaseVehicleJourneyIdx},
+    VehicleJourneyIdx,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
