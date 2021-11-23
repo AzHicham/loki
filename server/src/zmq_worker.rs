@@ -251,7 +251,7 @@ fn handle_incoming_request(
             };
             let send_result = requests_sender.send(request_message);
             if let Err(err) = send_result {
-                error!("Error while forwarding request to master_worker : {}", err);
+                error!("Error while forwarding request to load balancer : {}", err);
                 // TODO : what to do here ?
                 // if an error occurs while sending
                 // it means that the receiver of the channel is closed

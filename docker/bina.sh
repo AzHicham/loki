@@ -195,30 +195,15 @@ for folder in $(ls -d */); do
 
 
     krakenPort="30000"
-    lokiBasicPort="30001"
-    lokiLoadsPort="30002"
+    lokiPort="30001"
 
     # Jormun config files
-
-    # old fashion Kraken
-    jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" '{
+    jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiPort}" '{
     key: $instance,
-    zmq_socket: $krakenSocket
+    zmq_socket: $krakenSocket,
+    pt_zmq_socket : $lokiSocket
 }'  > ${output}/jormun_conf/${coverage}.json
 
-    # "loki" with basic comparator
-    jq -n --arg instance "${coverage}-loki" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiBasicPort}" '{
-    key: $instance,
-    zmq_socket: $krakenSocket,
-    pt_zmq_socket : $lokiSocket
-}'  > ${output}/jormun_conf/${coverage}-loki.json
-
-    # "loki" with loads comparator
-    jq -n --arg instance "${coverage}-loki-loads" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiLoadsPort}" '{
-    key: $instance,
-    zmq_socket: $krakenSocket,
-    pt_zmq_socket : $lokiSocket
-}'  > ${output}/jormun_conf/${coverage}-loki-loads.json
 
 
 
@@ -231,18 +216,14 @@ zmq_socket = tcp://*:${krakenPort}
 " > ${output}/${coverage}/kraken.ini
 
     # Loki config files
-    jq -n --arg basicSocket "tcp://*:$lokiBasicPort" \
-          --arg loadsSocket "tcp://*:$lokiLoadsPort" \
+    jq -n --arg lokiSocket "tcp://*:$lokiPort" \
           --arg inputType "$inputType" \
           --arg inputPath "/data/$inputType/" \
           '{
     input_data_path: $inputPath,
     input_data_type: $inputType,
     loads_data_path: "/data/stoptimes_loads.csv",
-    basic_requests_socket: $basicSocket,
-    loads_requests_socket: $loadsSocket,
-    data_implem: "periodic_split_vj",
-    criteria_implem: "loads"
+    requests_socket: $lokiSocket,
 }' > ${output}/${coverage}/loki_config.json
 
 
