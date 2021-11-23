@@ -1,0 +1,55 @@
+# Image generated with Sequence Diagram.
+# Please, edit the following link to re-generate the diagram:
+
+# https://sequencediagram.org/index.html#initialData=title%20Diagram%20of%20PT%20Request%20Handling%20in%20Loki%0A%0Aactor%20Jormungandr%0Aparticipantgroup%20%23lightblue%20**Load%20Balancer**%0Aparticipant%20ZMQ_Worker%20(1%20Thread)%0Aparticipant%20LoadBalancer_Worker%20(1%20Thread)%0Aparticipant%20Compute_Worker%20(N%20Threads)%0Aend%0A%0AJormungandr-%3EZMQ_Worker%20(1%20Thread)%3Azmq_socket.rcv()%0Anote%20right%20of%20ZMQ_Worker%20(1%20Thread)%3A%20Decode%20Navitia%20Proto%0A%0Aactivate%20ZMQ_Worker%20(1%20Thread)%20%23gray%0Alinear%0AZMQ_Worker%20(1%20Thread)-%3ELoadBalancer_Worker%20(1%20Thread)%3A**requests_sender**%20-%3E%20**requests_receiver**%0Alinear%20off%0Adeactivate%20ZMQ_Worker%20(1%20Thread)%0A%0Aactivate%20LoadBalancer_Worker%20(1%20Thread)%20%23gray%0Alinear%0Aspace%0ALoadBalancer_Worker%20(1%20Thread)-%3ECompute_Worker%20(N%20Threads)%3A**worker_request_senders%5Bn%5D**%20-%3E%20**request_channel**%0Alinear%20off%0Adeactivate%20LoadBalancer_Worker%20(1%20Thread)%0A%0Aactivate%20Compute_Worker%20(N%20Threads)%20%23gray%0Alinear%0Aspace%0Anote%20right%20of%20Compute_Worker%20(N%20Threads)%3AHandle%20Request%0A%0ACompute_Worker%20(N%20Threads)-%3ELoadBalancer_Worker%20(1%20Thread)%3A%20**workers_response_receiver**%20%3C-%20**responses_channel**%20%0A%0Alinear%20off%0Adeactivate%20Compute_Worker%20(N%20Threads)%0A%0Aactivate%20LoadBalancer_Worker%20(1%20Thread)%20%23gray%0Alinear%0Aspace%0Aspace%20%0ALoadBalancer_Worker%20(1%20Thread)-%3EZMQ_Worker%20(1%20Thread)%3A**responses_receiver**%20%3C-%20**responses_sender**%0Alinear%20off%0Adeactivate%20LoadBalancer_Worker%20(1%20Thread)%0A%0A%0Aactivate%20ZMQ_Worker%20(1%20Thread)%20%23gray%0Alinear%0AJormungandr%3C-ZMQ_Worker%20(1%20Thread)%3Azmq_socket.send()%0Alinear%20off%0Adeactivate%20ZMQ_Worker%20(1%20Thread)
+title Diagram of PT Request Handling in Loki
+
+title Diagram of PT Request Handling in Loki
+
+actor Jormungandr
+participantgroup #lightblue **Load Balancer**
+participant ZMQ_Worker (1 Thread)
+participant LoadBalancer_Worker (1 Thread)
+participant Compute_Worker (N Threads)
+end
+
+Jormungandr->ZMQ_Worker (1 Thread):zmq_socket.rcv()
+note right of ZMQ_Worker (1 Thread): Decode Navitia Proto
+
+activate ZMQ_Worker (1 Thread) #gray
+linear
+ZMQ_Worker (1 Thread)->LoadBalancer_Worker (1 Thread):**requests_sender** -> **requests_receiver**
+linear off
+deactivate ZMQ_Worker (1 Thread)
+
+activate LoadBalancer_Worker (1 Thread) #gray
+linear
+space
+LoadBalancer_Worker (1 Thread)->Compute_Worker (N Threads):**worker_request_senders[n]** -> **request_channel**
+linear off
+deactivate LoadBalancer_Worker (1 Thread)
+
+activate Compute_Worker (N Threads) #gray
+linear
+space
+note right of Compute_Worker (N Threads):Handle Request
+
+Compute_Worker (N Threads)->LoadBalancer_Worker (1 Thread): **workers_response_receiver** <- **responses_channel**
+
+linear off
+deactivate Compute_Worker (N Threads)
+
+activate LoadBalancer_Worker (1 Thread) #gray
+linear
+space
+space
+LoadBalancer_Worker (1 Thread)->ZMQ_Worker (1 Thread):**responses_receiver** <- **responses_sender**
+linear off
+deactivate LoadBalancer_Worker (1 Thread)
+
+
+activate ZMQ_Worker (1 Thread) #gray
+linear
+Jormungandr<-ZMQ_Worker (1 Thread):zmq_socket.send()
+linear off
+deactivate ZMQ_Worker (1 Thread)
