@@ -371,11 +371,11 @@ pub fn handle_insertion_errors(
             Times(vehicle_journey_idx, error, dates) => {
                 let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
             }
-            VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
+            VehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx, real_time_validity) => {
                 let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
                 error!(
-                    "Trying to insert the vehicle journey {} more than once on day {}",
-                    vehicle_journey_name, date
+                    "Trying to insert the vehicle journey {} {:?} more than once on day {}",
+                    vehicle_journey_name, real_time_validity, date
                 );
             }
             InvalidDate(date, vehicle_journey_idx) => {
@@ -509,29 +509,29 @@ pub fn handle_removal_errors(
 ) {
     for error in removal_errors {
         match error {
-            RemovalError::UnknownDate(date, vehicle_journey_idx) => {
+            RemovalError::UnknownDate(date, vehicle_journey_idx, real_time_validity) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
-                    "Trying to remove the vehicle journey {} on day {},  \
+                    "Trying to remove the vehicle journey {}, {:?} on day {},  \
                         but this day is not allowed in the data.  \
                         Allowed dates are between {} and {}",
-                    vehicle_journey_name, date, start_date, end_date,
+                    vehicle_journey_name, real_time_validity, date, start_date, end_date,
                 );
             }
-            RemovalError::UnknownVehicleJourney(vehicle_journey_idx) => {
+            RemovalError::UnknownVehicleJourney(vehicle_journey_idx, real_time_validity) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
-                    "Trying to remove the vehicle journey {},  \
+                    "Trying to remove the vehicle journey {} {:?},  \
                         but this vehicle journey is unknown",
-                    vehicle_journey_name,
+                    vehicle_journey_name, real_time_validity
                 );
             }
-            RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
+            RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx, real_time_validity) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
-                    "Trying to remove the vehicle journey {} on day {},  \
+                    "Trying to remove the vehicle journey {} {:?} on day {},  \
                         but this vehicle journeys does not exists on this day. ",
-                    vehicle_journey_name, date,
+                    vehicle_journey_name, real_time_validity, date,
                 );
             }
         }

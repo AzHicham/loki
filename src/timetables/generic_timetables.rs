@@ -996,7 +996,7 @@ where
         nb_to_remove
     }
 
-    pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> Result<usize, ()>
+    pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> usize
     where
         Updater: FnMut(&mut VehicleData) -> bool, // returns true when an update took place
     {
@@ -1008,10 +1008,8 @@ where
             }
         }
 
-        match nb_updated {
-            0 => Err(()),
-            _ => Ok(nb_updated),
-        }
+        nb_updated
+
     }
 }
 

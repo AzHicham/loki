@@ -150,7 +150,7 @@ impl RealTimeModel {
                     .real_time_level(trip, base_model)
                     .map_err(|_| UpdateError::DeleteAbsentTrip(trip.clone()))?;
                 let removal_result =
-                    data.remove_vehicle(&vj_idx, &trip.reference_date, &real_time_level);
+                    data.remove_vehicle(&vj_idx, &trip.reference_date, real_time_level);
                 if let Err(removal_error) = removal_result {
                     let model_ref = ModelRefs {
                         base: base_model,
@@ -172,7 +172,7 @@ impl RealTimeModel {
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
                 let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
                 let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
-                let insertion_errors = data.add_vehicle(
+                let insertion_errors = data.add_real_time_vehicle(
                     stops,
                     flows,
                     board_times,

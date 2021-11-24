@@ -179,10 +179,10 @@ pub trait DataUpdate {
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-        real_time_level: &RealTimeLevel,
+        real_time_level : RealTimeLevel,
     ) -> Result<(), RemovalError>;
 
-    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn add_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,

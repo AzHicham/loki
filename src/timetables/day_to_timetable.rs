@@ -70,9 +70,9 @@ impl VehicleJourneyToTimetable {
         days_patterns: &DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => self.base_and_real_time, 
-            RealTimeValidity::BaseOnly => self.base_only,
-            RealTimeValidity::RealTimeOnly => self.real_time_only,
+            RealTimeValidity::BaseAndRealTime => & self.base_and_real_time, 
+            RealTimeValidity::BaseOnly => & self.base_only,
+            RealTimeValidity::RealTimeOnly => & self.real_time_only,
         };
         data
             .get(vehicle_journey_idx)
@@ -93,9 +93,28 @@ impl VehicleJourneyToTimetable {
             RealTimeValidity::BaseOnly => & mut self.base_only,
             RealTimeValidity::RealTimeOnly => & mut self.real_time_only,
         };
-        data.entry(*vehicle_journey_idx)
+        data.entry(vehicle_journey_idx.clone())
             .or_insert_with(|| DayToTimetable::new())
             .insert_days_pattern(days_pattern_to_insert, timetable_to_insert, days_patterns)
+    }
+
+    pub fn remove(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+        real_time_validity : &RealTimeValidity,
+        days_patterns: & mut DaysPatterns,
+    ) -> Result<Timetable, Unknown> {
+        let data = match *real_time_validity {
+            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time, 
+            RealTimeValidity::BaseOnly => &mut self.base_only,
+            RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
+        };
+        data
+            .get_mut(vehicle_journey_idx)
+            .ok_or(Unknown::VehicleJourneyIdx)?
+            .remove(day, days_patterns)
+            .map_err(|_| Unknown::DayForVehicleJourney)
     }
 
 
@@ -122,12 +141,6 @@ impl DayToTimetable {
         }
     }
 
-    pub fn contains_day(&self, day: &DaysSinceDatasetStart, days_patterns: &DaysPatterns) -> bool {
-        self.pattern_timetables
-            .iter()
-            .any(|(days_pattern, _)| days_patterns.is_allowed(days_pattern, day))
-    }
-
     pub fn has_timetable_on_day(
         &self,
         day: &DaysSinceDatasetStart,
@@ -137,22 +150,10 @@ impl DayToTimetable {
             .iter()
             .find_map(|(days_pattern, timetable)| {
                 if days_patterns.is_allowed(days_pattern, day) {
-                    Some(*timetable)
+                    Some(timetable.clone())
                 } else {
                     None
                 }
-            })
-    }
-
-    pub fn has_intersection_with(
-        &self,
-        days_pattern_to_intersect: &DaysPattern,
-        days_patterns: &DaysPatterns,
-    ) -> Option<DaysSinceDatasetStart> {
-        self.pattern_timetables
-            .iter()
-            .find_map(|(days_pattern, _)| {
-                days_patterns.have_common_day(days_pattern, days_pattern_to_intersect)
             })
     }
 
