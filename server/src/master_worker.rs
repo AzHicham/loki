@@ -39,7 +39,7 @@ use failure::{format_err, Error};
 use launch::loki::{
     chrono,
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
-    timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
+    timetables::PeriodicSplitVjByTzTimetables,
     tracing::{debug, error, info},
     DataTrait, LoadsData, TransitData,
 };
@@ -270,7 +270,6 @@ impl MasterWorker {
                             base_model,
                             &self.loads_data,
                             real_time_data,
-                            self.nb_of_realtime_days_to_keep,
                         );
                     }
                 }

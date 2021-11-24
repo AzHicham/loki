@@ -34,16 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-mod daily;
-
 mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
-mod periodic;
+// mod daily;
+// mod periodic;
 mod periodic_split_vj_by_tz;
 
-pub use daily::DailyTimetables;
-pub use periodic::PeriodicTimetables;
+// pub use daily::DailyTimetables;
+// pub use periodic::PeriodicTimetables;
 pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
 use std::hash::Hash;
@@ -54,12 +53,31 @@ use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
     time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+    transit_data::data_interface::RealTimeLevel,
 };
 
 use chrono::NaiveDate;
 use std::fmt::Debug;
 
 use self::generic_timetables::VehicleTimesError;
+
+#[derive(Debug, Clone)]
+pub enum RealTimeValidity {
+    BaseOnly,
+    RealTimeOnly,
+    BaseAndRealTime,
+}
+
+impl RealTimeValidity {
+    pub fn is_valid_for(&self, real_time_level: RealTimeLevel) -> bool {
+        match (self, real_time_level) {
+            (RealTimeValidity::BaseAndRealTime, _) => true,
+            (RealTimeValidity::BaseOnly, RealTimeLevel::Base) => true,
+            (RealTimeValidity::RealTimeOnly, RealTimeLevel::RealTime) => true,
+            _ => false,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum FlowDirection {
@@ -180,6 +198,7 @@ pub trait Timetables: Types {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_validity: &RealTimeValidity,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -192,9 +211,8 @@ pub trait Timetables: Types {
         &mut self,
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
     ) -> Result<(), RemovalError>;
-
-    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate);
 }
 
 #[derive(Clone, Debug)]

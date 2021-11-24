@@ -42,7 +42,8 @@ use crate::{
         base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
         TransferIdx, VehicleJourneyIdx,
     },
-    transit_data::{Stop, TransitData},
+    timetables::RealTimeValidity,
+    transit_data::{data_interface::RealTimeLevel, Stop, TransitData},
     DataUpdate,
 };
 
@@ -71,29 +72,15 @@ where
         let nb_of_stop_points = base_model.stop_points.len();
         let nb_transfers = base_model.transfers.len();
 
-        let (calendar_start_date, calendar_end_date) = base_model
+        let (start_date, end_date) = base_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
-
-        let (start_date, end_date) =
-            if let Some((restricted_start_date, restricted_end_date)) = restrict_calendar {
-                restrict_dates(
-                    &calendar_start_date,
-                    &calendar_end_date,
-                    &restricted_start_date,
-                    &restricted_end_date,
-                )
-            } else {
-                (calendar_start_date, calendar_end_date)
-            };
 
         let mut data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables: Timetables::new(start_date, end_date),
             transfers_data: Vec::with_capacity(nb_transfers),
-            start_date,
-            end_date,
         };
 
         data.init(base_model, loads_data, default_transfer_duration);
@@ -224,12 +211,7 @@ where
                 );
             })?;
 
-        let start_date = self.start_date;
-        let end_date = self.end_date;
-        let dates = model_calendar
-            .dates
-            .iter()
-            .filter(|&&date| date >= start_date && date <= end_date);
+        let dates = model_calendar.dates.iter();
 
         let timezone = timezone_of(vehicle_journey, base_model)?;
 
@@ -238,7 +220,7 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let insertion_errors = self.add_vehicle(
+        let insertion_errors = self.add_vehicle_inner(
             stop_points,
             flows.into_iter(),
             board_times.into_iter(),
@@ -247,6 +229,7 @@ where
             dates,
             &timezone,
             vehicle_journey_idx,
+            &RealTimeValidity::BaseAndRealTime,
         );
 
         let real_time_model = RealTimeModel::new();
@@ -255,7 +238,13 @@ where
             real_time: &real_time_model,
         };
 
-        handle_insertion_errors(&model, &self.start_date, &self.end_date, &insertion_errors);
+        use crate::transit_data::data_interface::Data;
+        handle_insertion_errors(
+            &model,
+            &self.calendar().first_date(),
+            &self.calendar().last_date(),
+            &insertion_errors,
+        );
 
         Ok(())
     }

@@ -64,9 +64,6 @@ pub struct TransitData<Timetables: TimetablesTrait> {
     pub(super) timetables: Timetables,
 
     pub(super) transfers_data: Vec<TransferData>,
-
-    pub(super) start_date: NaiveDate,
-    pub(super) end_date: NaiveDate,
 }
 
 pub struct StopData<Timetables: TimetablesTrait> {

@@ -611,40 +611,6 @@ impl TimetablesTrait for PeriodicTimetables {
             }
         }
     }
-
-    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate) {
-        let day = {
-            let has_day = self.calendar.date_to_days_since_start(date);
-            if let Some(day) = has_day {
-                day
-            } else {
-                warn!(
-                    "Asked to remove all vehicle on day {}, which is invalid for the calendar. \
-                            Allowed dates are between {} and {}",
-                    date,
-                    self.calendar.first_date(),
-                    self.calendar.last_date(),
-                );
-                return;
-            }
-        };
-        let mut vehicle_journeys_to_remove = Vec::new();
-        for (vehicle_journey_idx, day_to_timetable) in self.vehicle_journey_to_timetables.iter() {
-            if day_to_timetable.contains_day(&day, &self.days_patterns) {
-                vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
-            }
-        }
-        for vehicle_journey_idx in vehicle_journeys_to_remove {
-            let removal_result = self.remove(date, &vehicle_journey_idx);
-            if let Err(removal_error) = removal_result {
-                warn!(
-                    "Removal error occured while removing all vehicles on day {}. \
-                    {:?}",
-                    date, removal_error
-                )
-            }
-        }
-    }
 }
 
 impl<'a> TimetablesIter<'a> for PeriodicTimetables {

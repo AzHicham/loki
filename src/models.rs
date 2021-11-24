@@ -48,7 +48,7 @@ use self::{
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx},
 };
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum VehicleJourneyIdx {
     Base(BaseVehicleJourneyIdx),
     New(NewVehicleJourneyIdx),

@@ -38,12 +38,13 @@ use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
+    transit_data::data_interface::RealTimeLevel,
 };
 
 use super::{
     day_to_timetable::DayToTimetable,
     generic_timetables::{Timetables, Trip, Vehicle},
-    InsertionError, RemovalError, TimetablesIter,
+    InsertionError, RealTimeValidity, RemovalError, TimetablesIter,
 };
 
 use crate::time::{
@@ -51,7 +52,6 @@ use crate::time::{
     SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::{FixedOffset, NaiveDate};
-use tracing::warn;
 
 use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
@@ -63,15 +63,20 @@ pub struct PeriodicSplitVjByTzTimetables {
     calendar: Calendar,
     days_patterns: DaysPatterns,
     timezones_patterns: TimezonesPatterns,
-    vehicle_journey_to_timetables:
-        BTreeMap<VehicleJourneyIdx, HashMap<FixedOffset, DayToTimetable>>,
+    base_vehicle_journey_to_timetable: HashMap<VehicleJourneyIdx, DayToTimetable>,
+    real_time_vehicle_journey_to_timetable: HashMap<VehicleJourneyIdx, DayToTimetable>,
 }
+
+// A vj can be
+// BaseAndRealTime : une seule version par offset
+// BaseOnly
 
 #[derive(Debug, Clone)]
 pub struct VehicleData {
     days_pattern: DaysPattern,
     vehicle_journey_idx: VehicleJourneyIdx,
     utc_offset: FixedOffset,
+    real_time_validity: RealTimeValidity,
 }
 
 impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
@@ -89,7 +94,8 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             calendar,
             days_patterns: DaysPatterns::new(nb_of_days),
             timezones_patterns: TimezonesPatterns::new(),
-            vehicle_journey_to_timetables: BTreeMap::new(),
+            base_vehicle_journey_to_timetable: HashMap::new(),
+            real_time_vehicle_journey_to_timetable: HashMap::new(),
         }
     }
 
@@ -364,6 +370,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_validity: &RealTimeValidity,
     ) -> (Vec<Self::Mission>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -372,6 +379,27 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
+        let real_time_day_to_timetable = self
+            .real_time_vehicle_journey_to_timetable
+            .get(vehicle_journey_idx);
+
+        let really_valid_dates = {
+            let mut result = Vec::new();
+            for date in valid_dates {
+                let mut is_valid = true;
+                let day = self.calendar.date_to_days_since_start(date);
+                if real_time_validity.is_valid_for(RealTimeLevel::RealTime) {
+                    let base_day_to_timetable = self
+                        .base_vehicle_journey_to_timetable
+                        .get(vehicle_journey_idx);
+                }
+
+                if is_valid {
+                    result.push(date)
+                }
+            }
+        };
+
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
@@ -476,11 +504,36 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         &mut self,
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
     ) -> Result<(), super::RemovalError> {
         let day = self
             .calendar
             .date_to_days_since_start(date)
             .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
+
+        let timetable = {
+            if let Some(timetable) = self
+                .vehicle_journey_to_timetable
+                .get(&(*vehicle_journey_idx, day))
+            {
+                Ok(timetable)
+            } else {
+                if self
+                    .vehicle_journey_to_timetable
+                    .keys()
+                    .any(|(vj_idx, _)| vj_idx == vehicle_journey_idx)
+                {
+                    Err(RemovalError::DateInvalidForVehicleJourney(
+                        date.clone(),
+                        vehicle_journey_idx.clone(),
+                    ))
+                } else {
+                    Err(RemovalError::UnknownVehicleJourney(
+                        vehicle_journey_idx.clone(),
+                    ))
+                }
+            }
+        }?;
 
         let iter = self
             .vehicle_journey_to_timetables
@@ -534,44 +587,54 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             vehicle_journey_idx.clone(),
         ))
     }
+}
 
-    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate) {
-        let day = {
-            let has_day = self.calendar.date_to_days_since_start(date);
-            if let Some(day) = has_day {
-                day
-            } else {
-                warn!(
-                    "Asked to remove all vehicle on day {}, which is invalid for the calendar. \
-                            Allowed dates are between {} and {}",
-                    date,
-                    self.calendar.first_date(),
-                    self.calendar.last_date(),
-                );
-                return;
-            }
-        };
+impl PeriodicSplitVjByTzTimetables {
+    fn timetable_for_base(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+    ) -> Option<Timetable> {
+        self.base_vehicle_journey_to_timetable
+            .get(vehicle_journey_idx)
+            .map(|day_to_timetable| day_to_timetable.has_timetable_on_day(day, &self.days_patterns))
+            .flatten()
+    }
 
-        let mut vehicle_journeys_to_remove = Vec::new();
-        for (vehicle_journey_idx, offset_to_day_to_timetable) in
-            self.vehicle_journey_to_timetables.iter()
-        {
-            for (_, day_to_timetable) in offset_to_day_to_timetable.iter() {
-                if day_to_timetable.contains_day(&day, &self.days_patterns) {
-                    vehicle_journeys_to_remove.push(vehicle_journey_idx.clone());
-                }
-            }
-        }
-        for vehicle_journey_idx in vehicle_journeys_to_remove {
-            let removal_result = self.remove(date, &vehicle_journey_idx);
-            if let Err(removal_error) = removal_result {
-                warn!(
-                    "Removal error occured while removing all vehicles on day {}. \
-                    {:?}",
-                    date, removal_error
-                )
-            }
-        }
+    fn timetable_for_real_time(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+    ) -> Option<Timetable> {
+        self.real_time_vehicle_journey_to_timetable
+            .get(vehicle_journey_idx)
+            .map(|day_to_timetable| day_to_timetable.has_timetable_on_day(day, &self.days_patterns))
+            .flatten()
+    }
+
+    fn insert_base_and_real_time_vj() {
+        // check that base vj and real time does not exists
+    }
+
+    fn insert_real_time_only_vj() {
+        // check that real time does not exists
+        // add to self.real_time_vehicle_journey_to_timetable
+        // add to timetable
+    }
+
+    // Non, impossible
+    fn insert_base_only_vj() {
+        // check that base vj does not exists
+        // check that real_time vj does not exists ?
+        // add to self.base_vehicle_journey_to_timetable
+        // add to timetable
+    }
+
+    fn modify_base_vj() {
+        // check that base vj exists
+        // check that real_time vj does not exists on the days ?
+        // mark base_vj as BaseOnly for the modified days
+        // add real_time_vj, marked as RealTimeOnly
     }
 }
 

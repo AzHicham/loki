@@ -72,7 +72,7 @@ pub struct SecondsSinceDatasetUTCStart {
 }
 
 /// Number of days since the first allowed day of the data
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DaysSinceDatasetStart {
     pub(super) days: u16,
 }

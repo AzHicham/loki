@@ -168,11 +168,18 @@ pub trait Data: TransitTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
+#[derive(Debug, Clone)]
+pub enum RealTimeLevel {
+    Base,
+    RealTime,
+}
+
 pub trait DataUpdate {
     fn remove_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
+        real_time_level: &RealTimeLevel,
     ) -> Result<(), RemovalError>;
 
     fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -203,6 +210,7 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
     ) -> (Vec<RemovalError>, Vec<InsertionError>)
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -210,15 +218,6 @@ pub trait DataUpdate {
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
-
-    fn start_date(&self) -> &NaiveDate;
-    fn end_date(&self) -> &NaiveDate;
-
-    fn set_start_end_date(
-        &mut self,
-        start_date: &NaiveDate,
-        end_date: &NaiveDate,
-    ) -> (Vec<NaiveDate>, Vec<NaiveDate>);
 }
 
 pub trait DataIO {

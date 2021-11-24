@@ -119,6 +119,21 @@ impl DaysPatterns {
         self.get_or_insert_from_buffer()
     }
 
+    pub fn get_from_days<Days>(&mut self, days: Days, calendar: &Calendar) -> DaysPattern
+    where
+        Days: Iterator<Item = DaysSinceDatasetStart>,
+    {
+        // set all elements of the buffer to false
+        self.buffer.fill(false);
+
+        for day in days {
+            let offset = day.days;
+            self.buffer[offset as usize] = true;
+        }
+
+        self.get_or_insert_from_buffer()
+    }
+
     pub fn make_dates(&self, days_pattern: &DaysPattern, calendar: &Calendar) -> Vec<NaiveDate> {
         let mut result = Vec::new();
         for day in calendar.days() {
@@ -260,6 +275,7 @@ impl DaysPatterns {
     }
 }
 
+#[derive(Clone)]
 pub struct DaysInPatternIter<'pattern> {
     allowed_dates: Enumerate<std::slice::Iter<'pattern, bool>>,
 }

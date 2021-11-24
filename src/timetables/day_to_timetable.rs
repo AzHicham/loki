@@ -34,12 +34,60 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::time::{
-    days_patterns::{DaysPattern, DaysPatterns},
-    DaysSinceDatasetStart,
+use std::collections::HashMap;
+
+use crate::{
+    models::VehicleJourneyIdx,
+    time::{
+        days_patterns::{DaysPattern, DaysPatterns},
+        DaysSinceDatasetStart,
+    },
 };
 
-use super::generic_timetables::Timetable;
+use super::{generic_timetables::Timetable, RealTimeValidity};
+
+pub struct VehicleJourneyToTimetable {
+    base_and_real_time: HashMap<VehicleJourneyIdx, DayToTimetable>,
+    base_only: HashMap<VehicleJourneyIdx, DayToTimetable>,
+    real_time_only: HashMap<VehicleJourneyIdx, DayToTimetable>,
+}
+
+impl VehicleJourneyToTimetable {
+    pub fn new() -> Self {
+        Self {
+            data: HashMap::new(),
+        }
+    }
+
+    pub fn get(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+        days_patterns: &DaysPatterns,
+    ) -> Result<Timetable, Unknown> {
+        self.data
+            .get(vehicle_journey_idx)
+            .ok_or(Unknown::VehicleJourneyIdx)?
+            .has_timetable_on_day(day, days_patterns)
+            .ok_or(Unknown::DayForVehicleJourney)
+    }
+}
+
+pub enum Unknown {
+    VehicleJourneyIdx,
+    DayForVehicleJourney,
+}
+
+#[derive(Debug)]
+pub struct RealTimeLevelToTimetable {
+    // for each day, we either have
+    //  - one element in base_and_real_time, and nothing in base_only and real_time_only
+    //  - one element in base_only and real_time_only , and nothing in base_and_real_time
+    base_and_real_time: DayToTimetable,
+    base_only: DayToTimetable,
+    real_time_only: DayToTimetable,
+    data: Vec<(DaysPattern, RealTimeValidity, Timetable)>,
+}
 
 #[derive(Debug)]
 pub struct DayToTimetable {
@@ -60,6 +108,22 @@ impl DayToTimetable {
         self.pattern_timetables
             .iter()
             .any(|(days_pattern, _)| days_patterns.is_allowed(days_pattern, day))
+    }
+
+    pub fn has_timetable_on_day(
+        &self,
+        day: &DaysSinceDatasetStart,
+        days_patterns: &DaysPatterns,
+    ) -> Option<Timetable> {
+        self.pattern_timetables
+            .iter()
+            .find_map(|(days_pattern, timetable)| {
+                if days_patterns.is_allowed(days_pattern, day) {
+                    Some(*timetable)
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn has_intersection_with(

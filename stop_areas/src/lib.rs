@@ -41,7 +41,7 @@ use launch::{
         self,
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
-        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
+        PeriodicSplitVjData, TransitData,
     },
     solver::Solver,
 };
@@ -168,8 +168,8 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 
 pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
-        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
+        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
     }
 }
