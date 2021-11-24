@@ -34,24 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{
-    loads_data::{Load, LoadsData},
-    models::VehicleJourneyIdx,
-    time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
-    transit_data::data_interface::RealTimeLevel,
-};
+use crate::{loads_data::{Load, LoadsData}, models::VehicleJourneyIdx, time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns}, timetables::day_to_timetable::InsertError, transit_data::data_interface::RealTimeLevel};
 
-use super::{
-    day_to_timetable::DayToTimetable,
-    generic_timetables::{Timetables, Trip, Vehicle},
-    InsertionError, RealTimeValidity, RemovalError, TimetablesIter,
-};
+use super::{InsertionError, RealTimeValidity, RemovalError, TimetablesIter, day_to_timetable::{DayToTimetable, VehicleJourneyToTimetable}, generic_timetables::{Timetables, Trip, Vehicle}};
 
 use crate::time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::{FixedOffset, NaiveDate};
+use serde::__private::de::InPlaceSeed;
 
 use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
@@ -63,8 +55,8 @@ pub struct PeriodicSplitVjByTzTimetables {
     calendar: Calendar,
     days_patterns: DaysPatterns,
     timezones_patterns: TimezonesPatterns,
-    base_vehicle_journey_to_timetable: HashMap<VehicleJourneyIdx, DayToTimetable>,
-    real_time_vehicle_journey_to_timetable: HashMap<VehicleJourneyIdx, DayToTimetable>,
+    vehicle_journey_to_timetable: VehicleJourneyToTimetable,
+
 }
 
 // A vj can be
@@ -75,7 +67,6 @@ pub struct PeriodicSplitVjByTzTimetables {
 pub struct VehicleData {
     days_pattern: DaysPattern,
     vehicle_journey_idx: VehicleJourneyIdx,
-    utc_offset: FixedOffset,
     real_time_validity: RealTimeValidity,
 }
 
@@ -94,8 +85,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             calendar,
             days_patterns: DaysPatterns::new(nb_of_days),
             timezones_patterns: TimezonesPatterns::new(),
-            base_vehicle_journey_to_timetable: HashMap::new(),
-            real_time_vehicle_journey_to_timetable: HashMap::new(),
+            vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
         }
     }
 
@@ -379,26 +369,37 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let real_time_day_to_timetable = self
-            .real_time_vehicle_journey_to_timetable
-            .get(vehicle_journey_idx);
+        let mut insertion_errors = Vec::new();
 
-        let really_valid_dates = {
-            let mut result = Vec::new();
-            for date in valid_dates {
-                let mut is_valid = true;
-                let day = self.calendar.date_to_days_since_start(date);
-                if real_time_validity.is_valid_for(RealTimeLevel::RealTime) {
-                    let base_day_to_timetable = self
-                        .base_vehicle_journey_to_timetable
-                        .get(vehicle_journey_idx);
-                }
-
-                if is_valid {
-                    result.push(date)
+        for date in valid_dates {
+            let has_day = self.calendar.date_to_days_since_start(date);
+            if let Some(day) = has_day {
+                if self.vehicle_journey_to_timetable.get_timetable(vehicle_journey_idx, &day, real_time_validity, &self.days_patterns).is_ok() {
+                    let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(date.clone(), vehicle_journey_idx.clone(), real_time_validity.clone());
+                    insertion_errors.push(error);
                 }
             }
-        };
+            else {
+                let error = InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone());
+                insertion_errors.push(error);
+            }
+            
+        }
+
+        let valid_dates = valid_dates.filter(|date| {
+            let has_day = self.calendar.date_to_days_since_start(date);
+            if let Some(day) = has_day {
+                if self.vehicle_journey_to_timetable.get_timetable(vehicle_journey_idx, &day, real_time_validity, &self.days_patterns).is_ok() {
+                    false
+                }
+                else {
+                    true
+                }
+            }
+            else {
+                false
+            }
+        });
 
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
@@ -415,7 +416,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         }
 
         let mut missions = Vec::new();
-        let mut insertion_errors = Vec::new();
+
 
         for (loads, dates) in load_patterns_dates.into_iter() {
             let days_pattern = self
@@ -431,33 +432,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     .days_patterns
                     .get_intersection(days_pattern, *timezone_days_pattern);
 
-                let vj_timetables = self
-                    .vehicle_journey_to_timetables
-                    .entry(vehicle_journey_idx.clone())
-                    .or_insert_with(HashMap::new)
-                    .entry(*offset)
-                    .or_insert_with(DayToTimetable::new);
-
-                if let Some(day) =
-                    vj_timetables.has_intersection_with(&offset_days_pattern, &self.days_patterns)
-                {
-                    let date = self.calendar.to_naive_date(&day);
-                    let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
-                        date,
-                        vehicle_journey_idx.clone(),
-                    );
-                    insertion_errors.push(error);
-                    // the vehicle already exists on this day
-                    // so let's skip the insertion and keep the old value
-                    // TODO : ? remove from days_pattern the days in the intersection and carry on with
-                    //          the insertion instead of returning early ?
-                    continue;
-                }
-
                 let vehicle_data = VehicleData {
                     days_pattern: offset_days_pattern,
                     vehicle_journey_idx: vehicle_journey_idx.clone(),
-                    utc_offset: *offset,
+                    real_time_validity : real_time_validity.clone()
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
@@ -478,13 +456,17 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                         if !missions.contains(&mission) {
                             missions.push(mission.clone());
                         };
-                        vj_timetables
-                            .insert_days_pattern(
-                                &offset_days_pattern,
-                                &mission,
-                                &mut self.days_patterns,
-                            )
-                            .unwrap(); // unwrap should be safe here, because we check above that vj_timetables has no intersection with offset_days_pattern
+                        self.vehicle_journey_to_timetable.insert(
+                            vehicle_journey_idx, 
+                            real_time_validity, 
+                            &offset_days_pattern, 
+                            &mission,
+                            &mut self.days_patterns,
+                        )
+                        // unwrap should be safe here, because we filtered valid_dates 
+                        // so that it does not contains a date on which (vehicle_jounrney, real_time_validity)
+                        // was already mapped to a timetable in self.vehicle_journey_to_timetable
+                        .unwrap(); 
                     }
                     Err(times_error) => {
                         let dates = self

@@ -46,6 +46,7 @@ use crate::{
 
 use super::{generic_timetables::Timetable, RealTimeValidity};
 
+#[derive(Debug)]
 pub struct VehicleJourneyToTimetable {
     base_and_real_time: HashMap<VehicleJourneyIdx, DayToTimetable>,
     base_only: HashMap<VehicleJourneyIdx, DayToTimetable>,
@@ -53,24 +54,51 @@ pub struct VehicleJourneyToTimetable {
 }
 
 impl VehicleJourneyToTimetable {
-    pub fn new() -> Self {
+    pub fn new() -> Self { 
         Self {
-            data: HashMap::new(),
+            base_and_real_time: HashMap::new(),
+            base_only: HashMap::new(),
+            real_time_only: HashMap::new(),
         }
     }
 
-    pub fn get(
+    pub fn get_timetable(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         day: &DaysSinceDatasetStart,
+        real_time_validity : &RealTimeValidity,
         days_patterns: &DaysPatterns,
     ) -> Result<Timetable, Unknown> {
-        self.data
+        let data = match *real_time_validity {
+            RealTimeValidity::BaseAndRealTime => self.base_and_real_time, 
+            RealTimeValidity::BaseOnly => self.base_only,
+            RealTimeValidity::RealTimeOnly => self.real_time_only,
+        };
+        data
             .get(vehicle_journey_idx)
             .ok_or(Unknown::VehicleJourneyIdx)?
             .has_timetable_on_day(day, days_patterns)
             .ok_or(Unknown::DayForVehicleJourney)
     }
+
+    pub fn insert(&mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_validity : &RealTimeValidity,
+        days_pattern_to_insert: &DaysPattern,
+        timetable_to_insert: &Timetable,
+        days_patterns: &mut DaysPatterns,
+    ) -> Result<(), InsertError>  {
+        let data = match *real_time_validity {
+            RealTimeValidity::BaseAndRealTime => & mut self.base_and_real_time, 
+            RealTimeValidity::BaseOnly => & mut self.base_only,
+            RealTimeValidity::RealTimeOnly => & mut self.real_time_only,
+        };
+        data.entry(*vehicle_journey_idx)
+            .or_insert_with(|| DayToTimetable::new())
+            .insert_days_pattern(days_pattern_to_insert, timetable_to_insert, days_patterns)
+    }
+
+
 }
 
 pub enum Unknown {
@@ -78,16 +106,6 @@ pub enum Unknown {
     DayForVehicleJourney,
 }
 
-#[derive(Debug)]
-pub struct RealTimeLevelToTimetable {
-    // for each day, we either have
-    //  - one element in base_and_real_time, and nothing in base_only and real_time_only
-    //  - one element in base_only and real_time_only , and nothing in base_and_real_time
-    base_and_real_time: DayToTimetable,
-    base_only: DayToTimetable,
-    real_time_only: DayToTimetable,
-    data: Vec<(DaysPattern, RealTimeValidity, Timetable)>,
-}
 
 #[derive(Debug)]
 pub struct DayToTimetable {
