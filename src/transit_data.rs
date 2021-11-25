@@ -49,6 +49,7 @@ use crate::{
         generic_timetables::{PositionPair, VehicleTimesError},
         InsertionError,
     },
+    RealTimeLevel,
 };
 
 use std::{collections::HashMap, fmt::Debug};
@@ -204,9 +205,10 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
-            .earliest_trip_to_board_at(waiting_time, mission, position)
+            .earliest_trip_to_board_at(waiting_time, mission, position, real_time_level)
     }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -214,13 +216,19 @@ where
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        self.timetables
-            .earliest_filtered_trip_to_board_at(waiting_time, mission, position, filter)
+        self.timetables.earliest_filtered_trip_to_board_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            filter,
+        )
     }
 
     fn latest_trip_that_debark_at(
@@ -228,9 +236,10 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables
-            .latest_trip_that_debark_at(waiting_time, mission, position)
+            .latest_trip_that_debark_at(waiting_time, mission, position, real_time_level)
     }
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -238,13 +247,19 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        self.timetables
-            .latest_filtered_trip_that_debark_at(waiting_time, mission, position, filter)
+        self.timetables.latest_filtered_trip_that_debark_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            filter,
+        )
     }
 
     fn to_naive_datetime(

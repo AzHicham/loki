@@ -39,7 +39,7 @@ use crate::{
     loads_data::Load,
     models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    DataWithIters,
+    DataWithIters, RealTimeLevel,
 };
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
@@ -246,6 +246,7 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         let stop = self.stop_of(position, mission);
 
@@ -254,6 +255,7 @@ where
                 waiting_time,
                 mission,
                 position,
+                real_time_level,
                 |vehicle_journey_idx: &VehicleJourneyIdx| {
                     self.is_vehicle_journey_allowed(vehicle_journey_idx)
                 },
@@ -268,6 +270,7 @@ where
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -279,6 +282,7 @@ where
                 waiting_time,
                 mission,
                 position,
+                real_time_level,
                 |vehicle_journey_idx: &VehicleJourneyIdx| {
                     self.is_vehicle_journey_allowed(vehicle_journey_idx)
                         && filter(vehicle_journey_idx)
@@ -294,6 +298,7 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         let stop = self.stop_of(position, mission);
 
@@ -302,6 +307,7 @@ where
                 waiting_time,
                 mission,
                 position,
+                real_time_level,
                 |vehicle_journey_idx: &VehicleJourneyIdx| {
                     self.is_vehicle_journey_allowed(vehicle_journey_idx)
                 },
@@ -316,6 +322,7 @@ where
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -328,6 +335,7 @@ where
                 waiting_time,
                 mission,
                 position,
+                real_time_level,
                 |vehicle_journey_idx: &VehicleJourneyIdx| {
                     self.is_vehicle_journey_allowed(vehicle_journey_idx)
                         && filter(vehicle_journey_idx)

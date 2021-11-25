@@ -69,7 +69,7 @@ pub enum RealTimeValidity {
 }
 
 impl RealTimeValidity {
-    pub fn is_valid_for(&self, real_time_level: RealTimeLevel) -> bool {
+    pub fn is_valid_for(&self, real_time_level: &RealTimeLevel) -> bool {
         match (self, real_time_level) {
             (RealTimeValidity::BaseAndRealTime, _) => true,
             (RealTimeValidity::BaseOnly, RealTimeLevel::Base) => true,
@@ -159,6 +159,7 @@ pub trait Timetables: Types {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -166,6 +167,7 @@ pub trait Timetables: Types {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -176,6 +178,7 @@ pub trait Timetables: Types {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -183,6 +186,7 @@ pub trait Timetables: Types {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where

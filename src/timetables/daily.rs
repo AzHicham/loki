@@ -48,6 +48,7 @@ use crate::{
         SecondsSinceTimezonedDayStart,
     },
     timetables::{InsertionError, Timetables as TimetablesTrait, Types as TimetablesTypes},
+    RealTimeLevel,
 };
 use chrono::NaiveDate;
 use tracing::log::error;
@@ -179,14 +180,15 @@ impl TimetablesTrait for DailyTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, Time, Load)> {
-        self.timetables
-            .earliest_vehicle_to_board(waiting_time, mission, position)
-            .map(|(vehicle, time, load)| {
-                let day = self.timetables.vehicle_data(&vehicle).day;
-                let trip = Trip { vehicle, day };
-                (trip, *time, *load)
-            })
+        self.earliest_filtered_trip_to_board_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            |_| true,
+        )
     }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -194,6 +196,7 @@ impl TimetablesTrait for DailyTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, Time, Load)>
     where
@@ -220,14 +223,9 @@ impl TimetablesTrait for DailyTimetables {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables
-            .latest_vehicle_that_debark(time, mission, position)
-            .map(|(vehicle, time, load)| {
-                let day = self.timetables.vehicle_data(&vehicle).day;
-                let trip = Trip { vehicle, day };
-                (trip, *time, *load)
-            })
+        self.latest_filtered_trip_that_debark_at(time, mission, position, real_time_level, |_| true)
     }
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -235,6 +233,7 @@ impl TimetablesTrait for DailyTimetables {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where

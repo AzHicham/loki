@@ -47,6 +47,7 @@ use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 use crate::{
     time::DaysSinceDatasetStart,
     timetables::{FlowDirection, Stop, StopFlows},
+    RealTimeLevel,
 };
 use std::cmp::Ordering::{Greater, Less};
 
@@ -269,20 +270,6 @@ where
         timetable_data.earliest_and_latest_debark_time(position.idx)
     }
 
-    pub(super) fn earliest_vehicle_to_board(
-        &self,
-        waiting_time: &Time,
-        timetable: &Timetable,
-        position: &Position,
-    ) -> Option<(Vehicle, &Time, &Load)> {
-        self.earliest_filtered_vehicle_to_board(
-            waiting_time,
-            timetable,
-            position,
-            |_: &VehicleData| true,
-        )
-    }
-
     pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
@@ -304,15 +291,6 @@ where
                 let load = self.timetable_data(timetable).load_after(idx, position.idx);
                 (vehicle, time, load)
             })
-    }
-
-    pub(super) fn latest_vehicle_that_debark(
-        &self,
-        time: &Time,
-        timetable: &Timetable,
-        position: &Position,
-    ) -> Option<(Vehicle, &Time, &Load)> {
-        self.latest_filtered_vehicle_that_debark(time, timetable, position, |_| true)
     }
 
     pub(super) fn latest_filtered_vehicle_that_debark<Filter>(

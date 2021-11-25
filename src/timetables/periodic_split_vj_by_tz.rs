@@ -38,6 +38,7 @@ use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
+    RealTimeLevel,
 };
 
 use super::{
@@ -213,8 +214,15 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.earliest_filtered_trip_to_board_at(waiting_time, mission, position, |_| true)
+        self.earliest_filtered_trip_to_board_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            |_| true,
+        )
     }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -222,6 +230,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -253,6 +262,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
                         && filter(&vehicle_data.vehicle_journey_idx)
+                        && vehicle_data
+                            .real_time_validity
+                            .is_valid_for(real_time_level)
                 },
             );
             if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
@@ -289,8 +301,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.latest_filtered_trip_that_debark_at(time, mission, position, |_| true)
+        self.latest_filtered_trip_that_debark_at(time, mission, position, real_time_level, |_| true)
     }
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -298,6 +311,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -327,6 +341,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     let days_pattern = vehicle_data.days_pattern;
                     self.days_patterns.is_allowed(&days_pattern, &waiting_day)
                         && filter(&vehicle_data.vehicle_journey_idx)
+                        && vehicle_data
+                            .real_time_validity
+                            .is_valid_for(real_time_level)
                 },
             );
             if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {
