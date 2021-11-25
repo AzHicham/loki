@@ -447,7 +447,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     time_in_timezoned_day.to_utc(offset)
                 };
 
-                let insert_error = self.timetables.insert(
+                let insert_result = self.timetables.insert(
                     stops.clone(),
                     flows.clone(),
                     board_times.clone().map(apply_offset),
@@ -456,7 +456,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     (),
                     vehicle_data,
                 );
-                match insert_error {
+                match insert_result {
                     Ok(mission) => {
                         if !missions.contains(&mission) {
                             missions.push(mission.clone());
@@ -556,7 +556,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             }
         }
 
-        return Ok(());
+        Ok(())
 
     }
 }
