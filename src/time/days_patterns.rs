@@ -119,7 +119,7 @@ impl DaysPatterns {
         self.get_or_insert_from_buffer()
     }
 
-    pub fn get_from_days<Days>(&mut self, days: Days, calendar: &Calendar) -> DaysPattern
+    pub fn get_from_days<Days>(&mut self, days: Days, _calendar: &Calendar) -> DaysPattern
     where
         Days: Iterator<Item = DaysSinceDatasetStart>,
     {

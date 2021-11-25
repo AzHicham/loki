@@ -545,7 +545,7 @@ impl TimetablesTrait for PeriodicTimetables {
                     // was already mapped to a timetable in self.vehicle_journey_to_timetable
                     // so this error should never occurs, but let's log a warning if it happens
                     if let Err(err) = has_err {
-                        error!("Error occured while inserting a vehicle journey in timetables : insertion occured on a day already set.");
+                        error!("Error occured while inserting a vehicle journey in timetables : {:?}", err);
                     }
                 }
                 Err(times_error) => {
@@ -622,7 +622,7 @@ impl TimetablesTrait for PeriodicTimetables {
                 // we checked at the beginning that self.vehicle_journey_to_timetable 
                 // does contains a timetable for (vehicle_journey_idx, &day, real_time_validity)
                 // so this error should never occurs, but let's log a warning if it happens
-                error!("Error occured while removing a vehicle journey in timetables : removal occured on a day already not set.");
+                error!("Error occured while removing a vehicle journey in timetables : {:?}", err);
             }
         }
 

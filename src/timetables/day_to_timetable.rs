@@ -120,6 +120,7 @@ impl VehicleJourneyToTimetable {
 
 }
 
+#[derive(Debug)]
 pub enum Unknown {
     VehicleJourneyIdx,
     DayForVehicleJourney,
