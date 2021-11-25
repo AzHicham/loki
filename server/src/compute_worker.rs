@@ -52,7 +52,7 @@ use launch::{
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
         tracing::{debug, error, info, warn},
-        NaiveDateTime, PositiveDuration, RequestInput, TransitData,
+        NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
 };
@@ -60,18 +60,15 @@ use std::convert::TryFrom;
 
 use crate::{
     load_balancer::WorkerId,
-    master_worker::{BaseTimetable, RealTimeTimetable},
+    master_worker::Timetable,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 
 use super::{navitia_proto, response};
 
-type BaseData = TransitData<BaseTimetable>;
-type RealTimeData = TransitData<RealTimeTimetable>;
-
+type Data = TransitData<Timetable>;
 pub struct ComputeWorker {
-    base_data_and_model: Arc<RwLock<(BaseData, BaseModel)>>,
-    real_time_data_and_model: Arc<RwLock<(RealTimeData, RealTimeModel)>>,
+    data_and_models: Arc<RwLock<(Data, BaseModel, RealTimeModel)>>,
     solver: Solver,
     worker_id: WorkerId,
     request_default_params: config::RequestParams,
@@ -82,8 +79,7 @@ pub struct ComputeWorker {
 impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
-        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
-        real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
+        data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
         request_default_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
@@ -92,8 +88,7 @@ impl ComputeWorker {
         let (requests_channel_sender, requests_channel_receiver) = mpsc::channel(1);
 
         let result = Self {
-            base_data_and_model,
-            real_time_data_and_model,
+            data_and_models,
             solver,
             worker_id,
             request_default_params,
@@ -157,101 +152,44 @@ impl ComputeWorker {
                 warn!("Could not handle journey request : {}", err);
                 Ok(make_error_response(err))
             }
-            Ok(journeys_request) => {
-                let real_time_level = journeys_request.realtime_level();
-                match real_time_level {
-                    navitia_proto::RtLevel::BaseSchedule
-                    | navitia_proto::RtLevel::AdaptedSchedule => {
-                        self.solve_on_base_schedule(journeys_request)
+            Ok(journey_request) => {
+                let real_time_level = match journey_request.realtime_level() {
+                    navitia_proto::RtLevel::BaseSchedule => RealTimeLevel::Base,
+                    navitia_proto::RtLevel::Realtime | navitia_proto::RtLevel::AdaptedSchedule => {
+                        RealTimeLevel::RealTime
                     }
-                    navitia_proto::RtLevel::Realtime => self.solve_on_real_time(journeys_request),
-                }
+                };
+                let rw_lock_read_guard = self
+                    .data_and_models
+                    .read()
+                    // if the read lock cannot be acquired, it means the lock is poisoned
+                    // and we return from this function and stop the thread
+                    .map_err(|err| {
+                        format_err!(
+                            "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
+                            self.worker_id.id,
+                            err
+                        )
+                    })?;
+
+                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let model_refs = ModelRefs::new(base_model, &real_time_model);
+
+                let solve_result = solve(
+                    journey_request,
+                    data,
+                    &model_refs,
+                    &mut self.solver,
+                    &self.request_default_params,
+                    config::ComparatorType::Basic,
+                    real_time_level,
+                );
+
+                let response = make_proto_response(solve_result, &model_refs);
+                Ok(response)
+                // RwLock is released
             }
         }
-    }
-
-    fn solve_on_base_schedule(
-        &mut self,
-        journey_request: navitia_proto::JourneysRequest,
-    ) -> Result<navitia_proto::Response, Error> {
-        let rw_lock_read_guard = self
-            .base_data_and_model
-            .read()
-            // if the read lock cannot be acquired, it means the lock is poisoned
-            // and we return from this function and stop the thread
-            .map_err(|err| {
-                format_err!(
-                    "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
-                    self.worker_id.id,
-                    err
-                )
-            })?;
-
-        let (data, model) = rw_lock_read_guard.deref();
-        let real_time_model = RealTimeModel::new();
-        let model_refs = ModelRefs::new(model, &real_time_model);
-
-        let solve_result = solve(
-            journey_request,
-            data,
-            &model_refs,
-            &mut self.solver,
-            &self.request_default_params,
-            config::ComparatorType::Basic,
-        );
-
-        let response = make_proto_response(solve_result, &model_refs);
-        Ok(response)
-        // RwLock is released
-    }
-
-    fn solve_on_real_time(
-        &mut self,
-        journey_request: navitia_proto::JourneysRequest,
-    ) -> Result<navitia_proto::Response, Error> {
-        let base_rw_lock_read_guard = self
-            .base_data_and_model
-            .read()
-            // if the read lock cannot be acquired, it means the lock is poisoned
-            // and we return from this function and stop the thread
-            .map_err(|err| {
-                format_err!(
-                    "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
-                    self.worker_id.id,
-                    err
-                )
-            })?;
-
-        let (_base_data, base_model) = base_rw_lock_read_guard.deref();
-
-        let real_time_rw_lock_read_guard = self
-            .real_time_data_and_model
-            .read()
-            // if the read lock cannot be acquired, it means the lock is poisoned
-            // and we return from this function and stop the thread
-            .map_err(|err| {
-                format_err!(
-                    "Compute worker {} failed to acquire read lock on real_time_data_and_model. {}.",
-                    self.worker_id.id,
-                    err
-                )
-            })?;
-
-        let (real_time_data, real_time_model) = real_time_rw_lock_read_guard.deref();
-        let model_refs = ModelRefs::new(base_model, real_time_model);
-
-        let solve_result = solve(
-            journey_request,
-            real_time_data,
-            &model_refs,
-            &mut self.solver,
-            &self.request_default_params,
-            config::ComparatorType::Basic,
-        );
-
-        let response = make_proto_response(solve_result, &model_refs);
-        Ok(response)
-        // RwLocks are released
     }
 }
 
@@ -264,6 +202,7 @@ fn solve<Timetables>(
     solver: &mut Solver,
     request_default_params: &config::RequestParams,
     comparator_type: config::ComparatorType,
+    real_time_level: RealTimeLevel,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
     Timetables: TimetablesTrait<
@@ -398,7 +337,7 @@ where
         max_nb_of_legs,
         max_journey_duration,
         too_late_threshold: request_default_params.too_late_threshold,
-        real_time_level: request_default_params.real_time_level.clone(),
+        real_time_level,
     };
 
     let datetime_represent = match journey_request.clockwise {
