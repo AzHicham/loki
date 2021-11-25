@@ -195,7 +195,7 @@ impl RealTimeModel {
                 Ok(())
             }
             disruption::Update::Modify(trip, stop_times) => {
-                let (vj_idx, stop_times) =
+                let (vj_idx, real_time_level, stop_times) =
                     self.modify(disruption_id, trip, stop_times, base_model)?;
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
@@ -211,7 +211,7 @@ impl RealTimeModel {
                     dates,
                     &chrono_tz::UTC,
                     vj_idx,
-                    &RealTimeLevel::RealTime,
+                    &real_time_level,
                 );
                 let model_ref = ModelRefs {
                     base: base_model,
@@ -281,18 +281,21 @@ impl RealTimeModel {
         trip: &disruption::Trip,
         stop_times: &[disruption::StopTime],
         base_model: &BaseModel,
-    ) -> Result<(VehicleJourneyIdx, Vec<StopTime>), UpdateError> {
+    ) -> Result<(VehicleJourneyIdx, RealTimeLevel, Vec<StopTime>), UpdateError> {
         if !self.is_present(trip, base_model) {
             let err = UpdateError::ModifyAbsentTrip(trip.clone());
             Err(err)
         } else {
+            let real_time_level = self
+                .real_time_level(trip, base_model)
+                .map_err(|_| UpdateError::ModifyAbsentTrip(trip.clone()))?;
             let stop_times = self.make_stop_times(stop_times, base_model);
             let trip_version = TripVersion {
                 disruption_id: disruption_id.to_string(),
                 trip_data: TripData::Present(stop_times.clone()),
             };
             let idx = self.set_version(trip, base_model, trip_version);
-            Ok((idx, stop_times))
+            Ok((idx, real_time_level, stop_times))
         }
     }
 

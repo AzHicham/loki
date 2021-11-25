@@ -234,7 +234,7 @@ pub trait RequestIters<'a>: RequestTypes {
     fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RequestInput {
     pub datetime: NaiveDateTime,
     pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,

@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 #![allow(dead_code)]
+pub mod disruption_builder;
 pub mod model_builder;
 
 use env_logger::Env;

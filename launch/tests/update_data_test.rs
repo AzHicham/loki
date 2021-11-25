@@ -46,8 +46,10 @@ use loki::{
     request::generic_request,
     timetables::{Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
+    RequestInput,
 };
 use utils::{
+    disruption_builder::{add, delete, modify, StopTimesBuilder},
     model_builder::{AsDate, ModelBuilder},
     Config,
 };
@@ -469,6 +471,132 @@ where
         assert_eq!(
             model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
             "second"
+        );
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn modify_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => modify_vj_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => modify_vj_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => modify_vj_inner::<DailyData>(),
+    }
+}
+
+fn modify_vj_inner<T>() -> Result<(), Error>
+where
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a> + Debug,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
+    utils::init_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .build();
+
+    let base_model = BaseModel::from_transit_model(model);
+
+    let mut real_time_model = RealTimeModel::new();
+
+    let config = Config::new("2020-01-01T09:50:00", "A", "C");
+    let request_input = utils::make_request_from_config(&config)?;
+    let loads_data = loki::LoadsData::empty();
+
+    let mut data = launch::read::build_transit_data::<T>(
+        &base_model,
+        &loads_data,
+        &config.default_transfer_duration,
+    );
+
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+
+    {
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
+            "first"
+        );
+    }
+
+    {
+        let disruption = {
+            let stop_times = StopTimesBuilder::new()
+                .st("A", "09:45:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+            modify(&"first", "2020-01-01", stop_times)
+        };
+        real_time_model.apply_disruption(&disruption, &base_model, &loads_data, &mut data);
+    }
+
+    {
+        let mut request_input = request_input.clone();
+        request_input.real_time_level = RealTimeLevel::RealTime;
+
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        // the request is to depart at 9:50, but the vehicle depart at 9:45 at the real time level
+        // so we should not obtain any result
+        assert_eq!(responses.len(), 0);
+    }
+
+    {
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        // the request is to depart at 9:50,
+        // the vehicle depart at 9:45 at the real time level, but its departure is still at 10:00 at the base level
+        // so we should obtain a result
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
+            "first"
         );
     }
 
