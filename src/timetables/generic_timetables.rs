@@ -1009,7 +1009,6 @@ where
         }
 
         nb_updated
-
     }
 }
 

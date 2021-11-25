@@ -58,7 +58,7 @@ where
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
-        real_time_level : RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Result<(), RemovalError> {
         let real_time_validity = match real_time_level {
             RealTimeLevel::Base => RealTimeValidity::BaseAndRealTime,
@@ -66,10 +66,7 @@ where
         };
         self.timetables
             .remove(date, vehicle_journey_idx, &real_time_validity)
-
     }
-
- 
 
     fn add_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
@@ -129,7 +126,8 @@ where
                 RealTimeLevel::Base => RealTimeValidity::BaseAndRealTime,
                 RealTimeLevel::RealTime => RealTimeValidity::RealTimeOnly,
             };
-            let removal_result = self.timetables
+            let removal_result =
+                self.timetables
                     .remove(date, &vehicle_journey_idx, &real_time_validity_to_remove);
             match removal_result {
                 Ok(()) => {
@@ -206,6 +204,4 @@ where
         errors.extend(insertion_errors);
         errors
     }
-
-
 }

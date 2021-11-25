@@ -398,6 +398,7 @@ where
         max_nb_of_legs,
         max_journey_duration,
         too_late_threshold: request_default_params.too_late_threshold,
+        real_time_level: request_default_params.real_time_level.clone(),
     };
 
     let datetime_represent = match journey_request.clockwise {

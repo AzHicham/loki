@@ -54,7 +54,7 @@ pub struct VehicleJourneyToTimetable {
 }
 
 impl VehicleJourneyToTimetable {
-    pub fn new() -> Self { 
+    pub fn new() -> Self {
         Self {
             base_and_real_time: HashMap::new(),
             base_only: HashMap::new(),
@@ -66,32 +66,32 @@ impl VehicleJourneyToTimetable {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         day: &DaysSinceDatasetStart,
-        real_time_validity : &RealTimeValidity,
+        real_time_validity: &RealTimeValidity,
         days_patterns: &DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => & self.base_and_real_time, 
-            RealTimeValidity::BaseOnly => & self.base_only,
-            RealTimeValidity::RealTimeOnly => & self.real_time_only,
+            RealTimeValidity::BaseAndRealTime => &self.base_and_real_time,
+            RealTimeValidity::BaseOnly => &self.base_only,
+            RealTimeValidity::RealTimeOnly => &self.real_time_only,
         };
-        data
-            .get(vehicle_journey_idx)
+        data.get(vehicle_journey_idx)
             .ok_or(Unknown::VehicleJourneyIdx)?
             .has_timetable_on_day(day, days_patterns)
             .ok_or(Unknown::DayForVehicleJourney)
     }
 
-    pub fn insert(&mut self,
+    pub fn insert(
+        &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_validity : &RealTimeValidity,
+        real_time_validity: &RealTimeValidity,
         days_pattern_to_insert: &DaysPattern,
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
-    ) -> Result<(), InsertError>  {
+    ) -> Result<(), InsertError> {
         let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => & mut self.base_and_real_time, 
-            RealTimeValidity::BaseOnly => & mut self.base_only,
-            RealTimeValidity::RealTimeOnly => & mut self.real_time_only,
+            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time,
+            RealTimeValidity::BaseOnly => &mut self.base_only,
+            RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
         };
         data.entry(vehicle_journey_idx.clone())
             .or_insert_with(|| DayToTimetable::new())
@@ -102,22 +102,19 @@ impl VehicleJourneyToTimetable {
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         day: &DaysSinceDatasetStart,
-        real_time_validity : &RealTimeValidity,
-        days_patterns: & mut DaysPatterns,
+        real_time_validity: &RealTimeValidity,
+        days_patterns: &mut DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time, 
+            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time,
             RealTimeValidity::BaseOnly => &mut self.base_only,
             RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
         };
-        data
-            .get_mut(vehicle_journey_idx)
+        data.get_mut(vehicle_journey_idx)
             .ok_or(Unknown::VehicleJourneyIdx)?
             .remove(day, days_patterns)
             .map_err(|_| Unknown::DayForVehicleJourney)
     }
-
-
 }
 
 #[derive(Debug)]
@@ -125,7 +122,6 @@ pub enum Unknown {
     VehicleJourneyIdx,
     DayForVehicleJourney,
 }
-
 
 #[derive(Debug)]
 pub struct DayToTimetable {

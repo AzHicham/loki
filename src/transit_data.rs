@@ -526,7 +526,11 @@ pub fn handle_removal_errors(
                     vehicle_journey_name, real_time_validity
                 );
             }
-            RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx, real_time_validity) => {
+            RemovalError::DateInvalidForVehicleJourney(
+                date,
+                vehicle_journey_idx,
+                real_time_validity,
+            ) => {
                 let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
                 error!(
                     "Trying to remove the vehicle journey {} {:?} on day {},  \

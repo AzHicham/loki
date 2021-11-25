@@ -1,4 +1,8 @@
-use crate::{models::ModelRefs, response, transit_data::data_interface::{self, RealTimeLevel}};
+use crate::{
+    models::ModelRefs,
+    response,
+    transit_data::data_interface::{self, RealTimeLevel},
+};
 
 pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey
@@ -240,7 +244,7 @@ pub struct RequestInput {
     pub max_nb_of_legs: u8,
     pub max_journey_duration: PositiveDuration,
     pub too_late_threshold: PositiveDuration,
-    pub real_time_level : RealTimeLevel,
+    pub real_time_level: RealTimeLevel,
 }
 
 pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {

@@ -39,7 +39,7 @@ use failure::{format_err, Error};
 use launch::loki::{
     chrono,
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
-    timetables::PeriodicSplitVjByTzTimetables,
+    timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
     tracing::{debug, error, info},
     DataTrait, LoadsData, TransitData,
 };

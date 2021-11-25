@@ -179,7 +179,7 @@ pub trait DataUpdate {
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-        real_time_level : RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Result<(), RemovalError>;
 
     fn add_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -268,11 +268,9 @@ where
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
 
-
-
 #[derive(Debug)]
 pub struct RealTimeLevelError {
-    incorrect_input : String,
+    incorrect_input: String,
 }
 impl std::fmt::Display for RealTimeLevelError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -290,9 +288,9 @@ impl std::str::FromStr for RealTimeLevel {
         match s {
             "base" => Ok(RealTimeLevel::Base),
             "real_time" => Ok(RealTimeLevel::RealTime),
-            _ => Err(RealTimeLevelError{
-                incorrect_input : s.to_string()
-            })
+            _ => Err(RealTimeLevelError {
+                incorrect_input: s.to_string(),
+            }),
         }
     }
 }
@@ -314,8 +312,7 @@ impl serde::Serialize for RealTimeLevel {
     where
         S: ::serde::Serializer,
     {
-        let str = 
-        match self {
+        let str = match self {
             RealTimeLevel::Base => "base",
             RealTimeLevel::RealTime => "real_time",
         };

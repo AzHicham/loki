@@ -34,7 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki::{NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, models::{ base_model::BaseModel}};
+use loki::{
+    models::base_model::BaseModel, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput,
+};
 
 use crate::config::RequestParams;
 
@@ -59,7 +61,7 @@ pub fn make_query_stop_areas(
         max_nb_of_legs: request_params.max_nb_of_legs,
         max_journey_duration: request_params.max_journey_duration,
         too_late_threshold: request_params.too_late_threshold,
-        real_time_level : RealTimeLevel::Base,
+        real_time_level: RealTimeLevel::Base,
     };
 
     Ok(request_input)

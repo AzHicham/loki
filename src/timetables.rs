@@ -34,10 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+mod daily;
 mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
-mod daily;
 mod periodic;
 mod periodic_split_vj_by_tz;
 

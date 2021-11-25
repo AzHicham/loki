@@ -41,7 +41,7 @@ use launch::{
         self,
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
-        PeriodicSplitVjData, TransitData,
+        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
     },
     solver::Solver,
 };

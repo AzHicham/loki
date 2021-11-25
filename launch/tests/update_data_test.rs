@@ -45,7 +45,7 @@ use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, VehicleJourneyIdx},
     request::generic_request,
     timetables::{Timetables, TimetablesIter},
-    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData,
+    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
 };
 use utils::{
     model_builder::{AsDate, ModelBuilder},
@@ -139,7 +139,7 @@ where
     let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
     let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+    data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
         .unwrap();
 
     {
@@ -269,7 +269,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
             .unwrap();
     }
 
@@ -295,7 +295,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("second").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
             .unwrap();
     }
 
@@ -321,7 +321,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
             .unwrap();
     }
 
@@ -426,7 +426,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
             .unwrap();
     }
 
@@ -452,7 +452,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
             .unwrap();
     }
 
