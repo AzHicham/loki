@@ -92,6 +92,7 @@ pub struct Calendar {
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }
+
 #[derive(Debug)]
 pub enum PositiveDurationError {
     ParseIntError(std::num::ParseIntError),
@@ -117,6 +118,7 @@ impl std::fmt::Display for PositiveDurationError {
         }
     }
 }
+
 impl std::str::FromStr for PositiveDuration {
     type Err = PositiveDurationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

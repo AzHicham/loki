@@ -267,3 +267,58 @@ where
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
+
+
+
+#[derive(Debug)]
+pub struct RealTimeLevelError {
+    incorrect_input : String,
+}
+impl std::fmt::Display for RealTimeLevelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Unable to parse {} as a real time level. Valid values are : base, real_time",
+            self.incorrect_input
+        )
+    }
+}
+
+impl std::str::FromStr for RealTimeLevel {
+    type Err = RealTimeLevelError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "base" => Ok(RealTimeLevel::Base),
+            "real_time" => Ok(RealTimeLevel::RealTime),
+            _ => Err(RealTimeLevelError{
+                incorrect_input : s.to_string()
+            })
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RealTimeLevel {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        use std::str::FromStr;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl serde::Serialize for RealTimeLevel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        let str = 
+        match self {
+            RealTimeLevel::Base => "base",
+            RealTimeLevel::RealTime => "real_time",
+        };
+        serializer.serialize_str(str)
+    }
+}
