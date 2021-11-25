@@ -326,14 +326,8 @@ where
         base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
-        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
-        Self::_new(
-            base_model,
-            loads_data,
-            default_transfer_duration,
-            restrict_calendar,
-        )
+        Self::_new(base_model, loads_data, default_transfer_duration)
     }
 }
 

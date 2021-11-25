@@ -184,12 +184,8 @@ where
     Timetables::Position: 'static,
 {
     use loki::DataTrait;
-    let data: TransitData<Timetables> = launch::read::build_transit_data(
-        model.base,
-        loads_data,
-        &config.default_transfer_duration,
-        None,
-    );
+    let data: TransitData<Timetables> =
+        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

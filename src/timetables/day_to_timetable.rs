@@ -94,7 +94,7 @@ impl VehicleJourneyToTimetable {
             RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
         };
         data.entry(vehicle_journey_idx.clone())
-            .or_insert_with(|| DayToTimetable::new())
+            .or_insert_with(DayToTimetable::new)
             .insert_days_pattern(days_pattern_to_insert, timetable_to_insert, days_patterns)
     }
 

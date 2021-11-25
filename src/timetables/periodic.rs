@@ -37,7 +37,7 @@
 use std::collections::BTreeMap;
 
 use super::{
-    day_to_timetable::{DayToTimetable, Unknown, VehicleJourneyToTimetable},
+    day_to_timetable::{Unknown, VehicleJourneyToTimetable},
     generic_timetables::{Position, Timetable, Timetables, Trip, Vehicle},
     iters::{PositionsIter, TimetableIter, VehicleIter},
     InsertionError, RealTimeValidity, RemovalError, Stop, TimetablesIter,
@@ -56,7 +56,7 @@ use crate::{
 };
 use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
-use tracing::{log::error, warn};
+use tracing::log::error;
 
 use crate::loads_data::Load;
 
@@ -433,14 +433,14 @@ impl TimetablesTrait for PeriodicTimetables {
                     .is_ok()
                 {
                     let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
-                        date.clone(),
+                        *date,
                         vehicle_journey_idx.clone(),
                         real_time_validity.clone(),
                     );
                     insertion_errors.push(error);
                 }
             } else {
-                let error = InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone());
+                let error = InsertionError::InvalidDate(*date, vehicle_journey_idx.clone());
                 insertion_errors.push(error);
             }
         }
@@ -448,20 +448,14 @@ impl TimetablesTrait for PeriodicTimetables {
         let valid_dates = valid_dates.filter(|date| {
             let has_day = self.calendar.date_to_days_since_start(date);
             if let Some(day) = has_day {
-                if self
-                    .vehicle_journey_to_timetable
+                self.vehicle_journey_to_timetable
                     .get_timetable(
                         vehicle_journey_idx,
                         &day,
                         real_time_validity,
                         &self.days_patterns,
                     )
-                    .is_ok()
-                {
-                    false
-                } else {
-                    true
-                }
+                    .is_err()
             } else {
                 false
             }
@@ -572,7 +566,7 @@ impl TimetablesTrait for PeriodicTimetables {
                     real_time_validity.clone(),
                 ),
                 Unknown::DayForVehicleJourney => RemovalError::DateInvalidForVehicleJourney(
-                    date.clone(),
+                    *date,
                     vehicle_journey_idx.clone(),
                     real_time_validity.clone(),
                 ),

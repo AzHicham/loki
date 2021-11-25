@@ -173,7 +173,7 @@ impl ComputeWorker {
                     })?;
 
                 let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
-                let model_refs = ModelRefs::new(base_model, &real_time_model);
+                let model_refs = ModelRefs::new(base_model, real_time_model);
 
                 let solve_result = solve(
                     journey_request,

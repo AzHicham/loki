@@ -43,15 +43,13 @@ use crate::{
         TransferIdx, VehicleJourneyIdx,
     },
     timetables::RealTimeValidity,
-    transit_data::{data_interface::RealTimeLevel, Stop, TransitData},
-    DataUpdate,
+    transit_data::{Stop, TransitData},
 };
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
-use chrono::NaiveDate;
 use transit_model::objects::{StopTime, VehicleJourney};
 use typed_index_collection::Idx;
 
@@ -67,7 +65,6 @@ where
         base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
-        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
         let nb_of_stop_points = base_model.stop_points.len();
         let nb_transfers = base_model.transfers.len();
@@ -241,8 +238,8 @@ where
         use crate::transit_data::data_interface::Data;
         handle_insertion_errors(
             &model,
-            &self.calendar().first_date(),
-            &self.calendar().last_date(),
+            self.calendar().first_date(),
+            self.calendar().last_date(),
             &insertion_errors,
         );
 
@@ -417,34 +414,4 @@ pub fn debark_timezoned_times(
     }
 
     Ok(result)
-}
-
-pub(super) fn restrict_dates(
-    calendar_start_date: &NaiveDate,
-    calendar_end_date: &NaiveDate,
-    restricted_start_date: &NaiveDate,
-    restricted_end_date: &NaiveDate,
-) -> (NaiveDate, NaiveDate) {
-    let start_date = if restricted_start_date < calendar_start_date {
-        warn!(
-            "Trying to restrict the start date to {} but the calendar starts on {}.\
-             I'll ignore the restricted start date.",
-            restricted_start_date, calendar_start_date
-        );
-        calendar_start_date
-    } else {
-        restricted_start_date
-    };
-    let end_date = if restricted_end_date > calendar_end_date {
-        warn!(
-            "Trying to restrict the end date to {} but the calendar ends on {}.\
-        I'll ignore the restricted start date.",
-            restricted_end_date, calendar_end_date
-        );
-        calendar_end_date
-    } else {
-        restricted_end_date
-    };
-
-    (*start_date, *end_date)
 }

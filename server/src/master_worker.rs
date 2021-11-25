@@ -90,7 +90,6 @@ impl MasterWorker {
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
-            None,
         );
         info!("Data loaded");
 

@@ -202,8 +202,12 @@ impl TimetablesTrait for DailyTimetables {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        let vehicle_data_filter =
-            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
+        let vehicle_data_filter = |vehicle_data: &VehicleData| {
+            filter(&vehicle_data.vehicle_journey_idx)
+                && vehicle_data
+                    .real_time_validity
+                    .is_valid_for(real_time_level)
+        };
         self.timetables
             .earliest_filtered_vehicle_to_board(
                 waiting_time,
@@ -239,8 +243,12 @@ impl TimetablesTrait for DailyTimetables {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        let vehicle_data_filter =
-            |vehicle_data: &VehicleData| filter(&vehicle_data.vehicle_journey_idx);
+        let vehicle_data_filter = |vehicle_data: &VehicleData| {
+            filter(&vehicle_data.vehicle_journey_idx)
+                && vehicle_data
+                    .real_time_validity
+                    .is_valid_for(real_time_level)
+        };
         self.timetables
             .latest_filtered_vehicle_that_debark(time, mission, position, vehicle_data_filter)
             .map(|(vehicle, time, load)| {
@@ -401,7 +409,7 @@ impl TimetablesTrait for DailyTimetables {
                     real_time_validity.clone(),
                 ),
                 Unknown::DayForVehicleJourney => RemovalError::DateInvalidForVehicleJourney(
-                    date.clone(),
+                    *date,
                     vehicle_journey_idx.clone(),
                     real_time_validity.clone(),
                 ),

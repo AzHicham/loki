@@ -301,13 +301,12 @@ impl RealTimeModel {
             .vehicle_journeys
             .get_idx(&trip.vehicle_journey_id)
         {
-            if let Some(&TripData::Deleted()) =
-                self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date)
-            {
-                false
-            } else {
-                true
-            }
+            use std::ops::Not;
+            matches!(
+                self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date),
+                Some(&TripData::Deleted())
+            )
+            .not()
         } else {
             self.new_vehicle_journeys_id_to_idx
                 .contains_key(&trip.vehicle_journey_id)

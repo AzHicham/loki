@@ -411,14 +411,14 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     .is_ok()
                 {
                     let error = InsertionError::VehicleJourneyAlreadyExistsOnDate(
-                        date.clone(),
+                        *date,
                         vehicle_journey_idx.clone(),
                         real_time_validity.clone(),
                     );
                     insertion_errors.push(error);
                 }
             } else {
-                let error = InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone());
+                let error = InsertionError::InvalidDate(*date, vehicle_journey_idx.clone());
                 insertion_errors.push(error);
             }
         }
@@ -426,20 +426,14 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         let valid_dates = valid_dates.filter(|date| {
             let has_day = self.calendar.date_to_days_since_start(date);
             if let Some(day) = has_day {
-                if self
-                    .vehicle_journey_to_timetable
+                self.vehicle_journey_to_timetable
                     .get_timetable(
                         vehicle_journey_idx,
                         &day,
                         real_time_validity,
                         &self.days_patterns,
                     )
-                    .is_ok()
-                {
-                    false
-                } else {
-                    true
-                }
+                    .is_err()
             } else {
                 false
             }
@@ -559,7 +553,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     real_time_validity.clone(),
                 ),
                 Unknown::DayForVehicleJourney => RemovalError::DateInvalidForVehicleJourney(
-                    date.clone(),
+                    *date,
                     vehicle_journey_idx.clone(),
                     real_time_validity.clone(),
                 ),

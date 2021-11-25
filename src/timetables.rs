@@ -70,12 +70,12 @@ pub enum RealTimeValidity {
 
 impl RealTimeValidity {
     pub fn is_valid_for(&self, real_time_level: &RealTimeLevel) -> bool {
-        match (self, real_time_level) {
-            (RealTimeValidity::BaseAndRealTime, _) => true,
-            (RealTimeValidity::BaseOnly, RealTimeLevel::Base) => true,
-            (RealTimeValidity::RealTimeOnly, RealTimeLevel::RealTime) => true,
-            _ => false,
-        }
+        matches!(
+            (self, real_time_level),
+            (RealTimeValidity::BaseAndRealTime, _)
+                | (RealTimeValidity::BaseOnly, RealTimeLevel::Base)
+                | (RealTimeValidity::RealTimeOnly, RealTimeLevel::RealTime)
+        )
     }
 }
 

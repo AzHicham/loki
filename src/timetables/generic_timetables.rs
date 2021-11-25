@@ -47,7 +47,6 @@ use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 use crate::{
     time::DaysSinceDatasetStart,
     timetables::{FlowDirection, Stop, StopFlows},
-    RealTimeLevel,
 };
 use std::cmp::Ordering::{Greater, Less};
 

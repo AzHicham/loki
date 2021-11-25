@@ -106,7 +106,6 @@ where
         &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
-        None,
     );
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
@@ -242,7 +241,6 @@ where
         &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
-        None,
     );
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
@@ -399,7 +397,6 @@ where
         &base_model,
         &loki::LoadsData::empty(),
         &config.default_transfer_duration,
-        None,
     );
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
