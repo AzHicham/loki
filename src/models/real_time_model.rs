@@ -38,15 +38,10 @@ use std::{collections::HashMap, hash::Hash};
 
 use tracing::error;
 
-use crate::{
-    chrono::NaiveDate,
-    time::SecondsSinceTimezonedDayStart,
-    timetables::FlowDirection,
-    transit_data::{
+use crate::{chrono::NaiveDate, time::SecondsSinceTimezonedDayStart, timetables::{FlowDirection, RealTimeValidity}, transit_data::{
         data_interface::{Data as DataTrait, RealTimeLevel},
         handle_insertion_errors, handle_removal_errors,
-    },
-};
+    }};
 
 use crate::{DataUpdate, LoadsData};
 
@@ -113,6 +108,7 @@ pub enum UpdateError {
     AddPresentTrip(disruption::Trip),
 }
 
+
 impl RealTimeModel {
     pub fn apply_disruption<Data: DataTrait + DataUpdate>(
         &mut self,
@@ -144,13 +140,40 @@ impl RealTimeModel {
         data: &mut Data,
     ) -> Result<(), UpdateError> {
         match update {
+            disruption::Update::Add(trip, stop_times) => {
+                let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, base_model)?;
+                let dates = std::iter::once(&trip.reference_date);
+                let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
+                let insertion_errors = data.insert(
+                    stops,
+                    flows,
+                    board_times,
+                    debark_times,
+                    loads_data,
+                    dates,
+                    &chrono_tz::UTC,
+                    vj_idx,
+                );
+                let model_ref = ModelRefs {
+                    base: base_model,
+                    real_time: self,
+                };
+                handle_insertion_errors(
+                    &model_ref,
+                    data.calendar().first_date(),
+                    data.calendar().last_date(),
+                    &insertion_errors,
+                );
+                Ok(())
+            }
+
             disruption::Update::Delete(trip) => {
                 let vj_idx = self.delete(disruption_id, trip, base_model)?;
-                let real_time_level = self
-                    .real_time_level(trip, base_model)
-                    .map_err(|_| UpdateError::DeleteAbsentTrip(trip.clone()))?;
                 let removal_result =
-                    data.remove_vehicle(&vj_idx, &trip.reference_date, real_time_level);
+                    data.remove(&vj_idx, &trip.reference_date);
                 if let Err(removal_error) = removal_result {
                     let model_ref = ModelRefs {
                         base: base_model,
@@ -165,35 +188,6 @@ impl RealTimeModel {
                 }
                 Ok(())
             }
-            disruption::Update::Add(trip, stop_times) => {
-                let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, base_model)?;
-                let dates = std::iter::once(&trip.reference_date);
-                let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
-                let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
-                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
-                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
-                let insertion_errors = data.add_real_time_vehicle(
-                    stops,
-                    flows,
-                    board_times,
-                    debark_times,
-                    loads_data,
-                    dates,
-                    &chrono_tz::UTC,
-                    vj_idx,
-                );
-                let model_ref = ModelRefs {
-                    base: base_model,
-                    real_time: self,
-                };
-                handle_insertion_errors(
-                    &model_ref,
-                    data.calendar().first_date(),
-                    data.calendar().last_date(),
-                    &insertion_errors,
-                );
-                Ok(())
-            }
             disruption::Update::Modify(trip, stop_times) => {
                 let (vj_idx, real_time_level, stop_times) =
                     self.modify(disruption_id, trip, stop_times, base_model)?;
@@ -202,7 +196,8 @@ impl RealTimeModel {
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
                 let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
                 let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
-                let (removal_errors, insertion_errors) = data.modify_vehicle(
+
+                let insertion_errors = data.modify(
                     stops,
                     flows,
                     board_times,
@@ -210,8 +205,7 @@ impl RealTimeModel {
                     loads_data,
                     dates,
                     &chrono_tz::UTC,
-                    vj_idx,
-                    &real_time_level,
+                    &vj_idx,
                 );
                 let model_ref = ModelRefs {
                     base: base_model,
@@ -223,12 +217,12 @@ impl RealTimeModel {
                     data.calendar().last_date(),
                     &insertion_errors,
                 );
-                handle_removal_errors(
-                    &model_ref,
-                    data.calendar().first_date(),
-                    data.calendar().last_date(),
-                    removal_errors.into_iter(),
-                );
+                // handle_removal_errors(
+                //     &model_ref,
+                //     data.calendar().first_date(),
+                //     data.calendar().last_date(),
+                //     removal_errors.into_iter(),
+                // );
                 Ok(())
             }
         }

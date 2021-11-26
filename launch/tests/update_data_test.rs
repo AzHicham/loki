@@ -578,6 +578,8 @@ where
     }
 
     {
+        let mut request_input = request_input.clone();
+        request_input.real_time_level = RealTimeLevel::Base;
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
         let responses = solver.solve_request(

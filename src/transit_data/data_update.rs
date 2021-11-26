@@ -36,12 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::{
-    loads_data::LoadsData,
-    models::{StopPointIdx, VehicleJourneyIdx},
-    timetables::{InsertionError, RealTimeValidity, RemovalError},
-    transit_data::TransitData,
-};
+use crate::{loads_data::LoadsData, models::{StopPointIdx, VehicleJourneyIdx}, timetables::{InsertionError,  RemovalError}, transit_data::TransitData};
 
 use crate::{
     time::SecondsSinceTimezonedDayStart,
@@ -54,21 +49,18 @@ impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    fn remove_vehicle(
+    fn remove(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
-        real_time_level: RealTimeLevel,
     ) -> Result<(), RemovalError> {
-        let real_time_validity = match real_time_level {
-            RealTimeLevel::Base => RealTimeValidity::BaseAndRealTime,
-            RealTimeLevel::RealTime => RealTimeValidity::RealTimeOnly,
-        };
-        self.timetables
-            .remove(date, vehicle_journey_idx, &real_time_validity)
+
+    self.timetables
+        .remove(date, vehicle_journey_idx)
+  
     }
 
-    fn add_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -86,20 +78,12 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        self.add_vehicle_inner(
-            stop_points,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            valid_dates,
-            timezone,
-            vehicle_journey_idx,
-            &RealTimeValidity::RealTimeOnly,
-        )
+
+       self.insert_inner(stop_points, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx, RealTimeLevel::RealTime)
+
     }
 
-    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -108,56 +92,39 @@ where
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_level: &RealTimeLevel,
-    ) -> (Vec<RemovalError>, Vec<InsertionError>)
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        let mut removal_errors = Vec::new();
-        let mut insertion_errors = Vec::new();
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone {
+            let stops = self.create_stops(stops).into_iter();
+            let (missions, insertion_errors) = self.timetables.modify(stops, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx);
 
-        for date in valid_dates.clone() {
-            let real_time_validity_to_remove = match real_time_level {
-                RealTimeLevel::Base => RealTimeValidity::BaseAndRealTime,
-                RealTimeLevel::RealTime => RealTimeValidity::RealTimeOnly,
-            };
-            let removal_result =
-                self.timetables
-                    .remove(date, &vehicle_journey_idx, &real_time_validity_to_remove);
-            match removal_result {
-                Ok(()) => {
-                    let errors = self.add_vehicle_inner(
-                        stops.clone(),
-                        flows.clone(),
-                        board_times.clone(),
-                        debark_times.clone(),
-                        loads_data,
-                        valid_dates.clone(),
-                        timezone,
-                        vehicle_journey_idx.clone(),
-                        &RealTimeValidity::RealTimeOnly,
-                    );
-                    insertion_errors.extend_from_slice(errors.as_slice());
-                }
-                Err(removal_error) => {
-                    removal_errors.push(removal_error);
+            for mission in missions.iter() {
+                for position in self.timetables.positions(mission) {
+                    let stop = self.timetables.stop_at(&position, mission);
+                    let stop_data = &mut self.stops_data[stop.idx];
+                    stop_data
+                        .position_in_timetables
+                        .push((mission.clone(), position));
                 }
             }
+    
+            insertion_errors
         }
-        (removal_errors, insertion_errors)
-    }
 }
 
-impl<Timetables> TransitData<Timetables>
+
+impl<Timetables>  TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    pub(super) fn add_vehicle_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+
+
+    pub(super) fn insert_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -167,7 +134,7 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_validity: &RealTimeValidity,
+        real_time_level: RealTimeLevel,
     ) -> Vec<InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -176,7 +143,7 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let mut errors = Vec::new();
+
 
         let stops = self.create_stops(stop_points).into_iter();
         let (missions, insertion_errors) = self.timetables.insert(
@@ -188,7 +155,7 @@ where
             valid_dates,
             timezone,
             &vehicle_journey_idx,
-            real_time_validity,
+            &real_time_level,
         );
 
         for mission in missions.iter() {
@@ -201,7 +168,8 @@ where
             }
         }
 
-        errors.extend(insertion_errors);
-        errors
+        insertion_errors
+
     }
+
 }

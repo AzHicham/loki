@@ -36,85 +36,279 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    models::VehicleJourneyIdx,
-    time::{
-        days_patterns::{DaysPattern, DaysPatterns},
-        DaysSinceDatasetStart,
-    },
-};
+use tracing::log::error;
 
-use super::{generic_timetables::Timetable, RealTimeValidity};
+use crate::{models::VehicleJourneyIdx, time::{DaysSinceDatasetStart, days_map::{DaysMap, InsertError}, days_patterns::{DaysPattern, DaysPatterns}}};
 
-#[derive(Debug)]
+use super::{generic_timetables::Timetable};
+
+
 pub struct VehicleJourneyToTimetable {
-    base_and_real_time: HashMap<VehicleJourneyIdx, DayToTimetable>,
-    base_only: HashMap<VehicleJourneyIdx, DayToTimetable>,
-    real_time_only: HashMap<VehicleJourneyIdx, DayToTimetable>,
+    data : HashMap<VehicleJourneyIdx, DayToTimetable>
+}
+
+struct DayToTimetable {
+    data : DaysMap<VehicleTimetable>,
+    
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum VehicleTimetable {
+    BaseAndRealTime(Timetable),
+    SplittedBaseRealTime(Timetable, Timetable),
+    RealTimeOnly(Timetable),
+    BaseOnly(Timetable)
+}
+
+
+impl DayToTimetable {
+    fn new() -> Self {
+        Self {
+            data : DaysMap::new(),
+            
+        }
+    }
+
+    // pub fn insert_base_and_realtime_vehicle(
+    //     &mut self,
+    //     vehicle_journey_idx: &VehicleJourneyIdx,
+    //     days_pattern_to_insert: &DaysPattern,
+    //     timetable_to_insert: &Timetable,
+    //     days_patterns: &mut DaysPatterns,
+    // ) -> Result<(), InsertError> 
+    // {
+    //     let to_insert = VehicleTimetable::BaseAndRealTime(timetable_to_insert.clone());
+    //     self.data.insert(days_pattern_to_insert, to_insert, days_patterns)
+    // }
+
+    // pub fn insert_real_time_only_vehicle(&mut self,
+    //     vehicle_journey_idx: &VehicleJourneyIdx,
+    //     days_pattern_to_insert: &DaysPattern,
+    //     timetable_to_insert: &Timetable,
+    //     days_patterns: &mut DaysPatterns,
+    // ) -> Result<(), InsertError> {
+    //     self.status.insert(days_pattern_to_insert, Status::BaseIsRealTime, days_patterns)?;
+    //     let result = self.real_time.insert(days_pattern_to_insert, timetable_to_insert.clone(), days_patterns);
+    //     if result.is_err() {
+    //        error!("Data not in sync between status and real_time.");
+    //        Err(InsertError::DayAlreadySet)
+    //     }
+    //     else {
+    //         Ok(())
+    //     }
+
+    // }
+
+    // pub fn remove_real_time_vehicle(
+    //     &mut self,
+    //     day: &DaysSinceDatasetStart,
+    //     days_patterns: &mut DaysPatterns,
+    // ) -> Result<Timetable, Unknown> {
+    //     let status = self.status.get(day, days_patterns).ok_or(Unknown::DayForVehicleJourney)?;
+    //     match status {
+    //         Status::BaseOnly => {
+    //             return Err(Unknown::DayForVehicleJourney);
+    //         },
+    //         Status::BaseIsRealTime => {
+    //             self.status.remove(day, days_patterns);
+    //             let days_pattern = days_patterns.get_from_days(std::iter::once(*day));
+    //             let result = self.status.insert(&days_pattern, Status::BaseOnly, days_patterns);
+
+    //         },
+    //         Status::SplittedBaseRealTime 
+    //         | Status::RealTimeOnly => {
+
+    //         },
+    //     };
+    //     Ok(())
+    // }
+
+
+
+
+    // fn get(&self, day : &DaysSinceDatasetStart, days_patterns : & DaysPatterns) -> Option<VehicleTimetable> {
+    //     let status = self.status.get(day, days_patterns)?;
+    //     match status {
+    //         Status::BaseOnly => {
+    //             if let Some(timetable) = self.base.get(day, days_patterns) {
+    //                 let result = VehicleTimetable::BaseOnly(timetable.clone());
+    //                 Some(result)
+    //             }
+    //             else {
+    //                 error!("Data not in sync between status and base.");
+    //                 None
+    //             }
+    //         },
+    //         Status::RealTimeOnly => {
+    //             if let Some(timetable) = self.real_time.get(day, days_patterns) {
+    //                 let result = VehicleTimetable::RealTimeOnly(timetable.clone());
+    //                 Some(result)
+    //             }
+    //             else {
+    //                 error!("Data not in sync between status  and real_time.");
+    //                 None
+    //             }
+    //         },
+    //         Status::BaseIsRealTime => {
+    //             if let Some(timetable) = self.base.get(day, days_patterns) {
+    //                 let result = VehicleTimetable::BaseAndRealTime(timetable.clone());
+    //                 Some(result)
+    //             }
+    //             else {
+    //                 error!("Data not in sync between status and base.");
+    //                 None
+    //             }
+    //         },
+    //         Status::SplittedBaseRealTime => {
+    //             if let Some(base_timetable) = self.base.get(day, days_patterns) {
+    //                 if let Some(real_time_timetable) = self.real_time.get(day, days_patterns) {
+    //                     let result = VehicleTimetable::SplittedBaseRealTime(base_timetable.clone(), real_time_timetable.clone());
+    //                     Some(result)
+    //                 }
+    //                 else {
+    //                     error!("Data not in sync between status  and real_time.");
+    //                     None
+    //                 }
+    //             }
+    //             else {
+    //                 error!("Data not in sync between status and base.");
+    //                 None
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 impl VehicleJourneyToTimetable {
     pub fn new() -> Self {
         Self {
-            base_and_real_time: HashMap::new(),
-            base_only: HashMap::new(),
-            real_time_only: HashMap::new(),
+            data: HashMap::new(),
         }
     }
+
+    pub fn insert_base_and_realtime_vehicle(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        days_pattern_to_insert: &DaysPattern,
+        timetable_to_insert: &Timetable,
+        days_patterns: &mut DaysPatterns,
+    ) -> Result<(), InsertError>
+    {
+        let day_to_timetable = self.data.entry(*vehicle_journey_idx).or_insert_with(|| DayToTimetable::new());
+
+        let value_to_insert = VehicleTimetable::BaseAndRealTime(timetable_to_insert.clone());
+        day_to_timetable.data.insert(days_pattern_to_insert, value_to_insert, days_patterns)
+        
+      
+    }
+
+    pub fn insert_real_time_only_vehicle(&mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        days_pattern_to_insert: &DaysPattern,
+        timetable_to_insert: &Timetable,
+        days_patterns: &mut DaysPatterns,
+    ) -> Result<(), InsertError> {
+        let day_to_timetable = self.data.entry(*vehicle_journey_idx).or_insert_with(|| DayToTimetable::new());
+
+        let value_to_insert = VehicleTimetable::RealTimeOnly(timetable_to_insert.clone());
+        day_to_timetable.data.insert(days_pattern_to_insert, value_to_insert, days_patterns)
+        
+    }
+
+    pub fn remove_real_time_vehicle(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+        days_patterns: &mut DaysPatterns,
+    ) -> Result<(), Unknown> {
+        let day_to_timetable = self.data.get(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
+        let old_timetable = day_to_timetable.data.get(day, days_patterns).ok_or(Unknown::DayForVehicleJourney)?;
+        match old_timetable {
+            VehicleTimetable::BaseOnly(_) => {return Err(Unknown::DayForVehicleJourney);},
+            VehicleTimetable::BaseAndRealTime(timetable) => {
+                day_to_timetable.data.remove(day, days_patterns).map_err(|_|Unknown::DayForVehicleJourney);
+                let days_pattern_to_insert = days_patterns.get_from_days(std::iter::once(*day));
+                let value_to_insert = VehicleTimetable::BaseOnly(timetable.clone());
+                day_to_timetable.data.insert(&days_pattern_to_insert, value_to_insert, days_patterns).map_err(|_|Unknown::DayForVehicleJourney)
+
+            },
+            VehicleTimetable::SplittedBaseRealTime(_, timetable)  => {
+                day_to_timetable.data.remove(day, days_patterns)
+                .map_err(|_|Unknown::DayForVehicleJourney)?;
+                let days_pattern_to_insert = days_patterns.get_from_days(std::iter::once(*day));
+                let value_to_insert = VehicleTimetable::BaseOnly(timetable.clone());
+                day_to_timetable.data.insert(&days_pattern_to_insert, value_to_insert, days_patterns).map_err(|_|Unknown::DayForVehicleJourney)
+
+            }
+            VehicleTimetable::RealTimeOnly(timetable) => {
+                day_to_timetable.data.remove(day, days_patterns)
+                    .map(|_| ())
+                    .map_err(|_|Unknown::DayForVehicleJourney)
+                
+            }
+            
+        }
+        
+    }
+
+    pub fn update(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        day: &DaysSinceDatasetStart,
+        timetable_to_insert : & Timetable,
+        days_patterns: &mut DaysPatterns,
+    ) -> Result<(), Unknown> {
+        let day_to_timetable = self.data.get(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
+        let old_timetable = day_to_timetable.data.get(day, days_patterns).ok_or(Unknown::DayForVehicleJourney)?;
+        match old_timetable {
+            VehicleTimetable::BaseOnly(timetable) => {return Err(Unknown::DayForVehicleJourney);},
+            VehicleTimetable::BaseAndRealTime(base_timetable) => {
+                day_to_timetable.data.remove(day, days_patterns).map_err(|_|Unknown::DayForVehicleJourney);
+                let days_pattern_to_insert = days_patterns.get_from_days(std::iter::once(*day));
+                let value_to_insert = VehicleTimetable::SplittedBaseRealTime(*base_timetable, *timetable_to_insert);
+                day_to_timetable.data.insert(&days_pattern_to_insert, value_to_insert, days_patterns).map_err(|_|Unknown::DayForVehicleJourney)
+
+            },
+            VehicleTimetable::SplittedBaseRealTime(base_timetable, _) => {
+                day_to_timetable.data.remove(day, days_patterns)
+                    .map_err(|_|Unknown::DayForVehicleJourney)?;
+                let days_pattern_to_insert = days_patterns.get_from_days(std::iter::once(*day));
+                let value_to_insert = VehicleTimetable::SplittedBaseRealTime(*base_timetable, timetable_to_insert.clone());
+                day_to_timetable.data.insert(&days_pattern_to_insert, value_to_insert, days_patterns).map_err(|_|Unknown::DayForVehicleJourney)
+            }
+            VehicleTimetable::RealTimeOnly(timetable) => {
+                day_to_timetable.data.remove(day, days_patterns)
+                    .map_err(|_|Unknown::DayForVehicleJourney)?;
+                let days_pattern_to_insert = days_patterns.get_from_days(std::iter::once(*day));
+                let value_to_insert = VehicleTimetable::RealTimeOnly(*timetable_to_insert);
+                day_to_timetable.data.insert(&days_pattern_to_insert, value_to_insert, days_patterns).map_err(|_|Unknown::DayForVehicleJourney)
+                
+            }
+            
+        }
+
+    }
+
+
 
     pub fn get_timetable(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         day: &DaysSinceDatasetStart,
-        real_time_validity: &RealTimeValidity,
         days_patterns: &DaysPatterns,
-    ) -> Result<Timetable, Unknown> {
-        let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => &self.base_and_real_time,
-            RealTimeValidity::BaseOnly => &self.base_only,
-            RealTimeValidity::RealTimeOnly => &self.real_time_only,
-        };
-        data.get(vehicle_journey_idx)
-            .ok_or(Unknown::VehicleJourneyIdx)?
-            .has_timetable_on_day(day, days_patterns)
-            .ok_or(Unknown::DayForVehicleJourney)
+    ) -> Result<&VehicleTimetable, Unknown> {
+        let day_to_timetable = self.data.get(vehicle_journey_idx)
+                .ok_or_else(|| Unknown::VehicleJourneyIdx) ?;
+        day_to_timetable.data.get(day, days_patterns).ok_or_else(|| Unknown::DayForVehicleJourney)
+ 
     }
 
-    pub fn insert(
-        &mut self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_validity: &RealTimeValidity,
-        days_pattern_to_insert: &DaysPattern,
-        timetable_to_insert: &Timetable,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<(), InsertError> {
-        let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time,
-            RealTimeValidity::BaseOnly => &mut self.base_only,
-            RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
-        };
-        data.entry(vehicle_journey_idx.clone())
-            .or_insert_with(DayToTimetable::new)
-            .insert_days_pattern(days_pattern_to_insert, timetable_to_insert, days_patterns)
-    }
 
-    pub fn remove(
-        &mut self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        day: &DaysSinceDatasetStart,
-        real_time_validity: &RealTimeValidity,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<Timetable, Unknown> {
-        let data = match *real_time_validity {
-            RealTimeValidity::BaseAndRealTime => &mut self.base_and_real_time,
-            RealTimeValidity::BaseOnly => &mut self.base_only,
-            RealTimeValidity::RealTimeOnly => &mut self.real_time_only,
-        };
-        data.get_mut(vehicle_journey_idx)
-            .ok_or(Unknown::VehicleJourneyIdx)?
-            .remove(day, days_patterns)
-            .map_err(|_| Unknown::DayForVehicleJourney)
-    }
+
+}
+
+pub enum RemovalError {
+
 }
 
 #[derive(Debug)]
@@ -123,122 +317,3 @@ pub enum Unknown {
     DayForVehicleJourney,
 }
 
-#[derive(Debug)]
-pub struct DayToTimetable {
-    // invariants :
-    //  1. a day is set in at most one DaysPattern of the Vec
-    //  2. a timetable appears at most once in the vec
-    pattern_timetables: Vec<(DaysPattern, Timetable)>,
-}
-
-impl DayToTimetable {
-    pub fn new() -> Self {
-        Self {
-            pattern_timetables: Vec::new(),
-        }
-    }
-
-    pub fn has_timetable_on_day(
-        &self,
-        day: &DaysSinceDatasetStart,
-        days_patterns: &DaysPatterns,
-    ) -> Option<Timetable> {
-        self.pattern_timetables
-            .iter()
-            .find_map(|(days_pattern, timetable)| {
-                if days_patterns.is_allowed(days_pattern, day) {
-                    Some(timetable.clone())
-                } else {
-                    None
-                }
-            })
-    }
-
-    pub fn insert_days_pattern(
-        &mut self,
-        days_pattern_to_insert: &DaysPattern,
-        timetable_to_insert: &Timetable,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<(), InsertError> {
-        // is there a day in days_pattern_to_insert that is already set somewhere ?
-        for (days_pattern, _) in self.pattern_timetables.iter() {
-            if let Some(_day) = days_patterns.have_common_day(days_pattern, days_pattern_to_insert)
-            {
-                return Err(InsertError::DayAlreadySet);
-            }
-        }
-
-        // We try to find the first element whose timetable contains timetable_to_insert .
-        // Because of our invariant 2., if such an element is found we know that
-        // timetable_to_insert does not appears in any other element of the vec.
-        let has_days_pattern = self
-            .pattern_timetables
-            .iter_mut()
-            .find(|(_days_pattern, timetable)| timetable == timetable_to_insert)
-            .map(|(days_pattern, _)| days_pattern); // we are just interested in the pattern
-
-        if let Some(old_days_pattern) = has_days_pattern {
-            // so now timetable_to_insert is valid on old_days_pattern and days_pattern_to_insert
-            // let's create a new days_pattern for that
-            let new_days_pattern =
-                days_patterns.get_union(*old_days_pattern, *days_pattern_to_insert);
-
-            *old_days_pattern = new_days_pattern;
-        } else {
-            // if timetable_to_insert does not appears in the Vec,
-            // let's push a new element to the Vec with it
-            self.pattern_timetables
-                .push((*days_pattern_to_insert, timetable_to_insert.clone()));
-        }
-
-        Ok(())
-    }
-
-    pub fn remove(
-        &mut self,
-        day_to_remove: &DaysSinceDatasetStart,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<Timetable, RemoveError> {
-        // let's try to find the first element where day_to_remove is set.
-        // Because of invariant 1., if such an element is found, we know that
-        // day_to_remove is not set in any other element
-        let has_days_pattern = self.pattern_timetables.iter_mut().enumerate().find(
-            |(_idx, (days_pattern, _timetable))| {
-                days_patterns.is_allowed(days_pattern, day_to_remove)
-            },
-        );
-
-        let (removed_timetable, has_idx_to_remove) = match has_days_pattern {
-            None => {
-                return Err(RemoveError::DayNotSet);
-            }
-            Some((idx, (old_days_pattern, timetable))) => {
-                let new_days_pattern = days_patterns
-                    .get_pattern_without_day(*old_days_pattern, day_to_remove)
-                    .ok_or(RemoveError::DayNotSet)?;
-
-                if days_patterns.is_empty_pattern(&new_days_pattern) {
-                    (timetable.clone(), Some(idx))
-                } else {
-                    *old_days_pattern = new_days_pattern;
-                    (timetable.clone(), None)
-                }
-            }
-        };
-
-        if let Some(idx) = has_idx_to_remove {
-            self.pattern_timetables.swap_remove(idx);
-        }
-
-        Ok(removed_timetable)
-    }
-}
-
-#[derive(Debug)]
-pub enum InsertError {
-    DayAlreadySet,
-}
-#[derive(Debug)]
-pub enum RemoveError {
-    DayNotSet,
-}

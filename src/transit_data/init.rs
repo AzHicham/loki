@@ -36,15 +36,14 @@
 
 use std::fmt::Debug;
 
-use crate::{
-    loads_data::LoadsData,
-    models::{
-        base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
-        TransferIdx, VehicleJourneyIdx,
-    },
-    timetables::RealTimeValidity,
-    transit_data::{Stop, TransitData},
-};
+use crate::{RealTimeLevel, loads_data::LoadsData, models::{
+        base_model::BaseModel, 
+        real_time_model::RealTimeModel, 
+        ModelRefs, 
+        StopPointIdx,
+        TransferIdx, 
+        VehicleJourneyIdx,
+    }, timetables::RealTimeValidity, transit_data::{Stop, TransitData}, transit_data::data_interface::DataUpdate};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
@@ -217,7 +216,7 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let insertion_errors = self.add_vehicle_inner(
+        let insertion_errors = self.insert_inner(
             stop_points,
             flows.into_iter(),
             board_times.into_iter(),
@@ -226,7 +225,7 @@ where
             dates,
             &timezone,
             vehicle_journey_idx,
-            &RealTimeValidity::BaseAndRealTime,
+            RealTimeLevel::Base,
         );
 
         let real_time_model = RealTimeModel::new();
