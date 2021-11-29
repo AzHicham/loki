@@ -474,7 +474,11 @@ where
         }
     }
 
-    fn trips_of(&'outer self, mission: &Data::Mission, real_time_level : &RealTimeLevel) -> Data::TripsOfMission {
+    fn trips_of(
+        &'outer self,
+        mission: &Data::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Data::TripsOfMission {
         self.transit_data.trips_of(mission, real_time_level)
     }
 }

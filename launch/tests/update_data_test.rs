@@ -36,7 +36,6 @@
 
 mod utils;
 
-
 use failure::Error;
 use launch::{config::DataImplem, solver::Solver};
 
@@ -45,7 +44,6 @@ use loki::{
     request::generic_request,
     timetables::{Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
-
 };
 use utils::{
     disruption_builder::{modify, StopTimesBuilder},
@@ -74,7 +72,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> ,
+    T: for<'a> TimetablesIter<'a>,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -205,7 +203,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> ,
+    T: for<'a> TimetablesIter<'a>,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -364,7 +362,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> ,
+    T: for<'a> TimetablesIter<'a>,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -499,7 +497,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> ,
+    T: for<'a> TimetablesIter<'a>,
     T::Mission: 'static,
     T::Position: 'static,
 {

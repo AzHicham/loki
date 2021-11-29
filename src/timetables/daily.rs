@@ -55,7 +55,6 @@ use tracing::log::error;
 
 pub type Time = SecondsSinceDatasetUTCStart;
 
-
 pub struct DailyTimetables {
     timetables: Timetables<Time, Load, (), VehicleData>,
     calendar: Calendar,

@@ -27,10 +27,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-
-use crate::time::{DaysSinceDatasetStart};
-
+use crate::time::DaysSinceDatasetStart;
 
 use super::days_patterns::{DaysPattern, DaysPatterns};
 
@@ -44,30 +41,21 @@ pub struct DaysMap<T> {
 
 impl<T> DaysMap<T> {
     pub fn new() -> Self {
-        Self {
-            data: Vec::new(),
-        }
+        Self { data: Vec::new() }
     }
 
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
-    pub fn get(
-        &self,
-        day: &DaysSinceDatasetStart,
-        days_patterns: &DaysPatterns,
-    ) -> Option<&T> 
-    {
-        self.data
-            .iter()
-            .find_map(|(days_pattern, value)| {
-                if days_patterns.is_allowed(days_pattern, day) {
-                    Some(value)
-                } else {
-                    None
-                }
-            })
+    pub fn get(&self, day: &DaysSinceDatasetStart, days_patterns: &DaysPatterns) -> Option<&T> {
+        self.data.iter().find_map(|(days_pattern, value)| {
+            if days_patterns.is_allowed(days_pattern, day) {
+                Some(value)
+            } else {
+                None
+            }
+        })
     }
 
     pub fn insert(
@@ -75,8 +63,9 @@ impl<T> DaysMap<T> {
         days_pattern_to_insert: &DaysPattern,
         value_to_insert: T,
         days_patterns: &mut DaysPatterns,
-    ) -> Result<(), InsertError> 
-    where T : Eq
+    ) -> Result<(), InsertError>
+    where
+        T: Eq,
     {
         // is there a day in days_pattern_to_insert that is already set somewhere ?
         for (days_pattern, _) in self.data.iter() {
@@ -105,8 +94,7 @@ impl<T> DaysMap<T> {
         } else {
             // if value_to_insert does not appears in the Vec,
             // let's push a new element to the Vec with it
-            self.data
-                .push((*days_pattern_to_insert, value_to_insert));
+            self.data.push((*days_pattern_to_insert, value_to_insert));
         }
 
         Ok(())
@@ -116,17 +104,20 @@ impl<T> DaysMap<T> {
         &mut self,
         day_to_remove: &DaysSinceDatasetStart,
         days_patterns: &mut DaysPatterns,
-    ) -> Result<T, RemoveError> 
-    where T : Clone
+    ) -> Result<T, RemoveError>
+    where
+        T: Clone,
     {
         // let's try to find the first element where day_to_remove is set.
         // Because of invariant 1., if such an element is found, we know that
         // day_to_remove is not set in any other element
-        let has_days_pattern = self.data.iter_mut().enumerate().find(
-            |(_idx, (days_pattern, _timetable))| {
-                days_patterns.is_allowed(days_pattern, day_to_remove)
-            },
-        );
+        let has_days_pattern =
+            self.data
+                .iter_mut()
+                .enumerate()
+                .find(|(_idx, (days_pattern, _timetable))| {
+                    days_patterns.is_allowed(days_pattern, day_to_remove)
+                });
 
         let (removed_timetable, has_idx_to_remove) = match has_days_pattern {
             None => {

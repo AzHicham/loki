@@ -180,7 +180,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> ,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -201,7 +201,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> ,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

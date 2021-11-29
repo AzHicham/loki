@@ -34,15 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-use crate::{RealTimeLevel, loads_data::LoadsData, models::{
-        base_model::BaseModel, 
-        real_time_model::RealTimeModel, 
-        ModelRefs, 
-        StopPointIdx,
-        TransferIdx, 
-        VehicleJourneyIdx,
-    }, transit_data::{Stop, TransitData}};
+use crate::{
+    loads_data::LoadsData,
+    models::{
+        base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
+        TransferIdx, VehicleJourneyIdx,
+    },
+    transit_data::{Stop, TransitData},
+    RealTimeLevel,
+};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
@@ -242,7 +242,6 @@ where
                 &err,
             );
         }
-
 
         Ok(())
     }

@@ -34,8 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-use crate::{loads_data::LoadsData, models::{StopPointIdx, VehicleJourneyIdx}, timetables::{InsertionError, ModifyError, RemovalError}, transit_data::TransitData};
+use crate::{
+    loads_data::LoadsData,
+    models::{StopPointIdx, VehicleJourneyIdx},
+    timetables::{InsertionError, ModifyError, RemovalError},
+    transit_data::TransitData,
+};
 
 use crate::{
     time::SecondsSinceTimezonedDayStart,
@@ -46,17 +50,15 @@ use super::data_interface::{self, RealTimeLevel};
 
 impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
-
-    self.timetables
-        .remove_real_time_vehicle(date, vehicle_journey_idx)
-  
+        self.timetables
+            .remove_real_time_vehicle(date, vehicle_journey_idx)
     }
 
     fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -77,9 +79,17 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-
-       self.insert_inner(stop_points, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx, RealTimeLevel::RealTime)
-
+        self.insert_inner(
+            stop_points,
+            flows,
+            board_times,
+            debark_times,
+            loads_data,
+            valid_dates,
+            timezone,
+            vehicle_journey_idx,
+            RealTimeLevel::RealTime,
+        )
     }
 
     fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -98,25 +108,32 @@ where
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone {
-            let stops = self.create_stops(stops).into_iter();
-            let missions = self.timetables.modify_real_time_vehicle(stops, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx)?;
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+    {
+        let stops = self.create_stops(stops).into_iter();
+        let missions = self.timetables.modify_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            loads_data,
+            valid_dates,
+            timezone,
+            vehicle_journey_idx,
+        )?;
 
-            for mission in missions.iter() {
-                self.add_mission_to_stops(mission);
-            }
-    
-            Ok(())
+        for mission in missions.iter() {
+            self.add_mission_to_stops(mission);
         }
+
+        Ok(())
+    }
 }
 
-
-impl<Timetables>  TransitData<Timetables>
+impl<Timetables> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-
-
     pub(super) fn insert_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
@@ -136,10 +153,8 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-
-
         let stops = self.create_stops(stop_points).into_iter();
-        let missions= self.timetables.insert_vehicle(
+        let missions = self.timetables.insert_vehicle(
             stops,
             flows,
             board_times,
@@ -156,18 +171,16 @@ where
         }
 
         Ok(())
-
     }
 
-    pub(super) fn add_mission_to_stops(&mut self, mission : & Timetables::Mission) {
+    pub(super) fn add_mission_to_stops(&mut self, mission: &Timetables::Mission) {
         for position in self.timetables.positions(mission) {
             let stop = self.timetables.stop_at(&position, mission);
             let stop_data = &mut self.stops_data[stop.idx];
             let position_in_timetables = &mut stop_data.position_in_timetables;
-            if ! position_in_timetables.contains(&(mission.clone(), position.clone())) {
+            if !position_in_timetables.contains(&(mission.clone(), position.clone())) {
                 position_in_timetables.push((mission.clone(), position));
             }
         }
     }
-
 }

@@ -1,4 +1,9 @@
-use crate::{loads_data::{Load, LoadsData}, models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, timetables::{FlowDirection, InsertionError, ModifyError, RemovalError}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+    timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
+};
 use chrono::{NaiveDate, NaiveDateTime};
 pub use typed_index_collection::Idx;
 
@@ -198,7 +203,6 @@ pub trait DataUpdate {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-
     fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
@@ -216,7 +220,6 @@ pub trait DataUpdate {
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
-
 }
 
 pub trait DataIO {
@@ -261,7 +264,11 @@ where
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;
     /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(&'a self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::TripsOfMission;
+    fn trips_of(
+        &'a self,
+        mission: &Self::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Self::TripsOfMission;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}

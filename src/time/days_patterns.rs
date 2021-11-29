@@ -67,7 +67,7 @@ impl DaysPatterns {
     }
 
     pub fn empty_pattern(&self) -> DaysPattern {
-        DaysPattern{idx : 0}
+        DaysPattern { idx: 0 }
     }
 
     pub fn is_allowed(&self, days_pattern: &DaysPattern, day: &DaysSinceDatasetStart) -> bool {
@@ -256,7 +256,9 @@ impl DaysPatterns {
         let mut result = Vec::new();
         for (day_idx, (first, second)) in first_data.iter().zip(second_data.iter()).enumerate() {
             if *first && *second {
-                result.push(DaysSinceDatasetStart { days : day_idx as u16});
+                result.push(DaysSinceDatasetStart {
+                    days: day_idx as u16,
+                });
             }
         }
         result

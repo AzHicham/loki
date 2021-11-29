@@ -34,9 +34,19 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{RealTimeLevel, loads_data::{Load, LoadsData}, models::{VehicleJourneyIdx,}, time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns}, timetables::generic_timetables};
+use crate::{
+    loads_data::{Load, LoadsData},
+    models::VehicleJourneyIdx,
+    time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
+    timetables::generic_timetables,
+    RealTimeLevel,
+};
 
-use super::{InsertionError, ModifyError, RemovalError, TimetablesIter, day_to_timetable::{Unknown, VehicleJourneyToTimetable}, generic_timetables::{Timetables, Trip, Vehicle, VehicleTimesError}};
+use super::{
+    day_to_timetable::{Unknown, VehicleJourneyToTimetable},
+    generic_timetables::{Timetables, Trip, Vehicle, VehicleTimesError},
+    InsertionError, ModifyError, RemovalError, TimetablesIter,
+};
 use crate::time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
     SecondsSinceUTCDayStart, TimezonesPatterns,
@@ -51,7 +61,6 @@ use crate::timetables::{
     FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
 };
 
-
 pub struct PeriodicSplitVjByTzTimetables {
     timetables: Timetables<SecondsSinceUTCDayStart, Load, (), VehicleData>,
     calendar: Calendar,
@@ -64,7 +73,7 @@ pub struct PeriodicSplitVjByTzTimetables {
 pub struct VehicleData {
     vehicle_journey_idx: VehicleJourneyIdx,
     base_days_pattern: DaysPattern,
-    real_time_days_pattern : DaysPattern, 
+    real_time_days_pattern: DaysPattern,
 }
 
 impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
@@ -373,60 +382,81 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_level : &RealTimeLevel,
-    ) ->Result<Vec<Self::Mission>, InsertionError>
+        real_time_level: &RealTimeLevel,
+    ) -> Result<Vec<Self::Mission>, InsertionError>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone 
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-
-        // let's check that 
+        // let's check that
         //  - the base vehicle does not exists
         //  - the real time vehicle does not exists
-        if self.vehicle_journey_to_timetable.base_vehicle_exists(vehicle_journey_idx) {
-           return Err(InsertionError::BaseVehicleJourneyAlreadyExists(vehicle_journey_idx.clone()));
+        if self
+            .vehicle_journey_to_timetable
+            .base_vehicle_exists(vehicle_journey_idx)
+        {
+            return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
+                vehicle_journey_idx.clone(),
+            ));
         }
 
         for date in valid_dates.clone() {
-            let day = self.calendar.date_to_days_since_start(date)
-                .ok_or_else(||InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone()))?;
-           
-            if self.vehicle_journey_to_timetable.real_time_vehicle_exists(vehicle_journey_idx, &day, &self.days_patterns) {
-                return Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(*date, vehicle_journey_idx.clone()))
+            let day = self
+                .calendar
+                .date_to_days_since_start(date)
+                .ok_or_else(|| {
+                    InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone())
+                })?;
+
+            if self.vehicle_journey_to_timetable.real_time_vehicle_exists(
+                vehicle_journey_idx,
+                &day,
+                &self.days_patterns,
+            ) {
+                return Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(
+                    *date,
+                    vehicle_journey_idx.clone(),
+                ));
             }
         }
 
-
-        let timetables = self.do_insert(stops, 
-            flows, 
-            board_times, 
-            debark_times, 
-            loads_data, 
-            valid_dates,
-            timezone, 
-            vehicle_journey_idx, 
-            &RealTimeLevel::Base
-        )
-        .map_err(|(err, dates)| InsertionError::Times(vehicle_journey_idx.clone(), err, dates))?;
-      
+        let timetables = self
+            .do_insert(
+                stops,
+                flows,
+                board_times,
+                debark_times,
+                loads_data,
+                valid_dates,
+                timezone,
+                vehicle_journey_idx,
+                &RealTimeLevel::Base,
+            )
+            .map_err(|(err, dates)| {
+                InsertionError::Times(vehicle_journey_idx.clone(), err, dates)
+            })?;
 
         for (timetable, days_pattern) in timetables.iter() {
             let result = match real_time_level {
-                RealTimeLevel::Base => self.vehicle_journey_to_timetable.insert_base_and_realtime_vehicle(
-                    vehicle_journey_idx, 
-                    days_pattern, 
-                    timetable, 
-                    &mut self.days_patterns,
-                ),
-                RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.insert_real_time_only_vehicle(
-                    vehicle_journey_idx, 
-                    days_pattern, 
-                    timetable, 
-                    &mut self.days_patterns,
-                ),
+                RealTimeLevel::Base => self
+                    .vehicle_journey_to_timetable
+                    .insert_base_and_realtime_vehicle(
+                        vehicle_journey_idx,
+                        days_pattern,
+                        timetable,
+                        &mut self.days_patterns,
+                    ),
+                RealTimeLevel::RealTime => self
+                    .vehicle_journey_to_timetable
+                    .insert_real_time_only_vehicle(
+                        vehicle_journey_idx,
+                        days_pattern,
+                        timetable,
+                        &mut self.days_patterns,
+                    ),
             };
 
             if let Err(err) = result {
@@ -437,9 +467,8 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 error!("Error while inserting a real time only vehicle : {:?}", err);
             }
         }
- 
 
-        let missions : Vec<_> = timetables.keys().cloned().collect();
+        let missions: Vec<_> = timetables.keys().cloned().collect();
         Ok(missions)
     }
 
@@ -448,63 +477,73 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), super::RemovalError> {
-
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or_else(|| {
-                RemovalError::UnknownDate(
-                    *date,
-                    vehicle_journey_idx.clone(),
-                )
-            })?;
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
         // We get the timetable, and then remove `date` from its real_time days_pattern
-        let timetable = self.vehicle_journey_to_timetable
+        let timetable = self
+            .vehicle_journey_to_timetable
             .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
             .map_err(|err| match err {
-                Unknown::VehicleJourneyIdx => RemovalError::UnknownVehicleJourney(
-                    vehicle_journey_idx.clone(),
-                ),
-                Unknown::DayForVehicleJourney => RemovalError::DateInvalidForVehicleJourney(
-                    *date,
-                    vehicle_journey_idx.clone(),
-                ),
+                Unknown::VehicleJourneyIdx => {
+                    RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone())
+                }
+                Unknown::DayForVehicleJourney => {
+                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
+                }
             })?;
 
-        self.do_remove(&timetable, &day, vehicle_journey_idx, &RealTimeLevel::RealTime);
+        self.do_remove(
+            &timetable,
+            &day,
+            vehicle_journey_idx,
+            &RealTimeLevel::RealTime,
+        );
 
         Ok(())
     }
 
     fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-            &mut self,
-            stops: Stops,
-            flows: Flows,
-            board_times: BoardTimes,
-            debark_times: DebarkTimes,
-            loads_data: &LoadsData,
-            valid_dates: Dates,
-            timezone: &chrono_tz::Tz,
-            vehicle_journey_idx: &VehicleJourneyIdx,
-        ) -> Result<Vec<Timetable>, ModifyError>
-        where
-            Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
-            Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-            Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-            BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-            DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone 
+        &mut self,
+        stops: Stops,
+        flows: Flows,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads_data: &LoadsData,
+        valid_dates: Dates,
+        timezone: &chrono_tz::Tz,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> Result<Vec<Timetable>, ModifyError>
+    where
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        // - Get the real_time_vehicles that already exists on `valid_dates`, 
+        // - Get the real_time_vehicles that already exists on `valid_dates`,
         // - remove `valid_dates` from its real_time days_pattern
-        // - insert a new vehicle, valid on `valid_dates` on the real_time level 
+        // - insert a new vehicle, valid on `valid_dates` on the real_time level
 
         for date in valid_dates.clone() {
-            let day = self.calendar.date_to_days_since_start(date)
-                .ok_or_else(||ModifyError::UnknownDate(date.clone(), vehicle_journey_idx.clone()))?;
-           
-            if ! self.vehicle_journey_to_timetable.real_time_vehicle_exists(vehicle_journey_idx, &day, &self.days_patterns) {
-                return Err(ModifyError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone()))
+            let day = self
+                .calendar
+                .date_to_days_since_start(date)
+                .ok_or_else(|| {
+                    ModifyError::UnknownDate(date.clone(), vehicle_journey_idx.clone())
+                })?;
+
+            if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
+                vehicle_journey_idx,
+                &day,
+                &self.days_patterns,
+            ) {
+                return Err(ModifyError::DateInvalidForVehicleJourney(
+                    *date,
+                    vehicle_journey_idx.clone(),
+                ));
             }
         }
 
@@ -512,50 +551,57 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             // unwrap is safe, because we checked above
             let day = self.calendar.date_to_days_since_start(date).unwrap();
 
-            let timetable = self.vehicle_journey_to_timetable
+            let timetable = self
+                .vehicle_journey_to_timetable
                 .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
                 .unwrap(); // unwrap is safe, because we checked above that real_time_vehicle_exists()
-           
-            self.do_remove(&timetable, &day, vehicle_journey_idx, &RealTimeLevel::RealTime);
+
+            self.do_remove(
+                &timetable,
+                &day,
+                vehicle_journey_idx,
+                &RealTimeLevel::RealTime,
+            );
         }
 
-        let  timetables = self.do_insert(stops, 
-            flows, 
-            board_times, 
-            debark_times, 
-            loads_data, 
-            valid_dates, 
-            timezone, 
-            vehicle_journey_idx, 
-            &RealTimeLevel::RealTime
-        ).map_err(|(err, dates)| ModifyError::Times(vehicle_journey_idx.clone(), err, dates))?;
+        let timetables = self
+            .do_insert(
+                stops,
+                flows,
+                board_times,
+                debark_times,
+                loads_data,
+                valid_dates,
+                timezone,
+                vehicle_journey_idx,
+                &RealTimeLevel::RealTime,
+            )
+            .map_err(|(err, dates)| ModifyError::Times(vehicle_journey_idx.clone(), err, dates))?;
 
         for (timetable, days_pattern) in timetables.iter() {
-            let result = self.vehicle_journey_to_timetable.insert_real_time_only_vehicle(
-                vehicle_journey_idx, 
-                days_pattern, 
-                timetable, 
-                &mut self.days_patterns,
-            );
+            let result = self
+                .vehicle_journey_to_timetable
+                .insert_real_time_only_vehicle(
+                    vehicle_journey_idx,
+                    days_pattern,
+                    timetable,
+                    &mut self.days_patterns,
+                );
             if let Err(err) = result {
-                // at the beginning of this function, we removed the real_time_vehicle linked to this vehicle_journey_idx 
+                // at the beginning of this function, we removed the real_time_vehicle linked to this vehicle_journey_idx
                 // in vehicle_journey_to_timetable.
                 // So we should not obtain any error while inserting.
                 // If this happens, let's just log an error and keep going.
                 error!("Error while modifying a real time vehicle : {:?}", err);
             }
         }
- 
 
-        let missions : Vec<_> = timetables.keys().cloned().collect();
+        let missions: Vec<_> = timetables.keys().cloned().collect();
         Ok(missions)
     }
-
 }
 
-
 impl PeriodicSplitVjByTzTimetables {
-
     fn do_insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
@@ -567,7 +613,7 @@ impl PeriodicSplitVjByTzTimetables {
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
         real_time_level: &RealTimeLevel,
-    ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>) >
+    ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -575,9 +621,6 @@ impl PeriodicSplitVjByTzTimetables {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-
-        
-
         let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
@@ -613,12 +656,15 @@ impl PeriodicSplitVjByTzTimetables {
                 let board_times = board_times.clone().map(apply_offset);
                 let debark_times = debark_times.clone().map(apply_offset);
 
-                let inspect_result = generic_timetables::inspect(flows.clone(), board_times.clone(), debark_times.clone());
+                let inspect_result = generic_timetables::inspect(
+                    flows.clone(),
+                    board_times.clone(),
+                    debark_times.clone(),
+                );
                 if let Err(err) = inspect_result {
-                    let dates =  self.days_patterns.make_dates(&days_pattern, &self.calendar);
+                    let dates = self.days_patterns.make_dates(&days_pattern, &self.calendar);
                     return Err((err, dates));
                 }
-
             }
         }
 
@@ -639,9 +685,7 @@ impl PeriodicSplitVjByTzTimetables {
                     .get_intersection(all_days_pattern, *timezone_days_pattern);
 
                 let (base_days_pattern, real_time_days_pattern) = match real_time_level {
-                    RealTimeLevel::Base => {
-                        (days_pattern, days_pattern)
-                    },
+                    RealTimeLevel::Base => (days_pattern, days_pattern),
                     RealTimeLevel::RealTime => (self.days_patterns.empty_pattern(), days_pattern),
                 };
 
@@ -649,7 +693,6 @@ impl PeriodicSplitVjByTzTimetables {
                     vehicle_journey_idx: vehicle_journey_idx.clone(),
                     base_days_pattern,
                     real_time_days_pattern,
-                    
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
@@ -667,14 +710,19 @@ impl PeriodicSplitVjByTzTimetables {
                 );
                 match insert_result {
                     Ok(mission) => {
-                        let pattern = result.entry(mission).or_insert(self.days_patterns.empty_pattern());
-                        * pattern = self.days_patterns.get_union(*pattern, days_pattern);
+                        let pattern = result
+                            .entry(mission)
+                            .or_insert(self.days_patterns.empty_pattern());
+                        *pattern = self.days_patterns.get_union(*pattern, days_pattern);
                     }
                     Err(times_error) => {
                         // this should not happen, since we inspect the times above
                         // an returns early with an error if insertion should fail.
                         // Let's log an error if this happens anyway
-                        error!("An error occured while inserting a vehicle {:?}", times_error)
+                        error!(
+                            "An error occured while inserting a vehicle {:?}",
+                            times_error
+                        )
                     }
                 }
             }
@@ -684,22 +732,19 @@ impl PeriodicSplitVjByTzTimetables {
 
     fn do_remove(
         &mut self,
-        timetable : &Timetable,
+        timetable: &Timetable,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_level : &RealTimeLevel,
+        real_time_level: &RealTimeLevel,
     ) {
-
-
         let timetable_data = self.timetables.timetable_data_mut(&timetable);
         let days_patterns = &mut self.days_patterns;
 
-
-        let nb_vehicle_updated = timetable_data.update_vehicles_data(
-            |vehicle_data : &mut VehicleData| {
+        let nb_vehicle_updated =
+            timetable_data.update_vehicles_data(|vehicle_data: &mut VehicleData| {
                 let days_pattern = match real_time_level {
-                    RealTimeLevel::Base => {&mut vehicle_data.base_days_pattern},
-                    RealTimeLevel::RealTime => {&mut vehicle_data.real_time_days_pattern},
+                    RealTimeLevel::Base => &mut vehicle_data.base_days_pattern,
+                    RealTimeLevel::RealTime => &mut vehicle_data.real_time_days_pattern,
                 };
                 if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
                     && days_patterns.is_allowed(&days_pattern, &day)
@@ -707,17 +752,13 @@ impl PeriodicSplitVjByTzTimetables {
                     *days_pattern = days_patterns
                         .get_pattern_without_day(*days_pattern, &day)
                         .unwrap(); // unwrap is safe, because we check above that
-                                // days_patterns.is_allowed(&days_pattern, &day)
+                                   // days_patterns.is_allowed(&days_pattern, &day)
                     true
                 } else {
                     false
                 }
-            }
-        );
+            });
 
-
-       
-    
         if nb_vehicle_updated != 1 {
             error!("Updated {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_updated);
         }
@@ -726,14 +767,12 @@ impl PeriodicSplitVjByTzTimetables {
         // in this case, we remove all vehicle with an empty day_pattern
         let nb_vehicle_removed = timetable_data.remove_vehicles(|vehicle_data| {
             days_patterns.is_empty_pattern(&vehicle_data.base_days_pattern)
-            &&  days_patterns.is_empty_pattern(&vehicle_data.real_time_days_pattern)
+                && days_patterns.is_empty_pattern(&vehicle_data.real_time_days_pattern)
         });
 
         if nb_vehicle_removed > 1 {
             error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_removed);
         }
-
-        
     }
 }
 
@@ -746,7 +785,7 @@ impl<'a> TimetablesIter<'a> for PeriodicSplitVjByTzTimetables {
 
     type Trips = TripsIter<'a>;
 
-    fn trips_of(&'a self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::Trips {
+    fn trips_of(&'a self, mission: &Self::Mission, real_time_level: &RealTimeLevel) -> Self::Trips {
         TripsIter::new(self, mission, real_time_level)
     }
 
@@ -761,21 +800,26 @@ pub struct TripsIter<'a> {
     periodic: &'a PeriodicSplitVjByTzTimetables,
     current_vehicle_days: Option<(Vehicle, DaysInPatternIter<'a>)>,
     vehicles_iter: super::iters::VehicleIter,
-    real_time_level : RealTimeLevel,
+    real_time_level: RealTimeLevel,
 }
 
 impl<'a> TripsIter<'a> {
     fn new(
         periodic: &'a PeriodicSplitVjByTzTimetables,
         timetable: &super::generic_timetables::Timetable,
-        real_time_level : &RealTimeLevel,
+        real_time_level: &RealTimeLevel,
     ) -> Self {
         let mut vehicles_iter = periodic.timetables.vehicles(timetable);
         let has_current_vehicle = vehicles_iter.next();
         let current_vehicle_days = has_current_vehicle.map(|vehicle| {
             let days_pattern = match real_time_level {
-                RealTimeLevel::Base => periodic.timetables.vehicle_data(&vehicle).base_days_pattern, 
-                RealTimeLevel::RealTime => periodic.timetables.vehicle_data(&vehicle).real_time_days_pattern,
+                RealTimeLevel::Base => periodic.timetables.vehicle_data(&vehicle).base_days_pattern,
+                RealTimeLevel::RealTime => {
+                    periodic
+                        .timetables
+                        .vehicle_data(&vehicle)
+                        .real_time_days_pattern
+                }
             };
             let days_iter = periodic.days_patterns.days_in_pattern(&days_pattern);
             (vehicle, days_iter)
@@ -785,7 +829,7 @@ impl<'a> TripsIter<'a> {
             periodic,
             current_vehicle_days,
             vehicles_iter,
-            real_time_level : real_time_level.clone()
+            real_time_level: real_time_level.clone(),
         }
     }
 }
@@ -808,8 +852,18 @@ impl<'a> Iterator for TripsIter<'a> {
                         let has_current_vehicle = self.vehicles_iter.next();
                         self.current_vehicle_days = has_current_vehicle.map(|vehicle| {
                             let days_pattern = match self.real_time_level {
-                                RealTimeLevel::Base => self.periodic.timetables.vehicle_data(&vehicle).base_days_pattern, 
-                                RealTimeLevel::RealTime => self.periodic.timetables.vehicle_data(&vehicle).real_time_days_pattern,
+                                RealTimeLevel::Base => {
+                                    self.periodic
+                                        .timetables
+                                        .vehicle_data(&vehicle)
+                                        .base_days_pattern
+                                }
+                                RealTimeLevel::RealTime => {
+                                    self.periodic
+                                        .timetables
+                                        .vehicle_data(&vehicle)
+                                        .real_time_days_pattern
+                                }
                             };
                             let days_iter =
                                 self.periodic.days_patterns.days_in_pattern(&days_pattern);

@@ -41,7 +41,16 @@ pub mod iters;
 use chrono::NaiveDate;
 use iters::MissionsOfStop;
 
-use crate::{RealTimeLevel, loads_data::{Load, LoadsData}, models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, timetables::{InsertionError, ModifyError, generic_timetables::{PositionPair, VehicleTimesError}}};
+use crate::{
+    loads_data::{Load, LoadsData},
+    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    timetables::{
+        generic_timetables::{PositionPair, VehicleTimesError},
+        InsertionError, ModifyError,
+    },
+    RealTimeLevel,
+};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -311,7 +320,7 @@ where
 
 impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     fn new(
         base_model: &BaseModel,
@@ -346,14 +355,18 @@ where
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
 
-    fn trips_of(&'a self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::TripsOfMission {
+    fn trips_of(
+        &'a self,
+        mission: &Self::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Self::TripsOfMission {
         self.timetables.trips_of(mission, real_time_level)
     }
 }
 
 impl<Timetables> data_interface::DataWithIters for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -365,36 +378,34 @@ pub fn handle_insertion_error(
     end_date: &NaiveDate,
     insertion_error: &InsertionError,
 ) {
-
-        use crate::timetables::InsertionError::*;
-        match insertion_error {
-            Times(vehicle_journey_idx, error, dates) => {
-                let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
-            }
-            RealTimeVehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
-                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
-                error!(
-                    "Trying to insert the real time vehicle journey {} more than once on day {}",
-                    vehicle_journey_name, date
-                );
-            }
-            InvalidDate(date, vehicle_journey_idx) => {
-                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
-                error!(
-                    "Trying to insert the vehicle journey {} on day {},  \
+    use crate::timetables::InsertionError::*;
+    match insertion_error {
+        Times(vehicle_journey_idx, error, dates) => {
+            let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
+        }
+        RealTimeVehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+            error!(
+                "Trying to insert the real time vehicle journey {} more than once on day {}",
+                vehicle_journey_name, date
+            );
+        }
+        InvalidDate(date, vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+            error!(
+                "Trying to insert the vehicle journey {} on day {},  \
                         but this day is not allowed in the date.  \
                         Allowed dates are between {} and {}",
-                    vehicle_journey_name, date, start_date, end_date,
-                );
-            }
-            BaseVehicleJourneyAlreadyExists(vehicle_journey_idx) => {
-                let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
-                error!(
-                    "Trying to insert the base vehicle journey {} more than once.",
-                    vehicle_journey_name
-                );
-            },
-        
+                vehicle_journey_name, date, start_date, end_date,
+            );
+        }
+        BaseVehicleJourneyAlreadyExists(vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+            error!(
+                "Trying to insert the base vehicle journey {} more than once.",
+                vehicle_journey_name
+            );
+        }
     }
 }
 
@@ -514,7 +525,6 @@ pub fn handle_removal_error(
     end_date: &NaiveDate,
     error: &RemovalError,
 ) {
-
     match error {
         RemovalError::UnknownDate(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
@@ -533,10 +543,7 @@ pub fn handle_removal_error(
                 vehicle_journey_name
             );
         }
-        RemovalError::DateInvalidForVehicleJourney(
-            date,
-            vehicle_journey_idx,
-        ) => {
+        RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
             error!(
                 "Trying to remove the vehicle journey {} on day {},  \
@@ -547,16 +554,12 @@ pub fn handle_removal_error(
     }
 }
 
-
-
-
 pub fn handle_modify_error(
     model: &ModelRefs,
     start_date: &NaiveDate,
     end_date: &NaiveDate,
     modify_error: &ModifyError,
 ) {
-
     match modify_error {
         ModifyError::UnknownDate(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
@@ -575,10 +578,7 @@ pub fn handle_modify_error(
                 vehicle_journey_name
             );
         }
-        ModifyError::DateInvalidForVehicleJourney(
-            date,
-            vehicle_journey_idx,
-        ) => {
+        ModifyError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
             error!(
                 "Trying to modify the vehicle journey {} on day {},  \
@@ -588,8 +588,6 @@ pub fn handle_modify_error(
         }
         ModifyError::Times(vehicle_journey_idx, times_err, dates) => {
             let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, times_err);
-        },
+        }
     }
-
 }
-

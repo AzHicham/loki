@@ -38,7 +38,15 @@ use std::{collections::HashMap, hash::Hash};
 
 use tracing::error;
 
-use crate::{chrono::NaiveDate, time::SecondsSinceTimezonedDayStart, timetables::{FlowDirection}, transit_data::{data_interface::{Data as DataTrait, RealTimeLevel}, handle_insertion_error, handle_modify_error, handle_removal_error}};
+use crate::{
+    chrono::NaiveDate,
+    time::SecondsSinceTimezonedDayStart,
+    timetables::FlowDirection,
+    transit_data::{
+        data_interface::{Data as DataTrait, RealTimeLevel},
+        handle_insertion_error, handle_modify_error, handle_removal_error,
+    },
+};
 
 use crate::{DataUpdate, LoadsData};
 
@@ -104,7 +112,6 @@ pub enum UpdateError {
     ModifyAbsentTrip(disruption::Trip),
     AddPresentTrip(disruption::Trip),
 }
-
 
 impl RealTimeModel {
     pub fn apply_disruption<Data: DataTrait + DataUpdate>(
@@ -172,8 +179,7 @@ impl RealTimeModel {
 
             disruption::Update::Delete(trip) => {
                 let vj_idx = self.delete(disruption_id, trip, base_model)?;
-                let removal_result =
-                    data.remove_real_time_vehicle(&vj_idx, &trip.reference_date);
+                let removal_result = data.remove_real_time_vehicle(&vj_idx, &trip.reference_date);
                 if let Err(removal_error) = removal_result {
                     let model_ref = ModelRefs {
                         base: base_model,
@@ -219,7 +225,6 @@ impl RealTimeModel {
                         data.calendar().last_date(),
                         &err,
                     );
-
                 }
                 Ok(())
             }

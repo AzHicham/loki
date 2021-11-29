@@ -51,7 +51,7 @@ pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
 ) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     let base_model = read_model(launch_params)?;
 
@@ -127,7 +127,7 @@ pub fn build_transit_data<Timetables>(
     default_transfer_duration: &PositiveDuration,
 ) -> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     info!(
         "Number of vehicle journeys : {}",

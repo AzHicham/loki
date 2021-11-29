@@ -61,7 +61,6 @@ use loki::{
 };
 use model_builder::AsDateTime;
 
-
 pub fn init_logger() {
     let _ = env_logger::Builder::from_env(
         // use log level specified by RUST_LOG env var if set
@@ -180,7 +179,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> ,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
