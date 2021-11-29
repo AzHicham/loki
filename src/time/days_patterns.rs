@@ -57,10 +57,17 @@ pub struct DaysPattern {
 
 impl DaysPatterns {
     pub fn new(nb_of_days: usize) -> Self {
-        Self {
+        let mut result = Self {
             days_patterns: Vec::new(),
             buffer: vec![false; nb_of_days],
-        }
+        };
+        let empty_pattern = result.get_from_days(std::iter::empty());
+        assert!(empty_pattern.idx == 0);
+        result
+    }
+
+    pub fn empty_pattern(&self) -> DaysPattern {
+        DaysPattern{idx : 0}
     }
 
     pub fn is_allowed(&self, days_pattern: &DaysPattern, day: &DaysSinceDatasetStart) -> bool {
@@ -155,9 +162,10 @@ impl DaysPatterns {
     }
 
     pub fn is_empty_pattern(&self, days_pattern: &DaysPattern) -> bool {
-        let allowed_dates = &self.days_patterns[days_pattern.idx].allowed_dates;
-        let has_a_day_set = allowed_dates.iter().any(|day_allowed| *day_allowed);
-        has_a_day_set.not()
+        days_pattern.idx == 0
+        // let allowed_dates = &self.days_patterns[days_pattern.idx].allowed_dates;
+        // let has_a_day_set = allowed_dates.iter().any(|day_allowed| *day_allowed);
+        // has_a_day_set.not()
     }
 
     pub fn get_pattern_without_day(
@@ -242,15 +250,13 @@ impl DaysPatterns {
         &self,
         first_pattern: &DaysPattern,
         second_pattern: &DaysPattern,
-        calendar: &Calendar,
     ) -> Vec<DaysSinceDatasetStart> {
         let first_data = &self.days_patterns[first_pattern.idx].allowed_dates;
         let second_data = &self.days_patterns[second_pattern.idx].allowed_dates;
-        let days = calendar.days();
         let mut result = Vec::new();
-        for (day, (first, second)) in days.zip(first_data.iter().zip(second_data.iter())) {
+        for (day_idx, (first, second)) in first_data.iter().zip(second_data.iter()).enumerate() {
             if *first && *second {
-                result.push(day);
+                result.push(DaysSinceDatasetStart { days : day_idx as u16});
             }
         }
         result

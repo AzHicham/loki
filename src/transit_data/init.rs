@@ -43,7 +43,7 @@ use crate::{RealTimeLevel, loads_data::LoadsData, models::{
         StopPointIdx,
         TransferIdx, 
         VehicleJourneyIdx,
-    }, timetables::RealTimeValidity, transit_data::{Stop, TransitData}, transit_data::data_interface::DataUpdate};
+    }, transit_data::{Stop, TransitData}};
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},

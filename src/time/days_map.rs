@@ -49,6 +49,10 @@ impl<T> DaysMap<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     pub fn get(
         &self,
         day: &DaysSinceDatasetStart,
@@ -76,9 +80,9 @@ impl<T> DaysMap<T> {
     {
         // is there a day in days_pattern_to_insert that is already set somewhere ?
         for (days_pattern, _) in self.data.iter() {
-            if let Some(_day) = days_patterns.have_common_day(days_pattern, days_pattern_to_insert)
-            {
-                return Err(InsertError::DayAlreadySet);
+            let common_days = days_patterns.common_days(days_pattern, days_pattern_to_insert);
+            if common_days.is_empty() {
+                return Err(InsertError::DaysAlreadySet(common_days));
             }
         }
 
@@ -152,7 +156,7 @@ impl<T> DaysMap<T> {
 
 #[derive(Debug)]
 pub enum InsertError {
-    DayAlreadySet,
+    DaysAlreadySet(Vec<DaysSinceDatasetStart>),
 }
 #[derive(Debug)]
 pub enum RemoveError {
