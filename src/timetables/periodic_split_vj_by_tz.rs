@@ -363,7 +363,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn insert_base_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -373,72 +373,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Result<Vec<Timetable>, InsertionError>
-    where
-        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        if self.vehicle_journey_to_timetable.base_vehicle_exists(vehicle_journey_idx) {
-            return Err(InsertionError::BaseVehicleJourneyAlreadyExists(vehicle_journey_idx.clone()));
-        }
-
-        for date in valid_dates.clone() {
-            let day = self.calendar.date_to_days_since_start(date)
-                .ok_or_else(||InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone()))?;
-           
-            if self.vehicle_journey_to_timetable.real_time_vehicle_exists(vehicle_journey_idx, &day, &self.days_patterns) {
-                return Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(*date, vehicle_journey_idx.clone()))
-            }
-        }
-
-        let (timetables, insertion_errors) = self.do_insert(stops, 
-            flows, 
-            board_times, 
-            debark_times, 
-            loads_data, 
-            valid_dates,
-            timezone, 
-            vehicle_journey_idx, 
-            &RealTimeLevel::Base
-        );
-      
-
-        for (timetable, days_pattern) in timetables.iter() {
-            let result = self.vehicle_journey_to_timetable.insert_base_and_realtime_vehicle(
-                vehicle_journey_idx, 
-                days_pattern, 
-                timetable, 
-                &mut self.days_patterns,
-            );
-            if let Err(err) = result {
-                // we checked at the beginning of this function that this vehicle_journey_idx has no base/real_time vehicle
-                // in vehicle_journey_to_timetable.
-                // So we should not obtain any error while inserting.
-                // If this happens, let's just log an error and keep going.
-                error!("Error while inserting a base vehicle : {:?}", err);
-            }
-        }
- 
-
-        let missions : Vec<_> = timetables.keys().cloned().collect();
-        Ok(missions)
-        
-
-    }
-
-    fn insert_real_time_only_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stops: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level : &RealTimeLevel,
     ) ->Result<Vec<Self::Mission>, InsertionError>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -452,8 +387,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         //  - the base vehicle does not exists
         //  - the real time vehicle does not exists
         if self.vehicle_journey_to_timetable.base_vehicle_exists(vehicle_journey_idx) {
-            // If we insert a real_time_only vehicle, it means that we should not have a base vehicle for this vehicle_journey_idx
-            return Err(InsertionError::BaseVehicleJourneyAlreadyExists(vehicle_journey_idx.clone()));
+           return Err(InsertionError::BaseVehicleJourneyAlreadyExists(vehicle_journey_idx.clone()));
         }
 
         for date in valid_dates.clone() {
@@ -479,14 +413,23 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
       
 
         for (timetable, days_pattern) in timetables.iter() {
-            let result = self.vehicle_journey_to_timetable.insert_real_time_only_vehicle(
-                vehicle_journey_idx, 
-                days_pattern, 
-                timetable, 
-                &mut self.days_patterns,
-            );
+            let result = match real_time_level {
+                RealTimeLevel::Base => self.vehicle_journey_to_timetable.insert_base_and_realtime_vehicle(
+                    vehicle_journey_idx, 
+                    days_pattern, 
+                    timetable, 
+                    &mut self.days_patterns,
+                ),
+                RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.insert_real_time_only_vehicle(
+                    vehicle_journey_idx, 
+                    days_pattern, 
+                    timetable, 
+                    &mut self.days_patterns,
+                ),
+            };
+
             if let Err(err) = result {
-                // we checked at the beginning of this function that this vehicle_journey_idx has no real_time vehicle
+                // we checked at the beginning of this function that this vehicle_journey_idx has no base/real_time vehicle
                 // in vehicle_journey_to_timetable.
                 // So we should not obtain any error while inserting.
                 // If this happens, let's just log an error and keep going.

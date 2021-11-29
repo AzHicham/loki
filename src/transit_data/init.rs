@@ -54,7 +54,7 @@ use typed_index_collection::Idx;
 
 use tracing::{info, warn};
 
-use super::{handle_insertion_errors, Transfer, TransferData, TransferDurations};
+use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
 
 impl<Timetables> TransitData<Timetables>
 where
@@ -216,7 +216,7 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let insertion_errors = self.insert_inner(
+        let insert_result = self.insert_inner(
             stop_points,
             flows.into_iter(),
             board_times.into_iter(),
@@ -235,12 +235,15 @@ where
         };
 
         use crate::transit_data::data_interface::Data;
-        handle_insertion_errors(
-            &model,
-            self.calendar().first_date(),
-            self.calendar().last_date(),
-            &insertion_errors,
-        );
+        if let Err(err) = insert_result {
+            handle_insertion_error(
+                &model,
+                self.calendar().first_date(),
+                self.calendar().last_date(),
+                &err,
+            );
+        }
+
 
         Ok(())
     }

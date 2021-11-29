@@ -73,7 +73,7 @@ pub type StopFlows = Vec<(Stop, FlowDirection)>;
 
 pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
-    type Position: Debug + Clone;
+    type Position: Debug + Clone + PartialEq + Eq;
     type Trip: Debug + Clone;
 }
 
@@ -175,25 +175,8 @@ pub trait Timetables: Types {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn insert_base_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stops: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Result<Vec<Self::Mission>, InsertionError>
-    where
-        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn insert_real_time_only_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -203,6 +186,7 @@ pub trait Timetables: Types {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level : &RealTimeLevel,
     ) -> Result<Vec<Self::Mission>, InsertionError>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,

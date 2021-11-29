@@ -1,7 +1,4 @@
-use crate::{loads_data::{Load, LoadsData}, 
-models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, 
-time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, 
-timetables::{FlowDirection, InsertionError,  RemovalError}};
+use crate::{loads_data::{Load, LoadsData}, models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart}, timetables::{FlowDirection, InsertionError, ModifyError, RemovalError}};
 use chrono::{NaiveDate, NaiveDateTime};
 pub use typed_index_collection::Idx;
 
@@ -177,13 +174,13 @@ pub enum RealTimeLevel {
 }
 
 pub trait DataUpdate {
-    fn remove(
+    fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
 
-    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -193,7 +190,7 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -202,7 +199,7 @@ pub trait DataUpdate {
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
 
-    fn modify<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -212,7 +209,7 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), ModifyError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -264,7 +261,7 @@ where
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;
     /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
+    fn trips_of(&'a self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::TripsOfMission;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}

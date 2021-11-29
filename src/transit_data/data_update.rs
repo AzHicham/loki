@@ -36,7 +36,7 @@
 
 use std::fmt::Debug;
 
-use crate::{loads_data::LoadsData, models::{StopPointIdx, VehicleJourneyIdx}, timetables::{InsertionError,  RemovalError}, transit_data::TransitData};
+use crate::{loads_data::LoadsData, models::{StopPointIdx, VehicleJourneyIdx}, timetables::{InsertionError, ModifyError, RemovalError}, transit_data::TransitData};
 
 use crate::{
     time::SecondsSinceTimezonedDayStart,
@@ -49,18 +49,18 @@ impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
 {
-    fn remove(
+    fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
 
     self.timetables
-        .remove(date, vehicle_journey_idx)
+        .remove_real_time_vehicle(date, vehicle_journey_idx)
   
     }
 
-    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -70,7 +70,7 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -83,7 +83,7 @@ where
 
     }
 
-    fn modify<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -93,7 +93,7 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), ModifyError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -101,19 +101,13 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone {
             let stops = self.create_stops(stops).into_iter();
-            let (missions, insertion_errors) = self.timetables.modify(stops, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx);
+            let missions = self.timetables.modify_real_time_vehicle(stops, flows, board_times, debark_times, loads_data, valid_dates, timezone, vehicle_journey_idx)?;
 
             for mission in missions.iter() {
-                for position in self.timetables.positions(mission) {
-                    let stop = self.timetables.stop_at(&position, mission);
-                    let stop_data = &mut self.stops_data[stop.idx];
-                    stop_data
-                        .position_in_timetables
-                        .push((mission.clone(), position));
-                }
+                self.add_mission_to_stops(mission);
             }
     
-            insertion_errors
+            Ok(())
         }
 }
 
@@ -135,7 +129,7 @@ where
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
         real_time_level: RealTimeLevel,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -146,7 +140,7 @@ where
 
 
         let stops = self.create_stops(stop_points).into_iter();
-        let (missions, insertion_errors) = self.timetables.insert(
+        let missions= self.timetables.insert_vehicle(
             stops,
             flows,
             board_times,
@@ -156,20 +150,25 @@ where
             timezone,
             &vehicle_journey_idx,
             &real_time_level,
-        );
+        )?;
 
         for mission in missions.iter() {
-            for position in self.timetables.positions(mission) {
-                let stop = self.timetables.stop_at(&position, mission);
-                let stop_data = &mut self.stops_data[stop.idx];
-                stop_data
-                    .position_in_timetables
-                    .push((mission.clone(), position));
-            }
+            self.add_mission_to_stops(mission);
         }
 
-        insertion_errors
+        Ok(())
 
+    }
+
+    pub(super) fn add_mission_to_stops(&mut self, mission : & Timetables::Mission) {
+        for position in self.timetables.positions(mission) {
+            let stop = self.timetables.stop_at(&position, mission);
+            let stop_data = &mut self.stops_data[stop.idx];
+            let position_in_timetables = &mut stop_data.position_in_timetables;
+            if ! position_in_timetables.contains(&(*mission, position)) {
+                position_in_timetables.push((mission.clone(), position));
+            }
+        }
     }
 
 }
