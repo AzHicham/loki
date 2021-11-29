@@ -45,13 +45,13 @@ use loki::{
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
 };
-use std::{collections::BTreeMap, fmt::Debug, time::SystemTime};
+use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
 ) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
 {
     let base_model = read_model(launch_params)?;
 
@@ -127,7 +127,7 @@ pub fn build_transit_data<Timetables>(
     default_transfer_duration: &PositiveDuration,
 ) -> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
 {
     info!(
         "Number of vehicle journeys : {}",

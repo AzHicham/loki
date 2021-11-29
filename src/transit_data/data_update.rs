@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::fmt::Debug;
 
 use crate::{loads_data::LoadsData, models::{StopPointIdx, VehicleJourneyIdx}, timetables::{InsertionError, ModifyError, RemovalError}, transit_data::TransitData};
 
@@ -47,7 +46,7 @@ use super::data_interface::{self, RealTimeLevel};
 
 impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
 {
     fn remove_real_time_vehicle(
         &mut self,
@@ -114,7 +113,7 @@ where
 
 impl<Timetables>  TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
 {
 
 
@@ -165,7 +164,7 @@ where
             let stop = self.timetables.stop_at(&position, mission);
             let stop_data = &mut self.stops_data[stop.idx];
             let position_in_timetables = &mut stop_data.position_in_timetables;
-            if ! position_in_timetables.contains(&(*mission, position)) {
+            if ! position_in_timetables.contains(&(mission.clone(), position.clone())) {
                 position_in_timetables.push((mission.clone(), position));
             }
         }

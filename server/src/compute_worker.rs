@@ -36,7 +36,6 @@
 
 use failure::{format_err, Error};
 use std::{
-    fmt::Debug,
     ops::Deref,
     sync::{Arc, RwLock},
 };
@@ -210,7 +209,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a> ,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

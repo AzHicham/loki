@@ -60,7 +60,7 @@ use loki::{
     TransitData,
 };
 use model_builder::AsDateTime;
-use std::fmt::Debug;
+
 
 pub fn init_logger() {
     let _ = env_logger::Builder::from_env(
@@ -180,7 +180,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a> ,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

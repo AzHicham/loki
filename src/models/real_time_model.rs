@@ -38,10 +38,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use tracing::error;
 
-use crate::{chrono::NaiveDate, time::SecondsSinceTimezonedDayStart, timetables::{FlowDirection}, transit_data::{
-        data_interface::{Data as DataTrait, RealTimeLevel},
-        handle_insertion_error, handle_removal_errors,
-    }};
+use crate::{chrono::NaiveDate, time::SecondsSinceTimezonedDayStart, timetables::{FlowDirection}, transit_data::{data_interface::{Data as DataTrait, RealTimeLevel}, handle_insertion_error, handle_modify_error, handle_removal_error}};
 
 use crate::{DataUpdate, LoadsData};
 
@@ -182,11 +179,11 @@ impl RealTimeModel {
                         base: base_model,
                         real_time: self,
                     };
-                    handle_removal_errors(
+                    handle_removal_error(
                         &model_ref,
                         data.calendar().first_date(),
                         data.calendar().last_date(),
-                        std::iter::once(removal_error),
+                        &removal_error,
                     );
                 }
                 Ok(())
@@ -210,22 +207,20 @@ impl RealTimeModel {
                     &chrono_tz::UTC,
                     &vj_idx,
                 );
-                let model_ref = ModelRefs {
-                    base: base_model,
-                    real_time: self,
-                };
-                handle_insertion_errors(
-                    &model_ref,
-                    data.calendar().first_date(),
-                    data.calendar().last_date(),
-                    &insertion_errors,
-                );
-                // handle_removal_errors(
-                //     &model_ref,
-                //     data.calendar().first_date(),
-                //     data.calendar().last_date(),
-                //     removal_errors.into_iter(),
-                // );
+
+                if let Err(err) = modify_result {
+                    let model_ref = ModelRefs {
+                        base: base_model,
+                        real_time: self,
+                    };
+                    handle_modify_error(
+                        &model_ref,
+                        data.calendar().first_date(),
+                        data.calendar().last_date(),
+                        &err,
+                    );
+
+                }
                 Ok(())
             }
         }

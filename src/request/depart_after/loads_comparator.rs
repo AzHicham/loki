@@ -34,10 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{
-    models::ModelRefs,
-    transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
-};
+use crate::{RealTimeLevel, models::ModelRefs, transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes}};
 
 use crate::engine::engine_interface::{
     BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
@@ -213,8 +210,8 @@ where
     }
 
     type TripsOfMission = Data::TripsOfMission;
-    fn trips_of(&'outer self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.generic.trips_of(mission)
+    fn trips_of(&'outer self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::TripsOfMission {
+        self.generic.trips_of(mission, real_time_level)
     }
 }
 

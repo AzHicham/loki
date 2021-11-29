@@ -41,16 +41,7 @@ pub mod iters;
 use chrono::NaiveDate;
 use iters::MissionsOfStop;
 
-use crate::{
-    loads_data::{Load, LoadsData},
-    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    timetables::{
-        generic_timetables::{PositionPair, VehicleTimesError},
-        InsertionError,
-    },
-    RealTimeLevel,
-};
+use crate::{RealTimeLevel, loads_data::{Load, LoadsData}, models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx}, time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart}, timetables::{InsertionError, ModifyError, generic_timetables::{PositionPair, VehicleTimesError}}};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -117,7 +108,7 @@ impl<Timetables: TimetablesTrait> data_interface::TransitTypes for TransitData<T
 
 impl<Timetables: TimetablesTrait> data_interface::Data for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     fn is_upstream(
         &self,
@@ -320,7 +311,7 @@ where
 
 impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
 {
     fn new(
         base_model: &BaseModel,
@@ -362,7 +353,7 @@ where
 
 impl<Timetables> data_interface::DataWithIters for TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> ,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -554,5 +545,51 @@ pub fn handle_removal_error(
             );
         }
     }
+}
+
+
+
+
+pub fn handle_modify_error(
+    model: &ModelRefs,
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
+    modify_error: &ModifyError,
+) {
+
+    match modify_error {
+        ModifyError::UnknownDate(date, vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            error!(
+                "Trying to modify the vehicle journey {} on day {},  \
+                    but this day is not allowed in the data.  \
+                    Allowed dates are between {} and {}",
+                vehicle_journey_name, date, start_date, end_date,
+            );
+        }
+        ModifyError::UnknownVehicleJourney(vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            error!(
+                "Trying to modify the vehicle journey {} \
+                    but this vehicle journey is unknown",
+                vehicle_journey_name
+            );
+        }
+        ModifyError::DateInvalidForVehicleJourney(
+            date,
+            vehicle_journey_idx,
+        ) => {
+            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            error!(
+                "Trying to modify the vehicle journey {} on day {},  \
+                    but this vehicle journeys does not exists on this day. ",
+                vehicle_journey_name, date,
+            );
+        }
+        ModifyError::Times(vehicle_journey_idx, times_err, dates) => {
+            let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, times_err);
+        },
+    }
 
 }
+

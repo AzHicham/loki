@@ -36,8 +36,6 @@
 
 use std::collections::HashMap;
 
-use tracing::log::error;
-
 use crate::{RealTimeLevel, models::VehicleJourneyIdx, time::{DaysSinceDatasetStart, days_map::{DaysMap, InsertError}, days_patterns::{DaysPattern, DaysPatterns}}};
 
 use super::{generic_timetables::Timetable};
@@ -80,7 +78,7 @@ impl VehicleJourneyToTimetable {
         days_patterns: &mut DaysPatterns,
     ) -> Result<(), InsertionError >
     {
-        let day_to_timetable = self.data.entry(*vehicle_journey_idx).or_insert_with(|| DayToTimetable::new());
+        let day_to_timetable = self.data.entry(vehicle_journey_idx.clone()).or_insert_with(|| DayToTimetable::new());
 
         let base_insert_result = day_to_timetable.base.insert(days_pattern_to_insert, timetable_to_insert.clone(), days_patterns);
         if let Err(InsertError::DaysAlreadySet(days)) = base_insert_result {
@@ -103,7 +101,7 @@ impl VehicleJourneyToTimetable {
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
     ) -> Result<(), InsertionError> {
-        let day_to_timetable = self.data.entry(*vehicle_journey_idx).or_insert_with(|| DayToTimetable::new());
+        let day_to_timetable = self.data.entry(vehicle_journey_idx.clone()).or_insert_with(|| DayToTimetable::new());
 
         let real_time_insert_result = day_to_timetable.real_time.insert(days_pattern_to_insert, timetable_to_insert.clone(), days_patterns);
         if let Err(InsertError::DaysAlreadySet(days)) = real_time_insert_result {
@@ -121,8 +119,7 @@ impl VehicleJourneyToTimetable {
         day: &DaysSinceDatasetStart,
         days_patterns: &mut DaysPatterns,
     ) -> Result<Timetable, Unknown> {
-        let day_to_timetable = self.data.get(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
-        let old_timetable = day_to_timetable.real_time.get(day, days_patterns).ok_or(Unknown::DayForVehicleJourney)?;
+        let day_to_timetable = self.data.get_mut(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
         day_to_timetable.real_time.remove(day, days_patterns)
             .map_err(|_| Unknown::DayForVehicleJourney)
         
@@ -136,8 +133,7 @@ impl VehicleJourneyToTimetable {
         timetable_to_insert : & Timetable,
         days_patterns: &mut DaysPatterns,
     ) -> Result<(), Unknown> {
-        let day_to_timetable = self.data.get(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
-        let old_timetable = day_to_timetable.real_time.get(day, days_patterns).ok_or(Unknown::DayForVehicleJourney)?;
+        let day_to_timetable = self.data.get_mut(vehicle_journey_idx).ok_or(Unknown::VehicleJourneyIdx)?;
         day_to_timetable.real_time.remove(day, days_patterns).map_err(|_| Unknown::DayForVehicleJourney)?;
         let days_pattern_to_insert = days_patterns.get_for_day(day);
         day_to_timetable.real_time.insert(&days_pattern_to_insert, timetable_to_insert.clone(), days_patterns);
@@ -181,8 +177,8 @@ impl VehicleJourneyToTimetable {
         let day_to_timetable = self.data.get(vehicle_journey_idx)
                 .ok_or_else(|| Unknown::VehicleJourneyIdx) ?;
         let data = match real_time_level {
-            RealTimeLevel::Base => day_to_timetable.real_time,
-            RealTimeLevel::RealTime => day_to_timetable.base,
+            RealTimeLevel::Base => &day_to_timetable.real_time,
+            RealTimeLevel::RealTime => &day_to_timetable.base,
         };
         data.get(day, days_patterns).ok_or_else(|| Unknown::DayForVehicleJourney)
  

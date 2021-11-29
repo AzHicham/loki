@@ -54,7 +54,6 @@ use std::{fs::File, io::BufReader, time::SystemTime};
 use failure::{bail, Error};
 
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -181,7 +180,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a> ,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -202,7 +201,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a> ,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

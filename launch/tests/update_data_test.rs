@@ -36,7 +36,6 @@
 
 mod utils;
 
-use std::fmt::Debug;
 
 use failure::Error;
 use launch::{config::DataImplem, solver::Solver};
@@ -46,10 +45,10 @@ use loki::{
     request::generic_request,
     timetables::{Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
-    RequestInput,
+
 };
 use utils::{
-    disruption_builder::{add, delete, modify, StopTimesBuilder},
+    disruption_builder::{modify, StopTimesBuilder},
     model_builder::{AsDate, ModelBuilder},
     Config,
 };
@@ -75,7 +74,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> + Debug,
+    T: for<'a> TimetablesIter<'a> ,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -140,7 +139,7 @@ where
     let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
     let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+    data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
         .unwrap();
 
     {
@@ -205,7 +204,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> + Debug,
+    T: for<'a> TimetablesIter<'a> ,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -269,7 +268,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -295,7 +294,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("second").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -321,7 +320,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -361,7 +360,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> + Debug,
+    T: for<'a> TimetablesIter<'a> ,
     T::Mission: 'static,
     T::Position: 'static,
 {
@@ -425,7 +424,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -451,7 +450,7 @@ where
     {
         let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_vehicle(&vj_idx, &"2020-01-01".as_date(), RealTimeLevel::Base)
+        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
     }
 
@@ -496,7 +495,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    T: for<'a> TimetablesIter<'a> + Debug,
+    T: for<'a> TimetablesIter<'a> ,
     T::Mission: 'static,
     T::Position: 'static,
 {

@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::fmt::Debug;
 
 use crate::{RealTimeLevel, loads_data::LoadsData, models::{
         base_model::BaseModel, 
@@ -58,7 +57,7 @@ use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
 
 impl<Timetables> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     pub fn _new(
         base_model: &BaseModel,

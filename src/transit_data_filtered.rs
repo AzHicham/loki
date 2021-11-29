@@ -426,8 +426,8 @@ where
 
     type TripsOfMission = Data::TripsOfMission;
 
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission {
-        self.transit_data.trips_of(mission)
+    fn trips_of(&'a self, mission: &Self::Mission, real_time_level : &RealTimeLevel) -> Self::TripsOfMission {
+        self.transit_data.trips_of(mission, real_time_level)
     }
 }
 

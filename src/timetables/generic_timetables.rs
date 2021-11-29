@@ -323,6 +323,7 @@ where
             .map(|timetable| timetable.nb_of_vehicle())
             .sum()
     }
+    
 
     // Insert in the trip in a timetable if
     // the given debark_times, board_times and loads are coherent.
