@@ -160,31 +160,6 @@ impl VehicleJourneyToTimetable {
             .map_err(|_| Unknown::DayForVehicleJourney)
     }
 
-    pub fn update_real_time_vehicle(
-        &mut self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        day: &DaysSinceDatasetStart,
-        timetable_to_insert: &Timetable,
-        days_patterns: &mut DaysPatterns,
-    ) -> Result<(), Unknown> {
-        let day_to_timetable = self
-            .data
-            .get_mut(vehicle_journey_idx)
-            .ok_or(Unknown::VehicleJourneyIdx)?;
-        day_to_timetable
-            .real_time
-            .remove(day, days_patterns)
-            .map_err(|_| Unknown::DayForVehicleJourney)?;
-        let days_pattern_to_insert = days_patterns.get_for_day(day);
-        day_to_timetable.real_time.insert(
-            &days_pattern_to_insert,
-            timetable_to_insert.clone(),
-            days_patterns,
-        );
-
-        Ok(())
-    }
-
     pub fn base_vehicle_exists(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
         let has_day_to_timetable = self.data.get(vehicle_journey_idx);
         if let Some(day_to_timetable) = has_day_to_timetable {
@@ -207,31 +182,7 @@ impl VehicleJourneyToTimetable {
             false
         }
     }
-
-    pub fn get_timetable(
-        &self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        day: &DaysSinceDatasetStart,
-        days_patterns: &DaysPatterns,
-        real_time_level: &RealTimeLevel,
-    ) -> Result<&Timetable, Unknown> {
-        let day_to_timetable = self
-            .data
-            .get(vehicle_journey_idx)
-            .ok_or_else(|| Unknown::VehicleJourneyIdx)?;
-        let data = match real_time_level {
-            RealTimeLevel::Base => &day_to_timetable.real_time,
-            RealTimeLevel::RealTime => &day_to_timetable.base,
-        };
-        data.get(day, days_patterns)
-            .ok_or_else(|| Unknown::DayForVehicleJourney)
-    }
 }
-
-pub enum RemovalError {
-    DayNotSet(VehicleJourneyIdx, DaysSinceDatasetStart),
-}
-
 #[derive(Debug)]
 pub enum InsertionError {
     DaysAlreadySet(VehicleJourneyIdx, RealTimeLevel, Vec<DaysSinceDatasetStart>),
