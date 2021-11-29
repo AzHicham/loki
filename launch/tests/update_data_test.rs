@@ -143,7 +143,8 @@ where
         .unwrap();
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config)?;
+        request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_request(
             &data,
             &model_refs,
@@ -273,7 +274,8 @@ where
     }
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config)?;
+        request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_request(
             &data,
             &model_refs,
@@ -299,7 +301,8 @@ where
     }
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config)?;
+        request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_request(
             &data,
             &model_refs,
@@ -325,7 +328,8 @@ where
     }
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config)?;
+        request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_request(
             &data,
             &model_refs,
