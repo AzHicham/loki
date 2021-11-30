@@ -40,6 +40,8 @@ use crate::{
         base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
         TransferIdx, VehicleJourneyIdx,
     },
+    time::{days_patterns::DaysPatterns, Calendar},
+    timetables::day_to_timetable::VehicleJourneyToTimetable,
     transit_data::{Stop, TransitData},
     RealTimeLevel,
 };
@@ -70,12 +72,17 @@ where
         let (start_date, end_date) = base_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
+        let calendar = Calendar::new(start_date, end_date);
+        let nb_of_days = calendar.nb_of_days();
 
         let mut data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
             timetables: Timetables::new(start_date, end_date),
             transfers_data: Vec::with_capacity(nb_transfers),
+            vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
+            calendar,
+            days_patterns: DaysPatterns::new(usize::from(nb_of_days)),
         };
 
         data.init(base_model, loads_data, default_transfer_duration);

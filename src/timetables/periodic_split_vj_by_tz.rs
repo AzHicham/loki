@@ -66,7 +66,7 @@ pub struct PeriodicSplitVjByTzTimetables {
     calendar: Calendar,
     days_patterns: DaysPatterns,
     timezones_patterns: TimezonesPatterns,
-    vehicle_journey_to_timetable: VehicleJourneyToTimetable,
+    vehicle_journey_to_timetable: VehicleJourneyToTimetable<Timetable>,
 }
 
 #[derive(Debug, Clone)]

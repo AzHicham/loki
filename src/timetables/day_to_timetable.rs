@@ -46,18 +46,16 @@ use crate::{
     RealTimeLevel,
 };
 
-use super::generic_timetables::Timetable;
-
-pub struct VehicleJourneyToTimetable {
-    data: HashMap<VehicleJourneyIdx, DayToTimetable>,
+pub struct VehicleJourneyToTimetable<Timetable> {
+    data: HashMap<VehicleJourneyIdx, DayToTimetable<Timetable>>,
 }
 
-struct DayToTimetable {
+struct DayToTimetable<Timetable> {
     base: DaysMap<Timetable>,
     real_time: DaysMap<Timetable>,
 }
 
-impl DayToTimetable {
+impl<Timetable> DayToTimetable<Timetable> {
     fn new() -> Self {
         Self {
             base: DaysMap::new(),
@@ -66,7 +64,10 @@ impl DayToTimetable {
     }
 }
 
-impl VehicleJourneyToTimetable {
+impl<Timetable> VehicleJourneyToTimetable<Timetable>
+where
+    Timetable: PartialEq + Eq + Clone,
+{
     pub fn new() -> Self {
         Self {
             data: HashMap::new(),

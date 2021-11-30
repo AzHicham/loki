@@ -44,8 +44,9 @@ use iters::MissionsOfStop;
 use crate::{
     loads_data::{Load, LoadsData},
     models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
+        day_to_timetable::VehicleJourneyToTimetable,
         generic_timetables::{PositionPair, VehicleTimesError},
         InsertionError, ModifyError,
     },
@@ -65,6 +66,11 @@ pub struct TransitData<Timetables: TimetablesTrait> {
     pub(super) timetables: Timetables,
 
     pub(super) transfers_data: Vec<TransferData>,
+
+    pub(super) vehicle_journey_to_timetable: VehicleJourneyToTimetable<Timetables::Mission>,
+
+    pub(super) calendar: Calendar,
+    pub(super) days_patterns: DaysPatterns,
 }
 
 pub struct StopData<Timetables: TimetablesTrait> {

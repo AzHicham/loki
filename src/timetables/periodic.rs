@@ -627,6 +627,192 @@ impl TimetablesTrait for PeriodicTimetables {
     }
 }
 
+impl PeriodicTimetables {
+    fn do_insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+        &mut self,
+        stops: Stops,
+        flows: Flows,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads_data: &LoadsData,
+        days: DaysPattern,
+        timezone: &chrono_tz::Tz,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_validity: &RealTimeValidity,
+    ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
+    where
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+    {
+        let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
+
+        let nb_of_positions = stops.len();
+        let default_loads = if nb_of_positions > 0 {
+            vec![Load::default(); nb_of_positions - 1]
+        } else {
+            vec![Load::default(); 0]
+        };
+        for date in valid_dates {
+            let loads = loads_data
+                .loads(vehicle_journey_idx, date)
+                .unwrap_or_else(|| default_loads.as_slice());
+            load_patterns_dates
+                .entry(loads)
+                .or_insert_with(Vec::new)
+                .push(*date);
+        }
+
+        let mut missions = Vec::new();
+
+        for (loads, dates) in load_patterns_dates.into_iter() {
+            let days_pattern = self
+                .days_patterns
+                .get_from_dates(dates.iter(), &self.calendar);
+
+            let vehicle_data = VehicleData {
+                days_pattern,
+                vehicle_journey_idx: vehicle_journey_idx.clone(),
+                real_time_validity: real_time_validity.clone(),
+            };
+            let insert_result = self.timetables.insert(
+                stops.clone(),
+                flows.clone(),
+                board_times.clone(),
+                debark_times.clone(),
+                loads.iter().cloned(),
+                *timezone,
+                vehicle_data,
+            );
+            match insert_result {
+                Ok(mission) => {
+                    if !missions.contains(&mission) {
+                        missions.push(mission.clone());
+                    };
+                    let has_err = self.vehicle_journey_to_timetable.insert(
+                        vehicle_journey_idx,
+                        real_time_validity,
+                        &days_pattern,
+                        &mission,
+                        &mut self.days_patterns,
+                    );
+                    // we filtered valid_dates
+                    // so that it does not contains a date on which (vehicle_jounrney, real_time_validity)
+                    // was already mapped to a timetable in self.vehicle_journey_to_timetable
+                    // so this error should never occurs, but let's log a warning if it happens
+                    if let Err(err) = has_err {
+                        error!(
+                            "Error occured while inserting a vehicle journey in timetables : {:?}",
+                            err
+                        );
+                    }
+                }
+                Err(times_error) => {
+                    let dates = self.days_patterns.make_dates(&days_pattern, &self.calendar);
+                    let error =
+                        InsertionError::Times(vehicle_journey_idx.clone(), times_error, dates);
+                    insertion_errors.push(error);
+                }
+            }
+        }
+
+        (missions, insertion_errors)
+    }
+
+    fn do_remove(
+        &mut self,
+        date: &chrono::NaiveDate,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_validity: &RealTimeValidity,
+    ) -> Result<(), RemovalError> {
+        let day = self
+            .calendar
+            .date_to_days_since_start(date)
+            .ok_or_else(|| {
+                RemovalError::UnknownDate(
+                    *date,
+                    vehicle_journey_idx.clone(),
+                    real_time_validity.clone(),
+                )
+            })?;
+
+        let timetable = self
+            .vehicle_journey_to_timetable
+            .get_timetable(
+                vehicle_journey_idx,
+                &day,
+                real_time_validity,
+                &self.days_patterns,
+            )
+            .map_err(|err| match err {
+                Unknown::VehicleJourneyIdx => RemovalError::UnknownVehicleJourney(
+                    vehicle_journey_idx.clone(),
+                    real_time_validity.clone(),
+                ),
+                Unknown::DayForVehicleJourney => RemovalError::DateInvalidForVehicleJourney(
+                    *date,
+                    vehicle_journey_idx.clone(),
+                    real_time_validity.clone(),
+                ),
+            })?;
+
+        let timetable_data = self.timetables.timetable_data_mut(&timetable);
+
+        let days_patterns = &mut self.days_patterns;
+        let nb_vehicle_updated = timetable_data.update_vehicles_data(|vehicle_data| {
+            if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
+                && vehicle_data.real_time_validity == *real_time_validity
+                && days_patterns.is_allowed(&vehicle_data.days_pattern, &day)
+            {
+                vehicle_data.days_pattern = days_patterns
+                    .get_pattern_without_day(vehicle_data.days_pattern, &day)
+                    .unwrap(); // unwrap is safe, because we check above that
+                               // vehicle_data.days_pattern contains day
+                true
+            } else {
+                false
+            }
+        });
+        if nb_vehicle_updated != 1 {
+            error!("Updated {} vehicle during removal of one (vehicle_journey_idx, real_time_validity, day).", nb_vehicle_updated);
+        }
+
+        // by removing a day from the day_pattern, the day_pattern may have become empty
+        // in this case, we remove all vehicle with an empty day_pattern
+        let nb_vehicle_removed = timetable_data.remove_vehicles(|vehicle_data| {
+            days_patterns.is_empty_pattern(&vehicle_data.days_pattern)
+        });
+
+        if nb_vehicle_removed > 1 {
+            error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_validity, day).", nb_vehicle_removed);
+        }
+
+        let removal_result = self.vehicle_journey_to_timetable.remove(
+            vehicle_journey_idx,
+            &day,
+            real_time_validity,
+            &mut self.days_patterns,
+        );
+
+        match removal_result {
+            Ok(_) => {}
+            Err(err) => {
+                // we checked at the beginning that self.vehicle_journey_to_timetable
+                // does contains a timetable for (vehicle_journey_idx, &day, real_time_validity)
+                // so this error should never occurs, but let's log a warning if it happens
+                error!(
+                    "Error occured while removing a vehicle journey in timetables : {:?}",
+                    err
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a> TimetablesIter<'a> for PeriodicTimetables {
     type Positions = PositionsIter;
 

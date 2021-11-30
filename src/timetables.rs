@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-mod day_to_timetable;
+pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
 
@@ -46,14 +46,17 @@ mod periodic_split_vj_by_tz;
 // pub use periodic::PeriodicTimetables;
 pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 pub use crate::transit_data::Stop;
 
 use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
-    time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+    time::{
+        days_patterns::DaysPattern, Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
+        SecondsSinceTimezonedDayStart,
+    },
     transit_data::data_interface::RealTimeLevel,
 };
 
@@ -217,6 +220,34 @@ pub trait Timetables: Types {
         date: &chrono::NaiveDate,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), RemovalError>;
+}
+
+pub trait TimetablesUpdate: Timetables {
+    fn do_remove(
+        &mut self,
+        mission: &Self::Mission,
+        day: &DaysSinceDatasetStart,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
+    );
+
+    fn do_insert<Stops, Flows, BoardTimes, DebarkTimes>(
+        &mut self,
+        stops: Stops,
+        flows: Flows,
+        board_times: BoardTimes,
+        debark_times: DebarkTimes,
+        loads_data: &LoadsData,
+        days: DaysPattern,
+        timezone: &chrono_tz::Tz,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
+    ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
+    where
+        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
+        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
+        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
+        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 }
 
 #[derive(Clone, Debug)]
