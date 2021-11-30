@@ -164,7 +164,8 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.board_time_of(trip, position)
+        self.timetables
+            .board_time_of(trip, position, &self.calendar)
     }
 
     fn debark_time_of(
@@ -172,7 +173,8 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.debark_time_of(trip, position)
+        self.timetables
+            .debark_time_of(trip, position, &self.calendar)
     }
 
     fn arrival_time_of(
@@ -180,7 +182,8 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.timetables.arrival_time_of(trip, position)
+        self.timetables
+            .arrival_time_of(trip, position, &self.calendar)
     }
 
     fn departure_time_of(
@@ -188,7 +191,8 @@ where
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
-        self.timetables.departure_time_of(trip, position)
+        self.timetables
+            .departure_time_of(trip, position, &self.calendar)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
@@ -213,8 +217,14 @@ where
         position: &Self::Position,
         real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables
-            .earliest_trip_to_board_at(waiting_time, mission, position, real_time_level)
+        self.timetables.earliest_trip_to_board_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            &self.calendar,
+            &self.days_patterns,
+        )
     }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -234,6 +244,8 @@ where
             position,
             real_time_level,
             filter,
+            &self.calendar,
+            &self.days_patterns,
         )
     }
 
@@ -244,8 +256,14 @@ where
         position: &Self::Position,
         real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables
-            .latest_trip_that_debark_at(waiting_time, mission, position, real_time_level)
+        self.timetables.latest_trip_that_debark_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            &self.calendar,
+            &self.days_patterns,
+        )
     }
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -265,6 +283,8 @@ where
             position,
             real_time_level,
             filter,
+            &self.calendar,
+            &self.days_patterns,
         )
     }
 
@@ -272,7 +292,7 @@ where
         &self,
         seconds: &crate::time::SecondsSinceDatasetUTCStart,
     ) -> chrono::NaiveDateTime {
-        self.timetables.calendar().to_naive_datetime(seconds)
+        self.calendar.to_naive_datetime(seconds)
     }
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
@@ -288,7 +308,8 @@ where
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
-        self.timetables.day_of(trip)
+        let day = self.timetables.day_of(trip);
+        self.calendar.to_naive_date(&day)
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
@@ -296,7 +317,7 @@ where
     }
 
     fn calendar(&self) -> &Calendar {
-        self.timetables.calendar()
+        &self.calendar
     }
 
     fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
@@ -366,7 +387,8 @@ where
         mission: &Self::Mission,
         real_time_level: &RealTimeLevel,
     ) -> Self::TripsOfMission {
-        self.timetables.trips_of(mission, real_time_level)
+        self.timetables
+            .trips_of(mission, real_time_level, &self.days_patterns)
     }
 }
 

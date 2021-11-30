@@ -39,9 +39,7 @@ use tracing::log::error;
 use crate::{
     loads_data::LoadsData,
     models::{StopPointIdx, VehicleJourneyIdx},
-    timetables::{
-        day_to_timetable::Unknown, InsertionError, ModifyError, RemovalError, TimetablesUpdate,
-    },
+    timetables::{day_to_timetable::Unknown, InsertionError, ModifyError, RemovalError},
     transit_data::TransitData,
 };
 
@@ -61,8 +59,34 @@ where
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
-        self.timetables
-            .remove_real_time_vehicle(date, vehicle_journey_idx)
+        let day = self
+            .calendar
+            .date_to_days_since_start(date)
+            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
+
+        // We get the timetable, and then remove `date` from its real_time days_pattern
+        let timetable = self
+            .vehicle_journey_to_timetable
+            .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
+            .map_err(|err| match err {
+                Unknown::VehicleJourneyIdx => {
+                    RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone())
+                }
+                Unknown::DayForVehicleJourney => {
+                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
+                }
+            })?;
+
+        self.timetables.remove(
+            &timetable,
+            &day,
+            vehicle_journey_idx,
+            &RealTimeLevel::RealTime,
+            &self.calendar,
+            &mut self.days_patterns,
+        );
+
+        Ok(())
     }
 
     fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -114,167 +138,6 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let stops = self.create_stops(stops).into_iter();
-        let missions = self.timetables.modify_real_time_vehicle(
-            stops,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            valid_dates,
-            timezone,
-            vehicle_journey_idx,
-        )?;
-
-        for mission in missions.iter() {
-            self.add_mission_to_stops(mission);
-        }
-
-        Ok(())
-    }
-}
-
-impl<Timetables> TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
-    pub(super) fn insert_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stop_points: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-        real_time_level: RealTimeLevel,
-    ) -> Result<(), InsertionError>
-    where
-        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        let stops = self.create_stops(stop_points).into_iter();
-        let missions = self.timetables.insert_vehicle(
-            stops,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            valid_dates,
-            timezone,
-            &vehicle_journey_idx,
-            &real_time_level,
-        )?;
-
-        for mission in missions.iter() {
-            self.add_mission_to_stops(mission);
-        }
-
-        Ok(())
-    }
-
-    pub(super) fn add_mission_to_stops(&mut self, mission: &Timetables::Mission) {
-        for position in self.timetables.positions(mission) {
-            let stop = self.timetables.stop_at(&position, mission);
-            let stop_data = &mut self.stops_data[stop.idx];
-            let position_in_timetables = &mut stop_data.position_in_timetables;
-            if !position_in_timetables.contains(&(mission.clone(), position.clone())) {
-                position_in_timetables.push((mission.clone(), position));
-            }
-        }
-    }
-}
-
-impl<Timetables> TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + TimetablesUpdate,
-{
-    pub fn remove_real_time_vehicle_v2(
-        &mut self,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &chrono::NaiveDate,
-    ) -> Result<(), RemovalError> {
-        let day = self
-            .calendar
-            .date_to_days_since_start(date)
-            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
-
-        // We get the timetable, and then remove `date` from its real_time days_pattern
-        let timetable = self
-            .vehicle_journey_to_timetable
-            .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
-            .map_err(|err| match err {
-                Unknown::VehicleJourneyIdx => {
-                    RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone())
-                }
-                Unknown::DayForVehicleJourney => {
-                    RemovalError::DateInvalidForVehicleJourney(*date, vehicle_journey_idx.clone())
-                }
-            })?;
-
-        self.timetables.do_remove(
-            &timetable,
-            &day,
-            vehicle_journey_idx,
-            &RealTimeLevel::RealTime,
-        );
-
-        Ok(())
-    }
-
-    fn insert_real_time_vehicle_v2<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stop_points: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> Result<(), InsertionError>
-    where
-        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
-        self.insert_inner_v2(
-            stop_points,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            valid_dates,
-            timezone,
-            vehicle_journey_idx,
-            RealTimeLevel::RealTime,
-        )
-    }
-
-    fn modify_real_time_vehicle_v2<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
-        &mut self,
-        stops: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Result<(), ModifyError>
-    where
-        Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-    {
         // - Get the real_time_vehicles that already exists on `valid_dates`,
         // - remove `valid_dates` from its real_time days_pattern
         // - insert a new vehicle, valid on `valid_dates` on the real_time level
@@ -308,11 +171,13 @@ where
                 .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
                 .unwrap(); // unwrap is safe, because we checked above that real_time_vehicle_exists()
 
-            self.timetables.do_remove(
+            self.timetables.remove(
                 &timetable,
                 &day,
                 vehicle_journey_idx,
                 &RealTimeLevel::RealTime,
+                &self.calendar,
+                &mut self.days_patterns,
             );
         }
 
@@ -323,13 +188,15 @@ where
 
         let timetables = self
             .timetables
-            .do_insert(
+            .insert(
                 stops,
                 flows,
                 board_times,
                 debark_times,
                 loads_data,
-                days,
+                &days,
+                &self.calendar,
+                &mut self.days_patterns,
                 timezone,
                 vehicle_journey_idx,
                 &RealTimeLevel::RealTime,
@@ -362,8 +229,13 @@ where
 
         Ok(())
     }
+}
 
-    pub(super) fn insert_inner_v2<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+impl<Timetables> TransitData<Timetables>
+where
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
+{
+    pub(super) fn insert_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -421,13 +293,15 @@ where
 
         let timetables = self
             .timetables
-            .do_insert(
+            .insert(
                 stops,
                 flows,
                 board_times,
                 debark_times,
                 loads_data,
-                days,
+                &days,
+                &self.calendar,
+                &mut self.days_patterns,
                 timezone,
                 &vehicle_journey_idx,
                 &real_time_level,
@@ -472,5 +346,16 @@ where
         }
 
         Ok(())
+    }
+
+    pub(super) fn add_mission_to_stops(&mut self, mission: &Timetables::Mission) {
+        for position in self.timetables.positions(mission) {
+            let stop = self.timetables.stop_at(&position, mission);
+            let stop_data = &mut self.stops_data[stop.idx];
+            let position_in_timetables = &mut stop_data.position_in_timetables;
+            if !position_in_timetables.contains(&(mission.clone(), position.clone())) {
+                position_in_timetables.push((mission.clone(), position));
+            }
+        }
     }
 }
