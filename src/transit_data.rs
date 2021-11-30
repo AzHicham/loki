@@ -555,7 +555,7 @@ pub fn handle_removal_error(
 ) {
     match error {
         RemovalError::UnknownDate(date, vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to remove the vehicle journey {} on day {},  \
                     but this day is not allowed in the data.  \
@@ -564,7 +564,7 @@ pub fn handle_removal_error(
             );
         }
         RemovalError::UnknownVehicleJourney(vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to remove the vehicle journey {} \
                     but this vehicle journey is unknown",
@@ -572,7 +572,7 @@ pub fn handle_removal_error(
             );
         }
         RemovalError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to remove the vehicle journey {} on day {},  \
                     but this vehicle journeys does not exists on this day. ",
@@ -590,7 +590,7 @@ pub fn handle_modify_error(
 ) {
     match modify_error {
         ModifyError::UnknownDate(date, vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to modify the vehicle journey {} on day {},  \
                     but this day is not allowed in the data.  \
@@ -599,7 +599,7 @@ pub fn handle_modify_error(
             );
         }
         ModifyError::UnknownVehicleJourney(vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to modify the vehicle journey {} \
                     but this vehicle journey is unknown",
@@ -607,7 +607,7 @@ pub fn handle_modify_error(
             );
         }
         ModifyError::DateInvalidForVehicleJourney(date, vehicle_journey_idx) => {
-            let vehicle_journey_name = model.vehicle_journey_name(&vehicle_journey_idx);
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to modify the vehicle journey {} on day {},  \
                     but this vehicle journeys does not exists on this day. ",

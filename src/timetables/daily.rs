@@ -374,7 +374,7 @@ impl TimetablesTrait for DailyTimetables {
                 Ok(mission) => {
                     let pattern = result
                         .entry(mission)
-                        .or_insert(days_patterns.empty_pattern());
+                        .or_insert_with(|| days_patterns.empty_pattern());
                     *pattern = days_patterns.get_pattern_with_additional_day(*pattern, &day);
                 }
                 Err(times_error) => {
@@ -400,7 +400,7 @@ impl TimetablesTrait for DailyTimetables {
         _calendar: &Calendar,
         _days_patterns: &mut DaysPatterns,
     ) {
-        let timetable_data = self.timetables.timetable_data_mut(&mission);
+        let timetable_data = self.timetables.timetable_data_mut(mission);
 
         let nb_vehicle_updated = timetable_data.update_vehicles_data(|vehicle_data| {
             let is_valid = match real_time_level {

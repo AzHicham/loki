@@ -105,7 +105,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
     }
 
     fn day_of(&self, trip: &Self::Trip) -> DaysSinceDatasetStart {
-        trip.day.clone()
+        trip.day
     }
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
@@ -485,7 +485,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     Ok(mission) => {
                         let pattern = result
                             .entry(mission)
-                            .or_insert(days_patterns.empty_pattern());
+                            .or_insert_with(|| days_patterns.empty_pattern());
                         *pattern = days_patterns.get_union(*pattern, days_pattern);
                     }
                     Err(times_error) => {
@@ -512,7 +512,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
     ) {
-        let timetable_data = self.timetables.timetable_data_mut(&timetable);
+        let timetable_data = self.timetables.timetable_data_mut(timetable);
 
         let nb_vehicle_updated =
             timetable_data.update_vehicles_data(|vehicle_data: &mut VehicleData| {
@@ -521,10 +521,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     RealTimeLevel::RealTime => &mut vehicle_data.real_time_days_pattern,
                 };
                 if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
-                    && days_patterns.is_allowed(&days_pattern, &day)
+                    && days_patterns.is_allowed(days_pattern, day)
                 {
                     *days_pattern = days_patterns
-                        .get_pattern_without_day(*days_pattern, &day)
+                        .get_pattern_without_day(*days_pattern, day)
                         .unwrap(); // unwrap is safe, because we check above that
                                    // days_patterns.is_allowed(&days_pattern, &day)
                     true

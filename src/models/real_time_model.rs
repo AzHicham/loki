@@ -43,8 +43,8 @@ use crate::{
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
     transit_data::{
-        data_interface::{Data as DataTrait, RealTimeLevel},
-        handle_insertion_error, handle_modify_error, handle_removal_error,
+        data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
+        handle_removal_error,
     },
 };
 

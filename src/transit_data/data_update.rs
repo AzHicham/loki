@@ -146,9 +146,7 @@ where
             let day = self
                 .calendar
                 .date_to_days_since_start(date)
-                .ok_or_else(|| {
-                    ModifyError::UnknownDate(date.clone(), vehicle_journey_idx.clone())
-                })?;
+                .ok_or_else(|| ModifyError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
 
             if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 vehicle_journey_idx,
@@ -270,9 +268,7 @@ where
             let day = self
                 .calendar
                 .date_to_days_since_start(date)
-                .ok_or_else(|| {
-                    InsertionError::InvalidDate(date.clone(), vehicle_journey_idx.clone())
-                })?;
+                .ok_or_else(|| InsertionError::InvalidDate(*date, vehicle_journey_idx.clone()))?;
 
             if self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 &vehicle_journey_idx,
