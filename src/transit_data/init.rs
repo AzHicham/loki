@@ -78,7 +78,7 @@ where
         let mut data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
-            timetables: Timetables::new(start_date, end_date),
+            timetables: Timetables::new(),
             transfers_data: Vec::with_capacity(nb_transfers),
             vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
             calendar,

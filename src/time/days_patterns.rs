@@ -38,6 +38,7 @@ use std::{iter::Enumerate, ops::Not};
 
 use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::NaiveDate;
+use tracing::trace;
 
 #[derive(Debug)]
 pub struct DaysPatterns {
@@ -188,25 +189,24 @@ impl DaysPatterns {
         Some(result)
     }
 
-    // pub fn get_pattern_with_additional_day(
-    //     &mut self,
-    //     original_pattern: DaysPattern,
-    //     day_to_add: &DaysSinceDatasetStart,
-    // ) -> Result<DaysPattern, ()> {
-    //     if self.is_allowed(&original_pattern, day_to_add) {
-    //         return Err(());
-    //     }
-    //     let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
+    pub fn get_pattern_with_additional_day(
+        &mut self,
+        original_pattern: DaysPattern,
+        day_to_add: &DaysSinceDatasetStart,
+    ) -> DaysPattern {
+        if self.is_allowed(&original_pattern, day_to_add) {
+            trace!("Adding a day already set to a pattern");
+            return original_pattern;
+        }
+        let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
 
-    //     // let's put the actual pattern of allowed days into self.buffer
-    //     debug_assert!(original_allowed_dates.len() == self.buffer.len());
-    //     self.buffer.copy_from_slice(original_allowed_dates);
-    //     self.buffer[day_to_add.days as usize] = true;
+        // let's put the actual pattern of allowed days into self.buffer
+        debug_assert!(original_allowed_dates.len() == self.buffer.len());
+        self.buffer.copy_from_slice(original_allowed_dates);
+        self.buffer[day_to_add.days as usize] = true;
 
-    //     let result = self.get_or_insert_from_buffer();
-
-    //     Ok(result)
-    // }
+        self.get_or_insert_from_buffer()
+    }
 
     pub fn get_intersection(
         &mut self,

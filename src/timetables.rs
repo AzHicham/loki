@@ -38,7 +38,7 @@ pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
 
-// mod daily;
+mod daily;
 mod periodic;
 mod periodic_split_vj_by_tz;
 
@@ -82,7 +82,7 @@ pub trait Types {
 }
 
 pub trait Timetables: Types {
-    fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self;
+    fn new() -> Self;
 
     fn nb_of_missions(&self) -> usize;
     fn mission_id(&self, mission: &Self::Mission) -> usize;

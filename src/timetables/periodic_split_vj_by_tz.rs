@@ -80,9 +80,7 @@ impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
 }
 
 impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
-    fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
-        let calendar = Calendar::new(first_date, last_date);
-        let nb_of_days: usize = calendar.nb_of_days().into();
+    fn new() -> Self {
         Self {
             timetables: Timetables::new(),
             timezones_patterns: TimezonesPatterns::new(),
