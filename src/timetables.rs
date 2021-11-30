@@ -42,8 +42,8 @@ mod daily;
 mod periodic;
 mod periodic_split_vj_by_tz;
 
-// pub use daily::DailyTimetables;
-// pub use periodic::PeriodicTimetables;
+pub use daily::DailyTimetables;
+pub use periodic::PeriodicTimetables;
 pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
 use std::{collections::HashMap, hash::Hash};

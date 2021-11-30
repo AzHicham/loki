@@ -43,9 +43,8 @@ use crate::{
 };
 
 use super::{
-    day_to_timetable::{Unknown, VehicleJourneyToTimetable},
     generic_timetables::{Timetables, Trip, Vehicle, VehicleTimesError},
-    InsertionError, ModifyError, RemovalError, TimetablesIter,
+    TimetablesIter,
 };
 use crate::time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
@@ -53,7 +52,6 @@ use crate::time::{
 };
 use crate::timetables::generic_timetables::{Position, Timetable};
 use chrono::NaiveDate;
-use core::cmp;
 use std::collections::{BTreeMap, HashMap};
 use tracing::log::error;
 
@@ -511,7 +509,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
         real_time_level: &RealTimeLevel,
-        calendar: &Calendar,
+        _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
     ) {
         let timetable_data = self.timetables.timetable_data_mut(&timetable);

@@ -37,10 +37,9 @@
 use std::collections::{BTreeMap, HashMap};
 
 use super::{
-    day_to_timetable::{Unknown, VehicleJourneyToTimetable},
     generic_timetables::{self, Position, Timetable, Timetables, Trip, Vehicle, VehicleTimesError},
     iters::{PositionsIter, TimetableIter, VehicleIter},
-    InsertionError, RemovalError, Stop, TimetablesIter,
+    Stop, TimetablesIter,
 };
 
 use crate::{
@@ -511,7 +510,7 @@ impl TimetablesTrait for PeriodicTimetables {
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
         real_time_level: &RealTimeLevel,
-        calendar: &Calendar,
+        _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
     ) {
         let timetable_data = self.timetables.timetable_data_mut(&mission);

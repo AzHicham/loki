@@ -310,41 +310,6 @@ impl RealTimeModel {
         }
     }
 
-    fn real_time_level(
-        &self,
-        trip: &disruption::Trip,
-        base_model: &BaseModel,
-    ) -> Result<RealTimeLevel, ()> {
-        if let Some(transit_model_idx) = base_model
-            .vehicle_journeys
-            .get_idx(&trip.vehicle_journey_id)
-        {
-            if self
-                .base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date)
-                .is_some()
-            {
-                Ok(RealTimeLevel::RealTime)
-            } else {
-                Ok(RealTimeLevel::Base)
-            }
-        } else if let Some(new_vj_idx) = self
-            .new_vehicle_journeys_id_to_idx
-            .get(&trip.vehicle_journey_id)
-        {
-            if self
-                .new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date)
-                .is_some()
-            {
-                Ok(RealTimeLevel::RealTime)
-            } else {
-                Err(())
-            }
-        } else {
-            //
-            Err(())
-        }
-    }
-
     fn set_version(
         &mut self,
         trip: &disruption::Trip,
