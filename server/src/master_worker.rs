@@ -40,22 +40,17 @@ use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
     tracing::{debug, error, info},
-    LoadsData, TransitData,
+    TransitData,
 };
-use std::{
-    ops::DerefMut,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 use tokio::{
     runtime::Builder,
     sync::{mpsc, mpsc::error::SendError},
 };
 
 use crate::{
-    handle_kirin_message::handle_kirin_protobuf,
-    load_balancer::{LoadBalancer, LoadBalancerState},
-    rabbitmq_worker::listen_amqp_in_a_thread,
-    Config,
+    handle_kirin_message::handle_kirin_protobuf, load_balancer::LoadBalancer,
+    rabbitmq_worker::listen_amqp_in_a_thread, Config,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,32 +63,28 @@ pub type Timetable = PeriodicSplitVjByTzTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
-    pub load_balancer_state_receiver: mpsc::Receiver<LoadBalancerState>,
+    pub load_balancer_stopped_receiver: mpsc::Receiver<()>,
     pub load_balancer_error_receiver: mpsc::Receiver<()>,
 }
 
+pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
+
 pub struct MasterWorker {
-    data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
-    loads_data: LoadsData,
+    config: Config,
+    data_and_models: Arc<RwLock<DataAndModels>>,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     load_balancer_handle: LoadBalancerChannels,
 }
 
 impl MasterWorker {
-    pub fn new(config: &Config) -> Result<Self, Error> {
+    pub fn new(config: Config) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
-        let base_model = launch::read::read_model(launch_params)?;
-        info!("Model loaded");
-        info!("Starting to build data");
-        let loads_data = launch::read::read_loads_data(launch_params, &base_model);
+        let base_model = BaseModel::empty();
+
         let data = launch::read::build_transit_data::<Timetable>(
             &base_model,
-            &loads_data,
             &launch_params.default_transfer_duration,
         );
-        info!("Data loaded");
-
-        info!("Starting to build workers");
 
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
@@ -112,12 +103,10 @@ impl MasterWorker {
         let _amqp_thread_handle =
             listen_amqp_in_a_thread(config.amqp_params.clone(), amqp_message_sender);
 
-        info!("Workers built");
-
         // Master worker
         let result = Self {
+            config,
             data_and_models,
-            loads_data,
             amqp_message_receiver,
             load_balancer_handle,
         };
@@ -125,48 +114,45 @@ impl MasterWorker {
     }
 
     async fn run(mut self) -> Result<(), Error> {
+        self.load_data_from_disk().await?;
+        self.main_loop().await
+    }
+
+    async fn load_data_from_disk(&mut self) -> Result<(), Error> {
+        let launch_params = self.config.launch_params.clone();
+        let updater = move |data_and_models: &mut DataAndModels| {
+            let new_base_model = launch::read::read_model(&launch_params)?;
+            info!("Model loaded");
+            info!("Starting to build data");
+            let new_data = launch::read::build_transit_data::<Timetable>(
+                &new_base_model,
+                &launch_params.default_transfer_duration,
+            );
+            info!("Data loaded");
+            let new_real_time_model = RealTimeModel::new();
+            data_and_models.0 = new_data;
+            data_and_models.1 = new_base_model;
+            data_and_models.2 = new_real_time_model;
+            Ok(())
+        };
+
+        self.update_data_and_models(updater).await
+    }
+
+    async fn main_loop(mut self) -> Result<(), Error> {
         info!("Starting Master worker");
         loop {
             tokio::select! {
                 has_proto_vec = self.amqp_message_receiver.recv() => {
                     let vec_protobuf = has_proto_vec
                         .ok_or_else(||
-                            format_err!("Channel to receive realtime protobuf' responses has closed. I'll stop.")
+                            format_err!("Channel to receive realtime messages has closed.")
                         )?;
 
-                    info!("Master received response from AmqpWorker");
+                    info!("Master received real time messages from AmqpWorker");
 
-                    // stop the load balancer from receiving more request
-                    debug!("Master ask LoadBalancer to Stop");
-                    self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
-                        .await
-                        .map_err(|err| format_err!("Master could not send Stop order to load balancer. {}", err))?;
-
-
-                    // Wait for the LoadBalancer to Stop
-                    debug!("MasterWork waiting for LoadBalancer to Stop");
-                    let load_balancer_state = self
-                        .load_balancer_handle
-                        .load_balancer_state_receiver
-                        .recv()
-                        .await
-                        .ok_or_else(|| format_err!("Channel to receive LoadBalancer status responses has closed."))?;
-
-                    if load_balancer_state == LoadBalancerState::Stopped {
-
-                        debug!("Master start handling real time messages.");
-                        self.handle_realtime_messages(vec_protobuf)
-                            .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
-
-                        debug!("Master has finished handling real time messages.");
-                        debug!("Master ask LoadBalancer to Start");
-                        self.send_order_to_load_balancer(LoadBalancerOrder::Start)
-                            .await
-                            .map_err(|err| format_err!("Master could not send Start order to load balancer. {}", err))?;
-                    } else {
-                        error!("Master requested LoadBalancer to Stop, but it is in state {:?}.", load_balancer_state);
-                        break;
-                    }
+                    self.handle_realtime_messages(vec_protobuf).await
+                        .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
 
                 }
                 _has_load_balancer_error = self
@@ -181,6 +167,40 @@ impl MasterWorker {
             }
         }
         Ok(())
+    }
+
+    async fn update_data_and_models<Updater>(&mut self, updater: Updater) -> Result<(), Error>
+    where
+        Updater: FnOnce(&mut DataAndModels) -> Result<(), Error>,
+    {
+        // Wait for the LoadBalancer to Stop
+        debug!("MasterWork waiting for LoadBalancer to Stop");
+        self.load_balancer_handle
+            .load_balancer_stopped_receiver
+            .recv()
+            .await
+            .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
+
+        {
+            let mut lock_guard = self.data_and_models.write().map_err(|err| {
+                format_err!(
+                    "Master worker failed to acquire write lock on data_and_models. {}.",
+                    err
+                )
+            })?;
+
+            updater(&mut *lock_guard)?;
+        } // lock_guard is now released
+
+        debug!("Master ask LoadBalancer to Start");
+        self.send_order_to_load_balancer(LoadBalancerOrder::Start)
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Master could not send Start order to load balancer. {}",
+                    err
+                )
+            })
     }
 
     // run by blocking the current thread
@@ -213,39 +233,30 @@ impl MasterWorker {
         res
     }
 
-    fn handle_realtime_messages(
+    async fn handle_realtime_messages(
         &mut self,
         messages: Vec<gtfs_realtime::FeedMessage>,
     ) -> Result<(), Error> {
-        let mut lock_guard = self.data_and_models.write().map_err(|err| {
-            format_err!(
-                "Master worker failed to acquire write lock on data_and_models. {}.",
-                err
-            )
-        })?;
-
-        let (data, base_model, real_time_model) = lock_guard.deref_mut();
-
-        for message in messages.into_iter() {
-            for feed_entity in message.entity {
-                let disruption_result = handle_kirin_protobuf(&feed_entity);
-                match disruption_result {
-                    Err(err) => {
-                        error!("Could not handle a kirin message {}", err);
-                    }
-                    Ok(disruption) => {
-                        real_time_model.apply_disruption(
-                            &disruption,
-                            base_model,
-                            &self.loads_data,
-                            data,
-                        );
+        let updater = |data_and_models: &mut DataAndModels| {
+            let data = &mut data_and_models.0;
+            let base_model = &data_and_models.1;
+            let real_time_model = &mut data_and_models.2;
+            for message in messages.into_iter() {
+                for feed_entity in message.entity {
+                    let disruption_result = handle_kirin_protobuf(&feed_entity);
+                    match disruption_result {
+                        Err(err) => {
+                            error!("Could not handle a kirin message {}", err);
+                        }
+                        Ok(disruption) => {
+                            real_time_model.apply_disruption(&disruption, base_model, data);
+                        }
                     }
                 }
             }
-        }
+            Ok(())
+        };
 
-        Ok(())
-        // RwLocks are released here
+        self.update_data_and_models(updater).await
     }
 }

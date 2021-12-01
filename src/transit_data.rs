@@ -42,7 +42,7 @@ use chrono::NaiveDate;
 use iters::MissionsOfStop;
 
 use crate::{
-    loads_data::{Load, LoadsData},
+    loads_data::Load,
     models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
@@ -349,12 +349,12 @@ impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetab
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-    fn new(
-        base_model: &BaseModel,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
-    ) -> Self {
-        Self::_new(base_model, loads_data, default_transfer_duration)
+    fn new(base_model: &BaseModel, default_transfer_duration: PositiveDuration) -> Self {
+        Self::_new(
+            base_model,
+            base_model.loads_data(),
+            default_transfer_duration,
+        )
     }
 }
 

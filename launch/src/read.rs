@@ -40,7 +40,7 @@ use crate::{
     loki::{timetables::TimetablesIter, TransitData},
 };
 use loki::{
-    models::base_model::BaseModel,
+    models::base_model::{self, BaseModel},
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
@@ -55,13 +55,7 @@ where
 {
     let base_model = read_model(launch_params)?;
 
-    let loads_data = read_loads_data(launch_params, &base_model);
-
-    let data = build_transit_data(
-        &base_model,
-        &loads_data,
-        &launch_params.default_transfer_duration,
-    );
+    let data = build_transit_data(&base_model, &launch_params.default_transfer_duration);
 
     Ok((data, base_model))
 }
@@ -100,15 +94,19 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_mod
         }
     };
     info!("Transit model loaded");
-    Ok(BaseModel::new(collections))
+    let loads_data = read_loads_data(launch_params, &collections);
+    Ok(BaseModel::new(collections, loads_data))
 }
 
-pub fn read_loads_data(launch_params: &LaunchParams, base_model: &BaseModel) -> LoadsData {
+fn read_loads_data(
+    launch_params: &LaunchParams,
+    collections: &base_model::Collections,
+) -> LoadsData {
     launch_params
         .loads_data_path
         .as_ref()
         .map(|path| {
-            LoadsData::new(&path, base_model).unwrap_or_else(|err| {
+            LoadsData::new(&path, collections).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
                     &path,
@@ -123,7 +121,6 @@ pub fn read_loads_data(launch_params: &LaunchParams, base_model: &BaseModel) -> 
 
 pub fn build_transit_data<Timetables>(
     base_model: &BaseModel,
-    loads_data: &LoadsData,
     default_transfer_duration: &PositiveDuration,
 ) -> TransitData<Timetables>
 where
@@ -136,7 +133,7 @@ where
     info!("Number of routes : {}", base_model.routes.len());
 
     let data_timer = SystemTime::now();
-    let data = TransitData::new(base_model, loads_data, *default_transfer_duration);
+    let data = TransitData::new(base_model, *default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());

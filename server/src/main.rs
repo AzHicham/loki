@@ -187,6 +187,6 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 }
 
 fn launch_master_worker(config: Config) -> Result<(), Error> {
-    let master_worker = master_worker::MasterWorker::new(&config)?;
+    let master_worker = master_worker::MasterWorker::new(config)?;
     master_worker.run_blocking()
 }

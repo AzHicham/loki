@@ -55,7 +55,8 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::models::{base_model::BaseModel, VehicleJourneyIdx};
+use crate::models::base_model;
+use crate::models::VehicleJourneyIdx;
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {
@@ -119,7 +120,7 @@ impl LoadsData {
 
     pub fn new<P: AsRef<Path>>(
         _csv_occupancys_filepath: P,
-        _base_model: &BaseModel,
+        _collections: &base_model::Collections,
     ) -> Result<Self, Box<dyn Error>> {
         Ok(LoadsData::empty())
     }

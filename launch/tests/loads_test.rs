@@ -36,10 +36,7 @@
 
 use failure::Error;
 use launch::config::ComparatorType;
-use loki::{
-    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-    LoadsData,
-};
+use loki::models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs};
 use utils::model_builder::ModelBuilder;
 
 use crate::utils::{build_and_solve, Config};
@@ -53,7 +50,7 @@ mod utils;
 // leave `massy` at      | 08:00:00  | 12:00:00 | 18:00:00
 // arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
 // load                  |  80%      |  20%     | 80%
-fn create_model() -> (BaseModel, LoadsData) {
+fn create_model() -> BaseModel {
     let model = ModelBuilder::new("2021-01-01", "2021-01-02")
         .vj("matin", |vj_builder| {
             vj_builder.st("massy", "08:00:00").st("paris", "09:05:00");
@@ -66,12 +63,13 @@ fn create_model() -> (BaseModel, LoadsData) {
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model);
+    let collections = model.into_collections();
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = loki::loads_data::LoadsData::new(filepath, &base_model).unwrap();
+    let loads_data = loki::loads_data::LoadsData::new(filepath, &collections).unwrap();
+    let base_model = BaseModel::new(collections, loads_data);
 
-    (base_model, loads_data)
+    base_model
 }
 
 #[test]
@@ -86,7 +84,7 @@ fn test_loads_matin() -> Result<(), Error> {
 
     utils::init_logger();
 
-    let (model, loads_data) = create_model();
+    let base_model = create_model();
 
     let config = Config::new("2021-01-01T08:00:00", "massy", "paris");
     let config = Config {
@@ -94,9 +92,9 @@ fn test_loads_matin() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &config).unwrap();
 
     if cfg!(feature = "vehicle_loads") {
         assert!(responses.len() == 2);
@@ -120,7 +118,7 @@ fn test_loads_midi() -> Result<(), Error> {
     // later than `midi` with a higher load
     utils::init_logger();
 
-    let (model, loads_data) = create_model();
+    let base_model = create_model();
 
     let config = Config::new("2021-01-01T10:00:00", "massy", "paris");
     let config = Config {
@@ -128,9 +126,9 @@ fn test_loads_midi() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
@@ -147,7 +145,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // Indeed, `midi` and `soir` arrives later than `matin`.
     utils::init_logger();
 
-    let (model, loads_data) = create_model();
+    let base_model = create_model();
 
     let config = Config::new("2021-01-01T08:00:00", "massy", "paris");
     let config = Config {
@@ -155,9 +153,9 @@ fn test_without_loads_matin() -> Result<(), Error> {
         ..config
     };
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut responses = build_and_solve(&model_refs, &loads_data, &config).unwrap();
+    let mut responses = build_and_solve(&model_refs, &config).unwrap();
 
     assert!(responses.len() == 1);
     responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);

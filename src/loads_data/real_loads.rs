@@ -42,7 +42,7 @@ type StopSequence = u32;
 type Occupancy = u8;
 
 use crate::models::{
-    base_model::{BaseModel, BaseVehicleJourneyIdx},
+    base_model::{self, BaseModel, BaseVehicleJourneyIdx},
     VehicleJourneyIdx,
 };
 
@@ -248,7 +248,7 @@ impl LoadsData {
 
     pub fn new<P: AsRef<Path>>(
         csv_occupancys_filepath: P,
-        model: &BaseModel,
+        collections: &base_model::Collections,
     ) -> Result<Self, Box<dyn Error>> {
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),
@@ -261,7 +261,7 @@ impl LoadsData {
         let mut record = csv::StringRecord::new();
 
         while reader.read_record(&mut record)? {
-            let is_valid_record = parse_record(&record, model);
+            let is_valid_record = parse_record(&record, collections);
             let (vehicle_journey_idx, stop_sequence, occupancy, date) = match is_valid_record {
                 Ok((vehicle_journey_idx, stop_sequence, occupancy, date)) => {
                     (vehicle_journey_idx, stop_sequence, occupancy, date)
@@ -278,7 +278,7 @@ impl LoadsData {
             };
             let load = occupancy_to_load(occupancy);
 
-            let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
+            let vehicle_journey = &collections.vehicle_journeys[vehicle_journey_idx];
             let stop_sequence_iter = vehicle_journey
                 .stop_times
                 .iter()
@@ -356,7 +356,7 @@ impl LoadsData {
 
 fn parse_record(
     record: &csv::StringRecord,
-    model: &BaseModel,
+    collections: &base_model::Collections,
 ) -> Result<(BaseVehicleJourneyIdx, StopSequence, Occupancy, NaiveDate), Box<dyn Error>> {
     if record.len() != 4 {
         let msg = format!("Expected 4 fields, but got {}", record.len());
@@ -365,7 +365,7 @@ fn parse_record(
 
     let vehicle_journey_idx = {
         let trip_id = &record[0];
-        model
+        collections
             .vehicle_journeys
             .get_idx(trip_id)
             .ok_or_else(|| format!("Cannot find a trip named {} in the ntfs data.", trip_id,))?

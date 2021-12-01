@@ -82,7 +82,8 @@ pub fn fixture_model() -> BaseModel {
         .add_transfer("C", "C", "00:02:00")
         .build();
 
-    BaseModel::from_transit_model(model)
+    let loads_data = loki::LoadsData::empty();
+    BaseModel::from_transit_model(model, loads_data)
 }
 
 #[rstest]
@@ -107,7 +108,7 @@ fn test_no_filter(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model_refs, &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -150,7 +151,7 @@ fn test_filter_forbidden_stop_point(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model_refs, &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -200,7 +201,7 @@ fn test_filter_allowed_stop_point(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model_refs, &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -242,7 +243,7 @@ fn test_filter_forbidden_route(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model_refs, &config)?;
 
     assert_eq!(responses.len(), 1);
 
@@ -284,7 +285,7 @@ fn test_filter_allowed_route(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+    let responses = build_and_solve(&model_refs, &config)?;
 
     assert_eq!(responses.len(), 1);
 

@@ -38,8 +38,13 @@ use std::ops::Deref;
 
 use typed_index_collection::Idx;
 
+use crate::LoadsData;
+
+pub type Collections = transit_model::model::Collections;
+
 pub struct BaseModel {
     collections: transit_model::model::Collections,
+    loads_data: LoadsData,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -57,17 +62,34 @@ impl Deref for BaseModel {
 }
 
 impl BaseModel {
-    pub fn from_transit_model(model: transit_model::Model) -> Self {
+    pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Self {
         Self {
             collections: model.into_collections(),
+            loads_data,
         }
     }
 
-    pub fn new(collections: transit_model::model::Collections) -> Self {
-        Self { collections }
+    pub fn empty() -> Self {
+        let collections = Collections::default();
+        let loads_data = LoadsData::empty();
+        Self {
+            collections,
+            loads_data,
+        }
+    }
+
+    pub fn new(collections: transit_model::model::Collections, loads_data: LoadsData) -> Self {
+        Self {
+            collections,
+            loads_data,
+        }
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {
         self.collections.stop_points.get_idx(stop_id)
+    }
+
+    pub fn loads_data(&self) -> &LoadsData {
+        &self.loads_data
     }
 }
