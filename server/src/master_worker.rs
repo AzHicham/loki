@@ -101,7 +101,7 @@ impl MasterWorker {
         // AMQP worker
         let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
         let _amqp_thread_handle =
-            listen_amqp_in_a_thread(config.amqp_params.clone(), amqp_message_sender);
+            listen_amqp_in_a_thread(config.rabbitmq_params.clone(), amqp_message_sender);
 
         // Master worker
         let result = Self {

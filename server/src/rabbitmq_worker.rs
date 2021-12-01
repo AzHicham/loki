@@ -48,7 +48,10 @@ use lapin::{
 };
 
 use futures::StreamExt;
-use launch::loki::tracing::{debug, error, info};
+use launch::loki::{
+    tracing::{debug, error, info},
+    PositiveDuration,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, thread};
 
@@ -67,16 +70,20 @@ pub fn default_rt_topics() -> Vec<String> {
 pub fn default_queue_auto_delete() -> bool {
     false
 }
-pub fn default_timeout() -> u64 {
-    100
+pub const DEFAULT_REAL_TIME_UPDATE_FREQUENCY: &str = "00:00:30";
+
+pub fn default_real_time_update_frequency() -> PositiveDuration {
+    use std::str::FromStr;
+    PositiveDuration::from_str(DEFAULT_REAL_TIME_UPDATE_FREQUENCY).unwrap()
 }
+
 pub fn default_connection_timeout() -> u64 {
     10000
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, StructOpt, Clone)]
+#[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
-pub struct BrokerConfig {
+pub struct RabbitMqParams {
     #[structopt(long, default_value = "default_endpoint")]
     #[serde(default = "default_endpoint")]
     pub endpoint: String,
@@ -93,9 +100,9 @@ pub struct BrokerConfig {
     #[serde(default = "default_queue_auto_delete")]
     pub queue_auto_delete: bool,
 
-    #[structopt(long)]
-    #[serde(default = "default_timeout")]
-    pub timeout: u64,
+    #[structopt(long, default_value = DEFAULT_REAL_TIME_UPDATE_FREQUENCY)]
+    #[serde(default = "default_real_time_update_frequency")]
+    pub real_time_update_frequency: PositiveDuration,
 
     #[structopt(long)]
     #[serde(default = "default_connection_timeout")]
@@ -107,11 +114,11 @@ pub struct RabbitMqWorker {
     queue: Queue,
     proto_messages: Vec<gtfs_realtime::FeedMessage>,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-    timeout: u64,
+    params: RabbitMqParams,
 }
 
 pub fn listen_amqp_in_a_thread(
-    config: BrokerConfig,
+    params: RabbitMqParams,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
 ) -> Result<std::thread::JoinHandle<()>, Error> {
     let runtime = Builder::new_current_thread()
@@ -121,18 +128,18 @@ pub fn listen_amqp_in_a_thread(
 
     let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
     let handle = thread_builder
-        .spawn(move || runtime.block_on(init_and_listen_amqp(config, amqp_message_sender)))?;
+        .spawn(move || runtime.block_on(init_and_listen_amqp(params, amqp_message_sender)))?;
     Ok(handle)
 }
 
 async fn init_and_listen_amqp(
-    config: BrokerConfig,
+    params: RabbitMqParams,
     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
 ) {
     let mut retry_interval =
-        tokio::time::interval(Duration::from_millis(config.connection_timeout));
+        tokio::time::interval(Duration::from_millis(params.connection_timeout));
     loop {
-        let amqp_worker = RabbitMqWorker::new(config.clone(), amqp_message_sender.clone());
+        let amqp_worker = RabbitMqWorker::new(params.clone(), amqp_message_sender.clone());
         match amqp_worker {
             Ok(mut worker) => {
                 let res = worker.consume().await;
@@ -153,20 +160,20 @@ async fn init_and_listen_amqp(
 // handle init : ask kirin to send
 impl RabbitMqWorker {
     pub fn new(
-        config: BrokerConfig,
+        params: RabbitMqParams,
         amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
     ) -> Result<Self, Error> {
-        let connection = create_connection(&config)?;
-        let channel = create_channel(&config, &connection)?;
+        let connection = create_connection(&params.endpoint)?;
+        let channel = create_channel(&params.exchange, &connection)?;
 
         // TODO : create a name unique to this instance of loki
         // for example : hostname_instance
         let queue_name = format!("{}_rt", "loki_hostname");
-        let queue = declare_queue(&config, &channel, queue_name.as_str())?;
+        let queue = declare_queue(&params, &channel, queue_name.as_str())?;
         bind_queue(
             &channel,
-            config.rt_topics.as_slice(),
-            &config.exchange,
+            params.rt_topics.as_slice(),
+            &params.exchange,
             queue_name.as_str(),
         )?;
 
@@ -175,7 +182,7 @@ impl RabbitMqWorker {
             queue,
             proto_messages: Vec::new(),
             amqp_message_sender,
-            timeout: config.timeout,
+            params,
         })
     }
 
@@ -241,7 +248,9 @@ impl RabbitMqWorker {
             .await?;
 
         use tokio::time;
-        let interval = time::interval(Duration::from_secs(self.timeout));
+        let interval = time::interval(Duration::from_secs(
+            self.params.real_time_update_frequency.total_seconds(),
+        ));
         tokio::pin!(interval);
 
         loop {
@@ -265,20 +274,18 @@ impl RabbitMqWorker {
     }
 }
 
-fn create_connection(config: &BrokerConfig) -> Result<Connection, Error> {
-    let address = &config.endpoint;
-    info!("Connection to rabbitmq {}", address);
-    let connection =
-        Connection::connect(address.as_str(), ConnectionProperties::default()).wait()?;
-    info!("connected to rabbitmq {} successfully", address);
+fn create_connection(endpoint: &str) -> Result<Connection, Error> {
+    info!("Connection to rabbitmq {}", endpoint);
+    let connection = Connection::connect(endpoint, ConnectionProperties::default()).wait()?;
+    info!("connected to rabbitmq {} successfully", endpoint);
     Ok(connection)
 }
 
-fn create_channel(config: &BrokerConfig, connection: &Connection) -> Result<Channel, Error> {
+fn create_channel(exchange: &str, connection: &Connection) -> Result<Channel, Error> {
     let channel = connection.create_channel().wait()?;
     channel
         .exchange_declare(
-            &config.exchange,
+            exchange,
             ExchangeKind::Topic,
             ExchangeDeclareOptions {
                 durable: true,
@@ -292,7 +299,7 @@ fn create_channel(config: &BrokerConfig, connection: &Connection) -> Result<Chan
 }
 
 fn declare_queue(
-    config: &BrokerConfig,
+    params: &RabbitMqParams,
     channel: &Channel,
     queue_name: &str,
 ) -> Result<Queue, Error> {
@@ -303,11 +310,11 @@ fn declare_queue(
             FieldTable::default(),
         )
         .wait()?;
-    for topic in &config.rt_topics {
+    for topic in &params.rt_topics {
         channel
             .queue_bind(
                 queue_name,
-                &config.exchange,
+                &params.exchange,
                 topic,
                 QueueBindOptions::default(),
                 FieldTable::default(),

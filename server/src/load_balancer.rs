@@ -250,7 +250,7 @@ impl LoadBalancer {
                     let worker_id = has_available_worker.unwrap();
                     debug!("LoadBalancer is sending request to worker {:?}", worker_id);
                     let sender = &self.worker_request_senders[worker_id];
-                    let forward_request_result = sender.send(request).await
+                    sender.send(request).await
                                 .map_err(|err| format_err!("Channel to forward request to worker {} has closed", err))?;
 
                     self.worker_states[worker_id] = WorkerState::Busy;
