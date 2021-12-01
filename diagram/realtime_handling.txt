@@ -1,0 +1,38 @@
+# Image generated with Sequence Diagram.
+# Please, edit the following link to re-generate the diagram:
+
+# https://sequencediagram.org/index.html#initialData=title%20Diagram%20of%20Realtime%20Handling%20in%20Loki%0A%0Aactor%20RabbitMq%0A%0Aparticipant%20RabbitMq_Worker%0Aparticipant%20Master_Worker%0A%0Aparticipant%20LoadBalancer_Worker%0Aparticipant%20Computer_Worker%0A%0ARabbitMq-%3ERabbitMq_Worker%3A%20rt_consumer.next()%0Aspace%20%0ARabbitMq_Worker-%3EMaster_Worker%3A**amqp_message_sender**-%3E%20**amqp_message_receiver**%0A%0Anote%20over%20Master_Worker%3A%20**STOP**%20LoadBalancer%20to%20stop%20%5Cn%20-%20All%20Compute_Workers%20%5Cn%20-%20Listening%20ZMQ%0A%0AMaster_Worker-%3ELoadBalancer_Worker%3A%20**load_balancer_order_sender%20%3D%3D%3E%20load_balancer_order_receiver**%0A%0Aloop%20%0Anote%20over%20LoadBalancer_Worker%2C%20Computer_Worker%3AStop%20receiving%20PT%20request%2C%20%5Cnwait%20until%20all%20Compute_Workers%20are%20freed%0Aend%0A%0Anote%20over%20LoadBalancer_Worker%3A%20Send%20**STATE%3A%3ASTOPPED**%20to%20Master_Worker%0A%0ALoadBalancer_Worker-%3EMaster_Worker%20%3A%20**load_balancer_state_sender**%20%3C%3D%3D%20**load_balancer_state_receiver**%0A%0Anote%20over%20Master_Worker%3A%20Handle%20realtime%20messages%0A%0Anote%20over%20Master_Worker%3A%20Restart%20LoadBlancer%20%5Cn%20-%20All%20Computer_Workers%20%20%5Cn%20-%20Listening%20ZMQ%0A%0AMaster_Worker-%3ELoadBalancer_Worker%3A%20%20**load_balancer_order_sender**%20%3D%3D%3E%20**load_balancer_order_receiver**%0A%0Anote%20over%20LoadBalancer_Worker%3A%20Set%20**STATE%3A%3ARUNNING**%20to%20Master_Worker%0A
+
+title Diagram of Realtime Handling in Loki
+
+actor RabbitMq
+
+participant RabbitMq_Worker
+participant Master_Worker
+
+participant LoadBalancer_Worker
+participant Computer_Worker
+
+RabbitMq->RabbitMq_Worker: rt_consumer.next()
+space
+RabbitMq_Worker->Master_Worker:**amqp_message_sender**-> **amqp_message_receiver**
+
+note over Master_Worker: **STOP** LoadBalancer to stop \n - All Compute_Workers \n - Listening ZMQ
+
+Master_Worker->LoadBalancer_Worker: **load_balancer_order_sender ==> load_balancer_order_receiver**
+
+loop
+note over LoadBalancer_Worker, Computer_Worker:Stop receiving PT request, \nwait until all Compute_Workers are freed
+end
+
+note over LoadBalancer_Worker: Send **STATE::STOPPED** to Master_Worker
+
+LoadBalancer_Worker->Master_Worker : **load_balancer_state_sender** <== **load_balancer_state_receiver**
+
+note over Master_Worker: Handle realtime messages
+
+note over Master_Worker: Restart LoadBlancer \n - All Computer_Workers  \n - Listening ZMQ
+
+Master_Worker->LoadBalancer_Worker:  **load_balancer_order_sender** ==> **load_balancer_order_receiver**
+
+note over LoadBalancer_Worker: Set **STATE::RUNNING** to Master_Worker
