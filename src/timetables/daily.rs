@@ -425,9 +425,8 @@ impl TimetablesTrait for DailyTimetables {
             error!("Updated {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_updated);
         }
 
-        let nb_vehicle_removed = timetable_data.remove_vehicles(|vehicle_data| {
-            vehicle_data.is_base == false && vehicle_data.is_real_time == false
-        });
+        let nb_vehicle_removed = timetable_data
+            .remove_vehicles(|vehicle_data| !vehicle_data.is_base && !vehicle_data.is_real_time);
         if nb_vehicle_removed > 1 {
             error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_removed);
         }

@@ -46,11 +46,13 @@ use super::{
     generic_timetables::{Timetables, Trip, Vehicle, VehicleTimesError},
     TimetablesIter,
 };
-use crate::time::{
-    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    SecondsSinceUTCDayStart, TimezonesPatterns,
+use crate::{
+    time::{
+        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
+        SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart, TimezonesPatterns,
+    },
+    timetables::generic_timetables::{Position, Timetable},
 };
-use crate::timetables::generic_timetables::{Position, Timetable};
 use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
 use tracing::log::error;
