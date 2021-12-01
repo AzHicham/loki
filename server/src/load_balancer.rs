@@ -51,7 +51,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
     compute_worker::ComputeWorker,
-    master_worker::{BaseTimetable, LoadBalancerChannels, LoadBalancerOrder, RealTimeTimetable},
+    master_worker::{LoadBalancerChannels, LoadBalancerOrder, Timetable},
     zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
 };
 
@@ -88,8 +88,7 @@ pub struct LoadBalancer {
 
 impl LoadBalancer {
     pub fn new(
-        base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
-        real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
+        data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
         nb_workers: usize,
         zmq_endpoint: &str,
         request_default_params: &config::RequestParams,
@@ -106,8 +105,7 @@ impl LoadBalancer {
 
             let (worker, request_channel) = ComputeWorker::new(
                 worker_id,
-                base_data_and_model.clone(),
-                real_time_data_and_model.clone(),
+                data_and_models.clone(),
                 request_default_params.clone(),
                 workers_response_sender.clone(),
             );

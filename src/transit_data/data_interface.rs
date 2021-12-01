@@ -2,7 +2,7 @@ use crate::{
     loads_data::{Load, LoadsData},
     models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
-    timetables::{FlowDirection, InsertionError, RemovalError},
+    timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
 };
 use chrono::{NaiveDate, NaiveDateTime};
 pub use typed_index_collection::Idx;
@@ -108,6 +108,7 @@ pub trait Data: TransitTypes {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -115,6 +116,7 @@ pub trait Data: TransitTypes {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -125,6 +127,7 @@ pub trait Data: TransitTypes {
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -132,6 +135,7 @@ pub trait Data: TransitTypes {
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -168,14 +172,20 @@ pub trait Data: TransitTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
+#[derive(Debug, Clone)]
+pub enum RealTimeLevel {
+    Base,
+    RealTime,
+}
+
 pub trait DataUpdate {
-    fn remove_vehicle(
+    fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
 
-    fn add_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -185,7 +195,7 @@ pub trait DataUpdate {
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> Vec<InsertionError>
+    ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -193,7 +203,7 @@ pub trait DataUpdate {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn modify_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -202,23 +212,14 @@ pub trait DataUpdate {
         loads_data: &LoadsData,
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: VehicleJourneyIdx,
-    ) -> (Vec<RemovalError>, Vec<InsertionError>)
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> Result<(), ModifyError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
-
-    fn start_date(&self) -> &NaiveDate;
-    fn end_date(&self) -> &NaiveDate;
-
-    fn set_start_end_date(
-        &mut self,
-        start_date: &NaiveDate,
-        end_date: &NaiveDate,
-    ) -> (Vec<NaiveDate>, Vec<NaiveDate>);
 }
 
 pub trait DataIO {
@@ -226,7 +227,6 @@ pub trait DataIO {
         base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
-        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self;
 }
 
@@ -264,7 +264,63 @@ where
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;
     /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
+    fn trips_of(
+        &'a self,
+        mission: &Self::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Self::TripsOfMission;
 }
 
 pub trait DataWithIters: Data + for<'a> DataIters<'a> {}
+
+#[derive(Debug)]
+pub struct RealTimeLevelError {
+    incorrect_input: String,
+}
+impl std::fmt::Display for RealTimeLevelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Unable to parse {} as a real time level. Valid values are : base, real_time",
+            self.incorrect_input
+        )
+    }
+}
+
+impl std::str::FromStr for RealTimeLevel {
+    type Err = RealTimeLevelError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "base" => Ok(RealTimeLevel::Base),
+            "real_time" => Ok(RealTimeLevel::RealTime),
+            _ => Err(RealTimeLevelError {
+                incorrect_input: s.to_string(),
+            }),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RealTimeLevel {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        use std::str::FromStr;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl serde::Serialize for RealTimeLevel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        let str = match self {
+            RealTimeLevel::Base => "base",
+            RealTimeLevel::RealTime => "real_time",
+        };
+        serializer.serialize_str(str)
+    }
+}

@@ -34,11 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-mod daily;
-
-mod day_to_timetable;
+pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
+
+mod daily;
 mod periodic;
 mod periodic_split_vj_by_tz;
 
@@ -46,14 +46,19 @@ pub use daily::DailyTimetables;
 pub use periodic::PeriodicTimetables;
 pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 pub use crate::transit_data::Stop;
 
 use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
-    time::{Calendar, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
+    time::{
+        days_patterns::{DaysPattern, DaysPatterns},
+        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
+        SecondsSinceTimezonedDayStart,
+    },
+    transit_data::data_interface::RealTimeLevel,
 };
 
 use chrono::NaiveDate;
@@ -72,21 +77,19 @@ pub type StopFlows = Vec<(Stop, FlowDirection)>;
 
 pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
-    type Position: Debug + Clone;
+    type Position: Debug + Clone + PartialEq + Eq;
     type Trip: Debug + Clone;
 }
 
 pub trait Timetables: Types {
-    fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self;
-
-    fn calendar(&self) -> &Calendar;
+    fn new() -> Self;
 
     fn nb_of_missions(&self) -> usize;
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
+    fn day_of(&self, trip: &Self::Trip) -> DaysSinceDatasetStart;
 
     fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
     fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop;
@@ -116,24 +119,28 @@ pub trait Timetables: Types {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
+        calendar: &Calendar,
     ) -> (SecondsSinceDatasetUTCStart, Load);
 
     fn departure_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
+        calendar: &Calendar,
     ) -> (SecondsSinceDatasetUTCStart, Load);
 
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
+        calendar: &Calendar,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
 
     fn board_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
+        calendar: &Calendar,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
 
     fn earliest_trip_to_board_at(
@@ -141,6 +148,9 @@ pub trait Timetables: Types {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn earliest_filtered_trip_to_board_at<Filter>(
@@ -148,7 +158,10 @@ pub trait Timetables: Types {
         waiting_time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
@@ -158,6 +171,9 @@ pub trait Timetables: Types {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn latest_filtered_trip_that_debark_at<Filter>(
@@ -165,42 +181,50 @@ pub trait Timetables: Types {
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
+        real_time_level: &RealTimeLevel,
         filter: Filter,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn insert<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn remove(
+        &mut self,
+        mission: &Self::Mission,
+        day: &DaysSinceDatasetStart,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &mut DaysPatterns,
+    );
+
+    fn insert<Stops, Flows, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
-        valid_dates: Dates,
+        days: &DaysPattern,
+        calendar: &Calendar,
+        days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> (Vec<Self::Mission>, Vec<InsertionError>)
+        real_time_level: &RealTimeLevel,
+    ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate>,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
-
-    fn remove(
-        &mut self,
-        date: &chrono::NaiveDate,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-    ) -> Result<(), RemovalError>;
-
-    fn remove_all_vehicle_on_day(&mut self, date: &chrono::NaiveDate);
 }
 
 #[derive(Clone, Debug)]
 pub enum InsertionError {
     Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
-    VehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
+    BaseVehicleJourneyAlreadyExists(VehicleJourneyIdx),
+    RealTimeVehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
     InvalidDate(NaiveDate, VehicleJourneyIdx),
 }
 
@@ -211,12 +235,25 @@ pub enum RemovalError {
     DateInvalidForVehicleJourney(NaiveDate, VehicleJourneyIdx),
 }
 
+#[derive(Clone, Debug)]
+pub enum ModifyError {
+    UnknownDate(NaiveDate, VehicleJourneyIdx),
+    UnknownVehicleJourney(VehicleJourneyIdx),
+    DateInvalidForVehicleJourney(NaiveDate, VehicleJourneyIdx),
+    Times(VehicleJourneyIdx, VehicleTimesError, Vec<NaiveDate>),
+}
+
 pub trait TimetablesIter<'a>: Types {
     type Positions: Iterator<Item = Self::Position>;
     fn positions(&'a self, mission: &Self::Mission) -> Self::Positions;
 
     type Trips: Iterator<Item = Self::Trip>;
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::Trips;
+    fn trips_of(
+        &'a self,
+        mission: &Self::Mission,
+        real_time_level: &RealTimeLevel,
+        days_patterns: &'a DaysPatterns,
+    ) -> Self::Trips;
 
     type Missions: Iterator<Item = Self::Mission>;
     fn missions(&'a self) -> Self::Missions;

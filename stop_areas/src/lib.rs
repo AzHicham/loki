@@ -54,7 +54,6 @@ use std::{fs::File, io::BufReader, time::SystemTime};
 use failure::{bail, Error};
 
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -168,8 +167,8 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 
 pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error> {
     match config.launch_params.data_implem {
-        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
+        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::Daily => config_launch::<DailyData>(config),
     }
 }
@@ -181,7 +180,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
@@ -202,7 +201,7 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {

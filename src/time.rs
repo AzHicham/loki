@@ -38,6 +38,7 @@ use chrono::{FixedOffset, NaiveDate};
 use std::fmt::{Display, Formatter};
 
 mod calendar;
+pub mod days_map;
 pub mod days_patterns;
 pub mod timezones_patterns;
 pub use timezones_patterns::TimezonesPatterns;
@@ -72,7 +73,7 @@ pub struct SecondsSinceDatasetUTCStart {
 }
 
 /// Number of days since the first allowed day of the data
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DaysSinceDatasetStart {
     pub(super) days: u16,
 }
@@ -92,6 +93,7 @@ pub struct Calendar {
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }
+
 #[derive(Debug)]
 pub enum PositiveDurationError {
     ParseIntError(std::num::ParseIntError),
@@ -117,6 +119,7 @@ impl std::fmt::Display for PositiveDurationError {
         }
     }
 }
+
 impl std::str::FromStr for PositiveDuration {
     type Err = PositiveDurationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

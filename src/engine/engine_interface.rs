@@ -1,4 +1,8 @@
-use crate::{models::ModelRefs, response, transit_data::data_interface};
+use crate::{
+    models::ModelRefs,
+    response,
+    transit_data::data_interface::{self, RealTimeLevel},
+};
 
 pub trait RequestTypes: data_interface::TransitTypes {
     /// Identify a possible departure of a journey
@@ -227,10 +231,14 @@ pub trait RequestIters<'a>: RequestTypes {
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;
     /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
+    fn trips_of(
+        &'a self,
+        mission: &Self::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Self::TripsOfMission;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RequestInput {
     pub datetime: NaiveDateTime,
     pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
@@ -240,6 +248,7 @@ pub struct RequestInput {
     pub max_nb_of_legs: u8,
     pub max_journey_duration: PositiveDuration,
     pub too_late_threshold: PositiveDuration,
+    pub real_time_level: RealTimeLevel,
 }
 
 pub trait RequestIO<'data, 'model, Data: data_interface::Data>: Request {

@@ -34,66 +34,55 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::fmt::Debug;
-
 use crate::{
     loads_data::LoadsData,
     models::{
         base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
         TransferIdx, VehicleJourneyIdx,
     },
+    time::{days_patterns::DaysPatterns, Calendar},
+    timetables::day_to_timetable::VehicleJourneyToTimetable,
     transit_data::{Stop, TransitData},
-    DataUpdate,
+    RealTimeLevel,
 };
 
 use crate::{
     time::{PositiveDuration, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
-use chrono::NaiveDate;
 use transit_model::objects::{StopTime, VehicleJourney};
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
 
-use super::{handle_insertion_errors, Transfer, TransferData, TransferDurations};
+use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
 
 impl<Timetables> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     pub fn _new(
         base_model: &BaseModel,
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
-        restrict_calendar: Option<(NaiveDate, NaiveDate)>,
     ) -> Self {
         let nb_of_stop_points = base_model.stop_points.len();
         let nb_transfers = base_model.transfers.len();
 
-        let (calendar_start_date, calendar_end_date) = base_model
+        let (start_date, end_date) = base_model
             .calculate_validity_period()
             .expect("Unable to calculate a validity period.");
-
-        let (start_date, end_date) =
-            if let Some((restricted_start_date, restricted_end_date)) = restrict_calendar {
-                restrict_dates(
-                    &calendar_start_date,
-                    &calendar_end_date,
-                    &restricted_start_date,
-                    &restricted_end_date,
-                )
-            } else {
-                (calendar_start_date, calendar_end_date)
-            };
+        let calendar = Calendar::new(start_date, end_date);
+        let nb_of_days = calendar.nb_of_days();
 
         let mut data = Self {
             stop_point_idx_to_stop: std::collections::HashMap::new(),
             stops_data: Vec::with_capacity(nb_of_stop_points),
-            timetables: Timetables::new(start_date, end_date),
+            timetables: Timetables::new(),
             transfers_data: Vec::with_capacity(nb_transfers),
-            start_date,
-            end_date,
+            vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
+            calendar,
+            days_patterns: DaysPatterns::new(usize::from(nb_of_days)),
         };
 
         data.init(base_model, loads_data, default_transfer_duration);
@@ -224,12 +213,7 @@ where
                 );
             })?;
 
-        let start_date = self.start_date;
-        let end_date = self.end_date;
-        let dates = model_calendar
-            .dates
-            .iter()
-            .filter(|&&date| date >= start_date && date <= end_date);
+        let dates = model_calendar.dates.iter();
 
         let timezone = timezone_of(vehicle_journey, base_model)?;
 
@@ -238,7 +222,7 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let insertion_errors = self.add_vehicle(
+        let insert_result = self.insert_inner(
             stop_points,
             flows.into_iter(),
             board_times.into_iter(),
@@ -247,6 +231,7 @@ where
             dates,
             &timezone,
             vehicle_journey_idx,
+            RealTimeLevel::Base,
         );
 
         let real_time_model = RealTimeModel::new();
@@ -255,7 +240,15 @@ where
             real_time: &real_time_model,
         };
 
-        handle_insertion_errors(&model, &self.start_date, &self.end_date, &insertion_errors);
+        use crate::transit_data::data_interface::Data;
+        if let Err(err) = insert_result {
+            handle_insertion_error(
+                &model,
+                self.calendar().first_date(),
+                self.calendar().last_date(),
+                &err,
+            );
+        }
 
         Ok(())
     }
@@ -428,34 +421,4 @@ pub fn debark_timezoned_times(
     }
 
     Ok(result)
-}
-
-pub(super) fn restrict_dates(
-    calendar_start_date: &NaiveDate,
-    calendar_end_date: &NaiveDate,
-    restricted_start_date: &NaiveDate,
-    restricted_end_date: &NaiveDate,
-) -> (NaiveDate, NaiveDate) {
-    let start_date = if restricted_start_date < calendar_start_date {
-        warn!(
-            "Trying to restrict the start date to {} but the calendar starts on {}.\
-             I'll ignore the restricted start date.",
-            restricted_start_date, calendar_start_date
-        );
-        calendar_start_date
-    } else {
-        restricted_start_date
-    };
-    let end_date = if restricted_end_date > calendar_end_date {
-        warn!(
-            "Trying to restrict the end date to {} but the calendar ends on {}.\
-        I'll ignore the restricted start date.",
-            restricted_end_date, calendar_end_date
-        );
-        calendar_end_date
-    } else {
-        restricted_end_date
-    };
-
-    (*start_date, *end_date)
 }

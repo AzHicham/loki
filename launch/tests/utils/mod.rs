@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 #![allow(dead_code)]
+pub mod disruption_builder;
 pub mod model_builder;
 
 use env_logger::Env;
@@ -59,7 +60,6 @@ use loki::{
     TransitData,
 };
 use model_builder::AsDateTime;
-use std::fmt::Debug;
 
 pub fn init_logger() {
     let _ = env_logger::Builder::from_env(
@@ -147,6 +147,7 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
         max_nb_of_legs: config.request_params.max_nb_of_legs,
         max_journey_duration: config.request_params.max_journey_duration,
         too_late_threshold: config.request_params.too_late_threshold,
+        real_time_level: config.request_params.real_time_level.clone(),
     };
     Ok(request_input)
 }
@@ -178,17 +179,13 @@ where
         Position = generic_request::Position,
         Trip = generic_request::Trip,
     >,
-    Timetables: for<'a> TimetablesIter<'a> + Debug,
+    Timetables: for<'a> TimetablesIter<'a>,
     Timetables::Mission: 'static,
     Timetables::Position: 'static,
 {
     use loki::DataTrait;
-    let data: TransitData<Timetables> = launch::read::build_transit_data(
-        model.base,
-        loads_data,
-        &config.default_transfer_duration,
-        None,
-    );
+    let data: TransitData<Timetables> =
+        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

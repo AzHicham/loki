@@ -38,6 +38,7 @@ use std::{iter::Enumerate, ops::Not};
 
 use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::NaiveDate;
+use tracing::trace;
 
 #[derive(Debug)]
 pub struct DaysPatterns {
@@ -57,10 +58,17 @@ pub struct DaysPattern {
 
 impl DaysPatterns {
     pub fn new(nb_of_days: usize) -> Self {
-        Self {
+        let mut result = Self {
             days_patterns: Vec::new(),
             buffer: vec![false; nb_of_days],
-        }
+        };
+        let empty_pattern = result.get_from_days(std::iter::empty());
+        assert!(empty_pattern.idx == 0);
+        result
+    }
+
+    pub fn empty_pattern(&self) -> DaysPattern {
+        DaysPattern { idx: 0 }
     }
 
     pub fn is_allowed(&self, days_pattern: &DaysPattern, day: &DaysSinceDatasetStart) -> bool {
@@ -119,6 +127,21 @@ impl DaysPatterns {
         self.get_or_insert_from_buffer()
     }
 
+    pub fn get_from_days<Days>(&mut self, days: Days) -> DaysPattern
+    where
+        Days: Iterator<Item = DaysSinceDatasetStart>,
+    {
+        // set all elements of the buffer to false
+        self.buffer.fill(false);
+
+        for day in days {
+            let offset = day.days;
+            self.buffer[offset as usize] = true;
+        }
+
+        self.get_or_insert_from_buffer()
+    }
+
     pub fn make_dates(&self, days_pattern: &DaysPattern, calendar: &Calendar) -> Vec<NaiveDate> {
         let mut result = Vec::new();
         for day in calendar.days() {
@@ -140,9 +163,10 @@ impl DaysPatterns {
     }
 
     pub fn is_empty_pattern(&self, days_pattern: &DaysPattern) -> bool {
-        let allowed_dates = &self.days_patterns[days_pattern.idx].allowed_dates;
-        let has_a_day_set = allowed_dates.iter().any(|day_allowed| *day_allowed);
-        has_a_day_set.not()
+        days_pattern.idx == 0
+        // let allowed_dates = &self.days_patterns[days_pattern.idx].allowed_dates;
+        // let has_a_day_set = allowed_dates.iter().any(|day_allowed| *day_allowed);
+        // has_a_day_set.not()
     }
 
     pub fn get_pattern_without_day(
@@ -165,25 +189,24 @@ impl DaysPatterns {
         Some(result)
     }
 
-    // pub fn get_pattern_with_additional_day(
-    //     &mut self,
-    //     original_pattern: DaysPattern,
-    //     day_to_add: &DaysSinceDatasetStart,
-    // ) -> Result<DaysPattern, ()> {
-    //     if self.is_allowed(&original_pattern, day_to_add) {
-    //         return Err(());
-    //     }
-    //     let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
+    pub fn get_pattern_with_additional_day(
+        &mut self,
+        original_pattern: DaysPattern,
+        day_to_add: &DaysSinceDatasetStart,
+    ) -> DaysPattern {
+        if self.is_allowed(&original_pattern, day_to_add) {
+            trace!("Adding a day already set to a pattern");
+            return original_pattern;
+        }
+        let original_allowed_dates = &self.days_patterns[original_pattern.idx].allowed_dates;
 
-    //     // let's put the actual pattern of allowed days into self.buffer
-    //     debug_assert!(original_allowed_dates.len() == self.buffer.len());
-    //     self.buffer.copy_from_slice(original_allowed_dates);
-    //     self.buffer[day_to_add.days as usize] = true;
+        // let's put the actual pattern of allowed days into self.buffer
+        debug_assert!(original_allowed_dates.len() == self.buffer.len());
+        self.buffer.copy_from_slice(original_allowed_dates);
+        self.buffer[day_to_add.days as usize] = true;
 
-    //     let result = self.get_or_insert_from_buffer();
-
-    //     Ok(result)
-    // }
+        self.get_or_insert_from_buffer()
+    }
 
     pub fn get_intersection(
         &mut self,
@@ -227,15 +250,15 @@ impl DaysPatterns {
         &self,
         first_pattern: &DaysPattern,
         second_pattern: &DaysPattern,
-        calendar: &Calendar,
     ) -> Vec<DaysSinceDatasetStart> {
         let first_data = &self.days_patterns[first_pattern.idx].allowed_dates;
         let second_data = &self.days_patterns[second_pattern.idx].allowed_dates;
-        let days = calendar.days();
         let mut result = Vec::new();
-        for (day, (first, second)) in days.zip(first_data.iter().zip(second_data.iter())) {
+        for (day_idx, (first, second)) in first_data.iter().zip(second_data.iter()).enumerate() {
             if *first && *second {
-                result.push(day);
+                result.push(DaysSinceDatasetStart {
+                    days: day_idx as u16,
+                });
             }
         }
         result
@@ -260,6 +283,7 @@ impl DaysPatterns {
     }
 }
 
+#[derive(Clone)]
 pub struct DaysInPatternIter<'pattern> {
     allowed_dates: Enumerate<std::slice::Iter<'pattern, bool>>,
 }

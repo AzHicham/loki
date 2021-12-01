@@ -42,6 +42,7 @@ use crate::{
     models::ModelRefs,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
+    RealTimeLevel,
 };
 
 use crate::{
@@ -60,6 +61,7 @@ pub struct GenericArriveBeforeRequest<'data, 'model, Data: DataTrait> {
     pub(super) min_departure_time: SecondsSinceDatasetUTCStart,
     pub(super) max_nb_legs: u8,
     pub(super) too_late_threshold: PositiveDuration,
+    pub(super) real_time_level: RealTimeLevel,
 }
 
 impl<'data, 'model, Data> GenericArriveBeforeRequest<'data, 'model, Data>
@@ -102,6 +104,7 @@ where
             min_departure_time: arrival_datetime - request_input.max_journey_duration,
             max_nb_legs: request_input.max_nb_of_legs,
             too_late_threshold: request_input.too_late_threshold,
+            real_time_level: request_input.real_time_level.clone(),
         };
 
         Ok(result)
@@ -263,7 +266,7 @@ where
     ) -> Option<(Data::Trip, Criteria)> {
         let waiting_time = &waiting_criteria.time;
         self.transit_data
-            .latest_trip_that_debark_at(waiting_time, mission, position)
+            .latest_trip_that_debark_at(waiting_time, mission, position, &self.real_time_level)
             .map(|(trip, debark_time, load)| {
                 let new_criteria = Criteria {
                     time: debark_time,
@@ -400,7 +403,7 @@ where
         let mission = &self.transit_data.mission_of(trip);
         let (new_trip, _, _) = self
             .transit_data
-            .earliest_trip_to_board_at(&board_time, mission, board_position)
+            .earliest_trip_to_board_at(&board_time, mission, board_position, &self.real_time_level)
             .ok_or_else(|| NoTrip(board_time, mission.clone(), board_position.clone()))?;
         *trip = new_trip;
         let debark_time = self
@@ -479,8 +482,12 @@ where
         }
     }
 
-    fn trips_of(&'outer self, mission: &Data::Mission) -> Data::TripsOfMission {
-        self.transit_data.trips_of(mission)
+    fn trips_of(
+        &'outer self,
+        mission: &Data::Mission,
+        real_time_level: &RealTimeLevel,
+    ) -> Data::TripsOfMission {
+        self.transit_data.trips_of(mission, real_time_level)
     }
 }
 

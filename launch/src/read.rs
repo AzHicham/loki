@@ -40,19 +40,18 @@ use crate::{
     loki::{timetables::TimetablesIter, TransitData},
 };
 use loki::{
-    chrono::NaiveDate,
     models::base_model::BaseModel,
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
 };
-use std::{collections::BTreeMap, fmt::Debug, time::SystemTime};
+use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
 ) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     let base_model = read_model(launch_params)?;
 
@@ -62,7 +61,6 @@ where
         &base_model,
         &loads_data,
         &launch_params.default_transfer_duration,
-        None,
     );
 
     Ok((data, base_model))
@@ -127,10 +125,9 @@ pub fn build_transit_data<Timetables>(
     base_model: &BaseModel,
     loads_data: &LoadsData,
     default_transfer_duration: &PositiveDuration,
-    restrict_calendar: Option<(NaiveDate, NaiveDate)>,
 ) -> TransitData<Timetables>
 where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a> + Debug,
+    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     info!(
         "Number of vehicle journeys : {}",
@@ -139,12 +136,7 @@ where
     info!("Number of routes : {}", base_model.routes.len());
 
     let data_timer = SystemTime::now();
-    let data = TransitData::new(
-        base_model,
-        loads_data,
-        *default_transfer_duration,
-        restrict_calendar,
-    );
+    let data = TransitData::new(base_model, loads_data, *default_transfer_duration);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());

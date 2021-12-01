@@ -37,14 +37,13 @@
 use super::chaos_proto::gtfs_realtime;
 use failure::{format_err, Error};
 use launch::loki::{
-    chrono,
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
-    timetables::{DailyTimetables, PeriodicSplitVjByTzTimetables},
+    timetables::PeriodicSplitVjByTzTimetables,
     tracing::{debug, error, info},
-    DataTrait, LoadsData, TransitData,
+    LoadsData, TransitData,
 };
 use std::{
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     sync::{Arc, RwLock},
 };
 use tokio::{
@@ -65,8 +64,7 @@ pub enum LoadBalancerOrder {
     Stop,
 }
 
-pub type BaseTimetable = PeriodicSplitVjByTzTimetables;
-pub type RealTimeTimetable = DailyTimetables;
+pub type Timetable = PeriodicSplitVjByTzTimetables;
 
 pub struct LoadBalancerChannels {
     pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
@@ -75,53 +73,34 @@ pub struct LoadBalancerChannels {
 }
 
 pub struct MasterWorker {
-    base_data_and_model: Arc<RwLock<(TransitData<BaseTimetable>, BaseModel)>>,
-    real_time_data_and_model: Arc<RwLock<(TransitData<RealTimeTimetable>, RealTimeModel)>>,
+    data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
     loads_data: LoadsData,
     amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     load_balancer_handle: LoadBalancerChannels,
-    nb_of_realtime_days_to_keep: u16,
 }
 
 impl MasterWorker {
     pub fn new(config: &Config) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
         let base_model = launch::read::read_model(launch_params)?;
-        info!("Base model loaded");
-        info!("Starting to build base data");
+        info!("Model loaded");
+        info!("Starting to build data");
         let loads_data = launch::read::read_loads_data(launch_params, &base_model);
-        let base_data = launch::read::build_transit_data::<BaseTimetable>(
+        let data = launch::read::build_transit_data::<Timetable>(
             &base_model,
             &loads_data,
             &launch_params.default_transfer_duration,
-            None,
         );
-        info!("Base data loaded");
-        let restrict_calendar_for_realtime = {
-            let start_date = *base_data.calendar().first_date();
-            let end_date = start_date + chrono::Duration::days(2);
-            Some((start_date, end_date))
-        };
-
-        info!("Starting to build real time data");
-        let real_time_model = RealTimeModel::new();
-        let real_time_data = launch::read::build_transit_data::<RealTimeTimetable>(
-            &base_model,
-            &loads_data,
-            &launch_params.default_transfer_duration,
-            restrict_calendar_for_realtime,
-        );
-        info!("Real time data loaded");
+        info!("Data loaded");
 
         info!("Starting to build workers");
 
-        let base_data_and_model = Arc::new(RwLock::new((base_data, base_model)));
-        let real_time_data_and_model = Arc::new(RwLock::new((real_time_data, real_time_model)));
+        let real_time_model = RealTimeModel::new();
+        let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
         // LoadBalancer worker
         let (load_balancer, load_balancer_handle) = LoadBalancer::new(
-            base_data_and_model.clone(),
-            real_time_data_and_model.clone(),
+            data_and_models.clone(),
             config.nb_workers,
             &config.requests_socket,
             &config.request_default_params,
@@ -137,12 +116,10 @@ impl MasterWorker {
 
         // Master worker
         let result = Self {
-            base_data_and_model,
-            real_time_data_and_model,
+            data_and_models,
             loads_data,
             amqp_message_receiver,
             load_balancer_handle,
-            nb_of_realtime_days_to_keep: config.nb_of_realtime_days_to_keep,
         };
         Ok(result)
     }
@@ -240,22 +217,14 @@ impl MasterWorker {
         &mut self,
         messages: Vec<gtfs_realtime::FeedMessage>,
     ) -> Result<(), Error> {
-        let base_lock_guard = self.base_data_and_model.read().map_err(|err| {
+        let mut lock_guard = self.data_and_models.write().map_err(|err| {
             format_err!(
-                "Master worker failed to acquire read lock on base_time_data_and_model. {}.",
+                "Master worker failed to acquire write lock on data_and_models. {}.",
                 err
             )
         })?;
 
-        let mut real_time_lock_guard = self.real_time_data_and_model.write().map_err(|err| {
-            format_err!(
-                "Master worker failed to acquire write lock on real_time_data_and_model. {}.",
-                err
-            )
-        })?;
-
-        let (_, base_model) = base_lock_guard.deref();
-        let (real_time_data, real_time_model) = real_time_lock_guard.deref_mut();
+        let (data, base_model, real_time_model) = lock_guard.deref_mut();
 
         for message in messages.into_iter() {
             for feed_entity in message.entity {
@@ -269,8 +238,7 @@ impl MasterWorker {
                             &disruption,
                             base_model,
                             &self.loads_data,
-                            real_time_data,
-                            self.nb_of_realtime_days_to_keep,
+                            data,
                         );
                     }
                 }

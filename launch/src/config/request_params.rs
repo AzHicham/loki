@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use structopt::StructOpt;
 
-use loki::PositiveDuration;
+use loki::{PositiveDuration, RealTimeLevel};
 #[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
 #[structopt(rename_all = "snake_case")]
 pub struct RequestParams {
@@ -67,6 +67,13 @@ pub struct RequestParams {
     #[structopt(long, default_value = DEFAULT_TOO_LATE_THRESHOLD)]
     #[serde(default = "default_too_late_threshold")]
     pub too_late_threshold: PositiveDuration,
+
+    /// Which version of the data to use for computing journeys ?
+    /// base : the initial scheduled provided in the ntfs, disregarding real time updates
+    /// real_time : includes the real time updates
+    #[structopt(long, default_value = DEFAULT_REAL_TIME_LEVEL)]
+    #[serde(default = "default_real_time_level")]
+    pub real_time_level: RealTimeLevel,
 }
 
 pub const DEFAULT_LEG_ARRIVAL_PENALTY: &str = "00:02:00";
@@ -74,6 +81,7 @@ pub const DEFAULT_LEG_WALKING_PENALTY: &str = "00:02:00";
 pub const DEFAULT_MAX_NB_LEGS: &str = "10";
 pub const DEFAULT_MAX_JOURNEY_DURATION: &str = "24:00:00";
 pub const DEFAULT_TOO_LATE_THRESHOLD: &str = "02:00:00";
+pub const DEFAULT_REAL_TIME_LEVEL: &str = "base";
 
 pub fn default_leg_arrival_penalty() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_LEG_ARRIVAL_PENALTY).unwrap()
@@ -95,6 +103,10 @@ pub fn default_too_late_threshold() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_TOO_LATE_THRESHOLD).unwrap()
 }
 
+pub fn default_real_time_level() -> RealTimeLevel {
+    RealTimeLevel::Base
+}
+
 impl Default for RequestParams {
     fn default() -> Self {
         Self {
@@ -103,6 +115,7 @@ impl Default for RequestParams {
             max_nb_of_legs: default_max_nb_of_legs(),
             max_journey_duration: default_max_journey_duration(),
             too_late_threshold: default_too_late_threshold(),
+            real_time_level: default_real_time_level(),
         }
     }
 }

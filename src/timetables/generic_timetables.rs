@@ -269,20 +269,6 @@ where
         timetable_data.earliest_and_latest_debark_time(position.idx)
     }
 
-    pub(super) fn earliest_vehicle_to_board(
-        &self,
-        waiting_time: &Time,
-        timetable: &Timetable,
-        position: &Position,
-    ) -> Option<(Vehicle, &Time, &Load)> {
-        self.earliest_filtered_vehicle_to_board(
-            waiting_time,
-            timetable,
-            position,
-            |_: &VehicleData| true,
-        )
-    }
-
     pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
@@ -304,15 +290,6 @@ where
                 let load = self.timetable_data(timetable).load_after(idx, position.idx);
                 (vehicle, time, load)
             })
-    }
-
-    pub(super) fn latest_vehicle_that_debark(
-        &self,
-        time: &Time,
-        timetable: &Timetable,
-        position: &Position,
-    ) -> Option<(Vehicle, &Time, &Load)> {
-        self.latest_filtered_vehicle_that_debark(time, timetable, position, |_| true)
     }
 
     pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
@@ -996,7 +973,7 @@ where
         nb_to_remove
     }
 
-    pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> Result<usize, ()>
+    pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> usize
     where
         Updater: FnMut(&mut VehicleData) -> bool, // returns true when an update took place
     {
@@ -1008,10 +985,7 @@ where
             }
         }
 
-        match nb_updated {
-            0 => Err(()),
-            _ => Ok(nb_updated),
-        }
+        nb_updated
     }
 }
 
