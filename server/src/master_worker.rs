@@ -155,6 +155,7 @@ impl MasterWorker {
                         .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
 
                 }
+                // receive reload order 
                 _has_load_balancer_error = self
                     .load_balancer_handle
                     .load_balancer_error_receiver

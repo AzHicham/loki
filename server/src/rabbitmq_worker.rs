@@ -57,6 +57,7 @@ use std::{fmt::Debug, thread};
 
 use structopt::StructOpt;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
+use std::str::FromStr;
 
 pub fn default_endpoint() -> String {
     "amqp://guest:guest@rabbitmq:5672".to_string()
@@ -70,15 +71,15 @@ pub fn default_rt_topics() -> Vec<String> {
 pub fn default_queue_auto_delete() -> bool {
     false
 }
-pub const DEFAULT_REAL_TIME_UPDATE_FREQUENCY: &str = "00:00:30";
+pub const DEFAULT_REAL_TIME_UPDATE_INTERVAL: &str = "00:00:30";
 
-pub fn default_real_time_update_frequency() -> PositiveDuration {
-    use std::str::FromStr;
-    PositiveDuration::from_str(DEFAULT_REAL_TIME_UPDATE_FREQUENCY).unwrap()
+pub fn default_real_time_update_interval() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_REAL_TIME_UPDATE_INTERVAL).unwrap()
 }
 
-pub fn default_connection_timeout() -> u64 {
-    10000
+pub const DEFAULT_RABBITMQ_CONNECT_RETRY_INTERVAL: &str = "00:00:30";
+pub fn default_rabbitmq_connect_retry_interval() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_RABBITMQ_CONNECT_RETRY_INTERVAL).unwrap()
 }
 
 #[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
@@ -100,68 +101,134 @@ pub struct RabbitMqParams {
     #[serde(default = "default_queue_auto_delete")]
     pub queue_auto_delete: bool,
 
-    #[structopt(long, default_value = DEFAULT_REAL_TIME_UPDATE_FREQUENCY)]
-    #[serde(default = "default_real_time_update_frequency")]
-    pub real_time_update_frequency: PositiveDuration,
+    #[structopt(long, default_value = DEFAULT_REAL_TIME_UPDATE_INTERVAL)]
+    #[serde(default = "default_real_time_update_interval")]
+    pub real_time_update_interval: PositiveDuration,
 
-    #[structopt(long)]
-    #[serde(default = "default_connection_timeout")]
-    pub connection_timeout: u64,
+    #[structopt(long, default_value = DEFAULT_RABBITMQ_CONNECT_RETRY_INTERVAL)]
+    #[serde(default = "default_rabbitmq_connect_retry_interval")]
+    pub rabbitmq_connect_retry_interval: PositiveDuration,
 }
+
+
 
 pub struct RabbitMqWorker {
-    channel: Channel,
-    queue: Queue,
+    params : RabbitMqParams,
+    kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+    kirin_reload_done : bool,
+}
+
+pub struct RealTimeWorker {
+    channel: lapin::Channel,
+    queue: lapin::Queue,
     proto_messages: Vec<gtfs_realtime::FeedMessage>,
-    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-    params: RabbitMqParams,
+    kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+    real_time_update_interval: PositiveDuration,
 }
 
-pub fn listen_amqp_in_a_thread(
-    params: RabbitMqParams,
-    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-) -> Result<std::thread::JoinHandle<()>, Error> {
-    let runtime = Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+impl RabbitMqWorker {
+    pub fn new(params : RabbitMqParams, kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,) -> Self {
+        Self {
+            params,
+            kirin_messages_sender,
+            kirin_reload_done : false
+        }
+    }
 
-    let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
-    let handle = thread_builder
-        .spawn(move || runtime.block_on(init_and_listen_amqp(params, amqp_message_sender)))?;
-    Ok(handle)
-}
-
-async fn init_and_listen_amqp(
-    params: RabbitMqParams,
-    amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-) {
-    let mut retry_interval =
-        tokio::time::interval(Duration::from_millis(params.connection_timeout));
-    loop {
-        let amqp_worker = RabbitMqWorker::new(params.clone(), amqp_message_sender.clone());
-        match amqp_worker {
-            Ok(mut worker) => {
-                let res = worker.consume().await;
-                if let Err(err) = res {
-                    error!("RabbitmqWorker: An error occurred: {}", err);
+    async fn run(mut self) {
+        let mut retry_interval =
+        tokio::time::interval(Duration::from_secs(self.params.rabbitmq_connect_retry_interval.total_seconds()));
+        loop {
+            let has_connection = connect(&self.params);
+            match has_connection {
+                Ok((channel, queue)) => {
+                    if ! self.kirin_reload_done {
+                        self.reload_kirin(&channel, &queue).await;
+                        self.kirin_reload_done = true;
+                    }
+                    self.listen_for_kirin_real_time(&channel, &queue).await;
+                },
+                Err(err) => {
+                    error!("Connection to rabbitmq failed: {}", err);
                 }
             }
-            Err(err) => {
-                error!("Connection to rabbitmq failed: {}", err);
-            }
-        };
-        // If connection fails or an error occurs then retry connecting after x seconds
-        retry_interval.tick().await;
+            // If connection fails or an error occurs then retry connecting after x seconds
+            retry_interval.tick().await;
+        }
+      
+    }
+
+    async fn reload_kirin(&mut self, channel : & Channel, queue : & Queue) {
+
+    }
+
+    async fn listen_for_kirin_real_time(&mut self, channel : & Channel, queue : & Queue) {
+        // loop select 
+        //   - receive reload task : send reload data order to master, call self.reload_kirin
+        //   - receive realtime message : put in buffer
+        //   - clock.tick : send buffer to master
+    }
+
+    pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<()>, Error> {
+        // copied from https://tokio.rs/tokio/topics/bridging#sending-messages
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+        let thread_builder = thread::Builder::new().name("loki_zmq_worker".to_string());
+        let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
+        Ok(handle)
     }
 }
 
+
+// pub fn listen_amqp_in_a_thread(
+//     params: RabbitMqParams,
+//     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+// ) -> Result<std::thread::JoinHandle<()>, Error> {
+//     let runtime = Builder::new_current_thread()
+//         .enable_all()
+//         .build()
+//         .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+//     let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
+//     let handle = thread_builder
+//         .spawn(move || runtime.block_on(init_and_listen_amqp(params, amqp_message_sender)))?;
+//     Ok(handle)
+// }
+
+// async fn init_and_listen_amqp(
+//     params: RabbitMqParams,
+//     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+// ) {
+//     let mut retry_interval =
+//         tokio::time::interval(Duration::from_millis(params.connection_timeout));
+//     loop {
+//         let amqp_worker = RealTimeWorker::new(params.clone(), amqp_message_sender.clone());
+//         match amqp_worker {
+//             Ok(mut worker) => {
+//                 let res = worker.consume().await;
+//                 if let Err(err) = res {
+//                     error!("RabbitmqWorker: An error occurred: {}", err);
+//                 }
+//             }
+//             Err(err) => {
+//                 error!("Connection to rabbitmq failed: {}", err);
+//             }
+//         };
+//         // If connection fails or an error occurs then retry connecting after x seconds
+//         retry_interval.tick().await;
+//     }
+// }
+
 // TODO : listen to both queue_task and queue_rt -> later
 // handle init : ask kirin to send
-impl RabbitMqWorker {
+impl RealTimeWorker {
     pub fn new(
-        params: RabbitMqParams,
-        amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+        params : &RabbitMqParams,
+        kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
     ) -> Result<Self, Error> {
         let connection = create_connection(&params.endpoint)?;
         let channel = create_channel(&params.exchange, &connection)?;
@@ -181,8 +248,8 @@ impl RabbitMqWorker {
             channel,
             queue,
             proto_messages: Vec::new(),
-            amqp_message_sender,
-            params,
+            kirin_messages_sender,
+            real_time_update_interval : params.real_time_update_interval.clone()
         })
     }
 
@@ -227,13 +294,13 @@ impl RabbitMqWorker {
             return Ok(());
         }
         let proto_message = std::mem::take(&mut self.proto_messages);
-        self.amqp_message_sender
+        self.kirin_messages_sender
             .send(proto_message)
             .await
             .map_err(|err| format_err!("AMQP Worker could not send proto_message : {}.", err))
     }
 
-    async fn consume(&mut self) -> Result<(), Error> {
+    async fn run(&mut self) -> Result<(), Error> {
         let mut rt_consumer: Consumer = self
             .channel
             .basic_consume(
@@ -249,29 +316,44 @@ impl RabbitMqWorker {
 
         use tokio::time;
         let interval = time::interval(Duration::from_secs(
-            self.params.real_time_update_frequency.total_seconds(),
+            self.real_time_update_interval.total_seconds(),
         ));
         tokio::pin!(interval);
 
         loop {
             tokio::select! {
+                // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
                     debug!("Receiving timed out");
                     // Timeout, no matter whether there're messages or not in Rabbitmq, we send the messages in buffer
                     self.send_proto_messages().await?;
 
                 }
+                // put incoming real time messages in the buffer
                 res = rt_consumer.next() => {
                     self.handle_message(res).await?;
-
-                    if self.proto_messages.len() > 5000 {
-                        self.send_proto_messages().await?;
-                    }
 
                 }
             }
         }
     }
+}
+
+pub fn connect(params: & RabbitMqParams) -> Result<(Channel, Queue), Error>{
+    let connection = create_connection(&params.endpoint)?;
+    let channel = create_channel(&params.exchange, &connection)?;
+
+    // TODO : create a name unique to this instance of loki
+    // for example : hostname_instance
+    let queue_name = format!("{}_rt", "loki_hostname");
+    let queue = declare_queue(&params, &channel, queue_name.as_str())?;
+    bind_queue(
+        &channel,
+        params.rt_topics.as_slice(),
+        &params.exchange,
+        queue_name.as_str(),
+    )?;
+    Ok((channel, queue))
 }
 
 fn create_connection(endpoint: &str) -> Result<Connection, Error> {
