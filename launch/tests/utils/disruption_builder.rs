@@ -84,8 +84,8 @@ impl StopTimesBuilder {
         .unwrap();
         let stop_time = StopTime {
             stop_id: stop_id.to_string(),
-            arrival_time: time.clone(),
-            departure_time: time.clone(),
+            arrival_time: time,
+            departure_time: time,
             flow_direction: loki::timetables::FlowDirection::BoardAndDebark,
         };
         self.stop_times.push(stop_time);

@@ -553,7 +553,7 @@ where
                 .st("A", "09:45:00")
                 .st("B", "10:05:00")
                 .st("C", "10:10:00");
-            modify(&"first", "2020-01-01", stop_times)
+            modify("first", "2020-01-01", stop_times)
         };
         real_time_model.apply_disruption(&disruption, &base_model, &loads_data, &mut data);
     }
