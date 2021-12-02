@@ -35,16 +35,17 @@
 // www.navitia.io
 
 use super::chaos_proto::gtfs_realtime;
+use super::navitia_proto;
 use protobuf::Message;
 
 use failure::{bail, format_err, Error};
 use lapin::{
     options::{
-        BasicAckOptions, BasicConsumeOptions, ExchangeDeclareOptions, QueueBindOptions,
-        QueueDeclareOptions,
+        BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions,
+        QueueBindOptions, QueueDeclareOptions,
     },
     types::FieldTable,
-    ExchangeKind,
+    BasicProperties, ExchangeKind,
 };
 
 use futures::StreamExt;
@@ -82,6 +83,11 @@ pub fn default_rabbitmq_connect_retry_interval() -> PositiveDuration {
     PositiveDuration::from_str(DEFAULT_RABBITMQ_CONNECT_RETRY_INTERVAL).unwrap()
 }
 
+pub const DEFAULT_RELOAD_REQUEST_TIME_TO_LIVE: &str = "00:00:02";
+pub fn default_reload_request_time_to_live() -> PositiveDuration {
+    PositiveDuration::from_str(DEFAULT_RELOAD_REQUEST_TIME_TO_LIVE).unwrap()
+}
+
 #[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
 #[structopt(rename_all = "snake_case")]
 pub struct RabbitMqParams {
@@ -108,11 +114,16 @@ pub struct RabbitMqParams {
     #[structopt(long, default_value = DEFAULT_RABBITMQ_CONNECT_RETRY_INTERVAL)]
     #[serde(default = "default_rabbitmq_connect_retry_interval")]
     pub rabbitmq_connect_retry_interval: PositiveDuration,
+
+    #[structopt(long, default_value = DEFAULT_RELOAD_REQUEST_TIME_TO_LIVE)]
+    #[serde(default = "default_reload_request_time_to_live")]
+    pub reload_request_time_to_live: PositiveDuration,
 }
 
 pub struct RabbitMqWorker {
     params: RabbitMqParams,
     instance_name: String,
+    host_name: String,
     real_time_queue_name: String,
     reload_queue_name: String,
     kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
@@ -128,7 +139,7 @@ impl RabbitMqWorker {
         kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
         reload_data_sender: mpsc::Sender<()>,
     ) -> Self {
-        let hostname = hostname::get()
+        let host_name = hostname::get()
             .map_err(|err| format_err!("Could not retreive hostname : {}.", err))
             .and_then(|os_string| {
                 os_string
@@ -143,11 +154,12 @@ impl RabbitMqWorker {
                 String::from("unknown_host")
             });
 
-        let real_time_queue_name = format!("loki_{}_{}_real_time", hostname, instance_name);
-        let reload_queue_name = format!("loki_{}_{}_reload", hostname, instance_name);
+        let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
+        let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
         Self {
             params,
             instance_name,
+            host_name,
             real_time_queue_name,
             reload_queue_name,
             kirin_messages_sender,
@@ -166,17 +178,40 @@ impl RabbitMqWorker {
             match has_connection {
                 Ok(channel) => {
                     if !self.kirin_reload_done {
-                        self.reload_kirin(&channel).await;
-                        // the connection to rabbitmq may close
-                        // when this happens, we will exit main_loop(), and connect() again
-                        // but we don't want to ask Kirin for a full reload
-                        // we just want to restart the main_loop()
-                        self.kirin_reload_done = true;
+                        let reload_result = self.reload_kirin(&channel).await;
+                        match reload_result {
+                            Ok(()) => {
+                                // the connection to rabbitmq may close
+                                // when this happens, we will exit main_loop(), and connect() again
+                                // but we don't want to ask Kirin for a full reload
+                                // we just want to restart the main_loop()
+                                self.kirin_reload_done = true;
+                            }
+                            Err(err) => {
+                                error!("Error while reloading real time : {}", err);
+                                continue;
+                            }
+                        }
                     }
-                    self.main_loop(&channel).await;
+                    let result = self.main_loop(&channel).await;
+                    match result {
+                        Ok(()) => {
+                            // this means we should exit the program
+                            break;
+                        }
+                        Err(err) => {
+                            error!(
+                                "Error occured in RabbitMqWorker : {}. I'll relaunch the worker.",
+                                err
+                            );
+                        }
+                    }
                 }
                 Err(err) => {
-                    error!("Connection to rabbitmq failed: {}", err);
+                    error!(
+                        "Connection to rabbitmq failed : {}. I'll try to reconnect later.",
+                        err
+                    );
                 }
             }
             // If connection fails or an error occurs then retry connecting after x seconds
@@ -189,7 +224,15 @@ impl RabbitMqWorker {
             &self.params.endpoint,
             lapin::ConnectionProperties::default(),
         )
-        .await?;
+        .await
+        .map_err(|err| {
+            format_err!(
+                "Could not connect to {}, because : {}",
+                &self.params.endpoint,
+                err
+            )
+        })?;
+
         info!(
             "Successfully connected to rabbitmq at endpoint {}",
             &self.params.endpoint
@@ -224,6 +267,7 @@ impl RabbitMqWorker {
                 )
             })?;
 
+        // we declare the exchange
         channel
             .exchange_declare(
                 &self.params.exchange,
@@ -243,6 +287,7 @@ impl RabbitMqWorker {
                 )
             })?;
 
+        // declare real time queue
         channel
             .queue_declare(
                 &self.real_time_queue_name,
@@ -262,6 +307,7 @@ impl RabbitMqWorker {
             &self.real_time_queue_name
         );
 
+        // declare reload_data queue
         channel
             .queue_declare(
                 &self.reload_queue_name,
@@ -281,6 +327,7 @@ impl RabbitMqWorker {
             &self.reload_queue_name
         );
 
+        // bind topics to the real time queue
         for topic in &self.params.rt_topics {
             channel
                 .queue_bind(
@@ -309,7 +356,70 @@ impl RabbitMqWorker {
         Ok(channel)
     }
 
-    async fn reload_kirin(&mut self, channel: &lapin::Channel) {}
+    async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+        use prost::Message;
+        // declare a queue to send a message to Kirin to request a full realtime reload
+        let queue_name = format!(
+            "kirin_reload_request_{}_{}",
+            &self.host_name, &self.instance_name
+        );
+
+        channel
+            .queue_declare(
+                &queue_name,
+                QueueDeclareOptions {
+                    passive: false,
+                    durable: false,
+                    exclusive: true,
+                    auto_delete: true,
+                    nowait: false,
+                },
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not declare queue {} to request realtime reload to Kirin, because : {}",
+                    &queue_name,
+                    err
+                )
+            })?;
+
+        // let's create the reload task to be sent into the queue
+        let task = {
+            let mut task = navitia_proto::Task::default();
+            task.set_action(navitia_proto::Action::LoadRealtime);
+            let load_realtime = navitia_proto::LoadRealtime {
+                queue_name,
+                contributors: self.params.rt_topics.clone(),
+                begin_date: None, // TODO : recover the dates somehow...
+                end_date: None,
+            };
+
+            task.load_realtime = Some(load_realtime);
+            task
+        };
+        let payload = task.encode_to_vec();
+        let routing_key = "task.load_realtime.INSTANCE";
+        let time_to_live_in_milliseconds = format!(
+            "{}",
+            self.params.reload_request_time_to_live.total_seconds() * 1000
+        );
+        let time_to_live_in_milliseconds =
+            lapin::types::ShortString::from(time_to_live_in_milliseconds);
+        channel
+            .basic_publish(
+                &self.params.exchange,
+                &routing_key,
+                BasicPublishOptions::default(),
+                payload,
+                BasicProperties::default().with_expiration(time_to_live_in_milliseconds),
+            )
+            .await?
+            .await?;
+
+        Ok(())
+    }
 
     async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
         let mut real_time_messages_consumer = channel
