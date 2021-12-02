@@ -35,16 +35,16 @@
 // www.navitia.io
 
 use super::chaos_proto::gtfs_realtime;
+use protobuf::Message;
 
-use failure::{format_err, Error};
+use failure::{bail, format_err, Error};
 use lapin::{
-    message::Delivery,
     options::{
         BasicAckOptions, BasicConsumeOptions, ExchangeDeclareOptions, QueueBindOptions,
         QueueDeclareOptions,
     },
     types::FieldTable,
-    Channel, Connection, ConnectionProperties, Consumer, ExchangeKind, Queue,
+    ExchangeKind,
 };
 
 use futures::StreamExt;
@@ -55,9 +55,9 @@ use launch::loki::{
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, thread};
 
+use std::str::FromStr;
 use structopt::StructOpt;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
-use std::str::FromStr;
 
 pub fn default_endpoint() -> String {
     "amqp://guest:guest@rabbitmq:5672".to_string()
@@ -110,44 +110,71 @@ pub struct RabbitMqParams {
     pub rabbitmq_connect_retry_interval: PositiveDuration,
 }
 
-
-
 pub struct RabbitMqWorker {
-    params : RabbitMqParams,
+    params: RabbitMqParams,
+    instance_name: String,
+    real_time_queue_name: String,
+    reload_queue_name: String,
     kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-    kirin_reload_done : bool,
-}
-
-pub struct RealTimeWorker {
-    channel: lapin::Channel,
-    queue: lapin::Queue,
-    proto_messages: Vec<gtfs_realtime::FeedMessage>,
-    kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-    real_time_update_interval: PositiveDuration,
+    kirin_messages: Vec<gtfs_realtime::FeedMessage>,
+    kirin_reload_done: bool,
+    reload_data_sender: mpsc::Sender<()>,
 }
 
 impl RabbitMqWorker {
-    pub fn new(params : RabbitMqParams, kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,) -> Self {
+    pub fn new(
+        params: RabbitMqParams,
+        instance_name: String,
+        kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
+        reload_data_sender: mpsc::Sender<()>,
+    ) -> Self {
+        let hostname = hostname::get()
+            .map_err(|err| format_err!("Could not retreive hostname : {}.", err))
+            .and_then(|os_string| {
+                os_string
+                    .into_string()
+                    .map_err(|_| format_err!("Could not convert hostname to String."))
+            })
+            .unwrap_or_else(|err| {
+                error!(
+                    "Could not retreive hostname : {}. I'll use 'unknown_host' as hostname.",
+                    err
+                );
+                String::from("unknown_host")
+            });
+
+        let real_time_queue_name = format!("loki_{}_{}_real_time", hostname, instance_name);
+        let reload_queue_name = format!("loki_{}_{}_reload", hostname, instance_name);
         Self {
             params,
+            instance_name,
+            real_time_queue_name,
+            reload_queue_name,
             kirin_messages_sender,
-            kirin_reload_done : false
+            kirin_messages: Vec::new(),
+            kirin_reload_done: false,
+            reload_data_sender,
         }
     }
 
     async fn run(mut self) {
-        let mut retry_interval =
-        tokio::time::interval(Duration::from_secs(self.params.rabbitmq_connect_retry_interval.total_seconds()));
+        let mut retry_interval = tokio::time::interval(Duration::from_secs(
+            self.params.rabbitmq_connect_retry_interval.total_seconds(),
+        ));
         loop {
-            let has_connection = connect(&self.params);
+            let has_connection = self.connect().await;
             match has_connection {
-                Ok((channel, queue)) => {
-                    if ! self.kirin_reload_done {
-                        self.reload_kirin(&channel, &queue).await;
+                Ok(channel) => {
+                    if !self.kirin_reload_done {
+                        self.reload_kirin(&channel).await;
+                        // the connection to rabbitmq may close
+                        // when this happens, we will exit main_loop(), and connect() again
+                        // but we don't want to ask Kirin for a full reload
+                        // we just want to restart the main_loop()
                         self.kirin_reload_done = true;
                     }
-                    self.listen_for_kirin_real_time(&channel, &queue).await;
-                },
+                    self.main_loop(&channel).await;
+                }
                 Err(err) => {
                     error!("Connection to rabbitmq failed: {}", err);
                 }
@@ -155,18 +182,249 @@ impl RabbitMqWorker {
             // If connection fails or an error occurs then retry connecting after x seconds
             retry_interval.tick().await;
         }
-      
     }
 
-    async fn reload_kirin(&mut self, channel : & Channel, queue : & Queue) {
+    async fn connect(&self) -> Result<lapin::Channel, Error> {
+        let connection = lapin::Connection::connect(
+            &self.params.endpoint,
+            lapin::ConnectionProperties::default(),
+        )
+        .await?;
+        info!(
+            "Successfully connected to rabbitmq at endpoint {}",
+            &self.params.endpoint
+        );
+        let channel = connection.create_channel().await?;
 
+        // let's first delete the queues, in case they existed and were not properly deleted
+        channel
+            .queue_delete(
+                &self.real_time_queue_name,
+                lapin::options::QueueDeleteOptions::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not delete queue {}, because : {}",
+                    &self.real_time_queue_name,
+                    err
+                )
+            })?;
+        channel
+            .queue_delete(
+                &self.real_time_queue_name,
+                lapin::options::QueueDeleteOptions::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not delete queue {}, because : {}",
+                    &self.real_time_queue_name,
+                    err
+                )
+            })?;
+
+        channel
+            .exchange_declare(
+                &self.params.exchange,
+                ExchangeKind::Topic,
+                ExchangeDeclareOptions {
+                    durable: true,
+                    ..Default::default()
+                },
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not delete exchange {}, because : {}",
+                    &self.params.exchange,
+                    err
+                )
+            })?;
+
+        channel
+            .queue_declare(
+                &self.real_time_queue_name,
+                QueueDeclareOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not declare queue {}, because : {}",
+                    &self.real_time_queue_name,
+                    err
+                )
+            })?;
+        info!(
+            "Queue declared for kirin real time : {}",
+            &self.real_time_queue_name
+        );
+
+        channel
+            .queue_declare(
+                &self.reload_queue_name,
+                QueueDeclareOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not declare queue {}, because : {}",
+                    &self.reload_queue_name,
+                    err
+                )
+            })?;
+        info!(
+            "Queue declared for kirin reload : {}",
+            &self.reload_queue_name
+        );
+
+        for topic in &self.params.rt_topics {
+            channel
+                .queue_bind(
+                    &self.real_time_queue_name,
+                    &self.params.exchange,
+                    topic,
+                    QueueBindOptions::default(),
+                    FieldTable::default(),
+                )
+                .await
+                .map_err(|err| {
+                    format_err!(
+                        "Could not bind queue {} to topic {}, because : {}",
+                        &self.reload_queue_name,
+                        topic,
+                        err
+                    )
+                })?;
+
+            info!(
+                "Kirin real time queue {} binded successfully to topic {} on exchange {}",
+                &self.real_time_queue_name, topic, &self.params.exchange,
+            );
+        }
+
+        Ok(channel)
     }
 
-    async fn listen_for_kirin_real_time(&mut self, channel : & Channel, queue : & Queue) {
-        // loop select 
-        //   - receive reload task : send reload data order to master, call self.reload_kirin
-        //   - receive realtime message : put in buffer
-        //   - clock.tick : send buffer to master
+    async fn reload_kirin(&mut self, channel: &lapin::Channel) {}
+
+    async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+        let mut real_time_messages_consumer = channel
+            .basic_consume(
+                &self.real_time_queue_name,
+                "",
+                BasicConsumeOptions {
+                    no_local: true,
+                    no_ack: false,
+                    exclusive: false,
+                    ..BasicConsumeOptions::default()
+                },
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not create consumer to queue {}, because {}",
+                    &self.reload_queue_name,
+                    err
+                )
+            })?;
+
+        let mut reload_consumer = channel
+            .basic_consume(
+                &self.reload_queue_name,
+                "",
+                BasicConsumeOptions {
+                    no_local: true,
+                    no_ack: false,
+                    exclusive: false,
+                    ..BasicConsumeOptions::default()
+                },
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not create consumer to queue {}, because {}",
+                    &self.reload_queue_name,
+                    err
+                )
+            })?;
+
+        use tokio::time;
+        let interval = time::interval(Duration::from_secs(
+            self.params.real_time_update_interval.total_seconds(),
+        ));
+        tokio::pin!(interval);
+
+        loop {
+            tokio::select! {
+                // sends all messages in the buffer every X seconds
+                _ = interval.tick() => {
+                    debug!("It's time to send kirin messages to Master.");
+                    // Timeout, no matter whether there're messages or not in Rabbitmq, we send the messages in buffer
+                    self.send_proto_messages().await?;
+
+                }
+                // when a real time message arrives, put it in the buffer
+                has_real_time_message = real_time_messages_consumer.next() => {
+                    match has_real_time_message {
+                        Some(Ok((channel, delivery))) => {
+                            // acknowledge reception of the message
+                            channel
+                                .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                                .await
+                                .map_err(|err| { error!("Error while acknowleding reception of kirin message : {}", err); });
+
+                            let proto_message_result = gtfs_realtime::FeedMessage::parse_from_bytes(&delivery.data.as_slice());
+                            match proto_message_result {
+                                Ok(proto_message) => {
+                                    self.kirin_messages.push(proto_message);
+                                },
+                                Err(err) => {
+                                    error!("Could not decode kirin message into protobuf : {}", err);
+                                },
+                            }
+                        },
+                        Some(Err(err)) => {
+                            error!("Error while receiving a kirin message : {:?}", err);
+                        }
+                        None => {
+                            bail!("Consumer for kirin messages has closed.");
+                        }
+                    }
+                }
+                // listen for Reload order
+                has_reload = reload_consumer.next() => {
+                    // if we have unhandled kirin messages, we clear them,
+                    // since we are going to request a full reload from kirin
+                    self.kirin_messages.clear();
+                    // send message to master to reload data from disk
+                    self.reload_data_sender.send(()).await
+                        .map_err(|err| format_err!("Channel reload_data has closed : {}", err))?;
+                    self.reload_kirin(channel).await;
+                }
+            }
+        }
+    }
+
+    async fn send_proto_messages(&mut self) -> Result<(), Error> {
+        if self.kirin_messages.is_empty() {
+            return Ok(());
+        }
+        let messages = std::mem::take(&mut self.kirin_messages);
+        self.kirin_messages_sender
+            .send(messages)
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Channel to send kirin messages to Master has closed : {}.",
+                    err
+                )
+            })
     }
 
     pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<()>, Error> {
@@ -181,266 +439,4 @@ impl RabbitMqWorker {
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
         Ok(handle)
     }
-}
-
-
-// pub fn listen_amqp_in_a_thread(
-//     params: RabbitMqParams,
-//     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-// ) -> Result<std::thread::JoinHandle<()>, Error> {
-//     let runtime = Builder::new_current_thread()
-//         .enable_all()
-//         .build()
-//         .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
-
-//     let thread_builder = thread::Builder::new().name("loki_amqp_worker".to_string());
-//     let handle = thread_builder
-//         .spawn(move || runtime.block_on(init_and_listen_amqp(params, amqp_message_sender)))?;
-//     Ok(handle)
-// }
-
-// async fn init_and_listen_amqp(
-//     params: RabbitMqParams,
-//     amqp_message_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-// ) {
-//     let mut retry_interval =
-//         tokio::time::interval(Duration::from_millis(params.connection_timeout));
-//     loop {
-//         let amqp_worker = RealTimeWorker::new(params.clone(), amqp_message_sender.clone());
-//         match amqp_worker {
-//             Ok(mut worker) => {
-//                 let res = worker.consume().await;
-//                 if let Err(err) = res {
-//                     error!("RabbitmqWorker: An error occurred: {}", err);
-//                 }
-//             }
-//             Err(err) => {
-//                 error!("Connection to rabbitmq failed: {}", err);
-//             }
-//         };
-//         // If connection fails or an error occurs then retry connecting after x seconds
-//         retry_interval.tick().await;
-//     }
-// }
-
-// TODO : listen to both queue_task and queue_rt -> later
-// handle init : ask kirin to send
-impl RealTimeWorker {
-    pub fn new(
-        params : &RabbitMqParams,
-        kirin_messages_sender: mpsc::Sender<Vec<gtfs_realtime::FeedMessage>>,
-    ) -> Result<Self, Error> {
-        let connection = create_connection(&params.endpoint)?;
-        let channel = create_channel(&params.exchange, &connection)?;
-
-        // TODO : create a name unique to this instance of loki
-        // for example : hostname_instance
-        let queue_name = format!("{}_rt", "loki_hostname");
-        let queue = declare_queue(&params, &channel, queue_name.as_str())?;
-        bind_queue(
-            &channel,
-            params.rt_topics.as_slice(),
-            &params.exchange,
-            queue_name.as_str(),
-        )?;
-
-        Ok(Self {
-            channel,
-            queue,
-            proto_messages: Vec::new(),
-            kirin_messages_sender,
-            real_time_update_interval : params.real_time_update_interval.clone()
-        })
-    }
-
-    async fn handle_message(
-        &mut self,
-        message: Option<Result<(Channel, Delivery), lapin::Error>>,
-    ) -> Result<(), Error> {
-        match message {
-            Some(Ok((channel, delivery))) => {
-                channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
-                    .await?;
-                let proto_message = decode_amqp_rt_message(&delivery);
-                match proto_message {
-                    Ok(proto_message) => {
-                        self.proto_messages.push(proto_message);
-                        Ok(())
-                    }
-                    Err(err) => {
-                        // There's something wrong when decoding the proto message, but we don't want to interrupt the process
-                        error!("Error decoding proto message : {}", err.to_string());
-                        Ok(())
-                    }
-                }
-            }
-            Some(Err(err)) => {
-                return Err(format_err!(
-                    "An error occurred when consuming amqp message : {}",
-                    err
-                ));
-            }
-            None => {
-                return Err(format_err!(
-                    "An unknown error occurred when consuming amqp message",
-                ));
-            }
-        }
-    }
-
-    async fn send_proto_messages(&mut self) -> Result<(), Error> {
-        if self.proto_messages.is_empty() {
-            return Ok(());
-        }
-        let proto_message = std::mem::take(&mut self.proto_messages);
-        self.kirin_messages_sender
-            .send(proto_message)
-            .await
-            .map_err(|err| format_err!("AMQP Worker could not send proto_message : {}.", err))
-    }
-
-    async fn run(&mut self) -> Result<(), Error> {
-        let mut rt_consumer: Consumer = self
-            .channel
-            .basic_consume(
-                self.queue.name().as_str(),
-                "rt_consumer",
-                BasicConsumeOptions {
-                    nowait: false,
-                    ..BasicConsumeOptions::default()
-                },
-                FieldTable::default(),
-            )
-            .await?;
-
-        use tokio::time;
-        let interval = time::interval(Duration::from_secs(
-            self.real_time_update_interval.total_seconds(),
-        ));
-        tokio::pin!(interval);
-
-        loop {
-            tokio::select! {
-                // sends all messages in the buffer every X seconds
-                _ = interval.tick() => {
-                    debug!("Receiving timed out");
-                    // Timeout, no matter whether there're messages or not in Rabbitmq, we send the messages in buffer
-                    self.send_proto_messages().await?;
-
-                }
-                // put incoming real time messages in the buffer
-                res = rt_consumer.next() => {
-                    self.handle_message(res).await?;
-
-                }
-            }
-        }
-    }
-}
-
-pub fn connect(params: & RabbitMqParams) -> Result<(Channel, Queue), Error>{
-    let connection = create_connection(&params.endpoint)?;
-    let channel = create_channel(&params.exchange, &connection)?;
-
-    // TODO : create a name unique to this instance of loki
-    // for example : hostname_instance
-    let queue_name = format!("{}_rt", "loki_hostname");
-    let queue = declare_queue(&params, &channel, queue_name.as_str())?;
-    bind_queue(
-        &channel,
-        params.rt_topics.as_slice(),
-        &params.exchange,
-        queue_name.as_str(),
-    )?;
-    Ok((channel, queue))
-}
-
-fn create_connection(endpoint: &str) -> Result<Connection, Error> {
-    info!("Connection to rabbitmq {}", endpoint);
-    let connection = Connection::connect(endpoint, ConnectionProperties::default()).wait()?;
-    info!("connected to rabbitmq {} successfully", endpoint);
-    Ok(connection)
-}
-
-fn create_channel(exchange: &str, connection: &Connection) -> Result<Channel, Error> {
-    let channel = connection.create_channel().wait()?;
-    channel
-        .exchange_declare(
-            exchange,
-            ExchangeKind::Topic,
-            ExchangeDeclareOptions {
-                durable: true,
-                ..Default::default()
-            },
-            FieldTable::default(),
-        )
-        .wait()?;
-    debug!("channel created successfully");
-    Ok(channel)
-}
-
-fn declare_queue(
-    params: &RabbitMqParams,
-    channel: &Channel,
-    queue_name: &str,
-) -> Result<Queue, Error> {
-    let queue = channel
-        .queue_declare(
-            queue_name,
-            QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .wait()?;
-    for topic in &params.rt_topics {
-        channel
-            .queue_bind(
-                queue_name,
-                &params.exchange,
-                topic,
-                QueueBindOptions::default(),
-                FieldTable::default(),
-            )
-            .wait()?;
-    }
-
-    debug!("queue {} declared successfully", queue_name);
-    Ok(queue)
-}
-
-fn bind_queue(
-    channel: &Channel,
-    topics: &[String],
-    exchange: &str,
-    queue_name: &str,
-) -> Result<(), Error> {
-    for topic in topics {
-        channel
-            .queue_bind(
-                queue_name,
-                exchange,
-                topic,
-                QueueBindOptions::default(),
-                FieldTable::default(),
-            )
-            .wait()?;
-    }
-    debug!(
-        "queue {} binded successfully, exchange : {}, topics : {:?}",
-        queue_name, exchange, topics
-    );
-    Ok(())
-}
-
-fn decode_amqp_rt_message(
-    message: &lapin::message::Delivery,
-) -> Result<gtfs_realtime::FeedMessage, Error> {
-    use protobuf::Message;
-    let payload = &message.data;
-    gtfs_realtime::FeedMessage::parse_from_bytes(&payload[..]).map_err(|err| {
-        format_err!(
-            "Could not decode rabbitmq realtime message into protobuf: \n {}",
-            err
-        )
-    })
 }

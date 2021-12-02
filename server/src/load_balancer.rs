@@ -78,9 +78,10 @@ pub struct LoadBalancer {
     workers_response_receiver: mpsc::Receiver<(WorkerId, ResponseMessage)>,
     worker_states: Vec<WorkerState>,
 
-    load_balancer_order_receiver: mpsc::Receiver<LoadBalancerOrder>,
-    load_balancer_stopped_sender: mpsc::Sender<()>,
-    load_balancer_error_sender: mpsc::Sender<()>,
+    order_receiver: mpsc::Receiver<LoadBalancerOrder>,
+    stopped_sender: mpsc::Sender<()>,
+    error_sender: mpsc::Sender<()>,
+
     state: LoadBalancerState,
 
     zmq_worker_handle: ZmqWorkerChannels,
@@ -118,24 +119,24 @@ impl LoadBalancer {
         let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
-        let (load_balancer_order_sender, load_balancer_order_receiver) = mpsc::channel(1);
-        let (load_balancer_stopped_sender, load_balancer_stopped_receiver) = mpsc::channel(1);
-        let (load_balancer_error_sender, load_balancer_error_receiver) = mpsc::channel(1);
+        let (order_sender, order_receiver) = mpsc::channel(1);
+        let (stopped_sender, stopped_receiver) = mpsc::channel(1);
+        let (error_sender, error_receiver) = mpsc::channel(1);
 
         // Master worker
         let load_balancer_handle = LoadBalancerChannels {
-            load_balancer_order_sender,
-            load_balancer_stopped_receiver,
-            load_balancer_error_receiver,
+            order_sender,
+            stopped_receiver,
+            error_receiver,
         };
 
         let result = Self {
             worker_request_senders,
             workers_response_receiver,
             worker_states,
-            load_balancer_order_receiver,
-            load_balancer_stopped_sender,
-            load_balancer_error_sender,
+            order_receiver,
+            stopped_sender,
+            error_sender,
             state: LoadBalancerState::Online,
             zmq_worker_handle,
         };
@@ -166,7 +167,7 @@ impl LoadBalancer {
         // If we exited the loop it means we got an error
         // We need to warn Master worker that we are broken
         // So MasterWorker can shutdown the program
-        let res = self.load_balancer_error_sender.send(()).await;
+        let res = self.error_sender.send(()).await;
         if let Err(err) = res {
             error!(
                 "Channel load_balancer_error to Master has closed : {}. Load balancer will die, and Master will not known about it.",
@@ -217,13 +218,13 @@ impl LoadBalancer {
                                 .all(|state| *state == WorkerState::Available);
                         if all_workers_available {
                             self.state = LoadBalancerState::Stopped;
-                            self.load_balancer_stopped_sender.send(()).await
+                            self.stopped_sender.send(()).await
                                 .map_err(|err| format_err!("Channel load_balancer_stopped has closed : {}", err))?;
                         }
                     }
                 }
                 // receive order from the Master
-                has_order = self.load_balancer_order_receiver.recv() => {
+                has_order = self.order_receiver.recv() => {
                     let order = has_order.ok_or_else(|| format_err!("Channel to receive Master Worker order has closed."))?;
                     match (&order, self.state) {
                         (LoadBalancerOrder::Start, LoadBalancerState::Stopped) => {

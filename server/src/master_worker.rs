@@ -50,7 +50,7 @@ use tokio::{
 
 use crate::{
     handle_kirin_message::handle_kirin_protobuf, load_balancer::LoadBalancer,
-    rabbitmq_worker::listen_amqp_in_a_thread, Config,
+    rabbitmq_worker::RabbitMqWorker, Config,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,9 +62,9 @@ pub enum LoadBalancerOrder {
 pub type Timetable = PeriodicSplitVjByTzTimetables;
 
 pub struct LoadBalancerChannels {
-    pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
-    pub load_balancer_stopped_receiver: mpsc::Receiver<()>,
-    pub load_balancer_error_receiver: mpsc::Receiver<()>,
+    pub order_sender: mpsc::Sender<LoadBalancerOrder>,
+    pub stopped_receiver: mpsc::Receiver<()>,
+    pub error_receiver: mpsc::Receiver<()>,
 }
 
 pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
@@ -72,25 +72,28 @@ pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
 pub struct MasterWorker {
     config: Config,
     data_and_models: Arc<RwLock<DataAndModels>>,
-    amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
-    load_balancer_handle: LoadBalancerChannels,
+    kirin_messages_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
+    reload_data_receiver: mpsc::Receiver<()>,
+    load_balancer_channels: LoadBalancerChannels,
 }
 
 impl MasterWorker {
     pub fn new(config: Config) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
-        let base_model = BaseModel::empty();
 
+        // Initialize models and data.
+        // We init everything with empty data.
+        // We will read the data from disk when run() is called
+        let base_model = BaseModel::empty();
         let data = launch::read::build_transit_data::<Timetable>(
             &base_model,
             &launch_params.default_transfer_duration,
         );
-
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
         // LoadBalancer worker
-        let (load_balancer, load_balancer_handle) = LoadBalancer::new(
+        let (load_balancer, load_balancer_channels) = LoadBalancer::new(
             data_and_models.clone(),
             config.nb_workers,
             &config.requests_socket,
@@ -98,17 +101,25 @@ impl MasterWorker {
         )?;
         let _load_balancer_thread_handle = load_balancer.run_in_a_thread()?;
 
-        // AMQP worker
-        let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
-        let _amqp_thread_handle =
-            listen_amqp_in_a_thread(config.rabbitmq_params.clone(), amqp_message_sender);
+        // RabbitMq worker
+        let (kirin_messages_sender, kirin_messages_receiver) = mpsc::channel(1);
+        let (reload_data_sender, reload_data_receiver) = mpsc::channel(1);
+
+        let rabbitmq_worker = RabbitMqWorker::new(
+            config.rabbitmq_params.clone(),
+            config.launch_params.instance_name.clone(),
+            kirin_messages_sender,
+            reload_data_sender,
+        );
+        let _rabbitmq_thread_handle = rabbitmq_worker.run_in_a_thread()?;
 
         // Master worker
         let result = Self {
             config,
             data_and_models,
-            amqp_message_receiver,
-            load_balancer_handle,
+            kirin_messages_receiver,
+            load_balancer_channels,
+            reload_data_receiver,
         };
         Ok(result)
     }
@@ -121,7 +132,13 @@ impl MasterWorker {
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
         let launch_params = self.config.launch_params.clone();
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params)?;
+            let new_base_model = launch::read::read_model(&launch_params).map_err(|err| {
+                format_err!(
+                    "Could not read data from disk at {}, because {}",
+                    &launch_params.input_data_path,
+                    err
+                )
+            })?;
             info!("Model loaded");
             info!("Starting to build data");
             let new_data = launch::read::build_transit_data::<Timetable>(
@@ -143,7 +160,8 @@ impl MasterWorker {
         info!("Starting Master worker");
         loop {
             tokio::select! {
-                has_proto_vec = self.amqp_message_receiver.recv() => {
+                // receive a kirin message
+                has_proto_vec = self.kirin_messages_receiver.recv() => {
                     let vec_protobuf = has_proto_vec
                         .ok_or_else(||
                             format_err!("Channel to receive realtime messages has closed.")
@@ -155,14 +173,17 @@ impl MasterWorker {
                         .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
 
                 }
-                // receive reload order 
-                _has_load_balancer_error = self
-                    .load_balancer_handle
+                // receive reload order
+                has_reload_order = self.reload_data_receiver {
+                    self.load_data_from_disk().await?;
+                }
+                // receive an error message from load balancer
+                _ = self.load_balancer_handle
                     .load_balancer_error_receiver
                     .recv() => {
                         // We don't even need to know if _has_load_balancer_error is None or not
                         // is LoadBalancer send an Error we must shutdown
-                        error!("Load Balancer is broken, exit program safely");
+                        bail!("Load Balancer is broken, exit program safely.");
                         break;
                     }
             }
