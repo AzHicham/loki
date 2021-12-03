@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use super::chaos_proto::gtfs_realtime;
-use failure::{format_err, Error};
+use failure::{bail, format_err, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
@@ -134,7 +134,7 @@ impl MasterWorker {
         let updater = move |data_and_models: &mut DataAndModels| {
             let new_base_model = launch::read::read_model(&launch_params).map_err(|err| {
                 format_err!(
-                    "Could not read data from disk at {}, because {}",
+                    "Could not read data from disk at {:?}, because {}",
                     &launch_params.input_data_path,
                     err
                 )
@@ -174,21 +174,19 @@ impl MasterWorker {
 
                 }
                 // receive reload order
-                has_reload_order = self.reload_data_receiver {
+                has_reload_order = self.reload_data_receiver.recv() => {
                     self.load_data_from_disk().await?;
                 }
                 // receive an error message from load balancer
-                _ = self.load_balancer_handle
-                    .load_balancer_error_receiver
+                _ = self.load_balancer_channels
+                    .error_receiver
                     .recv() => {
                         // We don't even need to know if _has_load_balancer_error is None or not
                         // is LoadBalancer send an Error we must shutdown
                         bail!("Load Balancer is broken, exit program safely.");
-                        break;
                     }
             }
         }
-        Ok(())
     }
 
     async fn update_data_and_models<Updater>(&mut self, updater: Updater) -> Result<(), Error>
@@ -197,8 +195,8 @@ impl MasterWorker {
     {
         // Wait for the LoadBalancer to Stop
         debug!("MasterWork waiting for LoadBalancer to Stop");
-        self.load_balancer_handle
-            .load_balancer_stopped_receiver
+        self.load_balancer_channels
+            .stopped_receiver
             .recv()
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
@@ -242,8 +240,8 @@ impl MasterWorker {
         order: LoadBalancerOrder,
     ) -> Result<(), SendError<LoadBalancerOrder>> {
         let res = self
-            .load_balancer_handle
-            .load_balancer_order_sender
+            .load_balancer_channels
+            .order_sender
             .send(order.clone())
             .await;
         if let Err(err) = &res {
