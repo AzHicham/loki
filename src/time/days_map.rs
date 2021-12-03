@@ -70,7 +70,7 @@ impl<T> DaysMap<T> {
         // is there a day in days_pattern_to_insert that is already set somewhere ?
         for (days_pattern, _) in self.data.iter() {
             let common_days = days_patterns.common_days(days_pattern, days_pattern_to_insert);
-            if common_days.is_empty() {
+            if !common_days.is_empty() {
                 return Err(InsertError::DaysAlreadySet(common_days));
             }
         }

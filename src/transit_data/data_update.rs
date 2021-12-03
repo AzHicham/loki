@@ -331,7 +331,7 @@ where
                 // in vehicle_journey_to_timetable.
                 // So we should not obtain any error while inserting.
                 // If this happens, let's just log an error and keep going.
-                error!("Error while inserting a real time only vehicle : {:?}", err);
+                error!("Error while inserting a vehicle : {:?}", err);
             }
         }
 
