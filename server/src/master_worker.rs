@@ -70,7 +70,7 @@ pub struct LoadBalancerChannels {
 pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
 
 pub struct MasterWorker {
-    config: Config,
+    config_: Config,
     data_and_models: Arc<RwLock<DataAndModels>>,
     kirin_messages_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
     reload_data_receiver: mpsc::Receiver<()>,

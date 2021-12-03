@@ -50,22 +50,23 @@ pub mod compute_worker;
 pub mod load_balancer;
 pub mod master_worker;
 
+pub mod config;
+pub mod data_worker;
+
 pub mod rabbitmq_worker;
 
 use launch::{
-    config,
     loki::tracing::{debug, info},
 };
 
 use structopt::StructOpt;
 
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::{PathBuf, Path}};
 
 use failure::{bail, Error};
 
-use crate::rabbitmq_worker::RabbitMqParams;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use config::Config;
+
 
 #[derive(StructOpt)]
 #[structopt(
@@ -73,71 +74,10 @@ use std::fmt::Debug;
     about = "Run loki server.",
     rename_all = "snake_case"
 )]
-pub enum Options {
-    /// Create a config file from cli arguments
-    CreateConfig(ConfigCreator),
-    /// Launch from a config file
-    ConfigFile(ConfigFile),
-    /// Launch from cli arguments
-    Launch(Config),
-}
-
-#[derive(StructOpt)]
-#[structopt(rename_all = "snake_case")]
-pub struct ConfigCreator {
-    #[structopt(flatten)]
-    pub config: Config,
-}
-
-#[derive(StructOpt)]
-pub struct ConfigFile {
+pub struct Options {
     /// path to the json config file
     #[structopt(parse(from_os_str))]
-    file: PathBuf,
-}
-
-#[derive(Serialize, Deserialize, StructOpt, Debug)]
-#[structopt(rename_all = "snake_case")]
-pub struct Config {
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    launch_params: config::LaunchParams,
-
-    /// zmq socket to listen for protobuf requests
-    #[structopt(long)]
-    requests_socket: String,
-
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    request_default_params: config::RequestParams,
-
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    rabbitmq_params: RabbitMqParams,
-
-    /// number of workers that solve requests in parallel
-    #[structopt(long, default_value = DEFAULT_NB_THREADS)]
-    #[serde(default = "default_nb_thread")]
-    nb_workers: usize,
-
-    /// number of days of realtime history to keep in data
-    #[structopt(long, default_value = DEFAULT_NB_REALTIME_DAYS)]
-    #[serde(default = "default_nb_realtime_days")]
-    nb_of_realtime_days_to_keep: u16,
-}
-
-pub const DEFAULT_NB_THREADS: &str = "1";
-
-pub fn default_nb_thread() -> usize {
-    use std::str::FromStr;
-    usize::from_str(DEFAULT_NB_THREADS).unwrap()
-}
-
-pub const DEFAULT_NB_REALTIME_DAYS: &str = "2";
-
-pub fn default_nb_realtime_days() -> u16 {
-    use std::str::FromStr;
-    u16::from_str(DEFAULT_NB_REALTIME_DAYS).unwrap()
+    config_file: PathBuf,
 }
 
 fn main() {
@@ -152,32 +92,16 @@ fn main() {
 
 fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();
-    match options {
-        Options::ConfigFile(config_file) => {
-            let config = read_config(&config_file)?;
-            launch_master_worker(config)?;
-            Ok(())
-        }
-        Options::CreateConfig(config_creator) => {
-            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
-
-            println!("{}", json_string);
-
-            Ok(())
-        }
-        Options::Launch(config) => {
-            launch_master_worker(config)?;
-            Ok(())
-        }
-    }
+    let config = read_config(&options.config_file)?;
+    launch_master_worker(config)
 }
 
-pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
-    info!("Reading config from file {:?}", &config_file.file);
-    let file = match File::open(&config_file.file) {
+pub fn read_config(config_file: &Path) -> Result<Config, Error> {
+    info!("Reading config from file {:?}", &config_file);
+    let file = match File::open(&config_file) {
         Ok(file) => file,
         Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+            bail!("Error opening config file {:?} : {}", &config_file, e)
         }
     };
     let reader = BufReader::new(file);

@@ -51,10 +51,6 @@ pub struct LaunchParams {
     #[structopt(long)]
     pub input_data_type: InputDataType,
 
-    /// instance name
-    #[structopt(long)]
-    pub instance_name: String,
-
     /// path to the passengers loads file
     #[structopt(long)]
     pub loads_data_path: Option<std::path::PathBuf>,
