@@ -90,6 +90,9 @@ pub struct RabbitMqParams {
 
     #[serde(default = "default_reload_request_time_to_live")]
     pub reload_request_time_to_live: PositiveDuration,
+
+    #[serde(default = "default_reload_kirin_timeout")]
+    pub reload_kirin_timeout : PositiveDuration,
 }
 
 
@@ -124,4 +127,9 @@ pub fn default_rabbitmq_connect_retry_interval() -> PositiveDuration {
 pub fn default_reload_request_time_to_live() -> PositiveDuration {
     PositiveDuration::from_str("00:00:02").unwrap()
 }
+
+pub fn default_reload_kirin_timeout() -> PositiveDuration {
+    PositiveDuration::from_str("00:01:00").unwrap()
+}
+
 

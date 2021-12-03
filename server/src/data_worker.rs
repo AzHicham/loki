@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{config::{RabbitMqParams, Config}, master_worker::{DataAndModels, LoadBalancerChannels, Timetable, LoadBalancerOrder}, handle_kirin_message::handle_kirin_protobuf};
+use crate::{config::{Config}, master_worker::{DataAndModels, LoadBalancerChannels, Timetable, LoadBalancerOrder}, handle_kirin_message::handle_kirin_protobuf};
 
 use super::chaos_proto::gtfs_realtime;
 use super::navitia_proto;
@@ -199,7 +199,7 @@ impl DataWorker {
                 _ = interval.tick() => {
                     debug!("It's time to apply real time updates.");
                     let messages = std::mem::take(& mut self.kirin_messages);
-                    self.apply_realtime_messages(messages).await?;
+                    self.apply_realtime_messages().await?;
                     debug!("Successfully applied real time updates.");
 
                 }
@@ -251,8 +251,8 @@ impl DataWorker {
 
     async fn apply_realtime_messages(
         &mut self,
-        messages: Vec<gtfs_realtime::FeedMessage>,
     ) -> Result<(), Error> {
+        let messages = std::mem::take(&mut self.kirin_messages);
         let updater = |data_and_models: &mut DataAndModels| {
             let data = &mut data_and_models.0;
             let base_model = &data_and_models.1;
@@ -289,6 +289,7 @@ impl DataWorker {
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
 
+        let update_error =
         {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
                 format_err!(
@@ -297,12 +298,15 @@ impl DataWorker {
                 )
             })?;
 
-            updater(&mut *lock_guard)?;
-        } // lock_guard is now released
+            updater(&mut *lock_guard)
+        }; // lock_guard is now released
 
         debug!("Master ask LoadBalancer to Start");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
-            .await
+            .await?;
+
+        update_error
+
     }
 
     async fn send_order_to_load_balancer(
@@ -498,6 +502,9 @@ impl DataWorker {
             &self.host_name, &self.config.instance_name
         );
 
+        // let's first delete the queue, just in case
+        delete_queue(channel, &queue_name).await?;
+
         channel.queue_declare(
                 &queue_name,
                 QueueDeclareOptions {
@@ -534,7 +541,7 @@ impl DataWorker {
             }; // lock is dropped here
 
             let load_realtime = navitia_proto::LoadRealtime {
-                queue_name,
+                queue_name: queue_name.clone(),
                 contributors: self.config.rabbitmq_params.rabbitmq_real_time_topics.clone(),
                 begin_date: Some(start_date), 
                 end_date:  Some(end_date),
@@ -564,7 +571,27 @@ impl DataWorker {
             .await?
             .await?;
 
-        // wait for the reload messages
+        // wait for the reload messages from kirin
+        let mut consumer = create_consumer(channel, &queue_name).await?;
+        let timeout = std::time::Duration::from_secs(self.config.rabbitmq_params.reload_kirin_timeout.total_seconds());
+
+        let has_message = tokio::time::timeout(timeout,
+                consumer.next()
+            ).await;
+
+        match has_message {
+            Err(err) => {
+                error!("Realtime reload timed out. I'll keep running without it.");
+                
+            },
+            Ok(message) => {
+                self.handle_incoming_kirin_message(message).await?;
+                self.apply_realtime_messages().await?;
+            },
+            
+        }
+
+        delete_queue(channel, &queue_name).await?;
 
         Ok(())
     }
@@ -601,6 +628,22 @@ async fn create_consumer(channel : & lapin::Channel, queue_name : &str) -> Resul
         format_err!(
             "Could not create consumer to queue {}, because {}",
             queue_name,
+            err
+        )
+    })
+}
+
+async fn delete_queue(channel : & lapin::Channel, queue_name : &str) -> Result<u32, Error> {
+    channel
+    .queue_delete(
+        &queue_name,
+        lapin::options::QueueDeleteOptions::default(),
+    )
+    .await
+    .map_err(|err| {
+        format_err!(
+            "Could not delete queue {}, because : {}",
+            &queue_name,
             err
         )
     })
