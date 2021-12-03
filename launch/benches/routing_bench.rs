@@ -68,7 +68,7 @@ fn routing_daily_bench(bencher: &mut Bencher) {
         .add_transfer("B", "F", "00:02:00")
         .build();
 
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
 
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
     let config = Config {
@@ -80,7 +80,7 @@ fn routing_daily_bench(bencher: &mut Bencher) {
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     bencher.iter(|| {
-        build_and_solve(&model_refs, &loki::LoadsData::empty(), &config).unwrap();
+        build_and_solve(&model_refs, &config).unwrap();
     });
 }
 
@@ -113,11 +113,11 @@ fn routing_periodic_bench(bencher: &mut Bencher) {
         data_implem: DataImplem::Periodic,
         ..config
     };
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     bencher.iter(|| {
-        build_and_solve(&model_refs, &loki::LoadsData::empty(), &config).unwrap();
+        build_and_solve(&model_refs, &config).unwrap();
     });
 }

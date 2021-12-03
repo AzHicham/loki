@@ -56,8 +56,7 @@ use loki::{chrono::TimeZone, filters::Filters, models::ModelRefs, request::gener
 use loki::{chrono_tz, tracing::debug};
 
 use loki::{
-    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration,
-    TransitData,
+    DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration, TransitData,
 };
 use model_builder::AsDateTime;
 

@@ -34,11 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{config::{Config}, master_worker::{DataAndModels, LoadBalancerChannels, Timetable, LoadBalancerOrder}, handle_kirin_message::handle_kirin_protobuf};
+use crate::{
+    config::Config,
+    handle_kirin_message::handle_kirin_protobuf,
+    load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
+    master_worker::{DataAndModels, Timetable},
+};
 
 use super::chaos_proto::gtfs_realtime;
 use super::navitia_proto;
-use protobuf::Message;
+use prost::Message as ProstMessage;
+use protobuf::Message as ProtobufMessage;
 
 use failure::{bail, format_err, Error};
 use lapin::{
@@ -50,22 +56,21 @@ use lapin::{
     BasicProperties, ExchangeKind,
 };
 
-use std::{
-    ops::Deref,
-};
+use std::ops::Deref;
 
 use futures::StreamExt;
 use launch::loki::{
+    models::RealTimeModel,
     tracing::{debug, error, info},
-    models::RealTimeModel, DataTrait,
+    DataTrait,
 };
 
-use std::{thread, sync::{Arc, RwLock}};
+use std::{
+    sync::{Arc, RwLock},
+    thread,
+};
 
-
-
-use tokio::{runtime::Builder,  time::Duration};
-
+use tokio::{runtime::Builder, time::Duration};
 
 pub struct DataWorker {
     config: Config,
@@ -73,18 +78,13 @@ pub struct DataWorker {
     data_and_models: Arc<RwLock<DataAndModels>>,
 
     load_balancer_channels: LoadBalancerChannels,
-    
+
     host_name: String,
     real_time_queue_name: String,
     reload_queue_name: String,
 
-
     kirin_messages: Vec<gtfs_realtime::FeedMessage>,
     kirin_reload_done: bool,
-
-    
-
-
 }
 
 impl DataWorker {
@@ -108,7 +108,7 @@ impl DataWorker {
                 String::from("unknown_host")
             });
 
-        let instance_name = config.instance_name;
+        let instance_name = &config.instance_name;
         let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
         let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
         Self {
@@ -124,12 +124,13 @@ impl DataWorker {
     }
 
     async fn run(mut self) -> Result<(), Error> {
-
-
         self.load_data_from_disk().await?;
 
         let mut rabbitmq_connect_retry_interval = tokio::time::interval(Duration::from_secs(
-            self.config.rabbitmq_params.rabbitmq_connect_retry_interval.total_seconds(),
+            self.config
+                .rabbitmq_params
+                .rabbitmq_connect_retry_interval
+                .total_seconds(),
         ));
 
         loop {
@@ -181,15 +182,18 @@ impl DataWorker {
         Ok(())
     }
 
-
     async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
-        let mut real_time_messages_consumer = create_consumer(channel, &self.real_time_queue_name).await?;
+        let mut real_time_messages_consumer =
+            create_consumer(channel, &self.real_time_queue_name).await?;
 
         let mut reload_consumer = create_consumer(channel, &self.reload_queue_name).await?;
 
         use tokio::time;
         let interval = time::interval(Duration::from_secs(
-            self.config.rabbitmq_params.real_time_update_interval.total_seconds(),
+            self.config
+                .rabbitmq_params
+                .real_time_update_interval
+                .total_seconds(),
         ));
         tokio::pin!(interval);
 
@@ -198,7 +202,6 @@ impl DataWorker {
                 // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
                     debug!("It's time to apply real time updates.");
-                    let messages = std::mem::take(& mut self.kirin_messages);
                     self.apply_realtime_messages().await?;
                     debug!("Successfully applied real time updates.");
 
@@ -208,19 +211,12 @@ impl DataWorker {
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
-                has_reload = reload_consumer.next() => {
-                    // if we have unhandled kirin messages, we clear them,
-                    // since we are going to request a full reload from kirin
-                    self.kirin_messages.clear();
-                    debug!("Received a Reload order.");
-                    self.load_data_from_disk().await?;
-                    self.reload_kirin(channel).await?;
-                    debug!("Reload completed successfully.");
+                has_reload_message = reload_consumer.next() => {
+                    self.handle_reload_message(has_reload_message, channel).await?;
                 }
             }
         }
     }
-
 
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
         let launch_params = self.config.launch_params.clone();
@@ -249,9 +245,7 @@ impl DataWorker {
         self.update_data_and_models(updater).await
     }
 
-    async fn apply_realtime_messages(
-        &mut self,
-    ) -> Result<(), Error> {
+    async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
         let messages = std::mem::take(&mut self.kirin_messages);
         let updater = |data_and_models: &mut DataAndModels| {
             let data = &mut data_and_models.0;
@@ -280,7 +274,8 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<(), Error>,
     {
-        self.send_order_to_load_balancer(LoadBalancerOrder::Stop).await?;
+        self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
+            .await?;
         // Wait for the LoadBalancer to Stop
         debug!("MasterWork waiting for LoadBalancer to Stop");
         self.load_balancer_channels
@@ -289,8 +284,7 @@ impl DataWorker {
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
 
-        let update_error =
-        {
+        let update_error = {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
                 format_err!(
                     "Master worker failed to acquire write lock on data_and_models. {}.",
@@ -306,45 +300,54 @@ impl DataWorker {
             .await?;
 
         update_error
-
     }
 
-    async fn send_order_to_load_balancer(
-        &mut self,
-        order: LoadBalancerOrder,
-    ) -> Result<(), Error> {
-        self
-            .load_balancer_channels
+    async fn send_order_to_load_balancer(&mut self, order: LoadBalancerOrder) -> Result<(), Error> {
+        self.load_balancer_channels
             .order_sender
             .send(order.clone())
             .await
-            .map_err(|err| format_err!("Could not send order {:?} to load balancer : {}", order, err))
+            .map_err(|err| {
+                format_err!(
+                    "Could not send order {:?} to load balancer : {}",
+                    order,
+                    err
+                )
+            })
     }
 
-    async fn handle_incoming_kirin_message(& mut self, 
-        has_real_time_message : Option<Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>>) 
-        -> Result<(), Error>
-        {
+    async fn handle_incoming_kirin_message(
+        &mut self,
+        has_real_time_message: Option<
+            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
+        >,
+    ) -> Result<(), Error> {
         match has_real_time_message {
             Some(Ok((channel, delivery))) => {
                 // acknowledge reception of the message
-                channel
+                let _ = channel
                     .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
                     .await
-                    .map_err(|err| { error!("Error while acknowleding reception of kirin message : {}", err); });
+                    .map_err(|err| {
+                        error!(
+                            "Error while acknowleding reception of kirin message : {}",
+                            err
+                        );
+                    });
 
-                let proto_message_result = gtfs_realtime::FeedMessage::parse_from_bytes(&delivery.data.as_slice());
+                let proto_message_result =
+                    gtfs_realtime::FeedMessage::parse_from_bytes(&delivery.data.as_slice());
                 match proto_message_result {
                     Ok(proto_message) => {
                         self.kirin_messages.push(proto_message);
                         Ok(())
-                    },
+                    }
                     Err(err) => {
                         error!("Could not decode kirin message into protobuf : {}", err);
                         Ok(())
-                    },
+                    }
                 }
-            },
+            }
             Some(Err(err)) => {
                 error!("Error while receiving a kirin message : {:?}", err);
                 Ok(())
@@ -355,20 +358,71 @@ impl DataWorker {
         }
     }
 
+    async fn handle_reload_message(
+        &mut self,
+        has_reload_message: Option<
+            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
+        >,
+        channel: &lapin::Channel,
+    ) -> Result<(), Error> {
+        match has_reload_message {
+            Some(Ok((reaload_channel, delivery))) => {
+                // acknowledge reception of the message
+                let _ = reaload_channel
+                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                    .await
+                    .map_err(|err| {
+                        error!(
+                            "Error while acknowleding reception of reload message : {}",
+                            err
+                        );
+                    });
+
+                let task_message_result = navitia_proto::Task::decode(delivery.data.as_slice());
+                match task_message_result {
+                    Ok(proto_message) => {
+                        let action = proto_message.action();
+                        if let navitia_proto::Action::Reload = action {
+                            debug!("Received a Reload order.");
+                            // if we have unhandled kirin messages, we clear them,
+                            // since we are going to request a full reload from kirin
+                            self.kirin_messages.clear();
+                            self.load_data_from_disk().await?;
+                            self.reload_kirin(&channel).await?;
+                            debug!("Reload completed successfully.");
+                        } else {
+                            error!(
+                                "Receive a reload message with unhandled action value : {:?}",
+                                action
+                            );
+                        }
+
+                        Ok(())
+                    }
+                    Err(err) => {
+                        error!("Could not decode reload message into protobuf : {}", err);
+                        Ok(())
+                    }
+                }
+            }
+            Some(Err(err)) => {
+                error!("Error while receiving a reload message : {:?}", err);
+                Ok(())
+            }
+            None => {
+                bail!("Consumer for reload messages has closed.");
+            }
+        }
+    }
+
     async fn connect(&self) -> Result<lapin::Channel, Error> {
         let endpoint = &self.config.rabbitmq_params.rabbitmq_endpoint;
-        let connection = lapin::Connection::connect(
-            endpoint,
-            lapin::ConnectionProperties::default(),
-        )
-        .await
-        .map_err(|err| {
-            format_err!(
-                "Could not connect to {}, because : {}",
-                endpoint,
-                err
-            )
-        })?;
+        let connection =
+            lapin::Connection::connect(endpoint, lapin::ConnectionProperties::default())
+                .await
+                .map_err(|err| {
+                    format_err!("Could not connect to {}, because : {}", endpoint, err)
+                })?;
 
         info!(
             "Successfully connected to rabbitmq at endpoint {}",
@@ -418,11 +472,7 @@ impl DataWorker {
             )
             .await
             .map_err(|err| {
-                format_err!(
-                    "Could not delete exchange {}, because : {}",
-                    exchange,
-                    err
-                )
+                format_err!("Could not delete exchange {}, because : {}", exchange, err)
             })?;
 
         // declare real time queue
@@ -505,7 +555,8 @@ impl DataWorker {
         // let's first delete the queue, just in case
         delete_queue(channel, &queue_name).await?;
 
-        channel.queue_declare(
+        channel
+            .queue_declare(
                 &queue_name,
                 QueueDeclareOptions {
                     passive: false,
@@ -515,7 +566,8 @@ impl DataWorker {
                     nowait: false,
                 },
                 FieldTable::default(),
-            ).await
+            )
+            .await
             .map_err(|err| {
                 format_err!(
                     "Could not declare queue {} to request realtime reload to Kirin, because : {}",
@@ -530,11 +582,14 @@ impl DataWorker {
             task.set_action(navitia_proto::Action::LoadRealtime);
 
             let (start_date, end_date) = {
-                let lock = self.data_and_models.read().map_err(|err|
-                    format_err!("DataWorker failed to acquire read lock on data_and_models : {}", err)
-                )?;
+                let lock = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "DataWorker failed to acquire read lock on data_and_models : {}",
+                        err
+                    )
+                })?;
 
-                let (data, _, _ ) = lock.deref();
+                let (data, _, _) = lock.deref();
                 let start_date = data.calendar().first_date().format("%Y%m%d").to_string();
                 let end_date = data.calendar().last_date().format("%Y%m%d").to_string();
                 (start_date, end_date)
@@ -542,9 +597,13 @@ impl DataWorker {
 
             let load_realtime = navitia_proto::LoadRealtime {
                 queue_name: queue_name.clone(),
-                contributors: self.config.rabbitmq_params.rabbitmq_real_time_topics.clone(),
-                begin_date: Some(start_date), 
-                end_date:  Some(end_date),
+                contributors: self
+                    .config
+                    .rabbitmq_params
+                    .rabbitmq_real_time_topics
+                    .clone(),
+                begin_date: Some(start_date),
+                end_date: Some(end_date),
             };
 
             task.load_realtime = Some(load_realtime);
@@ -554,7 +613,11 @@ impl DataWorker {
         let routing_key = "task.load_realtime.INSTANCE";
         let time_to_live_in_milliseconds = format!(
             "{}",
-            self.config.rabbitmq_params.reload_request_time_to_live.total_seconds() * 1000
+            self.config
+                .rabbitmq_params
+                .reload_request_time_to_live
+                .total_seconds()
+                * 1000
         );
         let time_to_live_in_milliseconds =
             lapin::types::ShortString::from(time_to_live_in_milliseconds);
@@ -573,29 +636,29 @@ impl DataWorker {
 
         // wait for the reload messages from kirin
         let mut consumer = create_consumer(channel, &queue_name).await?;
-        let timeout = std::time::Duration::from_secs(self.config.rabbitmq_params.reload_kirin_timeout.total_seconds());
+        let timeout = std::time::Duration::from_secs(
+            self.config
+                .rabbitmq_params
+                .reload_kirin_timeout
+                .total_seconds(),
+        );
 
-        let has_message = tokio::time::timeout(timeout,
-                consumer.next()
-            ).await;
+        let has_message = tokio::time::timeout(timeout, consumer.next()).await;
 
         match has_message {
-            Err(err) => {
+            Err(_err) => {
                 error!("Realtime reload timed out. I'll keep running without it.");
-                
-            },
+            }
             Ok(message) => {
                 self.handle_incoming_kirin_message(message).await?;
                 self.apply_realtime_messages().await?;
-            },
-            
+            }
         }
 
         delete_queue(channel, &queue_name).await?;
 
         Ok(())
     }
-
 
     pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<Result<(), Error>>, Error> {
         // copied from https://tokio.rs/tokio/topics/bridging#sending-messages
@@ -611,40 +674,35 @@ impl DataWorker {
     }
 }
 
-async fn create_consumer(channel : & lapin::Channel, queue_name : &str) -> Result<lapin::Consumer, Error>{
-
-    channel.basic_consume(
-        queue_name,
-        "",
-        BasicConsumeOptions {
-            no_local: true,
-            no_ack: false,
-            exclusive: false,
-            ..BasicConsumeOptions::default()
-        },
-        FieldTable::default(),
-    ).await
-    .map_err(|err| {
-        format_err!(
-            "Could not create consumer to queue {}, because {}",
+async fn create_consumer(
+    channel: &lapin::Channel,
+    queue_name: &str,
+) -> Result<lapin::Consumer, Error> {
+    channel
+        .basic_consume(
             queue_name,
-            err
+            "",
+            BasicConsumeOptions {
+                no_local: true,
+                no_ack: false,
+                exclusive: false,
+                ..BasicConsumeOptions::default()
+            },
+            FieldTable::default(),
         )
-    })
+        .await
+        .map_err(|err| {
+            format_err!(
+                "Could not create consumer to queue {}, because {}",
+                queue_name,
+                err
+            )
+        })
 }
 
-async fn delete_queue(channel : & lapin::Channel, queue_name : &str) -> Result<u32, Error> {
+async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, Error> {
     channel
-    .queue_delete(
-        &queue_name,
-        lapin::options::QueueDeleteOptions::default(),
-    )
-    .await
-    .map_err(|err| {
-        format_err!(
-            "Could not delete queue {}, because : {}",
-            &queue_name,
-            err
-        )
-    })
+        .queue_delete(&queue_name, lapin::options::QueueDeleteOptions::default())
+        .await
+        .map_err(|err| format_err!("Could not delete queue {}, because : {}", &queue_name, err))
 }

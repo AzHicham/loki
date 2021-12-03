@@ -51,7 +51,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
     compute_worker::ComputeWorker,
-    master_worker::{LoadBalancerChannels, LoadBalancerOrder, Timetable},
+    master_worker::Timetable,
     zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
 };
 
@@ -80,11 +80,23 @@ pub struct LoadBalancer {
 
     order_receiver: mpsc::Receiver<LoadBalancerOrder>,
     stopped_sender: mpsc::Sender<()>,
-    error_sender: mpsc::Sender<()>,
+
+    shutdown_sender: mpsc::Sender<()>,
 
     state: LoadBalancerState,
 
     zmq_worker_handle: ZmqWorkerChannels,
+}
+
+pub struct LoadBalancerChannels {
+    pub order_sender: mpsc::Sender<LoadBalancerOrder>,
+    pub stopped_receiver: mpsc::Receiver<()>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LoadBalancerOrder {
+    Start,
+    Stop,
 }
 
 impl LoadBalancer {
@@ -93,6 +105,7 @@ impl LoadBalancer {
         nb_workers: usize,
         zmq_endpoint: &str,
         request_default_params: &config::RequestParams,
+        shutdown_sender: mpsc::Sender<()>,
     ) -> Result<(Self, LoadBalancerChannels), Error> {
         let mut worker_request_senders = Vec::new();
         let mut worker_states = Vec::new();
@@ -121,13 +134,11 @@ impl LoadBalancer {
 
         let (order_sender, order_receiver) = mpsc::channel(1);
         let (stopped_sender, stopped_receiver) = mpsc::channel(1);
-        let (error_sender, error_receiver) = mpsc::channel(1);
 
         // Master worker
         let load_balancer_handle = LoadBalancerChannels {
             order_sender,
             stopped_receiver,
-            error_receiver,
         };
 
         let result = Self {
@@ -136,7 +147,7 @@ impl LoadBalancer {
             worker_states,
             order_receiver,
             stopped_sender,
-            error_sender,
+            shutdown_sender,
             state: LoadBalancerState::Online,
             zmq_worker_handle,
         };
@@ -165,12 +176,12 @@ impl LoadBalancer {
             err
         );
         // If we exited the loop it means we got an error
-        // We need to warn Master worker that we are broken
-        // So MasterWorker can shutdown the program
-        let res = self.error_sender.send(()).await;
+        // We need to warn Master that we are broken
+        // So Master can shutdown the program
+        let res = self.shutdown_sender.send(()).await;
         if let Err(err) = res {
             error!(
-                "Channel load_balancer_error to Master has closed : {}. Load balancer will die, and Master will not known about it.",
+                "Channel shutdown_sender to Master has closed : {}. Load balancer will die, and Master will not known about it.",
                 err
             );
         }

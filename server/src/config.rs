@@ -34,16 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-use launch::{
-    config, loki::PositiveDuration,
-};
-
+use launch::{config, loki::PositiveDuration};
 
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
@@ -64,9 +58,7 @@ pub struct Config {
     /// number of workers that solve requests in parallel
     #[serde(default = "default_nb_workers")]
     pub nb_workers: usize,
-
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RabbitMqParams {
@@ -92,9 +84,8 @@ pub struct RabbitMqParams {
     pub reload_request_time_to_live: PositiveDuration,
 
     #[serde(default = "default_reload_kirin_timeout")]
-    pub reload_kirin_timeout : PositiveDuration,
+    pub reload_kirin_timeout: PositiveDuration,
 }
-
 
 pub fn default_nb_workers() -> usize {
     1
@@ -131,5 +122,3 @@ pub fn default_reload_request_time_to_live() -> PositiveDuration {
 pub fn default_reload_kirin_timeout() -> PositiveDuration {
     PositiveDuration::from_str("00:01:00").unwrap()
 }
-
-

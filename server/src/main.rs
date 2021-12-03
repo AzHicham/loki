@@ -53,20 +53,18 @@ pub mod master_worker;
 pub mod config;
 pub mod data_worker;
 
-pub mod rabbitmq_worker;
-
-use launch::{
-    loki::tracing::{debug, info},
-};
+use config::Config;
+use launch::loki::tracing::{debug, info};
 
 use structopt::StructOpt;
 
-use std::{fs::File, io::BufReader, path::{PathBuf, Path}};
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
 use failure::{bail, Error};
-
-use config::Config;
-
 
 #[derive(StructOpt)]
 #[structopt(
@@ -96,7 +94,7 @@ fn launch_server() -> Result<(), Error> {
     launch_master_worker(config)
 }
 
-pub fn read_config(config_file: &Path) -> Result<Config, Error> {
+pub fn read_config(config_file: &Path) -> Result<config::Config, Error> {
     info!("Reading config from file {:?}", &config_file);
     let file = match File::open(&config_file) {
         Ok(file) => file,
@@ -105,7 +103,7 @@ pub fn read_config(config_file: &Path) -> Result<Config, Error> {
         }
     };
     let reader = BufReader::new(file);
-    let config: Config = serde_json::from_reader(reader)?;
+    let config: config::Config = serde_json::from_reader(reader)?;
     debug!("Launching with config : {:#?}", config);
     Ok(config)
 }
