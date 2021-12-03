@@ -70,7 +70,9 @@ impl BaseModel {
     }
 
     pub fn empty() -> Self {
-        let collections = Collections::default();
+        let mut collections = Collections::default();
+        let dataset = transit_model::objects::Dataset::default();
+        collections.datasets.push(dataset).unwrap();
         let loads_data = LoadsData::empty();
         Self {
             collections,
