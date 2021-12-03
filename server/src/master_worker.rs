@@ -39,7 +39,7 @@ use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
     tracing::info,
-    TransitData,
+    DataIO, TransitData,
 };
 use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};
@@ -62,10 +62,7 @@ impl MasterWorker {
         // We init everything with empty data.
         // DataWorker will take care of reading data from disk
         let base_model = BaseModel::empty();
-        let data = launch::read::build_transit_data::<Timetable>(
-            &base_model,
-            &launch_params.default_transfer_duration,
-        );
+        let data = TransitData::new(&base_model, launch_params.default_transfer_duration.clone());
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
