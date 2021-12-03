@@ -38,7 +38,7 @@ use failure::{bail, format_err, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
-    tracing::info,
+    tracing::{error, info},
     DataIO, TransitData,
 };
 use std::sync::{Arc, RwLock};
@@ -81,7 +81,7 @@ impl MasterWorker {
         // Data worker
 
         let data_worker = DataWorker::new(config, data_and_models.clone(), load_balancer_channels);
-        let _dataworker_handle = data_worker.run_in_a_thread()?;
+        let _data_worker_handle = data_worker.run_in_a_thread()?;
 
         // Master worker
         let result = Self { shutdown_receiver };
@@ -102,6 +102,7 @@ impl MasterWorker {
     async fn run(mut self) -> Result<(), Error> {
         tokio::select! {
             _ = self.shutdown_receiver.recv() => {
+                error!("One of the worker sent the shutdown signal.");
                 bail!("One of the worker sent the shutdown signal.")
 
             }

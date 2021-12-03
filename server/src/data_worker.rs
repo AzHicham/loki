@@ -123,8 +123,13 @@ impl DataWorker {
         }
     }
 
-    async fn run(mut self) -> Result<(), Error> {
-        self.load_data_from_disk().await?;
+    async fn run(mut self) {
+        debug!("DataWorker starts initial load data from disk.");
+        let load_result = self.load_data_from_disk().await;
+        if let Err(err) = load_result {
+            error!("Could not read data from disk : {}", err);
+            return;
+        }
 
         let mut rabbitmq_connect_retry_interval = tokio::time::interval(Duration::from_secs(
             self.config
@@ -178,8 +183,6 @@ impl DataWorker {
             // If connection fails or an error occurs then retry connecting after x seconds
             rabbitmq_connect_retry_interval.tick().await;
         }
-
-        Ok(())
     }
 
     async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
@@ -274,20 +277,21 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<(), Error>,
     {
+        debug!("DataWorker ask LoadBalancer to Stop");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
-        // Wait for the LoadBalancer to Stop
-        debug!("MasterWork waiting for LoadBalancer to Stop");
+
         self.load_balancer_channels
             .stopped_receiver
             .recv()
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
+        debug!("DataWorker received Stopped signal from LoadBalancer.");
 
         let update_error = {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
                 format_err!(
-                    "Master worker failed to acquire write lock on data_and_models. {}.",
+                    "DataWorker worker failed to acquire write lock on data_and_models. {}.",
                     err
                 )
             })?;
@@ -295,7 +299,7 @@ impl DataWorker {
             updater(&mut *lock_guard)
         }; // lock_guard is now released
 
-        debug!("Master ask LoadBalancer to Start");
+        debug!("DataWorker ask LoadBalancer to Start");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
 
@@ -660,7 +664,7 @@ impl DataWorker {
         Ok(())
     }
 
-    pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<Result<(), Error>>, Error> {
+    pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<()>, Error> {
         // copied from https://tokio.rs/tokio/topics/bridging#sending-messages
 
         let runtime = Builder::new_current_thread()
@@ -668,7 +672,7 @@ impl DataWorker {
             .build()
             .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
 
-        let thread_builder = thread::Builder::new().name("loki_zmq_worker".to_string());
+        let thread_builder = thread::Builder::new().name("loki_data_worker".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
         Ok(handle)
     }
