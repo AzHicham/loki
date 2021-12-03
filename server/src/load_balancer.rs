@@ -220,11 +220,14 @@ impl LoadBalancer {
 
                     debug!("LoadBalancer received response from worker {:?}", worker_id);
 
-                     self.forward_worker_response(worker_id, response).await
+                     self.forward_worker_response(worker_id, response)
                                 .map_err(|err| format_err!("Could not send response to zmq worker : {}.", err))?;
 
 
-                    self.stop_if_all_workers_available().await?;
+                    if self.state == LoadBalancerState::Stopping {
+                        self.stop_if_all_workers_available().await?;
+                    }
+
                 }
                 // receive order from the Master
                 has_order = self.order_receiver.recv() => {
@@ -282,7 +285,7 @@ impl LoadBalancer {
         }
     }
 
-    async fn forward_worker_response(
+    fn forward_worker_response(
         &mut self,
         worker_id: WorkerId,
         response: ResponseMessage,
