@@ -138,7 +138,12 @@ impl DataWorker {
                 .total_seconds(),
         );
 
+        // A future that will tick() at regular interval
+        // cf https://docs.rs/tokio/1.14.0/tokio/time/fn.interval.html
         let mut retry_interval = tokio::time::interval(rabbitmq_connect_retry_interval);
+        // we want to skip missed tick()s
+        // https://docs.rs/tokio/1.14.0/tokio/time/enum.MissedTickBehavior.html#variant.Skip
+        retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
             // the first tick() completes immediately
