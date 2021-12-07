@@ -138,12 +138,17 @@ impl DataWorker {
                 .total_seconds(),
         );
 
-        loop {
-            let has_timed_out =
-                tokio::time::timeout(rabbitmq_connect_retry_interval, self.connect()).await;
+        let mut retry_interval = tokio::time::interval(rabbitmq_connect_retry_interval);
 
-            match has_timed_out {
-                Ok(Ok(channel)) => {
+        loop {
+            // the first tick() completes immediately
+            // cf https://docs.rs/tokio/1.14.0/tokio/time/fn.interval.html
+            retry_interval.tick().await;
+
+            let has_connection = self.connect().await;
+
+            match has_connection {
+                Ok(channel) => {
                     info!("Connected to RabbitMq.");
                     if !self.kirin_reload_done {
                         let reload_result = self.reload_kirin(&channel).await;
@@ -175,15 +180,9 @@ impl DataWorker {
                         }
                     }
                 }
-                Ok(Err(err)) => {
-                    error!(
-                        "Error while connecting to rabbitmq : {}. I'll try to reconnect later.",
-                        err
-                    );
-                }
                 Err(err) => {
                     error!(
-                        "Connection to rabbitmq timed out : {}. I'll try to reconnect later.",
+                        "Error while connecting to rabbitmq : {}. I'll try to reconnect later.",
                         err
                     );
                 }
