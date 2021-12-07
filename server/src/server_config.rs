@@ -39,7 +39,7 @@ use launch::{config, loki::PositiveDuration};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerConfig {
     #[serde(flatten)]
     pub launch_params: config::LaunchParams,
@@ -68,7 +68,7 @@ impl ServerConfig {
             instance_name : instance_name.to_string(),
             request_default_params : config::RequestParams::default(),
             rabbitmq_params : RabbitMqParams::default(),
-            nb_workers : 1,
+            nb_workers : default_nb_workers(),
 
         }
     }
@@ -134,7 +134,7 @@ pub fn default_reload_request_time_to_live() -> PositiveDuration {
 }
 
 pub fn default_reload_kirin_timeout() -> PositiveDuration {
-    PositiveDuration::from_str("00:01:00").unwrap()
+    PositiveDuration::from_str("00:00:10").unwrap()
 }
 
 

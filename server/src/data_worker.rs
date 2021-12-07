@@ -216,10 +216,12 @@ impl DataWorker {
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
+                    
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
                 has_reload_message = reload_consumer.next() => {
+                    info!("Received a message on the reload queue.");
                     self.handle_reload_message(has_reload_message, channel).await?;
                 }
             }
@@ -375,9 +377,9 @@ impl DataWorker {
         channel: &lapin::Channel,
     ) -> Result<(), Error> {
         match has_reload_message {
-            Some(Ok((reaload_channel, delivery))) => {
+            Some(Ok((reload_channel, delivery))) => {
                 // acknowledge reception of the message
-                let _ = reaload_channel
+                let _ = reload_channel
                     .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
                     .await
                     .map_err(|err| {
@@ -439,36 +441,9 @@ impl DataWorker {
         );
         let channel = connection.create_channel().await?;
 
-        // let's first delete the queues, in case they existed and were not properly deleted
-        channel
-            .queue_delete(
-                &self.real_time_queue_name,
-                lapin::options::QueueDeleteOptions::default(),
-            )
-            .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not delete queue {}, because : {}",
-                    &self.real_time_queue_name,
-                    err
-                )
-            })?;
-        channel
-            .queue_delete(
-                &self.real_time_queue_name,
-                lapin::options::QueueDeleteOptions::default(),
-            )
-            .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not delete queue {}, because : {}",
-                    &self.real_time_queue_name,
-                    err
-                )
-            })?;
 
-        let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
         // we declare the exchange
+        let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
         channel
             .exchange_declare(
                 exchange,
@@ -483,6 +458,31 @@ impl DataWorker {
             .map_err(|err| {
                 format_err!("Could not delete exchange {}, because : {}", exchange, err)
             })?;
+
+        self.connect_real_time_queue(&channel).await?;
+        self.connect_reload_queue(&channel).await?;
+
+        Ok(channel)
+    }
+
+    async fn connect_real_time_queue(&self, channel : & lapin::Channel) -> Result<(), Error>{
+
+
+        // let's first delete the queue, in case it existed and was not properly deleted
+        channel
+            .queue_delete(
+                &self.real_time_queue_name,
+                lapin::options::QueueDeleteOptions::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not delete queue {}, because : {}",
+                    &self.real_time_queue_name,
+                    err
+                )
+            })?;
+
 
         // declare real time queue
         channel
@@ -504,26 +504,7 @@ impl DataWorker {
             &self.real_time_queue_name
         );
 
-        // declare reload_data queue
-        channel
-            .queue_declare(
-                &self.reload_queue_name,
-                QueueDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not declare queue {}, because : {}",
-                    &self.reload_queue_name,
-                    err
-                )
-            })?;
-        info!(
-            "Queue declared for kirin reload : {}",
-            &self.reload_queue_name
-        );
-
+        let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
         // bind topics to the real time queue
         for topic in &self.config.rabbitmq_params.rabbitmq_real_time_topics {
             channel
@@ -550,7 +531,74 @@ impl DataWorker {
             );
         }
 
-        Ok(channel)
+ 
+        Ok(())
+    }
+
+    async fn connect_reload_queue(&self, channel : & lapin::Channel) -> Result<(), Error>{
+
+        // let's first delete the queues, in case they existed and were not properly deleted
+        channel
+            .queue_delete(
+                &self.reload_queue_name,
+                lapin::options::QueueDeleteOptions::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not delete queue {}, because : {}",
+                    &self.real_time_queue_name,
+                    err
+                )
+            })?;
+    
+     
+        // declare reload_data queue
+        channel
+            .queue_declare(
+                &self.reload_queue_name,
+                QueueDeclareOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not declare queue {}, because : {}",
+                    &self.reload_queue_name,
+                    err
+                )
+            })?;
+        info!(
+            "Queue declared for reload : {}",
+            &self.reload_queue_name
+        );
+
+        // bind the reload queue to the topic instance_name.task.*
+        let topic = format!("{}.task.*", self.config.instance_name);
+        channel
+            .queue_bind(
+                &self.reload_queue_name,
+                &self.config.rabbitmq_params.rabbitmq_exchange,
+                &topic,
+                QueueBindOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "Could not bind queue {} to topic {}, because : {}",
+                    &self.reload_queue_name,
+                    topic,
+                    err
+                )
+            })?;
+
+            info!("Reload queue {}  binded to topic: {}",
+                &self.reload_queue_name,
+                topic
+            );
+
+        Ok(())
     }
 
     async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
@@ -666,12 +714,13 @@ impl DataWorker {
                 info!("Realtime reload message received. Starting to apply these updates.");
                 self.handle_incoming_kirin_message(message).await?;
                 self.apply_realtime_messages().await?;
+                info!("Realtime reload completed successfully.");
             }
         }
 
         delete_queue(channel, &queue_name).await?;
 
-        info!("Realtime reload completed successfully.");
+        
 
         Ok(())
     }
