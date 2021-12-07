@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use crate::{
-    config::Config,
+    server_config::ServerConfig,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
@@ -73,7 +73,7 @@ use std::{
 use tokio::{runtime::Builder, time::Duration};
 
 pub struct DataWorker {
-    config: Config,
+    config: ServerConfig,
 
     data_and_models: Arc<RwLock<DataAndModels>>,
 
@@ -89,7 +89,7 @@ pub struct DataWorker {
 
 impl DataWorker {
     pub fn new(
-        config: Config,
+        config: ServerConfig,
         data_and_models: Arc<RwLock<DataAndModels>>,
         load_balancer_channels: LoadBalancerChannels,
     ) -> Self {
@@ -131,18 +131,19 @@ impl DataWorker {
             return;
         }
 
-        let mut rabbitmq_connect_retry_interval = tokio::time::interval(Duration::from_secs(
+        let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
                 .rabbitmq_params
                 .rabbitmq_connect_retry_interval
                 .total_seconds(),
-        ));
+        );
 
         loop {
-            let has_connection = self.connect().await;
+            let has_timed_out = tokio::time::timeout(rabbitmq_connect_retry_interval, self.connect()).await;
 
-            match has_connection {
-                Ok(channel) => {
+            match has_timed_out {
+                Ok(Ok(channel)) => {
+                    info!("Connected to RabbitMq.");
                     if !self.kirin_reload_done {
                         let reload_result = self.reload_kirin(&channel).await;
                         match reload_result {
@@ -173,15 +174,19 @@ impl DataWorker {
                         }
                     }
                 }
+                Ok(Err(err)) => {
+                    error!(
+                        "Error while connecting to rabbitmq : {}. I'll try to reconnect later.",
+                        err
+                    );
+                }
                 Err(err) => {
                     error!(
-                        "Connection to rabbitmq failed : {}. I'll try to reconnect later.",
+                        "Connection to rabbitmq timed out : {}. I'll try to reconnect later.",
                         err
                     );
                 }
             }
-            // If connection fails or an error occurs then retry connecting after x seconds
-            rabbitmq_connect_retry_interval.tick().await;
         }
     }
 
@@ -549,6 +554,7 @@ impl DataWorker {
     }
 
     async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+        info!("Asking Kirin for a full realtime reload.");
         use prost::Message;
         // declare a queue to send a message to Kirin to request a full realtime reload
         let queue_name = format!(
@@ -613,6 +619,7 @@ impl DataWorker {
             task.load_realtime = Some(load_realtime);
             task
         };
+
         let payload = task.encode_to_vec();
         let routing_key = "task.load_realtime.INSTANCE";
         let time_to_live_in_milliseconds = format!(
@@ -638,6 +645,8 @@ impl DataWorker {
             .await?
             .await?;
 
+        info!("Realtime reload task sent in queue {} with routing_key {}", queue_name, routing_key);
+
         // wait for the reload messages from kirin
         let mut consumer = create_consumer(channel, &queue_name).await?;
         let timeout = std::time::Duration::from_secs(
@@ -654,12 +663,15 @@ impl DataWorker {
                 error!("Realtime reload timed out. I'll keep running without it.");
             }
             Ok(message) => {
+                info!("Realtime reload message received. Starting to apply these updates.");
                 self.handle_incoming_kirin_message(message).await?;
                 self.apply_realtime_messages().await?;
             }
         }
 
         delete_queue(channel, &queue_name).await?;
+
+        info!("Realtime reload completed successfully.");
 
         Ok(())
     }

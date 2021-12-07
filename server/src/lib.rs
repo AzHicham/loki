@@ -34,54 +34,72 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum InputDataType {
-    Gtfs,
-    Ntfs,
+pub mod navitia_proto {
+    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
 }
 
-impl Default for InputDataType {
-    fn default() -> Self {
-        InputDataType::Ntfs
-    }
+pub mod chaos_proto {
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }
 
-impl std::str::FromStr for InputDataType {
-    type Err = InputDataTypeConfigError;
+pub mod handle_kirin_message;
+pub mod response;
+pub mod zmq_worker;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let result = match s {
-            "ntfs" => InputDataType::Ntfs,
-            "gtfs" => InputDataType::Gtfs,
-            _ => {
-                return Err(InputDataTypeConfigError {
-                    input_type_name: s.to_string(),
-                })
-            }
-        };
-        Ok(result)
-    }
+pub mod compute_worker;
+pub mod load_balancer;
+pub mod master_worker;
+
+pub mod server_config;
+pub mod data_worker;
+
+use server_config::ServerConfig;
+use launch::loki::tracing::{debug, info};
+
+use structopt::StructOpt;
+
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
+
+use failure::{bail, Error};
+
+#[derive(StructOpt)]
+#[structopt(
+    name = "loki_server",
+    about = "Run loki server.",
+    rename_all = "snake_case"
+)]
+pub struct Options {
+    /// path to the json config file
+    #[structopt(parse(from_os_str))]
+    config_file: PathBuf,
 }
 
-impl std::fmt::Display for InputDataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            InputDataType::Gtfs => write!(f, "gtfs"),
-            InputDataType::Ntfs => write!(f, "ntfs"),
+
+pub fn launch_server() -> Result<(), Error> {
+    let options = Options::from_args();
+    let config = read_config(&options.config_file)?;
+    launch_master_worker(config)
+}
+
+pub fn read_config(config_file: &Path) -> Result<ServerConfig, Error> {
+    info!("Reading config from file {:?}", &config_file);
+    let file = match File::open(&config_file) {
+        Ok(file) => file,
+        Err(e) => {
+            bail!("Error opening config file {:?} : {}", &config_file, e)
         }
-    }
+    };
+    let reader = BufReader::new(file);
+    let config: ServerConfig = serde_json::from_reader(reader)?;
+    debug!("Launching with config : {:#?}", config);
+    Ok(config)
 }
 
-#[derive(Debug)]
-pub struct InputDataTypeConfigError {
-    input_type_name: String,
-}
-
-impl std::fmt::Display for InputDataTypeConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad input data type give : `{}`", self.input_type_name)
-    }
+pub fn launch_master_worker(config: ServerConfig) -> Result<(), Error> {
+    let master_worker = master_worker::MasterWorker::new(config)?;
+    master_worker.run_blocking()
 }

@@ -34,81 +34,13 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod navitia_proto {
-    include!(concat!(env!("OUT_DIR"), "/pbnavitia.rs"));
-}
-
-pub mod chaos_proto {
-    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
-}
-
-pub mod handle_kirin_message;
-pub mod response;
-pub mod zmq_worker;
-
-pub mod compute_worker;
-pub mod load_balancer;
-pub mod master_worker;
-
-pub mod config;
-pub mod data_worker;
-
-use config::Config;
-use launch::loki::tracing::{debug, info};
-
-use structopt::StructOpt;
-
-use std::{
-    fs::File,
-    io::BufReader,
-    path::{Path, PathBuf},
-};
-
-use failure::{bail, Error};
-
-#[derive(StructOpt)]
-#[structopt(
-    name = "loki_server",
-    about = "Run loki server.",
-    rename_all = "snake_case"
-)]
-pub struct Options {
-    /// path to the json config file
-    #[structopt(parse(from_os_str))]
-    config_file: PathBuf,
-}
 
 fn main() {
     let _log_guard = launch::logger::init_logger();
-    if let Err(err) = launch_server() {
+    if let Err(err) = loki_server::launch_server() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
         }
         std::process::exit(1);
     }
-}
-
-fn launch_server() -> Result<(), Error> {
-    let options = Options::from_args();
-    let config = read_config(&options.config_file)?;
-    launch_master_worker(config)
-}
-
-pub fn read_config(config_file: &Path) -> Result<config::Config, Error> {
-    info!("Reading config from file {:?}", &config_file);
-    let file = match File::open(&config_file) {
-        Ok(file) => file,
-        Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file, e)
-        }
-    };
-    let reader = BufReader::new(file);
-    let config: config::Config = serde_json::from_reader(reader)?;
-    debug!("Launching with config : {:#?}", config);
-    Ok(config)
-}
-
-fn launch_master_worker(config: Config) -> Result<(), Error> {
-    let master_worker = master_worker::MasterWorker::new(config)?;
-    master_worker.run_blocking()
 }

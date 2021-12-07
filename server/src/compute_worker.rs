@@ -105,7 +105,7 @@ impl ComputeWorker {
 
             let has_request = self.request_channel.blocking_recv();
 
-            info!("Worker {} received a request.", self.worker_id.id);
+            
 
             let request_message = has_request.ok_or_else(|| {
                 format_err!(
@@ -113,6 +113,8 @@ impl ComputeWorker {
                     self.worker_id.id
                 )
             })?;
+
+            info!("Worker {} received a request.", self.worker_id.id);
 
             let proto_response = self
                 .handle_request(request_message.payload)

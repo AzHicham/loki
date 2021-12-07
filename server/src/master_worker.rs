@@ -44,7 +44,7 @@ use launch::loki::{
 use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};
 
-use crate::{data_worker::DataWorker, load_balancer::LoadBalancer, Config};
+use crate::{data_worker::DataWorker, load_balancer::LoadBalancer, ServerConfig};
 
 pub type Timetable = PeriodicSplitVjByTzTimetables;
 
@@ -55,7 +55,7 @@ pub struct MasterWorker {
 }
 
 impl MasterWorker {
-    pub fn new(config: Config) -> Result<Self, Error> {
+    pub fn new(config: ServerConfig) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
 
         // Initialize models and data.
@@ -97,6 +97,18 @@ impl MasterWorker {
             .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
 
         runtime.block_on(self.run())
+    }
+
+    pub fn run_in_a_thread(self) -> Result<(), Error> {
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+        let thread_builder = std::thread::Builder::new().name("loki_master_worker".to_string());
+        let _handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
+        Ok(())
     }
 
     async fn run(mut self) -> Result<(), Error> {
