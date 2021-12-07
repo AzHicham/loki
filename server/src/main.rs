@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
 fn main() {
     let _log_guard = launch::logger::init_logger();
     if let Err(err) = loki_server::launch_server() {

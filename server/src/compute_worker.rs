@@ -105,8 +105,6 @@ impl ComputeWorker {
 
             let has_request = self.request_channel.blocking_recv();
 
-            
-
             let request_message = has_request.ok_or_else(|| {
                 format_err!(
                     "Compute worker {} request channel is closed. This worker will stop.",

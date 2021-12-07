@@ -100,7 +100,6 @@ impl MasterWorker {
     }
 
     pub fn run_in_a_thread(self) -> Result<(), Error> {
-
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()

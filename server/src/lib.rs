@@ -50,11 +50,11 @@ pub mod compute_worker;
 pub mod load_balancer;
 pub mod master_worker;
 
-pub mod server_config;
 pub mod data_worker;
+pub mod server_config;
 
-use server_config::ServerConfig;
 use launch::loki::tracing::{debug, info};
+use server_config::ServerConfig;
 
 use structopt::StructOpt;
 
@@ -77,7 +77,6 @@ pub struct Options {
     #[structopt(parse(from_os_str))]
     config_file: PathBuf,
 }
-
 
 pub fn launch_server() -> Result<(), Error> {
     let options = Options::from_args();

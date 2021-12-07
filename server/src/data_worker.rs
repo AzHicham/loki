@@ -35,10 +35,10 @@
 // www.navitia.io
 
 use crate::{
-    server_config::ServerConfig,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
+    server_config::ServerConfig,
 };
 
 use super::chaos_proto::gtfs_realtime;
@@ -139,7 +139,8 @@ impl DataWorker {
         );
 
         loop {
-            let has_timed_out = tokio::time::timeout(rabbitmq_connect_retry_interval, self.connect()).await;
+            let has_timed_out =
+                tokio::time::timeout(rabbitmq_connect_retry_interval, self.connect()).await;
 
             match has_timed_out {
                 Ok(Ok(channel)) => {
@@ -216,7 +217,7 @@ impl DataWorker {
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
-                    
+
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
@@ -441,7 +442,6 @@ impl DataWorker {
         );
         let channel = connection.create_channel().await?;
 
-
         // we declare the exchange
         let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
         channel
@@ -465,9 +465,7 @@ impl DataWorker {
         Ok(channel)
     }
 
-    async fn connect_real_time_queue(&self, channel : & lapin::Channel) -> Result<(), Error>{
-
-
+    async fn connect_real_time_queue(&self, channel: &lapin::Channel) -> Result<(), Error> {
         // let's first delete the queue, in case it existed and was not properly deleted
         channel
             .queue_delete(
@@ -482,7 +480,6 @@ impl DataWorker {
                     err
                 )
             })?;
-
 
         // declare real time queue
         channel
@@ -531,12 +528,10 @@ impl DataWorker {
             );
         }
 
- 
         Ok(())
     }
 
-    async fn connect_reload_queue(&self, channel : & lapin::Channel) -> Result<(), Error>{
-
+    async fn connect_reload_queue(&self, channel: &lapin::Channel) -> Result<(), Error> {
         // let's first delete the queues, in case they existed and were not properly deleted
         channel
             .queue_delete(
@@ -551,8 +546,7 @@ impl DataWorker {
                     err
                 )
             })?;
-    
-     
+
         // declare reload_data queue
         channel
             .queue_declare(
@@ -568,10 +562,7 @@ impl DataWorker {
                     err
                 )
             })?;
-        info!(
-            "Queue declared for reload : {}",
-            &self.reload_queue_name
-        );
+        info!("Queue declared for reload : {}", &self.reload_queue_name);
 
         // bind the reload queue to the topic instance_name.task.*
         let topic = format!("{}.task.*", self.config.instance_name);
@@ -593,10 +584,10 @@ impl DataWorker {
                 )
             })?;
 
-            info!("Reload queue {}  binded to topic: {}",
-                &self.reload_queue_name,
-                topic
-            );
+        info!(
+            "Reload queue {}  binded to topic: {}",
+            &self.reload_queue_name, topic
+        );
 
         Ok(())
     }
@@ -693,7 +684,10 @@ impl DataWorker {
             .await?
             .await?;
 
-        info!("Realtime reload task sent in queue {} with routing_key {}", queue_name, routing_key);
+        info!(
+            "Realtime reload task sent in queue {} with routing_key {}",
+            queue_name, routing_key
+        );
 
         // wait for the reload messages from kirin
         let mut consumer = create_consumer(channel, &queue_name).await?;
@@ -719,8 +713,6 @@ impl DataWorker {
         }
 
         delete_queue(channel, &queue_name).await?;
-
-        
 
         Ok(())
     }
