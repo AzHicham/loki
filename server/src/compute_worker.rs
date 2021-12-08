@@ -46,11 +46,12 @@ use launch::{
     datetime::DateTimeRepresent,
     loki::{
         self,
+        chrono::Utc,
         filters::Filters,
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
         tracing::{debug, error, info, warn},
-        PositiveDuration, RealTimeLevel, RequestInput, TransitData,
+        NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
 };
@@ -164,7 +165,7 @@ impl ComputeWorker {
                     // and we return from this function and stop the thread
                     .map_err(|err| {
                         format_err!(
-                            "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
+                            "Compute worker {} failed to acquire read lock on data_and_models. {}.",
                             self.worker_id.id,
                             err
                         )
@@ -399,6 +400,23 @@ fn make_error_response(error: Error) -> navitia_proto::Response {
 fn extract_journey_request(
     proto_request: navitia_proto::Request,
 ) -> Result<navitia_proto::JourneysRequest, Error> {
+    if let Some(deadline_str) = &proto_request.deadline {
+        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%f");
+        match datetime_result {
+            Ok(datetime) => {
+                let now = Utc::now().naive_utc();
+                if now > datetime {
+                    return Err(format_err!("Deadline reached."));
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "Could not parse deadline string {}. Error : {}",
+                    deadline_str, err
+                );
+            }
+        }
+    }
     match proto_request.requested_api() {
         navitia_proto::Api::PtPlanner => (),
         _ => {

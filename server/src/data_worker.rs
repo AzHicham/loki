@@ -39,6 +39,7 @@ use crate::{
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
     server_config::ServerConfig,
+    status_worker::{BaseDataInfo, StatusUpdate},
 };
 
 use super::chaos_proto::gtfs_realtime;
@@ -60,6 +61,7 @@ use std::ops::Deref;
 
 use futures::StreamExt;
 use launch::loki::{
+    chrono::Utc,
     models::RealTimeModel,
     tracing::{debug, error, info},
     DataTrait,
@@ -70,7 +72,7 @@ use std::{
     thread,
 };
 
-use tokio::{runtime::Builder, time::Duration};
+use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
     config: ServerConfig,
@@ -85,6 +87,10 @@ pub struct DataWorker {
 
     kirin_messages: Vec<gtfs_realtime::FeedMessage>,
     kirin_reload_done: bool,
+
+    status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
+
+    shutdown_sender: mpsc::Sender<()>,
 }
 
 impl DataWorker {
@@ -92,6 +98,8 @@ impl DataWorker {
         config: ServerConfig,
         data_and_models: Arc<RwLock<DataAndModels>>,
         load_balancer_channels: LoadBalancerChannels,
+        status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
+        shutdown_sender: mpsc::Sender<()>,
     ) -> Self {
         let host_name = hostname::get()
             .map_err(|err| format_err!("Could not retreive hostname : {}.", err))
@@ -120,16 +128,23 @@ impl DataWorker {
             reload_queue_name,
             kirin_messages: Vec::new(),
             kirin_reload_done: false,
+            status_update_sender,
+            shutdown_sender,
         }
     }
 
     async fn run(mut self) {
+        let run_result = self.run_loop().await;
+        error!("DataWorker stopped : {:?}", run_result);
+
+        let _ = self.shutdown_sender.send(()).await;
+    }
+
+    async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
-        let load_result = self.load_data_from_disk().await;
-        if let Err(err) = load_result {
-            error!("Could not read data from disk : {}", err);
-            return;
-        }
+        let load_result = self.load_data_from_disk().await.map_err(|err| {
+            format_err!("DataWorker : error while loading data from disk : {}", err)
+        })?;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -155,6 +170,7 @@ impl DataWorker {
             match has_connection {
                 Ok(channel) => {
                     info!("Connected to RabbitMq.");
+                    self.send_status_update(StatusUpdate::RabbitMqConnected)?;
                     if !self.kirin_reload_done {
                         let reload_result = self.reload_kirin(&channel).await;
                         match reload_result {
@@ -172,18 +188,11 @@ impl DataWorker {
                         }
                     }
                     let result = self.main_loop(&channel).await;
-                    match result {
-                        Ok(()) => {
-                            // this means we should exit the program
-                            break;
-                        }
-                        Err(err) => {
-                            error!(
-                                "Error occured in DataWorker : {}. I'll relaunch the worker.",
-                                err
-                            );
-                        }
-                    }
+                    error!(
+                        "DataWorker main loop exited : {:?}. I'll relaunch the worker.",
+                        result
+                    );
+                    self.send_status_update(StatusUpdate::RabbitMqDisconnected)?;
                 }
                 Err(err) => {
                     error!(
@@ -257,7 +266,27 @@ impl DataWorker {
             Ok(())
         };
 
-        self.update_data_and_models(updater).await
+        self.update_data_and_models(updater).await?;
+
+        let (start_date, end_date) = {
+            let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                format_err!(
+                    "DataWorker failed to acquire read lock on data_and_models : {}",
+                    err
+                )
+            })?;
+            let (data, _, _) = rw_lock_read_guard.deref();
+            let calendar = data.calendar();
+            (calendar.first_date().clone(), calendar.last_date().clone())
+        }; // lock is released
+
+        let now = Utc::now().naive_utc();
+        let base_data_info = BaseDataInfo {
+            start_date,
+            end_date,
+            last_load_at: now,
+        };
+        self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }
 
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
@@ -289,7 +318,7 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<(), Error>,
     {
-        debug!("DataWorker ask LoadBalancer to Stop");
+        debug!("DataWorker ask LoadBalancer to Stop.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
 
@@ -311,7 +340,7 @@ impl DataWorker {
             updater(&mut *lock_guard)
         }; // lock_guard is now released
 
-        debug!("DataWorker ask LoadBalancer to Start");
+        debug!("DataWorker ask LoadBalancer to Start.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
 
@@ -718,7 +747,19 @@ impl DataWorker {
 
         delete_queue(channel, &queue_name).await?;
 
-        Ok(())
+        let now = Utc::now().naive_utc();
+        self.send_status_update(StatusUpdate::RealTimeReload(now))
+    }
+
+    fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), Error> {
+        self.status_update_sender
+            .send(StatusUpdate::RabbitMqDisconnected)
+            .map_err(|err| {
+                format_err!(
+                    "StatusWorker channel to send status updates is closed {}",
+                    err
+                )
+            })
     }
 
     pub fn run_in_a_thread(self) -> Result<std::thread::JoinHandle<()>, Error> {

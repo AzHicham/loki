@@ -93,7 +93,13 @@ impl MasterWorker {
         let _status_worker_handle = status_worker.run_in_a_thread()?;
 
         // Data worker
-        let data_worker = DataWorker::new(config, data_and_models.clone(), load_balancer_channels);
+        let data_worker = DataWorker::new(
+            config,
+            data_and_models.clone(),
+            load_balancer_channels,
+            status_update_sender,
+            shutdown_sender,
+        );
         let _data_worker_handle = data_worker.run_in_a_thread()?;
 
         // Master worker

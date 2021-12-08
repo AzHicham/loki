@@ -38,17 +38,17 @@ use crate::zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChanne
 
 use super::navitia_proto;
 
-use failure::{bail, format_err, Error};
+use failure::{format_err, Error};
 
 use launch::loki::{
     chrono::NaiveDate,
-    tracing::{debug, error, info, log::warn},
+    tracing::{error, log::warn},
     NaiveDateTime,
 };
 
 use std::thread;
 
-use tokio::{runtime::Builder, sync::mpsc, time::Duration};
+use tokio::{runtime::Builder, sync::mpsc};
 
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
@@ -63,9 +63,9 @@ pub struct StatusWorker {
 }
 
 pub struct BaseDataInfo {
-    start_date: NaiveDate,
-    end_date: NaiveDate,
-    last_load_at: NaiveDateTime,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub last_load_at: NaiveDateTime,
 }
 
 pub enum StatusUpdate {
