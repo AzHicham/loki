@@ -57,9 +57,7 @@ fn main() -> Result<(), Error> {
         .enable_all()
         .build()?;
 
-    runtime.block_on(run());
-
-    Ok(())
+    runtime.block_on(run())
 }
 
 async fn run() -> Result<(), Error> {
@@ -69,22 +67,23 @@ async fn run() -> Result<(), Error> {
 
     let _log_guard = launch::logger::init_logger();
 
-    let container_id = start_rabbitmq_docker().await;
-
     let rabbitmq_endpoint = "amqp://guest:guest@localhost:5673";
     let input_data_path = "/home/pascal/loki/data/idfm/ntfs/";
     let instance_name = "my_test_instance";
     let zmq_socket = "tcp://*:30001";
+
+    let container_id = start_rabbitmq_docker().await;
+    wait_until_rabbitmq_is_available(rabbitmq_endpoint).await;
+
     let mut config = ServerConfig::new(input_data_path, zmq_socket, instance_name);
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
-    wait_until_rabbitmq_is_available(rabbitmq_endpoint);
     std::thread::sleep(std::time::Duration::from_secs(30));
 
-    send_reload_order(&config).await.unwrap();
+    send_reload_order(&config).await;
 
     std::thread::sleep(std::time::Duration::from_secs(30));
 
@@ -108,18 +107,16 @@ async fn start_rabbitmq_docker() -> String {
 
 async fn wait_until_rabbitmq_is_available(rabbitmq_endpoint: &str) {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
-    let retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
-    let connection = lapin::Connection::connect(
-        &config.rabbitmq_params.rabbitmq_endpoint,
-        lapin::ConnectionProperties::default(),
-    );
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let connection =
+        lapin::Connection::connect(rabbitmq_endpoint, lapin::ConnectionProperties::default());
     loop {
         retry_interval.tick().await;
         tokio::select! {
-            _ = connection.await => {
+            _ = connection => {
                 return;
             }
-            _ = timeout.await => {
+            _ = timeout => {
                 panic!("Could not connect to RabbitMq before timeout.");
             }
         }

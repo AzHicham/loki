@@ -142,7 +142,7 @@ impl DataWorker {
 
     async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
-        let load_result = self.load_data_from_disk().await.map_err(|err| {
+        self.load_data_from_disk().await.map_err(|err| {
             format_err!("DataWorker : error while loading data from disk : {}", err)
         })?;
 
@@ -753,7 +753,7 @@ impl DataWorker {
 
     fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), Error> {
         self.status_update_sender
-            .send(StatusUpdate::RabbitMqDisconnected)
+            .send(status_update)
             .map_err(|err| {
                 format_err!(
                     "StatusWorker channel to send status updates is closed {}",
