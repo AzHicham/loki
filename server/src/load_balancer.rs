@@ -129,7 +129,7 @@ impl LoadBalancer {
         }
 
         // ZMQ worker
-        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
+        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint, shutdown_sender.clone());
         let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
         let (order_sender, order_receiver) = mpsc::channel(1);

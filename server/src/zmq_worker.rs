@@ -36,7 +36,7 @@
 
 use std::thread;
 
-use failure::{format_err, Error};
+use failure::{bail, format_err, Error};
 
 use launch::loki::tracing::{debug, error, info};
 use prost::Message;
@@ -66,6 +66,9 @@ pub struct ZmqWorker {
     responses_receiver: mpsc::UnboundedReceiver<ResponseMessage>,
     // to send response to itself, useful when an incoming zmq message is not a valid navitia_proto::Request
     responses_sender: mpsc::UnboundedSender<ResponseMessage>,
+
+    // to send shutdown signal to Master when an error occurs insider ZmqWorker
+    shutdown_sender: mpsc::Sender<()>,
 }
 
 pub struct ZmqWorkerChannels {
@@ -74,7 +77,7 @@ pub struct ZmqWorkerChannels {
 }
 
 impl ZmqWorker {
-    pub fn new(endpoint: &str) -> (Self, ZmqWorkerChannels) {
+    pub fn new(endpoint: &str, shutdown_sender: mpsc::Sender<()>) -> (Self, ZmqWorkerChannels) {
         let (requests_sender, requests_receiver) = mpsc::unbounded_channel();
         let (responses_sender, responses_receiver) = mpsc::unbounded_channel();
 
@@ -83,6 +86,7 @@ impl ZmqWorker {
             requests_sender,
             responses_receiver,
             responses_sender: responses_sender.clone(),
+            shutdown_sender,
         };
 
         let handle = ZmqWorkerChannels {
@@ -124,10 +128,12 @@ impl ZmqWorker {
     async fn run(mut self) {
         let context = tmq::Context::new();
         let zmq_socket_result = tmq::router(&context).bind(&self.endpoint);
-        info!("Zmq worker bound to endpoint {}", self.endpoint);
 
         match zmq_socket_result {
-            Ok(zmq_socket) => self.run_loop(zmq_socket).await,
+            Ok(zmq_socket) => {
+                info!("Zmq worker bound to endpoint {}", self.endpoint);
+                let _run_err = self.run_loop(zmq_socket).await;
+            }
             Err(err) => {
                 error!(
                     "Could not connect zmq to endpoint {}. Error : {}",
@@ -135,9 +141,12 @@ impl ZmqWorker {
                 );
             }
         }
+
+        // send shutdown signal
+        let _ = self.shutdown_sender.send(()).await;
     }
 
-    async fn run_loop(&mut self, mut zmq_socket: tmq::router::Router) {
+    async fn run_loop(&mut self, mut zmq_socket: tmq::router::Router) -> Result<(), Error> {
         use futures::StreamExt;
         loop {
             debug!("Zmq worker is waiting.");
@@ -157,35 +166,30 @@ impl ZmqWorker {
                         send_response_to_zmq(& mut zmq_socket, response).await
                     }
                     else {
-                        error!("The response channel is closed. I'll stop.");
-                        break;
+                        bail!("ZmqWorker : channel to receive responses is closed.");
                     }
                 }
                 // receive requests from the zmq socket, and send them to the main thread for dispatch to workers
                 has_zmq_message = zmq_socket.next() => {
-                    if let Some(zmq_message_result) = has_zmq_message {
-                        match zmq_message_result {
-                            Ok(zmq_message) => {
-                                debug!("Received a zmq request");
-                                let result = handle_incoming_request(
-                                    zmq_message,
-                                    &mut self.requests_sender,
-                                    &mut self.responses_sender,
-                                );
-                                if let Err(()) = result {
-                                    error!("The response channel is closed. I'll stop.");
-                                    break;
-                                }
+                    let zmq_message_result = has_zmq_message
+                        .ok_or_else(|| format_err!("ZmqWorker : the zmq socket is closed.")
+                        )?;
 
-                            },
-                            Err(err) => {
-                                error!("Error while reading zmq socket : {}", err);
-                            }
+                    match zmq_message_result {
+                        Ok(zmq_message) => {
+                            debug!("Received a zmq request");
+                            handle_incoming_request(
+                                zmq_message,
+                                &mut self.requests_sender,
+                                &mut self.responses_sender,
+                            ).map_err(|err|
+                                format_err!("ZmqWorker : channel to forward resquests is closed.")
+                            )?;
+
+                        },
+                        Err(err) => {
+                            error!("Error while reading zmq socket : {}", err);
                         }
-                    }
-                    else {
-                        error!("The zmq socket has been closed. I'll stop.");
-                        break;
                     }
 
                 }
