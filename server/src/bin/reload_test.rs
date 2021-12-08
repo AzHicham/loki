@@ -69,7 +69,7 @@ async fn run() -> Result<(), Error> {
 
     let _log_guard = launch::logger::init_logger();
 
-    let container_id = create_rabbitmq_docker().await;
+    let container_id = start_rabbitmq_docker().await;
 
     let rabbitmq_endpoint = "amqp://guest:guest@localhost:5673";
     let input_data_path = "/home/pascal/loki/data/idfm/ntfs/";
@@ -81,6 +81,7 @@ async fn run() -> Result<(), Error> {
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
+    wait_until_rabbitmq_is_available(rabbitmq_endpoint);
     std::thread::sleep(std::time::Duration::from_secs(30));
 
     send_reload_order(&config).await.unwrap();
@@ -92,7 +93,7 @@ async fn run() -> Result<(), Error> {
     loop {}
 }
 
-async fn create_rabbitmq_docker() -> String {
+async fn start_rabbitmq_docker() -> String {
     let docker = shiplift::Docker::new();
     let options = shiplift::ContainerOptions::builder(&"rabbitmq:3-management")
         .expose(5672, &"tcp", 5673)
@@ -100,26 +101,47 @@ async fn create_rabbitmq_docker() -> String {
         .build();
     let id = docker.containers().create(&options).await.unwrap().id;
 
-    docker.containers().get(&id).start().await;
+    docker.containers().get(&id).start().await.unwrap();
 
     id
+}
+
+async fn wait_until_rabbitmq_is_available(rabbitmq_endpoint: &str) {
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    let retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let connection = lapin::Connection::connect(
+        &config.rabbitmq_params.rabbitmq_endpoint,
+        lapin::ConnectionProperties::default(),
+    );
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+            _ = connection.await => {
+                return;
+            }
+            _ = timeout.await => {
+                panic!("Could not connect to RabbitMq before timeout.");
+            }
+        }
+    }
 }
 
 async fn stop_rabbitmq_docker(container_id: &str) -> () {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
-    container.stop(None).await;
-    container.delete().await;
+    container.stop(None).await.unwrap();
+    container.delete().await.unwrap();
 }
 
-async fn send_reload_order(config: &ServerConfig) -> Result<(), Error> {
+async fn send_reload_order(config: &ServerConfig) -> () {
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
         &config.rabbitmq_params.rabbitmq_endpoint,
         lapin::ConnectionProperties::default(),
     )
-    .await?;
-    let channel = connection.create_channel().await?;
+    .await
+    .unwrap();
+    let channel = connection.create_channel().await.unwrap();
 
     let mut task = navitia_proto::Task::default();
     task.set_action(navitia_proto::Action::Reload);
@@ -134,9 +156,10 @@ async fn send_reload_order(config: &ServerConfig) -> Result<(), Error> {
             payload,
             BasicProperties::default(),
         )
-        .await?
-        .await?;
+        .await
+        .unwrap()
+        .await
+        .unwrap();
 
     info!("Reload message published with routing key {}.", routing_key);
-    Ok(())
 }
