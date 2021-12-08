@@ -45,12 +45,32 @@ use lapin::BasicProperties;
 use launch::loki::tracing::info;
 use launch::loki::PositiveDuration;
 
+use shiplift;
+
+// TODO
+//  - launch rabbitmq docker from tests ?
+//  - add a "status" to the zmq endpoint, in order to determine when the data has been reloaded
+//  - design a small dataset with an obvious journey that can be queried/modified
+
 fn main() -> Result<(), Error> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    runtime.block_on(run());
+
+    Ok(())
+}
+
+async fn run() -> Result<(), Error> {
     // first launch a rabbitmq docker with
     // docker run -p 5673:5672 -p 15673:15672 rabbitmq:3-management
     // management is available on http://localhost:15673
 
     let _log_guard = launch::logger::init_logger();
+
+    let container_id = create_rabbitmq_docker().await;
+
     let rabbitmq_endpoint = "amqp://guest:guest@localhost:5673";
     let input_data_path = "/home/pascal/loki/data/idfm/ntfs/";
     let instance_name = "my_test_instance";
@@ -63,19 +83,43 @@ fn main() -> Result<(), Error> {
 
     std::thread::sleep(std::time::Duration::from_secs(30));
 
-    send_reload_order(&config).unwrap();
+    send_reload_order(&config).await.unwrap();
+
+    std::thread::sleep(std::time::Duration::from_secs(30));
+
+    stop_rabbitmq_docker(&container_id).await;
 
     loop {}
 }
 
-pub fn send_reload_order(config: &ServerConfig) -> Result<(), Error> {
+async fn create_rabbitmq_docker() -> String {
+    let docker = shiplift::Docker::new();
+    let options = shiplift::ContainerOptions::builder(&"rabbitmq:3-management")
+        .expose(5672, &"tcp", 5673)
+        .expose(15672, &"tcp", 15673)
+        .build();
+    let id = docker.containers().create(&options).await.unwrap().id;
+
+    docker.containers().get(&id).start().await;
+
+    id
+}
+
+async fn stop_rabbitmq_docker(container_id: &str) -> () {
+    let docker = shiplift::Docker::new();
+    let container = docker.containers().get(container_id);
+    container.stop(None).await;
+    container.delete().await;
+}
+
+async fn send_reload_order(config: &ServerConfig) -> Result<(), Error> {
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
         &config.rabbitmq_params.rabbitmq_endpoint,
         lapin::ConnectionProperties::default(),
     )
-    .wait()?;
-    let channel = connection.create_channel().wait()?;
+    .await?;
+    let channel = connection.create_channel().await?;
 
     let mut task = navitia_proto::Task::default();
     task.set_action(navitia_proto::Action::Reload);
@@ -90,8 +134,8 @@ pub fn send_reload_order(config: &ServerConfig) -> Result<(), Error> {
             payload,
             BasicProperties::default(),
         )
-        .wait()?
-        .wait()?;
+        .await?
+        .await?;
 
     info!("Reload message published with routing key {}.", routing_key);
     Ok(())
