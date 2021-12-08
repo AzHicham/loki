@@ -44,7 +44,10 @@ use launch::loki::{
 use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};
 
-use crate::{data_worker::DataWorker, load_balancer::LoadBalancer, ServerConfig};
+use crate::{
+    data_worker::DataWorker, load_balancer::LoadBalancer, status_worker::StatusWorker,
+    zmq_worker::ZmqWorker, ServerConfig,
+};
 
 pub type Timetable = PeriodicSplitVjByTzTimetables;
 
@@ -68,18 +71,28 @@ impl MasterWorker {
 
         let (shutdown_sender, shutdown_receiver) = mpsc::channel(1);
 
-        // LoadBalancer worker
+        // Zmq worker
+        let (zmq_worker, load_balancer_to_zmq_channels, status_worker_to_zmq_channels) =
+            ZmqWorker::new(&config.requests_socket, shutdown_sender.clone());
+
+        let _zmq_handle = zmq_worker.run_in_a_thread()?;
+
+        // LoadBalancer
         let (load_balancer, load_balancer_channels) = LoadBalancer::new(
             data_and_models.clone(),
             config.nb_workers,
-            &config.requests_socket,
             &config.request_default_params,
-            shutdown_sender,
+            load_balancer_to_zmq_channels,
+            shutdown_sender.clone(),
         )?;
         let _load_balancer_handle = load_balancer.run_in_a_thread()?;
 
-        // Data worker
+        // Status worker
+        let (status_worker, status_update_sender) =
+            StatusWorker::new(status_worker_to_zmq_channels, shutdown_sender.clone());
+        let _status_worker_handle = status_worker.run_in_a_thread()?;
 
+        // Data worker
         let data_worker = DataWorker::new(config, data_and_models.clone(), load_balancer_channels);
         let _data_worker_handle = data_worker.run_in_a_thread()?;
 

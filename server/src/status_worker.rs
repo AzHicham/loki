@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::zmq_worker::{RequestMessage, ResponseMessage};
+use crate::zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels};
 
 use super::navitia_proto;
 
@@ -55,8 +55,7 @@ pub struct StatusWorker {
     is_connected_to_rabbitmq: bool,
     last_real_time_reload: Option<NaiveDateTime>,
 
-    status_request_receiver: mpsc::UnboundedReceiver<RequestMessage>,
-    status_response_sender: mpsc::UnboundedSender<ResponseMessage>,
+    zmq_channels: StatusWorkerToZmqChannels,
 
     status_update_receiver: mpsc::UnboundedReceiver<StatusUpdate>,
 
@@ -78,8 +77,7 @@ pub enum StatusUpdate {
 
 impl StatusWorker {
     pub fn new(
-        status_request_receiver: mpsc::UnboundedReceiver<RequestMessage>,
-        status_response_sender: mpsc::UnboundedSender<ResponseMessage>,
+        zmq_channels: StatusWorkerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
     ) -> (Self, mpsc::UnboundedSender<StatusUpdate>) {
         let (status_update_sender, status_update_receiver) = mpsc::unbounded_channel();
@@ -87,8 +85,7 @@ impl StatusWorker {
             base_data_info: None,
             is_connected_to_rabbitmq: false,
             last_real_time_reload: None,
-            status_request_receiver,
-            status_response_sender,
+            zmq_channels,
             status_update_receiver,
             shutdown_sender,
         };
@@ -130,7 +127,7 @@ impl StatusWorker {
                     )?;
                     self.handle_status_update(status_update);
                 }
-                has_request = self.status_request_receiver.recv() => {
+                has_request = self.zmq_channels.status_requests_receiver.recv() => {
                     let request_message = has_request.ok_or_else(||
                         format_err!("StatusWorker : channel to receive status requests is closed.")
                     )?;
@@ -176,12 +173,15 @@ impl StatusWorker {
             payload,
         };
 
-        self.status_response_sender.send(response).map_err(|err| {
-            format_err!(
-                "StatusWorker : channel to send status response is closed : {}",
-                err
-            )
-        })
+        self.zmq_channels
+            .status_responses_sender
+            .send(response)
+            .map_err(|err| {
+                format_err!(
+                    "StatusWorker : channel to send status response is closed : {}",
+                    err
+                )
+            })
     }
 
     fn handle_status_update(&mut self, status_update: StatusUpdate) {

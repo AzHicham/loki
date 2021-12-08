@@ -52,7 +52,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 use crate::{
     compute_worker::ComputeWorker,
     master_worker::Timetable,
-    zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
+    zmq_worker::{LoadBalancerToZmqChannels, RequestMessage, ResponseMessage},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -85,7 +85,7 @@ pub struct LoadBalancer {
 
     state: LoadBalancerState,
 
-    zmq_worker_handle: ZmqWorkerChannels,
+    zmq_channels: LoadBalancerToZmqChannels,
 }
 
 pub struct LoadBalancerChannels {
@@ -103,8 +103,8 @@ impl LoadBalancer {
     pub fn new(
         data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
         nb_workers: usize,
-        zmq_endpoint: &str,
         request_default_params: &config::RequestParams,
+        zmq_channels: LoadBalancerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
     ) -> Result<(Self, LoadBalancerChannels), Error> {
         let mut worker_request_senders = Vec::new();
@@ -128,14 +128,13 @@ impl LoadBalancer {
             worker_states.push(WorkerState::Available);
         }
 
-        // ZMQ worker
-        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint, shutdown_sender.clone());
-        let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
+        // // ZMQ worker
+        // let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint, shutdown_sender.clone());
+        // let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
         let (order_sender, order_receiver) = mpsc::channel(1);
         let (stopped_sender, stopped_receiver) = mpsc::channel(1);
 
-        // Master worker
         let load_balancer_handle = LoadBalancerChannels {
             order_sender,
             stopped_receiver,
@@ -149,7 +148,7 @@ impl LoadBalancer {
             stopped_sender,
             shutdown_sender,
             state: LoadBalancerState::Online,
-            zmq_worker_handle,
+            zmq_channels,
         };
         Ok((result, load_balancer_handle))
     }
@@ -252,7 +251,7 @@ impl LoadBalancer {
                     }
                 }
                 //receive requests from the zmq socket, and dispatch them to an available worker
-                has_request = self.zmq_worker_handle.requests_receiver.recv(),
+                has_request = self.zmq_channels.requests_receiver.recv(),
                 if has_available_worker.is_some() && self.state == LoadBalancerState::Online => {
                     let request = has_request.ok_or_else(|| format_err!("Channel to receive zmq requests has closed."))?;
                     debug!("Load Balancer received a request.");
@@ -292,7 +291,7 @@ impl LoadBalancer {
     ) -> Result<(), Error> {
         // let's forward to response to the zmq worker
         // who will forward it to the client
-        let send_result = self.zmq_worker_handle.responses_sender.send(response);
+        let send_result = self.zmq_channels.responses_sender.send(response);
         if let Err(err) = send_result {
             return Err(format_err!(
                 "Channel to send responses to zmq worker has closed : {}",
