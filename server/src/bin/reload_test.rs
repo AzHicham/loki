@@ -33,6 +33,7 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
+
 pub use loki_server;
 use loki_server::master_worker::MasterWorker;
 use loki_server::navitia_proto;
@@ -42,8 +43,9 @@ use prost::Message;
 use failure::Error;
 use lapin::options::BasicPublishOptions;
 use lapin::BasicProperties;
+use launch::loki::chrono::Utc;
 use launch::loki::tracing::info;
-use launch::loki::PositiveDuration;
+use launch::loki::{NaiveDateTime, PositiveDuration};
 
 use shiplift;
 
@@ -70,33 +72,44 @@ async fn run() -> Result<(), Error> {
     let rabbitmq_endpoint = "amqp://guest:guest@localhost:5673";
     let input_data_path = "/home/pascal/loki/data/idfm/ntfs/";
     let instance_name = "my_test_instance";
-    let zmq_socket = "tcp://*:30001";
+    let zmq_endpoint = "tcp://127.0.0.1:30001";
 
     let container_id = start_rabbitmq_docker().await;
     wait_until_rabbitmq_is_available(rabbitmq_endpoint).await;
 
-    let mut config = ServerConfig::new(input_data_path, zmq_socket, instance_name);
+    let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
-    std::thread::sleep(std::time::Duration::from_secs(30));
+    wait_until_data_loaded(&zmq_endpoint).await;
 
     send_reload_order(&config).await;
 
-    std::thread::sleep(std::time::Duration::from_secs(30));
+    wait_until_data_loaded(&zmq_endpoint).await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
     stop_rabbitmq_docker(&container_id).await;
-
-    loop {}
 }
 
 async fn start_rabbitmq_docker() -> String {
+    let container_name = "rabbitmq_test_reload";
+
     let docker = shiplift::Docker::new();
+    // if there was a problem at previous run, the docker container may still be running
+    // so let's stop it if some is found
+    {
+        let old_container = docker.containers().get(container_name);
+        let _ = old_container.stop(None).await;
+        let _ = old_container.delete().await;
+    }
+
     let options = shiplift::ContainerOptions::builder(&"rabbitmq:3-management")
         .expose(5672, &"tcp", 5673)
         .expose(15672, &"tcp", 15673)
+        .name(container_name)
         .build();
     let id = docker.containers().create(&options).await.unwrap().id;
 
@@ -128,6 +141,51 @@ async fn stop_rabbitmq_docker(container_id: &str) -> () {
     let container = docker.containers().get(container_id);
     container.stop(None).await.unwrap();
     container.delete().await.unwrap();
+}
+
+async fn wait_until_data_loaded(zmq_endpoint: &str) -> () {
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    tokio::pin!(timeout);
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+
+    let start_datetime = Utc::now().naive_utc();
+
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+            has_datetime = send_status_request_and_wait_for_response(zmq_endpoint) => {
+                if let Some(datetime) = has_datetime {
+                    if datetime > start_datetime {
+                        return ();
+                    }
+                }
+            }
+            _ = & mut timeout => {
+                panic!("Data not reloaded before timeout.");
+            }
+        }
+    }
+}
+
+async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> Option<NaiveDateTime> {
+    let context = tmq::Context::new();
+    let zmq_socket = tmq::request(&context).connect(zmq_endpoint).unwrap();
+
+    // cf https://github.com/cetra3/tmq/blob/master/examples/request.rs
+
+    let mut status_request = navitia_proto::Request::default();
+    status_request.set_requested_api(navitia_proto::Api::Status);
+    let zmq_message = tmq::Message::from(status_request.encode_to_vec());
+
+    let recv_socket = zmq_socket.send(zmq_message.into()).await.unwrap();
+    let (mut reply, _) = recv_socket.recv().await.unwrap();
+    let reply_payload = reply.pop_back().unwrap();
+
+    let proto_response = navitia_proto::Response::decode(&*reply_payload).unwrap();
+    let status_response = proto_response.status.unwrap();
+    status_response
+        .last_load_at
+        .map(|datetime_str| NaiveDateTime::parse_from_str(&datetime_str, "%Y%m%dT%H%M%S").unwrap())
 }
 
 async fn send_reload_order(config: &ServerConfig) -> () {
