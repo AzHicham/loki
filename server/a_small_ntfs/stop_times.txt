@@ -1,0 +1,3 @@
+stop_time_id,trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,local_zone_id,date_time_estimated
+matin_massy,matin,08:00:00,08:00:00,massy,0,"",0,0,,0
+matin_paris,matin,09:00:00,09:00:00,paris,1,"",0,0,,0

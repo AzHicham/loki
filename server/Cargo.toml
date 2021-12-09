@@ -31,9 +31,11 @@ structopt = "0.3"
 failure = "0.1"
 serde = "1.0"
 serde_json = "1.0"
-hostname = "0.3.1"
+hostname = "0.3"
 
-shiplift = "0.7.0"
+[dev-dependencies]
+shiplift = "0.7" # docker API
+tempdir = "0.3"
 
 [build-dependencies]
 prost-build = "0.9"

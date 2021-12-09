@@ -150,7 +150,7 @@ impl StatusWorker {
 
         let mut status = navitia_proto::Status::default();
         let date_format = "%Y%m%d";
-        let datetime_format = "%Y%m%dT%H%M%S";
+        let datetime_format = "%Y%m%dT%H%M%S.%f";
         if let Some(info) = &self.base_data_info {
             status.start_production_date = info.start_date.format(date_format).to_string();
             status.end_production_date = info.end_date.format(date_format).to_string();

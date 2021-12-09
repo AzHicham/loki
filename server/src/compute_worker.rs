@@ -50,7 +50,7 @@ use launch::{
         filters::Filters,
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
-        tracing::{debug, error, info, warn},
+        tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
@@ -287,7 +287,7 @@ where
     let departure_timestamp_u64 = journey_request
         .datetimes
         .get(0)
-        .ok_or_else(|| format_err!("Not departure datetime provided."))?;
+        .ok_or_else(|| format_err!("No departure datetime provided."))?;
     let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).map_err(|_| {
         format_err!(
             "The departure datetime {} cannot be converted to a valid i64 timestamp.",
@@ -343,7 +343,7 @@ where
         true => DateTimeRepresent::Departure,
         false => DateTimeRepresent::Arrival,
     };
-    // trace!("{:#?}", request_input);
+    trace!("{:#?}", request_input);
 
     let responses = solver.solve_request(
         data,

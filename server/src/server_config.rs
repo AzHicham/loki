@@ -61,7 +61,7 @@ pub struct ServerConfig {
 }
 
 impl ServerConfig {
-    pub fn new(input_data_path: &str, zmq_socket: &str, instance_name: &str) -> Self {
+    pub fn new(input_data_path: std::path::PathBuf, zmq_socket: &str, instance_name: &str) -> Self {
         Self {
             launch_params: config::LaunchParams::new(input_data_path),
             requests_socket: zmq_socket.to_string(),
@@ -125,7 +125,7 @@ pub fn default_real_time_update_interval() -> PositiveDuration {
 }
 
 pub fn default_rabbitmq_connect_retry_interval() -> PositiveDuration {
-    PositiveDuration::from_str("00:00:30").unwrap()
+    PositiveDuration::from_str("00:00:10").unwrap()
 }
 
 pub fn default_reload_request_time_to_live() -> PositiveDuration {
