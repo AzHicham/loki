@@ -84,7 +84,7 @@ pub fn default_transfer_duration() -> PositiveDuration {
 impl LaunchParams {
     pub fn new(input_data_path: std::path::PathBuf) -> Self {
         Self {
-            input_data_path: std::path::PathBuf::from(input_data_path),
+            input_data_path,
             input_data_type: InputDataType::Ntfs,
             default_transfer_duration: default_transfer_duration(),
             loads_data_path: None,

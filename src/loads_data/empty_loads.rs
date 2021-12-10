@@ -55,8 +55,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::models::base_model;
-use crate::models::VehicleJourneyIdx;
+use crate::models::{base_model, VehicleJourneyIdx};
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {

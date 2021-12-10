@@ -350,7 +350,7 @@ where
         model,
         &request_input,
         data_filters,
-        &comparator_type,
+        comparator_type,
         &datetime_represent,
     )?;
     for response in &responses {

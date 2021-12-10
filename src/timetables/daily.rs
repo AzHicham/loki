@@ -346,7 +346,7 @@ impl TimetablesTrait for DailyTimetables {
             let date = calendar.to_naive_date(&day);
             let loads = loads_data
                 .loads(vehicle_journey_idx, &date)
-                .unwrap_or_else(|| default_loads.as_slice());
+                .unwrap_or(default_loads.as_slice());
 
             let (is_base, is_real_time) = match real_time_level {
                 RealTimeLevel::Base => (true, true),

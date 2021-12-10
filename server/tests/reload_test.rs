@@ -34,24 +34,18 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 pub use loki_server;
-use loki_server::master_worker::MasterWorker;
-use loki_server::navitia_proto;
-use loki_server::server_config::ServerConfig;
+use loki_server::{master_worker::MasterWorker, navitia_proto, server_config::ServerConfig};
 use prost::Message;
 
-use lapin::options::BasicPublishOptions;
-use lapin::BasicProperties;
-use launch::loki::chrono::Utc;
-use launch::loki::tracing::info;
-use launch::loki::{NaiveDateTime, PositiveDuration};
+use lapin::{options::BasicPublishOptions, BasicProperties};
+use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::PullOptionsBuilder;
-use tempdir;
-
-use shiplift;
 
 // TODO
 //  - launch rabbitmq docker from tests ?
@@ -59,7 +53,7 @@ use shiplift;
 //  - design a small dataset with an obvious journey that can be queried/modified
 
 #[test]
-fn main() -> () {
+fn main() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -68,7 +62,7 @@ fn main() -> () {
     runtime.block_on(run())
 }
 
-async fn run() -> () {
+async fn run() {
     let _log_guard = launch::logger::init_logger();
 
     let start_test_datetime = Utc::now().naive_utc();
@@ -82,7 +76,7 @@ async fn run() -> () {
         .join("tests")
         .join("a_small_ntfs");
 
-    copy_ntfs(&data_dir_path, &working_dir_path);
+    copy_ntfs(&data_dir_path, working_dir_path);
 
     let rabbitmq_endpoint = "amqp://guest:guest@localhost:5673";
     let input_data_path = working_dir_path.to_path_buf();
@@ -97,7 +91,7 @@ async fn run() -> () {
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
-    wait_until_data_loaded_after(&zmq_endpoint, &start_test_datetime).await;
+    wait_until_data_loaded_after(zmq_endpoint, &start_test_datetime).await;
 
     let datetime =
         NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
@@ -105,7 +99,7 @@ async fn run() -> () {
     let journeys_request = make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
 
     let journeys_response =
-        send_request_and_wait_for_response(&zmq_endpoint, journeys_request.clone()).await;
+        send_request_and_wait_for_response(zmq_endpoint, journeys_request.clone()).await;
     // info!("{:#?}", journeys_response);
     // check that we have a journey, that uses the only trip in the ntfs, with headsign "Hello"
     assert_eq!(
@@ -132,10 +126,10 @@ async fn run() -> () {
     let before_reload_datetime = Utc::now().naive_utc();
     send_reload_order(&config).await;
 
-    wait_until_data_loaded_after(&zmq_endpoint, &before_reload_datetime).await;
+    wait_until_data_loaded_after(zmq_endpoint, &before_reload_datetime).await;
 
     let journeys_response =
-        send_request_and_wait_for_response(&zmq_endpoint, journeys_request).await;
+        send_request_and_wait_for_response(zmq_endpoint, journeys_request).await;
     // check that we have a journey, that uses the only trip in the ntfs,  now with headsign "Hello Renamed"
     assert_eq!(
         journeys_response.journeys[0].sections[0]
@@ -215,9 +209,9 @@ async fn start_rabbitmq_docker() -> String {
         let _ = old_container.delete().await;
     }
 
-    let options = shiplift::ContainerOptions::builder(&"rabbitmq:3-management")
-        .expose(5672, &"tcp", 5673)
-        .expose(15672, &"tcp", 15673)
+    let options = shiplift::ContainerOptions::builder("rabbitmq:3-management")
+        .expose(5672, "tcp", 5673)
+        .expose(15672, "tcp", 15673)
         .name(container_name)
         .build();
     let id = docker.containers().create(&options).await.unwrap().id;
@@ -247,14 +241,14 @@ async fn wait_until_connected_to_rabbitmq(zmq_endpoint: &str) {
     }
 }
 
-async fn stop_rabbitmq_docker(container_id: &str) -> () {
+async fn stop_rabbitmq_docker(container_id: &str) {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
     container.stop(None).await.unwrap();
     container.delete().await.unwrap();
 }
 
-async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) -> () {
+async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
     let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
@@ -270,7 +264,7 @@ async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &Naive
                 // info!("Status request responded with last_load_at : {:?}. Reload should be after {}", has_datetime, after_datetime);
                 if let Some(datetime) = has_datetime {
                     if datetime > *after_datetime {
-                        return ();
+                        return ;
                     }
                 }
             }
@@ -289,7 +283,7 @@ async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> naviti
     proto_response.status.unwrap()
 }
 
-async fn send_reload_order(config: &ServerConfig) -> () {
+async fn send_reload_order(config: &ServerConfig) {
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
         &config.rabbitmq_params.rabbitmq_endpoint,
