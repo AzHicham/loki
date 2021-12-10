@@ -51,7 +51,7 @@ use loki::tracing::{debug, error, info};
 
 use std::{fs::File, io::BufReader, time::SystemTime};
 
-use failure::{bail, Error};
+use anyhow::{bail, Context, Error};
 
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
@@ -155,13 +155,9 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
         }
     };
     let reader = BufReader::new(file);
-    let config: Config = serde_json::from_reader(reader).map_err(|err| {
-        failure::format_err!(
-            "Could not read config file {:?} : {}",
-            config_file.file,
-            err
-        )
-    })?;
+    let config: Config = serde_json::from_reader(reader)
+        .with_context(|| format!("Could not read config file at {:?}", config_file.file))?;
+
     Ok(config)
 }
 

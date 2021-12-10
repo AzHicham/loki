@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Context, Error};
 use launch::{
     config,
     loki::{
@@ -160,7 +160,7 @@ impl LoadBalancer {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         let thread_builder = thread::Builder::new().name("loki_load_balancer".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
@@ -220,7 +220,7 @@ impl LoadBalancer {
                     debug!("LoadBalancer received response from worker {:?}", worker_id);
 
                      self.forward_worker_response(worker_id, response)
-                                .map_err(|err| format_err!("Could not send response to zmq worker : {}.", err))?;
+                            .context("Could not send response to zmq worker")?;
 
 
                     if self.state == LoadBalancerState::Stopping {
@@ -260,7 +260,7 @@ impl LoadBalancer {
                     debug!("LoadBalancer is sending request to worker {:?}", worker_id);
                     let sender = &self.worker_request_senders[worker_id];
                     sender.send(request).await
-                                .map_err(|err| format_err!("Channel to forward request to worker {} has closed", err))?;
+                                .with_context(||format!("Channel to forward request to worker {} has closed", worker_id))?;
 
                     self.worker_states[worker_id] = WorkerState::Busy;
                 }
@@ -278,7 +278,7 @@ impl LoadBalancer {
             self.stopped_sender
                 .send(())
                 .await
-                .map_err(|err| format_err!("Channel load_balancer_stopped has closed : {}", err))
+                .context("Channel load_balancer_stopped has closed")
         } else {
             Ok(())
         }
@@ -291,13 +291,10 @@ impl LoadBalancer {
     ) -> Result<(), Error> {
         // let's forward to response to the zmq worker
         // who will forward it to the client
-        let send_result = self.zmq_channels.responses_sender.send(response);
-        if let Err(err) = send_result {
-            return Err(format_err!(
-                "Channel to send responses to zmq worker has closed : {}",
-                err
-            ));
-        }
+        self.zmq_channels
+            .responses_sender
+            .send(response)
+            .context("Channel to send responses to zmq worker has closed")?;
 
         // let's mark the worker as available
         let worker_state = &mut self.worker_states[worker_id.id];
@@ -307,7 +304,7 @@ impl LoadBalancer {
             }
             WorkerState::Available => {
                 error!(
-                    "I received a response from worker {}, but it is marked as {:?}",
+                    "I received a response from worker {}, but it is marked as {:?}.",
                     worker_id.id, worker_state
                 );
             }
@@ -323,7 +320,7 @@ impl LoadBalancer {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         runtime.block_on(self.run());
 

@@ -16,7 +16,7 @@ use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};
 use hdrhistogram::Histogram;
 use rand::prelude::{IteratorRandom, SeedableRng};
 
-use failure::{bail, Error};
+use anyhow::{bail, Error};
 
 use launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
@@ -25,9 +25,7 @@ use structopt::StructOpt;
 fn main() {
     launch::logger::init_logger();
     if let Err(err) = run() {
-        for cause in err.iter_chain() {
-            eprintln!("{}", cause);
-        }
+        eprintln!("{:?}", err);
         std::process::exit(1);
     }
 }

@@ -36,7 +36,7 @@
 
 mod utils;
 
-use failure::Error;
+use anyhow::Error;
 use launch::{config::DataImplem, solver::Solver};
 
 use loki::{

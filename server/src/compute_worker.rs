@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Context, Error};
 use std::{
     ops::Deref,
     sync::{Arc, RwLock},
@@ -116,7 +116,7 @@ impl ComputeWorker {
 
             let proto_response = self
                 .handle_request(request_message.payload)
-                .map_err(|err| format_err!("This worker will stop. {}", err))?;
+                .with_context(|| format!("Compute worker {} will stop.", self.worker_id.id))?;
 
             let response_message = ResponseMessage {
                 payload: proto_response,
@@ -128,11 +128,10 @@ impl ComputeWorker {
             // block until the response is sent
             self.responses_channel
                 .blocking_send((self.worker_id, response_message))
-                .map_err(|err| {
-                    format_err!(
-                        "Worker {} could not send response : {}. This worker will stop.",
-                        self.worker_id.id,
-                        err
+                .with_context(|| {
+                    format!(
+                        "Compute worker {} could not send response. This worker will stop.",
+                        self.worker_id.id
                     )
                 })?;
 
@@ -158,18 +157,13 @@ impl ComputeWorker {
                         RealTimeLevel::RealTime
                     }
                 };
-                let rw_lock_read_guard = self
-                    .data_and_models
-                    .read()
-                    // if the read lock cannot be acquired, it means the lock is poisoned
-                    // and we return from this function and stop the thread
-                    .map_err(|err| {
-                        format_err!(
-                            "Compute worker {} failed to acquire read lock on data_and_models. {}.",
-                            self.worker_id.id,
-                            err
-                        )
-                    })?;
+                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
+                        self.worker_id.id,
+                        err
+                    )
+                })?;
 
                 let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
@@ -288,8 +282,8 @@ where
         .datetimes
         .get(0)
         .ok_or_else(|| format_err!("No departure datetime provided."))?;
-    let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).map_err(|_| {
-        format_err!(
+    let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).with_context(|| {
+        format!(
             "The departure datetime {} cannot be converted to a valid i64 timestamp.",
             departure_timestamp_u64
         )

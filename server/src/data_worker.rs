@@ -46,7 +46,7 @@ use super::{chaos_proto::gtfs_realtime, navitia_proto};
 use prost::Message as ProstMessage;
 use protobuf::Message as ProtobufMessage;
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Context, Error};
 use lapin::{
     options::{
         BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions,
@@ -101,7 +101,7 @@ impl DataWorker {
         shutdown_sender: mpsc::Sender<()>,
     ) -> Self {
         let host_name = hostname::get()
-            .map_err(|err| format_err!("Could not retreive hostname : {}.", err))
+            .context("Could not retreive hostname.")
             .and_then(|os_string| {
                 os_string
                     .into_string()
@@ -141,9 +141,9 @@ impl DataWorker {
 
     async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
-        self.load_data_from_disk().await.map_err(|err| {
-            format_err!("DataWorker : error while loading data from disk : {}", err)
-        })?;
+        self.load_data_from_disk()
+            .await
+            .context("DataWorker : error while loading data from disk.")?;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -243,11 +243,10 @@ impl DataWorker {
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
         let launch_params = self.config.launch_params.clone();
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params).map_err(|err| {
-                format_err!(
-                    "Could not read data from disk at {:?}, because {}",
-                    &launch_params.input_data_path,
-                    err
+            let new_base_model = launch::read::read_model(&launch_params).with_context(|| {
+                format!(
+                    "Could not read data from disk at {:?}",
+                    &launch_params.input_data_path
                 )
             })?;
             info!("Model loaded");
@@ -350,13 +349,7 @@ impl DataWorker {
             .order_sender
             .send(order.clone())
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not send order {:?} to load balancer : {}",
-                    order,
-                    err
-                )
-            })
+            .with_context(|| format!("Could not send order {:?} to load balancer.", order))
     }
 
     async fn handle_incoming_kirin_message(
@@ -463,9 +456,7 @@ impl DataWorker {
         let connection =
             lapin::Connection::connect(endpoint, lapin::ConnectionProperties::default())
                 .await
-                .map_err(|err| {
-                    format_err!("Could not connect to {}, because : {}", endpoint, err)
-                })?;
+                .with_context(|| format!("Could not connect to rabbitmq endpoint {}", endpoint))?;
 
         info!(
             "Successfully connected to rabbitmq at endpoint {}",
@@ -486,9 +477,7 @@ impl DataWorker {
                 FieldTable::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!("Could not delete exchange {}, because : {}", exchange, err)
-            })?;
+            .with_context(|| format!("Could not delete rabbit mq exchange {}", exchange))?;
 
         self.connect_real_time_queue(&channel).await?;
         self.connect_reload_queue(&channel).await?;
@@ -504,11 +493,10 @@ impl DataWorker {
                 lapin::options::QueueDeleteOptions::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not delete queue {}, because : {}",
-                    &self.real_time_queue_name,
-                    err
+            .with_context(|| {
+                format!(
+                    "Could not delete queue named {}",
+                    &self.real_time_queue_name
                 )
             })?;
 
@@ -520,13 +508,8 @@ impl DataWorker {
                 FieldTable::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not declare queue {}, because : {}",
-                    &self.real_time_queue_name,
-                    err
-                )
-            })?;
+            .with_context(|| format!("Could not declare queue {}", &self.real_time_queue_name))?;
+
         info!(
             "Queue declared for kirin real time : {}",
             &self.real_time_queue_name
@@ -544,12 +527,10 @@ impl DataWorker {
                     FieldTable::default(),
                 )
                 .await
-                .map_err(|err| {
-                    format_err!(
-                        "Could not bind queue {} to topic {}, because : {}",
-                        &self.reload_queue_name,
-                        topic,
-                        err
+                .with_context(|| {
+                    format!(
+                        "Could not bind queue {} to topic {}",
+                        &self.real_time_queue_name, topic
                     )
                 })?;
 
@@ -564,19 +545,7 @@ impl DataWorker {
 
     async fn connect_reload_queue(&self, channel: &lapin::Channel) -> Result<(), Error> {
         // let's first delete the queues, in case they existed and were not properly deleted
-        channel
-            .queue_delete(
-                &self.reload_queue_name,
-                lapin::options::QueueDeleteOptions::default(),
-            )
-            .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not delete queue {}, because : {}",
-                    &self.real_time_queue_name,
-                    err
-                )
-            })?;
+        delete_queue(channel, &self.reload_queue_name).await?;
 
         // declare reload_data queue
         channel
@@ -586,13 +555,8 @@ impl DataWorker {
                 FieldTable::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not declare queue {}, because : {}",
-                    &self.reload_queue_name,
-                    err
-                )
-            })?;
+            .with_context(|| format!("Could not declare queue {}", &self.reload_queue_name))?;
+
         info!("Queue declared for reload : {}", &self.reload_queue_name);
 
         // bind the reload queue to the topic instance_name.task.*
@@ -606,14 +570,7 @@ impl DataWorker {
                 FieldTable::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not bind queue {} to topic {}, because : {}",
-                    &self.reload_queue_name,
-                    topic,
-                    err
-                )
-            })?;
+            .with_context(|| format!("Could not bind queue named {}", &self.reload_queue_name))?;
 
         info!(
             "Reload queue {}  binded to topic: {}",
@@ -648,13 +605,7 @@ impl DataWorker {
                 FieldTable::default(),
             )
             .await
-            .map_err(|err| {
-                format_err!(
-                    "Could not declare queue {} to request realtime reload to Kirin, because : {}",
-                    &queue_name,
-                    err
-                )
-            })?;
+            .with_context(|| format!("Could not declare queue {}", &self.reload_queue_name))?;
 
         // let's create the reload task to be sent into the queue
         let task = {
@@ -754,7 +705,7 @@ impl DataWorker {
             .send(status_update)
             .map_err(|err| {
                 format_err!(
-                    "StatusWorker channel to send status updates is closed {}",
+                    "StatusWorker channel to send status updates has closed. {}",
                     err
                 )
             })
@@ -766,7 +717,7 @@ impl DataWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         let thread_builder = thread::Builder::new().name("loki_data_worker".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
@@ -791,18 +742,12 @@ async fn create_consumer(
             FieldTable::default(),
         )
         .await
-        .map_err(|err| {
-            format_err!(
-                "Could not create consumer to queue {}, because {}",
-                queue_name,
-                err
-            )
-        })
+        .with_context(|| format!("Could not create consumer to queue {}.", queue_name))
 }
 
 async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, Error> {
     channel
         .queue_delete(queue_name, lapin::options::QueueDeleteOptions::default())
         .await
-        .map_err(|err| format_err!("Could not delete queue {}, because : {}", &queue_name, err))
+        .with_context(|| format!("Could not create delete to queue {}.", queue_name))
 }

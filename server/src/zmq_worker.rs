@@ -36,7 +36,7 @@
 
 use std::thread;
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::Utc,
@@ -128,7 +128,7 @@ impl ZmqWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         runtime.block_on(self.run());
 
@@ -142,7 +142,7 @@ impl ZmqWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         let thread_builder = thread::Builder::new().name("loki_zmq_worker".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
@@ -249,12 +249,10 @@ async fn send_response_to_zmq(
 
     let multipart_msg: tmq::Multipart = iter.collect();
 
-    zmq_socket.send(multipart_msg).await.map_err(|err| {
-        format_err!(
-            "ZmqWorker, error while sending response to zmq socket : {}",
-            err
-        )
-    })
+    zmq_socket
+        .send(multipart_msg)
+        .await
+        .context("ZmqWorker, error while sending response to zmq socket.")
 }
 
 async fn handle_incoming_request(
@@ -298,19 +296,13 @@ async fn handle_incoming_request(
                 payload: proto_request,
             };
             if is_status_request {
-                status_request_sender.send(request_message).map_err(|err| {
-                    format_err!(
-                        "ZmqWorker error while forwarding request to status balancer : {}",
-                        err
-                    )
-                })
+                status_request_sender
+                    .send(request_message)
+                    .context("ZmqWorker error while forwarding request to status worker.")
             } else {
-                requests_sender.send(request_message).map_err(|err| {
-                    format_err!(
-                        "ZmqWorker error while forwarding request to load balancer : {}",
-                        err
-                    )
-                })
+                requests_sender
+                    .send(request_message)
+                    .context("ZmqWorker error while forwarding request to load balancer.")
             }
         }
         Err(err) => {

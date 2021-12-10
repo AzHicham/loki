@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, Context, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
@@ -113,7 +113,7 @@ impl MasterWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         runtime.block_on(self.run())
     }
@@ -122,7 +122,7 @@ impl MasterWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         let thread_builder = std::thread::Builder::new().name("loki_master_worker".to_string());
         let _handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
