@@ -53,7 +53,9 @@ use shiplift::builder::PullOptionsBuilder;
 //  - design a small dataset with an obvious journey that can be queried/modified
 
 #[test]
-fn main() {
+fn main() -> () {
+    let _log_guard = launch::logger::init_test_logger();
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -62,14 +64,14 @@ fn main() {
     runtime.block_on(run())
 }
 
-async fn run() {
-    let _log_guard = launch::logger::init_logger();
-
+async fn run() -> () {
     let start_test_datetime = Utc::now().naive_utc();
 
     let working_dir = tempdir::TempDir::new("loki_reload_data_test").unwrap();
     let working_dir_path = working_dir.path();
     // let working_dir_path = PathBuf::from_str("/tmp/test_loki/").unwrap();
+
+    println!("Coucou");
 
     let data_dir_path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
         .unwrap()
@@ -193,7 +195,9 @@ async fn start_rabbitmq_docker() -> String {
 
         while let Some(pull_result) = stream.next().await {
             match pull_result {
-                Ok(output) => info!("Pulled {:?} from docker hub.", output),
+                Ok(output) => {
+                    info!("Pulled {:?} from docker hub.", output)
+                }
                 Err(e) => {
                     panic!("Error while pulling from dockerhub: {}", e);
                 }

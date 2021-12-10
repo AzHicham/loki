@@ -38,7 +38,6 @@ pub mod disruption_builder;
 pub mod model_builder;
 
 use anyhow::{format_err, Error};
-use env_logger::Env;
 use launch::{
     config,
     config::launch_params::default_transfer_duration,
@@ -59,16 +58,6 @@ use loki::{
     DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration, TransitData,
 };
 use model_builder::AsDateTime;
-
-pub fn init_logger() {
-    let _ = env_logger::Builder::from_env(
-        // use log level specified by RUST_LOG env var if set
-        //  and default to the "debug" level when RUST_LOG is not set
-        Env::default().default_filter_or("debug"),
-    )
-    .is_test(true)
-    .try_init();
-}
 
 pub struct Config<'a> {
     pub request_params: config::RequestParams,
