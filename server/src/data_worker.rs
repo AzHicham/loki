@@ -42,8 +42,7 @@ use crate::{
     status_worker::{BaseDataInfo, StatusUpdate},
 };
 
-use super::chaos_proto::gtfs_realtime;
-use super::navitia_proto;
+use super::{chaos_proto::gtfs_realtime, navitia_proto};
 use prost::Message as ProstMessage;
 use protobuf::Message as ProtobufMessage;
 

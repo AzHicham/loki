@@ -390,13 +390,12 @@ impl RealTimeModel {
     ) -> Option<&TripData> {
         self.base_vehicle_journeys_idx_to_history
             .get(idx)
-            .map(|pos| {
+            .and_then(|pos| {
                 self.base_vehicle_journeys_history[*pos]
                     .by_reference_date
                     .get(date)
                     .map(|trip_version| &trip_version.trip_data)
             })
-            .flatten()
     }
 
     pub(super) fn new_vehicle_journey_last_version(

@@ -8,8 +8,7 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::tracing::debug;
-use loki::DataTrait;
+use loki::{tracing::debug, DataTrait};
 
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};

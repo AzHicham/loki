@@ -67,9 +67,8 @@ fn create_model() -> BaseModel {
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
     let loads_data = loki::loads_data::LoadsData::new(filepath, &collections).unwrap();
-    let base_model = BaseModel::new(collections, loads_data);
 
-    base_model
+    BaseModel::new(collections, loads_data)
 }
 
 #[test]

@@ -102,8 +102,7 @@ impl<'model> ModelRefs<'model> {
         idx: BaseVehicleJourneyIdx,
     ) -> Option<&transit_model::objects::Line> {
         self.base_vehicle_journey_route(&idx)
-            .map(|route| self.base.lines.get(route.line_id.as_str()))
-            .flatten()
+            .and_then(|route| self.base.lines.get(route.line_id.as_str()))
     }
 
     pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
@@ -455,8 +454,7 @@ impl<'model> ModelRefs<'model> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self
                 .base_vehicle_journey_line(*idx)
-                .map(|line| line.code.as_ref())
-                .flatten()
+                .and_then(|line| line.code.as_ref())
                 .map(|s| s.as_str()),
             VehicleJourneyIdx::New(_) => None,
         }
@@ -551,7 +549,7 @@ impl<'model> ModelRefs<'model> {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
                     let vj = &self.base.vehicle_journeys[*idx];
-                    vj.short_name.as_deref().or_else(|| vj.headsign.as_deref())
+                    vj.short_name.as_deref().or(vj.headsign.as_deref())
                 } else {
                     None
                 }
