@@ -35,7 +35,7 @@
 // www.navitia.io
 
 mod utils;
-use failure::Error;
+use anyhow::Error;
 use launch::config::{ComparatorType, DataImplem};
 use loki::models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs};
 use rstest::{fixture, rstest};

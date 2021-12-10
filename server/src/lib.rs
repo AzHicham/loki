@@ -65,7 +65,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use failure::{bail, Error};
+use anyhow::{bail, Error};
 
 #[derive(StructOpt)]
 #[structopt(

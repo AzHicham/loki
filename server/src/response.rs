@@ -49,7 +49,7 @@ use loki::{
     chrono_tz::{self, Tz as Timezone},
 };
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use std::convert::TryFrom;
 
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;

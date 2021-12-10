@@ -38,7 +38,7 @@ use crate::zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChanne
 
 use super::navitia_proto;
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 
 use launch::loki::{
     chrono::NaiveDate,

@@ -36,7 +36,7 @@
 
 use std::ops::Not;
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use launch::loki::{
     chrono::NaiveDate,
     models::real_time_disruption::{Disruption, StopTime, Trip, Update},

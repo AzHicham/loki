@@ -37,9 +37,7 @@
 fn main() {
     launch::logger::init_logger();
     if let Err(err) = loki_server::launch_server() {
-        for cause in err.iter_chain() {
-            eprintln!("{}", cause);
-        }
+        eprintln!("{:?}", err);
         std::process::exit(1);
     }
 }

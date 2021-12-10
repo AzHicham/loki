@@ -35,7 +35,7 @@
 // www.navitia.io
 
 mod utils;
-use failure::Error;
+use anyhow::Error;
 use launch::config::DataImplem;
 use loki::{
     chrono_tz,

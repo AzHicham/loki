@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use launch::{
     config,
     loki::{

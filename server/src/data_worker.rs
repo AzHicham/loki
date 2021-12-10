@@ -47,7 +47,7 @@ use super::navitia_proto;
 use prost::Message as ProstMessage;
 use protobuf::Message as ProtobufMessage;
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Error};
 use lapin::{
     options::{
         BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions,

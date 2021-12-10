@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Error};
 use std::{
     ops::Deref,
     sync::{Arc, RwLock},

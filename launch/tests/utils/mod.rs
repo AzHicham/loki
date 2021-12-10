@@ -37,8 +37,8 @@
 pub mod disruption_builder;
 pub mod model_builder;
 
+use anyhow::{format_err, Error};
 use env_logger::Env;
-use failure::{format_err, Error};
 use launch::{
     config,
     config::launch_params::default_transfer_duration,

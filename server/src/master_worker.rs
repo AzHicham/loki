@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,

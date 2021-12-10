@@ -36,7 +36,7 @@
 
 use std::thread;
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 
 use launch::loki::{
     chrono::Utc,
