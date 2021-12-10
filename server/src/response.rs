@@ -49,7 +49,7 @@ use loki::{
     chrono_tz::{self, Tz as Timezone},
 };
 
-use anyhow::{format_err, Error};
+use anyhow::{format_err, Context, Error};
 use std::convert::TryFrom;
 
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
@@ -528,11 +528,10 @@ fn to_utc_timestamp(
         .earliest()
         .unwrap();
     let timestamp_i64 = timezoned_datetime.timestamp();
-    TryFrom::try_from(timestamp_i64).map_err(|_| {
-        format_err!(
+    TryFrom::try_from(timestamp_i64).with_context(|| {
+        format!(
             "Unable to convert day {} time_in_day {} to u64 utc timestamp.",
-            day,
-            time_in_day
+            day, time_in_day
         )
     })
 }
@@ -611,11 +610,10 @@ fn duration_to_i32(
     to_datetime: &NaiveDateTime,
 ) -> Result<i32, Error> {
     let duration_i64 = (*to_datetime - *from_datetime).num_seconds();
-    TryFrom::try_from(duration_i64).map_err(|_| {
-        format_err!(
+    TryFrom::try_from(duration_i64).with_context(|| {
+        format!(
             "Unable to convert duration between {} and {} to i32 seconds.",
-            from_datetime,
-            to_datetime
+            from_datetime, to_datetime
         )
     })
 }
@@ -623,7 +621,7 @@ fn duration_to_i32(
 fn to_u64_timestamp(datetime: &NaiveDateTime) -> Result<u64, Error> {
     let timestamp_i64 = datetime.timestamp();
     TryFrom::try_from(timestamp_i64)
-        .map_err(|_| format_err!("Unable to convert  {} to u64 utc timestamp.", datetime))
+        .with_context(|| format!("Unable to convert  {} to u64 utc timestamp.", datetime))
 }
 
 fn make_shape_from_stop_points(

@@ -36,7 +36,7 @@
 
 use std::ops::Not;
 
-use anyhow::{format_err, Error};
+use anyhow::{format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
     models::real_time_disruption::{Disruption, StopTime, Trip, Update},
@@ -57,13 +57,8 @@ pub fn handle_kirin_protobuf(
     }
     let trip_update = feed_entity.get_trip_update();
 
-    let update = read_trip_update(trip_update).map_err(|err| {
-        format_err!(
-            "Could not handle Kirin disruption {} because : {}",
-            disruption_id,
-            err
-        )
-    })?;
+    let update = read_trip_update(trip_update)
+        .with_context(|| format!("Could not handle kirin disruption {}.", disruption_id))?;
 
     let result = Disruption {
         id: disruption_id,
@@ -119,11 +114,10 @@ fn read_trip(trip_descriptor: &chaos_proto::gtfs_realtime::TripDescriptor) -> Re
             return Err(format_err!("TripDescriptor has an empty start_time."));
         }
         let start_date = trip_descriptor.get_start_date();
-        NaiveDate::parse_from_str(start_date, "%Y%m%d").map_err(|err| {
-            format_err!(
-                "TripDescriptor has a start date {} that could not be parsed : {}",
-                start_date,
-                err
+        NaiveDate::parse_from_str(start_date, "%Y%m%d").with_context(|| {
+            format!(
+                "TripDescriptor has a start date {} that could not be parsed.",
+                start_date
             )
         })?
     };
@@ -151,7 +145,7 @@ fn create_stop_time_from_proto(
 ) -> Result<StopTime, Error> {
     let has_arrival_time = if proto.has_arrival() {
         let arrival_time = read_time(proto.get_arrival(), reference_date)
-            .map_err(|err| format_err!("StopTime has a bad arrival time : {}", err))?;
+            .context("StopTime has a bad arrival time")?;
         Some(arrival_time)
     } else {
         None
@@ -159,7 +153,7 @@ fn create_stop_time_from_proto(
 
     let has_departure_time = if proto.has_departure() {
         let departure_time = read_time(proto.get_departure(), reference_date)
-            .map_err(|err| format_err!("StopTime has a bad departure time : {}", err))?;
+            .context("StopTime has a bad departure time")?;
         Some(departure_time)
     } else {
         None
@@ -177,15 +171,13 @@ fn create_stop_time_from_proto(
     };
 
     let can_board = if proto.has_departure() {
-        read_status(proto.get_departure())
-            .map_err(|err| format_err!("StopTime has a bad departure status : {}", err))?
+        read_status(proto.get_departure()).context("StopTime has a bad departure status.")?
     } else {
         false
     };
 
     let can_debark = if proto.has_arrival() {
-        read_status(proto.get_arrival())
-            .map_err(|err| format_err!("StopTime has a bad arrival status : {}", err))?
+        read_status(proto.get_arrival()).context("StopTime has a bad arrical status.")?
     } else {
         false
     };

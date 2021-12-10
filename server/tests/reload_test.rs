@@ -102,7 +102,7 @@ async fn run() -> () {
     let datetime =
         NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
 
-    let journeys_request = make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
+    let journeys_request = make_journeys_request("stop_point:massY", "stop_point:paris", datetime);
 
     let journeys_response =
         send_request_and_wait_for_response(&zmq_endpoint, journeys_request.clone()).await;

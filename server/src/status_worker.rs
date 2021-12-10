@@ -38,7 +38,7 @@ use crate::zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChanne
 
 use super::navitia_proto;
 
-use anyhow::{format_err, Error};
+use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::NaiveDate,
@@ -100,7 +100,7 @@ impl StatusWorker {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+            .context("Failed to build tokio runtime.")?;
 
         let thread_builder = thread::Builder::new().name("loki_status_worker".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
