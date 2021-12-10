@@ -1,0 +1,2 @@
+contributor_id,contributor_name,contributor_website,contributor_license
+my_contributor,"My Contributor - Rocks","http://my_contributor.fr","my_license"

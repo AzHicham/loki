@@ -419,6 +419,7 @@ where
                                 continue;
                             }
                             if self.can_be_discarded(&new_board_criteria, pt) {
+                                // trace!("    new_board_front is better");
                                 continue;
                             }
 

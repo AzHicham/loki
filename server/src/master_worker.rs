@@ -34,156 +34,79 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::chaos_proto::gtfs_realtime;
-use failure::{format_err, Error};
+use failure::{bail, format_err, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     timetables::PeriodicSplitVjByTzTimetables,
-    tracing::{debug, error, info},
-    LoadsData, TransitData,
+    tracing::{error, info},
+    DataIO, TransitData,
 };
-use std::{
-    ops::DerefMut,
-    sync::{Arc, RwLock},
-};
-use tokio::{
-    runtime::Builder,
-    sync::{mpsc, mpsc::error::SendError},
-};
+use std::sync::{Arc, RwLock};
+use tokio::{runtime::Builder, signal, sync::mpsc};
 
 use crate::{
-    handle_kirin_message::handle_kirin_protobuf,
-    load_balancer::{LoadBalancer, LoadBalancerState},
-    rabbitmq_worker::listen_amqp_in_a_thread,
-    Config,
+    data_worker::DataWorker, load_balancer::LoadBalancer, status_worker::StatusWorker,
+    zmq_worker::ZmqWorker, ServerConfig,
 };
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LoadBalancerOrder {
-    Start,
-    Stop,
-}
 
 pub type Timetable = PeriodicSplitVjByTzTimetables;
 
-pub struct LoadBalancerChannels {
-    pub load_balancer_order_sender: mpsc::Sender<LoadBalancerOrder>,
-    pub load_balancer_state_receiver: mpsc::Receiver<LoadBalancerState>,
-    pub load_balancer_error_receiver: mpsc::Receiver<()>,
-}
+pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
 
 pub struct MasterWorker {
-    data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
-    loads_data: LoadsData,
-    amqp_message_receiver: mpsc::Receiver<Vec<gtfs_realtime::FeedMessage>>,
-    load_balancer_handle: LoadBalancerChannels,
+    shutdown_receiver: mpsc::Receiver<()>,
 }
 
 impl MasterWorker {
-    pub fn new(config: &Config) -> Result<Self, Error> {
+    pub fn new(config: ServerConfig) -> Result<Self, Error> {
         let launch_params = &config.launch_params;
-        let base_model = launch::read::read_model(launch_params)?;
-        info!("Model loaded");
-        info!("Starting to build data");
-        let loads_data = launch::read::read_loads_data(launch_params, &base_model);
-        let data = launch::read::build_transit_data::<Timetable>(
-            &base_model,
-            &loads_data,
-            &launch_params.default_transfer_duration,
-        );
-        info!("Data loaded");
 
-        info!("Starting to build workers");
-
+        // Initialize models and data.
+        // We init everything with empty data.
+        // DataWorker will take care of reading data from disk
+        let base_model = BaseModel::empty();
+        let data = TransitData::new(&base_model, launch_params.default_transfer_duration);
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
-        // LoadBalancer worker
-        let (load_balancer, load_balancer_handle) = LoadBalancer::new(
+        let (shutdown_sender, shutdown_receiver) = mpsc::channel(1);
+
+        // Zmq worker
+        let (zmq_worker, load_balancer_to_zmq_channels, status_worker_to_zmq_channels) =
+            ZmqWorker::new(&config.requests_socket, shutdown_sender.clone());
+
+        let _zmq_handle = zmq_worker.run_in_a_thread()?;
+
+        // LoadBalancer
+        let (load_balancer, load_balancer_channels) = LoadBalancer::new(
             data_and_models.clone(),
             config.nb_workers,
-            &config.requests_socket,
             &config.request_default_params,
+            load_balancer_to_zmq_channels,
+            shutdown_sender.clone(),
         )?;
-        let _load_balancer_thread_handle = load_balancer.run_in_a_thread()?;
+        let _load_balancer_handle = load_balancer.run_in_a_thread()?;
 
-        // AMQP worker
-        let (amqp_message_sender, amqp_message_receiver) = mpsc::channel(1);
-        let _amqp_thread_handle =
-            listen_amqp_in_a_thread(config.amqp_params.clone(), amqp_message_sender);
+        // Status worker
+        let (status_worker, status_update_sender) =
+            StatusWorker::new(status_worker_to_zmq_channels, shutdown_sender.clone());
+        let _status_worker_handle = status_worker.run_in_a_thread()?;
 
-        info!("Workers built");
+        // Data worker
+        let data_worker = DataWorker::new(
+            config,
+            data_and_models,
+            load_balancer_channels,
+            status_update_sender,
+            shutdown_sender,
+        );
+        let _data_worker_handle = data_worker.run_in_a_thread()?;
 
         // Master worker
-        let result = Self {
-            data_and_models,
-            loads_data,
-            amqp_message_receiver,
-            load_balancer_handle,
-        };
+        let result = Self { shutdown_receiver };
         Ok(result)
     }
 
-    async fn run(mut self) -> Result<(), Error> {
-        info!("Starting Master worker");
-        loop {
-            tokio::select! {
-                has_proto_vec = self.amqp_message_receiver.recv() => {
-                    let vec_protobuf = has_proto_vec
-                        .ok_or_else(||
-                            format_err!("Channel to receive realtime protobuf' responses has closed. I'll stop.")
-                        )?;
-
-                    info!("Master received response from AmqpWorker");
-
-                    // stop the load balancer from receiving more request
-                    debug!("Master ask LoadBalancer to Stop");
-                    self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
-                        .await
-                        .map_err(|err| format_err!("Master could not send Stop order to load balancer. {}", err))?;
-
-
-                    // Wait for the LoadBalancer to Stop
-                    debug!("MasterWork waiting for LoadBalancer to Stop");
-                    let load_balancer_state = self
-                        .load_balancer_handle
-                        .load_balancer_state_receiver
-                        .recv()
-                        .await
-                        .ok_or_else(|| format_err!("Channel to receive LoadBalancer status responses has closed."))?;
-
-                    if load_balancer_state == LoadBalancerState::Stopped {
-
-                        debug!("Master start handling real time messages.");
-                        self.handle_realtime_messages(vec_protobuf)
-                            .map_err(|err| format_err!("Error while handling real time messages : {}", err))?;
-
-                        debug!("Master has finished handling real time messages.");
-                        debug!("Master ask LoadBalancer to Start");
-                        self.send_order_to_load_balancer(LoadBalancerOrder::Start)
-                            .await
-                            .map_err(|err| format_err!("Master could not send Start order to load balancer. {}", err))?;
-                    } else {
-                        error!("Master requested LoadBalancer to Stop, but it is in state {:?}.", load_balancer_state);
-                        break;
-                    }
-
-                }
-                _has_load_balancer_error = self
-                    .load_balancer_handle
-                    .load_balancer_error_receiver
-                    .recv() => {
-                        // We don't even need to know if _has_load_balancer_error is None or not
-                        // is LoadBalancer send an Error we must shutdown
-                        error!("Load Balancer is broken, exit program safely");
-                        break;
-                    }
-            }
-        }
-        Ok(())
-    }
-
-    // run by blocking the current thread
     pub fn run_blocking(self) -> Result<(), Error> {
         // copied from https://tokio.rs/tokio/topics/bridging#sending-messages
 
@@ -195,57 +118,28 @@ impl MasterWorker {
         runtime.block_on(self.run())
     }
 
-    async fn send_order_to_load_balancer(
-        &mut self,
-        order: LoadBalancerOrder,
-    ) -> Result<(), SendError<LoadBalancerOrder>> {
-        let res = self
-            .load_balancer_handle
-            .load_balancer_order_sender
-            .send(order.clone())
-            .await;
-        if let Err(err) = &res {
-            error!(
-                "Could not sent {:?} order to LoadBalancer : {}. I'll stop.",
-                order, err
-            );
-        };
-        res
+    pub fn run_in_a_thread(self) -> Result<(), Error> {
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
+
+        let thread_builder = std::thread::Builder::new().name("loki_master_worker".to_string());
+        let _handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
+        Ok(())
     }
 
-    fn handle_realtime_messages(
-        &mut self,
-        messages: Vec<gtfs_realtime::FeedMessage>,
-    ) -> Result<(), Error> {
-        let mut lock_guard = self.data_and_models.write().map_err(|err| {
-            format_err!(
-                "Master worker failed to acquire write lock on data_and_models. {}.",
-                err
-            )
-        })?;
+    async fn run(mut self) -> Result<(), Error> {
+        tokio::select! {
+            _ = self.shutdown_receiver.recv() => {
+                error!("One of the worker sent the shutdown signal.");
+                bail!("One of the worker sent the shutdown signal.")
 
-        let (data, base_model, real_time_model) = lock_guard.deref_mut();
-
-        for message in messages.into_iter() {
-            for feed_entity in message.entity {
-                let disruption_result = handle_kirin_protobuf(&feed_entity);
-                match disruption_result {
-                    Err(err) => {
-                        error!("Could not handle a kirin message {}", err);
-                    }
-                    Ok(disruption) => {
-                        real_time_model.apply_disruption(
-                            &disruption,
-                            base_model,
-                            &self.loads_data,
-                            data,
-                        );
-                    }
-                }
+            }
+            _ = signal::ctrl_c() => {
+                info!("Receive Ctrl+C signal. I'm gonna shut down");
+                Ok(())
             }
         }
-
-        Ok(())
-        // RwLocks are released here
     }
 }

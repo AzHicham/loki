@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use failure::{format_err, Error};
+use failure::{bail, format_err, Error};
 use std::{
     ops::Deref,
     sync::{Arc, RwLock},
@@ -50,7 +50,7 @@ use launch::{
         filters::Filters,
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
         request::generic_request,
-        tracing::{debug, error, info, warn},
+        tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
@@ -105,14 +105,14 @@ impl ComputeWorker {
 
             let has_request = self.request_channel.blocking_recv();
 
-            info!("Worker {} received a request.", self.worker_id.id);
-
             let request_message = has_request.ok_or_else(|| {
                 format_err!(
                     "Compute worker {} request channel is closed. This worker will stop.",
                     self.worker_id.id
                 )
             })?;
+
+            info!("Worker {} received a request.", self.worker_id.id);
 
             let proto_response = self
                 .handle_request(request_message.payload)
@@ -149,7 +149,7 @@ impl ComputeWorker {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
                 warn!("Could not handle journey request : {}", err);
-                Ok(make_error_response(err))
+                Ok(make_error_response(&err))
             }
             Ok(journey_request) => {
                 let real_time_level = match journey_request.realtime_level() {
@@ -165,7 +165,7 @@ impl ComputeWorker {
                     // and we return from this function and stop the thread
                     .map_err(|err| {
                         format_err!(
-                            "Compute worker {} failed to acquire read lock on base_data_and_model. {}.",
+                            "Compute worker {} failed to acquire read lock on data_and_models. {}.",
                             self.worker_id.id,
                             err
                         )
@@ -175,12 +175,12 @@ impl ComputeWorker {
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
                 let solve_result = solve(
-                    journey_request,
+                    &journey_request,
                     data,
                     &model_refs,
                     &mut self.solver,
                     &self.request_default_params,
-                    config::ComparatorType::Basic,
+                    &config::ComparatorType::Basic,
                     real_time_level,
                 );
 
@@ -195,12 +195,12 @@ impl ComputeWorker {
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 fn solve<Timetables>(
-    journey_request: navitia_proto::JourneysRequest,
+    journey_request: &navitia_proto::JourneysRequest,
     data: &TransitData<Timetables>,
     model: &ModelRefs<'_>,
     solver: &mut Solver,
     request_default_params: &config::RequestParams,
-    comparator_type: config::ComparatorType,
+    comparator_type: &config::ComparatorType,
     real_time_level: RealTimeLevel,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
@@ -287,7 +287,7 @@ where
     let departure_timestamp_u64 = journey_request
         .datetimes
         .get(0)
-        .ok_or_else(|| format_err!("Not departure datetime provided."))?;
+        .ok_or_else(|| format_err!("No departure datetime provided."))?;
     let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).map_err(|_| {
         format_err!(
             "The departure datetime {} cannot be converted to a valid i64 timestamp.",
@@ -343,7 +343,7 @@ where
         true => DateTimeRepresent::Departure,
         false => DateTimeRepresent::Arrival,
     };
-    // trace!("{:#?}", request_input);
+    trace!("{:#?}", request_input);
 
     let responses = solver.solve_request(
         data,
@@ -353,7 +353,7 @@ where
         &comparator_type,
         &datetime_represent,
     )?;
-    for response in responses.iter() {
+    for response in &responses {
         debug!("{}", response.print(model)?);
     }
     Ok((request_input, responses))
@@ -366,7 +366,7 @@ fn make_proto_response(
     match solve_result {
         Result::Err(err) => {
             error!("Error while solving request : {}", err);
-            make_error_response(err)
+            make_error_response(&err)
         }
         Ok((request_input, journeys)) => {
             let response_result = response::make_response(&request_input, journeys, model);
@@ -376,7 +376,7 @@ fn make_proto_response(
                         "Error while encoding protobuf response for request : {}",
                         err
                     );
-                    make_error_response(err)
+                    make_error_response(&err)
                 }
                 Ok(resp) => {
                     // trace!("{:#?}", resp);
@@ -387,7 +387,7 @@ fn make_proto_response(
     }
 }
 
-fn make_error_response(error: Error) -> navitia_proto::Response {
+fn make_error_response(error: &Error) -> navitia_proto::Response {
     let mut proto_response = navitia_proto::Response::default();
     proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
     let mut proto_error = navitia_proto::Error::default();
@@ -400,8 +400,8 @@ fn make_error_response(error: Error) -> navitia_proto::Response {
 fn extract_journey_request(
     proto_request: navitia_proto::Request,
 ) -> Result<navitia_proto::JourneysRequest, Error> {
-    if let Some(deadline_str) = proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%f");
+    if let Some(deadline_str) = &proto_request.deadline {
+        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
         match datetime_result {
             Ok(datetime) => {
                 let now = Utc::now().naive_utc();
@@ -415,6 +415,15 @@ fn extract_journey_request(
                     deadline_str, err
                 );
             }
+        }
+    }
+    match proto_request.requested_api() {
+        navitia_proto::Api::PtPlanner => (),
+        _ => {
+            bail!(
+                "I can't handle the requested api : {:?}",
+                proto_request.requested_api()
+            );
         }
     }
     proto_request

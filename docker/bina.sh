@@ -219,9 +219,11 @@ zmq_socket = tcp://*:${krakenPort}
     jq -n --arg lokiSocket "tcp://*:$lokiPort" \
           --arg inputType "$inputType" \
           --arg inputPath "/data/$inputType/" \
+          --arg instanceName "${coverage}" \
           '{
     input_data_path: $inputPath,
     input_data_type: $inputType,
+    instance_name: $instanceName,
     loads_data_path: "/data/stoptimes_loads.csv",
     requests_socket: $lokiSocket,
 }' > ${output}/${coverage}/loki_config.json

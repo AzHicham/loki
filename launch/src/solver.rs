@@ -97,8 +97,8 @@ impl Solver {
         Timetables::Mission: 'static,
         Timetables::Position: 'static,
     {
-        use crate::datetime::DateTimeRepresent::*;
-        use config::ComparatorType::*;
+        use crate::datetime::DateTimeRepresent::{Arrival, Departure};
+        use config::ComparatorType::{Basic, Loads};
 
         if let Some(filters) = has_filters {
             self.fill_allowed_stops_and_vehicles(model, &filters);

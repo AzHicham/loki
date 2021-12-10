@@ -43,3 +43,8 @@ pub use real_loads::{Load, LoadsCount, LoadsData};
 pub mod empty_loads;
 #[cfg(not(feature = "vehicle_loads"))]
 pub use empty_loads::{Load, LoadsCount, LoadsData};
+
+// #[cfg(not(feature = "vehicle_loads"))]
+// pub mod real_loads;
+// #[cfg(not(feature = "vehicle_loads"))]
+// pub use real_loads::{Load, LoadsCount, LoadsData};

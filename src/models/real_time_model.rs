@@ -48,7 +48,7 @@ use crate::{
     },
 };
 
-use crate::{DataUpdate, LoadsData};
+use crate::DataUpdate;
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
@@ -118,17 +118,11 @@ impl RealTimeModel {
         &mut self,
         disruption: &disruption::Disruption,
         base_model: &BaseModel,
-        loads_data: &LoadsData,
         real_time_data: &mut Data,
     ) {
         for update in disruption.updates.iter() {
-            let apply_result = self.apply_update(
-                &disruption.id,
-                update,
-                base_model,
-                loads_data,
-                real_time_data,
-            );
+            let apply_result =
+                self.apply_update(&disruption.id, update, base_model, real_time_data);
             if let Err(err) = apply_result {
                 error!("Error occured while applying real time update {:?}", err);
             }
@@ -140,7 +134,6 @@ impl RealTimeModel {
         disruption_id: &str,
         update: &disruption::Update,
         base_model: &BaseModel,
-        loads_data: &LoadsData,
         data: &mut Data,
     ) -> Result<(), UpdateError> {
         match update {
@@ -156,7 +149,7 @@ impl RealTimeModel {
                     flows,
                     board_times,
                     debark_times,
-                    loads_data,
+                    base_model.loads_data(),
                     dates,
                     &chrono_tz::UTC,
                     vj_idx,
@@ -208,7 +201,7 @@ impl RealTimeModel {
                     flows,
                     board_times,
                     debark_times,
-                    loads_data,
+                    base_model.loads_data(),
                     dates,
                     &chrono_tz::UTC,
                     &vj_idx,

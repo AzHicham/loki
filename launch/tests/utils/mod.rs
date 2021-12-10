@@ -56,8 +56,7 @@ use loki::{chrono::TimeZone, filters::Filters, models::ModelRefs, request::gener
 use loki::{chrono_tz, tracing::debug};
 
 use loki::{
-    DailyData, LoadsData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration,
-    TransitData,
+    DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration, TransitData,
 };
 use model_builder::AsDateTime;
 
@@ -154,23 +153,19 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
 
 pub fn build_and_solve(
     model: &ModelRefs<'_>,
-    loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error> {
     match config.data_implem {
-        config::DataImplem::Periodic => {
-            build_and_solve_inner::<PeriodicData>(model, loads_data, config)
-        }
-        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, loads_data, config),
+        config::DataImplem::Periodic => build_and_solve_inner::<PeriodicData>(model, config),
+        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, config),
         config::DataImplem::PeriodicSplitVj => {
-            build_and_solve_inner::<PeriodicSplitVjData>(model, loads_data, config)
+            build_and_solve_inner::<PeriodicSplitVjData>(model, config)
         }
     }
 }
 
 fn build_and_solve_inner<Timetables>(
     model: &ModelRefs<'_>,
-    loads_data: &LoadsData,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error>
 where
@@ -185,7 +180,7 @@ where
 {
     use loki::DataTrait;
     let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model.base, loads_data, &config.default_transfer_duration);
+        launch::read::build_transit_data(model.base, &config.default_transfer_duration);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

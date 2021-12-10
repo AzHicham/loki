@@ -48,7 +48,8 @@ pub struct LaunchParams {
     pub input_data_path: std::path::PathBuf,
 
     /// type of input data given (ntfs/gtfs)
-    #[structopt(long)]
+    #[structopt(long, default_value)]
+    #[serde(default)]
     pub input_data_type: InputDataType,
 
     /// path to the passengers loads file
@@ -81,13 +82,14 @@ pub fn default_transfer_duration() -> PositiveDuration {
 }
 
 impl LaunchParams {
-    pub fn minimal_json_input(input_data_path: &str, input_data_type: InputDataType) -> String {
-        format!(
-            r#" {{
-            "input_data_path" : "{}",
-            "input_data_type" : "{}"
-            }} "#,
-            input_data_path, input_data_type
-        )
+    pub fn new(input_data_path: std::path::PathBuf) -> Self {
+        Self {
+            input_data_path: std::path::PathBuf::from(input_data_path),
+            input_data_type: InputDataType::Ntfs,
+            default_transfer_duration: default_transfer_duration(),
+            loads_data_path: None,
+            criteria_implem: Default::default(),
+            data_implem: Default::default(),
+        }
     }
 }

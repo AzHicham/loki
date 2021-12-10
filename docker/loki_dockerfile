@@ -16,4 +16,4 @@ RUN apt-get update && apt-get install -y libzmq3-dev && rm -rf /var/lib/apt/list
 COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 
 VOLUME /data
-CMD ["/usr/local/bin/loki_server", "config_file", "/data/loki_config.json"]
+CMD ["/usr/local/bin/loki_server", "/data/loki_config.json"]

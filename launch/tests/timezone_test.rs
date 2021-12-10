@@ -68,7 +68,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
                 .st("C", "10:10:00");
         })
         .build();
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -80,7 +80,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -95,7 +95,7 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
     {
         let config = Config::new_timezoned("2020-10-26T06:00:00", &chrono_tz::UTC, "A", "B");
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -130,7 +130,7 @@ fn test_trip_over_daylight_saving_time_switch(
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -146,7 +146,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -176,7 +176,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -210,7 +210,7 @@ fn test_trip_over_daylight_saving_time_switch(
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -258,7 +258,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -270,7 +270,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -304,7 +304,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -360,7 +360,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
-    let base_model = BaseModel::from_transit_model(model);
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -374,7 +374,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 1);
         let journey = &responses[0];
@@ -409,7 +409,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
             ..config
         };
 
-        let responses = build_and_solve(&model_refs, &loki::LoadsData::empty(), &config)?;
+        let responses = build_and_solve(&model_refs, &config)?;
 
         assert_eq!(responses.len(), 0);
     }

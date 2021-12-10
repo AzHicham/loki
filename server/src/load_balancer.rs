@@ -39,7 +39,7 @@ use launch::{
     config,
     loki::{
         models::{base_model::BaseModel, real_time_model::RealTimeModel},
-        tracing::{debug, error, info, warn},
+        tracing::{debug, error, info},
         TransitData,
     },
 };
@@ -51,8 +51,8 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
     compute_worker::ComputeWorker,
-    master_worker::{LoadBalancerChannels, LoadBalancerOrder, Timetable},
-    zmq_worker::{RequestMessage, ResponseMessage, ZmqWorker, ZmqWorkerChannels},
+    master_worker::Timetable,
+    zmq_worker::{LoadBalancerToZmqChannels, RequestMessage, ResponseMessage},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -78,20 +78,34 @@ pub struct LoadBalancer {
     workers_response_receiver: mpsc::Receiver<(WorkerId, ResponseMessage)>,
     worker_states: Vec<WorkerState>,
 
-    load_balancer_order_receiver: mpsc::Receiver<LoadBalancerOrder>,
-    load_balancer_state_sender: mpsc::Sender<LoadBalancerState>,
-    load_balancer_error_sender: mpsc::Sender<()>,
+    order_receiver: mpsc::Receiver<LoadBalancerOrder>,
+    stopped_sender: mpsc::Sender<()>,
+
+    shutdown_sender: mpsc::Sender<()>,
+
     state: LoadBalancerState,
 
-    zmq_worker_handle: ZmqWorkerChannels,
+    zmq_channels: LoadBalancerToZmqChannels,
+}
+
+pub struct LoadBalancerChannels {
+    pub order_sender: mpsc::Sender<LoadBalancerOrder>,
+    pub stopped_receiver: mpsc::Receiver<()>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LoadBalancerOrder {
+    Start,
+    Stop,
 }
 
 impl LoadBalancer {
     pub fn new(
         data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
         nb_workers: usize,
-        zmq_endpoint: &str,
         request_default_params: &config::RequestParams,
+        zmq_channels: LoadBalancerToZmqChannels,
+        shutdown_sender: mpsc::Sender<()>,
     ) -> Result<(Self, LoadBalancerChannels), Error> {
         let mut worker_request_senders = Vec::new();
         let mut worker_states = Vec::new();
@@ -114,30 +128,27 @@ impl LoadBalancer {
             worker_states.push(WorkerState::Available);
         }
 
-        // ZMQ worker
-        let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint);
-        let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
+        // // ZMQ worker
+        // let (zmq_worker, zmq_worker_handle) = ZmqWorker::new(zmq_endpoint, shutdown_sender.clone());
+        // let _zmq_thread_handle = zmq_worker.run_in_a_thread()?;
 
-        let (load_balancer_order_sender, load_balancer_order_receiver) = mpsc::channel(1);
-        let (load_balancer_state_sender, load_balancer_state_receiver) = mpsc::channel(1);
-        let (load_balancer_error_sender, load_balancer_error_receiver) = mpsc::channel(1);
+        let (order_sender, order_receiver) = mpsc::channel(1);
+        let (stopped_sender, stopped_receiver) = mpsc::channel(1);
 
-        // Master worker
         let load_balancer_handle = LoadBalancerChannels {
-            load_balancer_order_sender,
-            load_balancer_state_receiver,
-            load_balancer_error_receiver,
+            order_sender,
+            stopped_receiver,
         };
 
         let result = Self {
             worker_request_senders,
             workers_response_receiver,
             worker_states,
-            load_balancer_order_receiver,
-            load_balancer_state_sender,
-            load_balancer_error_sender,
+            order_receiver,
+            stopped_sender,
+            shutdown_sender,
             state: LoadBalancerState::Online,
-            zmq_worker_handle,
+            zmq_channels,
         };
         Ok((result, load_balancer_handle))
     }
@@ -151,12 +162,31 @@ impl LoadBalancer {
             .build()
             .map_err(|err| format_err!("Failed to build tokio runtime. Error : {}", err))?;
 
-        let thread_builder = thread::Builder::new().name("loki_zmq_worker".to_string());
+        let thread_builder = thread::Builder::new().name("loki_load_balancer".to_string());
         let handle = thread_builder.spawn(move || runtime.block_on(self.run()))?;
         Ok(handle)
     }
 
     async fn run(mut self) {
+        let err = self.main_loop().await;
+
+        error!(
+            "Load balancer main loop exited with {:?}. I'll tell Master Worker about it.",
+            err
+        );
+        // If we exited the loop it means we got an error
+        // We need to warn Master that we are broken
+        // So Master can shutdown the program
+        let res = self.shutdown_sender.send(()).await;
+        if let Err(err) = res {
+            error!(
+                "Channel shutdown_sender to Master has closed : {}. Load balancer will die, and Master will not known about it.",
+                err
+            );
+        }
+    }
+
+    async fn main_loop(&mut self) -> Result<(), Error> {
         info!("Starting LoadBalancer worker");
         loop {
             let has_available_worker =
@@ -171,26 +201,10 @@ impl LoadBalancer {
                         }
                     });
 
-            // if state is Stopping and all workers are available
-            // change state to Stopped and
-            // we inform master that we (LoadBalancer) stopped successfully
-            let all_workers_available = self
-                .worker_states
-                .iter()
-                .all(|state| *state == WorkerState::Available);
-            if all_workers_available && self.state == LoadBalancerState::Stopping {
-                self.state = LoadBalancerState::Stopped;
-                debug!("LoadBalancer new state : {:?}", self.state);
-                let res = self.load_balancer_state_sender.send(self.state).await;
-                if let Err(err) = res {
-                    error!(
-                        "Channel to send LoadBalancer state to Master has closed : {}",
-                        err
-                    );
-                }
-            }
-
-            info!("LoadBalancer worker is waiting {:?}", has_available_worker);
+            debug!(
+                "LoadBalancer worker is waiting. Available worker : {:?}",
+                has_available_worker
+            );
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness
@@ -200,85 +214,84 @@ impl LoadBalancer {
 
                 // receive responses from worker threads
                 has_response = self.workers_response_receiver.recv() => {
-                    if let Some((worker_id, response)) = has_response {
-                        info!("LoadBalancer received response from worker {:?}", worker_id);
-                        let forward_response_result = self.forward_worker_response(worker_id, response).await;
-                        if let Err(err) = forward_response_result {
-                            error!("Could not sent response to zmq worker : {}. I'll stop.", err);
-                            break;
-                        }
+
+                    let (worker_id, response) = has_response.ok_or_else(|| format_err!("Channel to receive workers' responses has closed."))?;
+
+                    debug!("LoadBalancer received response from worker {:?}", worker_id);
+
+                     self.forward_worker_response(worker_id, response)
+                                .map_err(|err| format_err!("Could not send response to zmq worker : {}.", err))?;
+
+
+                    if self.state == LoadBalancerState::Stopping {
+                        self.stop_if_all_workers_available().await?;
                     }
-                    else {
-                        error!("Channel to receive workers' responses has closed. I'll stop.");
-                        break;
-                    }
+
                 }
-                has_order = self.load_balancer_order_receiver.recv() => {
-                    if let Some(order) = has_order {
-                        if order == LoadBalancerOrder::Start && self.state != LoadBalancerState::Online {
+                // receive order from the Master
+                has_order = self.order_receiver.recv() => {
+                    let order = has_order.ok_or_else(|| format_err!("Channel to receive load balancer order has closed."))?;
+                    debug!("LoadBalancer received order.");
+                    match (&order, self.state) {
+                        (LoadBalancerOrder::Start, LoadBalancerState::Stopped) => {
                             self.state = LoadBalancerState::Online;
-                            debug!("LoadBalancer new state : {:?}", self.state);
+                            debug!("LoadBalancer is now back Online.");
+                        },
+                        (LoadBalancerOrder::Stop, LoadBalancerState::Online) => {
+                            self.state =LoadBalancerState::Stopping;
+                            debug!("LoadBalancer is now Stopping.");
+
+                           self.stop_if_all_workers_available().await?;
+                        },
+                        _ => {
+                           error!("Load balancer received order {:?} while being in state {:?}. \
+                                    I don't know what to do, so I'll ignore this order.", order , &self.state);
                         }
-                        else if order == LoadBalancerOrder::Stop && self.state == LoadBalancerState::Online {
-                            self.state = LoadBalancerState::Stopping;
-                            debug!("LoadBalancer new state : {:?}", self.state);
-                        }
-                        else{
-                            warn!("We received an order to {:?}, but we already are in this state : {:?}", order, self.state);
-                        }
-                    }
-                    else {
-                        error!("Channel to receive Master Worker' order has closed. I'll stop.");
-                        break;
+
                     }
                 }
                 //receive requests from the zmq socket, and dispatch them to an available worker
-                has_request = self.zmq_worker_handle.requests_receiver.recv(),
+                has_request = self.zmq_channels.requests_receiver.recv(),
                 if has_available_worker.is_some() && self.state == LoadBalancerState::Online => {
-                    if let Some(request) = has_request {
+                    let request = has_request.ok_or_else(|| format_err!("Channel to receive zmq requests has closed."))?;
+                    debug!("Load Balancer received a request.");
+                    // unwrap is safe here, because we enter this block only if has_available_worker.is_some()
+                    let worker_id = has_available_worker.unwrap();
+                    debug!("LoadBalancer is sending request to worker {:?}", worker_id);
+                    let sender = &self.worker_request_senders[worker_id];
+                    sender.send(request).await
+                                .map_err(|err| format_err!("Channel to forward request to worker {} has closed", err))?;
 
-                        // unwrap is safe here, because we enter this block only if has_available_worker.is_some()
-                        let worker_id = has_available_worker.unwrap();
-                        info!("LoadBalancer is sending request to worker {:?}", worker_id);
-                        let sender = &self.worker_request_senders[worker_id];
-                        let forward_request_result = sender.send(request).await;
-                        if let Err(err) = forward_request_result {
-                            error!("Channel to forward request to worker {} has closed. I'll stop using this worker.", err);
-                            break;
-                        }
-                        else {
-                            self.worker_states[worker_id] = WorkerState::Busy;
-                        }
-                    }
-                    else {
-                        error!("Channel to receive zmq requests has closed. I'll stop.");
-                        break;
-                    }
+                    self.worker_states[worker_id] = WorkerState::Busy;
                 }
             }
         }
+    }
 
-        // If we exited the loop it means we got an error
-        // We need to warn Master worker that we are broken
-        // So MasterWorker can shutdown the program
-        debug!("LoadBalancer : Send error to MasterWorker & exiting thread");
-        let res = self.load_balancer_error_sender.send(()).await;
-        if let Err(err) = res {
-            error!(
-                "Channel to send LoadBalancer state to Master has closed : {}",
-                err
-            );
+    async fn stop_if_all_workers_available(&mut self) -> Result<(), Error> {
+        let all_workers_available = self
+            .worker_states
+            .iter()
+            .all(|state| *state == WorkerState::Available);
+        if all_workers_available {
+            self.state = LoadBalancerState::Stopped;
+            self.stopped_sender
+                .send(())
+                .await
+                .map_err(|err| format_err!("Channel load_balancer_stopped has closed : {}", err))
+        } else {
+            Ok(())
         }
     }
 
-    async fn forward_worker_response(
+    fn forward_worker_response(
         &mut self,
         worker_id: WorkerId,
         response: ResponseMessage,
     ) -> Result<(), Error> {
         // let's forward to response to the zmq worker
         // who will forward it to the client
-        let send_result = self.zmq_worker_handle.responses_sender.send(response);
+        let send_result = self.zmq_channels.responses_sender.send(response);
         if let Err(err) = send_result {
             return Err(format_err!(
                 "Channel to send responses to zmq worker has closed : {}",
@@ -293,10 +306,10 @@ impl LoadBalancer {
                 *worker_state = WorkerState::Available;
             }
             WorkerState::Available => {
-                let error = format_err!(
-                    "I received a response from worker {}, but it is marked as {:?}. I'll stop using this worker.", worker_id.id, worker_state
+                error!(
+                    "I received a response from worker {}, but it is marked as {:?}",
+                    worker_id.id, worker_state
                 );
-                return Err(error);
             }
         }
 
