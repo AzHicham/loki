@@ -48,6 +48,7 @@ use lapin::BasicProperties;
 use launch::loki::chrono::Utc;
 use launch::loki::tracing::info;
 use launch::loki::{NaiveDateTime, PositiveDuration};
+use shiplift::builder::PullOptionsBuilder;
 use tempdir;
 
 use shiplift;
@@ -78,6 +79,7 @@ async fn run() -> () {
 
     let data_dir_path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
         .unwrap()
+        .join("tests")
         .join("a_small_ntfs");
 
     copy_ntfs(&data_dir_path, &working_dir_path);
@@ -181,9 +183,30 @@ fn copy_ntfs(from_dir: &Path, to_dir: &Path) {
 //
 // management is available on http://localhost:15673
 async fn start_rabbitmq_docker() -> String {
+    let docker_image = "rabbitmq:3-management";
+
     let container_name = "rabbitmq_test_reload";
 
     let docker = shiplift::Docker::new();
+
+    // let's pull the image from dockerhub
+    {
+        use futures::StreamExt;
+
+        let pull_options = PullOptionsBuilder::default().image(docker_image).build();
+
+        let mut stream = docker.images().pull(&pull_options);
+
+        while let Some(pull_result) = stream.next().await {
+            match pull_result {
+                Ok(output) => info!("Pulled {:?} from docker hub.", output),
+                Err(e) => {
+                    panic!("Error while pulling from dockerhub: {}", e);
+                }
+            }
+        }
+    }
+
     // if there was a problem at previous run, the docker container may still be running
     // so let's stop it if some is found
     {
