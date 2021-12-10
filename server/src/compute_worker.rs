@@ -149,7 +149,7 @@ impl ComputeWorker {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
                 warn!("Could not handle journey request : {}", err);
-                Ok(make_error_response(err))
+                Ok(make_error_response(&err))
             }
             Ok(journey_request) => {
                 let real_time_level = match journey_request.realtime_level() {
@@ -175,12 +175,12 @@ impl ComputeWorker {
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
                 let solve_result = solve(
-                    journey_request,
+                    &journey_request,
                     data,
                     &model_refs,
                     &mut self.solver,
                     &self.request_default_params,
-                    config::ComparatorType::Basic,
+                    &config::ComparatorType::Basic,
                     real_time_level,
                 );
 
@@ -195,12 +195,12 @@ impl ComputeWorker {
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 fn solve<Timetables>(
-    journey_request: navitia_proto::JourneysRequest,
+    journey_request: &navitia_proto::JourneysRequest,
     data: &TransitData<Timetables>,
     model: &ModelRefs<'_>,
     solver: &mut Solver,
     request_default_params: &config::RequestParams,
-    comparator_type: config::ComparatorType,
+    comparator_type: &config::ComparatorType,
     real_time_level: RealTimeLevel,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
 where
@@ -353,7 +353,7 @@ where
         &comparator_type,
         &datetime_represent,
     )?;
-    for response in responses.iter() {
+    for response in &responses {
         debug!("{}", response.print(model)?);
     }
     Ok((request_input, responses))
@@ -366,7 +366,7 @@ fn make_proto_response(
     match solve_result {
         Result::Err(err) => {
             error!("Error while solving request : {}", err);
-            make_error_response(err)
+            make_error_response(&err)
         }
         Ok((request_input, journeys)) => {
             let response_result = response::make_response(&request_input, journeys, model);
@@ -376,7 +376,7 @@ fn make_proto_response(
                         "Error while encoding protobuf response for request : {}",
                         err
                     );
-                    make_error_response(err)
+                    make_error_response(&err)
                 }
                 Ok(resp) => {
                     // trace!("{:#?}", resp);
@@ -387,7 +387,7 @@ fn make_proto_response(
     }
 }
 
-fn make_error_response(error: Error) -> navitia_proto::Response {
+fn make_error_response(error: &Error) -> navitia_proto::Response {
     let mut proto_response = navitia_proto::Response::default();
     proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
     let mut proto_error = navitia_proto::Error::default();
@@ -401,7 +401,7 @@ fn extract_journey_request(
     proto_request: navitia_proto::Request,
 ) -> Result<navitia_proto::JourneysRequest, Error> {
     if let Some(deadline_str) = &proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%f");
+        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
         match datetime_result {
             Ok(datetime) => {
                 let now = Utc::now().naive_utc();

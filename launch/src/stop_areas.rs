@@ -75,7 +75,7 @@ pub fn stops_of_stop_area(
     let mut result = Vec::new();
     for (_, stop) in base_model.stop_points.iter() {
         if stop.stop_area_id == stop_area_uri {
-            result.push((stop.id.clone(), duration_to_stops))
+            result.push((stop.id.clone(), duration_to_stops));
         }
     }
 

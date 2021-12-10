@@ -8,11 +8,14 @@ use launch::{
     },
     solver::Solver,
 };
-
 use loki::tracing::debug;
+use loki::DataTrait;
 
 use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};
+
+use hdrhistogram::Histogram;
+use rand::prelude::{IteratorRandom, SeedableRng};
 
 use failure::{bail, Error};
 
@@ -21,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 fn main() {
-    let _log_guard = launch::logger::init_logger();
+    launch::logger::init_logger();
     if let Err(err) = run() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);
@@ -113,7 +116,7 @@ pub fn run() -> Result<(), Error> {
     match options {
         Options::ConfigFile(config_file) => {
             let config = read_config(&config_file)?;
-            launch(config)?;
+            launch(&config)?;
             Ok(())
         }
         Options::CreateConfig(config_creator) => {
@@ -124,7 +127,7 @@ pub fn run() -> Result<(), Error> {
             Ok(())
         }
         Options::Launch(config) => {
-            launch(config)?;
+            launch(&config)?;
             Ok(())
         }
     }
@@ -142,7 +145,7 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
     Ok(config)
 }
 
-pub fn launch(config: Config) -> Result<(), Error> {
+pub fn launch(config: &Config) -> Result<(), Error> {
     match config.launch_params.data_implem {
         config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
         config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
@@ -150,7 +153,7 @@ pub fn launch(config: Config) -> Result<(), Error> {
     }
 }
 
-fn config_launch<Timetables>(config: Config) -> Result<(), Error>
+fn config_launch<Timetables>(config: &Config) -> Result<(), Error>
 where
     Timetables: TimetablesTrait<
         Mission = generic_request::Mission,
@@ -162,7 +165,7 @@ where
     Timetables::Position: 'static,
 {
     let (data, model) = launch::read::<Timetables>(&config.launch_params)?;
-    build_engine_and_solve(&model, &data, &config)
+    build_engine_and_solve(&model, &data, config)
 }
 
 fn build_engine_and_solve<Timetables>(
@@ -182,7 +185,7 @@ where
 {
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(base_model, &real_time_model);
-    use loki::DataTrait;
+
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let departure_datetime = match &config.departure_datetime {
@@ -198,9 +201,9 @@ where
     let start_all = SystemTime::now();
 
     let nb_queries = config.nb_queries;
-    use rand::prelude::{IteratorRandom, SeedableRng};
+
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(config.seed);
-    use hdrhistogram::Histogram;
+
     let mut histogram = Histogram::<u64>::new(3)?;
     for _ in 0..nb_queries {
         let start_stop_area_uri = &base_model.stop_areas.values().choose(&mut rng).unwrap().id;
@@ -231,7 +234,7 @@ where
                 log::error!("Error while solving request : {}", err);
             }
             Ok(responses) => {
-                for response in responses.iter() {
+                for response in &responses {
                     debug!("{}", response.print(&model_refs)?);
                 }
             }
@@ -239,10 +242,8 @@ where
     }
     let total_duration = start_all.elapsed().unwrap().as_millis();
 
-    log::info!(
-        "Average duration per request : {} ms",
-        (total_duration as f64) / (nb_queries as f64)
-    );
+    log::info!("Total duration : {} ms", total_duration);
+    log::info!("Average duration per request : {} ms", histogram.mean());
     log::info!("Nb of requests : {}", nb_queries);
     log::info!("50'th percentile: {}", histogram.value_at_quantile(0.5));
     log::info!("70'th percentile: {}", histogram.value_at_quantile(0.7));

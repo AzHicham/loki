@@ -210,8 +210,7 @@ impl DataWorker {
 
         let mut reload_consumer = create_consumer(channel, &self.reload_queue_name).await?;
 
-        use tokio::time;
-        let interval = time::interval(Duration::from_secs(
+        let interval = tokio::time::interval(Duration::from_secs(
             self.config
                 .rabbitmq_params
                 .real_time_update_interval
@@ -277,7 +276,7 @@ impl DataWorker {
             })?;
             let (data, _, _) = rw_lock_read_guard.deref();
             let calendar = data.calendar();
-            (calendar.first_date().clone(), calendar.last_date().clone())
+            (*calendar.first_date(), *calendar.last_date())
         }; // lock is released
 
         let now = Utc::now().naive_utc();
@@ -295,7 +294,7 @@ impl DataWorker {
             let data = &mut data_and_models.0;
             let base_model = &data_and_models.1;
             let real_time_model = &mut data_and_models.2;
-            for message in messages.into_iter() {
+            for message in messages {
                 for feed_entity in message.entity {
                     let disruption_result = handle_kirin_protobuf(&feed_entity);
                     match disruption_result {
@@ -381,7 +380,7 @@ impl DataWorker {
                     });
 
                 let proto_message_result =
-                    gtfs_realtime::FeedMessage::parse_from_bytes(&delivery.data.as_slice());
+                    gtfs_realtime::FeedMessage::parse_from_bytes(delivery.data.as_slice());
                 match proto_message_result {
                     Ok(proto_message) => {
                         self.kirin_messages.push(proto_message);
@@ -433,7 +432,7 @@ impl DataWorker {
                             // since we are going to request a full reload from kirin
                             self.kirin_messages.clear();
                             self.load_data_from_disk().await?;
-                            self.reload_kirin(&channel).await?;
+                            self.reload_kirin(channel).await?;
                             debug!("Reload completed successfully.");
                         } else {
                             error!(
@@ -627,7 +626,7 @@ impl DataWorker {
 
     async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
         info!("Asking Kirin for a full realtime reload.");
-        use prost::Message;
+
         // declare a queue to send a message to Kirin to request a full realtime reload
         let queue_name = format!(
             "kirin_reload_request_{}_{}",
@@ -709,7 +708,7 @@ impl DataWorker {
         channel
             .basic_publish(
                 &self.config.rabbitmq_params.rabbitmq_exchange,
-                &routing_key,
+                routing_key,
                 BasicPublishOptions::default(),
                 payload,
                 BasicProperties::default().with_expiration(time_to_live_in_milliseconds),
@@ -804,7 +803,7 @@ async fn create_consumer(
 
 async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, Error> {
     channel
-        .queue_delete(&queue_name, lapin::options::QueueDeleteOptions::default())
+        .queue_delete(queue_name, lapin::options::QueueDeleteOptions::default())
         .await
         .map_err(|err| format_err!("Could not delete queue {}, because : {}", &queue_name, err))
 }

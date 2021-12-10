@@ -35,7 +35,7 @@
 // www.navitia.io
 
 fn main() {
-    let _log_guard = launch::logger::init_logger();
+    launch::logger::init_logger();
     if let Err(err) = loki_stop_areas::run() {
         for cause in err.iter_chain() {
             eprintln!("{}", cause);

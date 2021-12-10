@@ -65,7 +65,7 @@ impl MasterWorker {
         // We init everything with empty data.
         // DataWorker will take care of reading data from disk
         let base_model = BaseModel::empty();
-        let data = TransitData::new(&base_model, launch_params.default_transfer_duration.clone());
+        let data = TransitData::new(&base_model, launch_params.default_transfer_duration);
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
@@ -95,7 +95,7 @@ impl MasterWorker {
         // Data worker
         let data_worker = DataWorker::new(
             config,
-            data_and_models.clone(),
+            data_and_models,
             load_balancer_channels,
             status_update_sender,
             shutdown_sender,

@@ -48,6 +48,9 @@ use tmq;
 
 use tokio::{runtime::Builder, sync::mpsc};
 
+use futures::SinkExt;
+use std::ops::Deref;
+
 use crate::navitia_proto;
 
 #[derive(Debug)]
@@ -245,7 +248,7 @@ async fn send_response_to_zmq(
         .chain(std::iter::once(payload_message));
 
     let multipart_msg: tmq::Multipart = iter.collect();
-    use futures::SinkExt;
+
     zmq_socket.send(multipart_msg).await.map_err(|err| {
         format_err!(
             "ZmqWorker, error while sending response to zmq socket : {}",
@@ -277,7 +280,6 @@ async fn handle_incoming_request(
         return Ok(());
     }
 
-    use std::ops::Deref;
     let proto_request_result = navitia_proto::Request::decode(payload_message.deref());
     // TODO ? : if deadline is expired, do not forward request
     match proto_request_result {
@@ -316,7 +318,7 @@ async fn handle_incoming_request(
             error!("{}", err_str);
 
             // let's send back a response to our zmq client that we received an invalid protobuf
-            let response_proto = make_error_response(format_err!("{}", err_str));
+            let response_proto = make_error_response(&format_err!("{}", err_str));
             let response_message = ResponseMessage {
                 client_id: client_id_message,
                 payload: response_proto,
@@ -326,7 +328,7 @@ async fn handle_incoming_request(
     }
 }
 
-fn make_error_response(error: Error) -> navitia_proto::Response {
+fn make_error_response(error: &Error) -> navitia_proto::Response {
     let mut proto_response = navitia_proto::Response::default();
     proto_response.set_response_type(navitia_proto::ResponseType::NoSolution);
     let mut proto_error = navitia_proto::Error::default();
@@ -338,7 +340,7 @@ fn make_error_response(error: Error) -> navitia_proto::Response {
 
 fn is_deadline_expired(proto_request: &navitia_proto::Request) -> bool {
     if let Some(deadline_str) = &proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(&deadline_str, "%Y%m%dT%H%M%S,%f");
+        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
         match datetime_result {
             Ok(datetime) => {
                 let now = Utc::now().naive_utc();
