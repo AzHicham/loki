@@ -48,7 +48,7 @@ use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::PullOptionsBuilder;
 
 #[test]
-fn main() -> () {
+fn main() {
     let _log_guard = launch::logger::init_test_logger();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -59,7 +59,7 @@ fn main() -> () {
     runtime.block_on(run())
 }
 
-async fn run() -> () {
+async fn run() {
     let start_test_datetime = Utc::now().naive_utc();
 
     let working_dir = tempfile::tempdir().unwrap();
