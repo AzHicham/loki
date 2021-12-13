@@ -97,7 +97,7 @@ fn test_no_filter(
     #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
@@ -137,7 +137,7 @@ fn test_filter_forbidden_stop_point(
     #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -180,7 +180,7 @@ fn test_filter_allowed_stop_point(
     #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -230,7 +230,7 @@ fn test_filter_forbidden_route(
     #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -272,7 +272,7 @@ fn test_filter_allowed_route(
     #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");

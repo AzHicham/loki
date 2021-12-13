@@ -76,7 +76,7 @@ where
     T::Mission: 'static,
     T::Position: 'static,
 {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -204,7 +204,7 @@ where
     T::Mission: 'static,
     T::Position: 'static,
 {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -360,7 +360,7 @@ where
     T::Mission: 'static,
     T::Position: 'static,
 {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -492,7 +492,7 @@ where
     T::Mission: 'static,
     T::Position: 'static,
 {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {

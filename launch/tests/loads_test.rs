@@ -81,7 +81,7 @@ fn test_loads_matin() -> Result<(), Error> {
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
 
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let base_model = create_model();
 
@@ -115,7 +115,7 @@ fn test_loads_midi() -> Result<(), Error> {
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let base_model = create_model();
 
@@ -142,7 +142,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let base_model = create_model();
 

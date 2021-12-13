@@ -59,7 +59,7 @@ fn test_simple_routing(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -120,7 +120,7 @@ fn test_routing_with_transfers(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -223,7 +223,7 @@ fn test_routing_backward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -328,7 +328,7 @@ fn test_second_pass_forward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
 ) -> Result<(), Error> {
-    utils::init_logger();
+    let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -404,8 +404,7 @@ fn test_second_pass_backward(
     #[case] comparator_type: ComparatorType,
     #[case] data_implem: DataImplem,
 ) -> Result<(), Error> {
-    utils::init_logger();
-
+    let _log_guard = launch::logger::init_test_logger();
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
             vj_builder
