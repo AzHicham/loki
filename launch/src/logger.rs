@@ -2,6 +2,7 @@ use crate::loki::tracing::level_filters::LevelFilter;
 use loki::tracing::dispatcher::DefaultGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+#[must_use]
 pub fn init_logger() -> DefaultGuard {
     let default_level = LevelFilter::INFO;
     let rust_log =
@@ -21,6 +22,7 @@ pub fn init_logger() -> DefaultGuard {
         .set_default()
 }
 
+#[must_use]
 pub fn init_test_logger() -> DefaultGuard {
     let default_level = LevelFilter::DEBUG;
     let rust_log =
