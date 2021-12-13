@@ -47,11 +47,6 @@ use lapin::{options::BasicPublishOptions, BasicProperties};
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::PullOptionsBuilder;
 
-// TODO
-//  - launch rabbitmq docker from tests ?
-//  - add a "status" to the zmq endpoint, in order to determine when the data has been reloaded
-//  - design a small dataset with an obvious journey that can be queried/modified
-
 #[test]
 fn main() -> () {
     let _log_guard = launch::logger::init_test_logger();
@@ -67,11 +62,8 @@ fn main() -> () {
 async fn run() -> () {
     let start_test_datetime = Utc::now().naive_utc();
 
-    let working_dir = tempdir::TempDir::new("loki_reload_data_test").unwrap();
+    let working_dir = tempfile::tempdir().unwrap();
     let working_dir_path = working_dir.path();
-    // let working_dir_path = PathBuf::from_str("/tmp/test_loki/").unwrap();
-
-    println!("Coucou");
 
     let data_dir_path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
         .unwrap()
