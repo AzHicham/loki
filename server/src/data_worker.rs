@@ -118,6 +118,7 @@ impl DataWorker {
         let instance_name = &config.instance_name;
         let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
         let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
+        info!("Data worker created.");
         Self {
             config,
             data_and_models,
@@ -221,14 +222,17 @@ impl DataWorker {
             tokio::select! {
                 // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
-                    debug!("It's time to apply real time updates.");
-                    self.apply_realtime_messages().await?;
-                    debug!("Successfully applied real time updates.");
+                    if ! self.kirin_messages.is_empty() {
+                        debug!("It's time to apply {} real time updates.", self.kirin_messages.len());
+                        self.apply_realtime_messages().await?;
+                        debug!("Successfully applied real time updates.");
+                    }
+
 
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
-
+                    debug!("Received a real time update.");
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order

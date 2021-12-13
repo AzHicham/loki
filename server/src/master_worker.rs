@@ -104,6 +104,7 @@ impl MasterWorker {
 
         // Master worker
         let result = Self { shutdown_receiver };
+        info!("Master worker created.");
         Ok(result)
     }
 

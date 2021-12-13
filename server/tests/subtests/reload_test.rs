@@ -92,8 +92,6 @@ pub async fn reload_test(config: &ServerConfig, data_dir_path: &Path) {
             .as_str(),
         "Hello Renamed"
     );
-
-    info!("Everything went Ok ! Now stopping.");
 }
 
 async fn send_reload_order(config: &ServerConfig) {

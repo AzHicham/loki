@@ -27,4 +27,5 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod kirin_delete_vj_test;
 pub mod reload_test;
