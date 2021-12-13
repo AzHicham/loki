@@ -308,7 +308,10 @@ impl DataWorker {
             Ok(())
         };
 
-        self.update_data_and_models(updater).await
+        self.update_data_and_models(updater).await?;
+
+        let now = Utc::now().naive_utc();
+        self.send_status_update(StatusUpdate::RealTimeUpdate(now))
     }
 
     async fn update_data_and_models<Updater>(&mut self, updater: Updater) -> Result<(), Error>
