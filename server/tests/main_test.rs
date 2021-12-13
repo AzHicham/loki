@@ -1,4 +1,4 @@
-// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
+// Copyright  (C) 2021, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
@@ -7,13 +7,6 @@
 // powered by Kisio Digital (www.kisio.com).
 // Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
-//
-// This contribution is a part of the research and development work of the
-// IVA Project which aims to enhance traveler information and is carried out
-// under the leadership of the Technological Research Institute SystemX,
-// with the partnership and support of the transport organization authority
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds
-// under the scope of the French Program "Investissements d’Avenir".
 //
 // LICENCE: This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -43,9 +36,10 @@ pub use loki_server;
 use loki_server::{master_worker::MasterWorker, navitia_proto, server_config::ServerConfig};
 use prost::Message;
 
-use lapin::{options::BasicPublishOptions, BasicProperties};
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::PullOptionsBuilder;
+
+mod subtests;
 
 #[test]
 fn main() {
@@ -87,55 +81,7 @@ async fn run() {
 
     wait_until_data_loaded_after(zmq_endpoint, &start_test_datetime).await;
 
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-
-    let journeys_request = make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
-
-    let journeys_response =
-        send_request_and_wait_for_response(zmq_endpoint, journeys_request.clone()).await;
-    // info!("{:#?}", journeys_response);
-    // check that we have a journey, that uses the only trip in the ntfs, with headsign "Hello"
-    assert_eq!(
-        journeys_response.journeys[0].sections[0]
-            .pt_display_informations
-            .as_ref()
-            .unwrap()
-            .headsign
-            .as_ref()
-            .unwrap()
-            .as_str(),
-        "Hello"
-    );
-
-    wait_until_connected_to_rabbitmq(zmq_endpoint).await;
-
-    // copy the modified trips.txt into working dir
-    std::fs::copy(
-        data_dir_path.join("trips_renamed.txt"),
-        working_dir_path.join("trips.txt"),
-    )
-    .unwrap();
-
-    let before_reload_datetime = Utc::now().naive_utc();
-    send_reload_order(&config).await;
-
-    wait_until_data_loaded_after(zmq_endpoint, &before_reload_datetime).await;
-
-    let journeys_response =
-        send_request_and_wait_for_response(zmq_endpoint, journeys_request).await;
-    // check that we have a journey, that uses the only trip in the ntfs,  now with headsign "Hello Renamed"
-    assert_eq!(
-        journeys_response.journeys[0].sections[0]
-            .pt_display_informations
-            .as_ref()
-            .unwrap()
-            .headsign
-            .as_ref()
-            .unwrap()
-            .as_str(),
-        "Hello Renamed"
-    );
+    subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
     info!("Everything went Ok ! Now stopping.");
 
@@ -277,37 +223,6 @@ async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> naviti
 
     let proto_response = send_request_and_wait_for_response(zmq_endpoint, status_request).await;
     proto_response.status.unwrap()
-}
-
-async fn send_reload_order(config: &ServerConfig) {
-    // connect to rabbitmq
-    let connection = lapin::Connection::connect(
-        &config.rabbitmq_params.rabbitmq_endpoint,
-        lapin::ConnectionProperties::default(),
-    )
-    .await
-    .unwrap();
-    let channel = connection.create_channel().await.unwrap();
-
-    let mut task = navitia_proto::Task::default();
-    task.set_action(navitia_proto::Action::Reload);
-    let payload = task.encode_to_vec();
-
-    let routing_key = format!("{}.task.reload", &config.instance_name);
-    channel
-        .basic_publish(
-            &config.rabbitmq_params.rabbitmq_exchange,
-            &routing_key,
-            BasicPublishOptions::default(),
-            payload,
-            BasicProperties::default(),
-        )
-        .await
-        .unwrap()
-        .await
-        .unwrap();
-
-    info!("Reload message published with routing key {}.", routing_key);
 }
 
 async fn send_request_and_wait_for_response(
