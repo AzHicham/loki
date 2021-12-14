@@ -143,8 +143,35 @@ impl ComputeWorker {
         &mut self,
         proto_request: navitia_proto::Request,
     ) -> Result<navitia_proto::Response, Error> {
-        let journeys_request_result = extract_journey_request(proto_request);
-        match journeys_request_result {
+        check_deadline(&proto_request)?;
+
+        match proto_request.requested_api() {
+            navitia_proto::Api::PtPlanner => {
+                let journey_request = proto_request.journeys.ok_or_else(|| {
+                    format_err!("request.journey should not be empty for api PtPlanner.")
+                });
+                self.handle_journey_request(journey_request)
+            }
+            navitia_proto::Api::PlacesNearby => {
+                let places_nearby_request = proto_request.places_nearby.ok_or_else(|| {
+                    format_err!("request.places_nearby should not be empty for api PlacesNearby.")
+                });
+                handle_places_nearby(places_nearby_request)
+            }
+            _ => {
+                bail!(
+                    "I can't handle the requested api : {:?}",
+                    proto_request.requested_api()
+                )
+            }
+        }
+    }
+
+    fn handle_journey_request(
+        &mut self,
+        proto_request: Result<navitia_proto::JourneysRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
                 warn!("Could not handle journey request : {}", err);
@@ -184,6 +211,27 @@ impl ComputeWorker {
             }
         }
     }
+}
+
+fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
+    if let Some(deadline_str) = &proto_request.deadline {
+        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
+        match datetime_result {
+            Ok(datetime) => {
+                let now = Utc::now().naive_utc();
+                if now > datetime {
+                    return Err(format_err!("Deadline reached."));
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "Could not parse deadline string {}. Error : {}",
+                    deadline_str, err
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
@@ -391,36 +439,9 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
     proto_response
 }
 
-fn extract_journey_request(
-    proto_request: navitia_proto::Request,
-) -> Result<navitia_proto::JourneysRequest, Error> {
-    if let Some(deadline_str) = &proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
-        match datetime_result {
-            Ok(datetime) => {
-                let now = Utc::now().naive_utc();
-                if now > datetime {
-                    return Err(format_err!("Deadline reached."));
-                }
-            }
-            Err(err) => {
-                warn!(
-                    "Could not parse deadline string {}. Error : {}",
-                    deadline_str, err
-                );
-            }
-        }
-    }
-    match proto_request.requested_api() {
-        navitia_proto::Api::PtPlanner => (),
-        _ => {
-            bail!(
-                "I can't handle the requested api : {:?}",
-                proto_request.requested_api()
-            );
-        }
-    }
-    proto_request
-        .journeys
-        .ok_or_else(|| format_err!("request.journey should not be empty for api PtPlanner."))
+fn handle_places_nearby(
+    proto_request: Result<navitia_proto::PlacesNearbyRequest, Error>,
+) -> Result<navitia_proto::Response, Error> {
+    // Call places_nearby calculator
+    bail!("Not implemented");
 }
