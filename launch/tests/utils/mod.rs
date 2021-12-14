@@ -50,7 +50,9 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::{chrono::TimeZone, filters::Filters, models::ModelRefs, request::generic_request};
+use loki::{
+    chrono::TimeZone, filters::Filters, models::ModelRefs, request::generic_request, RealTimeLevel,
+};
 
 use loki::{chrono_tz, tracing::debug};
 
@@ -194,21 +196,26 @@ where
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
     model: &'a ModelRefs<'a>,
+    real_time_level: &RealTimeLevel,
 ) -> Result<(&'a str, &'a str), Error> {
-    let from_stop_name = vehicle_section.from_stop_point_name(model).ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
-            vehicle_section.from_stoptime_idx,
-            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
-        )
-    })?;
-    let to_stop_name = vehicle_section.to_stop_point_name(model).ok_or_else(|| {
-        format_err!(
-            "No stoptime at idx {} for vehicle journey {}",
-            vehicle_section.to_stoptime_idx,
-            model.vehicle_journey_name(&vehicle_section.vehicle_journey)
-        )
-    })?;
+    let from_stop_name = vehicle_section
+        .from_stop_point_name(model, real_time_level)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.from_stoptime_idx,
+                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+            )
+        })?;
+    let to_stop_name = vehicle_section
+        .to_stop_point_name(model, real_time_level)
+        .ok_or_else(|| {
+            format_err!(
+                "No stoptime at idx {} for vehicle journey {}",
+                vehicle_section.to_stoptime_idx,
+                model.vehicle_journey_name(&vehicle_section.vehicle_journey)
+            )
+        })?;
 
     Ok((from_stop_name, to_stop_name))
 }

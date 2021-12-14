@@ -408,8 +408,14 @@ pub fn handle_insertion_error(
 ) {
     use crate::timetables::InsertionError::*;
     match insertion_error {
-        Times(vehicle_journey_idx, error, dates) => {
-            let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, error);
+        Times(vehicle_journey_idx, real_time_level, error, dates) => {
+            let _ = handle_vehicletimes_error(
+                vehicle_journey_idx,
+                dates,
+                model,
+                error,
+                real_time_level,
+            );
         }
         RealTimeVehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
@@ -442,6 +448,7 @@ fn handle_vehicletimes_error(
     dates: &[NaiveDate],
     model: &ModelRefs<'_>,
     error: &VehicleTimesError,
+    real_time_level: &RealTimeLevel,
 ) -> Result<(), ()> {
     if dates.is_empty() {
         error!("Received a vehicle times error with no date");
@@ -459,8 +466,13 @@ fn handle_vehicletimes_error(
 
     match error {
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) =
-                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+                model,
+                vehicle_journey_idx,
+                date,
+                position_pair,
+                real_time_level,
+            )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
@@ -475,8 +487,13 @@ fn handle_vehicletimes_error(
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) =
-                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+                model,
+                vehicle_journey_idx,
+                date,
+                position_pair,
+                real_time_level,
+            )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     board time at {}-th stop_time ({}) \
@@ -491,8 +508,13 @@ fn handle_vehicletimes_error(
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) =
-                upstream_downstream_stop_names(model, vehicle_journey_idx, date, position_pair)?;
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+                model,
+                vehicle_journey_idx,
+                date,
+                position_pair,
+                real_time_level,
+            )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
                     debark time at {}-th stop_time ({}) \
@@ -516,9 +538,15 @@ fn upstream_downstream_stop_names<'model>(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: &NaiveDate,
     position_pair: &PositionPair,
+    real_time_level: &RealTimeLevel,
 ) -> Result<(&'model str, &'model str), ()> {
     let upstream_stop = model
-        .stop_point_at(vehicle_journey_idx, position_pair.upstream, date)
+        .stop_point_at(
+            vehicle_journey_idx,
+            position_pair.upstream,
+            date,
+            real_time_level,
+        )
         .ok_or_else(|| {
             error!(
                 "Received a position pair with invalid upstream stop. \
@@ -531,7 +559,12 @@ fn upstream_downstream_stop_names<'model>(
     let upstream_stop_name = model.stop_point_name(&upstream_stop);
 
     let dowstream_stop = model
-        .stop_point_at(vehicle_journey_idx, position_pair.downstream, date)
+        .stop_point_at(
+            vehicle_journey_idx,
+            position_pair.downstream,
+            date,
+            real_time_level,
+        )
         .ok_or_else(|| {
             error!(
                 "Received a position pair with invalid downstream stop. \
@@ -615,7 +648,13 @@ pub fn handle_modify_error(
             );
         }
         ModifyError::Times(vehicle_journey_idx, times_err, dates) => {
-            let _ = handle_vehicletimes_error(vehicle_journey_idx, dates, model, times_err);
+            let _ = handle_vehicletimes_error(
+                vehicle_journey_idx,
+                dates,
+                model,
+                times_err,
+                &RealTimeLevel::RealTime,
+            );
         }
     }
 }

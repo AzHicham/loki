@@ -303,7 +303,12 @@ where
                 &real_time_level,
             )
             .map_err(|(err, dates)| {
-                InsertionError::Times(vehicle_journey_idx.clone(), err, dates)
+                InsertionError::Times(
+                    vehicle_journey_idx.clone(),
+                    real_time_level.clone(),
+                    err,
+                    dates,
+                )
             })?;
 
         for (timetable, days_pattern) in timetables.iter() {

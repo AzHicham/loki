@@ -38,6 +38,7 @@ use crate::{
     loads_data::LoadsCount,
     models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+    RealTimeLevel,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -55,6 +56,7 @@ pub struct Response {
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
     pub arrival: ArrivalSection,
     pub loads_count: LoadsCount,
+    pub real_time_level: RealTimeLevel,
 }
 
 pub struct VehicleSection {
@@ -125,6 +127,7 @@ pub struct Journey<Data: DataTrait> {
     pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     pub(crate) arrival_fallback_duration: PositiveDuration,
     pub(crate) loads_count: LoadsCount,
+    pub(crate) real_time_level: RealTimeLevel,
 }
 #[derive(Debug, Clone)]
 pub enum VehicleLegIdx {
@@ -202,6 +205,7 @@ where
         arrival_fallback_duration: PositiveDuration,
         loads_count: LoadsCount,
         data: &Data,
+        real_time_level: RealTimeLevel,
     ) -> Result<Self, BadJourney<Data>> {
         let result = Self {
             departure_datetime,
@@ -210,6 +214,7 @@ where
             arrival_fallback_duration,
             connections: connections.collect(),
             loads_count,
+            real_time_level,
         };
 
         result.is_valid(data)?;
@@ -494,6 +499,7 @@ impl<Data: DataTrait> Journey<Data> {
             connections: self.connections(data).collect(),
             arrival: self.arrival_section(data),
             loads_count: self.loads_count.clone(),
+            real_time_level: self.real_time_level.clone(),
         }
     }
 
@@ -647,22 +653,32 @@ impl VehicleSection {
         duration.num_seconds()
     }
 
-    pub fn from_stop_point_name<'a>(&self, model: &'a ModelRefs<'a>) -> Option<&'a str> {
+    pub fn from_stop_point_name<'a>(
+        &self,
+        model: &'a ModelRefs<'a>,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
                 self.from_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                real_time_level,
             )
             .map(|idx| model.stop_point_name(&idx))
     }
 
-    pub fn to_stop_point_name<'a>(&self, model: &'a ModelRefs<'a>) -> Option<&'a str> {
+    pub fn to_stop_point_name<'a>(
+        &self,
+        model: &'a ModelRefs<'a>,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
                 self.to_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                real_time_level,
             )
             .map(|idx| model.stop_point_name(&idx))
     }
@@ -670,6 +686,7 @@ impl VehicleSection {
     fn write<Writer: std::fmt::Write>(
         &self,
         model: &ModelRefs<'_>,
+        real_time_level: &RealTimeLevel,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
@@ -681,6 +698,7 @@ impl VehicleSection {
                 vehicle_journey_idx,
                 self.from_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                real_time_level,
             )
             .map(|stop_idx| model.stop_point_name(&stop_idx))
             .unwrap_or("unknown_stop");
@@ -689,6 +707,7 @@ impl VehicleSection {
                 vehicle_journey_idx,
                 self.to_stoptime_idx,
                 &self.day_for_vehicle_journey,
+                real_time_level,
             )
             .map(|stop_idx| model.stop_point_name(&stop_idx))
             .unwrap_or("unknown_stop");
@@ -817,9 +836,10 @@ impl Response {
             write_date(&self.departure.from_datetime)
         )?;
 
-        self.first_vehicle.write(model, writer)?;
+        self.first_vehicle
+            .write(model, &self.real_time_level, writer)?;
         for (_, _, vehicle) in self.connections.iter() {
-            vehicle.write(model, writer)?;
+            vehicle.write(model, &self.real_time_level, writer)?;
         }
 
         Ok(())

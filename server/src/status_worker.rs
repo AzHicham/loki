@@ -54,6 +54,7 @@ pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
     is_connected_to_rabbitmq: bool,
     last_real_time_reload: Option<NaiveDateTime>,
+    last_real_time_update: Option<NaiveDateTime>,
 
     zmq_channels: StatusWorkerToZmqChannels,
 
@@ -73,6 +74,7 @@ pub enum StatusUpdate {
     RabbitMqConnected,
     RabbitMqDisconnected,
     RealTimeReload(NaiveDateTime),
+    RealTimeUpdate(NaiveDateTime),
 }
 
 impl StatusWorker {
@@ -85,6 +87,7 @@ impl StatusWorker {
             base_data_info: None,
             is_connected_to_rabbitmq: false,
             last_real_time_reload: None,
+            last_real_time_update: None,
             zmq_channels,
             status_update_receiver,
             shutdown_sender,
@@ -159,7 +162,7 @@ impl StatusWorker {
 
         status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
 
-        if let Some(date) = &self.last_real_time_reload {
+        if let Some(date) = &self.last_real_time_update {
             status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
         }
 
@@ -203,6 +206,9 @@ impl StatusWorker {
             }
             StatusUpdate::RealTimeReload(datetime) => {
                 self.last_real_time_reload = Some(datetime);
+            }
+            StatusUpdate::RealTimeUpdate(datetime) => {
+                self.last_real_time_update = Some(datetime);
             }
         }
     }

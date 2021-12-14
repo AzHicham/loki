@@ -1,4 +1,4 @@
-// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
+// Copyright  (C) 2021, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
@@ -7,13 +7,6 @@
 // powered by Kisio Digital (www.kisio.com).
 // Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
-//
-// This contribution is a part of the research and development work of the
-// IVA Project which aims to enhance traveler information and is carried out
-// under the leadership of the Technological Research Institute SystemX,
-// with the partnership and support of the transport organization authority
-// Ile-De-France Mobilités (IDFM), SNCF, and public funds
-// under the scope of the French Program "Investissements d’Avenir".
 //
 // LICENCE: This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -40,16 +33,20 @@ use std::{
 };
 
 pub use loki_server;
-use loki_server::{master_worker::MasterWorker, navitia_proto, server_config::ServerConfig};
+use loki_server::{
+    chaos_proto, master_worker::MasterWorker, navitia_proto, server_config::ServerConfig,
+};
 use prost::Message;
+use protobuf::Message as ProtobuMessage;
 
-use lapin::{options::BasicPublishOptions, BasicProperties};
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::PullOptionsBuilder;
 
+mod subtests;
+
 #[test]
 fn main() {
-    let _log_guard = launch::logger::init_test_logger();
+    launch::logger::init_global_test_logger();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -82,60 +79,20 @@ async fn run() {
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
+    config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 5);
+    config
+        .rabbitmq_params
+        .rabbitmq_real_time_topics
+        .push("test_realtime_topic".to_string());
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
     wait_until_data_loaded_after(zmq_endpoint, &start_test_datetime).await;
-
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-
-    let journeys_request = make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
-
-    let journeys_response =
-        send_request_and_wait_for_response(zmq_endpoint, journeys_request.clone()).await;
-    // info!("{:#?}", journeys_response);
-    // check that we have a journey, that uses the only trip in the ntfs, with headsign "Hello"
-    assert_eq!(
-        journeys_response.journeys[0].sections[0]
-            .pt_display_informations
-            .as_ref()
-            .unwrap()
-            .headsign
-            .as_ref()
-            .unwrap()
-            .as_str(),
-        "Hello"
-    );
-
     wait_until_connected_to_rabbitmq(zmq_endpoint).await;
 
-    // copy the modified trips.txt into working dir
-    std::fs::copy(
-        data_dir_path.join("trips_renamed.txt"),
-        working_dir_path.join("trips.txt"),
-    )
-    .unwrap();
+    subtests::kirin_delete_vj_test::delete_vj_test(&config).await;
 
-    let before_reload_datetime = Utc::now().naive_utc();
-    send_reload_order(&config).await;
-
-    wait_until_data_loaded_after(zmq_endpoint, &before_reload_datetime).await;
-
-    let journeys_response =
-        send_request_and_wait_for_response(zmq_endpoint, journeys_request).await;
-    // check that we have a journey, that uses the only trip in the ntfs,  now with headsign "Hello Renamed"
-    assert_eq!(
-        journeys_response.journeys[0].sections[0]
-            .pt_display_informations
-            .as_ref()
-            .unwrap()
-            .headsign
-            .as_ref()
-            .unwrap()
-            .as_str(),
-        "Hello Renamed"
-    );
+    subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
     info!("Everything went Ok ! Now stopping.");
 
@@ -271,15 +228,37 @@ async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &Naive
     }
 }
 
-async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> navitia_proto::Status {
-    let mut status_request = navitia_proto::Request::default();
-    status_request.set_requested_api(navitia_proto::Api::Status);
+async fn wait_until_realtime_updated_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) {
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    tokio::pin!(timeout);
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
 
-    let proto_response = send_request_and_wait_for_response(zmq_endpoint, status_request).await;
-    proto_response.status.unwrap()
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+            status_response = send_status_request_and_wait_for_response(zmq_endpoint) => {
+                let has_datetime = status_response.last_rt_data_loaded
+                        .map(|datetime_str : String|
+                            NaiveDateTime::parse_from_str(&datetime_str, "%Y%m%dT%H%M%S.%f").unwrap()
+                        );
+                // info!("Status request responded with last_load_at : {:?}. Reload should be after {}", has_datetime, after_datetime);
+                if let Some(datetime) = has_datetime {
+                    if datetime > *after_datetime {
+                        return ;
+                    }
+                }
+            }
+            _ = & mut timeout => {
+                panic!("Data not reloaded before timeout.");
+            }
+        }
+    }
 }
 
-async fn send_reload_order(config: &ServerConfig) {
+async fn send_realtime_message(
+    config: &ServerConfig,
+    realtime_message: chaos_proto::gtfs_realtime::FeedMessage,
+) {
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
         &config.rabbitmq_params.rabbitmq_endpoint,
@@ -289,25 +268,32 @@ async fn send_reload_order(config: &ServerConfig) {
     .unwrap();
     let channel = connection.create_channel().await.unwrap();
 
-    let mut task = navitia_proto::Task::default();
-    task.set_action(navitia_proto::Action::Reload);
-    let payload = task.encode_to_vec();
+    let mut payload = Vec::new();
+    realtime_message.write_to_vec(&mut payload).unwrap();
 
-    let routing_key = format!("{}.task.reload", &config.instance_name);
+    let routing_key = &config.rabbitmq_params.rabbitmq_real_time_topics[0];
     channel
         .basic_publish(
             &config.rabbitmq_params.rabbitmq_exchange,
             &routing_key,
-            BasicPublishOptions::default(),
+            lapin::options::BasicPublishOptions::default(),
             payload,
-            BasicProperties::default(),
+            lapin::BasicProperties::default(),
         )
         .await
         .unwrap()
         .await
         .unwrap();
 
-    info!("Reload message published with routing key {}.", routing_key);
+    info!("Sent realtime message with routing key {}.", routing_key);
+}
+
+async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> navitia_proto::Status {
+    let mut status_request = navitia_proto::Request::default();
+    status_request.set_requested_api(navitia_proto::Api::Status);
+
+    let proto_response = send_request_and_wait_for_response(zmq_endpoint, status_request).await;
+    proto_response.status.unwrap()
 }
 
 async fn send_request_and_wait_for_response(
