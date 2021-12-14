@@ -79,6 +79,7 @@ async fn run() {
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
+    config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 5);
     config
         .rabbitmq_params
         .rabbitmq_real_time_topics
@@ -91,7 +92,7 @@ async fn run() {
 
     subtests::kirin_delete_vj_test::delete_vj_test(&config).await;
 
-    // subtests::reload_test::reload_test(&config, &data_dir_path).await;
+    subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
     info!("Everything went Ok ! Now stopping.");
 

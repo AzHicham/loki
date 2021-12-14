@@ -35,7 +35,7 @@ use launch::loki::{
     chrono::{NaiveDate, Utc},
     NaiveDateTime,
 };
-use protobuf::{Message, UnknownValue};
+use protobuf::Message;
 
 // changes the ntfs file on disk, send a reload order, and check
 // that the new data is indeed loaded
