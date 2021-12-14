@@ -55,7 +55,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         )
         .await;
         // info!("{:#?}", journeys_response);
-        // check that we have a journey, that uses the only trip in the ntfs, with headsign "Hello"
+        // check that we have a journey, that uses the only trip in the ntfs
         assert_eq!(
             journeys_response.journeys[0].sections[0]
                 .pt_display_informations

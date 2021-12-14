@@ -527,9 +527,10 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
+        real_time_level: &RealTimeLevel,
     ) -> Option<&str> {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
+        match (vehicle_journey_idx, real_time_level) {
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::RealTime) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
                     self.base.vehicle_journeys[*idx].headsign.as_deref()
@@ -537,7 +538,10 @@ impl<'model> ModelRefs<'model> {
                     None
                 }
             }
-            VehicleJourneyIdx::New(_idx) => None,
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::Base) => {
+                self.base.vehicle_journeys[*idx].headsign.as_deref()
+            }
+            (VehicleJourneyIdx::New(_idx), _) => None,
         }
     }
 

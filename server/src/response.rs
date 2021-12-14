@@ -272,6 +272,7 @@ fn make_public_transport_section(
         pt_display_informations: Some(make_pt_display_info(
             &vehicle_section.vehicle_journey,
             *date,
+            real_time_level,
             model,
         )),
         stop_date_times: make_stop_datetimes(&stop_times, model)?,
@@ -400,13 +401,14 @@ fn make_stop_area(
 fn make_pt_display_info(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
+    real_time_level: &RealTimeLevel,
     model: &ModelRefs,
 ) -> navitia_proto::PtDisplayInfo {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
         code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
         headsign: model
-            .headsign(vehicle_journey_idx, &date)
+            .headsign(vehicle_journey_idx, &date, real_time_level)
             .map(|s| s.to_string()),
         direction: model
             .direction(vehicle_journey_idx, &date)
