@@ -74,7 +74,7 @@ pub async fn reload_test(config: &ServerConfig, data_dir_path: &Path) {
     .unwrap();
 
     let before_reload_datetime = Utc::now().naive_utc();
-    send_reload_order(&config).await;
+    send_reload_order(config).await;
 
     crate::wait_until_data_loaded_after(&config.requests_socket, &before_reload_datetime).await;
 
