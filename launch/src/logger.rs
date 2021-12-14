@@ -58,7 +58,7 @@ pub fn init_test_logger() -> DefaultGuard {
 //
 // This logger support libtest's output capturing
 // https://docs.rs/tracing-subscriber/0.3.3/tracing_subscriber/fmt/struct.Layer.html#method.with_test_writer
-pub fn init_global_test_logger() -> () {
+pub fn init_global_test_logger() {
     let default_level = LevelFilter::DEBUG;
     let rust_log =
         std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| default_level.to_string());

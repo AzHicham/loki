@@ -275,7 +275,7 @@ async fn send_realtime_message(
     channel
         .basic_publish(
             &config.rabbitmq_params.rabbitmq_exchange,
-            &routing_key,
+            routing_key,
             lapin::options::BasicPublishOptions::default(),
             payload,
             lapin::BasicProperties::default(),
