@@ -486,7 +486,7 @@ fn make_places_nearby_proto_response(
         .iter()
         .map(|(idx, distance)| navitia_proto::PtObject {
             name: model.stop_point_name(idx).to_string(),
-            uri: model.stop_point_uri(idx).to_string(),
+            uri: model.stop_point_uri(idx),
             distance: Some(*distance as i32),
             ..Default::default()
         })

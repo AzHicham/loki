@@ -70,9 +70,9 @@ pub fn places_nearby_impl(model: &ModelRefs, uri: &str, radius: f64) -> Vec<(Sto
     if let Ok(coord) = entrypoint {
         let ep_coord = project_coord(coord);
         let bounding_box = bounding_box(coord, radius);
-        // New stop_point do not have geo coord
+        // New stop_points do not have geo coord
         for sp in &model.base.stop_points {
-            if within_box(bounding_box, sp.1.coord) {
+            if within_box(&bounding_box, &sp.1.coord) {
                 let sp_coord = project_coord(sp.1.coord);
                 let distance = compute_distance(ep_coord, sp_coord);
                 if distance < radius {
@@ -112,7 +112,7 @@ fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNear
     Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
 }
 
-fn within_box(bbox: (f64, f64, f64, f64), point: Coord) -> bool {
+fn within_box(bbox: &(f64, f64, f64, f64), point: &Coord) -> bool {
     point.lat > bbox.0 && point.lat < bbox.1 && point.lon > bbox.2 && point.lon < bbox.3
 }
 
