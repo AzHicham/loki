@@ -35,12 +35,7 @@
 // www.navitia.io
 
 use anyhow::{bail, format_err, Context, Error};
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
-use tokio::sync::mpsc;
-
+use launch::loki::models::StopPointIdx;
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -55,7 +50,15 @@ use launch::{
     },
     solver::Solver,
 };
+use loki::places_nearby::places_nearby_impl;
 use std::convert::TryFrom;
+use std::ops::Index;
+use std::time::SystemTime;
+use std::{
+    ops::Deref,
+    sync::{Arc, RwLock},
+};
+use tokio::sync::mpsc;
 
 use crate::{
     load_balancer::WorkerId,
@@ -156,7 +159,7 @@ impl ComputeWorker {
                 let places_nearby_request = proto_request.places_nearby.ok_or_else(|| {
                     format_err!("request.places_nearby should not be empty for api PlacesNearby.")
                 });
-                handle_places_nearby(places_nearby_request)
+                self.handle_places_nearby(places_nearby_request)
             }
             _ => {
                 bail!(
@@ -211,6 +214,40 @@ impl ComputeWorker {
             }
         }
     }
+
+    fn handle_places_nearby(
+        &mut self,
+        proto_request: Result<navitia_proto::PlacesNearbyRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
+            Err(err) => {
+                // send a response saying that the journey request could not be handled
+                warn!("Could not handle places nearby request : {}", err);
+                Ok(make_error_response(&err))
+            }
+            Ok(places_nearbyy_request) => {
+                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
+                        self.worker_id.id,
+                        err
+                    )
+                })?;
+
+                let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let model_refs = ModelRefs::new(base_model, real_time_model);
+
+                let radius = places_nearbyy_request.distance;
+                let uri = places_nearbyy_request.uri;
+                let data_timer = SystemTime::now();
+                let sp = places_nearby_impl(&model_refs, &uri, radius);
+                let places_nearby_ms = data_timer.elapsed().unwrap().as_millis();
+                info!("places_nearby IN {} ms", places_nearby_ms);
+                let response = make_places_nearby_proto_response(&model_refs, &sp);
+                Ok(response)
+            }
+        }
+    }
 }
 
 fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
@@ -235,6 +272,8 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
 }
 
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+use launch::loki::transit_data_filtered::StopPoint;
+use launch::loki::typed_index_collection::Idx;
 
 fn solve<Timetables>(
     journey_request: &navitia_proto::JourneysRequest,
@@ -439,9 +478,24 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
     proto_response
 }
 
-fn handle_places_nearby(
-    proto_request: Result<navitia_proto::PlacesNearbyRequest, Error>,
-) -> Result<navitia_proto::Response, Error> {
-    // Call places_nearby calculator
-    bail!("Not implemented");
+fn make_places_nearby_proto_response(
+    model: &ModelRefs,
+    sp_distance: &[(StopPointIdx, f64)],
+) -> navitia_proto::Response {
+    let pt_objects: Vec<navitia_proto::PtObject> = sp_distance
+        .iter()
+        .map(|(idx, distance)| navitia_proto::PtObject {
+            name: model.stop_point_name(idx).to_string(),
+            uri: model.stop_point_uri(idx).to_string(),
+            distance: Some(*distance as i32),
+            ..Default::default()
+        })
+        .collect();
+
+    let response = navitia_proto::Response {
+        places_nearby: pt_objects,
+        ..Default::default()
+    };
+
+    response
 }

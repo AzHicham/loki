@@ -3,7 +3,7 @@ use loki::tracing::dispatcher::DefaultGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[must_use]
-pub fn init_logger() -> DefaultGuard {
+pub fn init_logger() {
     let default_level = LevelFilter::INFO;
     let rust_log =
         std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| default_level.to_string());
@@ -16,10 +16,11 @@ pub fn init_logger() -> DefaultGuard {
         );
         EnvFilter::new(default_level.to_string())
     });
-    tracing_subscriber::registry()
+    let suscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(env_filter_subscriber)
-        .set_default()
+        .with(env_filter_subscriber);
+    loki::tracing::subscriber::set_global_default(suscriber)
+        .expect("Failed to set global tracing subscriber.")
 }
 
 #[must_use]
