@@ -39,7 +39,7 @@ use crate::navitia_proto;
 use launch::loki::{
     self,
     models::{ModelRefs, StopPointIdx, StopTimes, VehicleJourneyIdx},
-    RequestInput,
+    RealTimeLevel, RequestInput,
 };
 
 use loki::response::{TransferSection, VehicleSection, WaitingSection};
@@ -112,6 +112,7 @@ fn make_journey(
         &journey.first_vehicle,
         model,
         section_id,
+        &request_input.real_time_level,
     )?);
 
     for (connection_idx, connection) in journey.connections.iter().enumerate() {
@@ -130,7 +131,12 @@ fn make_journey(
         {
             let section_id = format!("section_{}_{}", journey_id, 3 + 3 * connection_idx);
             let vehicle_section = &connection.2;
-            let proto_section = make_public_transport_section(vehicle_section, model, section_id)?;
+            let proto_section = make_public_transport_section(
+                vehicle_section,
+                model,
+                section_id,
+                &request_input.real_time_level,
+            )?;
             proto.sections.push(proto_section);
         }
     }
@@ -203,12 +209,18 @@ fn make_public_transport_section(
     vehicle_section: &VehicleSection,
     model: &ModelRefs<'_>,
     section_id: String,
+    real_time_level: &RealTimeLevel,
 ) -> Result<navitia_proto::Section, Error> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
     let date = &vehicle_section.day_for_vehicle_journey;
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let from_stop_point_idx = model
-        .stop_point_at(vehicle_journey_idx, from_stoptime_idx, date)
+        .stop_point_at(
+            vehicle_journey_idx,
+            from_stoptime_idx,
+            date,
+            real_time_level,
+        )
         .ok_or_else(|| {
             format_err!(
                 "No stoptime at idx {} for vehicle journey {} on {}",
@@ -220,7 +232,7 @@ fn make_public_transport_section(
 
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
     let to_stop_point_idx = model
-        .stop_point_at(vehicle_journey_idx, to_stoptime_idx, date)
+        .stop_point_at(vehicle_journey_idx, to_stoptime_idx, date, real_time_level)
         .ok_or_else(|| {
             format_err!(
                 "No stoptime at idx {} for vehicle journey {} on {}",
@@ -236,12 +248,14 @@ fn make_public_transport_section(
             date,
             from_stoptime_idx,
             to_stoptime_idx,
+            real_time_level,
         )
         .ok_or_else(|| {
             format_err!(
-                "On vehicle journey {} on {}, could not get stoptimes range [{}, {}] ",
+                "On vehicle journey {} on {} at {:?}, could not get stoptimes range [{}, {}] ",
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
+                real_time_level,
                 from_stoptime_idx,
                 to_stoptime_idx,
             )
@@ -258,6 +272,7 @@ fn make_public_transport_section(
         pt_display_informations: Some(make_pt_display_info(
             &vehicle_section.vehicle_journey,
             *date,
+            real_time_level,
             model,
         )),
         stop_date_times: make_stop_datetimes(&stop_times, model)?,
@@ -386,13 +401,14 @@ fn make_stop_area(
 fn make_pt_display_info(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
+    real_time_level: &RealTimeLevel,
     model: &ModelRefs,
 ) -> navitia_proto::PtDisplayInfo {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
         code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
         headsign: model
-            .headsign(vehicle_journey_idx, &date)
+            .headsign(vehicle_journey_idx, &date, real_time_level)
             .map(|s| s.to_string()),
         direction: model
             .direction(vehicle_journey_idx, &date)

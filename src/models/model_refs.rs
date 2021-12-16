@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::chrono::NaiveDate;
+use crate::{chrono::NaiveDate, RealTimeLevel};
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
@@ -173,37 +173,50 @@ impl<'model> ModelRefs<'model> {
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: usize,
         date: &NaiveDate,
+        real_time_level: &RealTimeLevel,
     ) -> Option<StopPointIdx> {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
-                if let Some(trip_data) = has_realtime {
-                    match trip_data {
-                        TripData::Deleted() => None,
-                        TripData::Present(stop_times) => stop_times
-                            .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop.clone()),
-                    }
-                } else {
+        match real_time_level {
+            &RealTimeLevel::Base => {
+                if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
                     self.base.vehicle_journeys[*idx]
                         .stop_times
                         .get(stop_time_idx)
                         .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
-                }
-            }
-            VehicleJourneyIdx::New(idx) => {
-                let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
-                if let Some(trip_data) = has_realtime {
-                    match trip_data {
-                        TripData::Deleted() => None,
-                        TripData::Present(stop_times) => stop_times
-                            .get(stop_time_idx)
-                            .map(|stop_time| stop_time.stop.clone()),
-                    }
                 } else {
                     None
                 }
             }
+            &RealTimeLevel::RealTime => match vehicle_journey_idx {
+                VehicleJourneyIdx::Base(idx) => {
+                    let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
+                    if let Some(trip_data) = has_realtime {
+                        match trip_data {
+                            TripData::Deleted() => None,
+                            TripData::Present(stop_times) => stop_times
+                                .get(stop_time_idx)
+                                .map(|stop_time| stop_time.stop.clone()),
+                        }
+                    } else {
+                        self.base.vehicle_journeys[*idx]
+                            .stop_times
+                            .get(stop_time_idx)
+                            .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
+                    }
+                }
+                VehicleJourneyIdx::New(idx) => {
+                    let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
+                    if let Some(trip_data) = has_realtime {
+                        match trip_data {
+                            TripData::Deleted() => None,
+                            TripData::Present(stop_times) => stop_times
+                                .get(stop_time_idx)
+                                .map(|stop_time| stop_time.stop.clone()),
+                        }
+                    } else {
+                        None
+                    }
+                }
+            },
         }
     }
 
@@ -400,6 +413,56 @@ impl<'model> ModelRefs<'model> {
         date: &NaiveDate,
         from_stoptime_idx: usize,
         to_stoptime_idx: usize,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<StopTimes> {
+        match real_time_level {
+            RealTimeLevel::Base => self.stop_times_base_schedule(
+                vehicle_journey_idx,
+                date,
+                from_stoptime_idx,
+                to_stoptime_idx,
+            ),
+            RealTimeLevel::RealTime => self.stop_times_real_time(
+                vehicle_journey_idx,
+                date,
+                from_stoptime_idx,
+                to_stoptime_idx,
+            ),
+        }
+    }
+
+    pub fn stop_times_base_schedule(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+        from_stoptime_idx: usize,
+        to_stoptime_idx: usize,
+    ) -> Option<StopTimes> {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::New(_) => None,
+            VehicleJourneyIdx::Base(idx) => {
+                let vj = &self.base.vehicle_journeys[*idx];
+                let stop_times = &vj.stop_times;
+                let timezone = self.timezone(vehicle_journey_idx, date);
+                if from_stoptime_idx < stop_times.len() && to_stoptime_idx < stop_times.len() {
+                    Some(StopTimes::Base(
+                        &stop_times[from_stoptime_idx..=to_stoptime_idx],
+                        *date,
+                        timezone,
+                    ))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    pub fn stop_times_real_time(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+        from_stoptime_idx: usize,
+        to_stoptime_idx: usize,
     ) -> Option<StopTimes> {
         if from_stoptime_idx > to_stoptime_idx {
             return None;
@@ -464,9 +527,10 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
+        real_time_level: &RealTimeLevel,
     ) -> Option<&str> {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
+        match (vehicle_journey_idx, real_time_level) {
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::RealTime) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
                     self.base.vehicle_journeys[*idx].headsign.as_deref()
@@ -474,7 +538,10 @@ impl<'model> ModelRefs<'model> {
                     None
                 }
             }
-            VehicleJourneyIdx::New(_idx) => None,
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::Base) => {
+                self.base.vehicle_journeys[*idx].headsign.as_deref()
+            }
+            (VehicleJourneyIdx::New(_idx), _) => None,
         }
     }
 

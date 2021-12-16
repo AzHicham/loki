@@ -167,6 +167,7 @@ where
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
+            self.real_time_level.clone(),
         )
         .map_err(response::JourneyError::BadJourney)?;
         let new_journey = self
