@@ -34,121 +34,69 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+mod utility;
 
 use crate::models::{ModelRefs, StopPointIdx};
-use regex::Regex;
-use std::fmt::{Display, Formatter};
-use transit_model::objects::Coord;
+use transit_model::objects::StopPoint;
+use typed_index_collection::Iter;
 
-const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
-const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
+use utility::BadPlacesNearby;
+use utility::{bounding_box, compute_distance, parse_entrypoint, project_coord, within_box};
 
-#[derive(Debug)]
-pub enum BadPlacesNearby {
-    InvalidEntryPoint(String),
-    BadFormatCoord(String),
-    UnavailableCoord(String),
+pub fn places_nearby_impl<'model, 'uri>(
+    model: &'model ModelRefs,
+    uri: &'uri str,
+    radius: f64,
+) -> Result<PlacesNearbyResult<'model>, BadPlacesNearby> {
+    // ep: entrypoint
+    let ep_coord = parse_entrypoint(model, uri)?;
+    let ep_coord_xyz = project_coord(ep_coord);
+    let bounding_box = bounding_box(ep_coord, radius);
+
+    Ok(PlacesNearbyResult::new(
+        model,
+        ep_coord_xyz,
+        radius,
+        bounding_box,
+    ))
 }
 
-impl Display for BadPlacesNearby {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Unable to parse {} as a coord. Expected format is (double:double)",
-            self
-        )
+pub struct PlacesNearbyResult<'model> {
+    ep_coord_xyz: (f64, f64, f64),
+    radius: f64,
+    bounding_box: (f64, f64, f64, f64),
+    inner: Iter<'model, StopPoint>,
+}
+
+impl<'model> PlacesNearbyResult<'model> {
+    pub fn new(
+        model: &'model ModelRefs,
+        ep_coord_xyz: (f64, f64, f64),
+        radius: f64,
+        bounding_box: (f64, f64, f64, f64),
+    ) -> Self {
+        Self {
+            ep_coord_xyz,
+            radius,
+            bounding_box,
+            inner: model.base.stop_points.iter(),
+        }
     }
 }
 
-impl std::error::Error for BadPlacesNearby {}
+impl<'model> Iterator for PlacesNearbyResult<'model> {
+    type Item = (StopPointIdx, f64);
 
-pub fn places_nearby_impl(model: &ModelRefs, uri: &str, radius: f64) -> Vec<(StopPointIdx, f64)> {
-    let mut res: Vec<(StopPointIdx, f64)> = vec![];
-
-    let entrypoint = parse_entrypoint(model, uri);
-    if let Ok(coord) = entrypoint {
-        let ep_coord = project_coord(coord);
-        let bounding_box = bounding_box(coord, radius);
-        // New stop_points do not have geo coord
-        for sp in &model.base.stop_points {
-            if within_box(&bounding_box, &sp.1.coord) {
-                let sp_coord = project_coord(sp.1.coord);
-                let distance = compute_distance(ep_coord, sp_coord);
-                if distance < radius {
-                    res.push((StopPointIdx::Base(sp.0), distance));
+    fn next(&mut self) -> Option<Self::Item> {
+        for sp in self.inner.by_ref() {
+            if within_box(&self.bounding_box, &sp.1.coord) {
+                let sp_coord_xyz = project_coord(sp.1.coord);
+                let distance = compute_distance(&self.ep_coord_xyz, &sp_coord_xyz);
+                if distance < self.radius {
+                    return Some((StopPointIdx::Base(sp.0), distance));
                 }
             }
         }
-    };
-    res
-}
-
-fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
-    if let Some(coord_str) = uri.strip_prefix("coord:") {
-        lazy_static! {
-            static ref COORD_REGEX: Regex = Regex::new(
-                r"^([-+]?[0-9]*\.?[0-9]*[eE]?[-+]?[0-9]*):([-+]?[0-9]*\.?[0-9]*[eE]?[-+]?[0-9]*)$",
-            )
-            .unwrap();
-        }
-        let cap = COORD_REGEX.captures(coord_str).unwrap();
-        let lon = cap[1].parse::<f64>();
-        let lat = cap[2].parse::<f64>();
-        return match (lon, lat) {
-            (Ok(lon), Ok(lat)) => Ok(Coord { lon, lat }),
-            _ => Err(BadPlacesNearby::BadFormatCoord(uri.to_string())),
-        };
-    } else if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
-        if let Some(stop_point) = model.base.stop_areas.get(stop_point_id) {
-            return Ok(stop_point.coord);
-        }
-    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
-        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
-            return Ok(stop_area.coord);
-        }
+        None
     }
-
-    Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
-}
-
-fn within_box(bbox: &(f64, f64, f64, f64), point: &Coord) -> bool {
-    point.lat > bbox.0 && point.lat < bbox.1 && point.lon > bbox.2 && point.lon < bbox.3
-}
-
-fn compute_distance(p1: (f64, f64, f64), p2: (f64, f64, f64)) -> f64 {
-    let (x1, y1, z1) = p1;
-    let (x2, y2, z2) = p2;
-    ((x1 - x2).powf(2.0) + (y1 - y2).powf(2.0) + (z1 - z2).powf(2.0)).sqrt()
-}
-
-fn project_coord(coord: Coord) -> (f64, f64, f64) {
-    let lat_rad = coord.lat * N_DEG_TO_RAD;
-    let lon_rad = coord.lon * N_DEG_TO_RAD;
-    let x = EARTH_RADIUS_IN_METERS * lat_rad.cos() * lon_rad.sin();
-    let y = EARTH_RADIUS_IN_METERS * lat_rad.cos() * lon_rad.cos();
-    let z = EARTH_RADIUS_IN_METERS * lat_rad.sin();
-    (x, y, z)
-}
-
-fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {
-    let lat_rad = coord.lat * N_DEG_TO_RAD;
-    let lon_rad = coord.lon * N_DEG_TO_RAD;
-    // Radius of Earth at given latitude
-    let earth_radius = wgs84earth_radius(lat_rad);
-    // Radius of the parallel at given latitude
-    let pearth_radius = earth_radius * lat_rad.cos();
-    let lat_min = (lat_rad - radius / earth_radius) / N_DEG_TO_RAD;
-    let lat_max = (lat_rad + radius / earth_radius) / N_DEG_TO_RAD;
-    let lon_min = (lon_rad - radius / pearth_radius) / N_DEG_TO_RAD;
-    let lon_max = (lon_rad + radius / pearth_radius) / N_DEG_TO_RAD;
-    (lat_min, lat_max, lon_min, lon_max)
-}
-
-fn wgs84earth_radius(lat: f64) -> f64 {
-    let an = EARTH_RADIUS_IN_METERS * EARTH_RADIUS_IN_METERS * lat.cos();
-    let bn = EARTH_RADIUS_IN_METERS * EARTH_RADIUS_IN_METERS * lat.sin();
-    let ad = EARTH_RADIUS_IN_METERS * lat.cos();
-    let bd = EARTH_RADIUS_IN_METERS * lat.sin();
-    ((an * an + bn * bn) / (ad * ad + bd * bd)).sqrt()
 }

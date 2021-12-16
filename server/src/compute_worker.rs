@@ -35,7 +35,6 @@
 // www.navitia.io
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::models::StopPointIdx;
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -51,9 +50,8 @@ use launch::{
     solver::Solver,
 };
 use loki::places_nearby::places_nearby_impl;
+use loki::places_nearby::PlacesNearbyResult;
 use std::convert::TryFrom;
-use std::ops::Index;
-use std::time::SystemTime;
 use std::{
     ops::Deref,
     sync::{Arc, RwLock},
@@ -239,12 +237,14 @@ impl ComputeWorker {
 
                 let radius = places_nearbyy_request.distance;
                 let uri = places_nearbyy_request.uri;
-                let data_timer = SystemTime::now();
-                let sp = places_nearby_impl(&model_refs, &uri, radius);
-                let places_nearby_ms = data_timer.elapsed().unwrap().as_millis();
-                info!("places_nearby IN {} ms", places_nearby_ms);
-                let response = make_places_nearby_proto_response(&model_refs, &sp);
-                Ok(response)
+
+                let mut places_nearby_iter = places_nearby_impl(&model_refs, &uri, radius)
+                    .map_err(|err| format_err!("Error {}", err))?;
+
+                Ok(make_places_nearby_proto_response(
+                    &model_refs,
+                    &mut places_nearby_iter,
+                ))
             }
         }
     }
@@ -272,8 +272,6 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
 }
 
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use launch::loki::transit_data_filtered::StopPoint;
-use launch::loki::typed_index_collection::Idx;
 
 fn solve<Timetables>(
     journey_request: &navitia_proto::JourneysRequest,
@@ -480,22 +478,20 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
 
 fn make_places_nearby_proto_response(
     model: &ModelRefs,
-    sp_distance: &[(StopPointIdx, f64)],
+    places: &mut PlacesNearbyResult,
 ) -> navitia_proto::Response {
-    let pt_objects: Vec<navitia_proto::PtObject> = sp_distance
-        .iter()
+    let pt_objects: Vec<navitia_proto::PtObject> = places
+        .into_iter()
         .map(|(idx, distance)| navitia_proto::PtObject {
-            name: model.stop_point_name(idx).to_string(),
-            uri: model.stop_point_uri(idx),
-            distance: Some(*distance as i32),
+            name: model.stop_point_name(&idx).to_string(),
+            uri: model.stop_point_uri(&idx),
+            distance: Some(distance as i32),
             ..Default::default()
         })
         .collect();
 
-    let response = navitia_proto::Response {
+    navitia_proto::Response {
         places_nearby: pt_objects,
         ..Default::default()
-    };
-
-    response
+    }
 }
