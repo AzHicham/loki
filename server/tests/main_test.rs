@@ -94,6 +94,8 @@ async fn run() {
 
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
+    subtests::places_nearby_test::places_nearby_test(&config).await;
+
     info!("Everything went Ok ! Now stopping.");
 
     stop_rabbitmq_docker(&container_id).await;

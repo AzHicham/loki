@@ -51,6 +51,7 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::transit_model::objects::Coord;
 use std::convert::TryFrom;
 
 pub fn make_response(
@@ -556,7 +557,15 @@ fn compute_length_public_transport_section(shape: &[navitia_proto::GeographicalC
         let to_iter = shape.iter().skip(1);
         let shape_iter = from_iter.zip(to_iter);
         shape_iter.fold(0.0, |acc, from_to| {
-            acc + distance_coord_to_coord(from_to.0, from_to.1)
+            let from = Coord {
+                lon: from_to.0.lon,
+                lat: from_to.0.lat,
+            };
+            let to = Coord {
+                lon: from_to.1.lon,
+                lat: from_to.1.lat,
+            };
+            acc + distance_coord_to_coord(&from, &to)
         })
     } else {
         0.0

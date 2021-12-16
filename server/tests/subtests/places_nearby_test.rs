@@ -27,6 +27,38 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod kirin_delete_vj_test;
-pub mod places_nearby_test;
-pub mod reload_test;
+use crate::NaiveDateTime;
+use loki_server::navitia_proto;
+use loki_server::server_config::ServerConfig;
+use prost::Message;
+use protobuf::Message as ProtobuMessage;
+
+pub async fn places_nearby_test(config: &ServerConfig) {
+    let datetime =
+        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+    let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64);
+
+    let places_nearby_response =
+        crate::send_request_and_wait_for_response(&config.requests_socket, places_nearby_request)
+            .await;
+
+    assert!(!places_nearby_response.places_nearby.is_empty());
+    let pt_object = &places_nearby_response.places_nearby[0];
+    assert_eq!(pt_object.uri, "stop_point:massy");
+    assert_eq!(pt_object.distance, Some(62));
+}
+
+fn make_places_nearby_request(uri: &str, distance: f64) -> navitia_proto::Request {
+    let places_nearby_request = navitia_proto::PlacesNearbyRequest {
+        distance,
+        uri: uri.to_string(),
+        ..Default::default()
+    };
+    let mut request = navitia_proto::Request {
+        places_nearby: Some(places_nearby_request),
+        ..Default::default()
+    };
+    request.set_requested_api(navitia_proto::Api::PlacesNearby);
+    request
+}
