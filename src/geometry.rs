@@ -34,79 +34,20 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
-
-use crate::models::ModelRefs;
-use regex::Regex;
-use std::fmt::{Display, Formatter};
 use transit_model::objects::Coord;
 
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
 const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
-#[derive(Debug)]
-pub enum BadPlacesNearby {
-    InvalidEntryPoint(String),
-    BadFormatCoord(String),
-}
-
-impl Display for BadPlacesNearby {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Unable to parse {} as a coord. Expected format is (double:double)",
-            self
-        )
-    }
-}
-
-impl std::error::Error for BadPlacesNearby {}
-
-pub(crate) fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
-    if let Some(coord_str) = uri.strip_prefix("coord:") {
-        lazy_static! {
-            static ref COORD_REGEX: Regex = Regex::new(
-                r"^([-+]?[0-9]*\.?[0-9]*[eE]?[-+]?[0-9]*):([-+]?[0-9]*\.?[0-9]*[eE]?[-+]?[0-9]*)$",
-            )
-            .unwrap();
-        }
-        let cap = COORD_REGEX.captures(coord_str).unwrap();
-        let lon = cap[1].parse::<f64>();
-        let lat = cap[2].parse::<f64>();
-        return match (lon, lat) {
-            (Ok(lon), Ok(lat)) => Ok(Coord { lon, lat }),
-            _ => Err(BadPlacesNearby::BadFormatCoord(uri.to_string())),
-        };
-    } else if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
-        if let Some(stop_point) = model.base.stop_areas.get(stop_point_id) {
-            return Ok(stop_point.coord);
-        }
-    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
-        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
-            return Ok(stop_area.coord);
-        }
-    }
-
-    Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
-}
-
-pub(crate) fn within_box(bbox: &(f64, f64, f64, f64), point: &Coord) -> bool {
-    point.lat > bbox.0 && point.lat < bbox.1 && point.lon > bbox.2 && point.lon < bbox.3
-}
-
-pub(crate) fn compute_distance(p1: &(f64, f64, f64), p2: &(f64, f64, f64)) -> f64 {
-    let (x1, y1, z1) = p1;
-    let (x2, y2, z2) = p2;
-    ((x1 - x2).powf(2.0) + (y1 - y2).powf(2.0) + (z1 - z2).powf(2.0)).sqrt()
-}
-
-pub(crate) fn project_coord(coord: Coord) -> (f64, f64, f64) {
-    let lat_rad = coord.lat * N_DEG_TO_RAD;
-    let lon_rad = coord.lon * N_DEG_TO_RAD;
-    let x = EARTH_RADIUS_IN_METERS * lat_rad.cos() * lon_rad.sin();
-    let y = EARTH_RADIUS_IN_METERS * lat_rad.cos() * lon_rad.cos();
-    let z = EARTH_RADIUS_IN_METERS * lat_rad.sin();
-    (x, y, z)
+pub(crate) fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
+    let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
+    let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
+    let latitude_h = (latitude_arc * 0.5).sin();
+    let latitude_h = latitude_h * latitude_h;
+    let longitude_h = (longitude_arc * 0.5).sin();
+    let longitude_h = longitude_h * longitude_h;
+    let tmp = (from.lat * N_DEG_TO_RAD).cos() * (to.lat * N_DEG_TO_RAD).cos();
+    EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }
 
 pub(crate) fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {

@@ -34,14 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-mod utility;
+extern crate static_assertions;
 
+use super::geometry::{bounding_box, distance_coord_to_coord};
 use crate::models::{ModelRefs, StopPointIdx};
-use transit_model::objects::StopPoint;
+use regex::Regex;
+use std::fmt::{Display, Formatter};
+use transit_model::objects::{Coord, StopPoint};
 use typed_index_collection::Iter;
-
-use utility::BadPlacesNearby;
-use utility::{bounding_box, compute_distance, parse_entrypoint, project_coord, within_box};
 
 pub fn places_nearby_impl<'model, 'uri>(
     model: &'model ModelRefs,
@@ -50,19 +50,19 @@ pub fn places_nearby_impl<'model, 'uri>(
 ) -> Result<PlacesNearbyResult<'model>, BadPlacesNearby> {
     // ep: entrypoint
     let ep_coord = parse_entrypoint(model, uri)?;
-    let ep_coord_xyz = project_coord(ep_coord);
     let bounding_box = bounding_box(ep_coord, radius);
 
     Ok(PlacesNearbyResult::new(
         model,
-        ep_coord_xyz,
+        ep_coord,
         radius,
         bounding_box,
     ))
 }
 
+#[derive(Debug)]
 pub struct PlacesNearbyResult<'model> {
-    ep_coord_xyz: (f64, f64, f64),
+    ep_coord: Coord,
     radius: f64,
     bounding_box: (f64, f64, f64, f64),
     inner: Iter<'model, StopPoint>,
@@ -71,12 +71,12 @@ pub struct PlacesNearbyResult<'model> {
 impl<'model> PlacesNearbyResult<'model> {
     pub fn new(
         model: &'model ModelRefs,
-        ep_coord_xyz: (f64, f64, f64),
+        ep_coord: Coord,
         radius: f64,
         bounding_box: (f64, f64, f64, f64),
     ) -> Self {
         Self {
-            ep_coord_xyz,
+            ep_coord,
             radius,
             bounding_box,
             inner: model.base.stop_points.iter(),
@@ -90,8 +90,7 @@ impl<'model> Iterator for PlacesNearbyResult<'model> {
     fn next(&mut self) -> Option<Self::Item> {
         for sp in self.inner.by_ref() {
             if within_box(&self.bounding_box, &sp.1.coord) {
-                let sp_coord_xyz = project_coord(sp.1.coord);
-                let distance = compute_distance(&self.ep_coord_xyz, &sp_coord_xyz);
+                let distance = distance_coord_to_coord(&self.ep_coord, &sp.1.coord);
                 if distance < self.radius {
                     return Some((StopPointIdx::Base(sp.0), distance));
                 }
@@ -99,4 +98,55 @@ impl<'model> Iterator for PlacesNearbyResult<'model> {
         }
         None
     }
+}
+
+#[derive(Debug)]
+pub enum BadPlacesNearby {
+    InvalidEntryPoint(String),
+    BadFormatCoord(String),
+}
+
+impl Display for BadPlacesNearby {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Unable to parse {} as a coord. Expected format is (double:double)",
+            self
+        )
+    }
+}
+
+impl std::error::Error for BadPlacesNearby {}
+
+fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
+    if let Some(coord_str) = uri.strip_prefix("coord:") {
+        lazy_static! {
+            static ref COORD_REGEX: Regex =
+                Regex::new(r"^([-+]?[0-9]*\.?[0-9]*):([-+]?[0-9]*\.?[0-9]*)$",).unwrap();
+        }
+        return if let Some(cap) = COORD_REGEX.captures(coord_str) {
+            let lon = cap[1].parse::<f64>();
+            let lat = cap[2].parse::<f64>();
+            match (lon, lat) {
+                (Ok(lon), Ok(lat)) => Ok(Coord { lon, lat }),
+                _ => Err(BadPlacesNearby::BadFormatCoord(uri.to_string())),
+            }
+        } else {
+            Err(BadPlacesNearby::BadFormatCoord(uri.to_string()))
+        };
+    } else if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
+        if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
+            return Ok(stop_point.coord);
+        }
+    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
+        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
+            return Ok(stop_area.coord);
+        }
+    }
+
+    Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
+}
+
+fn within_box(bbox: &(f64, f64, f64, f64), point: &Coord) -> bool {
+    point.lat > bbox.0 && point.lat < bbox.1 && point.lon > bbox.2 && point.lon < bbox.3
 }

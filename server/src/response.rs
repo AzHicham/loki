@@ -47,13 +47,11 @@ use loki::response::{TransferSection, VehicleSection, WaitingSection};
 use loki::{
     chrono::{self, NaiveDate, NaiveDateTime},
     chrono_tz::{self, Tz as Timezone},
+    geometry::distance_coord_to_coord,
 };
 
 use anyhow::{format_err, Context, Error};
 use std::convert::TryFrom;
-
-const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
-const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
 pub fn make_response(
     request_input: &RequestInput,
@@ -658,18 +656,4 @@ fn make_shape_from_stop_points(
             .collect(),
         StopTimes::New(_, _) => Vec::new(),
     }
-}
-
-fn distance_coord_to_coord(
-    from: &navitia_proto::GeographicalCoord,
-    to: &navitia_proto::GeographicalCoord,
-) -> f64 {
-    let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
-    let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
-    let latitude_h = (latitude_arc * 0.5).sin();
-    let latitude_h = latitude_h * latitude_h;
-    let longitude_h = (longitude_arc * 0.5).sin();
-    let longitude_h = longitude_h * longitude_h;
-    let tmp = (from.lat * N_DEG_TO_RAD).cos() * (to.lat * N_DEG_TO_RAD).cos();
-    EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }

@@ -38,6 +38,7 @@ extern crate static_assertions;
 
 mod engine;
 pub mod filters;
+pub mod geometry;
 pub mod loads_data;
 pub mod models;
 pub mod places_nearby;
