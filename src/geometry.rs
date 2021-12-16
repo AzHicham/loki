@@ -50,6 +50,8 @@ pub fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
     EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }
 
+// returns a bounding box that contains all points whose distance to `coord` is less or equal to `radius` (in meters)
+// (lat_min, lat_max, lon_min, lon_max)
 pub fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {
     let lat_rad = coord.lat * N_DEG_TO_RAD;
     let lon_rad = coord.lon * N_DEG_TO_RAD;

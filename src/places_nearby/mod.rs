@@ -89,6 +89,9 @@ impl<'model> Iterator for PlacesNearbyResult<'model> {
 
     fn next(&mut self) -> Option<Self::Item> {
         for sp in self.inner.by_ref() {
+            // in order to avoid the '"expensive" calculation of  distance_coord_to_coord()
+            // we first make the "cheap" check that the stop_point is within a bounding box that contains
+            // all points within the requested radius
             if within_box(&self.bounding_box, &sp.1.coord) {
                 let distance = distance_coord_to_coord(&self.ep_coord, &sp.1.coord);
                 if distance < self.radius {
@@ -103,16 +106,35 @@ impl<'model> Iterator for PlacesNearbyResult<'model> {
 #[derive(Debug)]
 pub enum BadPlacesNearby {
     InvalidEntryPoint(String),
-    BadFormatCoord(String),
+    InvalidPtObject(String),
+    InvalidFormatCoord(String),
+    InvalidRangeCoord(String),
 }
 
 impl Display for BadPlacesNearby {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Unable to parse {} as a coord. Expected format is (double:double)",
-            self
-        )
+        match self {
+            BadPlacesNearby::InvalidEntryPoint(uri) => {
+                write!(f, "Unable to parse entrypoint : {}", uri)
+            }
+            BadPlacesNearby::InvalidPtObject(uri) => {
+                write!(f, "Invalid/Unknown pt_object : {}", uri)
+            }
+            BadPlacesNearby::InvalidFormatCoord(uri) => {
+                write!(
+                    f,
+                    "Unable to parse {} as a coord. Expected format is (double:double)",
+                    uri
+                )
+            }
+            BadPlacesNearby::InvalidRangeCoord(uri) => {
+                write!(
+                    f,
+                    "Invalid coord : {}. Coordinates must be between [-90;90] for latitude and [-180;180] for longitude",
+                    uri
+                )
+            }
+        }
     }
 }
 
@@ -128,20 +150,30 @@ fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNear
             let lon = cap[1].parse::<f64>();
             let lat = cap[2].parse::<f64>();
             match (lon, lat) {
-                (Ok(lon), Ok(lat)) => Ok(Coord { lon, lat }),
-                _ => Err(BadPlacesNearby::BadFormatCoord(uri.to_string())),
+                (Ok(lon), Ok(lat)) => {
+                    if (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat) {
+                        Ok(Coord { lon, lat })
+                    } else {
+                        Err(BadPlacesNearby::InvalidRangeCoord(uri.to_string()))
+                    }
+                }
+                _ => Err(BadPlacesNearby::InvalidFormatCoord(uri.to_string())),
             }
         } else {
-            Err(BadPlacesNearby::BadFormatCoord(uri.to_string()))
+            Err(BadPlacesNearby::InvalidFormatCoord(uri.to_string()))
         };
     } else if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
-        if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
-            return Ok(stop_point.coord);
-        }
+        return if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
+            Ok(stop_point.coord)
+        } else {
+            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
+        };
     } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
-        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
+        return if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
             return Ok(stop_area.coord);
-        }
+        } else {
+            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
+        };
     }
 
     Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))

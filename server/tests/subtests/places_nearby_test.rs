@@ -27,16 +27,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::NaiveDateTime;
 use loki_server::navitia_proto;
 use loki_server::server_config::ServerConfig;
-use prost::Message;
-use protobuf::Message as ProtobuMessage;
 
 pub async fn places_nearby_test(config: &ServerConfig) {
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-
     let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64);
 
     let places_nearby_response =

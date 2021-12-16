@@ -142,31 +142,31 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
     let places_nearby_iter = places_nearby_impl(&model_refs, "stop_point:Z", 500_f64);
     assert!(matches!(
         places_nearby_iter,
-        Err(BadPlacesNearby::InvalidEntryPoint(_))
+        Err(BadPlacesNearby::InvalidPtObject(_))
     ));
 
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord:2.32610;48.82325", 500_f64);
     assert!(matches!(
         places_nearby_iter,
-        Err(BadPlacesNearby::BadFormatCoord(_))
+        Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord::", 500_f64);
     assert!(matches!(
         places_nearby_iter,
-        Err(BadPlacesNearby::BadFormatCoord(_))
+        Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord:", 500_f64);
     assert!(matches!(
         places_nearby_iter,
-        Err(BadPlacesNearby::BadFormatCoord(_))
+        Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord:2.32610:", 500_f64);
     assert!(matches!(
         places_nearby_iter,
-        Err(BadPlacesNearby::BadFormatCoord(_))
+        Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
     Ok(())
