@@ -39,7 +39,7 @@ use transit_model::objects::Coord;
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
 const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
-pub(crate) fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
+pub fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
     let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
     let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
     let latitude_h = (latitude_arc * 0.5).sin();
@@ -50,7 +50,7 @@ pub(crate) fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
     EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }
 
-pub(crate) fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {
+pub fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {
     let lat_rad = coord.lat * N_DEG_TO_RAD;
     let lon_rad = coord.lon * N_DEG_TO_RAD;
     // Radius of Earth at given latitude
