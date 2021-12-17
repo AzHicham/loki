@@ -49,10 +49,9 @@ use launch::{
     },
     solver::Solver,
 };
-use loki::places_nearby::places_nearby_impl;
-use loki::places_nearby::PlacesNearbyIter;
-use std::convert::TryFrom;
+use loki::places_nearby::{places_nearby_impl, PlacesNearbyIter};
 use std::{
+    convert::TryFrom,
     ops::Deref,
     sync::{Arc, RwLock},
 };

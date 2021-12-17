@@ -27,8 +27,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki_server::navitia_proto;
-use loki_server::server_config::ServerConfig;
+use loki_server::{navitia_proto, server_config::ServerConfig};
 
 pub async fn places_nearby_test(config: &ServerConfig) {
     let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64, 0, 10);
