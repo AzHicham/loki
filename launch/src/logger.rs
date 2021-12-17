@@ -2,7 +2,6 @@ use crate::loki::tracing::level_filters::LevelFilter;
 use loki::tracing::dispatcher::DefaultGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-#[must_use]
 // Create a subscriber to collect all logs
 // that are created **in the current thread** while DefaultGuard is alive
 // https://docs.rs/tracing/latest/tracing/dispatcher/index.html
