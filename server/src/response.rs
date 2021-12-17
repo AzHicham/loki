@@ -309,7 +309,10 @@ fn make_stop_point_pt_object(
     Ok(proto)
 }
 
-fn make_stop_point(stop_point_idx: &StopPointIdx, model: &ModelRefs) -> navitia_proto::StopPoint {
+pub fn make_stop_point(
+    stop_point_idx: &StopPointIdx,
+    model: &ModelRefs,
+) -> navitia_proto::StopPoint {
     let has_coord = model.coord(stop_point_idx);
 
     let coord_proto = has_coord

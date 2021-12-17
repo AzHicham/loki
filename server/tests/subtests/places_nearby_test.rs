@@ -31,22 +31,45 @@ use loki_server::navitia_proto;
 use loki_server::server_config::ServerConfig;
 
 pub async fn places_nearby_test(config: &ServerConfig) {
-    let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64);
-
+    let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64, 0, 10);
     let places_nearby_response =
         crate::send_request_and_wait_for_response(&config.requests_socket, places_nearby_request)
             .await;
-
     assert!(!places_nearby_response.places_nearby.is_empty());
     let pt_object = &places_nearby_response.places_nearby[0];
     assert_eq!(pt_object.uri, "stop_point:massy");
     assert_eq!(pt_object.distance, Some(62));
+    assert!(places_nearby_response.pagination.is_some());
+    let pagination = places_nearby_response.pagination.unwrap();
+    assert_eq!(pagination.start_page, 0);
+    assert_eq!(pagination.items_on_page, 1);
+    assert_eq!(pagination.items_per_page, 10);
+    assert_eq!(pagination.total_result, 1);
+
+    let places_nearby_request = make_places_nearby_request("coord:2.260:48.725", 500_f64, 1, 10);
+    let places_nearby_response =
+        crate::send_request_and_wait_for_response(&config.requests_socket, places_nearby_request)
+            .await;
+    assert!(places_nearby_response.places_nearby.is_empty());
+    assert!(places_nearby_response.pagination.is_some());
+    let pagination = places_nearby_response.pagination.unwrap();
+    assert_eq!(pagination.start_page, 1);
+    assert_eq!(pagination.items_on_page, 0);
+    assert_eq!(pagination.items_per_page, 10);
+    assert_eq!(pagination.total_result, 1);
 }
 
-fn make_places_nearby_request(uri: &str, distance: f64) -> navitia_proto::Request {
+fn make_places_nearby_request(
+    uri: &str,
+    distance: f64,
+    start_page: i32,
+    item_per_page: i32,
+) -> navitia_proto::Request {
     let places_nearby_request = navitia_proto::PlacesNearbyRequest {
         distance,
         uri: uri.to_string(),
+        count: item_per_page,
+        start_page,
         ..Default::default()
     };
     let mut request = navitia_proto::Request {

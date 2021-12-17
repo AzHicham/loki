@@ -141,12 +141,24 @@ impl Display for BadPlacesNearby {
 impl std::error::Error for BadPlacesNearby {}
 
 fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
-    if let Some(coord_str) = uri.strip_prefix("coord:") {
+    return if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
+        if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
+            Ok(stop_point.coord)
+        } else {
+            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
+        }
+    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
+        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
+            Ok(stop_area.coord)
+        } else {
+            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
+        }
+    } else if let Some(coord_str) = uri.strip_prefix("coord:") {
         lazy_static! {
             static ref COORD_REGEX: Regex =
                 Regex::new(r"^([-+]?[0-9]*\.?[0-9]*):([-+]?[0-9]*\.?[0-9]*)$",).unwrap();
         }
-        return if let Some(cap) = COORD_REGEX.captures(coord_str) {
+        if let Some(cap) = COORD_REGEX.captures(coord_str) {
             let lon = cap[1].parse::<f64>();
             let lat = cap[2].parse::<f64>();
             match (lon, lat) {
@@ -161,22 +173,10 @@ fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNear
             }
         } else {
             Err(BadPlacesNearby::InvalidFormatCoord(uri.to_string()))
-        };
-    } else if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
-        return if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
-            Ok(stop_point.coord)
-        } else {
-            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
-        };
-    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
-        return if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
-            return Ok(stop_area.coord);
-        } else {
-            Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
-        };
-    }
-
-    Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
+        }
+    } else {
+        Err(BadPlacesNearby::InvalidEntryPoint(uri.to_string()))
+    };
 }
 
 fn within_box(bbox: &(f64, f64, f64, f64), point: &Coord) -> bool {

@@ -237,14 +237,18 @@ impl ComputeWorker {
 
                 let radius = places_nearbyy_request.distance;
                 let uri = places_nearbyy_request.uri;
+                let start_page = places_nearbyy_request.start_page as usize;
+                let count = places_nearbyy_request.count as usize;
 
-                let mut places_nearby_iter = places_nearby_impl(&model_refs, &uri, radius)
-                    .map_err(|err| format_err!("Error {}", err))?;
-
-                Ok(make_places_nearby_proto_response(
-                    &model_refs,
-                    &mut places_nearby_iter,
-                ))
+                match places_nearby_impl(&model_refs, &uri, radius) {
+                    Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
+                        &model_refs,
+                        &mut places_nearby_iter,
+                        start_page,
+                        count,
+                    )),
+                    Err(err) => Ok(make_error_response(&format_err!("{}", err))),
+                }
             }
         }
     }
@@ -271,6 +275,7 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
+use crate::navitia_proto::Pagination;
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 fn solve<Timetables>(
@@ -479,6 +484,8 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
 fn make_places_nearby_proto_response(
     model: &ModelRefs,
     places: &mut PlacesNearbyResult,
+    start_page: usize,
+    count: usize,
 ) -> navitia_proto::Response {
     let pt_objects: Vec<navitia_proto::PtObject> = places
         .into_iter()
@@ -486,12 +493,30 @@ fn make_places_nearby_proto_response(
             name: model.stop_point_name(&idx).to_string(),
             uri: model.stop_point_uri(&idx),
             distance: Some(distance as i32),
+            embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
+            stop_point: Some(response::make_stop_point(&idx, model)),
             ..Default::default()
         })
         .collect();
 
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = pt_objects.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
     navitia_proto::Response {
-        places_nearby: pt_objects,
+        places_nearby: pt_objects[range.clone()].to_owned(),
+        pagination: Some(Pagination {
+            start_page: start_page as i32,
+            total_result: size as i32,
+            items_per_page: count as i32,
+            items_on_page: range.len() as i32,
+            ..Default::default()
+        }),
         ..Default::default()
     }
 }

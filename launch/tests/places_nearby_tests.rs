@@ -139,12 +139,6 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
         Err(BadPlacesNearby::InvalidEntryPoint(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "stop_point:Z", 500_f64);
-    assert!(matches!(
-        places_nearby_iter,
-        Err(BadPlacesNearby::InvalidPtObject(_))
-    ));
-
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord:2.32610;48.82325", 500_f64);
     assert!(matches!(
         places_nearby_iter,
@@ -167,6 +161,19 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidFormatCoord(_))
+    ));
+
+    let places_nearby_iter = places_nearby_impl(&model_refs, "stop_point:Z", 500_f64);
+    assert!(matches!(
+        places_nearby_iter,
+        Err(BadPlacesNearby::InvalidPtObject(_))
+    ));
+
+    let places_nearby_iter = places_nearby_impl(&model_refs, "coord:400.545:50.1854", 500_f64);
+    println!("{:?}", places_nearby_iter);
+    assert!(matches!(
+        places_nearby_iter,
+        Err(BadPlacesNearby::InvalidRangeCoord(_))
     ));
 
     Ok(())
