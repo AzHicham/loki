@@ -50,7 +50,7 @@ use launch::{
     solver::Solver,
 };
 use loki::places_nearby::places_nearby_impl;
-use loki::places_nearby::PlacesNearbyResult;
+use loki::places_nearby::PlacesNearbyIter;
 use std::convert::TryFrom;
 use std::{
     ops::Deref,
@@ -483,7 +483,7 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
 
 fn make_places_nearby_proto_response(
     model: &ModelRefs,
-    places: &mut PlacesNearbyResult,
+    places: &mut PlacesNearbyIter,
     start_page: usize,
     count: usize,
 ) -> navitia_proto::Response {

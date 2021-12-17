@@ -47,28 +47,23 @@ pub fn places_nearby_impl<'model, 'uri>(
     model: &'model ModelRefs,
     uri: &'uri str,
     radius: f64,
-) -> Result<PlacesNearbyResult<'model>, BadPlacesNearby> {
+) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
     // ep: entrypoint
     let ep_coord = parse_entrypoint(model, uri)?;
     let bounding_box = bounding_box(ep_coord, radius);
 
-    Ok(PlacesNearbyResult::new(
-        model,
-        ep_coord,
-        radius,
-        bounding_box,
-    ))
+    Ok(PlacesNearbyIter::new(model, ep_coord, radius, bounding_box))
 }
 
 #[derive(Debug)]
-pub struct PlacesNearbyResult<'model> {
+pub struct PlacesNearbyIter<'model> {
     ep_coord: Coord,
     radius: f64,
     bounding_box: (f64, f64, f64, f64),
     inner: Iter<'model, StopPoint>,
 }
 
-impl<'model> PlacesNearbyResult<'model> {
+impl<'model> PlacesNearbyIter<'model> {
     pub fn new(
         model: &'model ModelRefs,
         ep_coord: Coord,
@@ -84,7 +79,7 @@ impl<'model> PlacesNearbyResult<'model> {
     }
 }
 
-impl<'model> Iterator for PlacesNearbyResult<'model> {
+impl<'model> Iterator for PlacesNearbyIter<'model> {
     type Item = (StopPointIdx, f64);
 
     fn next(&mut self) -> Option<Self::Item> {
