@@ -325,7 +325,6 @@ pub fn create_flows_for_base_vehicle_journey(
 }
 
 fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
-    use std::convert::TryFrom;
     let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
     let boarding_duration = i32::try_from(stop_time.boarding_duration).ok()?;
     let seconds = departure_seconds.checked_sub(boarding_duration)?;
@@ -333,7 +332,6 @@ fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
 }
 
 fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
-    use std::convert::TryFrom;
     let arrival_seconds = i32::try_from(stop_time.arrival_time.total_seconds()).ok()?;
     let alighting_duration = i32::try_from(stop_time.alighting_duration).ok()?;
     let seconds = arrival_seconds.checked_add(alighting_duration)?;
