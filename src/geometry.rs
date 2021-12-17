@@ -39,6 +39,9 @@ use transit_model::objects::Coord;
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
 const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
+// distance (in meters) between the two coordinates
+// computed with the Haversine formula
+// https://en.wikipedia.org/wiki/Haversine_formula
 pub fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
     let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
     let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
