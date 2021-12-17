@@ -38,8 +38,10 @@ extern crate static_assertions;
 
 mod engine;
 pub mod filters;
+pub mod geometry;
 pub mod loads_data;
 pub mod models;
+pub mod places_nearby;
 pub mod request;
 pub mod time;
 pub mod timetables;
@@ -75,3 +77,6 @@ pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
 pub mod response;
 
 pub type Response = response::Response;
+
+#[macro_use]
+extern crate lazy_static;

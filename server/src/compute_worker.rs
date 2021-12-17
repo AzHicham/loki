@@ -35,12 +35,6 @@
 // www.navitia.io
 
 use anyhow::{bail, format_err, Context, Error};
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
-use tokio::sync::mpsc;
-
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -55,7 +49,14 @@ use launch::{
     },
     solver::Solver,
 };
+use loki::places_nearby::places_nearby_impl;
+use loki::places_nearby::PlacesNearbyIter;
 use std::convert::TryFrom;
+use std::{
+    ops::Deref,
+    sync::{Arc, RwLock},
+};
+use tokio::sync::mpsc;
 
 use crate::{
     load_balancer::WorkerId,
@@ -143,8 +144,35 @@ impl ComputeWorker {
         &mut self,
         proto_request: navitia_proto::Request,
     ) -> Result<navitia_proto::Response, Error> {
-        let journeys_request_result = extract_journey_request(proto_request);
-        match journeys_request_result {
+        check_deadline(&proto_request)?;
+
+        match proto_request.requested_api() {
+            navitia_proto::Api::PtPlanner => {
+                let journey_request = proto_request.journeys.ok_or_else(|| {
+                    format_err!("request.journey should not be empty for api PtPlanner.")
+                });
+                self.handle_journey_request(journey_request)
+            }
+            navitia_proto::Api::PlacesNearby => {
+                let places_nearby_request = proto_request.places_nearby.ok_or_else(|| {
+                    format_err!("request.places_nearby should not be empty for api PlacesNearby.")
+                });
+                self.handle_places_nearby(places_nearby_request)
+            }
+            _ => {
+                bail!(
+                    "I can't handle the requested api : {:?}",
+                    proto_request.requested_api()
+                )
+            }
+        }
+    }
+
+    fn handle_journey_request(
+        &mut self,
+        proto_request: Result<navitia_proto::JourneysRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
                 warn!("Could not handle journey request : {}", err);
@@ -184,8 +212,70 @@ impl ComputeWorker {
             }
         }
     }
+
+    fn handle_places_nearby(
+        &mut self,
+        proto_request: Result<navitia_proto::PlacesNearbyRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
+            Err(err) => {
+                // send a response saying that the journey request could not be handled
+                warn!("Could not handle places nearby request : {}", err);
+                Ok(make_error_response(&err))
+            }
+            Ok(places_nearbyy_request) => {
+                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
+                        self.worker_id.id,
+                        err
+                    )
+                })?;
+
+                let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let model_refs = ModelRefs::new(base_model, real_time_model);
+
+                let radius = places_nearbyy_request.distance;
+                let uri = places_nearbyy_request.uri;
+                let start_page = places_nearbyy_request.start_page as usize;
+                let count = places_nearbyy_request.count as usize;
+
+                match places_nearby_impl(&model_refs, &uri, radius) {
+                    Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
+                        &model_refs,
+                        &mut places_nearby_iter,
+                        start_page,
+                        count,
+                    )),
+                    Err(err) => Ok(make_error_response(&format_err!("{}", err))),
+                }
+            }
+        }
+    }
 }
 
+fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
+    if let Some(deadline_str) = &proto_request.deadline {
+        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
+        match datetime_result {
+            Ok(datetime) => {
+                let now = Utc::now().naive_utc();
+                if now > datetime {
+                    return Err(format_err!("Deadline reached."));
+                }
+            }
+            Err(err) => {
+                warn!(
+                    "Could not parse deadline string {}. Error : {}",
+                    deadline_str, err
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+use crate::navitia_proto::Pagination;
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 
 fn solve<Timetables>(
@@ -391,36 +481,42 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
     proto_response
 }
 
-fn extract_journey_request(
-    proto_request: navitia_proto::Request,
-) -> Result<navitia_proto::JourneysRequest, Error> {
-    if let Some(deadline_str) = &proto_request.deadline {
-        let datetime_result = NaiveDateTime::parse_from_str(deadline_str, "%Y%m%dT%H%M%S,%f");
-        match datetime_result {
-            Ok(datetime) => {
-                let now = Utc::now().naive_utc();
-                if now > datetime {
-                    return Err(format_err!("Deadline reached."));
-                }
-            }
-            Err(err) => {
-                warn!(
-                    "Could not parse deadline string {}. Error : {}",
-                    deadline_str, err
-                );
-            }
-        }
+fn make_places_nearby_proto_response(
+    model: &ModelRefs,
+    places: &mut PlacesNearbyIter,
+    start_page: usize,
+    count: usize,
+) -> navitia_proto::Response {
+    let pt_objects: Vec<navitia_proto::PtObject> = places
+        .into_iter()
+        .map(|(idx, distance)| navitia_proto::PtObject {
+            name: model.stop_point_name(&idx).to_string(),
+            uri: model.stop_point_uri(&idx),
+            distance: Some(distance as i32),
+            embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
+            stop_point: Some(response::make_stop_point(&idx, model)),
+            ..Default::default()
+        })
+        .collect();
+
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = pt_objects.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    navitia_proto::Response {
+        places_nearby: pt_objects[range.clone()].to_owned(),
+        pagination: Some(Pagination {
+            start_page: start_page as i32,
+            total_result: size as i32,
+            items_per_page: count as i32,
+            items_on_page: range.len() as i32,
+            ..Default::default()
+        }),
+        ..Default::default()
     }
-    match proto_request.requested_api() {
-        navitia_proto::Api::PtPlanner => (),
-        _ => {
-            bail!(
-                "I can't handle the requested api : {:?}",
-                proto_request.requested_api()
-            );
-        }
-    }
-    proto_request
-        .journeys
-        .ok_or_else(|| format_err!("request.journey should not be empty for api PtPlanner."))
 }

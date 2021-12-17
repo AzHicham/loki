@@ -47,13 +47,12 @@ use loki::response::{TransferSection, VehicleSection, WaitingSection};
 use loki::{
     chrono::{self, NaiveDate, NaiveDateTime},
     chrono_tz::{self, Tz as Timezone},
+    geometry::distance_coord_to_coord,
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::transit_model::objects::Coord;
 use std::convert::TryFrom;
-
-const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
-const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
 pub fn make_response(
     request_input: &RequestInput,
@@ -310,7 +309,10 @@ fn make_stop_point_pt_object(
     Ok(proto)
 }
 
-fn make_stop_point(stop_point_idx: &StopPointIdx, model: &ModelRefs) -> navitia_proto::StopPoint {
+pub fn make_stop_point(
+    stop_point_idx: &StopPointIdx,
+    model: &ModelRefs,
+) -> navitia_proto::StopPoint {
     let has_coord = model.coord(stop_point_idx);
 
     let coord_proto = has_coord
@@ -558,7 +560,15 @@ fn compute_length_public_transport_section(shape: &[navitia_proto::GeographicalC
         let to_iter = shape.iter().skip(1);
         let shape_iter = from_iter.zip(to_iter);
         shape_iter.fold(0.0, |acc, from_to| {
-            acc + distance_coord_to_coord(from_to.0, from_to.1)
+            let from = Coord {
+                lon: from_to.0.lon,
+                lat: from_to.0.lat,
+            };
+            let to = Coord {
+                lon: from_to.1.lon,
+                lat: from_to.1.lat,
+            };
+            acc + distance_coord_to_coord(&from, &to)
         })
     } else {
         0.0
@@ -658,18 +668,4 @@ fn make_shape_from_stop_points(
             .collect(),
         StopTimes::New(_, _) => Vec::new(),
     }
-}
-
-fn distance_coord_to_coord(
-    from: &navitia_proto::GeographicalCoord,
-    to: &navitia_proto::GeographicalCoord,
-) -> f64 {
-    let longitude_arc = (from.lon - to.lon) * N_DEG_TO_RAD;
-    let latitude_arc = (from.lat - to.lat) * N_DEG_TO_RAD;
-    let latitude_h = (latitude_arc * 0.5).sin();
-    let latitude_h = latitude_h * latitude_h;
-    let longitude_h = (longitude_arc * 0.5).sin();
-    let longitude_h = longitude_h * longitude_h;
-    let tmp = (from.lat * N_DEG_TO_RAD).cos() * (to.lat * N_DEG_TO_RAD).cos();
-    EARTH_RADIUS_IN_METERS * 2.0 * (latitude_h + tmp * longitude_h).sqrt().asin()
 }

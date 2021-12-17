@@ -32,6 +32,7 @@
 //! # }
 //! ```
 
+use loki::transit_model::objects::StopArea;
 use loki::{
     chrono_tz::{self},
     transit_model::{
@@ -347,6 +348,39 @@ impl<'a> ModelBuilder {
         self
     }
 
+    pub fn stop_area<F>(mut self, id: &str, mut initer: F) -> Self
+    where
+        F: FnMut(&mut StopArea),
+    {
+        self.collections.stop_areas.get_or_create_with(id, || {
+            let mut sa = StopArea {
+                id: id.to_owned(),
+                name: id.to_owned(),
+                ..Default::default()
+            };
+            initer(&mut sa);
+            sa
+        });
+        self
+    }
+
+    pub fn stop_point<F>(mut self, id: &str, mut initer: F) -> Self
+    where
+        F: FnMut(&mut StopPoint),
+    {
+        self.collections.stop_points.get_or_create_with(id, || {
+            let mut sp = StopPoint {
+                id: id.to_owned(),
+                name: id.to_owned(),
+                stop_area_id: format!("sa:{}", id),
+                ..Default::default()
+            };
+            initer(&mut sp);
+            sp
+        });
+        self
+    }
+
     /// Consume the builder to create a navitia model
     pub fn build(self) -> Model {
         Model::new(self.collections).unwrap()
@@ -442,7 +476,7 @@ impl<'a> VehicleJourneyBuilder<'a> {
                     .collections
                     .stop_points
                     .push(new_sp)
-                    .unwrap_or_else(|_| panic!("stoppoint {} already exists", sp))
+                    .unwrap_or_else(|_| panic!("stop_point {} already exists", sp))
             })
     }
 

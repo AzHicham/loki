@@ -28,4 +28,5 @@
 // www.navitia.io
 
 pub mod kirin_delete_vj_test;
+pub mod places_nearby_test;
 pub mod reload_test;
