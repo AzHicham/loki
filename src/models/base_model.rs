@@ -36,6 +36,7 @@
 
 use std::ops::Deref;
 
+use chrono::NaiveDate;
 use typed_index_collection::Idx;
 
 use crate::LoadsData;
@@ -93,5 +94,25 @@ impl BaseModel {
 
     pub fn loads_data(&self) -> &LoadsData {
         &self.loads_data
+    }
+
+    pub fn vehicle_journey_idx(&self, vehicle_journey_id: &str) -> Option<BaseVehicleJourneyIdx> {
+        self.collections
+            .vehicle_journeys
+            .get_idx(vehicle_journey_id)
+    }
+
+    pub fn trip_exists(
+        &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> bool {
+        let vehicle_journey = &self.collections.vehicle_journeys[vehicle_journey_idx];
+        let has_calendar = &self.collections.calendars.get(&vehicle_journey.service_id);
+        if let Some(calendar) = has_calendar {
+            calendar.dates.contains(date)
+        } else {
+            false
+        }
     }
 }

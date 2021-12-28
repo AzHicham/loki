@@ -287,19 +287,29 @@ impl RealTimeModel {
     }
 
     fn is_present(&self, trip: &disruption::Trip, base_model: &BaseModel) -> bool {
-        if let Some(transit_model_idx) = base_model
-            .vehicle_journeys
-            .get_idx(&trip.vehicle_journey_id)
-        {
-            use std::ops::Not;
-            matches!(
-                self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date),
-                Some(&TripData::Deleted())
-            )
-            .not()
+        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id) {
+            let last_version =
+                self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date);
+            match last_version {
+                Some(&TripData::Deleted()) => false,
+                Some(&TripData::Present(_)) => true,
+                None => base_model.trip_exists(transit_model_idx, &trip.reference_date), // the trip is present in
+            }
         } else {
-            self.new_vehicle_journeys_id_to_idx
-                .contains_key(&trip.vehicle_journey_id)
+            let has_new_vj_idx = self
+                .new_vehicle_journeys_id_to_idx
+                .get(&trip.vehicle_journey_id);
+            if let Some(new_vj_idx) = has_new_vj_idx {
+                let last_version =
+                    self.new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date);
+                match last_version {
+                    None => false,
+                    Some(&TripData::Deleted()) => false,
+                    Some(&TripData::Present(_)) => true,
+                }
+            } else {
+                false
+            }
         }
     }
 
@@ -309,9 +319,8 @@ impl RealTimeModel {
         base_model: &BaseModel,
         trip_version: TripVersion,
     ) -> VehicleJourneyIdx {
-        let (history, vj_idx) = if let Some(transit_model_idx) = base_model
-            .vehicle_journeys
-            .get_idx(&trip.vehicle_journey_id)
+        let (history, vj_idx) = if let Some(transit_model_idx) =
+            base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
         {
             let histories = &mut self.base_vehicle_journeys_history;
             let idx = self
