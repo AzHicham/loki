@@ -41,6 +41,8 @@ use typed_index_collection::Idx;
 
 use crate::LoadsData;
 
+use super::{Coord, Rgb};
+
 pub type Collections = transit_model::model::Collections;
 
 pub struct BaseModel {
@@ -54,13 +56,13 @@ pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
-impl Deref for BaseModel {
-    type Target = transit_model::model::Collections;
+// impl Deref for BaseModel {
+//     type Target = transit_model::model::Collections;
 
-    fn deref(&self) -> &Self::Target {
-        &self.collections
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.collections
+//     }
+// }
 
 impl BaseModel {
     pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Self {
@@ -88,18 +90,188 @@ impl BaseModel {
         }
     }
 
+    pub fn loads_data(&self) -> &LoadsData {
+        &self.loads_data
+    }
+
+    // stop_points
+
+    pub fn nb_of_stop_points(&self) -> usize {
+        self.collections.stop_points.len()
+    }
+
+    pub fn stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + '_ {
+        self.collections.stop_points.iter().map(|(idx, _)| idx)
+    }
+
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {
         self.collections.stop_points.get_idx(stop_id)
     }
 
-    pub fn loads_data(&self) -> &LoadsData {
-        &self.loads_data
+    pub fn stop_point_name(&self, stop_idx: BaseStopPointIdx) -> &str {
+        &self.collections.stop_points[stop_idx].name
+    }
+
+    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
+        &self.collections.stop_points[stop_idx].stop_area_id
+    }
+
+    pub fn stop_point_uri(&self, idx: BaseStopPointIdx) -> String {
+        let id = &self.collections.stop_points[idx].id;
+        format!("stop_point:{}", id)
+    }
+
+    pub fn house_number(&self, idx: BaseStopPointIdx) -> Option<&str> {
+        let stop_point = &self.collections.stop_points[idx];
+        let address_id = &stop_point.address_id?;
+        let address = &self.collections.addresses.get(address_id)?;
+        address.house_number.map(|s| s.as_str())
+    }
+
+    pub fn street_name(&self, idx: BaseStopPointIdx) -> Option<&str> {
+        let stop_point = &self.collections.stop_points[idx];
+        let address_id = &stop_point.address_id?;
+        let address = &self.collections.addresses.get(address_id)?;
+        Some(address.street_name.as_str())
+    }
+
+    pub fn coord(&self, idx: BaseStopPointIdx) -> Coord {
+        let stop_point = &self.collections.stop_points[idx];
+        Coord {
+            lat: stop_point.coord.lat,
+            lon: stop_point.coord.lon,
+        }
+    }
+
+    pub fn platform_code(&self, idx: BaseStopPointIdx) -> Option<&str> {
+        let stop_point = &self.collections.stop_points[idx];
+        stop_point.platform_code.map(|s| s.as_str())
+    }
+
+    pub fn fare_zone_id(&self, idx: BaseStopPointIdx) -> Option<&str> {
+        let stop_point = &self.collections.stop_points[idx];
+        stop_point.fare_zone_id.map(|s| s.as_str())
+    }
+
+    pub fn codes(
+        &self,
+        idx: BaseStopPointIdx,
+    ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
+        let stop_point = &self.collections.stop_points[idx];
+        Some(stop_point.codes.iter())
+    }
+
+    // vehicle journey
+
+    pub fn nb_of_vehicle_journeys(&self) -> usize {
+        self.collections.vehicle_journeys.len()
+    }
+
+    pub fn vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + '_ {
+        self.collections.vehicle_journeys.iter().map(|(idx, _)| idx)
     }
 
     pub fn vehicle_journey_idx(&self, vehicle_journey_id: &str) -> Option<BaseVehicleJourneyIdx> {
         self.collections
             .vehicle_journeys
             .get_idx(vehicle_journey_id)
+    }
+
+    pub fn vehicle_journey_name(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> &str {
+        &self.collections.vehicle_journeys[vehicle_journey_idx].id
+    }
+
+    pub fn vehicle_journey_timezone(&self, idx: BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
+        let line = self.vehicle_journey_line(idx)?;
+        let network = self.collections.networks.get(&line.network_id)?;
+        network.timezone
+    }
+
+    fn vehicle_journey_route(
+        &self,
+        idx: BaseVehicleJourneyIdx,
+    ) -> Option<&transit_model::objects::Route> {
+        let route_id = &self.collections.vehicle_journeys[idx].route_id;
+        self.collections.routes.get(route_id)
+    }
+
+    fn vehicle_journey_line(
+        &self,
+        idx: BaseVehicleJourneyIdx,
+    ) -> Option<&transit_model::objects::Line> {
+        self.vehicle_journey_route(idx)
+            .and_then(|route| self.collections.lines.get(route.line_id.as_str()))
+    }
+
+    pub fn line_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.vehicle_journey_route(idx)
+            .map(|route| route.line_id.as_str())
+    }
+
+    pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.vehicle_journey_line(idx)
+            .map(|line| line.code)
+            .flatten()
+            .map(|s| s.as_str())
+    }
+
+    pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.collections.vehicle_journeys[idx]
+            .headsign
+            .map(|s| s.as_str())
+    }
+
+    pub fn direction(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        let route = self.vehicle_journey_route(idx)?;
+        let destination_id = route.destination_id?;
+        let stop_area = self.collections.stop_areas.get(&destination_id)?;
+        Some(stop_area.name.as_str())
+    }
+
+    pub fn route_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
+        self.collections.vehicle_journeys[idx].route_id.as_str()
+    }
+
+    pub fn network_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.vehicle_journey_line(idx)
+            .map(|line| line.network_id.as_str())
+    }
+
+    pub fn line_color(&self, idx: BaseVehicleJourneyIdx) -> Option<&Rgb> {
+        let line = self.vehicle_journey_line(idx)?;
+        line.color.as_ref()
+    }
+
+    pub fn text_color(&self, idx: BaseVehicleJourneyIdx) -> Option<&Rgb> {
+        let line = self.vehicle_journey_line(idx)?;
+        line.text_color.as_ref()
+    }
+
+    pub fn trip_short_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        let vj = &self.collections.vehicle_journeys[idx];
+        vj.short_name.or(vj.headsign).map(|s| s.as_str())
+    }
+
+    pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
+        self.collections.vehicle_journeys[idx]
+            .physical_mode_id
+            .as_str()
+    }
+
+    pub fn commercial_mode_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.vehicle_journey_line(idx)
+            .map(|line| line.commercial_mode_id.as_str())
+    }
+
+    pub fn stop_point_at(
+        &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+        stop_time_idx: usize,
+    ) -> Option<BaseStopPointIdx> {
+        self.collections.vehicle_journeys[vehicle_journey_idx]
+            .stop_times
+            .get(stop_time_idx)
+            .map(|stop_time| stop_time.stop_point_idx)
     }
 
     pub fn trip_exists(
@@ -114,5 +286,34 @@ impl BaseModel {
         } else {
             false
         }
+    }
+
+    // contains ids
+    pub fn contains_line_id(&self, id: &str) -> bool {
+        self.collections.lines.contains_id(id)
+    }
+
+    pub fn contains_route_id(&self, id: &str) -> bool {
+        self.collections.routes.contains_id(id)
+    }
+
+    pub fn contains_network_id(&self, id: &str) -> bool {
+        self.collections.networks.contains_id(id)
+    }
+
+    pub fn contains_physical_mode_id(&self, id: &str) -> bool {
+        self.collections.physical_modes.contains_id(id)
+    }
+
+    pub fn contains_commercial_model_id(&self, id: &str) -> bool {
+        self.collections.commercial_modes.contains_id(id)
+    }
+
+    pub fn contains_stop_point_id(&self, id: &str) -> bool {
+        self.collections.stop_points.contains_id(id)
+    }
+
+    pub fn contains_stop_area_id(&self, id: &str) -> bool {
+        self.collections.stop_areas.contains_id(id)
     }
 }

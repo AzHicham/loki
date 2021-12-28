@@ -39,7 +39,7 @@ use crate::{chrono::NaiveDate, RealTimeLevel};
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
-    Coord, StopPointIdx, StopTimes, VehicleJourneyIdx,
+    Coord, Rgb, StopPointIdx, StopTimes, VehicleJourneyIdx,
 };
 
 use super::RealTimeModel;
@@ -55,7 +55,7 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<StopPointIdx> {
-        if let Some(base_stop_point_idx) = self.base.stop_points.get_idx(stop_id) {
+        if let Some(base_stop_point_idx) = self.base.stop_point_idx(stop_id) {
             Some(StopPointIdx::Base(base_stop_point_idx))
         } else {
             self.real_time
@@ -67,21 +67,21 @@ impl<'model> ModelRefs<'model> {
 
     pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].name,
+            StopPointIdx::Base(idx) => &self.base.stop_point_name(*idx),
             StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
         }
     }
 
     pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].stop_area_id,
+            StopPointIdx::Base(idx) => &self.base.stop_area_name(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
 
     pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].id,
+            VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journey_name(*idx),
             VehicleJourneyIdx::New(idx) => &self.real_time.new_vehicle_journeys_history[idx.idx].0,
         }
     }
@@ -89,49 +89,24 @@ impl<'model> ModelRefs<'model> {
     pub fn line_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         let unknown_line = "unknown_line";
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => self
-                .base_vehicle_journey_route(idx)
-                .map(|route| route.line_id.as_str())
-                .unwrap_or(unknown_line),
+            VehicleJourneyIdx::Base(idx) => self.base.line_name(*idx).unwrap_or(unknown_line),
             VehicleJourneyIdx::New(_idx) => unknown_line,
         }
     }
 
-    fn base_vehicle_journey_line(
-        &self,
-        idx: BaseVehicleJourneyIdx,
-    ) -> Option<&transit_model::objects::Line> {
-        self.base_vehicle_journey_route(&idx)
-            .and_then(|route| self.base.lines.get(route.line_id.as_str()))
-    }
-
     pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].route_id,
+            VehicleJourneyIdx::Base(idx) => &self.base.route_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_route",
         }
     }
 
-    fn base_vehicle_journey_route(
-        &self,
-        idx: &BaseVehicleJourneyIdx,
-    ) -> Option<&transit_model::objects::Route> {
-        let route_id = &self.base.vehicle_journeys[*idx].route_id;
-        self.base.routes.get(route_id)
-    }
     pub fn network_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         let unknown_network = "unknown_network";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let route_id = &self.base.vehicle_journeys[*idx].route_id;
-                let has_route = self.base.routes.get(route_id);
-                if let Some(route) = has_route {
-                    let has_line = self.base.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.network_id.as_str()
-                    } else {
-                        unknown_network
-                    }
+                if let Some(name) = self.base.network_name(*idx) {
+                    name
                 } else {
                     unknown_network
                 }
@@ -142,7 +117,7 @@ impl<'model> ModelRefs<'model> {
 
     pub fn physical_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journeys[*idx].physical_mode_id,
+            VehicleJourneyIdx::Base(idx) => &self.base.physical_mode_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
         }
     }
@@ -151,15 +126,8 @@ impl<'model> ModelRefs<'model> {
         let unknown_commercial_mode = "unknown_commercial_mode";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let vj = &self.base.vehicle_journeys[*idx];
-                let has_route = self.base.routes.get(&vj.route_id);
-                if let Some(route) = has_route {
-                    let has_line = self.base.lines.get(&route.line_id);
-                    if let Some(line) = has_line {
-                        line.commercial_mode_id.as_str()
-                    } else {
-                        unknown_commercial_mode
-                    }
+                if let Some(name) = self.base.commercial_mode_name(*idx) {
+                    name
                 } else {
                     unknown_commercial_mode
                 }
@@ -178,10 +146,9 @@ impl<'model> ModelRefs<'model> {
         match real_time_level {
             &RealTimeLevel::Base => {
                 if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
-                    self.base.vehicle_journeys[*idx]
-                        .stop_times
-                        .get(stop_time_idx)
-                        .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
+                    self.base
+                        .stop_point_at(*idx, stop_time_idx)
+                        .map(|idx| StopPointIdx::Base(idx))
                 } else {
                     None
                 }
@@ -197,10 +164,9 @@ impl<'model> ModelRefs<'model> {
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
                     } else {
-                        self.base.vehicle_journeys[*idx]
-                            .stop_times
-                            .get(stop_time_idx)
-                            .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx))
+                        self.base
+                            .stop_point_at(*idx, stop_time_idx)
+                            .map(|idx| StopPointIdx::Base(idx))
                     }
                 }
                 VehicleJourneyIdx::New(idx) => {
@@ -230,11 +196,11 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn nb_of_base_stops(&self) -> usize {
-        self.base.stop_points.len()
+        self.base.nb_of_stop_points()
     }
 
     pub fn base_stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + 'model {
-        self.base.stop_points.iter().map(|(idx, _)| idx)
+        self.base.stop_points()
     }
 
     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
@@ -247,35 +213,35 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn nb_of_base_vehicle_journeys(&self) -> usize {
-        self.base.vehicle_journeys.len()
+        self.base.nb_of_vehicle_journeys()
     }
 
     pub fn base_vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + 'model {
-        self.base.vehicle_journeys.iter().map(|(idx, _)| idx)
+        self.base.vehicle_journeys()
     }
 
     pub fn contains_line_id(&self, id: &str) -> bool {
-        self.base.lines.contains_id(id)
+        self.base.contains_line_id(id)
     }
 
     pub fn contains_route_id(&self, id: &str) -> bool {
-        self.base.routes.contains_id(id)
+        self.base.contains_route_id(id)
     }
 
     pub fn contains_network_id(&self, id: &str) -> bool {
-        self.base.networks.contains_id(id)
+        self.base.contains_network_id(id)
     }
 
     pub fn contains_physical_mode_id(&self, id: &str) -> bool {
-        self.base.physical_modes.contains_id(id)
+        self.base.contains_physical_mode_id(id)
     }
 
     pub fn contains_commercial_model_id(&self, id: &str) -> bool {
-        self.base.commercial_modes.contains_id(id)
+        self.base.contains_commercial_model_id(id)
     }
 
     pub fn contains_stop_point_id(&self, id: &str) -> bool {
-        if self.base.stop_points.contains_id(id) {
+        if self.base.contains_stop_point_id(id) {
             true
         } else {
             self.real_time.new_stop_id_to_idx.contains_key(id)
@@ -283,87 +249,57 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
-        self.base.stop_areas.contains_id(id)
+        self.base.contains_stop_area_id(id)
     }
 }
 
 impl<'model> ModelRefs<'model> {
     pub fn stop_point_uri(&self, stop_point_idx: &StopPointIdx) -> String {
-        let id = match stop_point_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_points[*idx].id,
-            StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
-        };
-        format!("stop_point:{}", id)
+        match stop_point_idx {
+            StopPointIdx::Base(idx) => self.base.stop_point_uri(*idx),
+            StopPointIdx::New(idx) => {
+                let id = &self.real_time.new_stops[idx.idx].name;
+                format!("stop_point:{}", id)
+            }
+        }
     }
 
-    pub fn house_numer(&self, stop_point_idx: &StopPointIdx) -> Option<&'model str> {
+    pub fn house_number(&self, stop_point_idx: &StopPointIdx) -> Option<&'model str> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                let has_address_id = &stop_point.address_id;
-                if let Some(address_id) = has_address_id {
-                    let address = &self.base.addresses.get(address_id)?;
-                    Some(address.street_name.as_str())
-                } else {
-                    None
-                }
-            }
+            StopPointIdx::Base(idx) => self.base.house_number(*idx),
             StopPointIdx::New(_) => None,
         }
     }
 
     pub fn street_name(&self, stop_point_idx: &StopPointIdx) -> Option<&'model str> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                let has_address_id = &stop_point.address_id;
-                if let Some(address_id) = has_address_id {
-                    let address = &self.base.addresses.get(address_id)?;
-                    Some(address.street_name.as_str())
-                } else {
-                    None
-                }
-            }
+            StopPointIdx::Base(idx) => self.base.street_name(*idx),
             StopPointIdx::New(_) => None,
         }
     }
 
     pub fn coord(&self, stop_point_idx: &StopPointIdx) -> Option<Coord> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                let coord = Coord {
-                    lat: stop_point.coord.lat,
-                    lon: stop_point.coord.lon,
-                };
-                Some(coord)
-            }
+            StopPointIdx::Base(idx) => Some(self.base.coord(*idx)),
             StopPointIdx::New(_) => None,
         }
     }
 
     pub fn platform_code(&self, stop_point_idx: &StopPointIdx) -> Option<&str> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                let has_platform_code = &stop_point.platform_code;
-                has_platform_code.as_ref().map(|s| s.as_str())
-            }
+            StopPointIdx::Base(idx) => self.base.platform_code(*idx),
             StopPointIdx::New(_) => None,
         }
     }
 
     pub fn fare_zone_id(&self, stop_point_idx: &StopPointIdx) -> Option<&str> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                stop_point.fare_zone_id.as_deref()
-            }
+            StopPointIdx::Base(idx) => self.base.fare_zone_id(*idx),
             StopPointIdx::New(_) => None,
         }
     }
 
-    pub fn stop_area(&self, stop_area_id: &str) -> Option<&transit_model::objects::StopArea> {
+    fn stop_area(&self, stop_area_id: &str) -> Option<&transit_model::objects::StopArea> {
         self.base.stop_areas.get(stop_area_id)
     }
 
@@ -372,10 +308,7 @@ impl<'model> ModelRefs<'model> {
         stop_point_idx: &StopPointIdx,
     ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
         match stop_point_idx {
-            StopPointIdx::Base(idx) => {
-                let stop_point = &self.base.stop_points[*idx];
-                Some(stop_point.codes.iter())
-            }
+            StopPointIdx::Base(idx) => self.base.codes(*idx),
             StopPointIdx::New(_) => None,
         }
     }
@@ -400,11 +333,7 @@ impl<'model> ModelRefs<'model> {
     }
 
     fn base_vehicle_journey_timezone(&self, idx: &BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
-        let route_id = &self.base.vehicle_journeys[*idx].route_id;
-        let route = self.base.routes.get(route_id)?;
-        let line = self.base.lines.get(&route.line_id)?;
-        let network = self.base.networks.get(&line.network_id)?;
-        network.timezone
+        self.base.vehicle_journey_timezone(*idx)
     }
 
     pub fn stop_times(
@@ -515,10 +444,7 @@ impl<'model> ModelRefs<'model> {
 
     pub fn line_code(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> Option<&str> {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => self
-                .base_vehicle_journey_line(*idx)
-                .and_then(|line| line.code.as_ref())
-                .map(|s| s.as_str()),
+            VehicleJourneyIdx::Base(idx) => self.base.line_code(*idx),
             VehicleJourneyIdx::New(_) => None,
         }
     }
@@ -533,14 +459,12 @@ impl<'model> ModelRefs<'model> {
             (VehicleJourneyIdx::Base(idx), RealTimeLevel::RealTime) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    self.base.vehicle_journeys[*idx].headsign.as_deref()
+                    self.base.headsign(*idx)
                 } else {
                     None
                 }
             }
-            (VehicleJourneyIdx::Base(idx), RealTimeLevel::Base) => {
-                self.base.vehicle_journeys[*idx].headsign.as_deref()
-            }
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::Base) => self.base.headsign(*idx),
             (VehicleJourneyIdx::New(_idx), _) => None,
         }
     }
@@ -554,12 +478,7 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::Base(idx) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    let route = self.base_vehicle_journey_route(idx)?;
-                    route
-                        .destination_id
-                        .as_ref()
-                        .and_then(|destination_id| self.base.stop_areas.get(destination_id))
-                        .map(|stop_area| stop_area.name.as_str())
+                    self.base.direction(*idx)
                 } else {
                     None
                 }
@@ -572,13 +491,12 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&transit_model::objects::Rgb> {
+    ) -> Option<&Rgb> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    let line = self.base_vehicle_journey_line(*idx)?;
-                    line.color.as_ref()
+                    self.base.line_color(*idx)
                 } else {
                     None
                 }
@@ -596,8 +514,7 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::Base(idx) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    let line = self.base_vehicle_journey_line(*idx)?;
-                    line.text_color.as_ref()
+                    self.base.text_color(*idx)
                 } else {
                     None
                 }
@@ -615,8 +532,7 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::Base(idx) => {
                 let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
                 if has_history.is_none() {
-                    let vj = &self.base.vehicle_journeys[*idx];
-                    vj.short_name.as_deref().or(vj.headsign.as_deref())
+                    self.base.trip_short_name(*idx)
                 } else {
                     None
                 }

@@ -77,3 +77,5 @@ pub enum StopTimes<'model> {
     Base(&'model [base_model::BaseStopTime], NaiveDate, chrono_tz::Tz),
     New(&'model [real_time_model::StopTime], NaiveDate),
 }
+
+pub type Rgb = transit_model::objects::Rgb;
