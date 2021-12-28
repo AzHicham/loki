@@ -39,7 +39,7 @@ use crate::{chrono::NaiveDate, RealTimeLevel};
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
-    Coord, Rgb, StopPointIdx, StopTimes, VehicleJourneyIdx,
+    Coord, Rgb, StopPointIdx, StopTimes, VehicleJourneyIdx, StopTimeIdx,
 };
 
 use super::RealTimeModel;
@@ -299,9 +299,6 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    fn stop_area(&self, stop_area_id: &str) -> Option<&transit_model::objects::StopArea> {
-        self.base.stop_areas.get(stop_area_id)
-    }
 
     pub fn codes(
         &self,
@@ -333,15 +330,15 @@ impl<'model> ModelRefs<'model> {
     }
 
     fn base_vehicle_journey_timezone(&self, idx: &BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
-        self.base.vehicle_journey_timezone(*idx)
+        self.base.timezone(*idx)
     }
 
     pub fn stop_times(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-        from_stoptime_idx: usize,
-        to_stoptime_idx: usize,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
         real_time_level: &RealTimeLevel,
     ) -> Option<StopTimes> {
         match real_time_level {
@@ -364,24 +361,16 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-        from_stoptime_idx: usize,
-        to_stoptime_idx: usize,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
-                let vj = &self.base.vehicle_journeys[*idx];
-                let stop_times = &vj.stop_times;
                 let timezone = self.timezone(vehicle_journey_idx, date);
-                if from_stoptime_idx < stop_times.len() && to_stoptime_idx < stop_times.len() {
-                    Some(StopTimes::Base(
-                        &stop_times[from_stoptime_idx..=to_stoptime_idx],
-                        *date,
-                        timezone,
-                    ))
-                } else {
-                    None
-                }
+                self.base.stop_times(*idx, from_stoptime_idx, to_stoptime_idx)
+                    .map(|iter| StopTimes::Base(iter, date.clone(), timezone))
+                    .ok()
             }
         }
     }
@@ -390,56 +379,39 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-        from_stoptime_idx: usize,
-        to_stoptime_idx: usize,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
-        if from_stoptime_idx > to_stoptime_idx {
-            return None;
-        }
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
-                match has_history {
-                    Some(TripData::Present(stop_times)) => {
-                        if from_stoptime_idx < stop_times.len()
-                            && to_stoptime_idx < stop_times.len()
-                        {
-                            Some(StopTimes::New(
-                                &stop_times[from_stoptime_idx..=to_stoptime_idx],
-                                *date,
-                            ))
-                        } else {
-                            None
-                        }
-                    }
-                    Some(TripData::Deleted()) => None,
-                    None => {
-                        let vj = &self.base.vehicle_journeys[*idx];
-                        let stop_times = &vj.stop_times;
-                        let timezone = self.timezone(vehicle_journey_idx, date);
-                        if from_stoptime_idx < stop_times.len()
-                            && to_stoptime_idx < stop_times.len()
-                        {
-                            Some(StopTimes::Base(
-                                &stop_times[from_stoptime_idx..=to_stoptime_idx],
-                                *date,
-                                timezone,
-                            ))
-                        } else {
-                            None
-                        }
-                    }
+
+        match self.real_time.last_version(vehicle_journey_idx, date) {
+            Some(TripData::Present(stop_times)) => {
+                let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
+                let inner = stop_times[range].iter();
+                let iter = StopTimes::New(inner, date.clone());
+                Some(iter)
+            },
+            Some(TripData::Deleted())  => None,
+            None => {
+                // there is no realtime data for this trip
+                // so its base schedule IS the real time schedule
+                if let VehicleJourneyIdx::Base(base_idx) = vehicle_journey_idx {
+                    let inner = self.base.stop_times(*base_idx, 
+                        from_stoptime_idx, 
+                        to_stoptime_idx, 
+                    ).ok()?;
+                    let timezone = self.base.timezone(*base_idx)?;
+                    let iter = StopTimes::Base(inner, date.clone(), timezone);
+                    Some(iter)
                 }
-            }
-            VehicleJourneyIdx::New(idx) => {
-                let trip_data = self.real_time.new_vehicle_journey_last_version(idx, date)?;
-                if let TripData::Present(stop_times) = trip_data {
-                    Some(StopTimes::New(stop_times.as_slice(), *date))
-                } else {
+                else {
                     None
                 }
+                
             }
+
+
         }
+
     }
 
     pub fn line_code(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> Option<&str> {

@@ -34,14 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::ops::Deref;
-
 use chrono::NaiveDate;
 use typed_index_collection::Idx;
 
-use crate::LoadsData;
+use crate::{LoadsData, timetables::FlowDirection, time::SecondsSinceTimezonedDayStart};
 
-use super::{Coord, Rgb};
+use super::{Coord, Rgb, StopTime, StopPointIdx, StopTimeIdx, StopTimes};
 
 pub type Collections = transit_model::model::Collections;
 
@@ -181,7 +179,7 @@ impl BaseModel {
         &self.collections.vehicle_journeys[vehicle_journey_idx].id
     }
 
-    pub fn vehicle_journey_timezone(&self, idx: BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
+    pub fn timezone(&self, idx: BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
         let line = self.vehicle_journey_line(idx)?;
         let network = self.collections.networks.get(&line.network_id)?;
         network.timezone
@@ -316,4 +314,110 @@ impl BaseModel {
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.collections.stop_areas.contains_id(id)
     }
+
+    pub fn stop_times(
+        &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
+    ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
+        let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
+        let stop_times = &vj.stop_times;
+        let from_idx = from_stoptime_idx.idx;
+        let to_idx = to_stoptime_idx.idx;
+        let timezone = self.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
+        let range = from_idx..=to_idx;
+        let inner = stop_times[range].iter();
+        BaseStopTimes::new(inner)
+            .map_err(|(err, idx)| (err, StopTimeIdx{idx : from_idx + idx}))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseStopTimes<'a> {
+    inner : std::slice::Iter<'a, transit_model::objects::StopTime>
+}
+
+impl<'a> BaseStopTimes<'a> {
+    pub fn new(inner : std::slice::Iter<'a, transit_model::objects::StopTime>) -> Result<Self, (BadStopTime, usize)> {
+        let copy = inner.clone();
+        // we check that every transit_model::objects::StopTime 
+        // can be transformed into a loki::models::StopTime
+        for (stop_time_idx, stop_time) in copy.enumerate() {
+            flow(stop_time).map_err(|err| (err, stop_time_idx))?;
+            board_time(stop_time).ok_or_else(|| (BadStopTime::BoardTime, stop_time_idx))?;
+            debark_time(stop_time).ok_or_else(|| (BadStopTime::DebarkTime, stop_time_idx))?;
+        }
+        Ok(Self {
+            inner
+        })
+    }
+}
+
+
+impl<'a> Iterator for BaseStopTimes<'a> {
+    type Item = StopTime;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|stop_time| {
+            StopTime {
+                stop: StopPointIdx::Base(stop_time.stop_point_idx),
+                // unwraps are safe, beecause of checks in new()
+                board_time: board_time(stop_time).unwrap(),
+                debark_time: debark_time(stop_time).unwrap(),
+                flow_direction: flow(stop_time).unwrap(),
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for BaseStopTimes<'a> {}
+
+#[derive(Debug)]
+pub enum BadStopTime {
+    PickupType,
+    DropOffType,
+    BoardTime,
+    DebarkTime,
+}
+
+pub fn flow(stop_time : & transit_model::objects::StopTime) -> Result<FlowDirection, BadStopTime> {
+    let can_board = match stop_time.pickup_type {
+        0 => true,
+        1 => false,
+        _ => {
+            return Err(BadStopTime::PickupType);
+        }
+    };
+    let can_debark = match stop_time.drop_off_type {
+        0 => true,
+        1 => false,
+        _ => {
+            return Err(BadStopTime::DropOffType);
+        }
+    };
+    match (can_board, can_debark) {
+        (true, true) => Ok(FlowDirection::BoardAndDebark),
+        (false, true) => Ok(FlowDirection::DebarkOnly),
+        (true, false) => Ok(FlowDirection::BoardOnly),
+        (false, false) => Ok(FlowDirection::NoBoardDebark),
+    }
+}
+
+fn board_time(stop_time: &transit_model::objects::StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+    let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
+    let boarding_duration = i32::from(stop_time.boarding_duration);
+    let seconds = departure_seconds.checked_sub(boarding_duration)?;
+    SecondsSinceTimezonedDayStart::from_seconds(seconds)
+}
+
+fn debark_time(stop_time: &transit_model::objects::StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+    let arrival_seconds = i32::try_from(stop_time.arrival_time.total_seconds()).ok()?;
+    let alighting_duration = i32::try_from(stop_time.alighting_duration).ok()?;
+    let seconds = arrival_seconds.checked_add(alighting_duration)?;
+    SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }

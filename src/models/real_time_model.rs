@@ -40,8 +40,6 @@ use tracing::error;
 
 use crate::{
     chrono::NaiveDate,
-    time::SecondsSinceTimezonedDayStart,
-    timetables::FlowDirection,
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
@@ -52,7 +50,7 @@ use crate::DataUpdate;
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption as disruption, ModelRefs, StopPointIdx, VehicleJourneyIdx,
+    real_time_disruption as disruption, ModelRefs, StopPointIdx, VehicleJourneyIdx, StopTime, StopTimeIdx,
 };
 
 pub struct RealTimeModel {
@@ -89,13 +87,7 @@ pub enum TripData {
     Present(Vec<StopTime>), // list of all stop times of this trip
 }
 
-#[derive(Debug, Clone)]
-pub struct StopTime {
-    pub stop: StopPointIdx,
-    pub arrival_time: SecondsSinceTimezonedDayStart,
-    pub departure_time: SecondsSinceTimezonedDayStart,
-    pub flow_direction: FlowDirection,
-}
+
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct NewStopPointIdx {
@@ -112,6 +104,8 @@ pub enum UpdateError {
     ModifyAbsentTrip(disruption::Trip),
     AddPresentTrip(disruption::Trip),
 }
+
+pub type RealTimeStopTimes<'a> = std::slice::Iter<'a, StopTime>;
 
 impl RealTimeModel {
     pub fn apply_disruption<Data: DataTrait + DataUpdate>(
@@ -142,8 +136,8 @@ impl RealTimeModel {
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
-                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
-                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
+                let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
                 let insert_result = data.insert_real_time_vehicle(
                     stops,
                     flows,
@@ -193,8 +187,8 @@ impl RealTimeModel {
                 let dates = std::iter::once(&trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
-                let board_times = stop_times.iter().map(|stop_time| stop_time.departure_time);
-                let debark_times = stop_times.iter().map(|stop_time| stop_time.arrival_time);
+                let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+                let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
 
                 let modify_result = data.modify_real_time_vehicle(
                     stops,
@@ -369,8 +363,8 @@ impl RealTimeModel {
             let stop_idx = self.get_or_insert_stop(stop_id, base_model);
             result.push(StopTime {
                 stop: stop_idx,
-                departure_time: stop_time.departure_time,
-                arrival_time: stop_time.arrival_time,
+                board_time: stop_time.departure_time,
+                debark_time: stop_time.arrival_time,
                 flow_direction: stop_time.flow_direction,
             });
         }
@@ -378,7 +372,7 @@ impl RealTimeModel {
     }
 
     fn get_or_insert_stop(&mut self, stop_id: &str, base_model: &BaseModel) -> StopPointIdx {
-        if let Some(idx) = base_model.stop_points.get_idx(stop_id) {
+        if let Some(idx) = base_model.stop_point_idx(stop_id) {
             StopPointIdx::Base(idx)
         } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
             StopPointIdx::New(idx.clone())
@@ -389,6 +383,30 @@ impl RealTimeModel {
             self.new_stop_id_to_idx
                 .insert(stop_id.to_string(), idx.clone());
             StopPointIdx::New(idx)
+        }
+    }
+
+    pub fn stop_times<'a>(&'a self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
+    ) -> Option<RealTimeStopTimes<'a>> {
+        let trip_data = self.last_version(vehicle_journey_idx, date)?;
+
+        if let TripData::Present(stop_times) = trip_data {
+            let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
+            Some(stop_times[range].iter())
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn last_version(&self, idx : &VehicleJourneyIdx, date : &NaiveDate) -> Option<&TripData> {
+        match idx {
+            VehicleJourneyIdx::Base(base_idx) => self.base_vehicle_journey_last_version(base_idx, date),
+            VehicleJourneyIdx::New(new_idx) => self.new_vehicle_journey_last_version(new_idx, date),
         }
     }
 
