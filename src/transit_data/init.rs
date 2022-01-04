@@ -190,7 +190,14 @@ where
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stop_times = base_model.stop_times(vehicle_journey_idx);
+        let stop_times = base_model.stop_times(vehicle_journey_idx).map_err(|(err, stop_time_idx)|{
+            warn!(
+                "Skipping vehicle journey {} because its {}-th stop time is ill formed {:?}.",
+                base_model.vehicle_journey_name(vehicle_journey_idx),
+                stop_time_idx.idx,
+                err
+            );
+        })?;
 
         let dates = base_model
             .vehicle_journey_dates(vehicle_journey_idx)
@@ -208,16 +215,18 @@ where
             );
         })?;
 
-        let board_times = board_timezoned_times(vehicle_journey)?;
-        let debark_times = debark_timezoned_times(vehicle_journey)?;
+        let stops = stop_times.clone().map(|s| s.stop);
+        let flows = stop_times.clone().map(|s| s.flow_direction);
+        let board_times = stop_times.clone().map(|s| s.board_time);
+        let debark_times = stop_times.clone().map(|s| s.debark_time);
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         let insert_result = self.insert_inner(
-            stop_points,
-            flows.into_iter(),
-            board_times.into_iter(),
-            debark_times.into_iter(),
+            stops,
+            flows,
+            board_times,
+            debark_times,
             loads_data,
             dates,
             &timezone,
@@ -312,102 +321,5 @@ pub fn create_flows_for_base_vehicle_journey(
         );
         return Err(());
     }
-    Ok(result)
-}
-
-fn board_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
-    let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
-    let boarding_duration = i32::try_from(stop_time.boarding_duration).ok()?;
-    let seconds = departure_seconds.checked_sub(boarding_duration)?;
-    SecondsSinceTimezonedDayStart::from_seconds(seconds)
-}
-
-fn debark_time(stop_time: &StopTime) -> Option<SecondsSinceTimezonedDayStart> {
-    let arrival_seconds = i32::try_from(stop_time.arrival_time.total_seconds()).ok()?;
-    let alighting_duration = i32::try_from(stop_time.alighting_duration).ok()?;
-    let seconds = arrival_seconds.checked_add(alighting_duration)?;
-    SecondsSinceTimezonedDayStart::from_seconds(seconds)
-}
-
-pub fn timezone_of(
-    vehicle_journey: &VehicleJourney,
-    base_model: &BaseModel,
-) -> Result<chrono_tz::Tz, ()> {
-    let has_route = base_model.routes.get(&vehicle_journey.route_id);
-    if has_route.is_none() {
-        warn!(
-            "Skipping vehicle journey {} because its route {} was not found.",
-            vehicle_journey.id, vehicle_journey.route_id,
-        );
-        return Err(());
-    };
-    let route = has_route.unwrap();
-    let has_line = base_model.lines.get(&route.line_id);
-
-    if has_line.is_none() {
-        warn!(
-            "Skipping vehicle journey {} because its line {} was not found.",
-            vehicle_journey.id, route.line_id,
-        );
-        return Err(());
-    }
-    let line = has_line.unwrap();
-    let has_network = base_model.networks.get(&line.network_id);
-    if has_network.is_none() {
-        warn!(
-            "Skipping vehicle journey {} because its network {} was not found.",
-            vehicle_journey.id, line.network_id,
-        );
-        return Err(());
-    }
-    let network = has_network.unwrap();
-
-    let timezone = {
-        if network.timezone.is_none() {
-            warn!(
-                "Skipping vehicle journey {} because its network {} has no timezone.",
-                vehicle_journey.id, line.network_id,
-            );
-            return Err(());
-        };
-        network.timezone.unwrap()
-    };
-    Ok(timezone)
-}
-
-pub fn board_timezoned_times(
-    vehicle_journey: &VehicleJourney,
-) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
-    let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-    for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-        let board_time = board_time(stop_time).ok_or_else(|| {
-            warn!(
-                "Skipping vehicle journey {} because I can't compute \
-                   board time for its {}th stop_time. \n {:#?}",
-                vehicle_journey.id, idx, stop_time
-            );
-        })?;
-        result.push(board_time);
-    }
-
-    Ok(result)
-}
-
-pub fn debark_timezoned_times(
-    vehicle_journey: &VehicleJourney,
-) -> Result<Vec<SecondsSinceTimezonedDayStart>, ()> {
-    let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-    for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-        let debark_time = debark_time(stop_time).ok_or_else(|| {
-            warn!(
-                "Skipping vehicle journey {} because I can't compute \
-                   debark time for its {}th stop_time. \n {:#?}",
-                vehicle_journey.id, idx, stop_time
-            );
-        })?;
-
-        result.push(debark_time);
-    }
-
     Ok(result)
 }

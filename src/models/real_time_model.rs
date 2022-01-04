@@ -132,7 +132,7 @@ impl RealTimeModel {
         match update {
             disruption::Update::Add(trip, stop_times) => {
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, base_model)?;
-                let dates = std::iter::once(&trip.reference_date);
+                let dates = std::iter::once(trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
                 let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
@@ -183,7 +183,7 @@ impl RealTimeModel {
             disruption::Update::Modify(trip, stop_times) => {
                 let (vj_idx, stop_times) =
                     self.modify(disruption_id, trip, stop_times, base_model)?;
-                let dates = std::iter::once(&trip.reference_date);
+                let dates = std::iter::once(trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
                 let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);

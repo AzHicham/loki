@@ -89,7 +89,7 @@ where
         Ok(())
     }
 
-    fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -103,7 +103,7 @@ where
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        Dates: Iterator<Item = chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
@@ -120,7 +120,7 @@ where
         )
     }
 
-    fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -134,7 +134,7 @@ where
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        Dates: Iterator<Item =  chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
@@ -145,8 +145,8 @@ where
         for date in valid_dates.clone() {
             let day = self
                 .calendar
-                .date_to_days_since_start(date)
-                .ok_or_else(|| ModifyError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
+                .date_to_days_since_start(&date)
+                .ok_or_else(|| ModifyError::UnknownDate(date, vehicle_journey_idx.clone()))?;
 
             if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 vehicle_journey_idx,
@@ -154,7 +154,7 @@ where
                 &self.days_patterns,
             ) {
                 return Err(ModifyError::DateInvalidForVehicleJourney(
-                    *date,
+                    date,
                     vehicle_journey_idx.clone(),
                 ));
             }
@@ -162,7 +162,7 @@ where
 
         for date in valid_dates.clone() {
             // unwrap is safe, because we checked above
-            let day = self.calendar.date_to_days_since_start(date).unwrap();
+            let day = self.calendar.date_to_days_since_start(&date).unwrap();
 
             let timetable = self
                 .vehicle_journey_to_timetable
@@ -248,7 +248,7 @@ where
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        Dates: Iterator<Item = chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
@@ -267,8 +267,8 @@ where
         for date in valid_dates.clone() {
             let day = self
                 .calendar
-                .date_to_days_since_start(date)
-                .ok_or_else(|| InsertionError::InvalidDate(*date, vehicle_journey_idx.clone()))?;
+                .date_to_days_since_start(&date)
+                .ok_or_else(|| InsertionError::InvalidDate(date, vehicle_journey_idx.clone()))?;
 
             if self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 &vehicle_journey_idx,
@@ -276,7 +276,7 @@ where
                 &self.days_patterns,
             ) {
                 return Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(
-                    *date,
+                    date,
                     vehicle_journey_idx.clone(),
                 ));
             }

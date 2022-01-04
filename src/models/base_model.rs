@@ -180,7 +180,7 @@ impl BaseModel {
     pub fn vehicle_journey_dates(
         &self,
         idx: BaseVehicleJourneyIdx,
-    ) -> Option<impl Iterator<Item = NaiveDate> + '_> {
+    ) -> Option<impl Iterator<Item = NaiveDate> + '_ + Clone> {
         let vehicle_journey = &self.collections.vehicle_journeys[idx];
         self.collections
             .calendars

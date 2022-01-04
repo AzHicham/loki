@@ -68,6 +68,7 @@ pub enum TransferIdx {
     New(usize),
 }
 
+#[derive(Debug, Clone)]
 pub struct StopTimeIdx {
     pub idx: usize,
 }
