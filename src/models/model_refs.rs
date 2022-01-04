@@ -39,7 +39,7 @@ use crate::{chrono::NaiveDate, RealTimeLevel};
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
-    Coord, Rgb, StopPointIdx, StopTimes, VehicleJourneyIdx, StopTimeIdx,
+    Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx,
 };
 
 use super::RealTimeModel;
@@ -299,7 +299,6 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-
     pub fn codes(
         &self,
         stop_point_idx: &StopPointIdx,
@@ -368,7 +367,8 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
                 let timezone = self.timezone(vehicle_journey_idx, date);
-                self.base.stop_times(*idx, from_stoptime_idx, to_stoptime_idx)
+                self.base
+                    .stop_times_partial(*idx, from_stoptime_idx, to_stoptime_idx)
                     .map(|iter| StopTimes::Base(iter, date.clone(), timezone))
                     .ok()
             }
@@ -382,36 +382,30 @@ impl<'model> ModelRefs<'model> {
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
-
         match self.real_time.last_version(vehicle_journey_idx, date) {
             Some(TripData::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
                 let iter = StopTimes::New(inner, date.clone());
                 Some(iter)
-            },
-            Some(TripData::Deleted())  => None,
+            }
+            Some(TripData::Deleted()) => None,
             None => {
                 // there is no realtime data for this trip
                 // so its base schedule IS the real time schedule
                 if let VehicleJourneyIdx::Base(base_idx) = vehicle_journey_idx {
-                    let inner = self.base.stop_times(*base_idx, 
-                        from_stoptime_idx, 
-                        to_stoptime_idx, 
-                    ).ok()?;
+                    let inner = self
+                        .base
+                        .stop_times_partial(*base_idx, from_stoptime_idx, to_stoptime_idx)
+                        .ok()?;
                     let timezone = self.base.timezone(*base_idx)?;
                     let iter = StopTimes::Base(inner, date.clone(), timezone);
                     Some(iter)
-                }
-                else {
+                } else {
                     None
                 }
-                
             }
-
-
         }
-
     }
 
     pub fn line_code(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> Option<&str> {

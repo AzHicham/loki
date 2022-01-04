@@ -50,7 +50,8 @@ use crate::DataUpdate;
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption as disruption, ModelRefs, StopPointIdx, VehicleJourneyIdx, StopTime, StopTimeIdx,
+    real_time_disruption as disruption, ModelRefs, StopPointIdx, StopTime, StopTimeIdx,
+    VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {
@@ -86,8 +87,6 @@ pub enum TripData {
     Deleted(),              // the trip is currently disabled
     Present(Vec<StopTime>), // list of all stop times of this trip
 }
-
-
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct NewStopPointIdx {
@@ -386,7 +385,8 @@ impl RealTimeModel {
         }
     }
 
-    pub fn stop_times<'a>(&'a self,
+    pub fn stop_times<'a>(
+        &'a self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
         from_stoptime_idx: StopTimeIdx,
@@ -397,15 +397,16 @@ impl RealTimeModel {
         if let TripData::Present(stop_times) = trip_data {
             let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
             Some(stop_times[range].iter())
-        }
-        else {
+        } else {
             None
         }
     }
 
-    pub fn last_version(&self, idx : &VehicleJourneyIdx, date : &NaiveDate) -> Option<&TripData> {
+    pub fn last_version(&self, idx: &VehicleJourneyIdx, date: &NaiveDate) -> Option<&TripData> {
         match idx {
-            VehicleJourneyIdx::Base(base_idx) => self.base_vehicle_journey_last_version(base_idx, date),
+            VehicleJourneyIdx::Base(base_idx) => {
+                self.base_vehicle_journey_last_version(base_idx, date)
+            }
             VehicleJourneyIdx::New(new_idx) => self.new_vehicle_journey_last_version(new_idx, date),
         }
     }

@@ -46,7 +46,7 @@ pub use real_time_model::RealTimeModel;
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 
 use self::{
-    base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx, BaseStopTimes},
+    base_model::{BaseStopPointIdx, BaseStopTimes, BaseTransferIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes},
 };
 
@@ -69,7 +69,7 @@ pub enum TransferIdx {
 }
 
 pub struct StopTimeIdx {
-    pub idx : usize,
+    pub idx: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +85,6 @@ pub enum StopTimes<'a> {
     Base(BaseStopTimes<'a>, NaiveDate, chrono_tz::Tz),
     New(RealTimeStopTimes<'a>, NaiveDate),
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Coord {

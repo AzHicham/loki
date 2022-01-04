@@ -66,7 +66,7 @@ where
         loads_data: &LoadsData,
         default_transfer_duration: PositiveDuration,
     ) -> Self {
-        let nb_of_stop_points = base_model.stop_points.len();
+        let nb_of_stop_points = base_model.nb_of_stop_points();
         let nb_transfers = base_model.transfers.len();
 
         let (start_date, end_date) = base_model
@@ -97,13 +97,8 @@ where
         default_transfer_duration: PositiveDuration,
     ) {
         info!("Inserting vehicle journeys");
-        for (vehicle_journey_idx, vehicle_journey) in base_model.vehicle_journeys.iter() {
-            let _ = self.insert_base_vehicle_journey(
-                vehicle_journey_idx,
-                vehicle_journey,
-                base_model,
-                loads_data,
-            );
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            let _ = self.insert_base_vehicle_journey(vehicle_journey_idx, base_model, loads_data);
         }
         info!("Inserting transfers");
 
@@ -192,30 +187,26 @@ where
     fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
-        vehicle_journey: &VehicleJourney,
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stop_points = vehicle_journey
-            .stop_times
-            .iter()
-            .map(|stop_time| StopPointIdx::Base(stop_time.stop_point_idx));
+        let stop_times = base_model.stop_times(vehicle_journey_idx);
 
-        let flows = create_flows_for_base_vehicle_journey(vehicle_journey)?;
-
-        let model_calendar = base_model
-            .calendars
-            .get(&vehicle_journey.service_id)
+        let dates = base_model
+            .vehicle_journey_dates(vehicle_journey_idx)
             .ok_or_else(|| {
                 warn!(
-                    "Skipping vehicle journey {} because its calendar {} was not found.",
-                    vehicle_journey.id, vehicle_journey.service_id,
+                    "Skipping vehicle journey {} because it has no dates.",
+                    base_model.vehicle_journey_name(vehicle_journey_idx)
                 );
             })?;
 
-        let dates = model_calendar.dates.iter();
-
-        let timezone = timezone_of(vehicle_journey, base_model)?;
+        let timezone = base_model.timezone(vehicle_journey_idx).ok_or_else(|| {
+            warn!(
+                "Skipping vehicle journey {} because it has no timezone.",
+                base_model.vehicle_journey_name(vehicle_journey_idx)
+            );
+        })?;
 
         let board_times = board_timezoned_times(vehicle_journey)?;
         let debark_times = debark_timezoned_times(vehicle_journey)?;

@@ -37,9 +37,9 @@
 use chrono::NaiveDate;
 use typed_index_collection::Idx;
 
-use crate::{LoadsData, timetables::FlowDirection, time::SecondsSinceTimezonedDayStart};
+use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData};
 
-use super::{Coord, Rgb, StopTime, StopPointIdx, StopTimeIdx, StopTimes};
+use super::{Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx};
 
 pub type Collections = transit_model::model::Collections;
 
@@ -53,14 +53,6 @@ pub type BaseStopPointIdx = Idx<transit_model::objects::StopPoint>;
 pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
-
-// impl Deref for BaseModel {
-//     type Target = transit_model::model::Collections;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.collections
-//     }
-// }
 
 impl BaseModel {
     pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Self {
@@ -183,6 +175,17 @@ impl BaseModel {
         let line = self.vehicle_journey_line(idx)?;
         let network = self.collections.networks.get(&line.network_id)?;
         network.timezone
+    }
+
+    pub fn vehicle_journey_dates(
+        &self,
+        idx: BaseVehicleJourneyIdx,
+    ) -> Option<impl Iterator<Item = NaiveDate> + '_> {
+        let vehicle_journey = &self.collections.vehicle_journeys[idx];
+        self.collections
+            .calendars
+            .get(&vehicle_journey.service_id)
+            .map(|calendar| calendar.dates.iter().map(|date| date.clone()))
     }
 
     fn vehicle_journey_route(
@@ -315,7 +318,20 @@ impl BaseModel {
         self.collections.stop_areas.contains_id(id)
     }
 
+    // stop_times
     pub fn stop_times(
+        &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+    ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
+        let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
+        let stop_times = &vj.stop_times;
+        let timezone = self.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
+        let inner = stop_times.iter();
+        BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx: idx }))
+    }
+
+    // stop_times
+    pub fn stop_times_partial(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         from_stoptime_idx: StopTimeIdx,
@@ -328,32 +344,49 @@ impl BaseModel {
         let timezone = self.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
         let range = from_idx..=to_idx;
         let inner = stop_times[range].iter();
-        BaseStopTimes::new(inner)
-            .map_err(|(err, idx)| (err, StopTimeIdx{idx : from_idx + idx}))
+        BaseStopTimes::new(inner).map_err(|(err, idx)| {
+            (
+                err,
+                StopTimeIdx {
+                    idx: from_idx + idx,
+                },
+            )
+        })
+    }
+
+    pub fn first_last_stop_time(
+        &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+    ) -> (StopTimeIdx, StopTimeIdx) {
+        let first = StopTimeIdx { idx: 0 };
+        let stop_times = &self.collections.vehicle_journeys[vehicle_journey_idx].stop_times;
+        let last = StopTimeIdx {
+            idx: stop_times.len(),
+        };
+        (first, last)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct BaseStopTimes<'a> {
-    inner : std::slice::Iter<'a, transit_model::objects::StopTime>
+    inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
 }
 
 impl<'a> BaseStopTimes<'a> {
-    pub fn new(inner : std::slice::Iter<'a, transit_model::objects::StopTime>) -> Result<Self, (BadStopTime, usize)> {
+    pub fn new(
+        inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
+    ) -> Result<Self, (BadStopTime, usize)> {
         let copy = inner.clone();
-        // we check that every transit_model::objects::StopTime 
+        // we check that every transit_model::objects::StopTime
         // can be transformed into a loki::models::StopTime
         for (stop_time_idx, stop_time) in copy.enumerate() {
             flow(stop_time).map_err(|err| (err, stop_time_idx))?;
             board_time(stop_time).ok_or_else(|| (BadStopTime::BoardTime, stop_time_idx))?;
             debark_time(stop_time).ok_or_else(|| (BadStopTime::DebarkTime, stop_time_idx))?;
         }
-        Ok(Self {
-            inner
-        })
+        Ok(Self { inner })
     }
 }
-
 
 impl<'a> Iterator for BaseStopTimes<'a> {
     type Item = StopTime;
@@ -385,7 +418,7 @@ pub enum BadStopTime {
     DebarkTime,
 }
 
-pub fn flow(stop_time : & transit_model::objects::StopTime) -> Result<FlowDirection, BadStopTime> {
+pub fn flow(stop_time: &transit_model::objects::StopTime) -> Result<FlowDirection, BadStopTime> {
     let can_board = match stop_time.pickup_type {
         0 => true,
         1 => false,
@@ -408,14 +441,18 @@ pub fn flow(stop_time : & transit_model::objects::StopTime) -> Result<FlowDirect
     }
 }
 
-fn board_time(stop_time: &transit_model::objects::StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+fn board_time(
+    stop_time: &transit_model::objects::StopTime,
+) -> Option<SecondsSinceTimezonedDayStart> {
     let departure_seconds = i32::try_from(stop_time.departure_time.total_seconds()).ok()?;
     let boarding_duration = i32::from(stop_time.boarding_duration);
     let seconds = departure_seconds.checked_sub(boarding_duration)?;
     SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
 
-fn debark_time(stop_time: &transit_model::objects::StopTime) -> Option<SecondsSinceTimezonedDayStart> {
+fn debark_time(
+    stop_time: &transit_model::objects::StopTime,
+) -> Option<SecondsSinceTimezonedDayStart> {
     let arrival_seconds = i32::try_from(stop_time.arrival_time.total_seconds()).ok()?;
     let alighting_duration = i32::try_from(stop_time.alighting_duration).ok()?;
     let seconds = arrival_seconds.checked_add(alighting_duration)?;
