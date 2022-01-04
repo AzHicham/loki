@@ -1,6 +1,6 @@
 use crate::{
     loads_data::{Load, LoadsData},
-    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
 };
@@ -145,7 +145,7 @@ pub trait Data: TransitTypes {
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stop_point_idx(&self, stop: &Self::Stop) -> StopPointIdx;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx;
 
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
 

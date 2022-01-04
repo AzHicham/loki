@@ -1,3 +1,5 @@
+use crate::models::Coord;
+
 // Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
@@ -34,8 +36,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use transit_model::objects::Coord;
-
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
 const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
 
@@ -55,7 +55,7 @@ pub fn distance_coord_to_coord(from: &Coord, to: &Coord) -> f64 {
 
 // returns a bounding box that contains all points whose distance to `coord` is less or equal to `radius` (in meters)
 // (lat_min, lat_max, lon_min, lon_max)
-pub fn bounding_box(coord: Coord, radius: f64) -> (f64, f64, f64, f64) {
+pub fn bounding_box(coord: &Coord, radius: f64) -> (f64, f64, f64, f64) {
     let lat_rad = coord.lat * N_DEG_TO_RAD;
     let lon_rad = coord.lon * N_DEG_TO_RAD;
     // Radius of Earth at given latitude

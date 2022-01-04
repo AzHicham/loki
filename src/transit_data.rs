@@ -43,7 +43,7 @@ use iters::MissionsOfStop;
 
 use crate::{
     loads_data::Load,
-    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
@@ -303,8 +303,9 @@ where
         self.stops_data[stop.idx].stop_point_idx.clone()
     }
 
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
-        self.timetables.stoptime_idx(position, trip)
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx {
+        let idx = self.timetables.stoptime_idx(position, trip);
+        StopTimeIdx{ idx }
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
@@ -471,9 +472,9 @@ fn handle_vehicletimes_error(
             )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
-                    debark time at {}-th stop_time ({}) \
+                    debark time at {:?}-th stop_time ({}) \
                     is earlier than its \
-                    board time upstream {}-th stop_time ({}). ",
+                    board time upstream {:?}-th stop_time ({}). ",
                 vehicle_journey_name,
                 days_strings,
                 position_pair.downstream,
@@ -492,9 +493,9 @@ fn handle_vehicletimes_error(
             )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
-                    board time at {}-th stop_time ({}) \
+                    board time at {:?}-th stop_time ({}) \
                     is earlier than its \
-                    board time upstream at {}-th stop_time ({}). ",
+                    board time upstream at {:?}-th stop_time ({}). ",
                 vehicle_journey_name,
                 days_strings,
                 position_pair.downstream,
@@ -513,9 +514,9 @@ fn handle_vehicletimes_error(
             )?;
             error!(
                 "Skipping vehicle journey {} on days {:?} because its \
-                    debark time at {}-th stop_time ({}) \
+                    debark time at {:?}-th stop_time ({}) \
                     is earlier than its \
-                    debark time upstream at {}-th stop_time ({}). ",
+                    debark time upstream at {:?}-th stop_time ({}). ",
                 vehicle_journey_name,
                 days_strings,
                 position_pair.downstream,
@@ -546,7 +547,7 @@ fn upstream_downstream_stop_names<'model>(
         .ok_or_else(|| {
             error!(
                 "Received a position pair with invalid upstream stop. \
-                    Vehicle journey {} on {} upstream {}.",
+                    Vehicle journey {} on {} upstream {:?}.",
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
                 position_pair.upstream
@@ -564,7 +565,7 @@ fn upstream_downstream_stop_names<'model>(
         .ok_or_else(|| {
             error!(
                 "Received a position pair with invalid downstream stop. \
-                    Vehicle journey {} on {} downstream {}.",
+                    Vehicle journey {} on {} downstream {:?}.",
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
                 position_pair.downstream

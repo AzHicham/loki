@@ -259,7 +259,6 @@ impl DataWorker {
             info!("Starting to build data");
             let new_data = launch::read::build_transit_data::<Timetable>(
                 &new_base_model,
-                &launch_params.default_transfer_duration,
             );
             info!("Data loaded");
             let new_real_time_model = RealTimeModel::new();

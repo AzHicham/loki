@@ -222,7 +222,7 @@ fn make_public_transport_section(
         )
         .ok_or_else(|| {
             format_err!(
-                "No stoptime at idx {} for vehicle journey {} on {}",
+                "No stoptime at idx {:?} for vehicle journey {} on {}",
                 from_stoptime_idx,
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date
@@ -234,7 +234,7 @@ fn make_public_transport_section(
         .stop_point_at(vehicle_journey_idx, to_stoptime_idx, date, real_time_level)
         .ok_or_else(|| {
             format_err!(
-                "No stoptime at idx {} for vehicle journey {} on {}",
+                "No stoptime at idx {:?} for vehicle journey {} on {}",
                 to_stoptime_idx,
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date
@@ -251,7 +251,7 @@ fn make_public_transport_section(
         )
         .ok_or_else(|| {
             format_err!(
-                "On vehicle journey {} on {} at {:?}, could not get stoptimes range [{}, {}] ",
+                "On vehicle journey {} on {} at {:?}, could not get stoptimes range [{:?}, {:?}] ",
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
                 real_time_level,
@@ -330,7 +330,7 @@ pub fn make_stop_point(
             .as_ref()
             .map(|coord| format!("{};{}", coord.lat, coord.lon)),
         house_number: model
-            .house_numer(stop_point_idx)
+            .house_number(stop_point_idx)
             .map(|number_str| number_str.parse::<i32>().unwrap_or_default()),
         coord: coord_proto.clone(),
         name: Some(street_name.to_string()),
@@ -371,7 +371,7 @@ fn make_stop_area(
     model: &ModelRefs,
 ) -> Option<navitia_proto::StopArea> {
     let stop_area_name = model.stop_area_name(stop_point_idx);
-    if let Some(stop_area) = model.stop_area(stop_area_name) {
+    if let Some(stop_area) = model.stop_area_name(stop_area_name) {
         let proto = navitia_proto::StopArea {
             name: Some(stop_area.name.clone()),
             uri: Some(format!("stop_area:{}", stop_area.id)),

@@ -77,9 +77,9 @@ impl TimezonesPatterns {
             }
 
             let mut patterns = Vec::with_capacity(self.buffer.len());
-            for (offset, dates) in self.buffer.into_iter() {
+            for (offset, dates) in self.buffer.iter() {
                 let days_pattern = days_patterns.get_from_dates(dates.iter(), calendar);
-                patterns.push((offset, days_pattern));
+                patterns.push((offset.clone(), days_pattern));
             }
             vacant_entry.insert(patterns);
         }

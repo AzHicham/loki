@@ -96,13 +96,13 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let mut data =
-        launch::read::build_transit_data::<T>(&base_model, &config.default_transfer_duration);
+        launch::read::build_transit_data::<T>(&base_model );
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -131,7 +131,7 @@ where
         );
     }
 
-    let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
+    let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
     data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
@@ -227,15 +227,17 @@ where
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let config = Config::new("2020-01-01T08:00:00", "A", "C");
+
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let config = Config::new("2020-01-01T08:00:00", "A", "C");
+
 
     let mut data =
-        launch::read::build_transit_data::<T>(&base_model, &config.default_transfer_duration);
+        launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -259,7 +261,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -286,7 +288,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("second").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -313,7 +315,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -383,15 +385,17 @@ where
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    
+    let config = Config::new("2020-01-01T10:50:00", "A", "C");
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let config = Config::new("2020-01-01T10:50:00", "A", "C");
+    
 
     let mut data =
-        launch::read::build_transit_data::<T>(&base_model, &config.default_transfer_duration);
+        launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -415,7 +419,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("first").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -441,7 +445,7 @@ where
     }
 
     {
-        let vehicle_journey_idx = base_model.vehicle_journeys.get_idx("third").unwrap();
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
             .unwrap();
@@ -503,7 +507,8 @@ where
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let config = Config::new("2020-01-01T09:50:00", "A", "C");
+    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
 
     let mut real_time_model = RealTimeModel::new();
 
@@ -511,7 +516,7 @@ where
     let request_input = utils::make_request_from_config(&config)?;
 
     let mut data =
-        launch::read::build_transit_data::<T>(&base_model, &config.default_transfer_duration);
+        launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

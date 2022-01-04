@@ -56,6 +56,7 @@ pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
+#[derive(Debug, Clone)]
 pub enum BadModel {
     NoDataset
 }
@@ -70,7 +71,7 @@ impl BaseModel {
     }
 
     pub fn empty() -> Self {
-        let mut collections = Collections::default();
+        let collections = Collections::default();
         // let dataset = transit_model::objects::Dataset::default();
         // collections.datasets.push(dataset).unwrap();
         let loads_data = LoadsData::empty();
@@ -112,8 +113,10 @@ impl BaseModel {
         self.collections.stop_points.len()
     }
 
-    pub fn stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + '_ {
-        self.collections.stop_points.iter().map(|(idx, _)| idx)
+    pub fn stop_points<'a>(&'a self) -> BaseStopPoints<'a> {
+        BaseStopPoints {
+            inner : self.collections.stop_points.iter()
+        }
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {
@@ -135,14 +138,15 @@ impl BaseModel {
 
     pub fn house_number(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        let address_id = &stop_point.address_id?;
-        let address = &self.collections.addresses.get(address_id)?;
-        address.house_number.map(|s| s.as_str())
+        let address_id = stop_point.address_id.as_ref()?;
+        let address = self.collections.addresses.get(address_id)?;
+        let house_number = address.house_number.as_ref()?;
+        Some(house_number.as_str())
     }
 
     pub fn street_name(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        let address_id = &stop_point.address_id?;
+        let address_id = &stop_point.address_id.as_ref()?;
         let address = &self.collections.addresses.get(address_id)?;
         Some(address.street_name.as_str())
     }
@@ -157,12 +161,12 @@ impl BaseModel {
 
     pub fn platform_code(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        stop_point.platform_code.map(|s| s.as_str())
+        stop_point.platform_code.as_ref().map(|s| s.as_str())
     }
 
     pub fn fare_zone_id(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        stop_point.fare_zone_id.map(|s| s.as_str())
+        stop_point.fare_zone_id.as_ref().map(|s| s.as_str())
     }
 
     pub fn codes(
@@ -233,20 +237,20 @@ impl BaseModel {
 
     pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.vehicle_journey_line(idx)
-            .map(|line| line.code)
+            .map(|line| line.code.as_ref())
             .flatten()
             .map(|s| s.as_str())
     }
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.collections.vehicle_journeys[idx]
-            .headsign
+            .headsign.as_ref()
             .map(|s| s.as_str())
     }
 
     pub fn direction(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         let route = self.vehicle_journey_route(idx)?;
-        let destination_id = route.destination_id?;
+        let destination_id = route.destination_id.as_ref()?;
         let stop_area = self.collections.stop_areas.get(&destination_id)?;
         Some(stop_area.name.as_str())
     }
@@ -272,7 +276,7 @@ impl BaseModel {
 
     pub fn trip_short_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         let vj = &self.collections.vehicle_journeys[idx];
-        vj.short_name.or(vj.headsign).map(|s| s.as_str())
+        vj.short_name.as_ref().or(vj.headsign.as_ref()).map(|s| s.as_str())
     }
 
     pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
@@ -289,11 +293,11 @@ impl BaseModel {
     pub fn stop_point_at(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
-        stop_time_idx: usize,
+        stop_time_idx: StopTimeIdx,
     ) -> Option<BaseStopPointIdx> {
         self.collections.vehicle_journeys[vehicle_journey_idx]
             .stop_times
-            .get(stop_time_idx)
+            .get(stop_time_idx.idx)
             .map(|stop_time| stop_time.stop_point_idx)
     }
 
@@ -338,6 +342,16 @@ impl BaseModel {
 
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.collections.stop_areas.contains_id(id)
+    }
+
+    // stop_areas
+
+    pub fn stop_area_coord(&self, id : &str) -> Option<Coord> {
+        let stop_area = self.collections.stop_areas.get(id)?;
+        Some(Coord {
+            lat : stop_area.coord.lat,
+            lon : stop_area.coord.lon
+        })
     }
 
     // stop_times
@@ -510,3 +524,22 @@ fn debark_time(
 }
 
 
+#[derive(Clone, Debug)]
+pub struct BaseStopPoints<'a> {
+    inner : typed_index_collection::Iter<'a, transit_model::objects::StopPoint>
+}
+
+impl<'a> Iterator for BaseStopPoints<'a> {
+    type Item = BaseStopPointIdx;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|(idx,_)| idx)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+
+}
+
+impl<'a> ExactSizeIterator for BaseStopPoints<'a> {}

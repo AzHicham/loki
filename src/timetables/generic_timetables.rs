@@ -46,7 +46,7 @@ use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::{
     time::DaysSinceDatasetStart,
-    timetables::{FlowDirection, Stop, StopFlows},
+    timetables::{FlowDirection, Stop, StopFlows}, models::StopTimeIdx,
 };
 use std::cmp::Ordering::{Greater, Less};
 
@@ -1048,7 +1048,7 @@ where
 
 fn is_increasing<EnumeratedValues, Value>(
     mut enumerated_values: EnumeratedValues,
-) -> Result<(), (usize, usize)>
+) -> Result<(), PositionPair>
 where
     EnumeratedValues: Iterator<Item = (usize, Value)>,
     Value: Ord,
@@ -1057,7 +1057,11 @@ where
     if let Some((mut prev_position, mut prev_value)) = has_previous {
         for (position, value) in enumerated_values {
             if value < prev_value {
-                return Err((prev_position, position));
+                let pair = PositionPair {
+                    upstream : StopTimeIdx{idx : prev_position},
+                    downstream : StopTimeIdx{idx : position}
+                };
+                return Err(pair);
             }
             prev_position = position;
             prev_value = value;
@@ -1094,11 +1098,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_board_times) {
-        let position_pair = PositionPair {
-            upstream,
-            downstream,
-        };
+    if let Err(position_pair) = is_increasing(valid_enumerated_board_times) {
         return Err(VehicleTimesError::DecreasingBoardTime(position_pair));
     }
 
@@ -1113,11 +1113,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_debark_times) {
-        let position_pair = PositionPair {
-            upstream,
-            downstream,
-        };
+    if let Err(position_pair) = is_increasing(valid_enumerated_debark_times) {
         return Err(VehicleTimesError::DecreasingDebarkTime(position_pair));
     }
 
@@ -1137,8 +1133,8 @@ where
         };
         if can_board && can_debark && board_time > debark_time {
             let position_pair = PositionPair {
-                upstream: board_idx,
-                downstream: debark_idx,
+                upstream: StopTimeIdx{ idx : board_idx},
+                downstream: StopTimeIdx{ idx : debark_idx},
             };
             return Err(VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair));
         }
@@ -1149,8 +1145,8 @@ where
 
 #[derive(Clone, Debug)]
 pub struct PositionPair {
-    pub upstream: usize,
-    pub downstream: usize,
+    pub upstream: StopTimeIdx,
+    pub downstream: StopTimeIdx,
 }
 
 #[derive(Clone, Debug)]

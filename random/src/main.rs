@@ -203,8 +203,10 @@ where
 
     let mut histogram = Histogram::<u64>::new(3)?;
     for _ in 0..nb_queries {
-        let start_stop_area_uri = &base_model.stop_areas.values().choose(&mut rng).unwrap().id;
-        let end_stop_area_uri = &base_model.stop_areas.values().choose(&mut rng).unwrap().id;
+        let start_stop_idx = base_model.stop_points().choose(&mut rng).unwrap();
+        let end_stop_idx = base_model.stop_points().choose(&mut rng).unwrap();
+        let start_stop_area_uri = base_model.stop_area_name(start_stop_idx);
+        let end_stop_area_uri = base_model.stop_area_name(end_stop_idx);
 
         let request_input = launch::stop_areas::make_query_stop_areas(
             base_model,

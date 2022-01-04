@@ -44,6 +44,8 @@ use super::{
 
 use super::RealTimeModel;
 
+
+#[derive(Clone)]
 pub struct ModelRefs<'model> {
     pub base: &'model BaseModel,
     pub real_time: &'model RealTimeModel,
@@ -139,7 +141,7 @@ impl<'model> ModelRefs<'model> {
     pub fn stop_point_at(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        stop_time_idx: usize,
+        stop_time_idx: StopTimeIdx,
         date: &NaiveDate,
         real_time_level: &RealTimeLevel,
     ) -> Option<StopPointIdx> {
@@ -160,7 +162,7 @@ impl<'model> ModelRefs<'model> {
                         match trip_data {
                             TripData::Deleted() => None,
                             TripData::Present(stop_times) => stop_times
-                                .get(stop_time_idx)
+                                .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
                     } else {
@@ -175,7 +177,7 @@ impl<'model> ModelRefs<'model> {
                         match trip_data {
                             TripData::Deleted() => None,
                             TripData::Present(stop_times) => stop_times
-                                .get(stop_time_idx)
+                                .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
                     } else {

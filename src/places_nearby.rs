@@ -37,44 +37,45 @@
 extern crate static_assertions;
 
 use super::geometry::{bounding_box, distance_coord_to_coord};
-use crate::models::{ModelRefs, StopPointIdx};
+use crate::models::{ModelRefs, StopPointIdx, base_model::BaseStopPoints, Coord};
 use regex::Regex;
 use std::fmt::{Display, Formatter};
-use transit_model::objects::{Coord, StopPoint};
-use typed_index_collection::Iter;
 
-pub fn places_nearby_impl<'model, 'uri>(
-    model: &'model ModelRefs,
-    uri: &'uri str,
+
+pub fn places_nearby_impl<'model>(
+    models: & ModelRefs<'model>,
+    uri: & str,
     radius: f64,
 ) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
-    // ep: entrypoint
-    let ep_coord = parse_entrypoint(model, uri)?;
-    let bounding_box = bounding_box(ep_coord, radius);
+    let center = parse_entrypoint(models, uri)?;
+    let bounding_box = bounding_box(&center, radius);
 
-    Ok(PlacesNearbyIter::new(model, ep_coord, radius, bounding_box))
+    Ok(PlacesNearbyIter::new(models.clone(), center, radius, bounding_box))
 }
 
-#[derive(Debug)]
 pub struct PlacesNearbyIter<'model> {
-    ep_coord: Coord,
+    center: Coord,
     radius: f64,
     bounding_box: (f64, f64, f64, f64),
-    inner: Iter<'model, StopPoint>,
+    inner: BaseStopPoints<'model>,
+    models : ModelRefs<'model>
+
 }
 
 impl<'model> PlacesNearbyIter<'model> {
     pub fn new(
-        model: &'model ModelRefs,
-        ep_coord: Coord,
+        models: ModelRefs<'model>,
+        center: Coord,
         radius: f64,
         bounding_box: (f64, f64, f64, f64),
     ) -> Self {
         Self {
-            ep_coord,
+            center,
             radius,
             bounding_box,
-            inner: model.base.stop_points.iter(),
+            inner: models.base.stop_points(),
+            models
+
         }
     }
 }
@@ -83,14 +84,15 @@ impl<'model> Iterator for PlacesNearbyIter<'model> {
     type Item = (StopPointIdx, f64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        for sp in self.inner.by_ref() {
+        for stop_point_idx in self.inner.by_ref() {
+            let coord = self.models.base.coord(stop_point_idx);
             // in order to avoid the '"expensive" calculation of  distance_coord_to_coord()
             // we first make the "cheap" check that the stop_point is within a bounding box that contains
             // all points within the requested radius
-            if within_box(&self.bounding_box, &sp.1.coord) {
-                let distance = distance_coord_to_coord(&self.ep_coord, &sp.1.coord);
+            if within_box(&self.bounding_box, &coord) {
+                let distance = distance_coord_to_coord(&self.center, &coord);
                 if distance < self.radius {
-                    return Some((StopPointIdx::Base(sp.0), distance));
+                    return Some((StopPointIdx::Base(stop_point_idx), distance));
                 }
             }
         }
@@ -137,14 +139,15 @@ impl std::error::Error for BadPlacesNearby {}
 
 fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
     return if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
-        if let Some(stop_point) = model.base.stop_points.get(stop_point_id) {
-            Ok(stop_point.coord)
+        if let Some(stop_point_idx) = model.base.stop_point_idx(stop_point_id) {
+            let coord = model.base.coord(stop_point_idx);
+            Ok(coord)
         } else {
             Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
         }
     } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
-        if let Some(stop_area) = model.base.stop_areas.get(stop_area_id) {
-            Ok(stop_area.coord)
+        if let Some(coord) = model.base.stop_area_coord(stop_area_id) {
+            Ok(coord)
         } else {
             Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
         }

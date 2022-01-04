@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::LoadsCount,
-    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
 };
@@ -65,9 +65,9 @@ pub struct VehicleSection {
     pub vehicle_journey: VehicleJourneyIdx,
     pub day_for_vehicle_journey: NaiveDate,
     // the index (in vehicle_journey.stop_times) of the stop_time we board at
-    pub from_stoptime_idx: usize,
+    pub from_stoptime_idx: StopTimeIdx,
     // the index (in vehicle_journey.stop_times) of the stop_time we debark at
-    pub to_stoptime_idx: usize,
+    pub to_stoptime_idx: StopTimeIdx,
 }
 
 pub struct TransferSection {
