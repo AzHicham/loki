@@ -47,10 +47,10 @@ use crate::{
 };
 
 use crate::{
-    time::{PositiveDuration, SecondsSinceTimezonedDayStart},
+    time::{PositiveDuration},
     timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
 };
-use transit_model::objects::{StopTime, VehicleJourney};
+use transit_model::objects::{VehicleJourney};
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
@@ -69,9 +69,7 @@ where
         let nb_of_stop_points = base_model.nb_of_stop_points();
         let nb_transfers = base_model.transfers.len();
 
-        let (start_date, end_date) = base_model
-            .calculate_validity_period()
-            .expect("Unable to calculate a validity period.");
+        let (start_date, end_date) = base_model.validity_period();
         let calendar = Calendar::new(start_date, end_date);
         let nb_of_days = calendar.nb_of_days();
 

@@ -39,6 +39,7 @@ use crate::{
     config::LaunchParams,
     loki::{timetables::TimetablesIter, TransitData},
 };
+use anyhow::Error;
 use loki::{
     models::base_model::{self, BaseModel},
     timetables::Timetables as TimetablesTrait,
@@ -49,7 +50,7 @@ use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
-) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
+) -> Result<(TransitData<Timetables>, BaseModel), Error>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
@@ -60,7 +61,7 @@ where
     Ok((data, base_model))
 }
 
-pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_model::Error> {
+pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
     let collections = match launch_params.input_data_type {
         config::InputDataType::Ntfs => {
             transit_model::ntfs::read_collections(&launch_params.input_data_path)?
@@ -94,8 +95,7 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_mod
         }
     };
     info!("Transit model loaded");
-    let loads_data = read_loads_data(launch_params, &collections);
-    Ok(BaseModel::new(collections, loads_data))
+    BaseModel::new(collections, loads_data)
 }
 
 fn read_loads_data(

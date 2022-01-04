@@ -46,6 +46,7 @@ pub type Collections = transit_model::model::Collections;
 pub struct BaseModel {
     collections: transit_model::model::Collections,
     loads_data: LoadsData,
+    validity_period : (NaiveDate, NaiveDate)
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -54,34 +55,45 @@ pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
+pub enum BadModel {
+    NoDataset
+}
+
 impl BaseModel {
-    pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Self {
-        Self {
-            collections: model.into_collections(),
-            loads_data,
-        }
+    pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Result<Self, BadModel> {
+        Self::new(model.into_collections(), loads_data)
     }
 
     pub fn empty() -> Self {
         let mut collections = Collections::default();
-        let dataset = transit_model::objects::Dataset::default();
-        collections.datasets.push(dataset).unwrap();
+        // let dataset = transit_model::objects::Dataset::default();
+        // collections.datasets.push(dataset).unwrap();
         let loads_data = LoadsData::empty();
+        let day = NaiveDate::from_ymd(1970, 1, 1);
         Self {
             collections,
             loads_data,
+            validity_period : (day, day)
         }
     }
 
-    pub fn new(collections: transit_model::model::Collections, loads_data: LoadsData) -> Self {
-        Self {
+    pub fn new(collections: transit_model::model::Collections, loads_data: LoadsData) -> Result<Self, BadModel> {
+       let validity_period = collections.calculate_validity_period()
+            .map_err(|_| BadModel::NoDataset)?;
+        Ok(Self {
             collections,
             loads_data,
-        }
+            validity_period,
+            
+        })
     }
 
     pub fn loads_data(&self) -> &LoadsData {
         &self.loads_data
+    }
+
+    pub fn validity_period(&self) -> (NaiveDate, NaiveDate) {
+        self.validity_period
     }
 
     // stop_points
@@ -330,7 +342,6 @@ impl BaseModel {
         BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx: idx }))
     }
 
-    // stop_times
     pub fn stop_times_partial(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
@@ -354,17 +365,10 @@ impl BaseModel {
         })
     }
 
-    pub fn first_last_stop_time(
-        &self,
-        vehicle_journey_idx: BaseVehicleJourneyIdx,
-    ) -> (StopTimeIdx, StopTimeIdx) {
-        let first = StopTimeIdx { idx: 0 };
-        let stop_times = &self.collections.vehicle_journeys[vehicle_journey_idx].stop_times;
-        let last = StopTimeIdx {
-            idx: stop_times.len(),
-        };
-        (first, last)
-    }
+
+
+    // transfers
+
 }
 
 #[derive(Debug, Clone)]

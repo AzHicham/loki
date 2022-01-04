@@ -142,9 +142,7 @@ impl DataWorker {
 
     async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
-        self.load_data_from_disk()
-            .await
-            .context("DataWorker : error while loading data from disk.")?;
+        self.load_data_from_disk().await;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -244,15 +242,16 @@ impl DataWorker {
         }
     }
 
-    async fn load_data_from_disk(&mut self) -> Result<(), Error> {
+    async fn load_data_from_disk(&mut self) {
         let launch_params = self.config.launch_params.clone();
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params).with_context(|| {
-                format!(
-                    "Could not read data from disk at {:?}",
-                    &launch_params.input_data_path
-                )
-            })?;
+            let new_base_model = launch::read::read_model(&launch_params)
+                .map_err(|err| {
+                    error!("Could not read data from disk at {:?}. {:?}. \
+                            I'll keep running with an empty model.")
+                })
+                .unwrap_or_else(|| BaseModel::empty());
+
             info!("Model loaded");
             info!("Starting to build data");
             let new_data = launch::read::build_transit_data::<Timetable>(
@@ -264,7 +263,6 @@ impl DataWorker {
             data_and_models.0 = new_data;
             data_and_models.1 = new_base_model;
             data_and_models.2 = new_real_time_model;
-            Ok(())
         };
 
         self.update_data_and_models(updater).await?;
@@ -430,7 +428,7 @@ impl DataWorker {
                             // if we have unhandled kirin messages, we clear them,
                             // since we are going to request a full reload from kirin
                             self.kirin_messages.clear();
-                            self.load_data_from_disk().await?;
+                            self.load_data_from_disk().await;
                             self.reload_kirin(channel).await?;
                             debug!("Reload completed successfully.");
                         } else {
