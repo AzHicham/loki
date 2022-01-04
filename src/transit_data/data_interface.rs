@@ -223,7 +223,7 @@ pub trait DataUpdate {
 }
 
 pub trait DataIO {
-    fn new(base_model: &BaseModel, default_transfer_duration: PositiveDuration) -> Self;
+    fn new(base_model: &BaseModel) -> Self;
 }
 
 pub trait DataIters<'a>: TransitTypes

@@ -349,12 +349,8 @@ impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetab
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-    fn new(base_model: &BaseModel, default_transfer_duration: PositiveDuration) -> Self {
-        Self::_new(
-            base_model,
-            base_model.loads_data(),
-            default_transfer_duration,
-        )
+    fn new(base_model: &BaseModel) -> Self {
+        Self::_new(base_model)
     }
 }
 

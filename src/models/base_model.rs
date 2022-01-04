@@ -37,7 +37,7 @@
 use chrono::NaiveDate;
 use typed_index_collection::Idx;
 
-use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData};
+use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData, PositiveDuration};
 
 use super::{Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx};
 
@@ -46,7 +46,8 @@ pub type Collections = transit_model::model::Collections;
 pub struct BaseModel {
     collections: transit_model::model::Collections,
     loads_data: LoadsData,
-    validity_period : (NaiveDate, NaiveDate)
+    validity_period : (NaiveDate, NaiveDate),
+    default_transfer_duration : PositiveDuration,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -60,8 +61,12 @@ pub enum BadModel {
 }
 
 impl BaseModel {
-    pub fn from_transit_model(model: transit_model::Model, loads_data: LoadsData) -> Result<Self, BadModel> {
-        Self::new(model.into_collections(), loads_data)
+    pub fn from_transit_model(
+        model: transit_model::Model, 
+        loads_data: LoadsData,
+        default_transfer_duration: PositiveDuration,
+    ) -> Result<Self, BadModel> {
+        Self::new(model.into_collections(), loads_data, default_transfer_duration)
     }
 
     pub fn empty() -> Self {
@@ -73,17 +78,22 @@ impl BaseModel {
         Self {
             collections,
             loads_data,
-            validity_period : (day, day)
+            validity_period : (day, day),
+            default_transfer_duration : PositiveDuration::zero(),
         }
     }
 
-    pub fn new(collections: transit_model::model::Collections, loads_data: LoadsData) -> Result<Self, BadModel> {
+    pub fn new(collections: transit_model::model::Collections, 
+        loads_data: LoadsData,
+        default_transfer_duration: PositiveDuration,
+    ) -> Result<Self, BadModel> {
        let validity_period = collections.calculate_validity_period()
             .map_err(|_| BadModel::NoDataset)?;
         Ok(Self {
             collections,
             loads_data,
             validity_period,
+            default_transfer_duration,
             
         })
     }
@@ -369,6 +379,42 @@ impl BaseModel {
 
     // transfers
 
+    pub fn nb_of_transfers(&self) -> usize {
+        self.collections.transfers.len()
+    }
+
+    pub fn transfers(&self) -> impl Iterator<Item = BaseTransferIdx> + '_ + Clone {
+        self.collections.transfers.iter().map(|(idx, _)| idx)
+    }
+
+    pub fn from_stop(&self, transfer_idx : BaseTransferIdx) -> Option<BaseStopPointIdx> {
+        let stop_id = self.collections.transfers[transfer_idx].from_stop_id.as_str();
+        self.collections.stop_points.get_idx(stop_id)
+    }
+
+    pub fn to_stop(&self, transfer_idx : BaseTransferIdx) -> Option<BaseStopPointIdx> {
+        let stop_id = self.collections.transfers[transfer_idx].to_stop_id.as_str();
+        self.collections.stop_points.get_idx(stop_id)
+    }
+
+    pub fn transfer_duration(&self,  transfer_idx : BaseTransferIdx) -> PositiveDuration {
+        let seconds = self.collections.transfers[transfer_idx]
+            .real_min_transfer_time
+            .unwrap_or(self.default_transfer_duration.seconds);
+        PositiveDuration {
+            seconds
+        }
+    }
+
+    pub fn transfer_walking_duration(&self,  transfer_idx : BaseTransferIdx) -> PositiveDuration {
+        let seconds = self.collections.transfers[transfer_idx]
+            .min_transfer_time
+            .unwrap_or(0u32);
+        PositiveDuration {
+            seconds
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -462,3 +508,5 @@ fn debark_time(
     let seconds = arrival_seconds.checked_add(alighting_duration)?;
     SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
+
+

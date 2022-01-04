@@ -63,11 +63,9 @@ where
 {
     pub fn _new(
         base_model: &BaseModel,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
     ) -> Self {
         let nb_of_stop_points = base_model.nb_of_stop_points();
-        let nb_transfers = base_model.transfers.len();
+        let nb_transfers = base_model.nb_of_transfers();
 
         let (start_date, end_date) = base_model.validity_period();
         let calendar = Calendar::new(start_date, end_date);
@@ -83,7 +81,7 @@ where
             days_patterns: DaysPatterns::new(usize::from(nb_of_days)),
         };
 
-        data.init(base_model, loads_data, default_transfer_duration);
+        data.init(base_model);
 
         data
     }
@@ -91,30 +89,21 @@ where
     fn init(
         &mut self,
         base_model: &BaseModel,
-        loads_data: &LoadsData,
-        default_transfer_duration: PositiveDuration,
     ) {
+        let loads_data = base_model.loads_data();
         info!("Inserting vehicle journeys");
         for vehicle_journey_idx in base_model.vehicle_journeys() {
             let _ = self.insert_base_vehicle_journey(vehicle_journey_idx, base_model, loads_data);
         }
         info!("Inserting transfers");
 
-        for (transfer_idx, transfer) in base_model.transfers.iter() {
-            let has_from_stop_point_idx = base_model.stop_points.get_idx(&transfer.from_stop_id);
-            let has_to_stop_point_idx = base_model.stop_points.get_idx(&transfer.to_stop_id);
-            match (has_from_stop_point_idx, has_to_stop_point_idx) {
+        for transfer_idx in base_model.transfers() {
+            let duration = base_model.transfer_duration(transfer_idx);
+            let walking_duration = base_model.transfer_walking_duration(transfer_idx);
+            let has_from_idx = base_model.from_stop(transfer_idx);
+            let has_to_idx = base_model.to_stop(transfer_idx);
+            match (has_from_idx, has_to_idx) {
                 (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
-                    let duration = transfer
-                        .real_min_transfer_time
-                        .map_or(default_transfer_duration, |seconds| PositiveDuration {
-                            seconds,
-                        });
-                    let walking_duration = transfer
-                        .min_transfer_time
-                        .map_or(PositiveDuration::zero(), |seconds| PositiveDuration {
-                            seconds,
-                        });
                     let from_stop_point_idx = StopPointIdx::Base(from_stop_point_idx);
                     let to_stop_point_idx = StopPointIdx::Base(to_stop_point_idx);
                     let transfer_idx = TransferIdx::Base(transfer_idx);
@@ -127,11 +116,11 @@ where
                     )
                 }
                 _ => {
-                    warn!("Skipping transfer between {} and {} because at least one of this stop is not used by \
-                           vehicles.", transfer.from_stop_id, transfer.to_stop_id);
+                    warn!("Skipping transfer {:?} because at least one of its stops is unknown.", transfer_idx);
                 }
             }
         }
+
     }
 
     fn insert_transfer(
