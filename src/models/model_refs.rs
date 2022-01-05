@@ -151,8 +151,8 @@ impl<'model> ModelRefs<'model> {
         date: &NaiveDate,
         real_time_level: &RealTimeLevel,
     ) -> Option<StopPointIdx> {
-        match real_time_level {
-            &RealTimeLevel::Base => {
+        match *real_time_level {
+            RealTimeLevel::Base => {
                 if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
                     self.base
                         .stop_point_at(*idx, stop_time_idx)
@@ -161,7 +161,7 @@ impl<'model> ModelRefs<'model> {
                     None
                 }
             }
-            &RealTimeLevel::RealTime => match vehicle_journey_idx {
+            RealTimeLevel::RealTime => match vehicle_journey_idx {
                 VehicleJourneyIdx::Base(idx) => {
                     let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
                     if let Some(trip_data) = has_realtime {

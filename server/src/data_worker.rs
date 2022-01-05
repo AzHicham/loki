@@ -144,7 +144,7 @@ impl DataWorker {
         debug!("DataWorker starts initial load data from disk.");
         self.load_data_from_disk()
             .await
-            .with_context(|| format!("Error while loading data from disk."))?;
+            .with_context(|| "Error while loading data from disk.".to_string())?;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config

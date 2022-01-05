@@ -259,7 +259,7 @@ fn make_public_transport_section(
         })?;
 
     let additional_informations =
-        make_additional_informations(&vehicle_section, real_time_level, model);
+        make_additional_informations(vehicle_section, real_time_level, model);
     let shape = make_shape_from_stop_points(stop_times.clone(), model);
     let length_f64 = compute_length_public_transport_section(shape.as_slice());
     let co2_emission = compute_section_co2_emission(length_f64, vehicle_journey_idx, model);
@@ -382,7 +382,7 @@ fn make_stop_area(
     let proto = navitia_proto::StopArea {
         name: Some(stop_area_name.to_string()),
         uri: model.stop_area_uri(stop_area_name),
-        coord: coord,
+        coord,
         label: Some(stop_area_name.to_string()),
         codes: model
             .stop_area_codes(stop_area_name)
@@ -394,13 +394,13 @@ fn make_stop_area(
                     })
                     .collect()
             })
-            .unwrap_or(Vec::new()),
+            .unwrap_or_else(Vec::new),
         timezone: model
             .stop_area_timezone(stop_area_name)
             .map(|timezone| timezone.to_string()),
         ..Default::default()
     };
-    return Some(proto);
+    Some(proto)
 }
 
 fn make_pt_display_info(

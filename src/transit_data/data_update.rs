@@ -233,7 +233,7 @@ impl<Timetables> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-    pub(super) fn insert_inner<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    pub(super) fn insert_inner<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,

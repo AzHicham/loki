@@ -42,7 +42,7 @@ use crate::time::Calendar;
 use chrono::{FixedOffset, NaiveDate, Offset, TimeZone as TimeZoneTrait};
 use chrono_tz::Tz as TimeZone;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TimezonesPatterns {
     timezones_patterns: HashMap<TimeZone, Vec<(FixedOffset, DaysPattern)>>,
     buffer: HashMap<FixedOffset, Vec<NaiveDate>>,
@@ -85,14 +85,5 @@ impl TimezonesPatterns {
         }
         // unwrap is safe since we just added a value for this key above in case of a vacant entry
         self.timezones_patterns.get(timezone).unwrap().as_slice()
-    }
-}
-
-impl Default for TimezonesPatterns {
-    fn default() -> Self {
-        Self {
-            timezones_patterns: HashMap::new(),
-            buffer: HashMap::new(),
-        }
     }
 }

@@ -120,7 +120,7 @@ impl BaseModel {
         self.collections.stop_points.len()
     }
 
-    pub fn stop_points<'a>(&'a self) -> BaseStopPoints<'a> {
+    pub fn stop_points(&self) -> BaseStopPoints<'_> {
         BaseStopPoints {
             inner: self.collections.stop_points.iter(),
         }
@@ -309,7 +309,7 @@ impl BaseModel {
         let vj = &self.collections.vehicle_journeys[idx];
         vj.short_name
             .as_ref()
-            .or(vj.headsign.as_ref())
+            .or_else(|| vj.headsign.as_ref())
             .map(|s| s.as_str())
     }
 
