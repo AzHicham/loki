@@ -323,28 +323,29 @@ impl LoadsData {
     fn _check(&self, model: &BaseModel) {
         // for each vehicle_journey, check that :
         //  - for each valid date, we have occupancy data for every stop_time
-        for (vehicle_journey_idx, vehicle_journey) in model.vehicle_journeys.iter() {
-            let has_calendar = model.calendars.get(&vehicle_journey.service_id);
-            if has_calendar.is_none() {
-                continue;
-            }
-            let calendar = has_calendar.unwrap();
-
+        for vehicle_journey_idx in model.vehicle_journeys() {
             let has_vehicle_journey_load = self.per_vehicle_journey.get(&vehicle_journey_idx);
             if has_vehicle_journey_load.is_none() {
                 debug!(
                     "No occupancy data provided for vehicle_journey {}",
-                    vehicle_journey.id
+                    model.vehicle_journey_name(vehicle_journey_idx)
                 );
                 continue;
             }
+            let has_dates = model.vehicle_journey_dates(vehicle_journey_idx);
+            let dates = match has_dates {
+                Some(dates) => dates,
+                None => {
+                    continue;
+                }
+            };
             let vehicle_journey_load = has_vehicle_journey_load.unwrap();
-            for date in calendar.dates.iter() {
-                let has_trip_load = vehicle_journey_load.per_date.get(date);
+            for date in dates {
+                let has_trip_load = vehicle_journey_load.per_date.get(&date);
                 if has_trip_load.is_none() {
                     trace!(
                         "No occupancy data provided for vehicle_journey {} on date {}",
-                        vehicle_journey.id,
+                        model.vehicle_journey_name(vehicle_journey_idx),
                         date
                     );
                     continue;
