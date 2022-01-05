@@ -104,7 +104,10 @@ pub enum UpdateError {
     AddPresentTrip(disruption::Trip),
 }
 
-pub type RealTimeStopTimes<'a> = std::slice::Iter<'a, StopTime>;
+#[derive(Clone)]
+pub struct RealTimeStopTimes<'a> {
+    pub(super) inner: std::slice::Iter<'a, StopTime>,
+}
 
 impl RealTimeModel {
     pub fn apply_disruption<Data: DataTrait + DataUpdate>(
@@ -396,7 +399,8 @@ impl RealTimeModel {
 
         if let TripData::Present(stop_times) = trip_data {
             let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
-            Some(stop_times[range].iter())
+            let inner = stop_times[range].iter();
+            Some(RealTimeStopTimes { inner })
         } else {
             None
         }
@@ -469,3 +473,17 @@ impl VehicleJourneyHistory {
         }
     }
 }
+
+impl<'a> Iterator for RealTimeStopTimes<'a> {
+    type Item = StopTime;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|stop_time| stop_time.clone())
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for RealTimeStopTimes<'a> {}

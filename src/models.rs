@@ -80,7 +80,7 @@ pub struct StopTime {
     pub flow_direction: FlowDirection,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum StopTimes<'a> {
     Base(BaseStopTimes<'a>),
     New(RealTimeStopTimes<'a>),
@@ -101,4 +101,15 @@ pub struct Contributor {
     pub name: String,
     pub license: Option<String>,
     pub url: Option<String>,
+}
+
+impl<'a> Iterator for StopTimes<'a> {
+    type Item = StopTime;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            StopTimes::Base(inner) => inner.next(),
+            StopTimes::New(inner) => inner.next(),
+        }
+    }
 }

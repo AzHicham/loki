@@ -38,7 +38,7 @@ use crate::{chrono::NaiveDate, RealTimeLevel};
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
-    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
+    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes, TripData},
     Contributor, Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx,
 };
 
@@ -417,7 +417,7 @@ impl<'model> ModelRefs<'model> {
             Some(TripData::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
-                let iter = StopTimes::New(inner);
+                let iter = StopTimes::New(RealTimeStopTimes { inner });
                 Some(iter)
             }
             Some(TripData::Deleted()) => None,

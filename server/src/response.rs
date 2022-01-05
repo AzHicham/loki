@@ -464,39 +464,19 @@ fn make_stop_datetimes(
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
     let mut result = Vec::new();
-    match stop_times {
-        StopTimes::Base(stop_times) => {
-            for stop_time in stop_times {
-                let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
-                let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
-                let departure_seconds = i64::from(stop_time.board_time.total_seconds());
-                let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
-                let stop_point_idx = stop_time.stop;
-                let proto = navitia_proto::StopDateTime {
-                    arrival_date_time: Some(arrival),
-                    departure_date_time: Some(departure),
-                    stop_point: Some(make_stop_point(&stop_point_idx, model)),
-                    ..Default::default()
-                };
-                result.push(proto);
-            }
-        }
-        StopTimes::New(stop_times) => {
-            for stop_time in stop_times {
-                let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
-                let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
-                let departure_seconds = i64::from(stop_time.board_time.total_seconds());
-                let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
-                let stop_point_idx = &stop_time.stop;
-                let proto = navitia_proto::StopDateTime {
-                    arrival_date_time: Some(arrival),
-                    departure_date_time: Some(departure),
-                    stop_point: Some(make_stop_point(&stop_point_idx, model)),
-                    ..Default::default()
-                };
-                result.push(proto);
-            }
-        }
+    for stop_time in stop_times {
+        let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
+        let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
+        let departure_seconds = i64::from(stop_time.board_time.total_seconds());
+        let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
+        let stop_point_idx = stop_time.stop;
+        let proto = navitia_proto::StopDateTime {
+            arrival_date_time: Some(arrival),
+            departure_date_time: Some(departure),
+            stop_point: Some(make_stop_point(&stop_point_idx, model)),
+            ..Default::default()
+        };
+        result.push(proto);
     }
     Ok(result)
 }
