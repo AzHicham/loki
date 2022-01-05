@@ -39,7 +39,6 @@ pub mod model_refs;
 pub mod real_time_disruption;
 pub mod real_time_model;
 
-use chrono::NaiveDate;
 pub use model_refs::ModelRefs;
 pub use real_time_model::RealTimeModel;
 
@@ -98,10 +97,8 @@ pub type Rgb = transit_model::objects::Rgb;
 pub type Timezone = chrono_tz::Tz;
 
 pub struct Contributor {
-    pub id : String,
-    pub name : String,
-    pub license : Option<String>,
-    pub url : Option<String>,
+    pub id: String,
+    pub name: String,
+    pub license: Option<String>,
+    pub url: Option<String>,
 }
-
-

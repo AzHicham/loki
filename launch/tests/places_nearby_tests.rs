@@ -39,7 +39,8 @@ use anyhow::Error;
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     places_nearby::{places_nearby_impl, BadPlacesNearby},
-    transit_model::objects::Coord, PositiveDuration,
+    transit_model::objects::Coord,
+    PositiveDuration,
 };
 use rstest::{fixture, rstest};
 use utils::model_builder::ModelBuilder;

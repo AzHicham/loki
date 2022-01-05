@@ -61,7 +61,7 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
-    models::{RealTimeModel, base_model::BaseModel},
+    models::{base_model::BaseModel, RealTimeModel},
     tracing::{debug, error, info},
     DataTrait,
 };
@@ -142,7 +142,9 @@ impl DataWorker {
 
     async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
-        self.load_data_from_disk().await.with_context(|| format!("Error while loading data from disk."))?;
+        self.load_data_from_disk()
+            .await
+            .with_context(|| format!("Error while loading data from disk."))?;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -247,19 +249,17 @@ impl DataWorker {
         let updater = move |data_and_models: &mut DataAndModels| {
             let new_base_model = launch::read::read_model(&launch_params)
                 .map_err(|err| {
-                    error!("Could not read data from disk at {:?}. {:?}. \
+                    error!(
+                        "Could not read data from disk at {:?}. {:?}. \
                             I'll keep running with an empty model.",
-                            launch_params.input_data_path,
-                            err
-                        )
+                        launch_params.input_data_path, err
+                    )
                 })
                 .unwrap_or_else(|()| BaseModel::empty());
 
             info!("Model loaded");
             info!("Starting to build data");
-            let new_data = launch::read::build_transit_data::<Timetable>(
-                &new_base_model,
-            );
+            let new_data = launch::read::build_transit_data::<Timetable>(&new_base_model);
             info!("Data loaded");
             let new_real_time_model = RealTimeModel::new();
             data_and_models.0 = new_data;

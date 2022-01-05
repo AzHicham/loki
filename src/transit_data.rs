@@ -43,7 +43,9 @@ use iters::MissionsOfStop;
 
 use crate::{
     loads_data::Load,
-    models::{base_model::BaseModel, ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
+    models::{
+        base_model::BaseModel, ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx,
+    },
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
@@ -305,7 +307,7 @@ where
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx {
         let idx = self.timetables.stoptime_idx(position, trip);
-        StopTimeIdx{ idx }
+        StopTimeIdx { idx }
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {

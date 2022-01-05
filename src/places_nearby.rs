@@ -37,20 +37,24 @@
 extern crate static_assertions;
 
 use super::geometry::{bounding_box, distance_coord_to_coord};
-use crate::models::{ModelRefs, StopPointIdx, base_model::BaseStopPoints, Coord};
+use crate::models::{base_model::BaseStopPoints, Coord, ModelRefs, StopPointIdx};
 use regex::Regex;
 use std::fmt::{Display, Formatter};
 
-
 pub fn places_nearby_impl<'model>(
-    models: & ModelRefs<'model>,
-    uri: & str,
+    models: &ModelRefs<'model>,
+    uri: &str,
     radius: f64,
 ) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
     let center = parse_entrypoint(models, uri)?;
     let bounding_box = bounding_box(&center, radius);
 
-    Ok(PlacesNearbyIter::new(models.clone(), center, radius, bounding_box))
+    Ok(PlacesNearbyIter::new(
+        models.clone(),
+        center,
+        radius,
+        bounding_box,
+    ))
 }
 
 pub struct PlacesNearbyIter<'model> {
@@ -58,8 +62,7 @@ pub struct PlacesNearbyIter<'model> {
     radius: f64,
     bounding_box: (f64, f64, f64, f64),
     inner: BaseStopPoints<'model>,
-    models : ModelRefs<'model>
-
+    models: ModelRefs<'model>,
 }
 
 impl<'model> PlacesNearbyIter<'model> {
@@ -74,8 +77,7 @@ impl<'model> PlacesNearbyIter<'model> {
             radius,
             bounding_box,
             inner: models.base.stop_points(),
-            models
-
+            models,
         }
     }
 }

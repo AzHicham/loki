@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::LoadsCount,
-    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
+    models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
 };

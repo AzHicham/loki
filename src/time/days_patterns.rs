@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{iter::Enumerate, ops::Not, borrow::Borrow};
+use std::{borrow::Borrow, iter::Enumerate, ops::Not};
 
 use crate::time::{Calendar, DaysSinceDatasetStart};
 use chrono::NaiveDate;
@@ -112,8 +112,8 @@ impl DaysPatterns {
 
     pub fn get_from_dates<Dates, Date>(&mut self, dates: Dates, calendar: &Calendar) -> DaysPattern
     where
-        Dates: Iterator<Item =  Date>,
-        Date : Borrow<NaiveDate>
+        Dates: Iterator<Item = Date>,
+        Date: Borrow<NaiveDate>,
     {
         // set all elements of the buffer to false
         self.buffer.fill(false);

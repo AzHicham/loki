@@ -45,8 +45,9 @@ use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::{
+    models::StopTimeIdx,
     time::DaysSinceDatasetStart,
-    timetables::{FlowDirection, Stop, StopFlows}, models::StopTimeIdx,
+    timetables::{FlowDirection, Stop, StopFlows},
 };
 use std::cmp::Ordering::{Greater, Less};
 
@@ -1058,8 +1059,8 @@ where
         for (position, value) in enumerated_values {
             if value < prev_value {
                 let pair = PositionPair {
-                    upstream : StopTimeIdx{idx : prev_position},
-                    downstream : StopTimeIdx{idx : position}
+                    upstream: StopTimeIdx { idx: prev_position },
+                    downstream: StopTimeIdx { idx: position },
                 };
                 return Err(pair);
             }
@@ -1133,8 +1134,8 @@ where
         };
         if can_board && can_debark && board_time > debark_time {
             let position_pair = PositionPair {
-                upstream: StopTimeIdx{ idx : board_idx},
-                downstream: StopTimeIdx{ idx : debark_idx},
+                upstream: StopTimeIdx { idx: board_idx },
+                downstream: StopTimeIdx { idx: debark_idx },
             };
             return Err(VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair));
         }

@@ -170,8 +170,7 @@ where
     Timetables::Position: 'static,
 {
     use loki::DataTrait;
-    let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model.base);
+    let data: TransitData<Timetables> = launch::read::build_transit_data(model.base);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

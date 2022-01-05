@@ -36,7 +36,10 @@
 
 use anyhow::Error;
 use launch::config::ComparatorType;
-use loki::{models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs}, PositiveDuration};
+use loki::{
+    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
+    PositiveDuration,
+};
 use utils::model_builder::ModelBuilder;
 
 use crate::utils::{build_and_solve, Config};

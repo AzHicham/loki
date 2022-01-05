@@ -96,13 +96,17 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data =
-        launch::read::build_transit_data::<T>(&base_model );
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -229,15 +233,17 @@ where
 
     let config = Config::new("2020-01-01T08:00:00", "A", "C");
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-
-
-    let mut data =
-        launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -385,17 +391,18 @@ where
         })
         .build();
 
-    
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    
-
-    let mut data =
-        launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -508,15 +515,19 @@ where
         .build();
 
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let mut real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data =
-        launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

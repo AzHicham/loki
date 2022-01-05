@@ -41,7 +41,7 @@ use launch::{
     datetime::DateTimeRepresent,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
-use loki::{models::base_model::BaseModel, RealTimeLevel, PositiveDuration};
+use loki::{models::base_model::BaseModel, PositiveDuration, RealTimeLevel};
 use rstest::rstest;
 use utils::{
     build_and_solve, from_to_stop_point_names,
@@ -71,7 +71,9 @@ fn test_simple_routing(
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero()).unwrap();
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -146,7 +148,9 @@ fn test_routing_with_transfers(
         ..config
     };
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero()).unwrap();
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -252,12 +256,15 @@ fn test_routing_backward(
         ..config
     };
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
-
-
 
     let responses = build_and_solve(&model_refs, &config)?;
 
@@ -373,12 +380,15 @@ fn test_second_pass_forward(
         ..config
     };
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
-
-
 
     let responses = build_and_solve(&model_refs, &config)?;
 
@@ -445,12 +455,15 @@ fn test_second_pass_backward(
         ..config
     };
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty(), config.default_transfer_duration).unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
-
-    
 
     let responses = build_and_solve(&model_refs, &config)?;
 

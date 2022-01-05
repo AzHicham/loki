@@ -39,12 +39,12 @@ use crate::{
     config::LaunchParams,
     loki::{timetables::TimetablesIter, TransitData},
 };
-use anyhow::{format_err,Error};
+use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
-    transit_model, DataIO, DataTrait, LoadsData, 
+    transit_model, DataIO, DataTrait, LoadsData,
 };
 use std::{collections::BTreeMap, time::SystemTime};
 
@@ -96,8 +96,12 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
     };
     info!("Transit model loaded");
     let loads_data = read_loads_data(launch_params, &collections);
-    BaseModel::new(collections, loads_data, launch_params.default_transfer_duration)
-        .map_err(|err| format_err!("Could not create base model {:?}", err))
+    BaseModel::new(
+        collections,
+        loads_data,
+        launch_params.default_transfer_duration,
+    )
+    .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
 fn read_loads_data(
@@ -121,9 +125,7 @@ fn read_loads_data(
         .unwrap_or_else(LoadsData::empty)
 }
 
-pub fn build_transit_data<Timetables>(
-    base_model: &BaseModel,
-) -> TransitData<Timetables>
+pub fn build_transit_data<Timetables>(base_model: &BaseModel) -> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {

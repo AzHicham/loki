@@ -37,17 +37,19 @@
 use chrono::NaiveDate;
 use typed_index_collection::Idx;
 
-use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData, PositiveDuration};
+use crate::{
+    time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData, PositiveDuration,
+};
 
-use super::{Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx, Contributor};
+use super::{Contributor, Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx};
 
 pub type Collections = transit_model::model::Collections;
 
 pub struct BaseModel {
     collections: transit_model::model::Collections,
     loads_data: LoadsData,
-    validity_period : (NaiveDate, NaiveDate),
-    default_transfer_duration : PositiveDuration,
+    validity_period: (NaiveDate, NaiveDate),
+    default_transfer_duration: PositiveDuration,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -58,16 +60,20 @@ pub type BaseStopTime = transit_model::objects::StopTime;
 
 #[derive(Debug, Clone)]
 pub enum BadModel {
-    NoDataset
+    NoDataset,
 }
 
 impl BaseModel {
     pub fn from_transit_model(
-        model: transit_model::Model, 
+        model: transit_model::Model,
         loads_data: LoadsData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-        Self::new(model.into_collections(), loads_data, default_transfer_duration)
+        Self::new(
+            model.into_collections(),
+            loads_data,
+            default_transfer_duration,
+        )
     }
 
     pub fn empty() -> Self {
@@ -79,23 +85,24 @@ impl BaseModel {
         Self {
             collections,
             loads_data,
-            validity_period : (day, day),
-            default_transfer_duration : PositiveDuration::zero(),
+            validity_period: (day, day),
+            default_transfer_duration: PositiveDuration::zero(),
         }
     }
 
-    pub fn new(collections: transit_model::model::Collections, 
+    pub fn new(
+        collections: transit_model::model::Collections,
         loads_data: LoadsData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-       let validity_period = collections.calculate_validity_period()
+        let validity_period = collections
+            .calculate_validity_period()
             .map_err(|_| BadModel::NoDataset)?;
         Ok(Self {
             collections,
             loads_data,
             validity_period,
             default_transfer_duration,
-            
         })
     }
 
@@ -115,7 +122,7 @@ impl BaseModel {
 
     pub fn stop_points<'a>(&'a self) -> BaseStopPoints<'a> {
         BaseStopPoints {
-            inner : self.collections.stop_points.iter()
+            inner: self.collections.stop_points.iter(),
         }
     }
 
@@ -173,7 +180,6 @@ impl BaseModel {
         Some(stop_point.codes.iter())
     }
 
-
     pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
         &self.collections.stop_points[stop_idx].stop_area_id
     }
@@ -183,23 +189,23 @@ impl BaseModel {
         Some(format!("stop_area:{}", stop_area.id))
     }
 
-    pub fn stop_area_coord(&self, stop_area_id : &str) -> Option<Coord> {
+    pub fn stop_area_coord(&self, stop_area_id: &str) -> Option<Coord> {
         let stop_area = self.collections.stop_areas.get(stop_area_id)?;
         Some(Coord {
-            lat : stop_area.coord.lat,
-            lon : stop_area.coord.lon
+            lat: stop_area.coord.lat,
+            lon: stop_area.coord.lon,
         })
     }
 
     pub fn stop_area_codes(
         &self,
-        stop_area_id : &str,
+        stop_area_id: &str,
     ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
         let stop_area = self.collections.stop_areas.get(stop_area_id)?;
         Some(stop_area.codes.iter())
     }
 
-    pub fn stop_area_timezone(&self, stop_area_id : &str,) -> Option<chrono_tz::Tz> {
+    pub fn stop_area_timezone(&self, stop_area_id: &str) -> Option<chrono_tz::Tz> {
         let stop_area = self.collections.stop_areas.get(stop_area_id)?;
         stop_area.timezone
     }
@@ -271,7 +277,8 @@ impl BaseModel {
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.collections.vehicle_journeys[idx]
-            .headsign.as_ref()
+            .headsign
+            .as_ref()
             .map(|s| s.as_str())
     }
 
@@ -303,7 +310,10 @@ impl BaseModel {
 
     pub fn trip_short_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         let vj = &self.collections.vehicle_journeys[idx];
-        vj.short_name.as_ref().or(vj.headsign.as_ref()).map(|s| s.as_str())
+        vj.short_name
+            .as_ref()
+            .or(vj.headsign.as_ref())
+            .map(|s| s.as_str())
     }
 
     pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
@@ -348,23 +358,23 @@ impl BaseModel {
         physical_mode.co2_emission
     }
 
-    pub fn has_datetime_estimated(&self, 
+    pub fn has_datetime_estimated(
+        &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         from_stoptime_idx: StopTimeIdx,
-        to_stoptime_idx: StopTimeIdx) -> bool 
-    {
-        let stop_times = self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);  
+        to_stoptime_idx: StopTimeIdx,
+    ) -> bool {
+        let stop_times =
+            self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
         let is_empty = stop_times.len() == 0;
         if is_empty {
             false
-        }
-        else {
+        } else {
             let first = stop_times.first().unwrap(); // unwrap is safe, since we checked that !is_empty
             let last = stop_times.last().unwrap();
 
             first.datetime_estimated || last.datetime_estimated
         }
-
     }
 
     // contains ids
@@ -396,8 +406,6 @@ impl BaseModel {
         self.collections.stop_areas.contains_id(id)
     }
 
-
-
     // stop_times
     pub fn stop_times(
         &self,
@@ -405,7 +413,6 @@ impl BaseModel {
     ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
         let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
-        let timezone = self.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
         let inner = stop_times.iter();
         BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx: idx }))
     }
@@ -427,11 +434,12 @@ impl BaseModel {
         })
     }
 
-    fn stop_times_inner( &self,
+    fn stop_times_inner(
+        &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         from_stoptime_idx: StopTimeIdx,
-        to_stoptime_idx: StopTimeIdx,) -> &[transit_model::objects::StopTime]
-    {
+        to_stoptime_idx: StopTimeIdx,
+    ) -> &[transit_model::objects::StopTime] {
         let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let from_idx = from_stoptime_idx.idx;
@@ -439,8 +447,6 @@ impl BaseModel {
         let range = from_idx..=to_idx;
         &stop_times[range]
     }
-
-
 
     // transfers
 
@@ -452,45 +458,41 @@ impl BaseModel {
         self.collections.transfers.iter().map(|(idx, _)| idx)
     }
 
-    pub fn from_stop(&self, transfer_idx : BaseTransferIdx) -> Option<BaseStopPointIdx> {
-        let stop_id = self.collections.transfers[transfer_idx].from_stop_id.as_str();
+    pub fn from_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
+        let stop_id = self.collections.transfers[transfer_idx]
+            .from_stop_id
+            .as_str();
         self.collections.stop_points.get_idx(stop_id)
     }
 
-    pub fn to_stop(&self, transfer_idx : BaseTransferIdx) -> Option<BaseStopPointIdx> {
+    pub fn to_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
         let stop_id = self.collections.transfers[transfer_idx].to_stop_id.as_str();
         self.collections.stop_points.get_idx(stop_id)
     }
 
-    pub fn transfer_duration(&self,  transfer_idx : BaseTransferIdx) -> PositiveDuration {
+    pub fn transfer_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {
         let seconds = self.collections.transfers[transfer_idx]
             .real_min_transfer_time
             .unwrap_or(self.default_transfer_duration.seconds);
-        PositiveDuration {
-            seconds
-        }
+        PositiveDuration { seconds }
     }
 
-    pub fn transfer_walking_duration(&self,  transfer_idx : BaseTransferIdx) -> PositiveDuration {
+    pub fn transfer_walking_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {
         let seconds = self.collections.transfers[transfer_idx]
             .min_transfer_time
             .unwrap_or(0u32);
-        PositiveDuration {
-            seconds
-        }
+        PositiveDuration { seconds }
     }
 
     // various
 
-    pub fn contributors(&self) -> impl Iterator<Item=Contributor>+ '_ {
-        self.collections.contributors.values().map(|c|
-            Contributor {
-                id: c.id.clone(),
-                name: c.name.clone(),
-                license: c.license.clone(),
-                url: c.website.clone(),
-            }
-        )
+    pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
+        self.collections.contributors.values().map(|c| Contributor {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            license: c.license.clone(),
+            url: c.website.clone(),
+        })
     }
 }
 
@@ -536,8 +538,6 @@ impl<'a> Iterator for BaseStopTimes<'a> {
 }
 
 impl<'a> ExactSizeIterator for BaseStopTimes<'a> {}
-
-
 
 #[derive(Debug)]
 pub enum BadStopTime {
@@ -588,23 +588,21 @@ fn debark_time(
     SecondsSinceTimezonedDayStart::from_seconds(seconds)
 }
 
-
 #[derive(Clone, Debug)]
 pub struct BaseStopPoints<'a> {
-    inner : typed_index_collection::Iter<'a, transit_model::objects::StopPoint>
+    inner: typed_index_collection::Iter<'a, transit_model::objects::StopPoint>,
 }
 
 impl<'a> Iterator for BaseStopPoints<'a> {
     type Item = BaseStopPointIdx;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(idx,_)| idx)
+        self.inner.next().map(|(idx, _)| idx)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
-
 }
 
 impl<'a> ExactSizeIterator for BaseStopPoints<'a> {}

@@ -47,10 +47,10 @@ use crate::{
 };
 
 use crate::{
-    time::{PositiveDuration},
-    timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
+    time::PositiveDuration,
+    timetables::{Timetables as TimetablesTrait, TimetablesIter},
 };
-use transit_model::objects::{VehicleJourney};
+use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
@@ -61,9 +61,7 @@ impl<Timetables> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
-    pub fn _new(
-        base_model: &BaseModel,
-    ) -> Self {
+    pub fn _new(base_model: &BaseModel) -> Self {
         let nb_of_stop_points = base_model.nb_of_stop_points();
         let nb_transfers = base_model.nb_of_transfers();
 
@@ -86,10 +84,7 @@ where
         data
     }
 
-    fn init(
-        &mut self,
-        base_model: &BaseModel,
-    ) {
+    fn init(&mut self, base_model: &BaseModel) {
         let loads_data = base_model.loads_data();
         info!("Inserting vehicle journeys");
         for vehicle_journey_idx in base_model.vehicle_journeys() {
@@ -116,11 +111,13 @@ where
                     )
                 }
                 _ => {
-                    warn!("Skipping transfer {:?} because at least one of its stops is unknown.", transfer_idx);
+                    warn!(
+                        "Skipping transfer {:?} because at least one of its stops is unknown.",
+                        transfer_idx
+                    );
                 }
             }
         }
-
     }
 
     fn insert_transfer(
@@ -177,14 +174,17 @@ where
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
-        let stop_times = base_model.stop_times(vehicle_journey_idx).map_err(|(err, stop_time_idx)|{
-            warn!(
+        let stop_times =
+            base_model
+                .stop_times(vehicle_journey_idx)
+                .map_err(|(err, stop_time_idx)| {
+                    warn!(
                 "Skipping vehicle journey {} because its {}-th stop time is ill formed {:?}.",
                 base_model.vehicle_journey_name(vehicle_journey_idx),
                 stop_time_idx.idx,
                 err
             );
-        })?;
+                })?;
 
         let dates = base_model
             .vehicle_journey_dates(vehicle_journey_idx)

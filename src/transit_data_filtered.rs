@@ -37,7 +37,7 @@
 use crate::{
     filters::Filters,
     loads_data::Load,
-    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
+    models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     DataWithIters, RealTimeLevel,
 };

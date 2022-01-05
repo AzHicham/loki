@@ -59,8 +59,6 @@ pub struct MasterWorker {
 
 impl MasterWorker {
     pub fn new(config: ServerConfig) -> Result<Self, Error> {
-        let launch_params = &config.launch_params;
-
         // Initialize models and data.
         // We init everything with empty data.
         // DataWorker will take care of reading data from disk

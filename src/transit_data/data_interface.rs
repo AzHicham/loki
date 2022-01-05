@@ -1,6 +1,6 @@
 use crate::{
     loads_data::{Load, LoadsData},
-    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx, StopTimeIdx},
+    models::{base_model::BaseModel, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
 };
