@@ -164,12 +164,12 @@ impl BaseModel {
 
     pub fn platform_code(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        stop_point.platform_code.as_ref().map(|s| s.as_str())
+        stop_point.platform_code.as_deref()
     }
 
     pub fn fare_zone_id(&self, idx: BaseStopPointIdx) -> Option<&str> {
         let stop_point = &self.collections.stop_points[idx];
-        stop_point.fare_zone_id.as_ref().map(|s| s.as_str())
+        stop_point.fare_zone_id.as_deref()
     }
 
     pub fn codes(
@@ -244,7 +244,7 @@ impl BaseModel {
         self.collections
             .calendars
             .get(&vehicle_journey.service_id)
-            .map(|calendar| calendar.dates.iter().map(|date| date.clone()))
+            .map(|calendar| calendar.dates.iter().copied())
     }
 
     fn vehicle_journey_route(
@@ -276,16 +276,13 @@ impl BaseModel {
     }
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
-        self.collections.vehicle_journeys[idx]
-            .headsign
-            .as_ref()
-            .map(|s| s.as_str())
+        self.collections.vehicle_journeys[idx].headsign.as_deref()
     }
 
     pub fn direction(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         let route = self.vehicle_journey_route(idx)?;
         let destination_id = route.destination_id.as_ref()?;
-        let stop_area = self.collections.stop_areas.get(&destination_id)?;
+        let stop_area = self.collections.stop_areas.get(destination_id)?;
         Some(stop_area.name.as_str())
     }
 
@@ -366,7 +363,7 @@ impl BaseModel {
     ) -> bool {
         let stop_times =
             self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
-        let is_empty = stop_times.len() == 0;
+        let is_empty = stop_times.is_empty();
         if is_empty {
             false
         } else {
@@ -414,7 +411,7 @@ impl BaseModel {
         let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let inner = stop_times.iter();
-        BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx: idx }))
+        BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx }))
     }
 
     pub fn stop_times_partial(
@@ -510,8 +507,8 @@ impl<'a> BaseStopTimes<'a> {
         // can be transformed into a loki::models::StopTime
         for (stop_time_idx, stop_time) in copy.enumerate() {
             flow(stop_time).map_err(|err| (err, stop_time_idx))?;
-            board_time(stop_time).ok_or_else(|| (BadStopTime::BoardTime, stop_time_idx))?;
-            debark_time(stop_time).ok_or_else(|| (BadStopTime::DebarkTime, stop_time_idx))?;
+            board_time(stop_time).ok_or((BadStopTime::BoardTime, stop_time_idx))?;
+            debark_time(stop_time).ok_or((BadStopTime::DebarkTime, stop_time_idx))?;
         }
         Ok(Self { inner })
     }

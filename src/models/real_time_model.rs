@@ -478,7 +478,7 @@ impl<'a> Iterator for RealTimeStopTimes<'a> {
     type Item = StopTime;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|stop_time| stop_time.clone())
+        self.inner.next().cloned()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

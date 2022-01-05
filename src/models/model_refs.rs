@@ -68,21 +68,21 @@ impl<'model> ModelRefs<'model> {
 
     pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_point_name(*idx),
+            StopPointIdx::Base(idx) => self.base.stop_point_name(*idx),
             StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
         }
     }
 
     pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
         match stop_idx {
-            StopPointIdx::Base(idx) => &self.base.stop_area_name(*idx),
+            StopPointIdx::Base(idx) => self.base.stop_area_name(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
 
     pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journey_name(*idx),
+            VehicleJourneyIdx::Base(idx) => self.base.vehicle_journey_name(*idx),
             VehicleJourneyIdx::New(idx) => &self.real_time.new_vehicle_journeys_history[idx.idx].0,
         }
     }
@@ -97,7 +97,7 @@ impl<'model> ModelRefs<'model> {
 
     pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.route_name(*idx),
+            VehicleJourneyIdx::Base(idx) => self.base.route_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_route",
         }
     }
@@ -118,7 +118,7 @@ impl<'model> ModelRefs<'model> {
 
     pub fn physical_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => &self.base.physical_mode_name(*idx),
+            VehicleJourneyIdx::Base(idx) => self.base.physical_mode_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
         }
     }
@@ -156,7 +156,7 @@ impl<'model> ModelRefs<'model> {
                 if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
                     self.base
                         .stop_point_at(*idx, stop_time_idx)
-                        .map(|idx| StopPointIdx::Base(idx))
+                        .map(StopPointIdx::Base)
                 } else {
                     None
                 }
@@ -174,7 +174,7 @@ impl<'model> ModelRefs<'model> {
                     } else {
                         self.base
                             .stop_point_at(*idx, stop_time_idx)
-                            .map(|idx| StopPointIdx::Base(idx))
+                            .map(StopPointIdx::Base)
                     }
                 }
                 VehicleJourneyIdx::New(idx) => {
