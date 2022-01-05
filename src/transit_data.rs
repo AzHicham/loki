@@ -464,6 +464,12 @@ fn handle_vehicletimes_error(
     let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
 
     match error {
+        VehicleTimesError::LessThanTwoStops => {
+            error!(
+                "Skipping vehicle journey {} because it has less than 2 stops",
+                vehicle_journey_name,
+            );
+        }
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
             let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
                 model,

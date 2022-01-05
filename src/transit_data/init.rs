@@ -179,12 +179,19 @@ where
                 .stop_times(vehicle_journey_idx)
                 .map_err(|(err, stop_time_idx)| {
                     warn!(
-                "Skipping vehicle journey {} because its {}-th stop time is ill formed {:?}.",
-                base_model.vehicle_journey_name(vehicle_journey_idx),
-                stop_time_idx.idx,
-                err
-            );
+                    "Skipping vehicle journey {} because its {}-th stop time is ill formed {:?}.",
+                    base_model.vehicle_journey_name(vehicle_journey_idx),
+                    stop_time_idx.idx,
+                    err
+                );
                 })?;
+        if stop_times.len() < 2 {
+            warn!(
+                "Skipping vehicle journey {} because it has less than 2 stop times.",
+                base_model.vehicle_journey_name(vehicle_journey_idx),
+            );
+            return Err(());
+        }
 
         let dates = base_model
             .vehicle_journey_dates(vehicle_journey_idx)

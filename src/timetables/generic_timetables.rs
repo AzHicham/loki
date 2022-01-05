@@ -1087,6 +1087,9 @@ where
 {
     assert!(flows.len() == board_times.len());
     assert!(flows.len() == debark_times.len());
+    if flows.len() < 2 {
+        return Err(VehicleTimesError::LessThanTwoStops);
+    }
 
     let valid_enumerated_board_times = board_times
         .clone()
@@ -1155,4 +1158,5 @@ pub enum VehicleTimesError {
     DebarkBeforeUpstreamBoard(PositionPair), // board_time[upstream] > debark_time[downstream]
     DecreasingBoardTime(PositionPair),       // board_time[upstream] > board_time[downstream]
     DecreasingDebarkTime(PositionPair),      // debark_time[upstream] > debark_time[downstream]
+    LessThanTwoStops,
 }
