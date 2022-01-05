@@ -274,39 +274,3 @@ where
         result
     }
 }
-
-pub fn create_flows_for_base_vehicle_journey(
-    vehicle_journey: &VehicleJourney,
-) -> Result<Vec<FlowDirection>, ()> {
-    let mut result = Vec::with_capacity(vehicle_journey.stop_times.len());
-    for (idx, stop_time) in vehicle_journey.stop_times.iter().enumerate() {
-        let to_push = match (stop_time.pickup_type, stop_time.drop_off_type) {
-            (0, 0) => FlowDirection::BoardAndDebark,
-            (1, 0) => FlowDirection::DebarkOnly,
-            (0, 1) => FlowDirection::BoardOnly,
-            (1, 1) => FlowDirection::NoBoardDebark,
-            _ => {
-                warn!(
-                    "Skipping vehicle journey {} that has a bad {}th stop_time : \n {:#?} \n \
-                because of unhandled pickup type {} or dropoff type {}. ",
-                    vehicle_journey.id,
-                    idx,
-                    stop_time,
-                    stop_time.pickup_type,
-                    stop_time.drop_off_type
-                );
-                return Err(());
-            }
-        };
-        result.push(to_push);
-    }
-
-    if result.len() < 2 {
-        warn!(
-            "Skipping vehicle journey {} that has less than 2 stop times.",
-            vehicle_journey.id
-        );
-        return Err(());
-    }
-    Ok(result)
-}

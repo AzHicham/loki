@@ -127,10 +127,6 @@ impl BaseModel {
         &self.collections.stop_points[stop_idx].name
     }
 
-    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
-        &self.collections.stop_points[stop_idx].stop_area_id
-    }
-
     pub fn stop_point_uri(&self, idx: BaseStopPointIdx) -> String {
         let id = &self.collections.stop_points[idx].id;
         format!("stop_point:{}", id)
@@ -175,6 +171,37 @@ impl BaseModel {
     ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
         let stop_point = &self.collections.stop_points[idx];
         Some(stop_point.codes.iter())
+    }
+
+
+    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
+        &self.collections.stop_points[stop_idx].stop_area_id
+    }
+
+    pub fn stop_area_uri(&self, stop_area_id: &str) -> Option<String> {
+        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        Some(format!("stop_area:{}", stop_area.id))
+    }
+
+    pub fn stop_area_coord(&self, stop_area_id : &str) -> Option<Coord> {
+        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        Some(Coord {
+            lat : stop_area.coord.lat,
+            lon : stop_area.coord.lon
+        })
+    }
+
+    pub fn stop_area_codes(
+        &self,
+        stop_area_id : &str,
+    ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
+        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        Some(stop_area.codes.iter())
+    }
+
+    pub fn stop_area_timezone(&self, stop_area_id : &str,) -> Option<chrono_tz::Tz> {
+        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        stop_area.timezone
     }
 
     // vehicle journey
@@ -346,13 +373,7 @@ impl BaseModel {
 
     // stop_areas
 
-    pub fn stop_area_coord(&self, id : &str) -> Option<Coord> {
-        let stop_area = self.collections.stop_areas.get(id)?;
-        Some(Coord {
-            lat : stop_area.coord.lat,
-            lon : stop_area.coord.lon
-        })
-    }
+
 
     // stop_times
     pub fn stop_times(

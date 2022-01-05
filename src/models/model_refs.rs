@@ -81,6 +81,8 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
+
+
     pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => &self.base.vehicle_journey_name(*idx),
@@ -311,6 +313,26 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
+    pub fn stop_area_coord(& self, id: &str) -> Option<Coord> {
+        self.base.stop_area_coord(id)
+    }
+
+    pub fn stop_area_uri(& self, id: &str) -> Option<String> {
+        self.base.stop_area_uri(id)
+    }
+
+    pub fn stop_area_codes(
+        &self,
+        id: &str,
+    ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
+        self.base.stop_area_codes(id)
+    }
+
+    pub fn stop_area_timezone(&self, stop_area_id : &str,) -> Option<chrono_tz::Tz> {
+        self.base.stop_area_timezone(stop_area_id)
+    }
+
+
     pub fn timezone(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
@@ -508,4 +530,8 @@ impl<'model> ModelRefs<'model> {
             VehicleJourneyIdx::New(_idx) => None,
         }
     }
+
+
+
+
 }

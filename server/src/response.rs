@@ -371,33 +371,34 @@ fn make_stop_area(
     model: &ModelRefs,
 ) -> Option<navitia_proto::StopArea> {
     let stop_area_name = model.stop_area_name(stop_point_idx);
-    if let Some(stop_area) = model.stop_area_name(stop_area_name) {
-        let proto = navitia_proto::StopArea {
-            name: Some(stop_area.name.clone()),
-            uri: Some(format!("stop_area:{}", stop_area.id)),
-            coord: Some(navitia_proto::GeographicalCoord {
-                lat: stop_area.coord.lat,
-                lon: stop_area.coord.lon,
-            }),
-            label: Some(stop_area.name.clone()),
-            codes: stop_area
-                .codes
-                .iter()
-                .map(|(key, value)| navitia_proto::Code {
+    let coord = model.stop_area_coord(stop_area_name).map(|coord| 
+        navitia_proto::GeographicalCoord {
+            lat: coord.lat,
+            lon: coord.lon,
+        }
+    );
+    let proto = navitia_proto::StopArea {
+        name: Some(stop_area_name.to_string()),
+        uri: model.stop_area_uri(stop_area_name),
+        coord: coord,
+        label: Some(stop_area_name.to_string()),
+        codes: model
+            .stop_area_codes(stop_area_name)
+            .map(|codes|
+                codes.map(|(key, value)| navitia_proto::Code {
                     r#type: key.clone(),
                     value: value.clone(),
-                })
-                .collect(),
-            timezone: stop_area
-                .timezone
-                .or(Some(chrono_tz::UTC))
-                .map(|timezone| timezone.to_string()),
-            ..Default::default()
-        };
-        return Some(proto);
-    }
+                }).collect()
+            ).unwrap_or(Vec::new())
+            ,
+        timezone: model
+            .stop_area_timezone(stop_area_name)
+            .or(Some(chrono_tz::UTC))
+            .map(|timezone| timezone.to_string()),
+        ..Default::default()
+    };
+    return Some(proto);
 
-    None
 }
 
 fn make_pt_display_info(
