@@ -462,7 +462,7 @@ fn make_stop_datetimes(
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
     let mut result = Vec::new();
     match stop_times {
-        StopTimes::Base(stop_times, date) => {
+        StopTimes::Base(stop_times) => {
             for stop_time in stop_times {
                 let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
                 let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
@@ -478,7 +478,7 @@ fn make_stop_datetimes(
                 result.push(proto);
             }
         }
-        StopTimes::New(stop_times, date) => {
+        StopTimes::New(stop_times) => {
             for stop_time in stop_times {
                 let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
                 let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
@@ -653,7 +653,7 @@ fn make_shape_from_stop_points(
     model: &ModelRefs,
 ) -> Vec<navitia_proto::GeographicalCoord> {
     match stoptimes {
-        StopTimes::Base(stop_times, _) => stop_times
+        StopTimes::Base(stop_times) => stop_times
             .filter_map(|stop_time| {
                 let stop_point_idx = &stop_time.stop;
                 let coord = &model.coord(stop_point_idx)?;
@@ -663,7 +663,7 @@ fn make_shape_from_stop_points(
                 })
             })
             .collect(),
-        StopTimes::New(stop_times, _) => stop_times
+        StopTimes::New(stop_times) => stop_times
         .filter_map(|stop_time| {
             let stop_point_idx = &stop_time.stop;
             let coord = &model.coord(stop_point_idx)?;

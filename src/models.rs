@@ -83,8 +83,8 @@ pub struct StopTime {
 
 #[derive(Debug, Clone)]
 pub enum StopTimes<'a> {
-    Base(BaseStopTimes<'a>, NaiveDate),
-    New(RealTimeStopTimes<'a>, NaiveDate),
+    Base(BaseStopTimes<'a>),
+    New(RealTimeStopTimes<'a>),
 }
 
 #[derive(Debug, Clone)]

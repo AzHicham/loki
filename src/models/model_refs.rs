@@ -399,10 +399,13 @@ impl<'model> ModelRefs<'model> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
+                if ! self.base.trip_exists(*idx, date) {
+                    return None;
+                }
                 let base_stop_times = self.base
                     .stop_times_partial(*idx, from_stoptime_idx, to_stoptime_idx)
                     .ok()?;
-                let stop_times = StopTimes::Base(base_stop_times, date.clone());
+                let stop_times = StopTimes::Base(base_stop_times);
                 Some(stop_times,)
             }
         }
@@ -419,7 +422,7 @@ impl<'model> ModelRefs<'model> {
             Some(TripData::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
-                let iter = StopTimes::New(inner, date.clone());
+                let iter = StopTimes::New(inner);
                 Some(iter)
             }
             Some(TripData::Deleted()) => None,
@@ -431,7 +434,7 @@ impl<'model> ModelRefs<'model> {
                         .base
                         .stop_times_partial(*base_idx, from_stoptime_idx, to_stoptime_idx)
                         .ok()?;
-                    let iter = StopTimes::Base(inner, date.clone());
+                    let iter = StopTimes::Base(inner);
                     Some(iter)
                 } else {
                     None
