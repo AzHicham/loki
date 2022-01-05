@@ -83,7 +83,7 @@ pub struct StopTime {
 
 #[derive(Debug, Clone)]
 pub enum StopTimes<'a> {
-    Base(BaseStopTimes<'a>, NaiveDate, chrono_tz::Tz),
+    Base(BaseStopTimes<'a>, NaiveDate),
     New(RealTimeStopTimes<'a>, NaiveDate),
 }
 
@@ -94,3 +94,14 @@ pub struct Coord {
 }
 
 pub type Rgb = transit_model::objects::Rgb;
+
+pub type Timezone = chrono_tz::Tz;
+
+pub struct Contributor {
+    pub id : String,
+    pub name : String,
+    pub license : Option<String>,
+    pub url : Option<String>,
+}
+
+

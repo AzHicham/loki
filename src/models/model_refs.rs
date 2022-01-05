@@ -39,7 +39,7 @@ use crate::{chrono::NaiveDate, RealTimeLevel};
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, TripData},
-    Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx,
+    Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx, Timezone, Contributor,
 };
 
 use super::RealTimeModel;
@@ -137,6 +137,15 @@ impl<'model> ModelRefs<'model> {
                 }
             }
             VehicleJourneyIdx::New(_idx) => unknown_commercial_mode,
+        }
+    }
+
+    pub fn co2_emission(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> Option<f32> {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => {
+               self.base.co2_emission(*idx)
+            }
+            VehicleJourneyIdx::New(_) => None,
         }
     }
 
@@ -390,11 +399,11 @@ impl<'model> ModelRefs<'model> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
-                let timezone = self.timezone(vehicle_journey_idx, date);
-                self.base
+                let base_stop_times = self.base
                     .stop_times_partial(*idx, from_stoptime_idx, to_stoptime_idx)
-                    .map(|iter| StopTimes::Base(iter, date.clone(), timezone))
-                    .ok()
+                    .ok()?;
+                let stop_times = StopTimes::Base(base_stop_times, date.clone());
+                Some(stop_times,)
             }
         }
     }
@@ -422,8 +431,7 @@ impl<'model> ModelRefs<'model> {
                         .base
                         .stop_times_partial(*base_idx, from_stoptime_idx, to_stoptime_idx)
                         .ok()?;
-                    let timezone = self.base.timezone(*base_idx)?;
-                    let iter = StopTimes::Base(inner, date.clone(), timezone);
+                    let iter = StopTimes::Base(inner, date.clone());
                     Some(iter)
                 } else {
                     None
@@ -431,6 +439,29 @@ impl<'model> ModelRefs<'model> {
             }
         }
     }
+
+
+    pub fn has_datetime_estimated(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,
+        real_time_level: &RealTimeLevel,
+    ) -> bool 
+    {
+        if self.stop_times(vehicle_journey_idx, date, from_stoptime_idx, to_stoptime_idx, real_time_level).is_none() {
+            return false;
+        }
+        match (vehicle_journey_idx, real_time_level) {
+            (VehicleJourneyIdx::Base(idx), RealTimeLevel::Base) => self.base.has_datetime_estimated(*idx, from_stoptime_idx, to_stoptime_idx),
+            (VehicleJourneyIdx::Base(_), RealTimeLevel::RealTime) => false,
+            (VehicleJourneyIdx::New(_), _) => false,
+        }
+
+    }
+
+
 
     pub fn line_code(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> Option<&str> {
         match vehicle_journey_idx {
@@ -532,6 +563,8 @@ impl<'model> ModelRefs<'model> {
     }
 
 
-
+    pub fn contributors(&self) -> impl Iterator<Item=Contributor>+ '_ {
+        self.base.contributors()
+    }
 
 }

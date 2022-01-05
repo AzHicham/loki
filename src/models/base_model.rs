@@ -39,7 +39,7 @@ use typed_index_collection::Idx;
 
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData, PositiveDuration};
 
-use super::{Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx};
+use super::{Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx, Contributor};
 
 pub type Collections = transit_model::model::Collections;
 
@@ -342,6 +342,31 @@ impl BaseModel {
         }
     }
 
+    pub fn co2_emission(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> Option<f32> {
+        let physical_mode_name = self.physical_mode_name(vehicle_journey_idx);
+        let physical_mode = self.collections.physical_modes.get(physical_mode_name)?;
+        physical_mode.co2_emission
+    }
+
+    pub fn has_datetime_estimated(&self, 
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx) -> bool 
+    {
+        let stop_times = self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);  
+        let is_empty = stop_times.len() == 0;
+        if is_empty {
+            false
+        }
+        else {
+            let first = stop_times.first().unwrap(); // unwrap is safe, since we checked that !is_empty
+            let last = stop_times.last().unwrap();
+
+            first.datetime_estimated || last.datetime_estimated
+        }
+
+    }
+
     // contains ids
     pub fn contains_line_id(&self, id: &str) -> bool {
         self.collections.lines.contains_id(id)
@@ -371,8 +396,6 @@ impl BaseModel {
         self.collections.stop_areas.contains_id(id)
     }
 
-    // stop_areas
-
 
 
     // stop_times
@@ -393,21 +416,28 @@ impl BaseModel {
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
+        let inner = self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
+        BaseStopTimes::new(inner.iter()).map_err(|(err, idx)| {
+            (
+                err,
+                StopTimeIdx {
+                    idx: from_stoptime_idx.idx + idx,
+                },
+            )
+        })
+    }
+
+    fn stop_times_inner( &self,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+        from_stoptime_idx: StopTimeIdx,
+        to_stoptime_idx: StopTimeIdx,) -> &[transit_model::objects::StopTime]
+    {
         let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let from_idx = from_stoptime_idx.idx;
         let to_idx = to_stoptime_idx.idx;
-        let timezone = self.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
         let range = from_idx..=to_idx;
-        let inner = stop_times[range].iter();
-        BaseStopTimes::new(inner).map_err(|(err, idx)| {
-            (
-                err,
-                StopTimeIdx {
-                    idx: from_idx + idx,
-                },
-            )
-        })
+        &stop_times[range]
     }
 
 
@@ -450,6 +480,18 @@ impl BaseModel {
         }
     }
 
+    // various
+
+    pub fn contributors(&self) -> impl Iterator<Item=Contributor>+ '_ {
+        self.collections.contributors.values().map(|c|
+            Contributor {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                license: c.license.clone(),
+                url: c.website.clone(),
+            }
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -494,6 +536,8 @@ impl<'a> Iterator for BaseStopTimes<'a> {
 }
 
 impl<'a> ExactSizeIterator for BaseStopTimes<'a> {}
+
+
 
 #[derive(Debug)]
 pub enum BadStopTime {

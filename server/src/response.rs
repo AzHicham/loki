@@ -38,7 +38,7 @@ use crate::navitia_proto;
 
 use launch::loki::{
     self,
-    models::{ModelRefs, StopPointIdx, StopTimes, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, StopTimes, VehicleJourneyIdx, Timezone, Coord},
     RealTimeLevel, RequestInput,
 };
 
@@ -46,12 +46,10 @@ use loki::response::{TransferSection, VehicleSection, WaitingSection};
 
 use loki::{
     chrono::{self, NaiveDate, NaiveDateTime},
-    chrono_tz::{self, Tz as Timezone},
     geometry::distance_coord_to_coord,
 };
 
 use anyhow::{format_err, Context, Error};
-use launch::loki::transit_model::objects::Coord;
 use std::convert::TryFrom;
 
 pub fn make_response(
@@ -260,10 +258,12 @@ fn make_public_transport_section(
             )
         })?;
 
-    let additional_informations = make_additional_informations(&stop_times);
-    let shape = make_shape_from_stop_points(&stop_times, model);
+    let additional_informations = make_additional_informations(&vehicle_section, real_time_level, model);
+    let shape = make_shape_from_stop_points(stop_times.clone(), model);
     let length_f64 = compute_length_public_transport_section(shape.as_slice());
     let co2_emission = compute_section_co2_emission(length_f64, vehicle_journey_idx, model);
+
+    let timezone = model.timezone(vehicle_journey_idx, date);
 
     let mut proto = navitia_proto::Section {
         origin: Some(make_stop_point_pt_object(&from_stop_point_idx, model)?),
@@ -274,7 +274,7 @@ fn make_public_transport_section(
             real_time_level,
             model,
         )),
-        stop_date_times: make_stop_datetimes(&stop_times, model)?,
+        stop_date_times: make_stop_datetimes(stop_times, timezone, *date, model)?,
         shape,
         length: Some(length_f64 as i32),
         co2_emission,
@@ -393,7 +393,6 @@ fn make_stop_area(
             ,
         timezone: model
             .stop_area_timezone(stop_area_name)
-            .or(Some(chrono_tz::UTC))
             .map(|timezone| timezone.to_string()),
         ..Default::default()
     };
@@ -456,18 +455,20 @@ fn make_pt_display_info(
 }
 
 fn make_stop_datetimes(
-    stop_times: &StopTimes,
+    stop_times: StopTimes,
+    timezone : Timezone,
+    date : NaiveDate,
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
     let mut result = Vec::new();
     match stop_times {
-        StopTimes::Base(stop_times, date, timezone) => {
-            for stop_time in stop_times.iter() {
-                let arrival_seconds = i64::from(stop_time.arrival_time.total_seconds());
-                let arrival = to_utc_timestamp(*timezone, *date, arrival_seconds)?;
-                let departure_seconds = i64::from(stop_time.departure_time.total_seconds());
-                let departure = to_utc_timestamp(*timezone, *date, departure_seconds)?;
-                let stop_point_idx = StopPointIdx::Base(stop_time.stop_point_idx);
+        StopTimes::Base(stop_times, date) => {
+            for stop_time in stop_times {
+                let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
+                let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
+                let departure_seconds = i64::from(stop_time.board_time.total_seconds());
+                let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
+                let stop_point_idx = stop_time.stop;
                 let proto = navitia_proto::StopDateTime {
                     arrival_date_time: Some(arrival),
                     departure_date_time: Some(departure),
@@ -478,15 +479,16 @@ fn make_stop_datetimes(
             }
         }
         StopTimes::New(stop_times, date) => {
-            for stop_time in stop_times.iter() {
-                let arrival_seconds = i64::from(stop_time.arrival_time.total_seconds());
-                let arrival = to_utc_timestamp(chrono_tz::UTC, *date, arrival_seconds)?;
-                let depature_seconds = i64::from(stop_time.departure_time.total_seconds());
-                let departure = to_utc_timestamp(chrono_tz::UTC, *date, depature_seconds)?;
+            for stop_time in stop_times {
+                let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
+                let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
+                let departure_seconds = i64::from(stop_time.board_time.total_seconds());
+                let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
+                let stop_point_idx = &stop_time.stop;
                 let proto = navitia_proto::StopDateTime {
                     arrival_date_time: Some(arrival),
                     departure_date_time: Some(departure),
-                    stop_point: Some(make_stop_point(&stop_time.stop, model)),
+                    stop_point: Some(make_stop_point(&stop_point_idx, model)),
                     ..Default::default()
                 };
                 result.push(proto);
@@ -497,42 +499,45 @@ fn make_stop_datetimes(
 }
 
 fn make_additional_informations(
-    stop_times: &StopTimes,
-    /*stop_points: &Vec<StopPoint>,*/
+    vehicle_section : & VehicleSection,
+    real_time_level : &RealTimeLevel,
+    models : &ModelRefs<'_>
 ) -> Vec<i32> {
-    match stop_times {
-        StopTimes::Base(stop_times, _, _) => {
-            let mut result = Vec::new();
 
-            let st_is_empty = stop_times.is_empty();
-            let has_datetime_estimated = !st_is_empty
-                && (stop_times.first().unwrap().datetime_estimated
-                    || stop_times.last().unwrap().datetime_estimated);
-            let has_odt = false;
-            let is_zonal = false;
+    let vehicle_journey_idx = &vehicle_section.vehicle_journey;
+    let date = &vehicle_section.day_for_vehicle_journey;
+    let from_stoptime_idx = vehicle_section.from_stoptime_idx;
+    let to_stoptime_idx = vehicle_section.to_stoptime_idx;
 
-            if has_datetime_estimated {
-                result.push(
-                    navitia_proto::SectionAdditionalInformationType::HasDatetimeEstimated as i32,
-                );
-            }
-            if is_zonal {
-                result.push(navitia_proto::SectionAdditionalInformationType::OdtWithZone as i32);
-            } else if has_odt && has_datetime_estimated {
-                result
-                    .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopPoint as i32);
-            } else if has_odt {
-                result
-                    .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopTime as i32);
-            }
-            if result.is_empty() {
-                result.push(navitia_proto::SectionAdditionalInformationType::Regular as i32);
-            }
 
-            result
-        }
-        StopTimes::New(_, _) => Vec::new(),
+    let mut result = Vec::new();
+
+    let has_datetime_estimated = models.has_datetime_estimated(vehicle_journey_idx, date, from_stoptime_idx, to_stoptime_idx, real_time_level);
+    
+    let has_odt = false;
+    let is_zonal = false;
+
+    if has_datetime_estimated {
+        result.push(
+            navitia_proto::SectionAdditionalInformationType::HasDatetimeEstimated as i32,
+        );
     }
+    if is_zonal {
+        result.push(navitia_proto::SectionAdditionalInformationType::OdtWithZone as i32);
+    } else if has_odt && has_datetime_estimated {
+        result
+            .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopPoint as i32);
+    } else if has_odt {
+        result
+            .push(navitia_proto::SectionAdditionalInformationType::OdtWithStopTime as i32);
+    }
+    if result.is_empty() {
+        result.push(navitia_proto::SectionAdditionalInformationType::Regular as i32);
+    }
+
+    result
+
+        
 }
 
 fn to_utc_timestamp(
@@ -581,13 +586,8 @@ fn compute_section_co2_emission(
     vehicle_journey_idx: &VehicleJourneyIdx,
     model: &ModelRefs,
 ) -> Option<navitia_proto::Co2Emission> {
-    let physical_mode_id = model.physical_mode_name(vehicle_journey_idx);
-
     model
-        .base
-        .physical_modes
-        .get(physical_mode_id)
-        .and_then(|physical_mode| physical_mode.co2_emission)
+        .co2_emission(vehicle_journey_idx)
         .map(|co2_emission| navitia_proto::Co2Emission {
             unit: Some("gEC".to_string()),
             value: Some(f64::from(co2_emission) * length * 1e-3_f64),
@@ -617,16 +617,13 @@ fn compute_journey_co2_emission(
 
 fn make_feed_publishers(model: &ModelRefs<'_>) -> Vec<navitia_proto::FeedPublisher> {
     model
-        .base
-        .contributors
-        .iter()
-        .map(|id_contributor| {
-            let contributor = id_contributor.1;
+        .contributors()
+        .map(|contributor| {
             navitia_proto::FeedPublisher {
-                id: contributor.id.clone(),
-                name: Some(contributor.name.clone()),
-                license: contributor.license.clone(),
-                url: contributor.website.clone(),
+                id: contributor.id,
+                name: Some(contributor.name),
+                license: contributor.license,
+                url: contributor.url,
             }
         })
         .collect()
@@ -652,21 +649,29 @@ fn to_u64_timestamp(datetime: &NaiveDateTime) -> Result<u64, Error> {
 }
 
 fn make_shape_from_stop_points(
-    stoptimes: &StopTimes,
+    stoptimes: StopTimes,
     model: &ModelRefs,
 ) -> Vec<navitia_proto::GeographicalCoord> {
     match stoptimes {
-        StopTimes::Base(base_stop_times, _, _) => base_stop_times
-            .iter()
-            .map(|stop_time| {
-                let stop_point_idx = stop_time.stop_point_idx;
-                let stop_point = &model.base.stop_points[stop_point_idx];
-                navitia_proto::GeographicalCoord {
-                    lat: stop_point.coord.lat,
-                    lon: stop_point.coord.lon,
-                }
+        StopTimes::Base(stop_times, _) => stop_times
+            .filter_map(|stop_time| {
+                let stop_point_idx = &stop_time.stop;
+                let coord = &model.coord(stop_point_idx)?;
+                Some(navitia_proto::GeographicalCoord {
+                    lat: coord.lat,
+                    lon: coord.lon,
+                })
             })
             .collect(),
-        StopTimes::New(_, _) => Vec::new(),
+        StopTimes::New(stop_times, _) => stop_times
+        .filter_map(|stop_time| {
+            let stop_point_idx = &stop_time.stop;
+            let coord = &model.coord(stop_point_idx)?;
+            Some(navitia_proto::GeographicalCoord {
+                lat: coord.lat,
+                lon: coord.lon,
+            })
+        })
+        .collect(),
     }
 }
