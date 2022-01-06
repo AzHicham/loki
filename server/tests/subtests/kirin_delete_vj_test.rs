@@ -101,16 +101,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         )
         .await;
         assert_eq!(
-            journeys_response.journeys[0].sections[0]
-                .pt_display_informations
-                .as_ref()
-                .unwrap()
-                .uris
-                .as_ref()
-                .unwrap()
-                .vehicle_journey
-                .as_ref()
-                .unwrap(),
+            first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
     }
@@ -140,11 +131,10 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         assert_eq!(journeys_response.journeys.len(), 0);
     }
 
-    // let's now add a new vehicle
-    // this should not add anything, since the vehicle exists in base schedule
+    // let's now add a new vehicle named 'midi'
     {
         let realtime_message = create_additionnal_service_disruption(
-            "matin",
+            "midi",
             date,
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
@@ -154,15 +144,31 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
     }
 
-    // since nothing should be added, we should get
-    // no journey for the request on the realtime level
+    // this new "midi" vehicle should be used on the realtime level
     {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
         )
         .await;
-        assert_eq!(journeys_response.journeys.len(), 0);
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:midi"
+        );
+    }
+
+    // with the same request on the 'base schedule' level
+    // we should still use the "matin" vehicle
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
     }
 
     // Tests ADDITIONNAL_SERVICE
@@ -251,4 +257,17 @@ fn create_disruption(
     feed_message.set_header(feed_header);
 
     feed_message
+}
+
+fn first_section_vj_name(journey: &navitia_proto::Journey) -> &str {
+    journey.sections[0]
+        .pt_display_informations
+        .as_ref()
+        .unwrap()
+        .uris
+        .as_ref()
+        .unwrap()
+        .vehicle_journey
+        .as_ref()
+        .unwrap()
 }
