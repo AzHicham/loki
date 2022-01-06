@@ -61,7 +61,7 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
-    models::RealTimeModel,
+    models::{base_model::BaseModel, RealTimeModel},
     tracing::{debug, error, info},
     DataTrait,
 };
@@ -144,7 +144,7 @@ impl DataWorker {
         debug!("DataWorker starts initial load data from disk.");
         self.load_data_from_disk()
             .await
-            .context("DataWorker : error while loading data from disk.")?;
+            .with_context(|| "Error while loading data from disk.".to_string())?;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -247,18 +247,19 @@ impl DataWorker {
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
         let launch_params = self.config.launch_params.clone();
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params).with_context(|| {
-                format!(
-                    "Could not read data from disk at {:?}",
-                    &launch_params.input_data_path
-                )
-            })?;
+            let new_base_model = launch::read::read_model(&launch_params)
+                .map_err(|err| {
+                    error!(
+                        "Could not read data from disk at {:?}. {:?}. \
+                            I'll keep running with an empty model.",
+                        launch_params.input_data_path, err
+                    )
+                })
+                .unwrap_or_else(|()| BaseModel::empty());
+
             info!("Model loaded");
             info!("Starting to build data");
-            let new_data = launch::read::build_transit_data::<Timetable>(
-                &new_base_model,
-                &launch_params.default_transfer_duration,
-            );
+            let new_data = launch::read::build_transit_data::<Timetable>(&new_base_model);
             info!("Data loaded");
             let new_real_time_model = RealTimeModel::new();
             data_and_models.0 = new_data;

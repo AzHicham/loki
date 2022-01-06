@@ -1,6 +1,6 @@
 use crate::{
     loads_data::{Load, LoadsData},
-    models::{base_model::BaseModel, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{base_model::BaseModel, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
 };
@@ -145,7 +145,7 @@ pub trait Data: TransitTypes {
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stop_point_idx(&self, stop: &Self::Stop) -> StopPointIdx;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx;
 
     fn day_of(&self, trip: &Self::Trip) -> NaiveDate;
 
@@ -185,7 +185,7 @@ pub trait DataUpdate {
         date: &NaiveDate,
     ) -> Result<(), RemovalError>;
 
-    fn insert_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn insert_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -199,11 +199,11 @@ pub trait DataUpdate {
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        Dates: Iterator<Item = chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 
-    fn modify_real_time_vehicle<'date, Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    fn modify_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -217,13 +217,13 @@ pub trait DataUpdate {
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        Dates: Iterator<Item = &'date chrono::NaiveDate> + Clone,
+        Dates: Iterator<Item = chrono::NaiveDate> + Clone,
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 }
 
 pub trait DataIO {
-    fn new(base_model: &BaseModel, default_transfer_duration: PositiveDuration) -> Self;
+    fn new(base_model: &BaseModel) -> Self;
 }
 
 pub trait DataIters<'a>: TransitTypes

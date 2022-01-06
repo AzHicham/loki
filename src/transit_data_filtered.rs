@@ -37,7 +37,7 @@
 use crate::{
     filters::Filters,
     loads_data::Load,
-    models::{ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx},
+    models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     DataWithIters, RealTimeLevel,
 };
@@ -361,7 +361,7 @@ where
         self.transit_data.stop_point_idx(stop)
     }
 
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize {
+    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx {
         self.transit_data.stoptime_idx(position, trip)
     }
 

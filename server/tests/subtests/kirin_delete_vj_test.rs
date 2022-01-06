@@ -37,8 +37,6 @@ use launch::loki::{
 };
 use protobuf::Message;
 
-// changes the ntfs file on disk, send a reload order, and check
-// that the new data is indeed loaded
 pub async fn delete_vj_test(config: &ServerConfig) {
     let datetime =
         NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();

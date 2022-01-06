@@ -3,7 +3,8 @@ use loki::tracing::dispatcher::DefaultGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 // Create a subscriber to collect all logs
-// that are created **in the current thread** while DefaultGuard is alive
+// that are created **in all threads**.
+// Warning : this function will panic if called twice in the same program
 // https://docs.rs/tracing/latest/tracing/dispatcher/index.html
 pub fn init_logger() {
     let default_level = LevelFilter::INFO;

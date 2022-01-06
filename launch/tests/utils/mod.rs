@@ -170,8 +170,7 @@ where
     Timetables::Position: 'static,
 {
     use loki::DataTrait;
-    let data: TransitData<Timetables> =
-        launch::read::build_transit_data(model.base, &config.default_transfer_duration);
+    let data: TransitData<Timetables> = launch::read::build_transit_data(model.base);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -202,7 +201,7 @@ pub fn from_to_stop_point_names<'a>(
         .from_stop_point_name(model, real_time_level)
         .ok_or_else(|| {
             format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
+                "No stoptime at idx {:?} for vehicle journey {}",
                 vehicle_section.from_stoptime_idx,
                 model.vehicle_journey_name(&vehicle_section.vehicle_journey)
             )
@@ -211,7 +210,7 @@ pub fn from_to_stop_point_names<'a>(
         .to_stop_point_name(model, real_time_level)
         .ok_or_else(|| {
             format_err!(
-                "No stoptime at idx {} for vehicle journey {}",
+                "No stoptime at idx {:?} for vehicle journey {}",
                 vehicle_section.to_stoptime_idx,
                 model.vehicle_journey_name(&vehicle_section.vehicle_journey)
             )

@@ -40,6 +40,7 @@ use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     places_nearby::{places_nearby_impl, BadPlacesNearby},
     transit_model::objects::Coord,
+    PositiveDuration,
 };
 use rstest::{fixture, rstest};
 use utils::model_builder::ModelBuilder;
@@ -111,7 +112,7 @@ pub fn fixture_model() -> BaseModel {
         .build();
 
     let loads_data = loki::LoadsData::empty();
-    BaseModel::from_transit_model(model, loads_data)
+    BaseModel::from_transit_model(model, loads_data, PositiveDuration::zero()).unwrap()
 }
 
 #[rstest]
@@ -170,7 +171,7 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
     ));
 
     let places_nearby_iter = places_nearby_impl(&model_refs, "coord:400.545:50.1854", 500_f64);
-    println!("{:?}", places_nearby_iter);
+
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidRangeCoord(_))

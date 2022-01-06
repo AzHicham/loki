@@ -39,13 +39,14 @@ pub mod model_refs;
 pub mod real_time_disruption;
 pub mod real_time_model;
 
-use chrono::NaiveDate;
 pub use model_refs::ModelRefs;
 pub use real_time_model::RealTimeModel;
 
+use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
+
 use self::{
-    base_model::{BaseStopPointIdx, BaseTransferIdx, BaseVehicleJourneyIdx},
-    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx},
+    base_model::{BaseStopPointIdx, BaseStopTimes, BaseTransferIdx, BaseVehicleJourneyIdx},
+    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes},
 };
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -66,14 +67,49 @@ pub enum TransferIdx {
     New(usize),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct StopTimeIdx {
+    pub idx: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct StopTime {
+    pub stop: StopPointIdx,
+    pub board_time: SecondsSinceTimezonedDayStart,
+    pub debark_time: SecondsSinceTimezonedDayStart,
+    pub flow_direction: FlowDirection,
+}
+
+#[derive(Clone)]
+pub enum StopTimes<'a> {
+    Base(BaseStopTimes<'a>),
+    New(RealTimeStopTimes<'a>),
+}
+
 #[derive(Debug, Clone)]
 pub struct Coord {
     pub lat: f64,
     pub lon: f64,
 }
 
-#[derive(Debug, Clone)]
-pub enum StopTimes<'model> {
-    Base(&'model [base_model::BaseStopTime], NaiveDate, chrono_tz::Tz),
-    New(&'model [real_time_model::StopTime], NaiveDate),
+pub type Rgb = transit_model::objects::Rgb;
+
+pub type Timezone = chrono_tz::Tz;
+
+pub struct Contributor {
+    pub id: String,
+    pub name: String,
+    pub license: Option<String>,
+    pub url: Option<String>,
+}
+
+impl<'a> Iterator for StopTimes<'a> {
+    type Item = StopTime;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            StopTimes::Base(inner) => inner.next(),
+            StopTimes::New(inner) => inner.next(),
+        }
+    }
 }

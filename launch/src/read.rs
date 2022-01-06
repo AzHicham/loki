@@ -39,28 +39,29 @@ use crate::{
     config::LaunchParams,
     loki::{timetables::TimetablesIter, TransitData},
 };
+use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
-    transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
+    transit_model, DataIO, DataTrait, LoadsData,
 };
 use std::{collections::BTreeMap, time::SystemTime};
 
 pub fn read<Timetables>(
     launch_params: &config::LaunchParams,
-) -> Result<(TransitData<Timetables>, BaseModel), transit_model::Error>
+) -> Result<(TransitData<Timetables>, BaseModel), Error>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     let base_model = read_model(launch_params)?;
 
-    let data = build_transit_data(&base_model, &launch_params.default_transfer_duration);
+    let data = build_transit_data(&base_model);
 
     Ok((data, base_model))
 }
 
-pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_model::Error> {
+pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
     let collections = match launch_params.input_data_type {
         config::InputDataType::Ntfs => {
             transit_model::ntfs::read_collections(&launch_params.input_data_path)?
@@ -95,7 +96,12 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, transit_mod
     };
     info!("Transit model loaded");
     let loads_data = read_loads_data(launch_params, &collections);
-    Ok(BaseModel::new(collections, loads_data))
+    BaseModel::new(
+        collections,
+        loads_data,
+        launch_params.default_transfer_duration,
+    )
+    .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
 fn read_loads_data(
@@ -119,21 +125,17 @@ fn read_loads_data(
         .unwrap_or_else(LoadsData::empty)
 }
 
-pub fn build_transit_data<Timetables>(
-    base_model: &BaseModel,
-    default_transfer_duration: &PositiveDuration,
-) -> TransitData<Timetables>
+pub fn build_transit_data<Timetables>(base_model: &BaseModel) -> TransitData<Timetables>
 where
     Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
 {
     info!(
         "Number of vehicle journeys : {}",
-        base_model.vehicle_journeys.len()
+        base_model.nb_of_vehicle_journeys()
     );
-    info!("Number of routes : {}", base_model.routes.len());
 
     let data_timer = SystemTime::now();
-    let data = TransitData::new(base_model, *default_transfer_duration);
+    let data = TransitData::new(base_model);
     let data_build_duration = data_timer.elapsed().unwrap().as_millis();
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());

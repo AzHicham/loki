@@ -73,9 +73,11 @@ pub fn stops_of_stop_area(
     duration_to_stops: PositiveDuration,
 ) -> Result<Vec<(String, PositiveDuration)>, UnknownStopArea> {
     let mut result = Vec::new();
-    for (_, stop) in base_model.stop_points.iter() {
-        if stop.stop_area_id == stop_area_uri {
-            result.push((stop.id.clone(), duration_to_stops));
+    for stop_idx in base_model.stop_points() {
+        let stop_area_name = base_model.stop_area_name(stop_idx);
+        let stop_name = base_model.stop_point_name(stop_idx);
+        if stop_area_name == stop_area_uri {
+            result.push((stop_name.to_string(), duration_to_stops));
         }
     }
 

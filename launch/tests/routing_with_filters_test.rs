@@ -39,7 +39,7 @@ use anyhow::Error;
 use launch::config::{ComparatorType, DataImplem};
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-    RealTimeLevel,
+    PositiveDuration, RealTimeLevel,
 };
 use rstest::{fixture, rstest};
 use utils::{build_and_solve, from_to_stop_point_names, model_builder::ModelBuilder, Config};
@@ -86,7 +86,7 @@ pub fn fixture_model() -> BaseModel {
         .build();
 
     let loads_data = loki::LoadsData::empty();
-    BaseModel::from_transit_model(model, loads_data)
+    BaseModel::from_transit_model(model, loads_data, PositiveDuration::zero()).unwrap()
 }
 
 #[rstest]

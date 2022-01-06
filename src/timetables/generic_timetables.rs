@@ -45,6 +45,7 @@ use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::{
+    models::StopTimeIdx,
     time::DaysSinceDatasetStart,
     timetables::{FlowDirection, Stop, StopFlows},
 };
@@ -1048,7 +1049,7 @@ where
 
 fn is_increasing<EnumeratedValues, Value>(
     mut enumerated_values: EnumeratedValues,
-) -> Result<(), (usize, usize)>
+) -> Result<(), PositionPair>
 where
     EnumeratedValues: Iterator<Item = (usize, Value)>,
     Value: Ord,
@@ -1057,7 +1058,11 @@ where
     if let Some((mut prev_position, mut prev_value)) = has_previous {
         for (position, value) in enumerated_values {
             if value < prev_value {
-                return Err((prev_position, position));
+                let pair = PositionPair {
+                    upstream: StopTimeIdx { idx: prev_position },
+                    downstream: StopTimeIdx { idx: position },
+                };
+                return Err(pair);
             }
             prev_position = position;
             prev_value = value;
@@ -1082,6 +1087,9 @@ where
 {
     assert!(flows.len() == board_times.len());
     assert!(flows.len() == debark_times.len());
+    if flows.len() < 2 {
+        return Err(VehicleTimesError::LessThanTwoStops);
+    }
 
     let valid_enumerated_board_times = board_times
         .clone()
@@ -1094,11 +1102,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_board_times) {
-        let position_pair = PositionPair {
-            upstream,
-            downstream,
-        };
+    if let Err(position_pair) = is_increasing(valid_enumerated_board_times) {
         return Err(VehicleTimesError::DecreasingBoardTime(position_pair));
     }
 
@@ -1113,11 +1117,7 @@ where
             },
         );
 
-    if let Err((upstream, downstream)) = is_increasing(valid_enumerated_debark_times) {
-        let position_pair = PositionPair {
-            upstream,
-            downstream,
-        };
+    if let Err(position_pair) = is_increasing(valid_enumerated_debark_times) {
         return Err(VehicleTimesError::DecreasingDebarkTime(position_pair));
     }
 
@@ -1137,8 +1137,8 @@ where
         };
         if can_board && can_debark && board_time > debark_time {
             let position_pair = PositionPair {
-                upstream: board_idx,
-                downstream: debark_idx,
+                upstream: StopTimeIdx { idx: board_idx },
+                downstream: StopTimeIdx { idx: debark_idx },
             };
             return Err(VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair));
         }
@@ -1149,8 +1149,8 @@ where
 
 #[derive(Clone, Debug)]
 pub struct PositionPair {
-    pub upstream: usize,
-    pub downstream: usize,
+    pub upstream: StopTimeIdx,
+    pub downstream: StopTimeIdx,
 }
 
 #[derive(Clone, Debug)]
@@ -1158,4 +1158,5 @@ pub enum VehicleTimesError {
     DebarkBeforeUpstreamBoard(PositionPair), // board_time[upstream] > debark_time[downstream]
     DecreasingBoardTime(PositionPair),       // board_time[upstream] > board_time[downstream]
     DecreasingDebarkTime(PositionPair),      // debark_time[upstream] > debark_time[downstream]
+    LessThanTwoStops,
 }

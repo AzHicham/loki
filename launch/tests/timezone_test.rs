@@ -40,6 +40,7 @@ use launch::config::DataImplem;
 use loki::{
     chrono_tz,
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
+    PositiveDuration,
 };
 use utils::{
     build_and_solve,
@@ -68,7 +69,9 @@ fn test_daylight_saving_time_switch(#[case] data_implem: DataImplem) -> Result<(
                 .st("C", "10:10:00");
         })
         .build();
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -130,7 +133,9 @@ fn test_trip_over_daylight_saving_time_switch(
         })
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -258,7 +263,9 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -360,7 +367,9 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
         .add_transfer("C", "C", "00:00:02")
         .build();
 
-    let base_model = BaseModel::from_transit_model(model, loki::LoadsData::empty());
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);

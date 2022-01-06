@@ -59,13 +59,11 @@ pub struct MasterWorker {
 
 impl MasterWorker {
     pub fn new(config: ServerConfig) -> Result<Self, Error> {
-        let launch_params = &config.launch_params;
-
         // Initialize models and data.
         // We init everything with empty data.
         // DataWorker will take care of reading data from disk
         let base_model = BaseModel::empty();
-        let data = TransitData::new(&base_model, launch_params.default_transfer_duration);
+        let data = TransitData::new(&base_model);
         let real_time_model = RealTimeModel::new();
         let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
 
