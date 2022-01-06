@@ -495,7 +495,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                         // an returns early with an error if insertion should fail.
                         // Let's log an error if this happens anyway
                         error!(
-                            "An error occured while inserting a vehicle {:?}",
+                            "An error occured while inserting a vehicle. {:?}",
                             times_error
                         )
                     }
