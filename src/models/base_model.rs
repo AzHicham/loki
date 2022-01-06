@@ -270,8 +270,7 @@ impl BaseModel {
 
     pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.vehicle_journey_line(idx)
-            .map(|line| line.code.as_ref())
-            .flatten()
+            .and_then(|line| line.code.as_ref())
             .map(|s| s.as_str())
     }
 
@@ -309,7 +308,7 @@ impl BaseModel {
         let vj = &self.collections.vehicle_journeys[idx];
         vj.short_name
             .as_ref()
-            .or_else(|| vj.headsign.as_ref())
+            .or(vj.headsign.as_ref())
             .map(|s| s.as_str())
     }
 
