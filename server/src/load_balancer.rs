@@ -171,7 +171,7 @@ impl LoadBalancer {
         let err = self.main_loop().await;
 
         error!(
-            "Load balancer main loop exited with {:?}. I'll tell Master Worker about it.",
+            "Load balancer main loop exited. I'll tell Master Worker about it. {:?}",
             err
         );
         // If we exited the loop it means we got an error
@@ -180,7 +180,7 @@ impl LoadBalancer {
         let res = self.shutdown_sender.send(()).await;
         if let Err(err) = res {
             error!(
-                "Channel shutdown_sender to Master has closed : {}. Load balancer will die, and Master will not known about it.",
+                "Channel shutdown_sender to Master has closed. Load balancer will die, and Master will not known about it. {:?}",
                 err
             );
         }

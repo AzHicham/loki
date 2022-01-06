@@ -79,7 +79,8 @@ async fn run() {
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
-    config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 5);
+    config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
+    config.rabbitmq_params.real_time_update_interval = PositiveDuration::from_hms(0, 0, 1);
     config
         .rabbitmq_params
         .rabbitmq_real_time_topics
@@ -92,9 +93,9 @@ async fn run() {
 
     subtests::kirin_delete_vj_test::delete_vj_test(&config).await;
 
-    subtests::reload_test::reload_test(&config, &data_dir_path).await;
+    // subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
-    subtests::places_nearby_test::places_nearby_test(&config).await;
+    // subtests::places_nearby_test::places_nearby_test(&config).await;
 
     info!("Everything went Ok ! Now stopping.");
 
@@ -257,10 +258,12 @@ async fn wait_until_realtime_updated_after(zmq_endpoint: &str, after_datetime: &
     }
 }
 
-async fn send_realtime_message(
+async fn send_realtime_message_and_wait_until_reception(
     config: &ServerConfig,
     realtime_message: chaos_proto::gtfs_realtime::FeedMessage,
 ) {
+    let before_message_datetime = Utc::now().naive_utc();
+
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
         &config.rabbitmq_params.rabbitmq_endpoint,
@@ -288,6 +291,10 @@ async fn send_realtime_message(
         .unwrap();
 
     info!("Sent realtime message with routing key {}.", routing_key);
+
+    wait_until_realtime_updated_after(&config.requests_socket, &before_message_datetime).await;
+
+    info!("Realtime message has been taken into account.");
 }
 
 async fn send_status_request_and_wait_for_response(zmq_endpoint: &str) -> navitia_proto::Status {

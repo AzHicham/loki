@@ -31,25 +31,32 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::gtfs_realtime as kirin_proto;
-use launch::loki::{
-    chrono::{NaiveDate, Utc},
-    NaiveDateTime,
-};
+use launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::Message;
 
 pub async fn delete_vj_test(config: &ServerConfig) {
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
 
-    // initial request
-    let journey_request =
-        crate::make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
+    // initial request, on base sschedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
 
     // let's first check that we do get a response
     {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
-            journey_request.clone(),
+            base_request.clone(),
         )
         .await;
         // info!("{:#?}", journeys_response);
@@ -70,29 +77,14 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
-    let send_realtime_message_datetime = Utc::now().naive_utc();
-    let realtime_message = create_no_service_disruption(
-        "matin",
-        NaiveDate::parse_from_str("20210101", "%Y%m%d").unwrap(),
-    );
-    crate::send_realtime_message(config, realtime_message).await;
-
-    // wait until realtime message is taken into account
-    crate::wait_until_realtime_updated_after(
-        &config.requests_socket,
-        &send_realtime_message_datetime,
-    )
-    .await;
+    {
+        let realtime_message = create_no_service_disruption("matin", date);
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+    }
 
     // let's make the same request, but on the realtime level
     // we should get no journey in the response
     {
-        let mut realtime_request = journey_request.clone();
-        realtime_request
-            .journeys
-            .as_mut()
-            .unwrap()
-            .set_realtime_level(navitia_proto::RtLevel::Realtime);
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -103,15 +95,9 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // with the same request on the 'base schedule' level
     // we should get a journey in the response
     {
-        let mut realtime_request = journey_request.clone();
-        realtime_request
-            .journeys
-            .as_mut()
-            .unwrap()
-            .set_realtime_level(navitia_proto::RtLevel::BaseSchedule);
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
-            realtime_request.clone(),
+            base_request.clone(),
         )
         .await;
         assert_eq!(
@@ -128,11 +114,109 @@ pub async fn delete_vj_test(config: &ServerConfig) {
             "vehicle_journey:matin"
         );
     }
+
+    // let's now 'add' the removed trip with flag ADDITIONAL_SERVICE
+    // this should not add anything, since the vehicle exists in base schedule
+    {
+        let realtime_message = create_additionnal_service_disruption(
+            "matin",
+            date,
+            vec![
+                ("massy", date.and_hms(12, 0, 0)),
+                ("paris", date.and_hms(13, 0, 0)),
+            ],
+        );
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+    }
+
+    // since nothing should be added, we should get
+    // no journey for the request on the realtime level
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+
+    // let's now add a new vehicle
+    // this should not add anything, since the vehicle exists in base schedule
+    {
+        let realtime_message = create_additionnal_service_disruption(
+            "matin",
+            date,
+            vec![
+                ("massy", date.and_hms(12, 0, 0)),
+                ("paris", date.and_hms(13, 0, 0)),
+            ],
+        );
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+    }
+
+    // since nothing should be added, we should get
+    // no journey for the request on the realtime level
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+
+    // Tests ADDITIONNAL_SERVICE
+
+    // add the removed VJ with ADDITIONNAL_SERVICE : should not add anything, since the vehicle exists in base schedule
+
+    // add another VJ with ADDIOTIONNAL_SERVICE : should work
+
+    // Tests MODIFY
+
+    // modify a base vj
+    // modify an additionnal vj
 }
 
 fn create_no_service_disruption(
     vehicle_journey_id: &str,
     date: NaiveDate,
+) -> kirin_proto::FeedMessage {
+    create_disruption(
+        vehicle_journey_id,
+        date,
+        kirin_proto::Alert_Effect::NO_SERVICE,
+        Vec::new(),
+    )
+}
+
+fn create_additionnal_service_disruption(
+    vehicle_journey_id: &str,
+    date: NaiveDate,
+    stop_times: Vec<(&str, NaiveDateTime)>,
+) -> kirin_proto::FeedMessage {
+    let stop_time_updates: Vec<_> = stop_times
+        .into_iter()
+        .map(|(stop_name, time)| {
+            let mut stop_time_event = kirin_proto::TripUpdate_StopTimeEvent::default();
+            stop_time_event.set_time(time.timestamp());
+
+            let mut trip_update = kirin_proto::TripUpdate_StopTimeUpdate::default();
+            trip_update.set_stop_id(stop_name.to_string());
+            trip_update.set_arrival(stop_time_event.clone());
+            trip_update.set_departure(stop_time_event);
+            trip_update
+        })
+        .collect();
+
+    let effect = kirin_proto::Alert_Effect::ADDITIONAL_SERVICE;
+    create_disruption(vehicle_journey_id, date, effect, stop_time_updates)
+}
+
+fn create_disruption(
+    vehicle_journey_id: &str,
+    date: NaiveDate,
+    effect: kirin_proto::Alert_Effect,
+    stop_times: Vec<kirin_proto::TripUpdate_StopTimeUpdate>,
 ) -> kirin_proto::FeedMessage {
     use protobuf::ProtobufEnum;
 
@@ -140,12 +224,13 @@ fn create_no_service_disruption(
 
     // set the "effect" field to NO_SERVICE
     let field_number = chaos_proto::kirin::exts::effect.field_number;
-    let effect = kirin_proto::Alert_Effect::NO_SERVICE;
     trip_update
         .mut_unknown_fields()
         //.add_fixed32(field_number, effect.value() as u32);
         //.add_fixed64(field_number, effect.value() as u64);
         .add_varint(field_number, effect.value() as u64);
+
+    trip_update.stop_time_update.extend(stop_times.into_iter());
 
     // set trip_description
     let mut trip_descriptor = kirin_proto::TripDescriptor::default();

@@ -161,7 +161,7 @@ impl ZmqWorker {
             }
             Err(err) => {
                 error!(
-                    "Could not connect zmq to endpoint {}. Error : {}",
+                    "Could not connect zmq to endpoint {}. {:?}",
                     self.endpoint, err
                 );
             }
@@ -218,7 +218,7 @@ impl ZmqWorker {
 
                         },
                         Err(err) => {
-                            error!("Error while reading zmq socket : {}", err);
+                            error!("Error while reading zmq socket. {:?}", err);
                         }
                     }
 
@@ -306,7 +306,7 @@ async fn handle_incoming_request(
             }
         }
         Err(err) => {
-            let err_str = format!("Could not decode zmq message into protobuf : {}", err);
+            let err_str = format!("Could not decode zmq message into protobuf. {:?}", err);
             error!("{}", err_str);
 
             // let's send back a response to our zmq client that we received an invalid protobuf

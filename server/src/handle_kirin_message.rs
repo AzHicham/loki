@@ -117,7 +117,8 @@ fn read_trip_update(
                 let stop_times = create_stop_times_from_proto(
                     trip_update.get_stop_time_update(),
                     &trip.reference_date,
-                )?;
+                )
+                .with_context(|| "Could not handle stop times in kirin disruption.")?;
                 Ok(Update::Modify(trip, stop_times))
             }
 

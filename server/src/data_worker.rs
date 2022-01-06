@@ -109,7 +109,7 @@ impl DataWorker {
             })
             .unwrap_or_else(|err| {
                 error!(
-                    "Could not retreive hostname : {}. I'll use 'unknown_host' as hostname.",
+                    "Could not retreive hostname. I'll use 'unknown_host' as hostname. {:?}",
                     err
                 );
                 String::from("unknown_host")
@@ -182,7 +182,7 @@ impl DataWorker {
                                 self.kirin_reload_done = true;
                             }
                             Err(err) => {
-                                error!("Error while reloading real time : {}", err);
+                                error!("Error while reloading real time : {:?}", err);
                                 continue;
                             }
                         }
@@ -196,7 +196,7 @@ impl DataWorker {
                 }
                 Err(err) => {
                     error!(
-                        "Error while connecting to rabbitmq : {}. I'll try to reconnect later.",
+                        "Error while connecting to rabbitmq : {:?}. I'll try to reconnect later.",
                         err
                     );
                 }
@@ -292,7 +292,7 @@ impl DataWorker {
                         handle_kirin_protobuf(&feed_entity, base_model, real_time_model);
                     match disruption_result {
                         Err(err) => {
-                            error!("Could not handle a kirin message {}", err);
+                            error!("Could not handle a kirin message {:?}", err);
                         }
                         Ok(disruption) => {
                             real_time_model.apply_disruption(&disruption, base_model, data);
@@ -364,7 +364,7 @@ impl DataWorker {
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of kirin message : {}",
+                            "Error while acknowleding reception of kirin message : {:?}",
                             err
                         );
                     });
@@ -377,13 +377,13 @@ impl DataWorker {
                         Ok(())
                     }
                     Err(err) => {
-                        error!("Could not decode kirin message into protobuf : {}", err);
+                        error!("Could not decode kirin message into protobuf. {:?}", err);
                         Ok(())
                     }
                 }
             }
             Some(Err(err)) => {
-                error!("Error while receiving a kirin message : {:?}", err);
+                error!("Error while receiving a kirin message. {:?}", err);
                 Ok(())
             }
             None => {
@@ -407,7 +407,7 @@ impl DataWorker {
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of reload message : {}",
+                            "Error while acknowleding reception of reload message. {:?}",
                             err
                         );
                     });
@@ -434,13 +434,13 @@ impl DataWorker {
                         Ok(())
                     }
                     Err(err) => {
-                        error!("Could not decode reload message into protobuf : {}", err);
+                        error!("Could not decode reload message into protobuf. {:?}", err);
                         Ok(())
                     }
                 }
             }
             Some(Err(err)) => {
-                error!("Error while receiving a reload message : {:?}", err);
+                error!("Error while receiving a reload message. {:?}", err);
                 Ok(())
             }
             None => {
