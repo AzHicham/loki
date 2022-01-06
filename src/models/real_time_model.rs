@@ -289,7 +289,7 @@ impl RealTimeModel {
             match last_version {
                 Some(&TripData::Deleted()) => false,
                 Some(&TripData::Present(_)) => true,
-                None => base_model.trip_exists(transit_model_idx, &trip.reference_date), // the trip is present in
+                None => base_model.trip_exists(transit_model_idx, trip.reference_date),
             }
         } else {
             let has_new_vj_idx = self
@@ -440,6 +440,18 @@ impl RealTimeModel {
             .by_reference_date
             .get(date)
             .map(|trip_version| &trip_version.trip_data)
+    }
+
+    pub fn contains_new_vehicle_journey(&self, trip: &disruption::Trip) -> bool {
+        let has_new_vj_idx = self
+            .new_vehicle_journeys_id_to_idx
+            .get(&trip.vehicle_journey_id);
+        if let Some(new_vj_idx) = has_new_vj_idx {
+            self.new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date)
+                .is_some()
+        } else {
+            false
+        }
     }
 
     pub fn new() -> Self {

@@ -299,7 +299,8 @@ impl DataWorker {
             let real_time_model = &mut data_and_models.2;
             for message in messages {
                 for feed_entity in message.entity {
-                    let disruption_result = handle_kirin_protobuf(&feed_entity);
+                    let disruption_result =
+                        handle_kirin_protobuf(&feed_entity, base_model, real_time_model);
                     match disruption_result {
                         Err(err) => {
                             error!("Could not handle a kirin message {}", err);
