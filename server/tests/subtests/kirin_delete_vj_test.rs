@@ -38,10 +38,11 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     let date = NaiveDate::from_ymd(2021, 1, 1);
     let request_datetime = date.and_hms(8, 0, 0);
 
-    // initial request, on base sschedule
+    // initial request, on base schedule
     let base_request =
         crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
 
+    // same request, but on the realtime level
     let realtime_request = {
         let mut request = base_request.clone();
         request
@@ -62,39 +63,74 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         // info!("{:#?}", journeys_response);
         // check that we have a journey, that uses the only trip in the ntfs
         assert_eq!(
-            journeys_response.journeys[0].sections[0]
-                .pt_display_informations
-                .as_ref()
-                .unwrap()
-                .uris
-                .as_ref()
-                .unwrap()
-                .vehicle_journey
-                .as_ref()
-                .unwrap(),
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        // info!("{:#?}", journeys_response);
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
     }
 
-    // let's delete the only trip
+    // first, we modify the trip
+    {
+        let realtime_message = create_disruption(
+            "matin",
+            date,
+            vec![
+                ("massy", date.and_hms(9, 0, 0)),
+                ("paris", date.and_hms(10, 0, 0)),
+            ],
+            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+        );
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+        // on base schedule, the trip arrive at 9h
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            arrival_time(&journeys_response.journeys[0]),
+            date.and_hms(9, 0, 0)
+        );
+
+        // on the realtime level, the trip should now arrive at 10h
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            arrival_time(&journeys_response.journeys[0]),
+            date.and_hms(10, 0, 0)
+        );
+    }
+
+    // let's delete the trip
     {
         let realtime_message = create_no_service_disruption("matin", date);
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
-    }
 
-    // let's make the same request, but on the realtime level
-    // we should get no journey in the response
-    {
+        // on the realtime level, we should get no journey in the response
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
         )
         .await;
         assert_eq!(journeys_response.journeys.len(), 0);
-    }
-    // with the same request on the 'base schedule' level
-    // we should get a journey in the response
-    {
+
+        // with the same request on the 'base schedule' level
+        // we should get a journey in the response
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             base_request.clone(),
@@ -109,20 +145,19 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // let's now 'add' the removed trip with flag ADDITIONAL_SERVICE
     // this should not add anything, since the vehicle exists in base schedule
     {
-        let realtime_message = create_additionnal_service_disruption(
+        let realtime_message = create_disruption(
             "matin",
             date,
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
             ],
+            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
-    }
 
-    // since nothing should be added, we should get
-    // no journey for the request on the realtime level
-    {
+        // since nothing should be added, we should get
+        // no journey for the request on the realtime level
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -133,19 +168,18 @@ pub async fn delete_vj_test(config: &ServerConfig) {
 
     // let's now add a new vehicle named 'midi'
     {
-        let realtime_message = create_additionnal_service_disruption(
+        let realtime_message = create_disruption(
             "midi",
             date,
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
             ],
+            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
-    }
 
-    // this new "midi" vehicle should be used on the realtime level
-    {
+        // this new "midi" vehicle should be used on the realtime level
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -155,11 +189,9 @@ pub async fn delete_vj_test(config: &ServerConfig) {
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:midi"
         );
-    }
 
-    // with the same request on the 'base schedule' level
-    // we should still use the "matin" vehicle
-    {
+        // with the same request on the 'base schedule' level
+        // we should still use the "matin" vehicle
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             base_request.clone(),
@@ -171,17 +203,63 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         );
     }
 
-    // Tests MODIFY
+    // let's now modify the real time vehicle 'midi'
+    // since this is a real time vehicle, we should be able to modify it
+    // with the ADDITIONAL_SERVICE effect
+    {
+        let realtime_message = create_disruption(
+            "midi",
+            date,
+            vec![
+                ("massy", date.and_hms(13, 0, 0)),
+                ("paris", date.and_hms(14, 0, 0)),
+            ],
+            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+        );
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
-    // modify a base vj
-    // modify an additionnal vj
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            arrival_time(&journeys_response.journeys[0]),
+            date.and_hms(14, 0, 0)
+        );
+    }
+
+    // we can also modify the real time vehicle "midi"
+    // with the MODIFIED_SERVICE effect
+    {
+        let realtime_message = create_disruption(
+            "midi",
+            date,
+            vec![
+                ("massy", date.and_hms(13, 0, 0)),
+                ("paris", date.and_hms(15, 0, 0)),
+            ],
+            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+        );
+        crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            arrival_time(&journeys_response.journeys[0]),
+            date.and_hms(15, 0, 0)
+        );
+    }
 }
 
 fn create_no_service_disruption(
     vehicle_journey_id: &str,
     date: NaiveDate,
 ) -> kirin_proto::FeedMessage {
-    create_disruption(
+    create_disruption_inner(
         vehicle_journey_id,
         date,
         kirin_proto::Alert_Effect::NO_SERVICE,
@@ -189,10 +267,11 @@ fn create_no_service_disruption(
     )
 }
 
-fn create_additionnal_service_disruption(
+fn create_disruption(
     vehicle_journey_id: &str,
     date: NaiveDate,
     stop_times: Vec<(&str, NaiveDateTime)>,
+    effect: kirin_proto::Alert_Effect,
 ) -> kirin_proto::FeedMessage {
     let stop_time_event_status = chaos_proto::kirin::StopTimeEventStatus::SCHEDULED;
     let stop_time_updates: Vec<_> = stop_times
@@ -213,11 +292,10 @@ fn create_additionnal_service_disruption(
         })
         .collect();
 
-    let effect = kirin_proto::Alert_Effect::ADDITIONAL_SERVICE;
-    create_disruption(vehicle_journey_id, date, effect, stop_time_updates)
+    create_disruption_inner(vehicle_journey_id, date, effect, stop_time_updates)
 }
 
-fn create_disruption(
+fn create_disruption_inner(
     vehicle_journey_id: &str,
     date: NaiveDate,
     effect: kirin_proto::Alert_Effect,
@@ -269,4 +347,9 @@ fn first_section_vj_name(journey: &navitia_proto::Journey) -> &str {
         .vehicle_journey
         .as_ref()
         .unwrap()
+}
+
+fn arrival_time(journey: &navitia_proto::Journey) -> NaiveDateTime {
+    let timestamp = journey.arrival_date_time();
+    NaiveDateTime::from_timestamp(timestamp as i64, 0)
 }
