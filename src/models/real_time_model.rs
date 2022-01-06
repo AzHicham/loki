@@ -36,8 +36,6 @@
 
 use std::{collections::HashMap, hash::Hash};
 
-use tracing::error;
-
 use crate::{
     chrono::NaiveDate,
     transit_data::{
@@ -45,6 +43,7 @@ use crate::{
         handle_removal_error,
     },
 };
+use tracing::{debug, error, trace};
 
 use crate::DataUpdate;
 
@@ -134,7 +133,13 @@ impl RealTimeModel {
     ) -> Result<(), UpdateError> {
         match update {
             disruption::Update::Add(trip, stop_times) => {
+                debug!("Adding a new trip {:?}", trip);
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, base_model)?;
+                trace!(
+                    "New trip {:?} stored in real time model. Stop times : {:#?} ",
+                    trip,
+                    stop_times
+                );
                 let dates = std::iter::once(trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -167,6 +172,7 @@ impl RealTimeModel {
             }
 
             disruption::Update::Delete(trip) => {
+                debug!("Deleting trip {:?}", trip);
                 let vj_idx = self.delete(disruption_id, trip, base_model)?;
                 let removal_result = data.remove_real_time_vehicle(&vj_idx, &trip.reference_date);
                 if let Err(removal_error) = removal_result {
@@ -184,6 +190,7 @@ impl RealTimeModel {
                 Ok(())
             }
             disruption::Update::Modify(trip, stop_times) => {
+                debug!("Modifying trip {:?}", trip);
                 let (vj_idx, stop_times) =
                     self.modify(disruption_id, trip, stop_times, base_model)?;
                 let dates = std::iter::once(trip.reference_date);

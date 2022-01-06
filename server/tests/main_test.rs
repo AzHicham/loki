@@ -93,9 +93,9 @@ async fn run() {
 
     subtests::kirin_delete_vj_test::delete_vj_test(&config).await;
 
-    // subtests::reload_test::reload_test(&config, &data_dir_path).await;
+    subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
-    // subtests::places_nearby_test::places_nearby_test(&config).await;
+    subtests::places_nearby_test::places_nearby_test(&config).await;
 
     info!("Everything went Ok ! Now stopping.");
 

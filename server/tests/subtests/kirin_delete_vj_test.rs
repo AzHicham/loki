@@ -171,12 +171,6 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         );
     }
 
-    // Tests ADDITIONNAL_SERVICE
-
-    // add the removed VJ with ADDITIONNAL_SERVICE : should not add anything, since the vehicle exists in base schedule
-
-    // add another VJ with ADDIOTIONNAL_SERVICE : should work
-
     // Tests MODIFY
 
     // modify a base vj
@@ -200,11 +194,16 @@ fn create_additionnal_service_disruption(
     date: NaiveDate,
     stop_times: Vec<(&str, NaiveDateTime)>,
 ) -> kirin_proto::FeedMessage {
+    let stop_time_event_status = chaos_proto::kirin::StopTimeEventStatus::SCHEDULED;
     let stop_time_updates: Vec<_> = stop_times
         .into_iter()
         .map(|(stop_name, time)| {
+            let field_number = chaos_proto::kirin::exts::stop_time_event_status.field_number;
             let mut stop_time_event = kirin_proto::TripUpdate_StopTimeEvent::default();
             stop_time_event.set_time(time.timestamp());
+            stop_time_event
+                .mut_unknown_fields()
+                .add_varint(field_number, stop_time_event_status as u64);
 
             let mut trip_update = kirin_proto::TripUpdate_StopTimeUpdate::default();
             trip_update.set_stop_id(stop_name.to_string());

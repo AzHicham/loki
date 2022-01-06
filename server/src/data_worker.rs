@@ -62,7 +62,7 @@ use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
-    tracing::{debug, error, info},
+    tracing::{debug, error, info, log::trace},
     DataTrait,
 };
 
@@ -223,16 +223,16 @@ impl DataWorker {
                 // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
                     if ! self.kirin_messages.is_empty() {
-                        debug!("It's time to apply {} real time updates.", self.kirin_messages.len());
+                        trace!("It's time to apply {} real time updates.", self.kirin_messages.len());
                         self.apply_realtime_messages().await?;
-                        debug!("Successfully applied real time updates.");
+                        trace!("Successfully applied real time updates.");
                     }
 
 
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
-                    debug!("Received a real time update.");
+                    info!("Received a real time message.");
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
@@ -313,7 +313,7 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<T, Error>,
     {
-        debug!("DataWorker ask LoadBalancer to Stop.");
+        trace!("DataWorker ask LoadBalancer to Stop.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
 
@@ -322,7 +322,7 @@ impl DataWorker {
             .recv()
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
-        debug!("DataWorker received Stopped signal from LoadBalancer.");
+        trace!("DataWorker received Stopped signal from LoadBalancer.");
 
         let update_result = {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
@@ -335,7 +335,7 @@ impl DataWorker {
             updater(&mut *lock_guard)
         }; // lock_guard is now released
 
-        debug!("DataWorker ask LoadBalancer to Start.");
+        trace!("DataWorker ask LoadBalancer to Start.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
 

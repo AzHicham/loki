@@ -63,8 +63,12 @@ pub fn handle_kirin_protobuf(
     }
     let trip_update = feed_entity.get_trip_update();
 
-    let update = read_trip_update(trip_update, base_model, realtime_model)
-        .with_context(|| format!("Could not handle kirin disruption {}.", disruption_id))?;
+    let update = read_trip_update(trip_update, base_model, realtime_model).with_context(|| {
+        format!(
+            "Could not handle trip update of kirin disruption {}.",
+            disruption_id
+        )
+    })?;
 
     let result = Disruption {
         id: disruption_id,

@@ -39,7 +39,7 @@ use launch::{
     config,
     loki::{
         models::{base_model::BaseModel, real_time_model::RealTimeModel},
-        tracing::{debug, error, info},
+        tracing::{error, info, log::trace},
         TransitData,
     },
 };
@@ -201,7 +201,7 @@ impl LoadBalancer {
                         }
                     });
 
-            debug!(
+            trace!(
                 "LoadBalancer worker is waiting. Available worker : {:?}",
                 has_available_worker
             );
@@ -217,7 +217,7 @@ impl LoadBalancer {
 
                     let (worker_id, response) = has_response.ok_or_else(|| format_err!("Channel to receive workers' responses has closed."))?;
 
-                    debug!("LoadBalancer received response from worker {:?}", worker_id);
+                    trace!("LoadBalancer received response from worker {:?}", worker_id);
 
                      self.forward_worker_response(worker_id, response)
                             .context("Could not send response to zmq worker")?;
@@ -231,15 +231,15 @@ impl LoadBalancer {
                 // receive order from the Master
                 has_order = self.order_receiver.recv() => {
                     let order = has_order.ok_or_else(|| format_err!("Channel to receive load balancer order has closed."))?;
-                    debug!("LoadBalancer received order.");
+                    trace!("LoadBalancer received order {:?}", order);
                     match (&order, self.state) {
                         (LoadBalancerOrder::Start, LoadBalancerState::Stopped) => {
                             self.state = LoadBalancerState::Online;
-                            debug!("LoadBalancer is now back Online.");
+                            trace!("LoadBalancer is now back Online.");
                         },
                         (LoadBalancerOrder::Stop, LoadBalancerState::Online) => {
                             self.state =LoadBalancerState::Stopping;
-                            debug!("LoadBalancer is now Stopping.");
+                            trace!("LoadBalancer is now Stopping.");
 
                            self.stop_if_all_workers_available().await?;
                         },
@@ -254,10 +254,10 @@ impl LoadBalancer {
                 has_request = self.zmq_channels.requests_receiver.recv(),
                 if has_available_worker.is_some() && self.state == LoadBalancerState::Online => {
                     let request = has_request.ok_or_else(|| format_err!("Channel to receive zmq requests has closed."))?;
-                    debug!("Load Balancer received a request.");
+                    trace!("Load Balancer received a request.");
                     // unwrap is safe here, because we enter this block only if has_available_worker.is_some()
                     let worker_id = has_available_worker.unwrap();
-                    debug!("LoadBalancer is sending request to worker {:?}", worker_id);
+                    trace!("LoadBalancer is sending request to worker {:?}", worker_id);
                     let sender = &self.worker_request_senders[worker_id];
                     sender.send(request).await
                                 .with_context(||format!("Channel to forward request to worker {} has closed", worker_id))?;

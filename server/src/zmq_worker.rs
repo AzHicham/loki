@@ -40,7 +40,7 @@ use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::Utc,
-    tracing::{debug, error, info, warn},
+    tracing::{debug, error, info, log::trace, warn},
     NaiveDateTime,
 };
 use prost::Message;
@@ -174,7 +174,7 @@ impl ZmqWorker {
     async fn run_loop(&mut self, mut zmq_socket: tmq::router::Router) -> Result<(), Error> {
         use futures::StreamExt;
         loop {
-            debug!("Zmq worker is waiting.");
+            trace!("Zmq worker is waiting.");
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness
@@ -189,7 +189,7 @@ impl ZmqWorker {
                     let response = has_response.ok_or_else(||
                         format_err!("ZmqWorker : channel to receive responses is closed.")
                     )?;
-                    debug!("ZmqWorker received a response.");
+                    trace!("ZmqWorker received a response.");
                     send_response_to_zmq(& mut zmq_socket, response).await?;
 
                 }
@@ -197,7 +197,7 @@ impl ZmqWorker {
                     let response = has_status_response.ok_or_else(||
                         format_err!("ZmqWorker : channel to receive status responses is closed.")
                     )?;
-                    debug!("ZmqWorker received a status response.");
+                    trace!("ZmqWorker received a status response.");
                     send_response_to_zmq(& mut zmq_socket, response).await?;
                 }
                 // receive requests from the zmq socket, and send them to the main thread for dispatch to workers
@@ -208,7 +208,7 @@ impl ZmqWorker {
 
                     match zmq_message_result {
                         Ok(zmq_message) => {
-                            debug!("Received a zmq request");
+                            trace!("Received a zmq request");
                             handle_incoming_request(
                                 &mut zmq_socket,
                                 zmq_message,
