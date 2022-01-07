@@ -282,6 +282,10 @@ where
             }
         }
 
+        if valid_dates.clone().next().is_none() {
+            return Err(InsertionError::NoValidDates(vehicle_journey_idx));
+        }
+
         let stops = self.create_stops(stop_points).into_iter();
         let days = self
             .days_patterns

@@ -416,6 +416,13 @@ pub fn handle_insertion_error(
                 real_time_level,
             );
         }
+        NoValidDates(vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+            error!(
+                "Trying to insert the vehicle journey {} with no valid dates.",
+                vehicle_journey_name,
+            );
+        }
         RealTimeVehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
@@ -456,7 +463,7 @@ fn handle_vehicletimes_error(
 
     let days_strings: Vec<String> = dates
         .iter()
-        .map(|date| date.format("%H:%M:%S %d-%b-%y").to_string())
+        .map(|date| date.format("%Y-%m-%d").to_string())
         .collect();
 
     let date = dates.first().unwrap();
