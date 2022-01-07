@@ -34,7 +34,11 @@ use chaos_proto::gtfs_realtime as kirin_proto;
 use launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::Message;
 
-pub async fn delete_vj_test(config: &ServerConfig) {
+pub async fn remove_add_modify_vj_test(config: &ServerConfig) {
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // dparting from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
     let date = NaiveDate::from_ymd(2021, 1, 1);
     let request_datetime = date.and_hms(8, 0, 0);
 
