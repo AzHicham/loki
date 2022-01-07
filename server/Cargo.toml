@@ -14,6 +14,10 @@ prost = "0.9"
 # cf https://github.com/tokio-rs/prost/issues/100
 protobuf = "2"
 
+# Postgres sql connection
+diesel = { version = "1.4.4", features = ["postgres"] }
+diesel-derive-enum = { version = "1.1", features = ["postgres"] }
+
 # Zmq lib with async interface
 tmq = "0.3"
 tokio = { version = "1", features = ["sync", "macros", "rt", "signal"] }

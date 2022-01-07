@@ -42,9 +42,16 @@ pub mod chaos_proto {
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }
 
+#[macro_use]
+extern crate diesel;
+
+#[macro_use]
+extern crate diesel_derive_enum;
+
 pub mod handle_kirin_message;
 pub mod response;
 
+pub mod chaos;
 pub mod compute_worker;
 pub mod load_balancer;
 pub mod master_worker;
