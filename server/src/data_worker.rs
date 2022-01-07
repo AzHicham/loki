@@ -62,7 +62,7 @@ use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
-    tracing::{debug, error, info},
+    tracing::{debug, error, info, log::trace},
     DataTrait,
 };
 
@@ -109,7 +109,7 @@ impl DataWorker {
             })
             .unwrap_or_else(|err| {
                 error!(
-                    "Could not retreive hostname : {}. I'll use 'unknown_host' as hostname.",
+                    "Could not retreive hostname. I'll use 'unknown_host' as hostname. {:?}",
                     err
                 );
                 String::from("unknown_host")
@@ -182,7 +182,7 @@ impl DataWorker {
                                 self.kirin_reload_done = true;
                             }
                             Err(err) => {
-                                error!("Error while reloading real time : {}", err);
+                                error!("Error while reloading real time : {:?}", err);
                                 continue;
                             }
                         }
@@ -196,7 +196,7 @@ impl DataWorker {
                 }
                 Err(err) => {
                     error!(
-                        "Error while connecting to rabbitmq : {}. I'll try to reconnect later.",
+                        "Error while connecting to rabbitmq : {:?}. I'll try to reconnect later.",
                         err
                     );
                 }
@@ -223,16 +223,16 @@ impl DataWorker {
                 // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
                     if ! self.kirin_messages.is_empty() {
-                        debug!("It's time to apply {} real time updates.", self.kirin_messages.len());
+                        trace!("It's time to apply {} real time updates.", self.kirin_messages.len());
                         self.apply_realtime_messages().await?;
-                        debug!("Successfully applied real time updates.");
+                        trace!("Successfully applied real time updates.");
                     }
 
 
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
-                    debug!("Received a real time update.");
+                    info!("Received a real time message.");
                     self.handle_incoming_kirin_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
@@ -265,22 +265,11 @@ impl DataWorker {
             data_and_models.0 = new_data;
             data_and_models.1 = new_base_model;
             data_and_models.2 = new_real_time_model;
-            Ok(())
+            let calendar = data_and_models.0.calendar();
+            Ok((*calendar.first_date(), *calendar.last_date()))
         };
 
-        self.update_data_and_models(updater).await?;
-
-        let (start_date, end_date) = {
-            let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
-                format_err!(
-                    "DataWorker failed to acquire read lock on data_and_models : {}",
-                    err
-                )
-            })?;
-            let (data, _, _) = rw_lock_read_guard.deref();
-            let calendar = data.calendar();
-            (*calendar.first_date(), *calendar.last_date())
-        }; // lock is released
+        let (start_date, end_date) = self.update_data_and_models(updater).await?;
 
         let now = Utc::now().naive_utc();
         let base_data_info = BaseDataInfo {
@@ -299,10 +288,11 @@ impl DataWorker {
             let real_time_model = &mut data_and_models.2;
             for message in messages {
                 for feed_entity in message.entity {
-                    let disruption_result = handle_kirin_protobuf(&feed_entity);
+                    let disruption_result =
+                        handle_kirin_protobuf(&feed_entity, base_model, real_time_model);
                     match disruption_result {
                         Err(err) => {
-                            error!("Could not handle a kirin message {}", err);
+                            error!("Could not handle a kirin message {:?}", err);
                         }
                         Ok(disruption) => {
                             real_time_model.apply_disruption(&disruption, base_model, data);
@@ -319,11 +309,11 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::RealTimeUpdate(now))
     }
 
-    async fn update_data_and_models<Updater>(&mut self, updater: Updater) -> Result<(), Error>
+    async fn update_data_and_models<Updater, T>(&mut self, updater: Updater) -> Result<T, Error>
     where
-        Updater: FnOnce(&mut DataAndModels) -> Result<(), Error>,
+        Updater: FnOnce(&mut DataAndModels) -> Result<T, Error>,
     {
-        debug!("DataWorker ask LoadBalancer to Stop.");
+        trace!("DataWorker ask LoadBalancer to Stop.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
 
@@ -332,9 +322,9 @@ impl DataWorker {
             .recv()
             .await
             .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
-        debug!("DataWorker received Stopped signal from LoadBalancer.");
+        trace!("DataWorker received Stopped signal from LoadBalancer.");
 
-        let update_error = {
+        let update_result = {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
                 format_err!(
                     "DataWorker worker failed to acquire write lock on data_and_models. {}.",
@@ -345,11 +335,11 @@ impl DataWorker {
             updater(&mut *lock_guard)
         }; // lock_guard is now released
 
-        debug!("DataWorker ask LoadBalancer to Start.");
+        trace!("DataWorker ask LoadBalancer to Start.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
 
-        update_error
+        update_result
     }
 
     async fn send_order_to_load_balancer(&mut self, order: LoadBalancerOrder) -> Result<(), Error> {
@@ -374,7 +364,7 @@ impl DataWorker {
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of kirin message : {}",
+                            "Error while acknowleding reception of kirin message : {:?}",
                             err
                         );
                     });
@@ -387,13 +377,13 @@ impl DataWorker {
                         Ok(())
                     }
                     Err(err) => {
-                        error!("Could not decode kirin message into protobuf : {}", err);
+                        error!("Could not decode kirin message into protobuf. {:?}", err);
                         Ok(())
                     }
                 }
             }
             Some(Err(err)) => {
-                error!("Error while receiving a kirin message : {:?}", err);
+                error!("Error while receiving a kirin message. {:?}", err);
                 Ok(())
             }
             None => {
@@ -417,7 +407,7 @@ impl DataWorker {
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of reload message : {}",
+                            "Error while acknowleding reception of reload message. {:?}",
                             err
                         );
                     });
@@ -444,13 +434,13 @@ impl DataWorker {
                         Ok(())
                     }
                     Err(err) => {
-                        error!("Could not decode reload message into protobuf : {}", err);
+                        error!("Could not decode reload message into protobuf. {:?}", err);
                         Ok(())
                     }
                 }
             }
             Some(Err(err)) => {
-                error!("Error while receiving a reload message : {:?}", err);
+                error!("Error while receiving a reload message. {:?}", err);
                 Ok(())
             }
             None => {

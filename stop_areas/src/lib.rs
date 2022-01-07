@@ -243,7 +243,7 @@ where
 
     match &solve_result {
         Err(err) => {
-            error!("Error while solving request : {}", err);
+            error!("Error while solving request. {}", err);
         }
         Ok(responses) => {
             for response in responses.iter() {

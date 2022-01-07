@@ -448,7 +448,7 @@ fn make_proto_response(
 ) -> navitia_proto::Response {
     match solve_result {
         Result::Err(err) => {
-            error!("Error while solving request : {}", err);
+            error!("Error while solving request : {:?}", err);
             make_error_response(&err)
         }
         Ok((request_input, journeys)) => {
@@ -456,7 +456,7 @@ fn make_proto_response(
             match response_result {
                 Result::Err(err) => {
                     error!(
-                        "Error while encoding protobuf response for request : {}",
+                        "Error while encoding protobuf response for request : {:?}",
                         err
                     );
                     make_error_response(&err)
