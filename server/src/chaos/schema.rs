@@ -86,7 +86,7 @@ table! {
     category (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
-        id -> Uuid,
+        id -> Nullable<Uuid>,
         name -> Text,
         is_visible -> Bool,
         client_id -> Uuid,
@@ -151,14 +151,14 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::{DisruptionType, DisruptionStatus};
+    use crate::chaos::sql_types::{DisruptionType, disruption_status};
     disruption (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         reference -> Nullable<Text>,
         note -> Nullable<Text>,
-        status -> DisruptionStatus,
+        status -> disruption_status,
         end_publication_date -> Nullable<Timestamp>,
         start_publication_date -> Nullable<Timestamp>,
         cause_id -> Nullable<Uuid>,
