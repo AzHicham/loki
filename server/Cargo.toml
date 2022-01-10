@@ -15,7 +15,7 @@ prost = "0.9"
 protobuf = "2"
 
 # Postgres sql connection
-diesel = { version = "1.4.4", features = ["postgres", "chrono", "uuid", "uuidv07"] }
+diesel = { version = "1.4", features = ["postgres", "chrono", "uuid", "uuidv07"] }
 diesel-derive-enum = { version = "1.1", features = ["postgres"] }
 uuid = "0.8"
 

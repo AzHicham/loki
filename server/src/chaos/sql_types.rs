@@ -1,50 +1,71 @@
-// In sql_types.rs
 use diesel::sql_types::NotNull;
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "impact_status"]
-pub enum Impact_status {
-    Admin,
-    Employee,
+#[DbValueStyle = "snake_case"]
+pub enum ImpactStatus {
+    Published,
+    Archived,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "severity_effect"]
-pub enum Severity_effect {
-    Admin,
-    Employee,
+#[DbValueStyle = "snake_case"]
+pub enum SeverityEffect {
+    Web,
+    Sms,
+    Email,
+    Mobile,
+    Notification,
+    Twitter,
+    Facebook,
+    Title,
+    Beacon,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "channel_type_enum"]
-pub enum Channel_type_enum {
+#[DbValueStyle = "snake_case"]
+pub enum ChannelType {
     Admin,
     Employee,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "disruption_status"]
-pub enum Disruption_status {
-    Admin,
-    Employee,
+#[DbValueStyle = "snake_case"]
+pub enum DisruptionStatus {
+    Published,
+    Archived,
+    Draft,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "status"]
+#[DbValueStyle = "snake_case"]
 pub enum Status {
-    Admin,
-    Employee,
+    Waiting,
+    Handling,
+    Error,
+    Done,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "pt_object_type"]
-pub enum Pt_object_type {
-    Admin,
-    Employee,
+#[DbValueStyle = "snake_case"]
+pub enum PtObjectType {
+    Network,
+    StopArea,
+    Line,
+    LineSection,
+    Route,
+    StopPoint,
+    RailSection,
 }
+
 #[derive(Debug, PartialEq, DbEnum, SqlType)]
 #[DieselType = "disruption_type_enum"]
-pub enum Disruption_type_enum {
-    Admin,
-    Employee,
+#[DbValueStyle = "snake_case"]
+pub enum DisruptionType {
+    Unexpected,
 }

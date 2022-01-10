@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use crate::{
+    chaos,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
@@ -145,6 +146,9 @@ impl DataWorker {
         self.load_data_from_disk()
             .await
             .with_context(|| "Error while loading data from disk.".to_string())?;
+
+        // After loading data from disk, load all disruption in chaos database
+        self.load_chaos_database().await;
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -289,6 +293,12 @@ impl DataWorker {
             last_load_at: now,
         };
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+    }
+
+    async fn load_chaos_database(&mut self) {
+        if let Err(err) = chaos::models::chaos_disruption_from_database(&self.config.chaos_params) {
+            error!("Loading chaos database failed : {:?}.", err);
+        }
     }
 
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {

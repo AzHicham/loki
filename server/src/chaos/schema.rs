@@ -1,12 +1,4 @@
-use diesel::connection::SimpleConnection;
-use diesel::deserialize::{self, FromSql};
-use diesel::pg::Pg;
-use diesel::serialize::{self, IsNull, Output, ToSql};
-use diesel::sql_types::*;
-use diesel::types::Nullable;
-use diesel::*;
 use diesel::{allow_tables_to_appear_in_same_query, joinable, table};
-use diesel_derive_enum::DbEnum;
 
 table! {
     application_periods (id) {
@@ -135,7 +127,7 @@ table! {
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         channel_id -> Nullable<Uuid>,
-        name -> Channel_type_enum,
+        name -> ChannelType,
     }
 }
 
@@ -159,14 +151,14 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::{Disruption_type_enum, Disruption_status};
+    use crate::chaos::sql_types::{DisruptionType, DisruptionStatus};
     disruption (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         reference -> Nullable<Text>,
         note -> Nullable<Text>,
-        status -> Disruption_status,
+        status -> DisruptionStatus,
         end_publication_date -> Nullable<Timestamp>,
         start_publication_date -> Nullable<Timestamp>,
         cause_id -> Nullable<Uuid>,
@@ -175,7 +167,7 @@ table! {
         version -> Int4,
         author -> Nullable<Text>,
         #[sql_name = "type"]
-        type_ -> Nullable<Disruption_type_enum>,
+        type_ -> Nullable<DisruptionType>,
     }
 }
 
@@ -198,13 +190,13 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::{Impact_status};
+    use crate::chaos::sql_types::ImpactStatus;
     impact (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         disruption_id -> Nullable<Uuid>,
-        status -> Impact_status,
+        status -> ImpactStatus,
         severity_id -> Nullable<Uuid>,
         send_notifications -> Bool,
         version -> Int4,
@@ -276,7 +268,7 @@ table! {
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         #[sql_name = "type"]
-        type_ -> Nullable<Pt_object_type>,
+        type_ -> Nullable<PtObjectType>,
         uri -> Nullable<Text>,
     }
 }
@@ -304,7 +296,7 @@ table! {
         wording -> Text,
         color -> Nullable<Text>,
         is_visible -> Bool,
-        effect -> Nullable<Severity_effect>,
+        effect -> Nullable<SeverityEffect>,
         priority -> Int4,
         client_id -> Uuid,
     }
