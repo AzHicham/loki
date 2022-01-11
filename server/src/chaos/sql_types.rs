@@ -12,6 +12,21 @@ pub enum ImpactStatus {
 #[DieselType = "severity_effect"]
 #[DbValueStyle = "snake_case"]
 pub enum SeverityEffect {
+    NoService,
+    ReducedService,
+    SignificantDelays,
+    Detour,
+    AdditionalService,
+    ModifiedService,
+    OtherEffect,
+    UnknownEffect,
+    StopMoved,
+}
+
+#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[DieselType = "channel_type_enum"]
+#[DbValueStyle = "snake_case"]
+pub enum ChannelType {
     Web,
     Sms,
     Email,
@@ -21,14 +36,6 @@ pub enum SeverityEffect {
     Facebook,
     Title,
     Beacon,
-}
-
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
-#[DieselType = "channel_type_enum"]
-#[DbValueStyle = "snake_case"]
-pub enum ChannelType {
-    Admin,
-    Employee,
 }
 
 #[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]

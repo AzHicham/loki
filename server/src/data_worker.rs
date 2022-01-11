@@ -43,7 +43,10 @@ use crate::{
     status_worker::{BaseDataInfo, StatusUpdate},
 };
 
-use super::{chaos_proto::gtfs_realtime, navitia_proto};
+use super::{
+    chaos_proto::{chaos::exts, gtfs_realtime},
+    navitia_proto,
+};
 use prost::Message as ProstMessage;
 use protobuf::Message as ProtobufMessage;
 
@@ -72,6 +75,8 @@ use std::{
     thread,
 };
 
+use crate::handle_chaos_message::handle_chaos_protobuf;
+use launch::loki::chrono::NaiveTime;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -148,7 +153,9 @@ impl DataWorker {
             .with_context(|| "Error while loading data from disk.".to_string())?;
 
         // After loading data from disk, load all disruption in chaos database
-        self.load_chaos_database().await;
+        if let Err(err) = self.load_chaos_database().await {
+            error!("Error : {}", err);
+        }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -295,10 +302,28 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }
 
-    async fn load_chaos_database(&mut self) {
-        if let Err(err) = chaos::models::chaos_disruption_from_database(&self.config.chaos_params) {
+    async fn load_chaos_database(&mut self) -> Result<(), Error> {
+        let (start_date, end_date) = {
+            let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                format_err!(
+                    "DataWorker failed to acquire read lock on data_and_models : {}",
+                    err
+                )
+            })?;
+            let (data, _, _) = rw_lock_read_guard.deref();
+            let calendar = data.calendar();
+            (*calendar.first_date(), *calendar.last_date())
+        }; // lock is released
+        if let Err(err) = chaos::models::chaos_disruption_from_database(
+            &self.config.chaos_params,
+            (
+                start_date.and_time(NaiveTime::from_hms(0, 0, 0)),
+                end_date.and_time(NaiveTime::from_hms(23, 59, 59)),
+            ),
+        ) {
             error!("Loading chaos database failed : {:?}.", err);
         }
+        Ok(())
     }
 
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
@@ -309,14 +334,23 @@ impl DataWorker {
             let real_time_model = &mut data_and_models.2;
             for message in messages {
                 for feed_entity in message.entity {
-                    let disruption_result = handle_kirin_protobuf(&feed_entity);
-                    match disruption_result {
-                        Err(err) => {
-                            error!("Could not handle a kirin message {}", err);
+                    if feed_entity.get_is_deleted() {
+                        error!("Unsupported gtfs rt feed");
+                    } else if let Some(chaos_disruption) = exts::disruption.get(&feed_entity) {
+                        let disruption_result = handle_chaos_protobuf(&chaos_disruption);
+                        error!("Unsupported gtfs rt feed");
+                    } else if feed_entity.has_trip_update() {
+                        let disruption_result = handle_kirin_protobuf(&feed_entity);
+                        match disruption_result {
+                            Err(err) => {
+                                error!("Could not handle a kirin message {}", err);
+                            }
+                            Ok(disruption) => {
+                                real_time_model.apply_disruption(&disruption, base_model, data);
+                            }
                         }
-                        Ok(disruption) => {
-                            real_time_model.apply_disruption(&disruption, base_model, data);
-                        }
+                    } else {
+                        error!("Unsupported gtfs rt feed");
                     }
                 }
             }

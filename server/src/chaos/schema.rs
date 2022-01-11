@@ -121,13 +121,13 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::*;
+    use crate::chaos::sql_types::channel_type_enum;
     channel_type (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         channel_id -> Nullable<Uuid>,
-        name -> ChannelType,
+        name -> channel_type_enum,
     }
 }
 
@@ -151,7 +151,7 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::{DisruptionType, disruption_status};
+    use crate::chaos::sql_types::{disruption_type_enum, disruption_status};
     disruption (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
@@ -167,7 +167,7 @@ table! {
         version -> Int4,
         author -> Nullable<Text>,
         #[sql_name = "type"]
-        type_ -> Nullable<DisruptionType>,
+        type_ -> Nullable<disruption_type_enum>,
     }
 }
 
@@ -190,13 +190,13 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::ImpactStatus;
+    use crate::chaos::sql_types::impact_status;
     impact (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         disruption_id -> Nullable<Uuid>,
-        status -> ImpactStatus,
+        status -> impact_status,
         severity_id -> Nullable<Uuid>,
         send_notifications -> Bool,
         version -> Int4,
@@ -262,13 +262,13 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::*;
+    use crate::chaos::sql_types::pt_object_type;
     pt_object (id) {
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
         id -> Uuid,
         #[sql_name = "type"]
-        type_ -> Nullable<PtObjectType>,
+        type_ -> Nullable<pt_object_type>,
         uri -> Nullable<Text>,
     }
 }
@@ -288,7 +288,7 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::chaos::sql_types::*;
+    use crate::chaos::sql_types::severity_effect;
     severity (id) {
         id -> Uuid,
         created_at -> Timestamp,
@@ -296,7 +296,7 @@ table! {
         wording -> Text,
         color -> Nullable<Text>,
         is_visible -> Bool,
-        effect -> Nullable<SeverityEffect>,
+        effect -> Nullable<severity_effect>,
         priority -> Int4,
         client_id -> Uuid,
     }

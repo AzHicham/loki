@@ -124,4 +124,12 @@ LEFT JOIN associate_disruption_property adp ON adp.disruption_id = d.id
 LEFT JOIN property pr ON pr.id = adp.property_id
 LEFT JOIN pattern AS pt ON pt.impact_id = i.id
 LEFT JOIN time_slot AS ts ON ts.pattern_id = pt.id
-LIMIT 5
+WHERE (
+    NOT (d.start_publication_date >= $1 OR d.end_publication_date <= $2)
+    OR (d.start_publication_date <= $3 and d.end_publication_date IS NULL)
+)
+AND co.contributor_code = ANY($4)
+AND d.status = 'published'
+AND i.status = 'published'
+ORDER BY d.id, c.id, t.id, i.id, m.id, ch.id, cht.id
+LIMIT $5 OFFSET $6
