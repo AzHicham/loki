@@ -21,15 +21,9 @@ pub fn chaos_disruption_from_database(
     let connection = PgConnection::establish(&config.chaos_database)?;
 
     let res = diesel::sql_query(include_str!("query.sql"))
-        .bind::<Timestamp, _>(
-            NaiveDateTime::parse_from_str("20300101T000000", "%Y%m%dT%H%M%S").unwrap(),
-        )
-        .bind::<Timestamp, _>(
-            NaiveDateTime::parse_from_str("20100101T000000", "%Y%m%dT%H%M%S").unwrap(),
-        )
-        .bind::<Timestamp, _>(
-            NaiveDateTime::parse_from_str("20300101T000000", "%Y%m%dT%H%M%S").unwrap(),
-        )
+        .bind::<Timestamp, _>(publication_period.1)
+        .bind::<Timestamp, _>(publication_period.0)
+        .bind::<Timestamp, _>(publication_period.1)
         .bind::<Array<Text>, _>(&config.chaos_contributors)
         .bind::<Int4, _>(config.chaos_batch_size as i32)
         .bind::<Int4, _>(config.chaos_batch_size as i32)
