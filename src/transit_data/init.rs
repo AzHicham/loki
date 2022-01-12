@@ -54,7 +54,7 @@ use crate::{
 use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
-use tracing::{debug, info, trace, warn};
+use tracing::{info, warn};
 
 use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
 

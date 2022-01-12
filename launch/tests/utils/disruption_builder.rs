@@ -33,17 +33,17 @@ pub fn delete(vehicle_journey_id: String, date: NaiveDate) -> Disruption {
 }
 
 pub fn add(
-    vehicle_journey_id: String,
-    date: NaiveDate,
+    vehicle_journey_id: &str,
+    date: impl AsDate,
     stop_times_builder: StopTimesBuilder,
 ) -> Disruption {
     let trip = Trip {
-        vehicle_journey_id: vehicle_journey_id.clone(),
-        reference_date: date,
+        vehicle_journey_id: vehicle_journey_id.to_string(),
+        reference_date: date.as_date(),
     };
     let update = Update::Add(trip, stop_times_builder.stop_times);
     Disruption {
-        id: format!("Add {} {}", vehicle_journey_id, date),
+        id: format!("Add {} {}", vehicle_journey_id, date.as_date()),
         updates: vec![update],
     }
 }
@@ -67,7 +67,7 @@ pub fn modify(
 pub struct DisruptionBuilder {}
 
 pub struct StopTimesBuilder {
-    stop_times: Vec<StopTime>,
+    pub stop_times: Vec<StopTime>,
 }
 
 impl StopTimesBuilder {

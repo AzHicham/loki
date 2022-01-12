@@ -40,9 +40,13 @@ use anyhow::Error;
 use launch::{config::DataImplem, solver::Solver};
 
 use loki::{
-    models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, VehicleJourneyIdx},
+    chrono_tz::UTC,
+    models::{
+        base_model::BaseModel, real_time_disruption::Trip, real_time_model::RealTimeModel,
+        ModelRefs, StopTime, VehicleJourneyIdx,
+    },
     request::generic_request,
-    timetables::{Timetables, TimetablesIter},
+    timetables::{InsertionError, Timetables, TimetablesIter},
     DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
 };
 use utils::{
@@ -604,6 +608,267 @@ where
             model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
             "first"
         );
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
+fn insert_invalid_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => insert_invalid_vj_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => insert_invalid_vj_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => insert_invalid_vj_inner::<DailyData>(),
+    }
+}
+
+fn insert_invalid_vj_inner<T>() -> Result<(), Error>
+where
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a>,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
+    let _log_guard = launch::logger::init_test_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .build();
+
+    let config = Config::new("2020-01-01T08:00:00", "A", "C");
+
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration,
+    )
+    .unwrap();
+
+    let mut real_time_model = RealTimeModel::new();
+    let _model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
+
+    // insert a vehicle with a date outside of the calendar of the data
+    {
+        let trip = Trip {
+            vehicle_journey_id: "invalid_date_vj".to_string(),
+            reference_date: "1999-01-01".as_date(),
+        };
+        let (vj_idx, stop_times) = real_time_model
+            .add("disruption_id", &trip, &Vec::new(), &base_model)
+            .unwrap();
+        let dates = std::iter::once(trip.reference_date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx,
+        );
+        match insert_result {
+            Err(InsertionError::InvalidDate(_, _)) => {
+                assert!(true)
+            }
+            _ => {
+                assert!(
+                    false,
+                    "Expected Err(InvalidDate), found {:?}",
+                    insert_result
+                );
+            }
+        }
+    }
+
+    // insert a vehicle without date
+    {
+        let trip = Trip {
+            vehicle_journey_id: "no_dates_vj".to_string(),
+            reference_date: "1999-01-01".as_date(),
+        };
+        let (vj_idx, stop_times) = real_time_model
+            .add("disruption_id", &trip, &Vec::new(), &base_model)
+            .unwrap();
+        let dates = std::iter::empty();
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx,
+        );
+        match insert_result {
+            Err(InsertionError::NoValidDates(_)) => {
+                assert!(true)
+            }
+            _ => {
+                assert!(
+                    false,
+                    "Expected Err(NoValidDates), found {:?}",
+                    insert_result
+                );
+            }
+        }
+    }
+
+    // insert a vehicle that time-travels
+    {
+        let trip = Trip {
+            vehicle_journey_id: "time_travel_vj".to_string(),
+            reference_date: "2020-01-01".as_date(),
+        };
+        let stop_times = StopTimesBuilder::new()
+            .st("A", "09:45:00")
+            .st("B", "08:05:00")
+            .st("C", "10:10:00")
+            .stop_times;
+        let (vj_idx, stop_times) = real_time_model
+            .add("disruption_id", &trip, stop_times.as_slice(), &base_model)
+            .unwrap();
+        let dates = std::iter::once(trip.reference_date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx,
+        );
+        match insert_result {
+            Err(InsertionError::Times(_, _, _, _)) => {
+                assert!(true)
+            }
+            _ => {
+                assert!(false, "Expected Err(Times), found {:?}", insert_result);
+            }
+        }
+    }
+
+    // insert a vehicle that already exists in base schedule
+    {
+        let vj_idx = VehicleJourneyIdx::Base(base_model.vehicle_journey_idx("first").unwrap());
+        let stop_times: Vec<StopTime> = Vec::new();
+        let dates = std::iter::once("2020-01-01".as_date());
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx,
+        );
+        match insert_result {
+            Err(InsertionError::BaseVehicleJourneyAlreadyExists(_)) => {
+                assert!(true)
+            }
+            _ => {
+                assert!(
+                    false,
+                    "Expected Err(BaseVehicleJourneyAlreadyExists), found {:?}",
+                    insert_result
+                );
+            }
+        }
+    }
+
+    // insert a new vehicle twice
+    {
+        let trip = Trip {
+            vehicle_journey_id: "inserted_twice_vj".to_string(),
+            reference_date: "2020-01-01".as_date(),
+        };
+        let stop_times = StopTimesBuilder::new()
+            .st("A", "09:45:00")
+            .st("B", "10:05:00")
+            .st("C", "10:10:00")
+            .stop_times;
+        let (vj_idx, stop_times) = real_time_model
+            .add("disruption_id", &trip, stop_times.as_slice(), &base_model)
+            .unwrap();
+        let dates = std::iter::once(trip.reference_date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx.clone(),
+        );
+
+        assert!(insert_result.is_ok());
+
+        let dates = std::iter::once(trip.reference_date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            vj_idx,
+        );
+
+        match insert_result {
+            Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(_, _)) => {
+                assert!(true)
+            }
+            _ => {
+                assert!(
+                    false,
+                    "Expected Err(RealTimeVehicleJourneyAlreadyExistsOnDate), found {:?}",
+                    insert_result
+                );
+            }
+        }
     }
 
     Ok(())
