@@ -238,8 +238,6 @@ impl DataWorker {
                         self.apply_realtime_messages().await?;
                         debug!("Successfully applied real time updates.");
                     }
-
-
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
@@ -335,10 +333,19 @@ impl DataWorker {
             for message in messages {
                 for feed_entity in message.entity {
                     if feed_entity.get_is_deleted() {
-                        error!("Unsupported gtfs rt feed");
+                        error!("Delete Unsupported gtfs rt feed");
                     } else if let Some(chaos_disruption) = exts::disruption.get(&feed_entity) {
-                        let disruption_result = handle_chaos_protobuf(&chaos_disruption);
-                        error!("Unsupported gtfs rt feed");
+                        let disruption_result =
+                            handle_chaos_protobuf(&chaos_disruption, base_model);
+                        match disruption_result {
+                            Err(err) => {
+                                error!("Could not handle a chaos message {}", err);
+                            }
+                            Ok(disruption) => {
+                                real_time_model.apply_disruption(&disruption, base_model, data);
+                            }
+                        }
+                        info!("Chaos feed");
                     } else if feed_entity.has_trip_update() {
                         let disruption_result = handle_kirin_protobuf(&feed_entity);
                         match disruption_result {
