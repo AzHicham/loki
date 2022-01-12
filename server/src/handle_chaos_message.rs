@@ -36,15 +36,19 @@
 
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
-use chaos_proto::gtfs_realtime::TimeRange;
-use launch::loki::chrono::{Duration, NaiveDate};
-use launch::loki::models::base_model::{BaseModel, BaseVehicleJourneyIdx};
-use launch::loki::models::real_time_disruption::{Disruption, Trip, Update};
-use launch::loki::tracing::{error, info};
-use launch::loki::NaiveDateTime;
-use serde_json::to_string;
-use std::cmp::{max, min};
-use std::mem;
+use launch::loki::{
+    chrono::{Duration, NaiveDate},
+    models::{
+        base_model::BaseModel,
+        real_time_disruption::{Disruption, Trip, Update},
+    },
+    tracing::error,
+    NaiveDateTime,
+};
+use std::{
+    cmp::{max, min},
+    mem,
+};
 
 pub fn handle_chaos_protobuf(
     chaos_disruption: &chaos_proto::chaos::Disruption,
@@ -78,9 +82,9 @@ fn read_impact(
 
 fn read_pt_object(impact: &chaos_proto::chaos::Impact, model: &BaseModel) -> Vec<Update> {
     use chaos_proto::chaos::PtObject_Type;
-    let validity_period = DatePeriod {
-        start: model.validity_period().0,
-        end: model.validity_period().1,
+    let validity_period = DateTimePeriod {
+        start: model.validity_period().0.and_hms(0, 0, 0),
+        end: model.validity_period().1.and_hms(12, 59, 59),
     };
     let application_period = compute_application_period(impact, &validity_period);
     let mut updates: Vec<Update> = vec![];
@@ -115,15 +119,15 @@ fn read_pt_object(impact: &chaos_proto::chaos::Impact, model: &BaseModel) -> Vec
 
 fn compute_application_period(
     impact: &chaos_proto::chaos::Impact,
-    model_validity_period: &DatePeriod,
-) -> Vec<DatePeriod> {
+    model_validity_period: &DateTimePeriod,
+) -> Vec<DateTimePeriod> {
     impact
         .get_application_periods()
         .iter()
         .filter_map(|range| {
-            let period = DatePeriod {
-                start: NaiveDateTime::from_timestamp(range.get_start() as i64, 0).date(),
-                end: NaiveDateTime::from_timestamp(range.get_end() as i64, 0).date(),
+            let period = DateTimePeriod {
+                start: NaiveDateTime::from_timestamp(range.get_start() as i64, 0),
+                end: NaiveDateTime::from_timestamp(range.get_end() as i64, 0),
             };
             clamp_date(&period, model_validity_period)
         })
@@ -139,7 +143,7 @@ fn make_trip(vehicle_journey_id: String, date: NaiveDate) -> Trip {
 
 fn make_delete_vehicle(
     vj_id: &str,
-    application_periods: &[DatePeriod],
+    application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates = vec![];
@@ -147,7 +151,7 @@ fn make_delete_vehicle(
         updates = application_periods
             .iter()
             .flatten()
-            .map(|day| Update::Delete(make_trip(vj_id.to_string(), day)))
+            .map(|day| Update::Delete(make_trip(vj_id.to_string(), day.date())))
             .collect();
     } else {
         error!("vehicule.uri {} does not exists in BaseModel", vj_id);
@@ -157,7 +161,7 @@ fn make_delete_vehicle(
 
 fn make_delete_route(
     pt_object: &chaos_proto::chaos::PtObject,
-    application_periods: &[DatePeriod],
+    application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
@@ -185,7 +189,7 @@ fn make_delete_route(
 
 fn make_delete_line(
     pt_object: &chaos_proto::chaos::PtObject,
-    application_periods: &[DatePeriod],
+    application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
@@ -213,7 +217,7 @@ fn make_delete_line(
 
 fn make_delete_network(
     pt_object: &chaos_proto::chaos::PtObject,
-    application_periods: &[DatePeriod],
+    application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
@@ -240,9 +244,9 @@ fn make_delete_network(
 }
 
 #[derive(Debug, Clone)]
-pub struct DatePeriod {
-    pub start: NaiveDate,
-    pub end: NaiveDate,
+pub struct DateTimePeriod {
+    pub start: NaiveDateTime,
+    pub end: NaiveDateTime,
 }
 
 fn clamp<T: PartialOrd<T>>(input: T, min_input: T, max_input: T) -> T
@@ -252,25 +256,28 @@ where
     min(max(input, min_input), max_input)
 }
 
-fn clamp_date(input: &DatePeriod, clamper: &DatePeriod) -> Option<DatePeriod> {
+fn clamp_date(input: &DateTimePeriod, clamper: &DateTimePeriod) -> Option<DateTimePeriod> {
     let start = clamp(input.start, clamper.start, clamper.end);
     let end = clamp(input.end, clamper.start, clamper.end);
     if start <= end {
-        Some(DatePeriod { start, end })
+        Some(DateTimePeriod { start, end })
     } else {
         None
     }
 }
 
-pub struct DatePeriodIterator<'a> {
-    period: &'a DatePeriod,
-    current: NaiveDate,
+pub struct DateTimePeriodIterator<'a> {
+    period: &'a DateTimePeriod,
+    current: NaiveDateTime,
 }
 
-impl<'a> Iterator for DatePeriodIterator<'a> {
-    type Item = NaiveDate;
+impl<'a> Iterator for DateTimePeriodIterator<'a> {
+    type Item = NaiveDateTime;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current <= self.period.end {
+        if self.current < self.period.end {
+            let next = min(self.current + Duration::days(1), self.period.end);
+            Some(mem::replace(&mut self.current, next))
+        } else if self.current == self.period.end {
             let next = self.current + Duration::days(1);
             Some(mem::replace(&mut self.current, next))
         } else {
@@ -279,12 +286,12 @@ impl<'a> Iterator for DatePeriodIterator<'a> {
     }
 }
 
-impl<'a> IntoIterator for &'a DatePeriod {
-    type Item = NaiveDate;
-    type IntoIter = DatePeriodIterator<'a>;
+impl<'a> IntoIterator for &'a DateTimePeriod {
+    type Item = NaiveDateTime;
+    type IntoIter = DateTimePeriodIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        DatePeriodIterator {
+        DateTimePeriodIterator {
             period: self,
             current: self.start,
         }
