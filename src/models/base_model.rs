@@ -464,9 +464,19 @@ impl BaseModel {
         self.collections.stop_points.get_idx(stop_id)
     }
 
+    pub fn from_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
+        self.collections.transfers[transfer_idx]
+            .from_stop_id
+            .as_str()
+    }
+
     pub fn to_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
         let stop_id = self.collections.transfers[transfer_idx].to_stop_id.as_str();
         self.collections.stop_points.get_idx(stop_id)
+    }
+
+    pub fn to_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
+        self.collections.transfers[transfer_idx].to_stop_id.as_str()
     }
 
     pub fn transfer_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {

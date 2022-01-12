@@ -416,6 +416,13 @@ pub fn handle_insertion_error(
                 real_time_level,
             );
         }
+        NoValidDates(vehicle_journey_idx) => {
+            let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
+            error!(
+                "Trying to insert the vehicle journey {} with no valid dates.",
+                vehicle_journey_name,
+            );
+        }
         RealTimeVehicleJourneyAlreadyExistsOnDate(date, vehicle_journey_idx) => {
             let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
@@ -450,16 +457,21 @@ fn handle_vehicletimes_error(
     real_time_level: &RealTimeLevel,
 ) -> Result<(), ()> {
     if dates.is_empty() {
-        error!("Received a vehicle times error with no date");
+        error!("Received a vehicle times error with no date. {:?}", error);
         return Err(());
     }
 
-    let days_strings: Vec<String> = dates
-        .iter()
-        .map(|date| date.format("%H:%M:%S %d-%b-%y").to_string())
-        .collect();
-
     let date = dates.first().unwrap();
+
+    let days_strings = if dates.len() == 1 {
+        date.format("%Y-%m-%d").to_string()
+    } else {
+        format!(
+            "{} and ({} others)",
+            date.format("%Y-%m-%d"),
+            dates.len() - 1
+        )
+    };
 
     let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
 
@@ -471,7 +483,7 @@ fn handle_vehicletimes_error(
             );
         }
         VehicleTimesError::DebarkBeforeUpstreamBoard(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
                 date,
@@ -479,20 +491,20 @@ fn handle_vehicletimes_error(
                 real_time_level,
             )?;
             error!(
-                "Skipping vehicle journey {} on days {:?} because its \
+                "Skipping vehicle journey {} on day {:?} because its \
                     debark time at {:?}-th stop_time ({}) \
                     is earlier than its \
                     board time upstream {:?}-th stop_time ({}). ",
                 vehicle_journey_name,
                 days_strings,
-                position_pair.downstream,
+                position_pair.downstream.idx,
                 downstream_stop_name,
-                position_pair.upstream,
+                position_pair.upstream.idx,
                 upstream_stop_name
             );
         }
         VehicleTimesError::DecreasingBoardTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
                 date,
@@ -500,7 +512,7 @@ fn handle_vehicletimes_error(
                 real_time_level,
             )?;
             error!(
-                "Skipping vehicle journey {} on days {:?} because its \
+                "Skipping vehicle journey {} on day {:?} because its \
                     board time at {:?}-th stop_time ({}) \
                     is earlier than its \
                     board time upstream at {:?}-th stop_time ({}). ",
@@ -513,7 +525,7 @@ fn handle_vehicletimes_error(
             );
         }
         VehicleTimesError::DecreasingDebarkTime(position_pair) => {
-            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_names(
+            let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
                 date,
@@ -521,7 +533,7 @@ fn handle_vehicletimes_error(
                 real_time_level,
             )?;
             error!(
-                "Skipping vehicle journey {} on days {:?} because its \
+                "Skipping vehicle journey {} on day {:?} because its \
                     debark time at {:?}-th stop_time ({}) \
                     is earlier than its \
                     debark time upstream at {:?}-th stop_time ({}). ",
@@ -538,13 +550,13 @@ fn handle_vehicletimes_error(
     Ok(())
 }
 
-fn upstream_downstream_stop_names<'model>(
+fn upstream_downstream_stop_uris<'model>(
     model: &'model ModelRefs<'model>,
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: &NaiveDate,
     position_pair: &PositionPair,
     real_time_level: &RealTimeLevel,
-) -> Result<(&'model str, &'model str), ()> {
+) -> Result<(String, String), ()> {
     let upstream_stop = model
         .stop_point_at(
             vehicle_journey_idx,
@@ -561,7 +573,7 @@ fn upstream_downstream_stop_names<'model>(
                 position_pair.upstream
             )
         })?;
-    let upstream_stop_name = model.stop_point_name(&upstream_stop);
+    let upstream_stop_name = model.stop_point_uri(&upstream_stop);
 
     let dowstream_stop = model
         .stop_point_at(
@@ -580,7 +592,7 @@ fn upstream_downstream_stop_names<'model>(
             )
         })?;
 
-    let downstream_stop_name = model.stop_point_name(&dowstream_stop);
+    let downstream_stop_name = model.stop_point_uri(&dowstream_stop);
 
     Ok((upstream_stop_name, downstream_stop_name))
 }

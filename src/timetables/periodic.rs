@@ -446,6 +446,9 @@ impl TimetablesTrait for PeriodicTimetables {
 
         for (_loads, dates) in load_patterns_dates.iter() {
             let days_pattern = days_patterns.get_from_dates(dates.iter(), calendar);
+            if days_patterns.is_empty_pattern(&days_pattern) {
+                continue;
+            }
 
             let inspect_result = generic_timetables::inspect(
                 flows.clone(),
@@ -462,6 +465,9 @@ impl TimetablesTrait for PeriodicTimetables {
 
         for (loads, dates) in load_patterns_dates.into_iter() {
             let days_pattern = days_patterns.get_from_dates(dates.iter(), calendar);
+            if days_patterns.is_empty_pattern(&days_pattern) {
+                continue;
+            }
 
             let (base_days_pattern, real_time_days_pattern) = match real_time_level {
                 RealTimeLevel::Base => (days_pattern, days_pattern),
