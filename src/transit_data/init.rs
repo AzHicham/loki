@@ -113,12 +113,12 @@ where
         let from_base_idx = base_model.from_stop(transfer_idx).ok_or(())?;
         let from_idx = StopPointIdx::Base(from_base_idx);
         let from_stop = self.stop_point_idx_to_stop.get(&from_idx).ok_or(())?;
-        let from_stop = from_stop.clone();
+        let from_stop = *from_stop;
 
         let to_base_idx = base_model.to_stop(transfer_idx).ok_or(())?;
         let to_idx = StopPointIdx::Base(to_base_idx);
-        let to_stop = self.stop_point_idx_to_stop.get(&to_idx).ok_or(())?.clone();
-        let to_stop = to_stop.clone();
+        let to_stop = self.stop_point_idx_to_stop.get(&to_idx).ok_or(())?;
+        let to_stop = *to_stop;
 
         let duration = base_model.transfer_duration(transfer_idx);
         let walking_duration = base_model.transfer_walking_duration(transfer_idx);
@@ -146,8 +146,8 @@ where
             walking_duration,
         };
         let transfer_data = TransferData {
-            from_stop: from_stop,
-            to_stop: to_stop,
+            from_stop,
+            to_stop,
             durations: durations.clone(),
             transit_model_transfer_idx: transfer_idx,
         };
