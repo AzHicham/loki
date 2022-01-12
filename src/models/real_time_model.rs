@@ -36,8 +36,6 @@
 
 use std::{collections::HashMap, hash::Hash};
 
-use tracing::error;
-
 use crate::{
     chrono::NaiveDate,
     transit_data::{
@@ -45,6 +43,7 @@ use crate::{
         handle_removal_error,
     },
 };
+use tracing::{debug, error, trace};
 
 use crate::DataUpdate;
 
@@ -120,7 +119,7 @@ impl RealTimeModel {
             let apply_result =
                 self.apply_update(&disruption.id, update, base_model, real_time_data);
             if let Err(err) = apply_result {
-                error!("Error occured while applying real time update {:?}", err);
+                error!("Error occured while applying real time update. {:?}", err);
             }
         }
     }
@@ -134,7 +133,13 @@ impl RealTimeModel {
     ) -> Result<(), UpdateError> {
         match update {
             disruption::Update::Add(trip, stop_times) => {
+                debug!("Adding a new trip {:?}", trip);
                 let (vj_idx, stop_times) = self.add(disruption_id, trip, stop_times, base_model)?;
+                trace!(
+                    "New trip {:?} stored in real time model. Stop times : {:#?} ",
+                    trip,
+                    stop_times
+                );
                 let dates = std::iter::once(trip.reference_date);
                 let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
                 let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -167,6 +172,7 @@ impl RealTimeModel {
             }
 
             disruption::Update::Delete(trip) => {
+                debug!("Deleting trip {:?}", trip);
                 let vj_idx = self.delete(disruption_id, trip, base_model)?;
                 let removal_result = data.remove_real_time_vehicle(&vj_idx, &trip.reference_date);
                 if let Err(removal_error) = removal_result {
@@ -184,6 +190,7 @@ impl RealTimeModel {
                 Ok(())
             }
             disruption::Update::Modify(trip, stop_times) => {
+                debug!("Modifying trip {:?}", trip);
                 let (vj_idx, stop_times) =
                     self.modify(disruption_id, trip, stop_times, base_model)?;
                 let dates = std::iter::once(trip.reference_date);
@@ -289,7 +296,7 @@ impl RealTimeModel {
             match last_version {
                 Some(&TripData::Deleted()) => false,
                 Some(&TripData::Present(_)) => true,
-                None => base_model.trip_exists(transit_model_idx, &trip.reference_date), // the trip is present in
+                None => base_model.trip_exists(transit_model_idx, trip.reference_date),
             }
         } else {
             let has_new_vj_idx = self
@@ -440,6 +447,18 @@ impl RealTimeModel {
             .by_reference_date
             .get(date)
             .map(|trip_version| &trip_version.trip_data)
+    }
+
+    pub fn contains_new_vehicle_journey(&self, trip: &disruption::Trip) -> bool {
+        let has_new_vj_idx = self
+            .new_vehicle_journeys_id_to_idx
+            .get(&trip.vehicle_journey_id);
+        if let Some(new_vj_idx) = has_new_vj_idx {
+            self.new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date)
+                .is_some()
+        } else {
+            false
+        }
     }
 
     pub fn new() -> Self {

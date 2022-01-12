@@ -37,8 +37,9 @@
 use crate::{
     loads_data::LoadsData,
     models::{
-        base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopPointIdx,
-        TransferIdx, VehicleJourneyIdx,
+        base_model::{BaseModel, BaseTransferIdx},
+        real_time_model::RealTimeModel,
+        ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::day_to_timetable::VehicleJourneyToTimetable,
@@ -93,79 +94,72 @@ where
         info!("Inserting transfers");
 
         for transfer_idx in base_model.transfers() {
-            let duration = base_model.transfer_duration(transfer_idx);
-            let walking_duration = base_model.transfer_walking_duration(transfer_idx);
-            let has_from_idx = base_model.from_stop(transfer_idx);
-            let has_to_idx = base_model.to_stop(transfer_idx);
-            match (has_from_idx, has_to_idx) {
-                (Some(from_stop_point_idx), Some(to_stop_point_idx)) => {
-                    let from_stop_point_idx = StopPointIdx::Base(from_stop_point_idx);
-                    let to_stop_point_idx = StopPointIdx::Base(to_stop_point_idx);
-                    let transfer_idx = TransferIdx::Base(transfer_idx);
-                    self.insert_transfer(
-                        from_stop_point_idx,
-                        to_stop_point_idx,
-                        transfer_idx,
-                        duration,
-                        walking_duration,
-                    )
-                }
-                _ => {
+            let _ = self.insert_base_transfer(transfer_idx, base_model)
+                .map_err(|()| {
                     warn!(
-                        "Skipping transfer {:?} because at least one of its stops is unknown.",
-                        transfer_idx
+                        "Skipping transfer between {} and {} because at least one of its stops is unknown. ",
+                        base_model.from_stop_name(transfer_idx),
+                        base_model.to_stop_name(transfer_idx),
                     );
-                }
-            }
+                });
         }
     }
 
-    fn insert_transfer(
+    fn insert_base_transfer(
         &mut self,
-        from_stop_point_idx: StopPointIdx,
-        to_stop_point_idx: StopPointIdx,
+        transfer_idx: BaseTransferIdx,
+        base_model: &BaseModel,
+    ) -> Result<(), ()> {
+        let from_base_idx = base_model.from_stop(transfer_idx).ok_or(())?;
+        let from_idx = StopPointIdx::Base(from_base_idx);
+        let from_stop = self.stop_point_idx_to_stop.get(&from_idx).ok_or(())?;
+        let from_stop = *from_stop;
+
+        let to_base_idx = base_model.to_stop(transfer_idx).ok_or(())?;
+        let to_idx = StopPointIdx::Base(to_base_idx);
+        let to_stop = self.stop_point_idx_to_stop.get(&to_idx).ok_or(())?;
+        let to_stop = *to_stop;
+
+        let duration = base_model.transfer_duration(transfer_idx);
+        let walking_duration = base_model.transfer_walking_duration(transfer_idx);
+
+        let transfer_idx = TransferIdx::Base(transfer_idx);
+
+        self.insert_transfer_inner(from_stop, to_stop, transfer_idx, duration, walking_duration);
+
+        Ok(())
+    }
+
+    fn insert_transfer_inner(
+        &mut self,
+        from_stop: Stop,
+        to_stop: Stop,
         transfer_idx: TransferIdx,
         duration: PositiveDuration,
         walking_duration: PositiveDuration,
     ) {
-        let has_from_stop = self.stop_point_idx_to_stop.get(&from_stop_point_idx);
-        let has_to_stop = self.stop_point_idx_to_stop.get(&to_stop_point_idx);
-
-        match (has_from_stop, has_to_stop) {
-            (Some(from_stop), Some(to_stop)) => {
-                let transfer = Transfer {
-                    idx: self.transfers_data.len(),
-                };
-                let durations = TransferDurations {
-                    total_duration: duration,
-                    walking_duration,
-                };
-                let transfer_data = TransferData {
-                    from_stop: *from_stop,
-                    to_stop: *to_stop,
-                    durations: durations.clone(),
-                    transit_model_transfer_idx: transfer_idx,
-                };
-                self.transfers_data.push(transfer_data);
-                let from_stop_data = &mut self.stops_data[from_stop.idx];
-                from_stop_data.outgoing_transfers.push((
-                    *to_stop,
-                    durations.clone(),
-                    transfer.clone(),
-                ));
-                let to_stop_data = &mut self.stops_data[to_stop.idx];
-                to_stop_data
-                    .incoming_transfers
-                    .push((*from_stop, durations, transfer));
-            }
-            _ => {
-                warn!(
-                    "Transfer {:?} is between stops which does not appears in the data. \
-                    I ignore it.",
-                    transfer_idx
-                );
-            }
-        }
+        let transfer = Transfer {
+            idx: self.transfers_data.len(),
+        };
+        let durations = TransferDurations {
+            total_duration: duration,
+            walking_duration,
+        };
+        let transfer_data = TransferData {
+            from_stop,
+            to_stop,
+            durations: durations.clone(),
+            transit_model_transfer_idx: transfer_idx,
+        };
+        self.transfers_data.push(transfer_data);
+        let from_stop_data = &mut self.stops_data[from_stop.idx];
+        from_stop_data
+            .outgoing_transfers
+            .push((to_stop, durations.clone(), transfer.clone()));
+        let to_stop_data = &mut self.stops_data[to_stop.idx];
+        to_stop_data
+            .incoming_transfers
+            .push((from_stop, durations, transfer));
     }
 
     fn insert_base_vehicle_journey(
@@ -185,6 +179,12 @@ where
                     err
                 );
                 })?;
+        // let rt_model = RealTimeModel::new();
+        // let refs = ModelRefs::new(base_model, &rt_model);
+        // debug!("Trying to insert vj {} on stops : \n {:#?}",
+        //     base_model.vehicle_journey_name(vehicle_journey_idx),
+        //     stop_times.clone().map(|stop_time| refs.stop_point_uri(&stop_time.stop)).collect::<Vec<_>>()
+        // );
         if stop_times.len() < 2 {
             warn!(
                 "Skipping vehicle journey {} because it has less than 2 stop times.",

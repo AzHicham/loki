@@ -393,7 +393,7 @@ impl<'model> ModelRefs<'model> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
-                if !self.base.trip_exists(*idx, date) {
+                if !self.base.trip_exists(*idx, *date) {
                     return None;
                 }
                 let base_stop_times = self

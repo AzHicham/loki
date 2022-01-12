@@ -230,7 +230,7 @@ where
 
         match solve_result {
             Err(err) => {
-                log::error!("Error while solving request : {}", err);
+                log::error!("Error while solving request : {:?}", err);
             }
             Ok(responses) => {
                 for response in &responses {

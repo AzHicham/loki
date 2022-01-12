@@ -231,6 +231,7 @@ pub enum InsertionError {
     BaseVehicleJourneyAlreadyExists(VehicleJourneyIdx),
     RealTimeVehicleJourneyAlreadyExistsOnDate(NaiveDate, VehicleJourneyIdx),
     InvalidDate(NaiveDate, VehicleJourneyIdx),
+    NoValidDates(VehicleJourneyIdx),
 }
 
 #[derive(Clone, Debug)]

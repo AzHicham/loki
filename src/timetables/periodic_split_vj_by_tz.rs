@@ -428,6 +428,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                 let days_pattern =
                     days_patterns.get_intersection(all_days_pattern, *timezone_days_pattern);
 
+                if days_patterns.is_empty_pattern(&days_pattern) {
+                    continue;
+                }
+
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
                     time_in_timezoned_day.to_utc(offset)
                 };
@@ -458,6 +462,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             {
                 let days_pattern =
                     days_patterns.get_intersection(all_days_pattern, *timezone_days_pattern);
+
+                if days_patterns.is_empty_pattern(&days_pattern) {
+                    continue;
+                }
 
                 let (base_days_pattern, real_time_days_pattern) = match real_time_level {
                     RealTimeLevel::Base => (days_pattern, days_pattern),
@@ -495,7 +503,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                         // an returns early with an error if insertion should fail.
                         // Let's log an error if this happens anyway
                         error!(
-                            "An error occured while inserting a vehicle {:?}",
+                            "An error occured while inserting a vehicle. {:?}",
                             times_error
                         )
                     }

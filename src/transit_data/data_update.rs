@@ -215,7 +215,7 @@ where
                 // in vehicle_journey_to_timetable.
                 // So we should not obtain any error while inserting.
                 // If this happens, let's just log an error and keep going.
-                error!("Error while modifying a real time vehicle : {:?}", err);
+                error!("Error while modifying a real time vehicle. {:?}", err);
             }
         }
 
@@ -282,6 +282,10 @@ where
             }
         }
 
+        if valid_dates.clone().next().is_none() {
+            return Err(InsertionError::NoValidDates(vehicle_journey_idx));
+        }
+
         let stops = self.create_stops(stop_points).into_iter();
         let days = self
             .days_patterns
@@ -336,7 +340,7 @@ where
                 // in vehicle_journey_to_timetable.
                 // So we should not obtain any error while inserting.
                 // If this happens, let's just log an error and keep going.
-                error!("Error while inserting a vehicle : {:?}", err);
+                error!("Error while inserting a vehicle. {:?}", err);
             }
         }
 

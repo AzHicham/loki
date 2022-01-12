@@ -30,12 +30,18 @@
 pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
-use chaos_proto::gtfs_realtime as kirin_proto;
-use launch::loki::{
-    chrono::{NaiveDate, Utc},
-    NaiveDateTime,
-};
+use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
+use launch::loki::{chrono::Utc, NaiveDateTime};
+use loki_server::handle_chaos_message::DateTimePeriod;
 use protobuf::Message;
+
+#[derive(Debug)]
+enum PtObject<'a> {
+    Network(&'a str),
+    Line(&'a str),
+    Route(&'a str),
+    Trip(&'a str),
+}
 
 pub async fn delete_vj_test(config: &ServerConfig) {
     let datetime =
@@ -72,10 +78,13 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // let's delete the only trip
     let send_realtime_message_datetime = Utc::now().naive_utc();
     let realtime_message = create_no_service_disruption(
-        "matin",
-        NaiveDate::parse_from_str("20210101", "%Y%m%d").unwrap(),
+        &PtObject::Line("rer_b"),
+        &DateTimePeriod {
+            start: NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%d").unwrap(),
+            end: NaiveDateTime::parse_from_str("20210101T235959", "%Y%m%d").unwrap(),
+        },
     );
-    crate::send_realtime_message(config, realtime_message).await;
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
     // wait until realtime message is taken into account
     crate::wait_until_realtime_updated_after(
@@ -131,37 +140,88 @@ pub async fn delete_vj_test(config: &ServerConfig) {
 }
 
 fn create_no_service_disruption(
-    vehicle_journey_id: &str,
-    date: NaiveDate,
-) -> kirin_proto::FeedMessage {
-    use protobuf::ProtobufEnum;
+    pt_object: &PtObject,
+    application_period: &DateTimePeriod,
+) -> gtfs_proto::FeedMessage {
+    let id = "baa0eefe-0340-41e1-a2a9-5a660755d54c".to_string();
 
-    let mut trip_update = kirin_proto::TripUpdate::default();
+    let mut entity = chaos_proto::chaos::PtObject::new();
+    match pt_object {
+        PtObject::Network(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::network);
+            entity.set_uri(id.to_string());
+        }
+        PtObject::Route(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::route);
+            entity.set_uri(id.to_string());
+        }
+        PtObject::Line(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::line);
+            entity.set_uri(id.to_string());
+        }
+        PtObject::Trip(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::trip);
+            entity.set_uri(id.to_string());
+        }
+    }
 
-    // set the "effect" field to NO_SERVICE
-    let field_number = chaos_proto::kirin::exts::effect.field_number;
-    let effect = kirin_proto::Alert_Effect::NO_SERVICE;
-    trip_update
-        .mut_unknown_fields()
-        //.add_fixed32(field_number, effect.value() as u32);
-        //.add_fixed64(field_number, effect.value() as u64);
-        .add_varint(field_number, effect.value() as u64);
+    let mut period = gtfs_proto::TimeRange::default();
+    period.set_start(application_period.start.timestamp() as u64);
+    period.set_end(application_period.end.timestamp() as u64);
 
-    // set trip_description
-    let mut trip_descriptor = kirin_proto::TripDescriptor::default();
-    trip_descriptor.set_trip_id(vehicle_journey_id.to_string());
-    trip_descriptor.set_start_date(date.format("%Y%m%d").to_string());
-    trip_update.set_trip(trip_descriptor);
+    let mut channel = chaos_proto::chaos::Channel::default();
+    channel.set_id("disruption test sample".to_string());
+    channel.set_name("web".to_string());
+    channel.set_content_type("html".to_string());
+    channel.set_max_size(250);
+    channel
+        .mut_types()
+        .push(chaos_proto::chaos::Channel_Type::web);
+
+    let mut message = chaos_proto::chaos::Message::default();
+    message.set_text("disruption test sample".to_string());
+    message.set_channel(channel);
+
+    let mut severity = chaos_proto::chaos::Severity::default();
+    severity.set_id("severity id for NO_SERVICE".to_string());
+    severity.set_wording("severity wording for NO_SERVICE".to_string());
+    severity.set_color("#FF0000".to_string());
+    severity.set_priority(10);
+    severity.set_effect(gtfs_proto::Alert_Effect::NO_SERVICE);
+
+    let mut impact = chaos_proto::chaos::Impact::default();
+    impact.set_id(format!("impact_{}", id.clone()));
+    impact.set_created_at(Utc::now().timestamp() as u64);
+    impact.set_updated_at(Utc::now().timestamp() as u64);
+    impact.mut_informed_entities().push(entity);
+    impact.mut_application_periods().push(period.clone());
+    impact.mut_messages().push(message);
+    impact.set_severity(severity);
+
+    let mut cause = chaos_proto::chaos::Cause::default();
+    cause.set_id("disruption cause test".to_string());
+    cause.set_wording("disruption cause test".to_string());
+
+    let mut disruption = chaos_proto::chaos::Disruption::default();
+    disruption.set_id(id.clone());
+    disruption.set_reference("ChaosDisruptionTest".to_string());
+    disruption.set_publication_period(period.clone());
+    disruption.set_cause(cause);
+    disruption.mut_impacts().push(impact);
 
     // put the update in a feed_entity
-    let mut feed_entity = kirin_proto::FeedEntity::default();
-    feed_entity.set_id(format!("test_delete_{}_{}", vehicle_journey_id, date));
-    feed_entity.set_trip_update(trip_update);
+    let mut feed_entity = gtfs_proto::FeedEntity::new();
+    feed_entity.set_id(id);
+    let field_number = exts::disruption.field_number;
+    let vec: Vec<u8> = disruption.write_to_bytes().expect("cannot write message");
+    feed_entity
+        .mut_unknown_fields()
+        .add_length_delimited(field_number, vec);
 
-    let mut feed_header = kirin_proto::FeedHeader::new();
+    let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
 
-    let mut feed_message = kirin_proto::FeedMessage::new();
+    let mut feed_message = gtfs_proto::FeedMessage::new();
     feed_message.mut_entity().push(feed_entity);
     feed_message.set_header(feed_header);
 

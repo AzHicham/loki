@@ -113,9 +113,10 @@ impl BaseModel {
     pub fn validity_period(&self) -> (NaiveDate, NaiveDate) {
         self.validity_period
     }
+}
 
-    // stop_points
-
+// stop_points
+impl BaseModel {
     pub fn nb_of_stop_points(&self) -> usize {
         self.collections.stop_points.len()
     }
@@ -209,9 +210,10 @@ impl BaseModel {
         let stop_area = self.collections.stop_areas.get(stop_area_id)?;
         stop_area.timezone
     }
+}
 
-    // vehicle journey
-
+// vehicle journey
+impl BaseModel {
     pub fn nb_of_vehicle_journeys(&self) -> usize {
         self.collections.vehicle_journeys.len()
     }
@@ -334,15 +336,11 @@ impl BaseModel {
             .map(|stop_time| stop_time.stop_point_idx)
     }
 
-    pub fn trip_exists(
-        &self,
-        vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
-    ) -> bool {
+    pub fn trip_exists(&self, vehicle_journey_idx: BaseVehicleJourneyIdx, date: NaiveDate) -> bool {
         let vehicle_journey = &self.collections.vehicle_journeys[vehicle_journey_idx];
         let has_calendar = &self.collections.calendars.get(&vehicle_journey.service_id);
         if let Some(calendar) = has_calendar {
-            calendar.dates.contains(date)
+            calendar.dates.contains(&date)
         } else {
             false
         }
@@ -372,8 +370,10 @@ impl BaseModel {
             first.datetime_estimated || last.datetime_estimated
         }
     }
+}
 
-    // contains ids
+// contains ids
+impl BaseModel {
     pub fn contains_line_id(&self, id: &str) -> bool {
         self.collections.lines.contains_id(id)
     }
@@ -401,8 +401,10 @@ impl BaseModel {
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.collections.stop_areas.contains_id(id)
     }
+}
 
-    // stop_times
+// stop_times
+impl BaseModel {
     pub fn stop_times(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
@@ -443,9 +445,10 @@ impl BaseModel {
         let range = from_idx..=to_idx;
         &stop_times[range]
     }
+}
 
-    // transfers
-
+// transfers
+impl BaseModel {
     pub fn nb_of_transfers(&self) -> usize {
         self.collections.transfers.len()
     }
@@ -461,9 +464,19 @@ impl BaseModel {
         self.collections.stop_points.get_idx(stop_id)
     }
 
+    pub fn from_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
+        self.collections.transfers[transfer_idx]
+            .from_stop_id
+            .as_str()
+    }
+
     pub fn to_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
         let stop_id = self.collections.transfers[transfer_idx].to_stop_id.as_str();
         self.collections.stop_points.get_idx(stop_id)
+    }
+
+    pub fn to_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
+        self.collections.transfers[transfer_idx].to_stop_id.as_str()
     }
 
     pub fn transfer_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {
@@ -479,9 +492,9 @@ impl BaseModel {
             .unwrap_or(0u32);
         PositiveDuration { seconds }
     }
-
-    // various
-
+}
+// various
+impl BaseModel {
     pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
         self.collections.contributors.values().map(|c| Contributor {
             id: c.id.clone(),

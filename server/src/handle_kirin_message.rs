@@ -39,7 +39,11 @@ use std::ops::Not;
 use anyhow::{format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
-    models::real_time_disruption::{Disruption, StopTime, Trip, Update},
+    models::{
+        base_model::BaseModel,
+        real_time_disruption::{Disruption, StopTime, Trip, Update},
+        RealTimeModel,
+    },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
     NaiveDateTime,
@@ -49,6 +53,8 @@ use crate::chaos_proto;
 
 pub fn handle_kirin_protobuf(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
+    base_model: &BaseModel,
+    realtime_model: &RealTimeModel,
 ) -> Result<Disruption, Error> {
     let disruption_id = feed_entity.get_id().to_string();
 
@@ -57,8 +63,12 @@ pub fn handle_kirin_protobuf(
     }
     let trip_update = feed_entity.get_trip_update();
 
-    let update = read_trip_update(trip_update)
-        .with_context(|| format!("Could not handle kirin disruption {}.", disruption_id))?;
+    let update = read_trip_update(trip_update, base_model, realtime_model).with_context(|| {
+        format!(
+            "Could not handle trip update of kirin disruption {}.",
+            disruption_id
+        )
+    })?;
 
     let result = Disruption {
         id: disruption_id,
@@ -67,7 +77,11 @@ pub fn handle_kirin_protobuf(
     Ok(result)
 }
 
-fn read_trip_update(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Result<Update, Error> {
+fn read_trip_update(
+    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
+    base_model: &BaseModel,
+    realtime_model: &RealTimeModel,
+) -> Result<Update, Error> {
     if let Some(effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
         use chaos_proto::gtfs_realtime::Alert_Effect::*;
         match effect {
@@ -81,14 +95,34 @@ fn read_trip_update(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Res
                     trip_update.get_stop_time_update(),
                     &trip.reference_date,
                 )?;
-                Ok(Update::Add(trip, stop_times))
+                let trip_exists_in_base = {
+                    let has_vj_idx = base_model.vehicle_journey_idx(&trip.vehicle_journey_id);
+                    match has_vj_idx {
+                        None => false,
+                        Some(vj_idx) => base_model.trip_exists(vj_idx, trip.reference_date),
+                    }
+                };
+                if trip_exists_in_base {
+                    return Err(format_err!(
+                        "Additional service for trip {:?} that exists in the base schedule.",
+                        trip
+                    ));
+                }
+
+                let trip_exists_in_realtime = realtime_model.contains_new_vehicle_journey(&trip);
+                if trip_exists_in_realtime {
+                    Ok(Update::Modify(trip, stop_times))
+                } else {
+                    Ok(Update::Add(trip, stop_times))
+                }
             }
             REDUCED_SERVICE | SIGNIFICANT_DELAYS | DETOUR | MODIFIED_SERVICE => {
                 let trip = read_trip(trip_update.get_trip())?;
                 let stop_times = create_stop_times_from_proto(
                     trip_update.get_stop_time_update(),
                     &trip.reference_date,
-                )?;
+                )
+                .with_context(|| "Could not handle stop times in kirin disruption.")?;
                 Ok(Update::Modify(trip, stop_times))
             }
 
