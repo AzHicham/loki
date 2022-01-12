@@ -163,10 +163,6 @@ fn create_no_service_disruption(
             entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::trip);
             entity.set_uri(id.to_string());
         }
-        _ => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::unkown_type);
-            entity.set_uri("".to_string());
-        }
     }
 
     let mut period = gtfs_proto::TimeRange::default();
