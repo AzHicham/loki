@@ -234,25 +234,31 @@ fn make_delete_network(
     updates
 }
 
-impl From<&chaos_proto::chaos::Disruption> for Disrupt {
-    fn from(proto: &chaos_proto::chaos::Disruption) -> Disrupt {
-        Disrupt {
+impl TryFrom<&chaos_proto::chaos::Disruption> for Disrupt {
+    type Error = Error;
+    fn try_from(proto: &chaos_proto::chaos::Disruption) -> Result<Disrupt, Error> {
+        Ok(Disrupt {
             id: proto.get_id().to_string(),
             reference: None,
             contributor: proto.get_contributor().to_string(),
-            publication_period: proto.get_publication_period().into(),
+            publication_period: proto.get_publication_period().try_into()?,
             created_at: ts_to_dt(proto.get_created_at()),
             updated_at: ts_to_dt(proto.get_created_at()),
             cause: proto.get_cause().into(),
             tags: proto.get_tags().iter().map(|t| t.into()).collect(),
-            impacts: proto.get_impacts().iter().map(|i| i.into()).collect(),
-        }
+            impacts: proto
+                .get_impacts()
+                .iter()
+                .map(|i| i.try_into())
+                .collect::<Result<_, _>>()?,
+        })
     }
 }
 
-impl From<&chaos_proto::chaos::Impact> for Impact {
-    fn from(proto: &chaos_proto::chaos::Impact) -> Impact {
-        Impact {
+impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
+    type Error = Error;
+    fn try_from(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
+        Ok(Impact {
             id: proto.get_id().to_string(),
             company_id: None,
             physical_mode_id: None,
@@ -262,18 +268,18 @@ impl From<&chaos_proto::chaos::Impact> for Impact {
             application_periods: proto
                 .get_application_periods()
                 .iter()
-                .map(|ap| ap.into())
-                .collect(),
+                .map(|ap| ap.try_into())
+                .collect::<Result<_, _>>()?,
             application_patterns: proto
                 .get_application_patterns()
                 .iter()
-                .map(|ap| ap.into())
-                .collect(),
+                .map(|ap| ap.try_into())
+                .collect::<Result<_, _>>()?,
             severity: proto.get_severity().into(),
             messages: proto.get_messages().iter().map(|m| m.into()).collect(),
             pt_objects: vec![],
             vehicle_info: None,
-        }
+        })
     }
 }
 
@@ -395,11 +401,14 @@ impl From<&chaos_proto::chaos::Cause> for Cause {
     }
 }
 
-impl From<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
-    fn from(proto: &chaos_proto::gtfs_realtime::TimeRange) -> DateTimePeriod {
-        DateTimePeriod {
-            start: NaiveDateTime::from_timestamp(proto.get_start() as i64, 0),
-            end: NaiveDateTime::from_timestamp(proto.get_end() as i64, 0),
+impl TryFrom<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
+    type Error = Error;
+    fn try_from(proto: &chaos_proto::gtfs_realtime::TimeRange) -> Result<DateTimePeriod, Error> {
+        let start = ts_to_dt(proto.get_start());
+        let end = ts_to_dt(proto.get_end());
+        match (start, end) {
+            (Some(start), Some(end)) => Ok(DateTimePeriod { start, end }),
+            _ => Err(format_err!("Failed converting timestamp to datetime")),
         }
     }
 }
@@ -448,12 +457,19 @@ impl From<&chaos_proto::chaos::Channel_Type> for ChannelType {
     }
 }
 
-impl From<&chaos_proto::chaos::Pattern> for ApplicationPattern {
-    fn from(proto: &chaos_proto::chaos::Pattern) -> ApplicationPattern {
-        ApplicationPattern {
-            begin_date: NaiveDateTime::from_timestamp(proto.get_start_date() as i64, 0).date(),
-            end_date: NaiveDateTime::from_timestamp(proto.get_end_date() as i64, 0).date(),
-            time_slots: proto.get_time_slots().iter().map(|ts| ts.into()).collect(),
+impl TryFrom<&chaos_proto::chaos::Pattern> for ApplicationPattern {
+    type Error = Error;
+    fn try_from(proto: &chaos_proto::chaos::Pattern) -> Result<ApplicationPattern, Error> {
+        let time_slots = proto.get_time_slots().iter().map(|ts| ts.into()).collect();
+        let begin = ts_to_dt(u64::from(proto.get_start_date()));
+        let end = ts_to_dt(u64::from(proto.get_end_date()));
+        match (begin, end) {
+            (Some(begin), Some(end)) => Ok(ApplicationPattern {
+                begin_date: begin.date(),
+                end_date: end.date(),
+                time_slots,
+            }),
+            _ => Err(format_err!("Failed converting timestamp to datetime")),
         }
     }
 }
