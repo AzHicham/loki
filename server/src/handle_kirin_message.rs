@@ -305,11 +305,14 @@ pub fn create_disruption(
         end: model_validity_period.1.and_hms(23, 59, 59),
     };
     let trip_update = feed_entity.get_trip_update();
+    let trip = trip_update.get_trip();
 
     let disruption = Disrupt {
         id: disruption_id.clone(),
-        reference: None,
-        contributor: "".to_string(),
+        reference: Some(disruption_id.clone()),
+        contributor: chaos_proto::kirin::exts::contributor
+            .get(trip)
+            .unwrap_or_else(|| "".to_string()),
         publication_period: application_period,
         created_at: Some(header_datetime),
         updated_at: Some(header_datetime),
@@ -363,19 +366,19 @@ fn make_impact(
         company_id: chaos_proto::kirin::exts::company_id.get(trip),
         physical_mode_id: chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle()),
         headsign: chaos_proto::kirin::exts::headsign.get(trip_update),
-        created_at: None,
-        updated_at: None,
+        created_at: Some(header_datetime),
+        updated_at: Some(header_datetime),
         application_periods: vec![DateTimePeriod {
             start: reference_date.and_hms(0, 0, 0),
             end: reference_date.and_hms(12, 59, 59),
         }],
         application_patterns: vec![],
         severity: make_severity(effect, disruption_id, header_datetime),
-        messages: make_message(trip_update),
+        messages: make_message(trip_update, header_datetime),
         pt_objects: vec![PtObject::Trip_(Trip_ {
             id: vehicle_journey_id,
-            created_at: None,
-            updated_at: None,
+            created_at: Some(header_datetime),
+            updated_at: Some(header_datetime),
         })],
         vehicle_info: stop_times,
     })
@@ -408,7 +411,10 @@ fn make_stop_times(
     }
 }
 
-fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Message> {
+fn make_message(
+    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
+    header_datetime: NaiveDateTime,
+) -> Vec<Message> {
     if let Some(text) = chaos_proto::kirin::exts::trip_message.get(trip_update) {
         let message = Message {
             text,
@@ -416,8 +422,8 @@ fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Mes
             channel_name: "rt".to_string(),
             channel_content_type: "".to_string(),
             channel_types: vec![ChannelType::Web, ChannelType::Mobile],
-            created_at: None,
-            updated_at: None,
+            created_at: Some(header_datetime),
+            updated_at: Some(header_datetime),
         };
         vec![message]
     } else {

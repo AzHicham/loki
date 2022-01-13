@@ -283,10 +283,7 @@ pub struct DateTimePeriodIterator<'a> {
 impl<'a> Iterator for DateTimePeriodIterator<'a> {
     type Item = NaiveDateTime;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.period.end {
-            let next = min(self.current + Duration::days(1), self.period.end);
-            Some(mem::replace(&mut self.current, next))
-        } else if self.current == self.period.end {
+        if self.current <= self.period.end {
             let next = self.current + Duration::days(1);
             Some(mem::replace(&mut self.current, next))
         } else {
