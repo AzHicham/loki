@@ -161,8 +161,6 @@ pub struct ChaosParams {
     pub chaos_database: String,
     #[serde(default = "default_batch_size")]
     pub chaos_batch_size: u32,
-    #[serde(default = "default_contributors")]
-    pub chaos_contributors: Vec<String>,
 }
 
 pub fn default_chaos_database() -> String {
@@ -173,16 +171,11 @@ pub fn default_batch_size() -> u32 {
     20
 }
 
-pub fn default_contributors() -> Vec<String> {
-    vec![]
-}
-
 impl Default for ChaosParams {
     fn default() -> Self {
         Self {
             chaos_database: default_chaos_database(),
             chaos_batch_size: default_batch_size(),
-            chaos_contributors: default_contributors(),
         }
     }
 }

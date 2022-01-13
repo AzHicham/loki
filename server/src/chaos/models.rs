@@ -16,15 +16,16 @@ use uuid::Uuid as Uid;
 
 pub fn chaos_disruption_from_database(
     config: &ChaosParams,
-    publication_period: (NaiveDateTime, NaiveDateTime),
+    publication_period: (NaiveDate, NaiveDate),
+    contributors: &[String],
 ) -> Result<(), Error> {
     let connection = PgConnection::establish(&config.chaos_database)?;
 
     let res = diesel::sql_query(include_str!("query.sql"))
-        .bind::<Timestamp, _>(publication_period.1)
-        .bind::<Timestamp, _>(publication_period.0)
-        .bind::<Timestamp, _>(publication_period.1)
-        .bind::<Array<Text>, _>(&config.chaos_contributors)
+        .bind::<Date, _>(publication_period.1)
+        .bind::<Date, _>(publication_period.0)
+        .bind::<Date, _>(publication_period.1)
+        .bind::<Array<Text>, _>(contributors)
         .bind::<Int4, _>(config.chaos_batch_size as i32)
         .bind::<Int4, _>(config.chaos_batch_size as i32)
         .load::<ChaosDisruption>(&connection);

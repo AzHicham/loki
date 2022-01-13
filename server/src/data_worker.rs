@@ -76,7 +76,7 @@ use std::{
 };
 
 use crate::handle_chaos_message::handle_chaos_protobuf;
-use launch::loki::chrono::NaiveTime;
+use launch::loki::chrono::NaiveDate;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -153,6 +153,7 @@ impl DataWorker {
             .with_context(|| "Error while loading data from disk.".to_string())?;
 
         // After loading data from disk, load all disruption in chaos database
+        // Then apply all extracted disruptions
         if let Err(err) = self.load_chaos_database().await {
             error!("Error : {}", err);
         }
@@ -303,10 +304,8 @@ impl DataWorker {
         }; // lock is released
         if let Err(err) = chaos::models::chaos_disruption_from_database(
             &self.config.chaos_params,
-            (
-                start_date.and_time(NaiveTime::from_hms(0, 0, 0)),
-                end_date.and_time(NaiveTime::from_hms(23, 59, 59)),
-            ),
+            (start_date, end_date),
+            &self.config.rabbitmq_params.rabbitmq_real_time_topics,
         ) {
             error!("Loading chaos database failed : {:?}.", err);
         }
