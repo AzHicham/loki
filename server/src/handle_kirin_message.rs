@@ -41,7 +41,10 @@ use launch::loki::{
     chrono::NaiveDate,
     models::{
         base_model::BaseModel,
-        real_time_disruption::{Disruption, StopTime, Trip, Update},
+        real_time_disruption::{
+            Cause, ChannelType, DateTimePeriod, Disrupt, Disruption, Effect, Impact, Message,
+            PtObject, Severity, StopTime, Trip, Trip_, Update,
+        },
         RealTimeModel,
     },
     time::SecondsSinceTimezonedDayStart,
@@ -109,7 +112,10 @@ fn read_trip_update(
                     ));
                 }
 
-                let trip_exists_in_realtime = realtime_model.contains_new_vehicle_journey(&trip);
+                let trip_exists_in_realtime = realtime_model.contains_new_vehicle_journey(
+                    trip.vehicle_journey_id.as_str(),
+                    &trip.reference_date,
+                );
                 if trip_exists_in_realtime {
                     Ok(Update::Modify(trip, stop_times))
                 } else {
@@ -282,4 +288,166 @@ fn read_status(
     } else {
         Ok(false)
     }
+}
+
+pub fn create_disruption(
+    feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
+    header_datetime: NaiveDateTime,
+    model_validity_period: &(NaiveDate, NaiveDate),
+) -> Result<Disrupt, Error> {
+    let disruption_id = feed_entity.get_id().to_string();
+    if feed_entity.has_trip_update().not() {
+        return Err(format_err!("Feed entity has no trip_update"));
+    }
+    // application_period == publication_period
+    let application_period = DateTimePeriod {
+        start: model_validity_period.0.and_hms(0, 0, 0),
+        end: model_validity_period.1.and_hms(23, 59, 59),
+    };
+    let trip_update = feed_entity.get_trip_update();
+
+    let disruption = Disrupt {
+        id: disruption_id.clone(),
+        reference: None,
+        contributor: "".to_string(),
+        publication_period: application_period,
+        created_at: Some(header_datetime),
+        updated_at: Some(header_datetime),
+        cause: Cause::default(),
+        tags: vec![],
+        impacts: vec![make_impact(trip_update, disruption_id, header_datetime)?],
+    };
+
+    Ok(disruption)
+}
+
+fn make_impact(
+    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
+    disruption_id: String,
+    header_datetime: NaiveDateTime,
+) -> Result<Impact, Error> {
+    let trip = trip_update.get_trip();
+    let effect: Effect = chaos_proto::kirin::exts::effect
+        .get(trip_update)
+        .map(|e| e.into())
+        .unwrap_or(Effect::UnknownEffect);
+
+    let vehicle_journey_id = {
+        if trip.has_trip_id().not() {
+            return Err(format_err!("TripDescriptor has an empty trip_id."));
+        }
+        trip.get_trip_id().to_string()
+    };
+
+    let reference_date = {
+        if trip.has_start_date().not() {
+            return Err(format_err!("TripDescriptor has an empty start_time."));
+        }
+        let start_date = trip.get_start_date();
+        NaiveDate::parse_from_str(start_date, "%Y%m%d").with_context(|| {
+            format!(
+                "TripDescriptor has a start date {} that could not be parsed.",
+                start_date
+            )
+        })?
+    };
+
+    let stop_times = make_stop_times(trip_update, effect.clone(), &reference_date)?;
+    let stop_times = match stop_times.is_empty() {
+        true => None,
+        false => Some(stop_times),
+    };
+
+    Ok(Impact {
+        id: disruption_id.clone(),
+        company_id: chaos_proto::kirin::exts::company_id.get(trip),
+        physical_mode_id: chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle()),
+        headsign: chaos_proto::kirin::exts::headsign.get(trip_update),
+        created_at: None,
+        updated_at: None,
+        application_periods: vec![DateTimePeriod {
+            start: reference_date.and_hms(0, 0, 0),
+            end: reference_date.and_hms(12, 59, 59),
+        }],
+        application_patterns: vec![],
+        severity: make_severity(effect, disruption_id, header_datetime),
+        messages: make_message(trip_update),
+        pt_objects: vec![PtObject::Trip_(Trip_ {
+            id: vehicle_journey_id,
+            created_at: None,
+            updated_at: None,
+        })],
+        vehicle_info: stop_times,
+    })
+}
+
+fn make_stop_times(
+    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
+    effect: Effect,
+    reference_date: &NaiveDate,
+) -> Result<Vec<StopTime>, Error> {
+    match effect {
+        Effect::NoService => Ok(vec![]),
+        Effect::AdditionalService => {
+            let stop_times =
+                create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)?;
+            Ok(stop_times)
+        }
+        Effect::ReducedService
+        | Effect::SignificantDelays
+        | Effect::Detour
+        | Effect::ModifiedService => {
+            let stop_times =
+                create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
+                    .with_context(|| "Could not handle stop times in kirin disruption.")?;
+            Ok(stop_times)
+        }
+        Effect::OtherEffect | Effect::UnknownEffect | Effect::StopMoved => {
+            Err(format_err!("Unhandled effect on FeedEntity: {:?}", effect))
+        }
+    }
+}
+
+fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Message> {
+    if let Some(text) = chaos_proto::kirin::exts::trip_message.get(trip_update) {
+        let message = Message {
+            text,
+            channel_id: "rt".to_string(),
+            channel_name: "rt".to_string(),
+            channel_content_type: "".to_string(),
+            channel_types: vec![ChannelType::Web, ChannelType::Mobile],
+            created_at: None,
+            updated_at: None,
+        };
+        vec![message]
+    } else {
+        vec![]
+    }
+}
+
+fn make_severity(effect: Effect, disruption_id: String, timestamp: NaiveDateTime) -> Severity {
+    Severity {
+        id: disruption_id,
+        wording: make_severity_wording(effect.clone()),
+        color: "#000000".to_string(),
+        priority: 42,
+        effect,
+        created_at: Some(timestamp),
+        updated_at: Some(timestamp),
+    }
+}
+
+fn make_severity_wording(effect: Effect) -> String {
+    match effect {
+        Effect::NoService => "trip canceled",
+        Effect::SignificantDelays => "trip delayed",
+        Effect::Detour => "detour",
+        Effect::ModifiedService => "trip modified",
+        Effect::ReducedService => "reduced service",
+        Effect::AdditionalService => "additional service",
+        Effect::OtherEffect => "other effect",
+        Effect::StopMoved => "stop moved",
+        Effect::UnknownEffect => "unknown effect",
+    }
+    .to_string()
 }

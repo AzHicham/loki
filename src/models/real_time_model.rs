@@ -449,12 +449,14 @@ impl RealTimeModel {
             .map(|trip_version| &trip_version.trip_data)
     }
 
-    pub fn contains_new_vehicle_journey(&self, trip: &disruption::Trip) -> bool {
-        let has_new_vj_idx = self
-            .new_vehicle_journeys_id_to_idx
-            .get(&trip.vehicle_journey_id);
+    pub fn contains_new_vehicle_journey(
+        &self,
+        vehicle_journey_id: &str,
+        reference_date: &NaiveDate,
+    ) -> bool {
+        let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
         if let Some(new_vj_idx) = has_new_vj_idx {
-            self.new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date)
+            self.new_vehicle_journey_last_version(new_vj_idx, reference_date)
                 .is_some()
         } else {
             false

@@ -41,7 +41,7 @@ use launch::loki::{
     models::{
         base_model::BaseModel,
         real_time_disruption::{
-            clamp_date, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt,
+            clamp_date, ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt,
             Disruption, Effect, Impact, Line, LineSection, Message, Network, PtObject, Route,
             Severity, StopArea, StopPoint, Tag, TimeSlot, Trip, Trip_, Update,
         },
@@ -92,15 +92,15 @@ fn read_pt_object(impact: &chaos_proto::chaos::Impact, model: &BaseModel) -> Vec
     for entity in impact.get_informed_entities() {
         match entity.get_pt_object_type() {
             PtObject_Type::network => {
-                let update = make_delete_network(entity, &application_period, model);
+                let update = make_delete_network(entity.get_uri(), &application_period, model);
                 updates.extend(update);
             }
             PtObject_Type::line => {
-                let update = make_delete_line(entity, &application_period, model);
+                let update = make_delete_line(entity.get_uri(), &application_period, model);
                 updates.extend(update);
             }
             PtObject_Type::route => {
-                let update = make_delete_route(entity, &application_period, model);
+                let update = make_delete_route(entity.get_uri(), &application_period, model);
                 updates.extend(update);
             }
             PtObject_Type::trip => {
@@ -160,15 +160,15 @@ fn make_delete_vehicle(
 }
 
 fn make_delete_route(
-    pt_object: &chaos_proto::chaos::PtObject,
+    route_name: &str,
     application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
-    if model.contains_route_id(pt_object.get_uri()) {
+    if model.contains_route_id(route_name) {
         updates = model
             .vehicle_journeys()
-            .filter(|vj_idx| model.route_name(*vj_idx) == pt_object.get_uri())
+            .filter(|vj_idx| model.route_name(*vj_idx) == route_name)
             .map(|vj_idx| {
                 make_delete_vehicle(
                     model.vehicle_journey_name(vj_idx),
@@ -179,24 +179,21 @@ fn make_delete_route(
             .flatten()
             .collect();
     } else {
-        error!(
-            "route.id: {} does not exists in BaseModel",
-            pt_object.get_uri()
-        );
+        error!("route.id: {} does not exists in BaseModel", route_name);
     }
     updates
 }
 
 fn make_delete_line(
-    pt_object: &chaos_proto::chaos::PtObject,
+    line_name: &str,
     application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
-    if model.contains_line_id(pt_object.get_uri()) {
+    if model.contains_line_id(line_name) {
         updates = model
             .vehicle_journeys()
-            .filter(|vj_idx| model.line_name(*vj_idx) == Some(pt_object.get_uri()))
+            .filter(|vj_idx| model.line_name(*vj_idx) == Some(line_name))
             .map(|vj_idx| {
                 make_delete_vehicle(
                     model.vehicle_journey_name(vj_idx),
@@ -207,24 +204,21 @@ fn make_delete_line(
             .flatten()
             .collect();
     } else {
-        error!(
-            "line.id: {} does not exists in BaseModel",
-            pt_object.get_uri()
-        );
+        error!("line.id: {} does not exists in BaseModel", line_name);
     }
     updates
 }
 
 fn make_delete_network(
-    pt_object: &chaos_proto::chaos::PtObject,
+    network_name: &str,
     application_periods: &[DateTimePeriod],
     model: &BaseModel,
 ) -> Vec<Update> {
     let mut updates: Vec<Update> = vec![];
-    if model.contains_network_id(pt_object.get_uri()) {
+    if model.contains_network_id(network_name) {
         updates = model
             .vehicle_journeys()
-            .filter(|vj_idx| model.network_name(*vj_idx) == Some(pt_object.get_uri()))
+            .filter(|vj_idx| model.network_name(*vj_idx) == Some(network_name))
             .map(|vj_idx| {
                 make_delete_vehicle(
                     model.vehicle_journey_name(vj_idx),
@@ -235,10 +229,7 @@ fn make_delete_network(
             .flatten()
             .collect();
     } else {
-        error!(
-            "network.id: {} does not exists in BaseModel",
-            pt_object.get_uri()
-        );
+        error!("network.id: {} does not exists in BaseModel", network_name);
     }
     updates
 }
@@ -263,9 +254,9 @@ impl From<&chaos_proto::chaos::Impact> for Impact {
     fn from(proto: &chaos_proto::chaos::Impact) -> Impact {
         Impact {
             id: proto.get_id().to_string(),
-            company_id: "".to_string(),
-            physical_mode_id: "".to_string(),
-            headsign: "".to_string(),
+            company_id: None,
+            physical_mode_id: None,
+            headsign: None,
             created_at: ts_to_dt(proto.get_created_at()),
             updated_at: ts_to_dt(proto.get_created_at()),
             application_periods: proto
@@ -369,6 +360,8 @@ impl From<&chaos_proto::chaos::Severity> for Severity {
             color: proto.get_color().to_string(),
             priority: proto.get_priority() as u32,
             effect: proto.get_effect().into(),
+            created_at: None,
+            updated_at: None,
         }
     }
 }
@@ -471,12 +464,5 @@ impl From<&chaos_proto::chaos::TimeSlot> for TimeSlot {
             begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
             end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
         }
-    }
-}
-
-fn ts_to_dt(timestamp: u64) -> Option<NaiveDateTime> {
-    match timestamp {
-        0 => None,
-        _ => Some(NaiveDateTime::from_timestamp(timestamp as i64, 0)),
     }
 }

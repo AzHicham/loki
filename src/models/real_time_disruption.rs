@@ -83,7 +83,7 @@ pub struct Disrupt {
     pub impacts: Vec<Impact>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Cause {
     pub id: String,
     pub wording: String,
@@ -92,7 +92,7 @@ pub struct Cause {
     pub updated_at: Option<NaiveDateTime>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Tag {
     pub id: String,
     pub name: String,
@@ -107,6 +107,8 @@ pub struct Severity {
     pub color: String,
     pub priority: u32,
     pub effect: Effect,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,9 +138,9 @@ pub struct TimeSlot {
 #[derive(Debug, Clone)]
 pub struct Impact {
     pub id: String,
-    pub company_id: String,
-    pub physical_mode_id: String,
-    pub headsign: String,
+    pub company_id: Option<String>,
+    pub physical_mode_id: Option<String>,
+    pub headsign: Option<String>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub application_periods: Vec<DateTimePeriod>,
@@ -302,5 +304,17 @@ impl<'a> IntoIterator for &'a DateTimePeriod {
             period: self,
             current: self.start,
         }
+    }
+}
+
+pub fn ts_to_dt(timestamp: u64) -> Option<NaiveDateTime> {
+    let timestamp = i64::try_from(timestamp);
+    if let Ok(timestamp) = timestamp {
+        match timestamp {
+            0 => None,
+            _ => Some(NaiveDateTime::from_timestamp(timestamp, 0)),
+        }
+    } else {
+        None
     }
 }
