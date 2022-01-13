@@ -460,6 +460,11 @@ impl DataWorker {
                             // since we are going to request a full reload from kirin
                             self.kirin_messages.clear();
                             self.load_data_from_disk().await?;
+                            // After loading data from disk, load all disruption in chaos database
+                            // Then apply all extracted disruptions
+                            if let Err(err) = self.load_chaos_database().await {
+                                error!("Error : {}", err);
+                            }
                             self.reload_kirin(channel).await?;
                             debug!("Reload completed successfully.");
                         } else {
