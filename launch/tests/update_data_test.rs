@@ -796,13 +796,13 @@ where
             vj_idx,
         );
         match insert_result {
-            Err(InsertionError::BaseVehicleJourneyAlreadyExists(_)) => {
+            Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(_, _)) => {
                 assert!(true)
             }
             _ => {
                 assert!(
                     false,
-                    "Expected Err(BaseVehicleJourneyAlreadyExists), found {:?}",
+                    "Expected Err(RealTimeVehicleJourneyAlreadyExistsOnDate), found {:?}",
                     insert_result
                 );
             }
