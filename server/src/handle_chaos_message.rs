@@ -36,16 +36,15 @@
 
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
-use launch::loki::chrono::NaiveTime;
-use launch::loki::models::real_time_disruption::{
-    clamp_date, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt, Effect, Impact,
-    Message, Severity, Tag, TimeSlot,
-};
 use launch::loki::{
-    chrono::NaiveDate,
+    chrono::{NaiveDate, NaiveTime},
     models::{
         base_model::BaseModel,
-        real_time_disruption::{Disruption, Trip, Update},
+        real_time_disruption::{
+            clamp_date, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt,
+            Disruption, Effect, Impact, Line, LineSection, Message, Network, PtObject, Route,
+            Severity, StopArea, StopPoint, Tag, TimeSlot, Trip, Trip_, Update,
+        },
     },
     tracing::error,
     NaiveDateTime,
@@ -281,7 +280,83 @@ impl From<&chaos_proto::chaos::Impact> for Impact {
                 .collect(),
             severity: proto.get_severity().into(),
             messages: proto.get_messages().iter().map(|m| m.into()).collect(),
+            pt_objects: vec![],
             vehicle_info: None,
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::PtObject> for PtObject {
+    fn from(proto: &chaos_proto::chaos::PtObject) -> PtObject {
+        use chaos_proto::chaos::PtObject_Type;
+        let id = proto.get_uri().to_string();
+        let created_at = ts_to_dt(proto.get_created_at());
+        let updated_at = ts_to_dt(proto.get_updated_at());
+        match proto.get_pt_object_type() {
+            PtObject_Type::network => PtObject::Network(Network {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::line => PtObject::Line(Line {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::route => PtObject::Route(Route {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::trip => PtObject::Trip_(Trip_ {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::line_section => {
+                let ls = proto.get_pt_line_section();
+                let line = ls.get_line();
+                let start = ls.get_start_point();
+                let end = ls.get_end_point();
+                let routes = ls.get_routes();
+                PtObject::LineSection(LineSection {
+                    line: Line {
+                        id: line.get_uri().to_string(),
+                        created_at: ts_to_dt(line.get_created_at()),
+                        updated_at: ts_to_dt(line.get_updated_at()),
+                    },
+                    start_sa: StopArea {
+                        id: start.get_uri().to_string(),
+                        created_at: ts_to_dt(start.get_created_at()),
+                        updated_at: ts_to_dt(start.get_updated_at()),
+                    },
+                    stop_sa: StopArea {
+                        id: end.get_uri().to_string(),
+                        created_at: ts_to_dt(end.get_created_at()),
+                        updated_at: ts_to_dt(end.get_updated_at()),
+                    },
+                    routes: routes
+                        .iter()
+                        .map(|r| Route {
+                            id: r.get_uri().to_string(),
+                            created_at: ts_to_dt(r.get_created_at()),
+                            updated_at: ts_to_dt(r.get_updated_at()),
+                        })
+                        .collect(),
+                })
+            }
+            PtObject_Type::rail_section => PtObject::Unknown,
+            PtObject_Type::stop_point => PtObject::StopPoint(StopPoint {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::stop_area => PtObject::StopArea(StopArea {
+                id,
+                created_at,
+                updated_at,
+            }),
+            PtObject_Type::unkown_type => PtObject::Unknown,
         }
     }
 }

@@ -35,8 +35,10 @@
 // www.navitia.io
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use std::cmp::{max, min};
-use std::mem;
+use std::{
+    cmp::{max, min},
+    mem,
+};
 
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 
@@ -143,6 +145,7 @@ pub struct Impact {
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
     pub messages: Vec<Message>,
+    pub pt_objects: Vec<PtObject>,
     pub vehicle_info: Option<Vec<StopTime>>,
 }
 
@@ -161,38 +164,38 @@ pub enum PtObject {
 
 #[derive(Debug, Clone)]
 pub struct Network {
-    pub is: String,
-    pub created_at: NaiveDateTime,
+    pub id: String,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Line {
     pub id: String,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Route {
     pub id: String,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Trip_ {
     pub id: String,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct LineSection {
-    pub line_id: String,
-    pub start_id: String,
-    pub end_id: String,
-    pub route_id: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: Option<NaiveDateTime>,
+    pub line: Line,
+    pub start_sa: StopArea,
+    pub stop_sa: StopArea,
+    pub routes: Vec<Route>,
 }
 
 #[derive(Debug, Clone)]
@@ -202,21 +205,21 @@ pub struct RailSection {
     pub start_id: String,
     pub end_id: String,
     pub route_id: String,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StopPoint {
     pub id: String,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StopArea {
     pub id: String,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
