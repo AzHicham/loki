@@ -36,18 +36,19 @@
 
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
+use launch::loki::chrono::NaiveTime;
+use launch::loki::models::real_time_disruption::{
+    clamp_date, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt, Effect, Impact,
+    Message, Severity, Tag, TimeSlot,
+};
 use launch::loki::{
-    chrono::{Duration, NaiveDate},
+    chrono::NaiveDate,
     models::{
         base_model::BaseModel,
         real_time_disruption::{Disruption, Trip, Update},
     },
     tracing::error,
     NaiveDateTime,
-};
-use std::{
-    cmp::{max, min},
-    mem,
 };
 
 pub fn handle_chaos_protobuf(
@@ -243,57 +244,164 @@ fn make_delete_network(
     updates
 }
 
-#[derive(Debug, Clone)]
-pub struct DateTimePeriod {
-    pub start: NaiveDateTime,
-    pub end: NaiveDateTime,
-}
-
-fn clamp<T: PartialOrd<T>>(input: T, min_input: T, max_input: T) -> T
-where
-    T: std::cmp::Ord,
-{
-    min(max(input, min_input), max_input)
-}
-
-fn clamp_date(input: &DateTimePeriod, clamper: &DateTimePeriod) -> Option<DateTimePeriod> {
-    let start = clamp(input.start, clamper.start, clamper.end);
-    let end = clamp(input.end, clamper.start, clamper.end);
-    if start <= end {
-        Some(DateTimePeriod { start, end })
-    } else {
-        None
-    }
-}
-
-pub struct DateTimePeriodIterator<'a> {
-    period: &'a DateTimePeriod,
-    current: NaiveDateTime,
-}
-
-impl<'a> Iterator for DateTimePeriodIterator<'a> {
-    type Item = NaiveDateTime;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.period.end {
-            let next = min(self.current + Duration::days(1), self.period.end);
-            Some(mem::replace(&mut self.current, next))
-        } else if self.current == self.period.end {
-            let next = self.current + Duration::days(1);
-            Some(mem::replace(&mut self.current, next))
-        } else {
-            None
+impl From<&chaos_proto::chaos::Disruption> for Disrupt {
+    fn from(proto: &chaos_proto::chaos::Disruption) -> Disrupt {
+        Disrupt {
+            id: proto.get_id().to_string(),
+            reference: None,
+            contributor: proto.get_contributor().to_string(),
+            publication_period: proto.get_publication_period().into(),
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_created_at()),
+            cause: proto.get_cause().into(),
+            tags: proto.get_tags().iter().map(|t| t.into()).collect(),
+            impacts: proto.get_impacts().iter().map(|i| i.into()).collect(),
         }
     }
 }
 
-impl<'a> IntoIterator for &'a DateTimePeriod {
-    type Item = NaiveDateTime;
-    type IntoIter = DateTimePeriodIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        DateTimePeriodIterator {
-            period: self,
-            current: self.start,
+impl From<&chaos_proto::chaos::Impact> for Impact {
+    fn from(proto: &chaos_proto::chaos::Impact) -> Impact {
+        Impact {
+            id: proto.get_id().to_string(),
+            company_id: "".to_string(),
+            physical_mode_id: "".to_string(),
+            headsign: "".to_string(),
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_created_at()),
+            application_periods: proto
+                .get_application_periods()
+                .iter()
+                .map(|ap| ap.into())
+                .collect(),
+            application_patterns: proto
+                .get_application_patterns()
+                .iter()
+                .map(|ap| ap.into())
+                .collect(),
+            severity: proto.get_severity().into(),
+            messages: proto.get_messages().iter().map(|m| m.into()).collect(),
+            vehicle_info: None,
         }
+    }
+}
+
+impl From<&chaos_proto::chaos::Severity> for Severity {
+    fn from(proto: &chaos_proto::chaos::Severity) -> Severity {
+        Severity {
+            id: proto.get_id().to_string(),
+            wording: proto.get_wording().to_string(),
+            color: proto.get_color().to_string(),
+            priority: proto.get_priority() as u32,
+            effect: proto.get_effect().into(),
+        }
+    }
+}
+
+impl From<chaos_proto::gtfs_realtime::Alert_Effect> for Effect {
+    fn from(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
+        use chaos_proto::gtfs_realtime::Alert_Effect;
+        match proto {
+            Alert_Effect::NO_SERVICE => Effect::NoService,
+            Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
+            Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
+            Alert_Effect::DETOUR => Effect::Detour,
+            Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
+            Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
+            Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
+            Alert_Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
+            Alert_Effect::STOP_MOVED => Effect::StopMoved,
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::Cause> for Cause {
+    fn from(proto: &chaos_proto::chaos::Cause) -> Cause {
+        Cause {
+            id: proto.get_id().to_string(),
+            wording: proto.get_wording().to_string(),
+            category: proto.get_category().get_name().to_string(),
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_created_at()),
+        }
+    }
+}
+
+impl From<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
+    fn from(proto: &chaos_proto::gtfs_realtime::TimeRange) -> DateTimePeriod {
+        DateTimePeriod {
+            start: NaiveDateTime::from_timestamp(proto.get_start() as i64, 0),
+            end: NaiveDateTime::from_timestamp(proto.get_end() as i64, 0),
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::Tag> for Tag {
+    fn from(proto: &chaos_proto::chaos::Tag) -> Tag {
+        Tag {
+            id: proto.get_id().to_string(),
+            name: proto.get_id().to_string(),
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_created_at()),
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::Message> for Message {
+    fn from(proto: &chaos_proto::chaos::Message) -> Message {
+        let channel = proto.get_channel();
+        Message {
+            text: proto.get_text().to_string(),
+            channel_id: channel.get_id().to_string(),
+            channel_name: channel.get_name().to_string(),
+            channel_content_type: channel.get_content_type().to_string(),
+            channel_types: channel.get_types().iter().map(|t| t.into()).collect(),
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_created_at()),
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::Channel_Type> for ChannelType {
+    fn from(proto: &chaos_proto::chaos::Channel_Type) -> ChannelType {
+        use chaos_proto::chaos::Channel_Type;
+        match proto {
+            Channel_Type::web => ChannelType::Web,
+            Channel_Type::sms => ChannelType::Sms,
+            Channel_Type::email => ChannelType::Email,
+            Channel_Type::mobile => ChannelType::Mobile,
+            Channel_Type::notification => ChannelType::Notification,
+            Channel_Type::twitter => ChannelType::Twitter,
+            Channel_Type::facebook => ChannelType::Facebook,
+            Channel_Type::unkown_type => ChannelType::UnknownType,
+            Channel_Type::title => ChannelType::Title,
+            Channel_Type::beacon => ChannelType::Beacon,
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::Pattern> for ApplicationPattern {
+    fn from(proto: &chaos_proto::chaos::Pattern) -> ApplicationPattern {
+        ApplicationPattern {
+            begin_date: NaiveDateTime::from_timestamp(proto.get_start_date() as i64, 0).date(),
+            end_date: NaiveDateTime::from_timestamp(proto.get_end_date() as i64, 0).date(),
+            time_slots: proto.get_time_slots().iter().map(|ts| ts.into()).collect(),
+        }
+    }
+}
+
+impl From<&chaos_proto::chaos::TimeSlot> for TimeSlot {
+    fn from(proto: &chaos_proto::chaos::TimeSlot) -> TimeSlot {
+        TimeSlot {
+            begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
+            end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
+        }
+    }
+}
+
+fn ts_to_dt(timestamp: u64) -> Option<NaiveDateTime> {
+    match timestamp {
+        0 => None,
+        _ => Some(NaiveDateTime::from_timestamp(timestamp as i64, 0)),
     }
 }
