@@ -77,11 +77,11 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // let's delete the only trip
     let dt_period = DateTimePeriod::new(
         NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%dT%H%M%S").unwrap(),
-        NaiveDateTime::parse_from_str("20210102T000000", "%Y%m%dT%H%M%S").unwrap(),
+        NaiveDateTime::parse_from_str("20210101T230000", "%Y%m%dT%H%M%S").unwrap(),
     )
     .unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
-    let realtime_message = create_no_service_disruption(&PtObject::Line("rer_b"), &dt_period);
+    let realtime_message = create_no_service_disruption(&PtObject::Trip("matin"), &dt_period);
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
     // wait until realtime message is taken into account

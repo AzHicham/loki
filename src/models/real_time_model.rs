@@ -224,6 +224,7 @@ impl RealTimeModel {
                 }
                 Ok(())
             }
+            disruption::Update::NoEffect => Ok(()),
         }
     }
 

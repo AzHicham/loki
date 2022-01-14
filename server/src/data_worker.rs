@@ -76,6 +76,7 @@ use std::{
 };
 
 use crate::handle_chaos_message::handle_chaos_protobuf;
+use launch::loki::models::real_time_disruption::ts_to_dt;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -317,14 +318,24 @@ impl DataWorker {
             let data = &mut data_and_models.0;
             let base_model = &data_and_models.1;
             let real_time_model = &mut data_and_models.2;
+            let calendar = data.calendar();
+            let vp = (*calendar.first_date(), *calendar.last_date());
+
             for message in messages {
-                for feed_entity in message.entity {
+                for feed_entity in &message.entity {
                     let disruption_result = if feed_entity.get_is_deleted() {
                         Err(format_err!("Delete gtfs rt feed is Unsupported right now"))
                     } else if let Some(chaos_disruption) = exts::disruption.get(&feed_entity) {
-                        handle_chaos_protobuf(&chaos_disruption, base_model)
+                        handle_chaos_protobuf(&chaos_disruption, base_model, real_time_model)
                     } else if feed_entity.has_trip_update() {
-                        handle_kirin_protobuf(&feed_entity, base_model, real_time_model)
+                        let dt = ts_to_dt(message.get_header().get_timestamp());
+                        handle_kirin_protobuf(
+                            &feed_entity,
+                            dt,
+                            &(vp.0, vp.1),
+                            base_model,
+                            real_time_model,
+                        )
                     } else {
                         Err(format_err!("Unsupported gtfs rt feed"))
                     };

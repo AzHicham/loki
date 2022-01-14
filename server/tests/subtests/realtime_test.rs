@@ -30,6 +30,7 @@
 pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
+use crate::Utc;
 use chaos_proto::gtfs_realtime as kirin_proto;
 use launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::Message;
@@ -332,6 +333,7 @@ fn create_disruption_inner(
 
     let mut feed_header = kirin_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
+    feed_header.set_timestamp(Utc::now().naive_utc().timestamp().try_into().unwrap());
 
     let mut feed_message = kirin_proto::FeedMessage::new();
     feed_message.mut_entity().push(feed_entity);

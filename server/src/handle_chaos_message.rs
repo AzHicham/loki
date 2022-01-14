@@ -37,199 +37,32 @@
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
 use launch::loki::{
-    chrono::{NaiveDate, NaiveTime},
+    chrono::NaiveTime,
     models::{
         base_model::BaseModel,
         real_time_disruption::{
-            intersection, ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod,
-            Disrupt, Disruption, Effect, Impact, Line, LineSection, Message, Network, PtObject,
-            Route, Severity, StopArea, StopPoint, Tag, TimeSlot, Trip, Trip_, Update,
+            ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt, Disruption,
+            Effect, Impact, Line, LineSection, Message, Network, PtObject, Route, Severity,
+            StopArea, StopPoint, Tag, TimeSlot, Trip_,
         },
+        RealTimeModel,
     },
-    tracing::error,
-    NaiveDateTime,
 };
 
 pub fn handle_chaos_protobuf(
     chaos_disruption: &chaos_proto::chaos::Disruption,
-    model: &BaseModel,
+    base_model: &BaseModel,
+    realtime_model: &RealTimeModel,
 ) -> Result<Disruption, Error> {
-    let mut updates: Vec<Update> = vec![];
+    let disruption: Disrupt = chaos_disruption.try_into()?;
 
-    for impact in chaos_disruption.get_impacts() {
-        if let Ok(update) = read_impact(impact, model) {
-            updates.extend(update);
-        }
-    }
+    let updates = disruption.trip_update_iter(base_model, realtime_model);
 
     let result = Disruption {
         id: chaos_disruption.get_id().to_string(),
         updates,
     };
     Ok(result)
-}
-
-fn read_impact(
-    impact: &chaos_proto::chaos::Impact,
-    model: &BaseModel,
-) -> Result<Vec<Update>, Error> {
-    use chaos_proto::gtfs_realtime::Alert_Effect::*;
-    match impact.get_severity().get_effect() {
-        NO_SERVICE => Ok(read_pt_object(impact, model)),
-        _ => Err(format_err!("Disruption without impact")),
-    }
-}
-
-fn read_pt_object(impact: &chaos_proto::chaos::Impact, model: &BaseModel) -> Vec<Update> {
-    use chaos_proto::chaos::PtObject_Type;
-    let start = model.validity_period().0.and_hms(0, 0, 0);
-    let end = model.validity_period().1.and_hms(12, 59, 59);
-    let validity_period = DateTimePeriod::new(start, end).unwrap();
-    let application_period = compute_application_period(impact, &validity_period);
-    let mut updates: Vec<Update> = vec![];
-
-    for entity in impact.get_informed_entities() {
-        match entity.get_pt_object_type() {
-            PtObject_Type::network => {
-                let update = make_delete_network(entity.get_uri(), &application_period, model);
-                updates.extend(update);
-            }
-            PtObject_Type::line => {
-                let update = make_delete_line(entity.get_uri(), &application_period, model);
-                updates.extend(update);
-            }
-            PtObject_Type::route => {
-                let update = make_delete_route(entity.get_uri(), &application_period, model);
-                updates.extend(update);
-            }
-            PtObject_Type::trip => {
-                let update = make_delete_vehicle(entity.get_uri(), &application_period, model);
-                updates.extend(update);
-            }
-            PtObject_Type::stop_area => {}
-            PtObject_Type::stop_point => {}
-            PtObject_Type::unkown_type => {}
-            PtObject_Type::line_section => {}
-            PtObject_Type::rail_section => {}
-        }
-    }
-    updates
-}
-
-fn compute_application_period(
-    impact: &chaos_proto::chaos::Impact,
-    model_validity_period: &DateTimePeriod,
-) -> Vec<DateTimePeriod> {
-    impact
-        .get_application_periods()
-        .iter()
-        .filter_map(|range| {
-            let start = NaiveDateTime::from_timestamp(range.get_start() as i64, 0);
-            let end = NaiveDateTime::from_timestamp(range.get_end() as i64, 0);
-            let period = DateTimePeriod::new(start, end).ok()?;
-            intersection(&period, model_validity_period)
-        })
-        .collect()
-}
-
-fn make_trip(vehicle_journey_id: String, date: NaiveDate) -> Trip {
-    Trip {
-        vehicle_journey_id,
-        reference_date: date,
-    }
-}
-
-fn make_delete_vehicle(
-    vj_id: &str,
-    application_periods: &[DateTimePeriod],
-    model: &BaseModel,
-) -> Vec<Update> {
-    let mut updates = vec![];
-    if model.vehicle_journey_idx(vj_id).is_some() {
-        updates = application_periods
-            .iter()
-            .flatten()
-            .map(|day| Update::Delete(make_trip(vj_id.to_string(), day.date())))
-            .collect();
-    } else {
-        error!("vehicule.uri {} does not exists in BaseModel", vj_id);
-    }
-    updates
-}
-
-fn make_delete_route(
-    route_name: &str,
-    application_periods: &[DateTimePeriod],
-    model: &BaseModel,
-) -> Vec<Update> {
-    let mut updates: Vec<Update> = vec![];
-    if model.contains_route_id(route_name) {
-        updates = model
-            .vehicle_journeys()
-            .filter(|vj_idx| model.route_name(*vj_idx) == route_name)
-            .map(|vj_idx| {
-                make_delete_vehicle(
-                    model.vehicle_journey_name(vj_idx),
-                    application_periods,
-                    model,
-                )
-            })
-            .flatten()
-            .collect();
-    } else {
-        error!("route.id: {} does not exists in BaseModel", route_name);
-    }
-    updates
-}
-
-fn make_delete_line(
-    line_name: &str,
-    application_periods: &[DateTimePeriod],
-    model: &BaseModel,
-) -> Vec<Update> {
-    let mut updates: Vec<Update> = vec![];
-    if model.contains_line_id(line_name) {
-        updates = model
-            .vehicle_journeys()
-            .filter(|vj_idx| model.line_name(*vj_idx) == Some(line_name))
-            .map(|vj_idx| {
-                make_delete_vehicle(
-                    model.vehicle_journey_name(vj_idx),
-                    application_periods,
-                    model,
-                )
-            })
-            .flatten()
-            .collect();
-    } else {
-        error!("line.id: {} does not exists in BaseModel", line_name);
-    }
-    updates
-}
-
-fn make_delete_network(
-    network_name: &str,
-    application_periods: &[DateTimePeriod],
-    model: &BaseModel,
-) -> Vec<Update> {
-    let mut updates: Vec<Update> = vec![];
-    if model.contains_network_id(network_name) {
-        updates = model
-            .vehicle_journeys()
-            .filter(|vj_idx| model.network_name(*vj_idx) == Some(network_name))
-            .map(|vj_idx| {
-                make_delete_vehicle(
-                    model.vehicle_journey_name(vj_idx),
-                    application_periods,
-                    model,
-                )
-            })
-            .flatten()
-            .collect();
-    } else {
-        error!("network.id: {} does not exists in BaseModel", network_name);
-    }
-    updates
 }
 
 impl TryFrom<&chaos_proto::chaos::Disruption> for Disrupt {
@@ -275,8 +108,11 @@ impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
                 .collect::<Result<_, _>>()?,
             severity: proto.get_severity().into(),
             messages: proto.get_messages().iter().map(|m| m.into()).collect(),
-            pt_objects: vec![],
-            vehicle_info: None,
+            pt_objects: proto
+                .get_informed_entities()
+                .iter()
+                .map(|p| p.into())
+                .collect(),
         })
     }
 }
@@ -305,6 +141,7 @@ impl From<&chaos_proto::chaos::PtObject> for PtObject {
             }),
             PtObject_Type::trip => PtObject::Trip_(Trip_ {
                 id,
+                stop_times: None,
                 created_at,
                 updated_at,
             }),
