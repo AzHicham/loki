@@ -94,6 +94,8 @@ async fn run() {
     subtests::realtime_test::remove_add_modify_base_vj_test(&config).await;
     subtests::realtime_test::remove_add_modify_new_vj_test(&config).await;
 
+    subtests::realtime_test::remove_add_modify_base_vj_on_invalid_day_test(&config).await;
+
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
     subtests::places_nearby_test::places_nearby_test(&config).await;

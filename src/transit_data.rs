@@ -434,7 +434,7 @@ pub fn handle_insertion_error(
             let vehicle_journey_name = model.vehicle_journey_name(vehicle_journey_idx);
             error!(
                 "Trying to insert the vehicle journey {} on day {},  \
-                        but this day is not allowed in the date.  \
+                        but this day is not allowed in the calendar.  \
                         Allowed dates are between {} and {}",
                 vehicle_journey_name, date, start_date, end_date,
             );
