@@ -119,10 +119,20 @@ fn read_trip_update(
             OTHER_EFFECT | UNKNOWN_EFFECT | REDUCED_SERVICE | SIGNIFICANT_DELAYS | DETOUR
             | MODIFIED_SERVICE => {
                 let trip = read_trip(trip_update.get_trip())?;
-                let trip_exists_in_base = base_model
-                    .vehicle_journey_idx(&trip.vehicle_journey_id)
-                    .is_some();
-                if !trip_exists_in_base {
+
+                // the trip should exists in the base schedule
+                // for these effects
+                if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
+                {
+                    if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
+                        return Err(format_err!(
+                            "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
+                            effect,
+                            trip.vehicle_journey_id,
+                            trip.reference_date
+                        ));
+                    }
+                } else {
                     return Err(format_err!(
                         "Kirin effect {:?} on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
                         effect,
