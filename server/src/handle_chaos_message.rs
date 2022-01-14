@@ -41,9 +41,9 @@ use launch::loki::{
     models::{
         base_model::BaseModel,
         real_time_disruption::{
-            clamp_date, ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt,
-            Disruption, Effect, Impact, Line, LineSection, Message, Network, PtObject, Route,
-            Severity, StopArea, StopPoint, Tag, TimeSlot, Trip, Trip_, Update,
+            intersection, ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod,
+            Disrupt, Disruption, Effect, Impact, Line, LineSection, Message, Network, PtObject,
+            Route, Severity, StopArea, StopPoint, Tag, TimeSlot, Trip, Trip_, Update,
         },
     },
     tracing::error,
@@ -82,10 +82,9 @@ fn read_impact(
 
 fn read_pt_object(impact: &chaos_proto::chaos::Impact, model: &BaseModel) -> Vec<Update> {
     use chaos_proto::chaos::PtObject_Type;
-    let validity_period = DateTimePeriod {
-        start: model.validity_period().0.and_hms(0, 0, 0),
-        end: model.validity_period().1.and_hms(12, 59, 59),
-    };
+    let start = model.validity_period().0.and_hms(0, 0, 0);
+    let end = model.validity_period().1.and_hms(12, 59, 59);
+    let validity_period = DateTimePeriod::new(start, end).unwrap();
     let application_period = compute_application_period(impact, &validity_period);
     let mut updates: Vec<Update> = vec![];
 
@@ -125,11 +124,10 @@ fn compute_application_period(
         .get_application_periods()
         .iter()
         .filter_map(|range| {
-            let period = DateTimePeriod {
-                start: NaiveDateTime::from_timestamp(range.get_start() as i64, 0),
-                end: NaiveDateTime::from_timestamp(range.get_end() as i64, 0),
-            };
-            clamp_date(&period, model_validity_period)
+            let start = NaiveDateTime::from_timestamp(range.get_start() as i64, 0);
+            let end = NaiveDateTime::from_timestamp(range.get_end() as i64, 0);
+            let period = DateTimePeriod::new(start, end).ok()?;
+            intersection(&period, model_validity_period)
         })
         .collect()
 }
@@ -366,8 +364,8 @@ impl From<&chaos_proto::chaos::Severity> for Severity {
             color: proto.get_color().to_string(),
             priority: proto.get_priority() as u32,
             effect: proto.get_effect().into(),
-            created_at: None,
-            updated_at: None,
+            created_at: ts_to_dt(proto.get_created_at()),
+            updated_at: ts_to_dt(proto.get_updated_at()),
         }
     }
 }
@@ -407,7 +405,9 @@ impl TryFrom<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
         let start = ts_to_dt(proto.get_start());
         let end = ts_to_dt(proto.get_end());
         match (start, end) {
-            (Some(start), Some(end)) => Ok(DateTimePeriod { start, end }),
+            (Some(start), Some(end)) => {
+                DateTimePeriod::new(start, end).map_err(|err| format_err!("Error : {:?}", err))
+            }
             _ => Err(format_err!("Failed converting timestamp to datetime")),
         }
     }

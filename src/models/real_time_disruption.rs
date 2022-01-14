@@ -34,13 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::{
+    models::real_time_disruption::Update::Delete, time::SecondsSinceTimezonedDayStart,
+    timetables::FlowDirection,
+};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use std::{
     cmp::{max, min},
+    fmt::Debug,
     mem,
 };
-
-use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 
 #[derive(Debug, Clone)]
 pub struct Disruption {
@@ -81,6 +84,20 @@ pub struct Disrupt {
     // localization ??
     pub tags: Vec<Tag>,
     pub impacts: Vec<Impact>,
+}
+
+impl Disrupt {
+    pub fn trip_update_iter(&self) {
+        use Effect::*;
+        for impact in &self.impacts {
+            match impact.severity.effect {
+                NoService => {}
+                AdditionalService => {}
+                ReducedService | SignificantDelays | Detour | ModifiedService => {}
+                OtherEffect | UnknownEffect | StopMoved => {}
+            }
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -254,24 +271,48 @@ pub enum ChannelType {
 
 #[derive(Debug, Clone)]
 pub struct DateTimePeriod {
-    pub start: NaiveDateTime,
-    pub end: NaiveDateTime,
+    start: NaiveDateTime,
+    end: NaiveDateTime,
 }
 
-fn clamp<T: PartialOrd<T>>(input: T, min_input: T, max_input: T) -> T
-where
-    T: std::cmp::Ord,
-{
-    min(max(input, min_input), max_input)
+impl DateTimePeriod {
+    pub fn new(
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+    ) -> Result<DateTimePeriod, DateTimePeriodError> {
+        if start <= end {
+            Ok(DateTimePeriod { start, end })
+        } else {
+            Err(DateTimePeriodError::DateTimePeriodError(start, end))
+        }
+    }
+
+    pub fn start(&self) -> NaiveDateTime {
+        self.start
+    }
+
+    pub fn end(&self) -> NaiveDateTime {
+        self.end
+    }
 }
 
-pub fn clamp_date(input: &DateTimePeriod, clamper: &DateTimePeriod) -> Option<DateTimePeriod> {
-    let start = clamp(input.start, clamper.start, clamper.end);
-    let end = clamp(input.end, clamper.start, clamper.end);
-    if start <= end {
-        Some(DateTimePeriod { start, end })
-    } else {
-        None
+pub fn intersection(lhs: &DateTimePeriod, rhs: &DateTimePeriod) -> Option<DateTimePeriod> {
+    DateTimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
+}
+
+pub enum DateTimePeriodError {
+    DateTimePeriodError(NaiveDateTime, NaiveDateTime),
+}
+
+impl Debug for DateTimePeriodError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DateTimePeriodError::DateTimePeriodError(start, end) => {
+                write!(f, "Error DateTimePeriod, start must be less or equal to end, start : {}, end : {}",
+                       start,
+                       end)
+            }
+        }
     }
 }
 

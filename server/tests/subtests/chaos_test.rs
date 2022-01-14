@@ -75,14 +75,13 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
+    let dt_period = DateTimePeriod::new(
+        NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%dT%H%M%S").unwrap(),
+        NaiveDateTime::parse_from_str("20210102T000000", "%Y%m%dT%H%M%S").unwrap(),
+    )
+    .unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
-    let realtime_message = create_no_service_disruption(
-        &PtObject::Line("rer_b"),
-        &DateTimePeriod {
-            start: NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%dT%H%M%S").unwrap(),
-            end: NaiveDateTime::parse_from_str("20210102T000000", "%Y%m%dT%H%M%S").unwrap(),
-        },
-    );
+    let realtime_message = create_no_service_disruption(&PtObject::Line("rer_b"), &dt_period);
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
     // wait until realtime message is taken into account
@@ -165,8 +164,8 @@ fn create_no_service_disruption(
     }
 
     let mut period = gtfs_proto::TimeRange::default();
-    period.set_start(application_period.start.timestamp() as u64);
-    period.set_end(application_period.end.timestamp() as u64);
+    period.set_start(application_period.start().timestamp() as u64);
+    period.set_end(application_period.end().timestamp() as u64);
 
     let mut channel = chaos_proto::chaos::Channel::default();
     channel.set_id("disruption test sample".to_string());

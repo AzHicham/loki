@@ -299,11 +299,11 @@ pub fn create_disruption(
     if feed_entity.has_trip_update().not() {
         return Err(format_err!("Feed entity has no trip_update"));
     }
-    // application_period == publication_period
-    let application_period = DateTimePeriod {
-        start: model_validity_period.0.and_hms(0, 0, 0),
-        end: model_validity_period.1.and_hms(23, 59, 59),
-    };
+    // application_period == publication_period == validity_period
+    let start = model_validity_period.0.and_hms(0, 0, 0);
+    let end = model_validity_period.1.and_hms(12, 59, 59);
+    let application_period =
+        DateTimePeriod::new(start, end).map_err(|err| format_err!("Error : {:?}", err))?;
     let trip_update = feed_entity.get_trip_update();
     let trip = trip_update.get_trip();
 
@@ -361,6 +361,12 @@ fn make_impact(
         false => Some(stop_times),
     };
 
+    let application_period = DateTimePeriod::new(
+        reference_date.and_hms(0, 0, 0),
+        reference_date.and_hms(12, 59, 59),
+    )
+    .map_err(|err| format_err!("Error : {:?}", err))?;
+
     Ok(Impact {
         id: disruption_id.clone(),
         company_id: chaos_proto::kirin::exts::company_id.get(trip),
@@ -368,10 +374,7 @@ fn make_impact(
         headsign: chaos_proto::kirin::exts::headsign.get(trip_update),
         created_at: Some(header_datetime),
         updated_at: Some(header_datetime),
-        application_periods: vec![DateTimePeriod {
-            start: reference_date.and_hms(0, 0, 0),
-            end: reference_date.and_hms(12, 59, 59),
-        }],
+        application_periods: vec![application_period],
         application_patterns: vec![],
         severity: make_severity(effect, disruption_id, header_datetime),
         messages: make_message(trip_update, header_datetime),
