@@ -109,26 +109,52 @@ fn read_trip_update(
                     ));
                 }
 
-                let trip_exists_in_realtime = realtime_model.contains_new_vehicle_journey(&trip);
+                let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
                 if trip_exists_in_realtime {
                     Ok(Update::Modify(trip, stop_times))
                 } else {
                     Ok(Update::Add(trip, stop_times))
                 }
             }
-            REDUCED_SERVICE | SIGNIFICANT_DELAYS | DETOUR | MODIFIED_SERVICE => {
+            OTHER_EFFECT | UNKNOWN_EFFECT | REDUCED_SERVICE | SIGNIFICANT_DELAYS | DETOUR
+            | MODIFIED_SERVICE => {
                 let trip = read_trip(trip_update.get_trip())?;
+
+                // the trip should exists in the base schedule
+                // for these effects
+                if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
+                {
+                    if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
+                        return Err(format_err!(
+                            "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
+                            effect,
+                            trip.vehicle_journey_id,
+                            trip.reference_date
+                        ));
+                    }
+                } else {
+                    return Err(format_err!(
+                        "Kirin effect {:?} on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
+                        effect,
+                        trip.vehicle_journey_id
+                    ));
+                }
+
                 let stop_times = create_stop_times_from_proto(
                     trip_update.get_stop_time_update(),
                     &trip.reference_date,
                 )
                 .with_context(|| "Could not handle stop times in kirin disruption.")?;
-                Ok(Update::Modify(trip, stop_times))
+
+                let trip_is_present = realtime_model.is_present(&trip, base_model);
+                if trip_is_present {
+                    Ok(Update::Modify(trip, stop_times))
+                } else {
+                    Ok(Update::Add(trip, stop_times))
+                }
             }
 
-            OTHER_EFFECT | UNKNOWN_EFFECT | STOP_MOVED => {
-                Err(format_err!("Unhandle effect on FeedEntity: {:?}", effect))
-            }
+            STOP_MOVED => Err(format_err!("Unhandle effect on FeedEntity: {:?}", effect)),
         }
     } else {
         Err(format_err!("No effect on FeedEntity."))
@@ -211,7 +237,7 @@ fn create_stop_time_from_proto(
     };
 
     let can_debark = if proto.has_arrival() {
-        read_status(proto.get_arrival()).context("StopTime has a bad arrical status.")?
+        read_status(proto.get_arrival()).context("StopTime has a bad arrival status.")?
     } else {
         false
     };

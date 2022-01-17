@@ -289,7 +289,7 @@ impl RealTimeModel {
         }
     }
 
-    fn is_present(&self, trip: &disruption::Trip, base_model: &BaseModel) -> bool {
+    pub fn is_present(&self, trip: &disruption::Trip, base_model: &BaseModel) -> bool {
         if let Some(transit_model_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id) {
             let last_version =
                 self.base_vehicle_journey_last_version(&transit_model_idx, &trip.reference_date);
@@ -449,7 +449,7 @@ impl RealTimeModel {
             .map(|trip_version| &trip_version.trip_data)
     }
 
-    pub fn contains_new_vehicle_journey(&self, trip: &disruption::Trip) -> bool {
+    pub fn new_vehicle_journey_is_present(&self, trip: &disruption::Trip) -> bool {
         let has_new_vj_idx = self
             .new_vehicle_journeys_id_to_idx
             .get(&trip.vehicle_journey_id);

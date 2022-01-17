@@ -252,18 +252,20 @@ where
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        // let's check that
-        //  - the base vehicle does not exists
-        //  - the real time vehicle does not exists
-        if self
-            .vehicle_journey_to_timetable
-            .base_vehicle_exists(&vehicle_journey_idx)
-        {
-            return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
-                vehicle_journey_idx.clone(),
-            ));
+        // if we add on the base level, let's check that
+        // the vehicle does not exists in base vehicles
+        if real_time_level == RealTimeLevel::Base {
+            if self
+                .vehicle_journey_to_timetable
+                .base_vehicle_exists(&vehicle_journey_idx)
+            {
+                return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
+                    vehicle_journey_idx.clone(),
+                ));
+            }
         }
 
+        // we always check that the real time vehicle does not exists
         for date in valid_dates.clone() {
             let day = self
                 .calendar
