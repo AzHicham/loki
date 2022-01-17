@@ -254,15 +254,14 @@ where
     {
         // if we add on the base level, let's check that
         // the vehicle does not exists in base vehicles
-        if real_time_level == RealTimeLevel::Base {
-            if self
+        if real_time_level == RealTimeLevel::Base
+            && self
                 .vehicle_journey_to_timetable
                 .base_vehicle_exists(&vehicle_journey_idx)
-            {
-                return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
-                    vehicle_journey_idx.clone(),
-                ));
-            }
+        {
+            return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
+                vehicle_journey_idx.clone(),
+            ));
         }
 
         // we always check that the real time vehicle does not exists
