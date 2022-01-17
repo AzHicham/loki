@@ -323,23 +323,17 @@ impl DataWorker {
 
             for message in messages {
                 for feed_entity in &message.entity {
-                    let disruption_result = if feed_entity.get_is_deleted() {
+                    let disruption = if feed_entity.get_is_deleted() {
                         Err(format_err!("Delete gtfs rt feed is Unsupported right now"))
-                    } else if let Some(chaos_disruption) = exts::disruption.get(&feed_entity) {
-                        handle_chaos_protobuf(&chaos_disruption, base_model, real_time_model)
+                    } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+                        handle_chaos_protobuf(&chaos_disruption)
                     } else if feed_entity.has_trip_update() {
                         let dt = ts_to_dt(message.get_header().get_timestamp());
-                        handle_kirin_protobuf(
-                            &feed_entity,
-                            dt,
-                            &(vp.0, vp.1),
-                            base_model,
-                            real_time_model,
-                        )
+                        handle_kirin_protobuf(feed_entity, dt, &(vp.0, vp.1))
                     } else {
                         Err(format_err!("Unsupported gtfs rt feed"))
                     };
-                    match disruption_result {
+                    match disruption {
                         Err(err) => {
                             error!("Could not handle a gtfs-rt message {}", err);
                         }

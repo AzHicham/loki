@@ -35,10 +35,7 @@
 // www.navitia.io
 
 use crate::{
-    models::{
-        base_model::{BaseModel, BaseVehicleJourneyIdx},
-        RealTimeModel,
-    },
+    models::{base_model::BaseModel, RealTimeModel},
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
 };
@@ -49,12 +46,6 @@ use std::{
     mem,
 };
 use tracing::error;
-
-#[derive(Debug, Clone)]
-pub struct Disruption {
-    pub id: String,
-    pub updates: Vec<Update>,
-}
 
 #[derive(Debug, Clone)]
 pub enum Update {
@@ -79,7 +70,7 @@ pub struct StopTime {
 }
 
 #[derive(Debug, Clone)]
-pub struct Disrupt {
+pub struct Disruption {
     pub id: String,
     pub reference: Option<String>,
     pub contributor: String,
@@ -92,8 +83,8 @@ pub struct Disrupt {
     pub impacts: Vec<Impact>,
 }
 
-impl Disrupt {
-    pub fn trip_update_iter(
+impl Disruption {
+    pub fn get_updates(
         &self,
         base_model: &BaseModel,
         realtime_model: &RealTimeModel,
@@ -113,58 +104,57 @@ fn read_impact(
     realtime_model: &RealTimeModel,
 ) -> Vec<Update> {
     let mut updates = vec![];
-    for pt_object in &impact.pt_objects {
+    for pt_object in &impact.impacted_pt_objects {
         let update = match pt_object {
-            PtObject::Network(network) => handle_network_update(
-                &network.id,
-                impact.severity.effect,
-                &impact.application_periods,
-                base_model,
-                realtime_model,
-            ),
-            PtObject::Line(line) => handle_line_update(
-                &line.id,
-                impact.severity.effect,
-                &impact.application_periods,
-                base_model,
-                realtime_model,
-            ),
-            PtObject::Route(route) => handle_route_update(
-                &route.id,
-                impact.severity.effect,
-                &impact.application_periods,
-                base_model,
-                realtime_model,
-            ),
-            PtObject::Trip_(trip) => handle_trip_update(
+            Impacted::NetworkDeleted(network) => {
+                delete_network(&network.id, &impact.application_periods, base_model)
+            }
+            Impacted::LineDeleted(line) => {
+                delete_line(&line.id, &impact.application_periods, base_model)
+            }
+            Impacted::RouteDeleted(route) => {
+                delete_route(&route.id, &impact.application_periods, base_model)
+            }
+            Impacted::TripDeleted(trip) => delete_trip(&trip.id, &impact.application_periods),
+            Impacted::TripModified(trip) => update_trip(
                 &trip.id,
                 impact.severity.effect,
                 &impact.application_periods,
                 base_model,
                 realtime_model,
-                &trip.stop_times,
+                trip.stop_times.clone(),
             ),
             _ => vec![],
         };
+
         updates.extend(update);
     }
     updates
 }
 
-fn handle_trip_update(
+fn delete_trip(trip_id: &str, application_periods: &[DateTimePeriod]) -> Vec<Update> {
+    application_periods
+        .iter()
+        .flatten()
+        .map(|dt| {
+            Update::Delete(Trip {
+                vehicle_journey_id: trip_id.to_string(),
+                reference_date: dt.date(),
+            })
+        })
+        .collect()
+}
+
+fn update_trip(
     trip_id: &str,
     effect: Effect,
     application_periods: &[DateTimePeriod],
     _base_model: &BaseModel,
     realtime_model: &RealTimeModel,
-    stop_times: &Option<Vec<StopTime>>,
+    stop_times: Vec<StopTime>,
 ) -> Vec<Update> {
     use Effect::*;
     let f = |reference_date: NaiveDateTime| match effect {
-        NoService => Update::Delete(Trip {
-            vehicle_journey_id: trip_id.to_string(),
-            reference_date: reference_date.date(),
-        }),
         AdditionalService => {
             let trip_exists_in_realtime =
                 realtime_model.contains_new_vehicle_journey(trip_id, &reference_date.date());
@@ -173,9 +163,9 @@ fn handle_trip_update(
                 reference_date: reference_date.date(),
             };
             if trip_exists_in_realtime {
-                Update::Modify(trip, stop_times.clone().unwrap())
+                Update::Modify(trip, stop_times.clone())
             } else {
-                Update::Add(trip, stop_times.clone().unwrap())
+                Update::Add(trip, stop_times.clone())
             }
         }
         ReducedService | SignificantDelays | Detour | ModifiedService => Update::Modify(
@@ -183,47 +173,26 @@ fn handle_trip_update(
                 vehicle_journey_id: trip_id.to_string(),
                 reference_date: reference_date.date(),
             },
-            stop_times.clone().unwrap(),
+            stop_times.clone(),
         ),
-        OtherEffect | UnknownEffect | StopMoved => Update::NoEffect,
+        _ => Update::NoEffect,
     };
 
-    application_periods
-        .iter()
-        .flatten()
-        .map(f)
-        .map(|r| {
-            println!("*********{:?}", r);
-            r
-        })
-        .collect()
+    application_periods.iter().flatten().map(f).collect()
 }
 
-fn handle_route_update(
+fn delete_route(
     route_id: &str,
-    effect: Effect,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
 ) -> Vec<Update> {
-    use Effect::*;
-    let f = |vj_idx: BaseVehicleJourneyIdx| match effect {
-        NoService => handle_trip_update(
-            base_model.vehicle_journey_name(vj_idx),
-            effect,
-            application_periods,
-            base_model,
-            realtime_model,
-            &None,
-        ),
-        _ => vec![Update::NoEffect],
-    };
     if base_model.contains_route_id(route_id) {
         base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.route_name(*vj_idx) == route_id)
-            .map(f)
-            .flatten()
+            .flat_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            })
             .collect()
     } else {
         error!("route.uri {} does not exists in BaseModel", route_id);
@@ -231,31 +200,18 @@ fn handle_route_update(
     }
 }
 
-fn handle_line_update(
+fn delete_line(
     line_id: &str,
-    effect: Effect,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
 ) -> Vec<Update> {
-    use Effect::*;
-    let f = |vj_idx: BaseVehicleJourneyIdx| match effect {
-        NoService => handle_trip_update(
-            base_model.vehicle_journey_name(vj_idx),
-            effect,
-            application_periods,
-            base_model,
-            realtime_model,
-            &None,
-        ),
-        _ => vec![Update::NoEffect],
-    };
     if base_model.contains_line_id(line_id) {
         base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.line_name(*vj_idx) == Some(line_id))
-            .map(f)
-            .flatten()
+            .flat_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            })
             .collect()
     } else {
         error!("line.uri {} does not exists in BaseModel", line_id);
@@ -263,31 +219,18 @@ fn handle_line_update(
     }
 }
 
-fn handle_network_update(
+fn delete_network(
     network_id: &str,
-    effect: Effect,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
 ) -> Vec<Update> {
-    use Effect::*;
-    let f = |vj_idx: BaseVehicleJourneyIdx| match effect {
-        NoService => handle_trip_update(
-            base_model.vehicle_journey_name(vj_idx),
-            effect,
-            application_periods,
-            base_model,
-            realtime_model,
-            &None,
-        ),
-        _ => vec![Update::NoEffect],
-    };
     if base_model.contains_network_id(network_id) {
         base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.network_name(*vj_idx) == Some(network_id))
-            .map(f)
-            .flatten()
+            .flat_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            })
             .collect()
     } else {
         error!("network.uri {} does not exists in BaseModel", network_id);
@@ -350,70 +293,87 @@ pub struct TimeSlot {
 #[derive(Debug, Clone)]
 pub struct Impact {
     pub id: String,
-    pub company_id: Option<String>,
-    pub physical_mode_id: Option<String>,
-    pub headsign: Option<String>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub application_periods: Vec<DateTimePeriod>,
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
     pub messages: Vec<Message>,
-    pub pt_objects: Vec<PtObject>,
+    pub impacted_pt_objects: Vec<Impacted>,
+    pub informed_pt_objects: Vec<Informed>,
+}
+
+pub enum PtObjectType {
+    Impacted(Impacted),
+    Informed(Informed),
 }
 
 #[derive(Debug, Clone)]
-pub enum PtObject {
-    Network(Network),
-    Line(Line),
-    Route(Route),
-    Trip_(Trip_),
-    RailSection(RailSection),
-    LineSection(LineSection),
-    StopArea(StopArea),
-    StopPoint(StopPoint),
+pub enum Impacted {
+    NetworkDeleted(NetworkDisruption),
+    LineDeleted(LineDisruption),
+    RouteDeleted(RouteDisruption),
+    TripDeleted(TripDisruption),
+    TripModified(TripDisruption),
+    RailSection(RailSectionDisruption),
+    LineSection(LineSectionDisruption),
+    StopAreaDeleted(StopAreaDisruption),
+    StopPointDeleted(StopPointDisruption),
+}
+
+#[derive(Debug, Clone)]
+pub enum Informed {
+    Network(NetworkDisruption),
+    Line(LineDisruption),
+    Route(RouteDisruption),
+    Trip(TripDisruption),
+    StopArea(StopAreaDisruption),
+    StopPoint(StopPointDisruption),
     Unknown,
 }
 
 #[derive(Debug, Clone)]
-pub struct Network {
+pub struct NetworkDisruption {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Line {
+pub struct LineDisruption {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Route {
+pub struct RouteDisruption {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Trip_ {
+pub struct TripDisruption {
     pub id: String,
-    pub stop_times: Option<Vec<StopTime>>,
+    pub stop_times: Vec<StopTime>,
+    pub company_id: Option<String>,
+    pub physical_mode_id: Option<String>,
+    pub headsign: Option<String>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
-pub struct LineSection {
-    pub line: Line,
-    pub start_sa: StopArea,
-    pub stop_sa: StopArea,
-    pub routes: Vec<Route>,
+pub struct LineSectionDisruption {
+    pub line: LineDisruption,
+    pub start_sa: StopAreaDisruption,
+    pub stop_sa: StopAreaDisruption,
+    pub routes: Vec<RouteDisruption>,
 }
 
 #[derive(Debug, Clone)]
-pub struct RailSection {
+pub struct RailSectionDisruption {
     pub id: String,
     pub line_id: String,
     pub start_id: String,
@@ -424,14 +384,14 @@ pub struct RailSection {
 }
 
 #[derive(Debug, Clone)]
-pub struct StopPoint {
+pub struct StopPointDisruption {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StopArea {
+pub struct StopAreaDisruption {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,

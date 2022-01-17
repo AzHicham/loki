@@ -115,7 +115,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         real_time_data: &mut Data,
     ) {
-        for update in disruption.updates.iter() {
+        for update in disruption.get_updates(base_model, self).iter() {
             let apply_result =
                 self.apply_update(&disruption.id, update, base_model, real_time_data);
             if let Err(err) = apply_result {

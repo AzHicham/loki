@@ -37,15 +37,12 @@
 use std::ops::Not;
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::models::real_time_disruption::{Impacted, Informed, PtObjectType};
 use launch::loki::{
     chrono::NaiveDate,
-    models::{
-        base_model::BaseModel,
-        real_time_disruption::{
-            Cause, ChannelType, DateTimePeriod, Disrupt, Disruption, Effect, Impact, Message,
-            PtObject, Severity, StopTime, Trip_,
-        },
-        RealTimeModel,
+    models::real_time_disruption::{
+        Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Message, Severity,
+        StopTime, TripDisruption,
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
@@ -58,26 +55,15 @@ pub fn handle_kirin_protobuf(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
     header_datetime: Option<NaiveDateTime>,
     model_validity_period: &(NaiveDate, NaiveDate),
-    base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
 ) -> Result<Disruption, Error> {
-    let disruption_id = feed_entity.get_id().to_string();
-
-    let disruption = create_disruption(feed_entity, header_datetime, model_validity_period)?;
-    let updates = disruption.trip_update_iter(base_model, realtime_model);
-
-    let result = Disruption {
-        id: disruption_id,
-        updates,
-    };
-    Ok(result)
+    create_disruption(feed_entity, header_datetime, model_validity_period)
 }
 
 pub fn create_disruption(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
     header_datetime: Option<NaiveDateTime>,
     model_validity_period: &(NaiveDate, NaiveDate),
-) -> Result<Disrupt, Error> {
+) -> Result<Disruption, Error> {
     let disruption_id = feed_entity.get_id().to_string();
     if feed_entity.has_trip_update().not() {
         return Err(format_err!("Feed entity has no trip_update"));
@@ -90,7 +76,7 @@ pub fn create_disruption(
     let trip_update = feed_entity.get_trip_update();
     let trip = trip_update.get_trip();
 
-    let disruption = Disrupt {
+    let disruption = Disruption {
         id: disruption_id.clone(),
         reference: Some(disruption_id.clone()),
         contributor: chaos_proto::kirin::exts::contributor
@@ -138,11 +124,7 @@ fn make_impact(
         })?
     };
 
-    let stop_times = make_stop_times(trip_update, effect.clone(), &reference_date)?;
-    let stop_times = match stop_times.is_empty() {
-        true => None,
-        false => Some(stop_times),
-    };
+    let stop_times = make_stop_times(trip_update, effect, &reference_date)?;
 
     let application_period = DateTimePeriod::new(
         reference_date.and_hms(0, 0, 0),
@@ -150,24 +132,70 @@ fn make_impact(
     )
     .map_err(|err| format_err!("Error : {:?}", err))?;
 
+    let severity = make_severity(effect, disruption_id.clone(), header_datetime);
+
+    let company_id = chaos_proto::kirin::exts::company_id.get(trip);
+    let physical_mode_id =
+        chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
+    let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
+
+    let pt_object = make_pt_object(
+        &vehicle_journey_id,
+        severity.effect,
+        stop_times,
+        header_datetime,
+        company_id,
+        physical_mode_id,
+        headsign,
+    );
+    let mut impacted_pt_objects = vec![];
+    let mut informed_pt_objects = vec![];
+
+    if let PtObjectType::Impacted(p) = pt_object {
+        impacted_pt_objects.push(p);
+    } else if let PtObjectType::Informed(p) = pt_object {
+        informed_pt_objects.push(p);
+    }
+
     Ok(Impact {
-        id: disruption_id.clone(),
-        company_id: chaos_proto::kirin::exts::company_id.get(trip),
-        physical_mode_id: chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle()),
-        headsign: chaos_proto::kirin::exts::headsign.get(trip_update),
+        id: disruption_id,
         created_at: header_datetime,
         updated_at: header_datetime,
         application_periods: vec![application_period],
         application_patterns: vec![],
-        severity: make_severity(effect, disruption_id, header_datetime),
+        severity,
         messages: make_message(trip_update, header_datetime),
-        pt_objects: vec![PtObject::Trip_(Trip_ {
-            id: vehicle_journey_id,
-            stop_times,
-            created_at: header_datetime,
-            updated_at: header_datetime,
-        })],
+        impacted_pt_objects,
+        informed_pt_objects,
     })
+}
+
+fn make_pt_object(
+    vj_id: &str,
+    effect: Effect,
+    stop_times: Vec<StopTime>,
+    header_datetime: Option<NaiveDateTime>,
+    company_id: Option<String>,
+    physical_mode_id: Option<String>,
+    headsign: Option<String>,
+) -> PtObjectType {
+    let trip = TripDisruption {
+        id: vj_id.to_string(),
+        stop_times,
+        company_id,
+        physical_mode_id,
+        headsign,
+        created_at: header_datetime,
+        updated_at: header_datetime,
+    };
+    use Effect::*;
+    match effect {
+        NoService => PtObjectType::Impacted(Impacted::TripDeleted(trip)),
+        ReducedService | SignificantDelays | Detour | ModifiedService | AdditionalService => {
+            PtObjectType::Impacted(Impacted::TripModified(trip))
+        }
+        OtherEffect | UnknownEffect | StopMoved => PtObjectType::Informed(Informed::Trip(trip)),
+    }
 }
 
 fn make_stop_times(

@@ -20,48 +20,36 @@ use loki::{
 
 use super::model_builder::{AsDate, IntoTime};
 
-pub fn delete(vehicle_journey_id: String, date: NaiveDate) -> Disruption {
+pub fn delete(vehicle_journey_id: String, date: NaiveDate) -> Update {
     let trip = Trip {
         vehicle_journey_id: vehicle_journey_id.clone(),
         reference_date: date,
     };
-    let update = Update::Delete(trip);
-    Disruption {
-        id: format!("Delete {} {}", vehicle_journey_id, date),
-        updates: vec![update],
-    }
+    Update::Delete(trip)
 }
 
 pub fn add(
     vehicle_journey_id: &str,
     date: impl AsDate,
     stop_times_builder: StopTimesBuilder,
-) -> Disruption {
+) -> Update {
     let trip = Trip {
         vehicle_journey_id: vehicle_journey_id.to_string(),
         reference_date: date.as_date(),
     };
-    let update = Update::Add(trip, stop_times_builder.stop_times);
-    Disruption {
-        id: format!("Add {} {}", vehicle_journey_id, date.as_date()),
-        updates: vec![update],
-    }
+    Update::Add(trip, stop_times_builder.stop_times)
 }
 
 pub fn modify(
     vehicle_journey_id: &str,
     date: impl AsDate,
     stop_times_builder: StopTimesBuilder,
-) -> Disruption {
+) -> Update {
     let trip = Trip {
         vehicle_journey_id: vehicle_journey_id.to_string(),
         reference_date: date.as_date(),
     };
-    let update = Update::Modify(trip, stop_times_builder.stop_times);
-    Disruption {
-        id: format!("Modify {} {}", vehicle_journey_id, date.as_date()),
-        updates: vec![update],
-    }
+    Update::Modify(trip, stop_times_builder.stop_times)
 }
 
 pub struct DisruptionBuilder {}

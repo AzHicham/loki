@@ -36,39 +36,26 @@
 
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
+use launch::loki::models::real_time_disruption::{Impacted, Informed, PtObjectType};
 use launch::loki::{
     chrono::NaiveTime,
-    models::{
-        base_model::BaseModel,
-        real_time_disruption::{
-            ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disrupt, Disruption,
-            Effect, Impact, Line, LineSection, Message, Network, PtObject, Route, Severity,
-            StopArea, StopPoint, Tag, TimeSlot, Trip_,
-        },
-        RealTimeModel,
+    models::real_time_disruption::{
+        ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect,
+        Impact, LineDisruption, LineSectionDisruption, Message, NetworkDisruption, RouteDisruption,
+        Severity, StopAreaDisruption, StopPointDisruption, Tag, TimeSlot, TripDisruption,
     },
 };
 
 pub fn handle_chaos_protobuf(
     chaos_disruption: &chaos_proto::chaos::Disruption,
-    base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
 ) -> Result<Disruption, Error> {
-    let disruption: Disrupt = chaos_disruption.try_into()?;
-
-    let updates = disruption.trip_update_iter(base_model, realtime_model);
-
-    let result = Disruption {
-        id: chaos_disruption.get_id().to_string(),
-        updates,
-    };
-    Ok(result)
+    chaos_disruption.try_into()
 }
 
-impl TryFrom<&chaos_proto::chaos::Disruption> for Disrupt {
+impl TryFrom<&chaos_proto::chaos::Disruption> for Disruption {
     type Error = Error;
-    fn try_from(proto: &chaos_proto::chaos::Disruption) -> Result<Disrupt, Error> {
-        Ok(Disrupt {
+    fn try_from(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
+        Ok(Disruption {
             id: proto.get_id().to_string(),
             reference: None,
             contributor: proto.get_contributor().to_string(),
@@ -89,11 +76,21 @@ impl TryFrom<&chaos_proto::chaos::Disruption> for Disrupt {
 impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
     type Error = Error;
     fn try_from(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
+        let severity: Severity = proto.get_severity().into();
+        let effect = severity.effect;
+        let mut impacted_pt_objects = vec![];
+        let mut informed_pt_objects = vec![];
+        for entity in proto.get_informed_entities() {
+            let entity = from(entity, effect)?;
+            if let PtObjectType::Impacted(p) = entity {
+                impacted_pt_objects.push(p);
+            } else if let PtObjectType::Informed(p) = entity {
+                informed_pt_objects.push(p);
+            }
+        }
+
         Ok(Impact {
             id: proto.get_id().to_string(),
-            company_id: None,
-            physical_mode_id: None,
-            headsign: None,
             created_at: ts_to_dt(proto.get_created_at()),
             updated_at: ts_to_dt(proto.get_created_at()),
             application_periods: proto
@@ -106,91 +103,147 @@ impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
                 .iter()
                 .map(|ap| ap.try_into())
                 .collect::<Result<_, _>>()?,
-            severity: proto.get_severity().into(),
+            severity,
             messages: proto.get_messages().iter().map(|m| m.into()).collect(),
-            pt_objects: proto
-                .get_informed_entities()
-                .iter()
-                .map(|p| p.into())
-                .collect(),
+            impacted_pt_objects,
+            informed_pt_objects,
         })
     }
 }
 
-impl From<&chaos_proto::chaos::PtObject> for PtObject {
-    fn from(proto: &chaos_proto::chaos::PtObject) -> PtObject {
-        use chaos_proto::chaos::PtObject_Type;
-        let id = proto.get_uri().to_string();
-        let created_at = ts_to_dt(proto.get_created_at());
-        let updated_at = ts_to_dt(proto.get_updated_at());
-        match proto.get_pt_object_type() {
-            PtObject_Type::network => PtObject::Network(Network {
-                id,
-                created_at,
-                updated_at,
-            }),
-            PtObject_Type::line => PtObject::Line(Line {
-                id,
-                created_at,
-                updated_at,
-            }),
-            PtObject_Type::route => PtObject::Route(Route {
-                id,
-                created_at,
-                updated_at,
-            }),
-            PtObject_Type::trip => PtObject::Trip_(Trip_ {
-                id,
-                stop_times: None,
-                created_at,
-                updated_at,
-            }),
-            PtObject_Type::line_section => {
-                let ls = proto.get_pt_line_section();
-                let line = ls.get_line();
-                let start = ls.get_start_point();
-                let end = ls.get_end_point();
-                let routes = ls.get_routes();
-                PtObject::LineSection(LineSection {
-                    line: Line {
-                        id: line.get_uri().to_string(),
-                        created_at: ts_to_dt(line.get_created_at()),
-                        updated_at: ts_to_dt(line.get_updated_at()),
-                    },
-                    start_sa: StopArea {
-                        id: start.get_uri().to_string(),
-                        created_at: ts_to_dt(start.get_created_at()),
-                        updated_at: ts_to_dt(start.get_updated_at()),
-                    },
-                    stop_sa: StopArea {
-                        id: end.get_uri().to_string(),
-                        created_at: ts_to_dt(end.get_created_at()),
-                        updated_at: ts_to_dt(end.get_updated_at()),
-                    },
-                    routes: routes
-                        .iter()
-                        .map(|r| Route {
-                            id: r.get_uri().to_string(),
-                            created_at: ts_to_dt(r.get_created_at()),
-                            updated_at: ts_to_dt(r.get_updated_at()),
-                        })
-                        .collect(),
-                })
+fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObjectType, Error> {
+    use chaos_proto::chaos::PtObject_Type;
+    let id = proto.get_uri().to_string();
+    let created_at = ts_to_dt(proto.get_created_at());
+    let updated_at = ts_to_dt(proto.get_updated_at());
+
+    let pt_object = match proto.get_pt_object_type() {
+        PtObject_Type::network => match effect {
+            Effect::NoService => {
+                PtObjectType::Impacted(Impacted::NetworkDeleted(NetworkDisruption {
+                    id,
+                    created_at,
+                    updated_at,
+                }))
             }
-            PtObject_Type::rail_section => PtObject::Unknown,
-            PtObject_Type::stop_point => PtObject::StopPoint(StopPoint {
+            _ => PtObjectType::Informed(Informed::Network(NetworkDisruption {
                 id,
                 created_at,
                 updated_at,
-            }),
-            PtObject_Type::stop_area => PtObject::StopArea(StopArea {
+            })),
+        },
+        PtObject_Type::line => match effect {
+            Effect::NoService => PtObjectType::Impacted(Impacted::LineDeleted(LineDisruption {
                 id,
                 created_at,
                 updated_at,
-            }),
-            PtObject_Type::unkown_type => PtObject::Unknown,
+            })),
+            _ => PtObjectType::Informed(Informed::Line(LineDisruption {
+                id,
+                created_at,
+                updated_at,
+            })),
+        },
+        PtObject_Type::route => match effect {
+            Effect::NoService => PtObjectType::Impacted(Impacted::RouteDeleted(RouteDisruption {
+                id,
+                created_at,
+                updated_at,
+            })),
+            _ => PtObjectType::Informed(Informed::Route(RouteDisruption {
+                id,
+                created_at,
+                updated_at,
+            })),
+        },
+        PtObject_Type::trip => match effect {
+            Effect::NoService => PtObjectType::Impacted(Impacted::TripDeleted(TripDisruption {
+                id,
+                stop_times: vec![],
+                company_id: None,
+                physical_mode_id: None,
+                headsign: None,
+                created_at,
+                updated_at,
+            })),
+            _ => PtObjectType::Informed(Informed::Trip(TripDisruption {
+                id,
+                stop_times: vec![],
+                company_id: None,
+                physical_mode_id: None,
+                headsign: None,
+                created_at,
+                updated_at,
+            })),
+        },
+        PtObject_Type::stop_point => match effect {
+            Effect::NoService => {
+                PtObjectType::Impacted(Impacted::StopPointDeleted(StopPointDisruption {
+                    id,
+                    created_at,
+                    updated_at,
+                }))
+            }
+            _ => PtObjectType::Informed(Informed::StopPoint(StopPointDisruption {
+                id,
+                created_at,
+                updated_at,
+            })),
+        },
+        PtObject_Type::stop_area => match effect {
+            Effect::NoService => {
+                PtObjectType::Impacted(Impacted::StopAreaDeleted(StopAreaDisruption {
+                    id,
+                    created_at,
+                    updated_at,
+                }))
+            }
+            _ => PtObjectType::Informed(Informed::StopArea(StopAreaDisruption {
+                id,
+                created_at,
+                updated_at,
+            })),
+        },
+        PtObject_Type::line_section => {
+            let ls = proto.get_pt_line_section();
+            let line = ls.get_line();
+            let start = ls.get_start_point();
+            let end = ls.get_end_point();
+            let routes = ls.get_routes();
+            let line_section = LineSectionDisruption {
+                line: LineDisruption {
+                    id: line.get_uri().to_string(),
+                    created_at: ts_to_dt(line.get_created_at()),
+                    updated_at: ts_to_dt(line.get_updated_at()),
+                },
+                start_sa: StopAreaDisruption {
+                    id: start.get_uri().to_string(),
+                    created_at: ts_to_dt(start.get_created_at()),
+                    updated_at: ts_to_dt(start.get_updated_at()),
+                },
+                stop_sa: StopAreaDisruption {
+                    id: end.get_uri().to_string(),
+                    created_at: ts_to_dt(end.get_created_at()),
+                    updated_at: ts_to_dt(end.get_updated_at()),
+                },
+                routes: routes
+                    .iter()
+                    .map(|r| RouteDisruption {
+                        id: r.get_uri().to_string(),
+                        created_at: ts_to_dt(r.get_created_at()),
+                        updated_at: ts_to_dt(r.get_updated_at()),
+                    })
+                    .collect(),
+            };
+            match effect {
+                Effect::NoService => PtObjectType::Impacted(Impacted::LineSection(line_section)),
+                _ => return Err(format_err!("Not handled entity")),
+            }
         }
-    }
+        PtObject_Type::rail_section => return Err(format_err!("Not handled entity")),
+        PtObject_Type::unkown_type => return Err(format_err!("Unknown entity")),
+    };
+    Ok(pt_object)
 }
 
 impl From<&chaos_proto::chaos::Severity> for Severity {
