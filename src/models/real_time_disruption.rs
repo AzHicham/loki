@@ -149,33 +149,40 @@ fn update_trip(
     trip_id: &str,
     effect: Effect,
     application_periods: &[DateTimePeriod],
-    _base_model: &BaseModel,
+    base_model: &BaseModel,
     realtime_model: &RealTimeModel,
     stop_times: Vec<StopTime>,
 ) -> Vec<Update> {
     use Effect::*;
     let f = |reference_date: NaiveDateTime| match effect {
         AdditionalService => {
-            let trip_exists_in_realtime =
-                realtime_model.contains_new_vehicle_journey(trip_id, &reference_date.date());
             let trip = Trip {
                 vehicle_journey_id: trip_id.to_string(),
                 reference_date: reference_date.date(),
             };
+            let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
             if trip_exists_in_realtime {
                 Update::Modify(trip, stop_times.clone())
             } else {
                 Update::Add(trip, stop_times.clone())
             }
         }
-        ReducedService | SignificantDelays | Detour | ModifiedService => Update::Modify(
-            Trip {
+        ReducedService | SignificantDelays | Detour | ModifiedService | OtherEffect
+        | UnknownEffect => {
+            // the trip should exists in the base schedule
+            // for these effects
+            let trip = Trip {
                 vehicle_journey_id: trip_id.to_string(),
                 reference_date: reference_date.date(),
-            },
-            stop_times.clone(),
-        ),
-        _ => Update::NoEffect,
+            };
+            let trip_is_present = realtime_model.is_present(&trip, base_model);
+            if trip_is_present {
+                Update::Modify(trip, stop_times.clone())
+            } else {
+                Update::Add(trip, stop_times.clone())
+            }
+        }
+        StopMoved | NoService => Update::NoEffect,
     };
 
     application_periods.iter().flatten().map(f).collect()

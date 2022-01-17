@@ -273,7 +273,7 @@ fn create_stop_time_from_proto(
     };
 
     let can_debark = if proto.has_arrival() {
-        read_status(proto.get_arrival()).context("StopTime has a bad arrical status.")?
+        read_status(proto.get_arrival()).context("StopTime has a bad arrival status.")?
     } else {
         false
     };
