@@ -27,7 +27,7 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-                build_type: [{name: "Release, flag: "--release"}, {name: "Debug", flag: ""}]
+                build_type: [{name: "Release", flag: "--release"}, {name: "Debug", flag: ""}]
                 features: ["launch/vehicle_loads", ""]
 
     steps:
