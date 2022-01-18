@@ -37,12 +37,11 @@
 use std::ops::Not;
 
 use anyhow::{format_err, Context, Error};
-use launch::loki::models::real_time_disruption::{Impacted, Informed, PtObjectType};
 use launch::loki::{
     chrono::NaiveDate,
     models::real_time_disruption::{
-        Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Message, Severity,
-        StopTime, TripDisruption,
+        Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Impacted, Informed,
+        Message, PtObjectType, Severity, StopTime, TripDisruption,
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,

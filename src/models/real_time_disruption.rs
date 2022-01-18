@@ -143,7 +143,10 @@ fn read_impact(
     updates
 }
 
-fn delete_trip(trip_id: &str, application_periods: &[DateTimePeriod]) -> Result<Vec<Update>, DisruptionError> {
+fn delete_trip(
+    trip_id: &str,
+    application_periods: &[DateTimePeriod],
+) -> Result<Vec<Update>, DisruptionError> {
     Ok(application_periods
         .iter()
         .flatten()
@@ -180,9 +183,9 @@ fn update_trip(
             };
             if trip_exists_in_base {
                 return Err(DisruptionError::TripAbsentInModel(format!(
-                        "Additional service for trip {:?} that exists in the base schedule.",
-                        trip
-                    )));
+                    "Additional service for trip {:?} that exists in the base schedule.",
+                    trip
+                )));
             }
             let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
             if trip_exists_in_realtime {
@@ -199,8 +202,7 @@ fn update_trip(
             };
             // the trip should exists in the base schedule
             // for these effects
-            if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
-            {
+            if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id) {
                 if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
                     return Err(DisruptionError::TripAbsentInModel(format!(
                             "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
@@ -245,7 +247,10 @@ fn delete_route(
             .flatten()
             .collect())
     } else {
-        Err(DisruptionError::RouteAbsentInModel(format!("route.uri {} does not exists in BaseModel", route_id)))
+        Err(DisruptionError::RouteAbsentInModel(format!(
+            "route.uri {} does not exists in BaseModel",
+            route_id
+        )))
     }
 }
 
@@ -264,7 +269,10 @@ fn delete_line(
             .flatten()
             .collect())
     } else {
-        Err(DisruptionError::LineAbsentInModel(format!("line.uri {} does not exists in BaseModel", line_id)))
+        Err(DisruptionError::LineAbsentInModel(format!(
+            "line.uri {} does not exists in BaseModel",
+            line_id
+        )))
     }
 }
 
@@ -283,7 +291,10 @@ fn delete_network(
             .flatten()
             .collect())
     } else {
-        Err(DisruptionError::NetworkAbsentInModel(format!("network.uri {} does not exists in BaseModel", network_id)))
+        Err(DisruptionError::NetworkAbsentInModel(format!(
+            "network.uri {} does not exists in BaseModel",
+            network_id
+        )))
     }
 }
 

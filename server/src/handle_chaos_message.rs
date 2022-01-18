@@ -36,13 +36,13 @@
 
 use crate::chaos_proto;
 use anyhow::{format_err, Error};
-use launch::loki::models::real_time_disruption::{Impacted, Informed, PtObjectType};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
         ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect,
-        Impact, LineDisruption, LineSectionDisruption, Message, NetworkDisruption, RouteDisruption,
-        Severity, StopAreaDisruption, StopPointDisruption, Tag, TimeSlot, TripDisruption,
+        Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
+        NetworkDisruption, PtObjectType, RouteDisruption, Severity, StopAreaDisruption,
+        StopPointDisruption, Tag, TimeSlot, TripDisruption,
     },
 };
 
