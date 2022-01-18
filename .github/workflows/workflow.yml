@@ -36,7 +36,7 @@ jobs:
         submodules: 'recursive'
     - name: Install libzmq
       run: sudo apt install libzmq3-dev
-    - name: Run tests in ${{ matrix.build_type.name }} mode with feature : ${{ matrix.features }}
+    - name: Build & Test
       run: cargo test --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
 
   pre-commit:
