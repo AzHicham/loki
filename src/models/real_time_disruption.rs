@@ -83,6 +83,15 @@ pub struct Disruption {
     pub impacts: Vec<Impact>,
 }
 
+#[derive(Debug, Clone)]
+pub enum DisruptionError {
+    NetworkAbsentInModel(String),
+    LineAbsentInModel(String),
+    RouteAbsentInModel(String),
+    TripAbsentInModel(String),
+    UnhandledImpact,
+}
+
 impl Disruption {
     pub fn get_updates(
         &self,
@@ -124,16 +133,18 @@ fn read_impact(
                 realtime_model,
                 trip.stop_times.clone(),
             ),
-            _ => vec![],
+            _ => Err(DisruptionError::UnhandledImpact),
         };
-
-        updates.extend(update);
+        match update {
+            Err(err) => error!("Error occurred while creating real time update. {:?}", err),
+            Ok(update) => updates.extend(update),
+        }
     }
     updates
 }
 
-fn delete_trip(trip_id: &str, application_periods: &[DateTimePeriod]) -> Vec<Update> {
-    application_periods
+fn delete_trip(trip_id: &str, application_periods: &[DateTimePeriod]) -> Result<Vec<Update>, DisruptionError> {
+    Ok(application_periods
         .iter()
         .flatten()
         .map(|dt| {
@@ -142,7 +153,7 @@ fn delete_trip(trip_id: &str, application_periods: &[DateTimePeriod]) -> Vec<Upd
                 reference_date: dt.date(),
             })
         })
-        .collect()
+        .collect())
 }
 
 fn update_trip(
@@ -152,7 +163,7 @@ fn update_trip(
     base_model: &BaseModel,
     realtime_model: &RealTimeModel,
     stop_times: Vec<StopTime>,
-) -> Vec<Update> {
+) -> Result<Vec<Update>, DisruptionError> {
     use Effect::*;
     let f = |reference_date: NaiveDateTime| match effect {
         AdditionalService => {
@@ -160,29 +171,60 @@ fn update_trip(
                 vehicle_journey_id: trip_id.to_string(),
                 reference_date: reference_date.date(),
             };
+            let trip_exists_in_base = {
+                let has_vj_idx = base_model.vehicle_journey_idx(&trip.vehicle_journey_id);
+                match has_vj_idx {
+                    None => false,
+                    Some(vj_idx) => base_model.trip_exists(vj_idx, trip.reference_date),
+                }
+            };
+            if trip_exists_in_base {
+                return Err(DisruptionError::TripAbsentInModel(format!(
+                        "Additional service for trip {:?} that exists in the base schedule.",
+                        trip
+                    )));
+            }
             let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
             if trip_exists_in_realtime {
-                Update::Modify(trip, stop_times.clone())
+                Ok(Update::Modify(trip, stop_times.clone()))
             } else {
-                Update::Add(trip, stop_times.clone())
+                Ok(Update::Add(trip, stop_times.clone()))
             }
         }
         ReducedService | SignificantDelays | Detour | ModifiedService | OtherEffect
         | UnknownEffect => {
-            // the trip should exists in the base schedule
-            // for these effects
             let trip = Trip {
                 vehicle_journey_id: trip_id.to_string(),
                 reference_date: reference_date.date(),
             };
+            // the trip should exists in the base schedule
+            // for these effects
+            if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
+            {
+                if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
+                    return Err(DisruptionError::TripAbsentInModel(format!(
+                            "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
+                            effect,
+                            trip.vehicle_journey_id,
+                            trip.reference_date
+                        )));
+                }
+            } else {
+                return Err(DisruptionError::TripAbsentInModel(format!(
+                        "Kirin effect {:?} on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
+                        effect,
+                        trip.vehicle_journey_id
+                    )));
+            }
+
             let trip_is_present = realtime_model.is_present(&trip, base_model);
             if trip_is_present {
-                Update::Modify(trip, stop_times.clone())
+                Ok(Update::Modify(trip, stop_times.clone()))
             } else {
-                Update::Add(trip, stop_times.clone())
+                Ok(Update::Add(trip, stop_times.clone()))
             }
         }
-        StopMoved | NoService => Update::NoEffect,
+        StopMoved | NoService => Ok(Update::NoEffect),
     };
 
     application_periods.iter().flatten().map(f).collect()
@@ -192,18 +234,18 @@ fn delete_route(
     route_id: &str,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-) -> Vec<Update> {
+) -> Result<Vec<Update>, DisruptionError> {
     if base_model.contains_route_id(route_id) {
-        base_model
+        Ok(base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.route_name(*vj_idx) == route_id)
-            .flat_map(|vj_idx| {
-                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            .filter_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods).ok()
             })
-            .collect()
+            .flatten()
+            .collect())
     } else {
-        error!("route.uri {} does not exists in BaseModel", route_id);
-        vec![]
+        Err(DisruptionError::RouteAbsentInModel(format!("route.uri {} does not exists in BaseModel", route_id)))
     }
 }
 
@@ -211,18 +253,18 @@ fn delete_line(
     line_id: &str,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-) -> Vec<Update> {
+) -> Result<Vec<Update>, DisruptionError> {
     if base_model.contains_line_id(line_id) {
-        base_model
+        Ok(base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.line_name(*vj_idx) == Some(line_id))
-            .flat_map(|vj_idx| {
-                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            .filter_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods).ok()
             })
-            .collect()
+            .flatten()
+            .collect())
     } else {
-        error!("line.uri {} does not exists in BaseModel", line_id);
-        vec![]
+        Err(DisruptionError::LineAbsentInModel(format!("line.uri {} does not exists in BaseModel", line_id)))
     }
 }
 
@@ -230,18 +272,18 @@ fn delete_network(
     network_id: &str,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
-) -> Vec<Update> {
+) -> Result<Vec<Update>, DisruptionError> {
     if base_model.contains_network_id(network_id) {
-        base_model
+        Ok(base_model
             .vehicle_journeys()
             .filter(|vj_idx| base_model.network_name(*vj_idx) == Some(network_id))
-            .flat_map(|vj_idx| {
-                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods)
+            .filter_map(|vj_idx| {
+                delete_trip(base_model.vehicle_journey_name(vj_idx), application_periods).ok()
             })
-            .collect()
+            .flatten()
+            .collect())
     } else {
-        error!("network.uri {} does not exists in BaseModel", network_id);
-        vec![]
+        Err(DisruptionError::NetworkAbsentInModel(format!("network.uri {} does not exists in BaseModel", network_id)))
     }
 }
 

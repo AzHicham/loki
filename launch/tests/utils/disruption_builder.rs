@@ -14,7 +14,7 @@
 
 use loki::{
     chrono::NaiveDate,
-    models::real_time_disruption::{Disruption, StopTime, Trip, Update},
+    models::real_time_disruption::{StopTime, Trip, Update},
     time::SecondsSinceTimezonedDayStart,
 };
 
