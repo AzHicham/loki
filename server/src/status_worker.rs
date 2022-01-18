@@ -50,6 +50,9 @@ use std::thread;
 
 use tokio::{runtime::Builder, sync::mpsc};
 
+pub const DATE_FORMAT: &str = "%Y%m%d";
+pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
+
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
     is_connected_to_rabbitmq: bool,
@@ -137,26 +140,44 @@ impl StatusWorker {
                     let request_message = has_request.ok_or_else(||
                         format_err!("StatusWorker : channel to receive status requests is closed.")
                     )?;
-                    self.handle_status_request(request_message)?;
+                    self.handle_request(request_message)?;
                 }
 
             }
         }
     }
 
-    fn handle_status_request(&self, request_message: RequestMessage) -> Result<(), Error> {
-        // check that the request api is indeed "status"
-        // form navitia_proto::Response with Some(status)
-        // send it to self.response_sender
+    fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
         let requested_api = request_message.payload.requested_api();
-        if requested_api != navitia_proto::Api::Status {
-            warn!("StatusWorker : received a request with api {:?} while I can only handle Status api.", requested_api);
-            return Ok(());
-        }
+        let response_payload = match requested_api {
+            navitia_proto::Api::Status => self.status_response(),
+            navitia_proto::Api::Metadatas => self.metadatas_response(),
+            _ => {
+                error!("StatusWorker : received a request with api {:?} while I can only handle Status or Metadatas api.", requested_api);
+                return Ok(());
+            }
+        };
 
+        let response = ResponseMessage {
+            client_id: request_message.client_id,
+            payload: response_payload,
+        };
+
+        self.zmq_channels
+            .status_responses_sender
+            .send(response)
+            .map_err(|err| {
+                format_err!(
+                    "StatusWorker : channel to send status response is closed : {}",
+                    err
+                )
+            })
+    }
+
+    fn status_response(&self) -> navitia_proto::Response {
         let mut status = navitia_proto::Status::default();
-        let date_format = "%Y%m%d";
-        let datetime_format = "%Y%m%dT%H%M%S.%f";
+        let date_format = DATE_FORMAT;
+        let datetime_format = DATETIME_FORMAT;
         if let Some(info) = &self.base_data_info {
             status.start_production_date = info.start_date.format(date_format).to_string();
             status.end_production_date = info.end_date.format(date_format).to_string();
@@ -169,25 +190,30 @@ impl StatusWorker {
             status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
         }
 
-        let payload = navitia_proto::Response {
+        navitia_proto::Response {
             status: Some(status),
             ..Default::default()
+        }
+    }
+
+    fn metadatas_response(&self) -> navitia_proto::Response {
+        let metadatas = match &self.base_data_info {
+            None => navitia_proto::Metadatas {
+                status: "no_data".to_string(),
+                ..Default::default()
+            },
+            Some(base_data_info) => navitia_proto::Metadatas {
+                start_production_date: base_data_info.start_date.format(DATE_FORMAT).to_string(),
+                end_production_date: base_data_info.end_date.format(DATE_FORMAT).to_string(),
+                last_load_at: u64::try_from(base_data_info.last_load_at.timestamp()).ok(),
+                ..Default::default()
+            },
         };
 
-        let response = ResponseMessage {
-            client_id: request_message.client_id,
-            payload,
-        };
-
-        self.zmq_channels
-            .status_responses_sender
-            .send(response)
-            .map_err(|err| {
-                format_err!(
-                    "StatusWorker : channel to send status response is closed : {}",
-                    err
-                )
-            })
+        navitia_proto::Response {
+            metadatas: Some(metadatas),
+            ..Default::default()
+        }
     }
 
     fn handle_status_update(&mut self, status_update: StatusUpdate) {

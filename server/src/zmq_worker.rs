@@ -283,26 +283,29 @@ async fn handle_incoming_request(
     match proto_request_result {
         Ok(proto_request) => {
             if is_deadline_expired(&proto_request) {
-                debug!("Received an expired request. I'll ignore it.");
+                info!("ZmqWorker received an expired request. I'll ignore it.");
                 return Ok(());
             }
-            let is_status_request = match proto_request.requested_api() {
-                navitia_proto::Api::Status => true,
-                _ => false,
-            };
+
+            let requested_api = proto_request.requested_api();
 
             let request_message = RequestMessage {
                 client_id: client_id_message,
                 payload: proto_request,
             };
-            if is_status_request {
-                status_request_sender
+            use navitia_proto::Api;
+
+            match requested_api {
+                Api::Status | Api::Metadatas => status_request_sender
                     .send(request_message)
-                    .context("ZmqWorker error while forwarding request to status worker.")
-            } else {
-                requests_sender
+                    .context("ZmqWorker error while forwarding request to status worker."),
+                Api::PtPlanner | Api::PlacesNearby => requests_sender
                     .send(request_message)
-                    .context("ZmqWorker error while forwarding request to load balancer.")
+                    .context("ZmqWorker error while forwarding request to load balancer."),
+                _ => {
+                    error!("ZmqWorker received a request with api {:?} while I can only handle Status/Metadatas/PtPlanner/PlacesNearby api.", requested_api);
+                    return Ok(());
+                }
             }
         }
         Err(err) => {
