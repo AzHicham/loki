@@ -98,10 +98,12 @@ fn make_impact(
     header_datetime: Option<NaiveDateTime>,
 ) -> Result<Impact, Error> {
     let trip = trip_update.get_trip();
-    let effect: Effect = chaos_proto::kirin::exts::effect
-        .get(trip_update)
-        .map(|e| e.into())
-        .unwrap_or(Effect::UnknownEffect);
+    let effect: Effect =
+        if let Some(proto_effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
+            proto_effect.into()
+        } else {
+            return Err(format_err!("TripUpdate has an empty effect."));
+        };
 
     let vehicle_journey_id = {
         if trip.has_trip_id().not() {
@@ -123,15 +125,18 @@ fn make_impact(
         })?
     };
 
-    let stop_times = make_stop_times(trip_update, effect, &reference_date)?;
+    let severity = make_severity(effect, disruption_id.clone(), header_datetime);
+
+    let stop_times = match effect {
+        Effect::NoService => vec![],
+        _ => make_stop_times(trip_update, &reference_date)?,
+    };
 
     let application_period = DateTimePeriod::new(
         reference_date.and_hms(0, 0, 0),
         reference_date.and_hms(12, 59, 59),
     )
     .map_err(|err| format_err!("Error : {:?}", err))?;
-
-    let severity = make_severity(effect, disruption_id.clone(), header_datetime);
 
     let company_id = chaos_proto::kirin::exts::company_id.get(trip);
     let physical_mode_id =
@@ -146,7 +151,7 @@ fn make_impact(
         company_id,
         physical_mode_id,
         headsign,
-    );
+    )?;
     let mut impacted_pt_objects = vec![];
     let mut informed_pt_objects = vec![];
 
@@ -177,7 +182,7 @@ fn make_pt_object(
     company_id: Option<String>,
     physical_mode_id: Option<String>,
     headsign: Option<String>,
-) -> PtObjectType {
+) -> Result<PtObjectType, Error> {
     let trip = TripDisruption {
         id: vj_id.to_string(),
         stop_times,
@@ -188,40 +193,26 @@ fn make_pt_object(
         updated_at: header_datetime,
     };
     use Effect::*;
+    // Please see kirin-proto documentation to understand the following code
+    // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
     match effect {
-        NoService => PtObjectType::Impacted(Impacted::TripDeleted(trip)),
-        ReducedService | SignificantDelays | Detour | ModifiedService | AdditionalService => {
-            PtObjectType::Impacted(Impacted::TripModified(trip))
+        NoService => Ok(PtObjectType::Impacted(Impacted::TripDeleted(trip))),
+        OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
+        | ModifiedService | AdditionalService => {
+            Ok(PtObjectType::Impacted(Impacted::TripModified(trip)))
         }
-        OtherEffect | UnknownEffect | StopMoved => PtObjectType::Informed(Informed::Trip(trip)),
+        StopMoved => Err(format_err!("Unhandled effect on FeedEntity: {:?}", effect)),
     }
 }
 
 fn make_stop_times(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
-    effect: Effect,
     reference_date: &NaiveDate,
 ) -> Result<Vec<StopTime>, Error> {
-    match effect {
-        Effect::NoService => Ok(vec![]),
-        Effect::AdditionalService => {
-            let stop_times =
-                create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)?;
-            Ok(stop_times)
-        }
-        Effect::ReducedService
-        | Effect::SignificantDelays
-        | Effect::Detour
-        | Effect::ModifiedService => {
-            let stop_times =
-                create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
-                    .with_context(|| "Could not handle stop times in kirin disruption.")?;
-            Ok(stop_times)
-        }
-        Effect::OtherEffect | Effect::UnknownEffect | Effect::StopMoved => {
-            Err(format_err!("Unhandled effect on FeedEntity: {:?}", effect))
-        }
-    }
+    let stop_times =
+        create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
+            .with_context(|| "Could not handle stop times in kirin disruption.")?;
+    Ok(stop_times)
 }
 
 fn create_stop_times_from_proto(
