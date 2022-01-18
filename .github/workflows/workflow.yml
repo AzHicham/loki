@@ -10,23 +10,34 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'    
+    - name: Install libzmq
+      run: sudo apt install libzmq3-dev
+    - name: Check compilation
+      run: cargo check --workspace --verbose
+
   build:
     runs-on: ubuntu-latest
+    
+    strategy:
+        fail-fast: false
+        matrix:
+          build_type: [{name: "Release, flag: "--release"}, {name: "Debug, flag: ""}]
+          features: ["launch/vehicle_loads", ""]
+
     steps:
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
     - name: Install libzmq
-      run: |
-        sudo apt install libzmq3-dev
-    - name: Check compilation
-      run: cargo check --workspace --verbose
-    - name: Run tests in debug mode
-      run: cargo test --workspace
-    - name: Run tests in debug mode with vehicle_loads feature
-      run: cargo test --workspace --features="launch/vehicle_loads"
-    - name: Run tests in release mode
-      run: cargo test --release --workspace
+      run: sudo apt install libzmq3-dev
+    - name: Run tests in ${{ matrix.build_type.name }} mode with feature : ${{ matrix.features }}
+      run: cargo test --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
 
   pre-commit:
     runs-on: ubuntu-latest
