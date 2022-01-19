@@ -42,6 +42,79 @@ enum PtObject<'a> {
     Trip(&'a str),
 }
 
+// try to remove all vehicle of a network
+// but on a period that don't intersect with calendar validity_period
+pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
+    let datetime =
+        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+    // initial request
+    let journey_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            journey_request.clone(),
+        )
+        .await;
+        // info!("{:#?}", journeys_response);
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .pt_display_informations
+                .as_ref()
+                .unwrap()
+                .uris
+                .as_ref()
+                .unwrap()
+                .vehicle_journey
+                .as_ref()
+                .unwrap(),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's delete all Trip of "my_network" Network
+    // between 2021-02-01 and 2021-02-01
+    let dt_period = DateTimePeriod::new(
+        NaiveDateTime::parse_from_str("20210201T000000", "%Y%m%dT%H%M%S").unwrap(),
+        NaiveDateTime::parse_from_str("20210201T230000", "%Y%m%dT%H%M%S").unwrap(),
+    )
+    .unwrap();
+    let send_realtime_message_datetime = Utc::now().naive_utc();
+    let realtime_message =
+        create_no_service_disruption(&PtObject::Network("my_network"), &dt_period);
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // wait until realtime message is taken into account
+    crate::wait_until_realtime_updated_after(
+        &config.requests_socket,
+        &send_realtime_message_datetime,
+    )
+    .await;
+
+    // let's make the same request, but on the realtime level
+    // we should get a journey in the response
+    // because the disruption previously sent had no effect
+    // due to application period
+    {
+        let mut realtime_request = journey_request.clone();
+        realtime_request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+    }
+}
+
 pub async fn delete_vj_test(config: &ServerConfig) {
     let datetime =
         NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
