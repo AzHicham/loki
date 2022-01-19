@@ -34,6 +34,9 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
+    - uses: Swatinem/rust-cache@v1
+      with:
+        key: ${{ matrix.build_type.name }}-${{ matrix.features }}
     - name: Install libzmq
       run: sudo apt install libzmq3-dev
     - name: Build & Test
