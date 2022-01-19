@@ -113,31 +113,46 @@ fn read_impact(
     realtime_model: &RealTimeModel,
 ) -> Vec<Update> {
     let mut updates = vec![];
-    for pt_object in &impact.impacted_pt_objects {
-        let update = match pt_object {
-            Impacted::NetworkDeleted(network) => {
-                delete_network(&network.id, &impact.application_periods, base_model)
+
+    let validity_period = base_model.validity_period();
+    let calendar_period = DateTimePeriod::new(
+        validity_period.0.and_hms(0, 0, 0),
+        validity_period.1.and_hms(12, 59, 59),
+    );
+
+    if let Ok(calendar_period) = calendar_period {
+        let application_periods: Vec<DateTimePeriod> = impact
+            .application_periods
+            .iter()
+            .filter_map(|ap| intersection(ap, &calendar_period))
+            .collect();
+
+        for pt_object in &impact.impacted_pt_objects {
+            let update = match pt_object {
+                Impacted::NetworkDeleted(network) => {
+                    delete_network(&network.id, &application_periods, base_model)
+                }
+                Impacted::LineDeleted(line) => {
+                    delete_line(&line.id, &application_periods, base_model)
+                }
+                Impacted::RouteDeleted(route) => {
+                    delete_route(&route.id, &application_periods, base_model)
+                }
+                Impacted::TripDeleted(trip) => delete_trip(&trip.id, &application_periods),
+                Impacted::TripModified(trip) => update_trip(
+                    &trip.id,
+                    impact.severity.effect,
+                    &application_periods,
+                    base_model,
+                    realtime_model,
+                    trip.stop_times.clone(),
+                ),
+                _ => Err(DisruptionError::UnhandledImpact),
+            };
+            match update {
+                Err(err) => error!("Error occurred while creating real time update. {:?}", err),
+                Ok(update) => updates.extend(update),
             }
-            Impacted::LineDeleted(line) => {
-                delete_line(&line.id, &impact.application_periods, base_model)
-            }
-            Impacted::RouteDeleted(route) => {
-                delete_route(&route.id, &impact.application_periods, base_model)
-            }
-            Impacted::TripDeleted(trip) => delete_trip(&trip.id, &impact.application_periods),
-            Impacted::TripModified(trip) => update_trip(
-                &trip.id,
-                impact.severity.effect,
-                &impact.application_periods,
-                base_model,
-                realtime_model,
-                trip.stop_times.clone(),
-            ),
-            _ => Err(DisruptionError::UnhandledImpact),
-        };
-        match update {
-            Err(err) => error!("Error occurred while creating real time update. {:?}", err),
-            Ok(update) => updates.extend(update),
         }
     }
     updates
