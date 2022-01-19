@@ -575,7 +575,7 @@ impl<'a> IntoIterator for &'a DateTimePeriod {
     }
 }
 
-pub fn ts_to_dt(timestamp: u64) -> Option<NaiveDateTime> {
+pub fn timestamp_to_datetime(timestamp: u64) -> Option<NaiveDateTime> {
     let timestamp = i64::try_from(timestamp);
     if let Ok(timestamp) = timestamp {
         match timestamp {

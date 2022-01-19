@@ -39,8 +39,8 @@ use anyhow::{format_err, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ts_to_dt, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect,
-        Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
+        timestamp_to_datetime, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption,
+        Effect, Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
         NetworkDisruption, PtObjectType, RouteDisruption, Severity, StopAreaDisruption,
         StopPointDisruption, Tag, TimeSlot, TripDisruption,
     },
@@ -60,8 +60,8 @@ impl TryFrom<&chaos_proto::chaos::Disruption> for Disruption {
             reference: None,
             contributor: proto.get_contributor().to_string(),
             publication_period: proto.get_publication_period().try_into()?,
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_created_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_created_at()),
             cause: proto.get_cause().into(),
             tags: proto.get_tags().iter().map(|t| t.into()).collect(),
             impacts: proto
@@ -91,8 +91,8 @@ impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
 
         Ok(Impact {
             id: proto.get_id().to_string(),
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_created_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_created_at()),
             application_periods: proto
                 .get_application_periods()
                 .iter()
@@ -114,8 +114,8 @@ impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
 fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObjectType, Error> {
     use chaos_proto::chaos::PtObject_Type;
     let id = proto.get_uri().to_string();
-    let created_at = ts_to_dt(proto.get_created_at());
-    let updated_at = ts_to_dt(proto.get_updated_at());
+    let created_at = timestamp_to_datetime(proto.get_created_at());
+    let updated_at = timestamp_to_datetime(proto.get_updated_at());
 
     let pt_object = match proto.get_pt_object_type() {
         PtObject_Type::network => match effect {
@@ -213,25 +213,25 @@ fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObject
             let line_section = LineSectionDisruption {
                 line: LineDisruption {
                     id: line.get_uri().to_string(),
-                    created_at: ts_to_dt(line.get_created_at()),
-                    updated_at: ts_to_dt(line.get_updated_at()),
+                    created_at: timestamp_to_datetime(line.get_created_at()),
+                    updated_at: timestamp_to_datetime(line.get_updated_at()),
                 },
                 start_sa: StopAreaDisruption {
                     id: start.get_uri().to_string(),
-                    created_at: ts_to_dt(start.get_created_at()),
-                    updated_at: ts_to_dt(start.get_updated_at()),
+                    created_at: timestamp_to_datetime(start.get_created_at()),
+                    updated_at: timestamp_to_datetime(start.get_updated_at()),
                 },
                 stop_sa: StopAreaDisruption {
                     id: end.get_uri().to_string(),
-                    created_at: ts_to_dt(end.get_created_at()),
-                    updated_at: ts_to_dt(end.get_updated_at()),
+                    created_at: timestamp_to_datetime(end.get_created_at()),
+                    updated_at: timestamp_to_datetime(end.get_updated_at()),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteDisruption {
                         id: r.get_uri().to_string(),
-                        created_at: ts_to_dt(r.get_created_at()),
-                        updated_at: ts_to_dt(r.get_updated_at()),
+                        created_at: timestamp_to_datetime(r.get_created_at()),
+                        updated_at: timestamp_to_datetime(r.get_updated_at()),
                     })
                     .collect(),
             };
@@ -254,8 +254,8 @@ impl From<&chaos_proto::chaos::Severity> for Severity {
             color: proto.get_color().to_string(),
             priority: proto.get_priority() as u32,
             effect: proto.get_effect().into(),
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_updated_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_updated_at()),
         }
     }
 }
@@ -283,8 +283,8 @@ impl From<&chaos_proto::chaos::Cause> for Cause {
             id: proto.get_id().to_string(),
             wording: proto.get_wording().to_string(),
             category: proto.get_category().get_name().to_string(),
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_created_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_created_at()),
         }
     }
 }
@@ -292,8 +292,8 @@ impl From<&chaos_proto::chaos::Cause> for Cause {
 impl TryFrom<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
     type Error = Error;
     fn try_from(proto: &chaos_proto::gtfs_realtime::TimeRange) -> Result<DateTimePeriod, Error> {
-        let start = ts_to_dt(proto.get_start());
-        let end = ts_to_dt(proto.get_end());
+        let start = timestamp_to_datetime(proto.get_start());
+        let end = timestamp_to_datetime(proto.get_end());
         match (start, end) {
             (Some(start), Some(end)) => {
                 DateTimePeriod::new(start, end).map_err(|err| format_err!("Error : {:?}", err))
@@ -308,8 +308,8 @@ impl From<&chaos_proto::chaos::Tag> for Tag {
         Tag {
             id: proto.get_id().to_string(),
             name: proto.get_id().to_string(),
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_created_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_created_at()),
         }
     }
 }
@@ -323,8 +323,8 @@ impl From<&chaos_proto::chaos::Message> for Message {
             channel_name: channel.get_name().to_string(),
             channel_content_type: channel.get_content_type().to_string(),
             channel_types: channel.get_types().iter().map(|t| t.into()).collect(),
-            created_at: ts_to_dt(proto.get_created_at()),
-            updated_at: ts_to_dt(proto.get_created_at()),
+            created_at: timestamp_to_datetime(proto.get_created_at()),
+            updated_at: timestamp_to_datetime(proto.get_created_at()),
         }
     }
 }
@@ -351,8 +351,9 @@ impl TryFrom<&chaos_proto::chaos::Pattern> for ApplicationPattern {
     type Error = Error;
     fn try_from(proto: &chaos_proto::chaos::Pattern) -> Result<ApplicationPattern, Error> {
         let time_slots = proto.get_time_slots().iter().map(|ts| ts.into()).collect();
-        let begin = ts_to_dt(u64::from(proto.get_start_date()));
-        let end = ts_to_dt(u64::from(proto.get_end_date()));
+        // TODO : check if get_start_date() and get_end_date() are really timestamps ?
+        let begin = timestamp_to_datetime(u64::from(proto.get_start_date()));
+        let end = timestamp_to_datetime(u64::from(proto.get_end_date()));
         match (begin, end) {
             (Some(begin), Some(end)) => Ok(ApplicationPattern {
                 begin_date: begin.date(),

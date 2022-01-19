@@ -76,7 +76,7 @@ use std::{
 };
 
 use crate::handle_chaos_message::handle_chaos_protobuf;
-use launch::loki::models::real_time_disruption::ts_to_dt;
+use launch::loki::models::real_time_disruption::timestamp_to_datetime;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -328,7 +328,7 @@ impl DataWorker {
                     } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
                         handle_chaos_protobuf(&chaos_disruption)
                     } else if feed_entity.has_trip_update() {
-                        let dt = ts_to_dt(message.get_header().get_timestamp());
+                        let dt = timestamp_to_datetime(message.get_header().get_timestamp());
                         handle_kirin_protobuf(feed_entity, dt, &(vp.0, vp.1))
                     } else {
                         Err(format_err!("Unsupported gtfs rt feed"))
