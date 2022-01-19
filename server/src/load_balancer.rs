@@ -208,8 +208,8 @@ impl LoadBalancer {
             tokio::select! {
                 // this indicates to tokio to poll the futures in the order they appears below
                 // see https://docs.rs/tokio/1.12.0/tokio/macro.select.html#fairness
-                // here use this give priority to forwarding responses from workers to zmq
-                // receiving new requests from zmq has a lower priority
+                // here this give priority to forwarding responses from workers to zmq
+                // over receiving new requests from zmq
                 biased;
 
                 // receive responses from worker threads
