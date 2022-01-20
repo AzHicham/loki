@@ -352,9 +352,9 @@ fn make_severity(
 ) -> Severity {
     Severity {
         id: disruption_id,
-        wording: make_severity_wording(effect.clone()),
-        color: "#000000".to_string(),
-        priority: 42,
+        wording: Some(make_severity_wording(effect.clone())),
+        color: Some("#000000".to_string()),
+        priority: Some(42),
         effect,
         created_at: *header_datetime,
         updated_at: *header_datetime,

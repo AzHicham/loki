@@ -329,9 +329,9 @@ pub struct Tag {
 #[derive(Debug, Clone)]
 pub struct Severity {
     pub id: String,
-    pub wording: String,
-    pub color: String,
-    pub priority: u32,
+    pub wording: Option<String>,
+    pub color: Option<String>,
+    pub priority: Option<i32>,
     pub effect: Effect,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,

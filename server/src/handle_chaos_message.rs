@@ -317,11 +317,29 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
         bail!("Severity has no effect");
     };
 
+    let priority = if proto.has_priority() {
+        Some(proto.get_priority())
+    } else {
+        None
+    };
+
+    let color = if proto.has_color() {
+        Some(proto.get_color().to_string())
+    } else {
+        None
+    };
+
+    let wording = if proto.has_wording() {
+        Some(proto.get_wording().to_string())
+    } else {
+        None
+    };
+
     let result = Severity {
         id,
-        wording: proto.get_wording().to_string(),
-        color: proto.get_color().to_string(),
-        priority: proto.get_priority() as u32,
+        wording,
+        color,
+        priority,
         effect,
         created_at,
         updated_at,
@@ -333,13 +351,13 @@ pub fn make_effect(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
     use chaos_proto::gtfs_realtime::Alert_Effect;
     match proto {
         Alert_Effect::NO_SERVICE => Effect::NoService,
-        Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
-        Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
-        Alert_Effect::DETOUR => Effect::Detour,
-        Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
-        Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
-        Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
         Alert_Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
+        Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
+        Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
+        Alert_Effect::DETOUR => Effect::Detour,
+        Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
+        Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
+        Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
         Alert_Effect::STOP_MOVED => Effect::StopMoved,
     }
 }
