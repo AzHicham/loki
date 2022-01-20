@@ -67,7 +67,7 @@ use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
-    tracing::{debug, error, info, log::trace},
+    tracing::{debug, error, info, log::trace, warn},
     DataTrait, NaiveDateTime,
 };
 
@@ -780,15 +780,24 @@ fn handle_realtime_message(
     data_and_models: &mut DataAndModels,
     message: &chaos_proto::gtfs_realtime::FeedMessage,
 ) -> Result<(), Error> {
-    let header_datetime =
-        parse_header_datetime(&message).context(format!("Could not parse header datetime"))?;
+    let header_datetime = parse_header_datetime(&message)
+        .map_err(|err| {
+            warn!(
+                "Received a FeedMessage with a bad header datetime. {:?}",
+                err
+            );
+        })
+        .ok();
 
     for feed_entity in &message.entity {
         let result = handle_feed_entity(data_and_models, feed_entity, &header_datetime);
         if let Err(err) = result {
+            let datetime_str = header_datetime
+                .map(|datetime| format!("{}", datetime))
+                .unwrap_or("BadHeaderDatetime".to_string());
             error!(
                 "An error occured while handling FeedMessage with timestamp {}. {:?}",
-                header_datetime, err
+                datetime_str, err
             )
         }
     }
@@ -798,7 +807,7 @@ fn handle_realtime_message(
 fn handle_feed_entity(
     data_and_models: &mut DataAndModels,
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    header_datetime: &NaiveDateTime,
+    header_datetime: &Option<NaiveDateTime>,
 ) -> Result<(), Error> {
     if !feed_entity.has_id() {
         bail!("FeedEntity has no id");
