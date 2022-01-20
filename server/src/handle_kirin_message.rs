@@ -36,12 +36,12 @@
 
 use std::ops::Not;
 
-use anyhow::{format_err, Context, Error};
+use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
     models::real_time_disruption::{
         Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Impacted, Message,
-        PtObjectType, Severity, StopTime, TripDisruption,
+        Severity, StopTime, TripDisruption, VehicleJourneyId,
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
@@ -125,10 +125,7 @@ fn make_impact(
 
     let severity = make_severity(effect, disruption_id.clone(), header_datetime);
 
-    let stop_times = match effect {
-        Effect::NoService => vec![],
-        _ => make_stop_times(trip_update, &reference_date)?,
-    };
+    let stop_times = make_stop_times(trip_update, &reference_date)?;
 
     let application_period = DateTimePeriod::new(
         reference_date.and_hms(0, 0, 0),
@@ -141,22 +138,46 @@ fn make_impact(
         chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
 
-    let pt_object = make_pt_object(
-        &vehicle_journey_id,
-        severity.effect,
-        stop_times,
-        company_id,
-        physical_mode_id,
-        headsign,
-    )?;
-    let mut impacted_pt_objects = vec![];
-    let mut informed_pt_objects = vec![];
+    let mut impacted_pt_objects = Vec::new();
 
-    if let PtObjectType::Impacted(p) = pt_object {
-        impacted_pt_objects.push(p);
-    } else if let PtObjectType::Informed(p) = pt_object {
-        informed_pt_objects.push(p);
+    let trip_id = VehicleJourneyId {
+        id: vehicle_journey_id,
+    };
+
+    // Please see kirin-proto documentation to understand the following code
+    // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
+    use Effect::*;
+    match effect {
+        NoService => {
+            impacted_pt_objects.push(Impacted::TripDeleted(trip_id));
+        }
+        OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
+        | ModifiedService => {
+            let trip_disruption = TripDisruption {
+                trip_id,
+                stop_times,
+                company_id,
+                physical_mode_id,
+                headsign,
+            };
+            impacted_pt_objects.push(Impacted::BaseTripUpdated(trip_disruption));
+        }
+        AdditionalService => {
+            let trip_disruption = TripDisruption {
+                trip_id,
+                stop_times,
+                company_id,
+                physical_mode_id,
+                headsign,
+            };
+            impacted_pt_objects.push(Impacted::NewTripUpdated(trip_disruption));
+        }
+        StopMoved => {
+            bail!("Unhandled effect on FeedEntity: {:?}", effect);
+        }
     }
+
+    let informed_pt_objects = Vec::new();
 
     Ok(Impact {
         id: disruption_id,
@@ -169,34 +190,6 @@ fn make_impact(
         impacted_pt_objects,
         informed_pt_objects,
     })
-}
-
-fn make_pt_object(
-    vj_id: &str,
-    effect: Effect,
-    stop_times: Vec<StopTime>,
-    company_id: Option<String>,
-    physical_mode_id: Option<String>,
-    headsign: Option<String>,
-) -> Result<PtObjectType, Error> {
-    let trip = TripDisruption {
-        id: vj_id.to_string(),
-        stop_times,
-        company_id,
-        physical_mode_id,
-        headsign,
-    };
-    use Effect::*;
-    // Please see kirin-proto documentation to understand the following code
-    // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
-    match effect {
-        NoService => Ok(PtObjectType::Impacted(Impacted::TripDeleted(trip))),
-        OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
-        | ModifiedService | AdditionalService => {
-            Ok(PtObjectType::Impacted(Impacted::TripModified(trip)))
-        }
-        StopMoved => Err(format_err!("Unhandled effect on FeedEntity: {:?}", effect)),
-    }
 }
 
 fn make_stop_times(

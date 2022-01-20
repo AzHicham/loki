@@ -139,15 +139,22 @@ fn read_impact(
                     delete_route(&route.id, &application_periods, base_model)
                 }
                 Impacted::TripDeleted(trip) => delete_trip(&trip.id, &application_periods),
-                Impacted::TripModified(trip) => update_trip(
-                    &trip.id,
-                    impact.severity.effect,
+                Impacted::BaseTripUpdated(trip_disruption) => update_base_trip(
+                    trip_disruption,
                     &application_periods,
                     base_model,
                     realtime_model,
-                    trip.stop_times.clone(),
                 ),
-                _ => Err(DisruptionError::UnhandledImpact),
+                Impacted::NewTripUpdated(trip_disruption) => update_new_trip(
+                    trip_disruption,
+                    &application_periods,
+                    base_model,
+                    realtime_model,
+                ),
+                Impacted::RailSection(_) => todo!(),
+                Impacted::LineSection(_) => todo!(),
+                Impacted::StopAreaDeleted(_) => todo!(),
+                Impacted::StopPointDeleted(_) => todo!(),
             };
             match update {
                 Err(err) => error!("Error occurred while creating real time update. {:?}", err),
@@ -174,74 +181,81 @@ fn delete_trip(
         .collect())
 }
 
-fn update_trip(
-    trip_id: &str,
-    effect: Effect,
+fn update_new_trip(
+    trip_disruption: &TripDisruption,
     application_periods: &[DateTimePeriod],
     base_model: &BaseModel,
     realtime_model: &RealTimeModel,
-    stop_times: Vec<StopTime>,
 ) -> Result<Vec<Update>, DisruptionError> {
-    use Effect::*;
-    let f = |reference_date: NaiveDateTime| match effect {
-        AdditionalService => {
-            let trip = Trip {
-                vehicle_journey_id: trip_id.to_string(),
-                reference_date: reference_date.date(),
-            };
-            let trip_exists_in_base = {
-                let has_vj_idx = base_model.vehicle_journey_idx(&trip.vehicle_journey_id);
-                match has_vj_idx {
-                    None => false,
-                    Some(vj_idx) => base_model.trip_exists(vj_idx, trip.reference_date),
-                }
-            };
-            if trip_exists_in_base {
-                return Err(DisruptionError::TripAbsentInModel(format!(
-                    "Additional service for trip {:?} that exists in the base schedule.",
-                    trip
-                )));
+    let trip_id = &trip_disruption.trip_id.id;
+    let stop_times = &trip_disruption.stop_times;
+
+    let f = |reference_date: NaiveDateTime| {
+        let trip = Trip {
+            vehicle_journey_id: trip_id.to_string(),
+            reference_date: reference_date.date(),
+        };
+        let trip_exists_in_base = {
+            let has_vj_idx = base_model.vehicle_journey_idx(&trip.vehicle_journey_id);
+            match has_vj_idx {
+                None => false,
+                Some(vj_idx) => base_model.trip_exists(vj_idx, trip.reference_date),
             }
-            let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
-            if trip_exists_in_realtime {
-                Ok(Update::Modify(trip, stop_times.clone()))
-            } else {
-                Ok(Update::Add(trip, stop_times.clone()))
-            }
+        };
+        if trip_exists_in_base {
+            return Err(DisruptionError::TripAbsentInModel(format!(
+                "UpdateNewTrip for trip {:?} that exists in the base schedule.",
+                trip
+            )));
         }
-        ReducedService | SignificantDelays | Detour | ModifiedService | OtherEffect
-        | UnknownEffect => {
-            let trip = Trip {
-                vehicle_journey_id: trip_id.to_string(),
-                reference_date: reference_date.date(),
-            };
-            // the trip should exists in the base schedule
-            // for these effects
-            if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id) {
-                if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
-                    return Err(DisruptionError::TripAbsentInModel(format!(
-                            "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
-                            effect,
-                            trip.vehicle_journey_id,
-                            trip.reference_date
-                        )));
-                }
-            } else {
+        let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
+        if trip_exists_in_realtime {
+            Ok(Update::Modify(trip, stop_times.clone()))
+        } else {
+            Ok(Update::Add(trip, stop_times.clone()))
+        }
+    };
+
+    application_periods.iter().flatten().map(f).collect()
+}
+
+fn update_base_trip(
+    trip_disruption: &TripDisruption,
+    application_periods: &[DateTimePeriod],
+    base_model: &BaseModel,
+    realtime_model: &RealTimeModel,
+) -> Result<Vec<Update>, DisruptionError> {
+    let trip_id = &trip_disruption.trip_id.id;
+    let stop_times = &trip_disruption.stop_times;
+
+    let f = |reference_date: NaiveDateTime| {
+        let trip = Trip {
+            vehicle_journey_id: trip_id.to_string(),
+            reference_date: reference_date.date(),
+        };
+        // the trip should exists in the base schedule
+        // for these effects
+        if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id) {
+            if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
                 return Err(DisruptionError::TripAbsentInModel(format!(
-                        "Kirin effect {:?} on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
-                        effect,
-                        trip.vehicle_journey_id
+                        "BaseTripUpdate on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
+                        trip.vehicle_journey_id,
+                        trip.reference_date
                     )));
             }
-
-            let trip_is_present = realtime_model.is_present(&trip, base_model);
-            if trip_is_present {
-                Ok(Update::Modify(trip, stop_times.clone()))
-            } else {
-                Ok(Update::Add(trip, stop_times.clone()))
-            }
+        } else {
+            return Err(DisruptionError::TripAbsentInModel(format!(
+                    "BaseTripUpdate on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
+                    trip.vehicle_journey_id
+                )));
         }
-        StopMoved | NoService => Ok(Update::NoEffect),
+
+        let trip_is_present = realtime_model.is_present(&trip, base_model);
+        if trip_is_present {
+            Ok(Update::Modify(trip, stop_times.clone()))
+        } else {
+            Ok(Update::Add(trip, stop_times.clone()))
+        }
     };
 
     application_periods.iter().flatten().map(f).collect()
@@ -374,53 +388,64 @@ pub struct Impact {
     pub informed_pt_objects: Vec<Informed>,
 }
 
-pub enum PtObjectType {
-    Impacted(Impacted),
-    Informed(Informed),
-}
-
 #[derive(Debug, Clone)]
 pub enum Impacted {
-    NetworkDeleted(NetworkDisruption),
-    LineDeleted(LineDisruption),
-    RouteDeleted(RouteDisruption),
-    TripDeleted(TripDisruption),
-    TripModified(TripDisruption),
+    NetworkDeleted(NetworkId),
+    LineDeleted(LineId),
+    RouteDeleted(RouteId),
+    TripDeleted(VehicleJourneyId),
+    BaseTripUpdated(TripDisruption),
+    NewTripUpdated(TripDisruption),
     RailSection(RailSectionDisruption),
     LineSection(LineSectionDisruption),
-    StopAreaDeleted(StopAreaDisruption),
-    StopPointDeleted(StopPointDisruption),
+    StopAreaDeleted(StopAreaId),
+    StopPointDeleted(StopPointId),
 }
 
 #[derive(Debug, Clone)]
 pub enum Informed {
-    Network(NetworkDisruption),
-    Line(LineDisruption),
-    Route(RouteDisruption),
-    Trip(TripDisruption),
-    StopArea(StopAreaDisruption),
-    StopPoint(StopPointDisruption),
+    Network(NetworkId),
+    Line(LineId),
+    Route(RouteId),
+    Trip(VehicleJourneyId),
+    StopArea(StopAreaId),
+    StopPoint(StopPointId),
     Unknown,
 }
 
 #[derive(Debug, Clone)]
-pub struct NetworkDisruption {
+pub struct NetworkId {
     pub id: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct LineDisruption {
+pub struct LineId {
     pub id: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct RouteDisruption {
+pub struct RouteId {
+    pub id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct StopPointId {
+    pub id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct StopAreaId {
+    pub id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct VehicleJourneyId {
     pub id: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct TripDisruption {
-    pub id: String,
+    pub trip_id: VehicleJourneyId,
     pub stop_times: Vec<StopTime>,
     pub company_id: Option<String>,
     pub physical_mode_id: Option<String>,
@@ -429,29 +454,19 @@ pub struct TripDisruption {
 
 #[derive(Debug, Clone)]
 pub struct LineSectionDisruption {
-    pub line: LineDisruption,
-    pub start_sa: StopAreaDisruption,
-    pub stop_sa: StopAreaDisruption,
-    pub routes: Vec<RouteDisruption>,
+    pub line: LineId,
+    pub start: StopAreaId,
+    pub end: StopAreaId,
+    pub routes: Vec<RouteId>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RailSectionDisruption {
     pub id: String,
-    pub line_id: String,
-    pub start_id: String,
-    pub end_id: String,
-    pub route_id: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct StopPointDisruption {
-    pub id: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct StopAreaDisruption {
-    pub id: String,
+    pub line_id: LineId,
+    pub start_id: StopAreaId,
+    pub end_id: StopAreaId,
+    pub route_id: RouteId,
 }
 
 #[derive(Debug, Clone, Copy)]
