@@ -73,7 +73,7 @@ pub struct StopTime {
 pub struct Disruption {
     pub id: String,
     pub reference: Option<String>,
-    pub contributor: String,
+    pub contributor: Option<String>,
     pub publication_period: DateTimePeriod,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,

@@ -109,9 +109,9 @@ fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption,
     };
 
     let contributor = if proto.has_contributor() {
-        proto.get_contributor().to_string()
+        Some(proto.get_contributor().to_string())
     } else {
-        bail!("Disruption has no contributor");
+        None
     };
 
     Ok(Disruption {

@@ -78,9 +78,7 @@ pub fn create_disruption(
     let disruption = Disruption {
         id: disruption_id.clone(),
         reference: Some(disruption_id.clone()),
-        contributor: chaos_proto::kirin::exts::contributor
-            .get(trip)
-            .unwrap_or_else(|| "".to_string()),
+        contributor: chaos_proto::kirin::exts::contributor.get(trip),
         publication_period: application_period,
         created_at: *header_datetime,
         updated_at: *header_datetime,
