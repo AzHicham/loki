@@ -48,11 +48,11 @@ use launch::loki::{
     NaiveDateTime,
 };
 
-use crate::chaos_proto;
+use crate::{chaos_proto, handle_chaos_message::make_effect};
 
 pub fn handle_kirin_protobuf(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    header_datetime: Option<NaiveDateTime>,
+    header_datetime: &NaiveDateTime,
     model_validity_period: &(NaiveDate, NaiveDate),
 ) -> Result<Disruption, Error> {
     create_disruption(feed_entity, header_datetime, model_validity_period)
@@ -60,7 +60,7 @@ pub fn handle_kirin_protobuf(
 
 pub fn create_disruption(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    header_datetime: Option<NaiveDateTime>,
+    header_datetime: &NaiveDateTime,
     model_validity_period: &(NaiveDate, NaiveDate),
 ) -> Result<Disruption, Error> {
     let disruption_id = feed_entity.get_id().to_string();
@@ -82,8 +82,8 @@ pub fn create_disruption(
             .get(trip)
             .unwrap_or_else(|| "".to_string()),
         publication_period: application_period,
-        created_at: header_datetime,
-        updated_at: header_datetime,
+        created_at: Some(*header_datetime),
+        updated_at: Some(*header_datetime),
         cause: Cause::default(),
         tags: vec![],
         impacts: vec![make_impact(trip_update, disruption_id, header_datetime)?],
@@ -95,12 +95,12 @@ pub fn create_disruption(
 fn make_impact(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
     disruption_id: String,
-    header_datetime: Option<NaiveDateTime>,
+    header_datetime: &NaiveDateTime,
 ) -> Result<Impact, Error> {
     let trip = trip_update.get_trip();
     let effect: Effect =
         if let Some(proto_effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
-            proto_effect.into()
+            make_effect(proto_effect)
         } else {
             return Err(format_err!("TripUpdate has an empty effect."));
         };
@@ -147,7 +147,6 @@ fn make_impact(
         &vehicle_journey_id,
         severity.effect,
         stop_times,
-        header_datetime,
         company_id,
         physical_mode_id,
         headsign,
@@ -163,12 +162,12 @@ fn make_impact(
 
     Ok(Impact {
         id: disruption_id,
-        created_at: header_datetime,
-        updated_at: header_datetime,
+        created_at: Some(*header_datetime),
+        updated_at: Some(*header_datetime),
         application_periods: vec![application_period],
         application_patterns: vec![],
         severity,
-        messages: make_message(trip_update, header_datetime),
+        messages: make_message(trip_update),
         impacted_pt_objects,
         informed_pt_objects,
     })
@@ -178,7 +177,6 @@ fn make_pt_object(
     vj_id: &str,
     effect: Effect,
     stop_times: Vec<StopTime>,
-    header_datetime: Option<NaiveDateTime>,
     company_id: Option<String>,
     physical_mode_id: Option<String>,
     headsign: Option<String>,
@@ -189,8 +187,6 @@ fn make_pt_object(
         company_id,
         physical_mode_id,
         headsign,
-        created_at: header_datetime,
-        updated_at: header_datetime,
     };
     use Effect::*;
     // Please see kirin-proto documentation to understand the following code
@@ -336,10 +332,7 @@ fn read_status(
     }
 }
 
-fn make_message(
-    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
-    header_datetime: Option<NaiveDateTime>,
-) -> Vec<Message> {
+fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Message> {
     if let Some(text) = chaos_proto::kirin::exts::trip_message.get(trip_update) {
         let message = Message {
             text,
@@ -347,8 +340,6 @@ fn make_message(
             channel_name: "rt".to_string(),
             channel_content_type: "".to_string(),
             channel_types: vec![ChannelType::Web, ChannelType::Mobile],
-            created_at: header_datetime,
-            updated_at: header_datetime,
         };
         vec![message]
     } else {
@@ -359,7 +350,7 @@ fn make_message(
 fn make_severity(
     effect: Effect,
     disruption_id: String,
-    timestamp: Option<NaiveDateTime>,
+    header_datetime: &NaiveDateTime,
 ) -> Severity {
     Severity {
         id: disruption_id,
@@ -367,8 +358,8 @@ fn make_severity(
         color: "#000000".to_string(),
         priority: 42,
         effect,
-        created_at: timestamp,
-        updated_at: timestamp,
+        created_at: Some(*header_datetime),
+        updated_at: Some(*header_datetime),
     }
 }
 

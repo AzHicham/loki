@@ -35,7 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    chaos,
+    chaos, chaos_proto,
+    handle_chaos_message::make_datetime,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
@@ -67,7 +68,7 @@ use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
     tracing::{debug, error, info, log::trace},
-    DataTrait,
+    DataTrait, NaiveDateTime,
 };
 
 use std::{
@@ -76,7 +77,6 @@ use std::{
 };
 
 use crate::handle_chaos_message::handle_chaos_protobuf;
-use launch::loki::models::real_time_disruption::timestamp_to_datetime;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -315,32 +315,10 @@ impl DataWorker {
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
         let messages = std::mem::take(&mut self.kirin_messages);
         let updater = |data_and_models: &mut DataAndModels| {
-            let data = &mut data_and_models.0;
-            let base_model = &data_and_models.1;
-            let real_time_model = &mut data_and_models.2;
-            let calendar = data.calendar();
-            let vp = (*calendar.first_date(), *calendar.last_date());
-
             for message in messages {
-                for feed_entity in &message.entity {
-                    let disruption = if feed_entity.get_is_deleted() {
-                        Err(format_err!("Delete gtfs rt feed is Unsupported right now"))
-                    } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
-                        handle_chaos_protobuf(&chaos_disruption)
-                    } else if feed_entity.has_trip_update() {
-                        let dt = timestamp_to_datetime(message.get_header().get_timestamp());
-                        handle_kirin_protobuf(feed_entity, dt, &(vp.0, vp.1))
-                    } else {
-                        Err(format_err!("Unsupported gtfs rt feed"))
-                    };
-                    match disruption {
-                        Err(err) => {
-                            error!("Could not handle a gtfs-rt message {}", err);
-                        }
-                        Ok(disruption) => {
-                            real_time_model.apply_disruption(&disruption, base_model, data);
-                        }
-                    }
+                let result = handle_realtime_message(data_and_models, &message);
+                if let Err(err) = result {
+                    error!("Could not handle real time message. {:?}", err);
                 }
             }
             Ok(())
@@ -796,4 +774,81 @@ async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32,
         .queue_delete(queue_name, lapin::options::QueueDeleteOptions::default())
         .await
         .with_context(|| format!("Could not create delete to queue {}.", queue_name))
+}
+
+fn handle_realtime_message(
+    data_and_models: &mut DataAndModels,
+    message: &chaos_proto::gtfs_realtime::FeedMessage,
+) -> Result<(), Error> {
+    let header_datetime =
+        parse_header_datetime(&message).context(format!("Could not parse header datetime"))?;
+
+    for feed_entity in &message.entity {
+        let result = handle_feed_entity(data_and_models, feed_entity, &header_datetime);
+        if let Err(err) = result {
+            error!(
+                "An error occured while handling FeedMessage with timestamp {}. {:?}",
+                header_datetime, err
+            )
+        }
+    }
+    Ok(())
+}
+
+fn handle_feed_entity(
+    data_and_models: &mut DataAndModels,
+    feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
+    header_datetime: &NaiveDateTime,
+) -> Result<(), Error> {
+    if !feed_entity.has_id() {
+        bail!("FeedEntity has no id");
+    }
+    let id = feed_entity.get_id();
+    if feed_entity.get_is_deleted() {
+        bail!(
+            "FeedEntity {} has is_deleted == true. This is not supported",
+            id
+        );
+    }
+
+    let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+        handle_chaos_protobuf(&chaos_disruption)
+            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
+    } else {
+        if feed_entity.has_trip_update() {
+            let calendar = data_and_models.0.calendar();
+            let calendar_period = (*calendar.first_date(), *calendar.last_date());
+            handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period).with_context(
+                || format!("Could not handle kirin disruption in FeedEntity {}", id),
+            )?
+        } else {
+            bail!(
+                "FeedEntity {} is a Kirin message but has no trip_update",
+                id
+            );
+        }
+    };
+
+    let data = &mut data_and_models.0;
+    let base_model = &data_and_models.1;
+    let real_time_model = &mut data_and_models.2;
+
+    real_time_model.apply_disruption(&disruption, base_model, data);
+    Ok(())
+}
+
+fn parse_header_datetime(
+    message: &chaos_proto::gtfs_realtime::FeedMessage,
+) -> Result<NaiveDateTime, Error> {
+    if message.has_header() {
+        let header = message.get_header();
+        if header.has_timestamp() {
+            let timestamp = header.get_timestamp();
+            make_datetime(timestamp)
+        } else {
+            bail!("FeedHeader has no timestamp");
+        }
+    } else {
+        bail!("FeedMessage has no header");
+    }
 }

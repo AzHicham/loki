@@ -119,7 +119,10 @@ impl RealTimeModel {
             let apply_result =
                 self.apply_update(&disruption.id, update, base_model, real_time_data);
             if let Err(err) = apply_result {
-                error!("Error occurred while applying real time update. {:?}", err);
+                error!(
+                    "Error occurred while applying real time update from disruption {}. {:?}",
+                    disruption.id, err
+                );
             }
         }
     }

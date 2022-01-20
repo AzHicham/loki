@@ -42,7 +42,7 @@ use crate::{
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use std::{
     cmp::{max, min},
-    fmt::Debug,
+    fmt::{Debug, Display},
     mem,
 };
 use tracing::error;
@@ -318,16 +318,12 @@ pub struct Cause {
     pub id: String,
     pub wording: String,
     pub category: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct Tag {
     pub id: String,
     pub name: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -348,8 +344,6 @@ pub struct Message {
     pub channel_name: String,
     pub channel_content_type: String,
     pub channel_types: Vec<ChannelType>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -361,6 +355,8 @@ pub struct ApplicationPattern {
 
 #[derive(Debug, Clone)]
 pub struct TimeSlot {
+    //TODO : determine in which timezone are these ?
+    // can we use SecondsTimezoneDayStart/SecondsSinceUtcDayStart ?
     pub begin: NaiveTime,
     pub end: NaiveTime,
 }
@@ -410,22 +406,16 @@ pub enum Informed {
 #[derive(Debug, Clone)]
 pub struct NetworkDisruption {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct LineDisruption {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RouteDisruption {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -435,8 +425,6 @@ pub struct TripDisruption {
     pub company_id: Option<String>,
     pub physical_mode_id: Option<String>,
     pub headsign: Option<String>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -454,22 +442,16 @@ pub struct RailSectionDisruption {
     pub start_id: String,
     pub end_id: String,
     pub route_id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StopPointDisruption {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StopAreaDisruption {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -534,6 +516,14 @@ pub enum DateTimePeriodError {
     DateTimePeriodError(NaiveDateTime, NaiveDateTime),
 }
 
+impl std::error::Error for DateTimePeriodError {}
+
+impl Display for DateTimePeriodError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(&self, f)
+    }
+}
+
 impl Debug for DateTimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -572,17 +562,5 @@ impl<'a> IntoIterator for &'a DateTimePeriod {
             period: self,
             current: self.start,
         }
-    }
-}
-
-pub fn timestamp_to_datetime(timestamp: u64) -> Option<NaiveDateTime> {
-    let timestamp = i64::try_from(timestamp);
-    if let Ok(timestamp) = timestamp {
-        match timestamp {
-            0 => None,
-            _ => Some(NaiveDateTime::from_timestamp(timestamp, 0)),
-        }
-    } else {
-        None
     }
 }

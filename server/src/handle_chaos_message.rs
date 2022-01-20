@@ -34,127 +34,197 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::chaos_proto;
-use anyhow::{format_err, Error};
+use crate::chaos_proto::{self};
+use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        timestamp_to_datetime, ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption,
-        Effect, Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
-        NetworkDisruption, PtObjectType, RouteDisruption, Severity, StopAreaDisruption,
-        StopPointDisruption, Tag, TimeSlot, TripDisruption,
+        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact,
+        Impacted, Informed, LineDisruption, LineSectionDisruption, Message, NetworkDisruption,
+        PtObjectType, RouteDisruption, Severity, StopAreaDisruption, StopPointDisruption, Tag,
+        TimeSlot, TripDisruption,
     },
+    NaiveDateTime,
 };
 
 pub fn handle_chaos_protobuf(
     chaos_disruption: &chaos_proto::chaos::Disruption,
 ) -> Result<Disruption, Error> {
-    chaos_disruption.try_into()
+    make_disruption(chaos_disruption)
 }
 
-impl TryFrom<&chaos_proto::chaos::Disruption> for Disruption {
-    type Error = Error;
-    fn try_from(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
-        Ok(Disruption {
-            id: proto.get_id().to_string(),
-            reference: None,
-            contributor: proto.get_contributor().to_string(),
-            publication_period: proto.get_publication_period().try_into()?,
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_created_at()),
-            cause: proto.get_cause().into(),
-            tags: proto.get_tags().iter().map(|t| t.into()).collect(),
-            impacts: proto
-                .get_impacts()
-                .iter()
-                .map(|i| i.try_into())
-                .collect::<Result<_, _>>()?,
-        })
-    }
-}
+fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
+    let id = if proto.has_id() {
+        proto.get_id().to_string()
+    } else {
+        bail!("Disruption has no id.");
+    };
 
-impl TryFrom<&chaos_proto::chaos::Impact> for Impact {
-    type Error = Error;
-    fn try_from(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
-        let severity: Severity = proto.get_severity().into();
-        let effect = severity.effect;
-        let mut impacted_pt_objects = vec![];
-        let mut informed_pt_objects = vec![];
-        for entity in proto.get_informed_entities() {
-            let entity = from(entity, effect)?;
-            if let PtObjectType::Impacted(p) = entity {
-                impacted_pt_objects.push(p);
-            } else if let PtObjectType::Informed(p) = entity {
-                informed_pt_objects.push(p);
-            }
+    let reference = if proto.has_reference() {
+        Some(proto.get_reference().to_string())
+    } else {
+        None
+    };
+
+    let publication_period = if proto.has_publication_period() {
+        make_datetime_period(proto.get_publication_period())
+            .context("Could not parse disruption.publication_period")?
+    } else {
+        bail!("Disruption has no publication period");
+    };
+
+    let created_at = if proto.has_created_at() {
+        let datetime = make_datetime(proto.get_created_at())
+            .context(format!("Could not parse disruption.created_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let updated_at = if proto.has_updated_at() {
+        let datetime = make_datetime(proto.get_updated_at())
+            .context(format!("Could not parse disruption.updated_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let cause = if proto.has_cause() {
+        make_cause(proto.get_cause())
+    } else {
+        bail!("Disruption has no cause");
+    };
+
+    let tags: Vec<_> = proto.get_tags().iter().map(make_tag).collect();
+
+    let impacts = {
+        let proto_impacts = proto.get_impacts();
+        let mut impacts = Vec::with_capacity(proto_impacts.len());
+        for (idx, proto_impact) in proto.get_impacts().iter().enumerate() {
+            let impact = make_impact(proto_impact)
+                .with_context(|| format!("Could not parse {}-th impact of disruption", idx))?;
+            impacts.push(impact);
         }
+        impacts
+    };
 
-        Ok(Impact {
-            id: proto.get_id().to_string(),
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_created_at()),
-            application_periods: proto
-                .get_application_periods()
-                .iter()
-                .map(|ap| ap.try_into())
-                .collect::<Result<_, _>>()?,
-            application_patterns: proto
-                .get_application_patterns()
-                .iter()
-                .map(|ap| ap.try_into())
-                .collect::<Result<_, _>>()?,
-            severity,
-            messages: proto.get_messages().iter().map(|m| m.into()).collect(),
-            impacted_pt_objects,
-            informed_pt_objects,
-        })
-    }
+    let contributor = if proto.has_contributor() {
+        proto.get_contributor().to_string()
+    } else {
+        bail!("Disruption has no contributor");
+    };
+
+    Ok(Disruption {
+        id,
+        reference,
+        publication_period,
+        created_at,
+        updated_at,
+        cause,
+        tags,
+        impacts,
+        contributor,
+    })
 }
 
-fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObjectType, Error> {
-    use chaos_proto::chaos::PtObject_Type;
-    let id = proto.get_uri().to_string();
-    let created_at = timestamp_to_datetime(proto.get_created_at());
-    let updated_at = timestamp_to_datetime(proto.get_updated_at());
+fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
+    let id = if proto.has_id() {
+        proto.get_id().to_string()
+    } else {
+        bail!("Impact has no id");
+    };
 
-    let pt_object = match proto.get_pt_object_type() {
+    let created_at = if proto.has_created_at() {
+        let datetime = make_datetime(proto.get_created_at())
+            .context(format!("Could not parse impact.created_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let updated_at = if proto.has_updated_at() {
+        let datetime = make_datetime(proto.get_updated_at())
+            .context(format!("Could not parse impact.updated_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let severity = if proto.has_severity() {
+        make_severity(proto.get_severity()).context(format!("Could not parse impact.severity"))?
+    } else {
+        bail!("Impact has no severity");
+    };
+
+    let application_periods = make_periods(proto.get_application_periods())
+        .context(format!("Could not parse impact.application_periods"))?;
+
+    let application_patterns = make_application_patterns(proto.get_application_patterns())
+        .context(format!("Could not parse impact.application_patterns"))?;
+
+    let messages =
+        make_messages(proto.get_messages()).context(format!("Could not parse impact.messages"))?;
+
+    let effect = severity.effect;
+    let mut impacted_pt_objects = vec![];
+    let mut informed_pt_objects = vec![];
+
+    for entity in proto.get_informed_entities() {
+        let entity = make_pt_object(entity, effect)?;
+        if let PtObjectType::Impacted(p) = entity {
+            impacted_pt_objects.push(p);
+        } else if let PtObjectType::Informed(p) = entity {
+            informed_pt_objects.push(p);
+        }
+    }
+
+    Ok(Impact {
+        id,
+        created_at,
+        updated_at,
+        severity,
+        application_periods,
+        application_patterns,
+        messages,
+        impacted_pt_objects,
+        informed_pt_objects,
+    })
+}
+
+fn make_pt_object(
+    proto: &chaos_proto::chaos::PtObject,
+    effect: Effect,
+) -> Result<PtObjectType, Error> {
+    use chaos_proto::chaos::PtObject_Type;
+    let id = if proto.has_uri() {
+        proto.get_uri().to_string()
+    } else {
+        bail!("PtObject has no uri");
+    };
+    let pt_object_type = if proto.has_pt_object_type() {
+        proto.get_pt_object_type()
+    } else {
+        bail!("PtObject has no pt_object_type");
+    };
+
+    let pt_object = match pt_object_type {
         PtObject_Type::network => match effect {
             Effect::NoService => {
-                PtObjectType::Impacted(Impacted::NetworkDeleted(NetworkDisruption {
-                    id,
-                    created_at,
-                    updated_at,
-                }))
+                PtObjectType::Impacted(Impacted::NetworkDeleted(NetworkDisruption { id }))
             }
-            _ => PtObjectType::Informed(Informed::Network(NetworkDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
+            _ => PtObjectType::Informed(Informed::Network(NetworkDisruption { id })),
         },
         PtObject_Type::line => match effect {
-            Effect::NoService => PtObjectType::Impacted(Impacted::LineDeleted(LineDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
-            _ => PtObjectType::Informed(Informed::Line(LineDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
+            Effect::NoService => {
+                PtObjectType::Impacted(Impacted::LineDeleted(LineDisruption { id }))
+            }
+            _ => PtObjectType::Informed(Informed::Line(LineDisruption { id })),
         },
         PtObject_Type::route => match effect {
-            Effect::NoService => PtObjectType::Impacted(Impacted::RouteDeleted(RouteDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
-            _ => PtObjectType::Informed(Informed::Route(RouteDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
+            Effect::NoService => {
+                PtObjectType::Impacted(Impacted::RouteDeleted(RouteDisruption { id }))
+            }
+            _ => PtObjectType::Informed(Informed::Route(RouteDisruption { id })),
         },
         PtObject_Type::trip => match effect {
             Effect::NoService => PtObjectType::Impacted(Impacted::TripDeleted(TripDisruption {
@@ -163,8 +233,6 @@ fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObject
                 company_id: None,
                 physical_mode_id: None,
                 headsign: None,
-                created_at,
-                updated_at,
             })),
             _ => PtObjectType::Informed(Informed::Trip(TripDisruption {
                 id,
@@ -172,37 +240,19 @@ fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObject
                 company_id: None,
                 physical_mode_id: None,
                 headsign: None,
-                created_at,
-                updated_at,
             })),
         },
         PtObject_Type::stop_point => match effect {
             Effect::NoService => {
-                PtObjectType::Impacted(Impacted::StopPointDeleted(StopPointDisruption {
-                    id,
-                    created_at,
-                    updated_at,
-                }))
+                PtObjectType::Impacted(Impacted::StopPointDeleted(StopPointDisruption { id }))
             }
-            _ => PtObjectType::Informed(Informed::StopPoint(StopPointDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
+            _ => PtObjectType::Informed(Informed::StopPoint(StopPointDisruption { id })),
         },
         PtObject_Type::stop_area => match effect {
             Effect::NoService => {
-                PtObjectType::Impacted(Impacted::StopAreaDeleted(StopAreaDisruption {
-                    id,
-                    created_at,
-                    updated_at,
-                }))
+                PtObjectType::Impacted(Impacted::StopAreaDeleted(StopAreaDisruption { id }))
             }
-            _ => PtObjectType::Informed(Informed::StopArea(StopAreaDisruption {
-                id,
-                created_at,
-                updated_at,
-            })),
+            _ => PtObjectType::Informed(Informed::StopArea(StopAreaDisruption { id })),
         },
         PtObject_Type::line_section => {
             let ls = proto.get_pt_line_section();
@@ -213,25 +263,17 @@ fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObject
             let line_section = LineSectionDisruption {
                 line: LineDisruption {
                     id: line.get_uri().to_string(),
-                    created_at: timestamp_to_datetime(line.get_created_at()),
-                    updated_at: timestamp_to_datetime(line.get_updated_at()),
                 },
                 start_sa: StopAreaDisruption {
                     id: start.get_uri().to_string(),
-                    created_at: timestamp_to_datetime(start.get_created_at()),
-                    updated_at: timestamp_to_datetime(start.get_updated_at()),
                 },
                 stop_sa: StopAreaDisruption {
                     id: end.get_uri().to_string(),
-                    created_at: timestamp_to_datetime(end.get_created_at()),
-                    updated_at: timestamp_to_datetime(end.get_updated_at()),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteDisruption {
                         id: r.get_uri().to_string(),
-                        created_at: timestamp_to_datetime(r.get_created_at()),
-                        updated_at: timestamp_to_datetime(r.get_updated_at()),
                     })
                     .collect(),
             };
@@ -246,130 +288,212 @@ fn from(proto: &chaos_proto::chaos::PtObject, effect: Effect) -> Result<PtObject
     Ok(pt_object)
 }
 
-impl From<&chaos_proto::chaos::Severity> for Severity {
-    fn from(proto: &chaos_proto::chaos::Severity) -> Severity {
-        Severity {
-            id: proto.get_id().to_string(),
-            wording: proto.get_wording().to_string(),
-            color: proto.get_color().to_string(),
-            priority: proto.get_priority() as u32,
-            effect: proto.get_effect().into(),
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_updated_at()),
-        }
+fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error> {
+    let id = if proto.has_id() {
+        proto.get_id().to_string()
+    } else {
+        bail!("Severity has no id");
+    };
+
+    let created_at = if proto.has_created_at() {
+        let datetime = make_datetime(proto.get_created_at())
+            .context(format!("Could not parse severity.created_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let updated_at = if proto.has_updated_at() {
+        let datetime = make_datetime(proto.get_updated_at())
+            .context(format!("Could not parse severity.updated_at"))?;
+        Some(datetime)
+    } else {
+        None
+    };
+
+    let effect = if proto.has_effect() {
+        make_effect(proto.get_effect())
+    } else {
+        bail!("Severity has no effect");
+    };
+
+    let result = Severity {
+        id,
+        wording: proto.get_wording().to_string(),
+        color: proto.get_color().to_string(),
+        priority: proto.get_priority() as u32,
+        effect,
+        created_at,
+        updated_at,
+    };
+    Ok(result)
+}
+
+pub fn make_effect(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
+    use chaos_proto::gtfs_realtime::Alert_Effect;
+    match proto {
+        Alert_Effect::NO_SERVICE => Effect::NoService,
+        Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
+        Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
+        Alert_Effect::DETOUR => Effect::Detour,
+        Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
+        Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
+        Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
+        Alert_Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
+        Alert_Effect::STOP_MOVED => Effect::StopMoved,
     }
 }
 
-impl From<chaos_proto::gtfs_realtime::Alert_Effect> for Effect {
-    fn from(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
-        use chaos_proto::gtfs_realtime::Alert_Effect;
-        match proto {
-            Alert_Effect::NO_SERVICE => Effect::NoService,
-            Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
-            Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
-            Alert_Effect::DETOUR => Effect::Detour,
-            Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
-            Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
-            Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
-            Alert_Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
-            Alert_Effect::STOP_MOVED => Effect::StopMoved,
-        }
+fn make_cause(proto: &chaos_proto::chaos::Cause) -> Cause {
+    Cause {
+        id: proto.get_id().to_string(),
+        wording: proto.get_wording().to_string(),
+        category: proto.get_category().get_name().to_string(),
     }
 }
 
-impl From<&chaos_proto::chaos::Cause> for Cause {
-    fn from(proto: &chaos_proto::chaos::Cause) -> Cause {
-        Cause {
-            id: proto.get_id().to_string(),
-            wording: proto.get_wording().to_string(),
-            category: proto.get_category().get_name().to_string(),
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_created_at()),
-        }
+fn make_datetime_period(
+    proto: &chaos_proto::gtfs_realtime::TimeRange,
+) -> Result<DateTimePeriod, Error> {
+    let start_timestamp = if proto.has_start() {
+        proto.get_start()
+    } else {
+        bail!("No start timestamp");
+    };
+
+    let end_timestamp = if proto.has_end() {
+        proto.get_end()
+    } else {
+        bail!("No end timestamp");
+    };
+
+    let start = make_datetime(start_timestamp).with_context(|| {
+        format!(
+            "Could not convert start timestamp {} to datetime",
+            start_timestamp
+        )
+    })?;
+    let end = make_datetime(end_timestamp).with_context(|| {
+        format!(
+            "Could not convert end timestamp {} to datetime",
+            end_timestamp
+        )
+    })?;
+    DateTimePeriod::new(start, end).map_err(|err| Error::from(err))
+}
+
+fn make_periods(
+    time_ranges: &[chaos_proto::gtfs_realtime::TimeRange],
+) -> Result<Vec<DateTimePeriod>, Error> {
+    let mut result = Vec::with_capacity(time_ranges.len());
+    for (idx, time_range) in time_ranges.iter().enumerate() {
+        let period = make_datetime_period(time_range)
+            .with_context(|| format!("Could not convert {}-th TimeRange", idx))?;
+        result.push(period);
+    }
+    Ok(result)
+}
+
+fn make_tag(proto: &chaos_proto::chaos::Tag) -> Tag {
+    Tag {
+        id: proto.get_id().to_string(),
+        name: proto.get_id().to_string(),
     }
 }
 
-impl TryFrom<&chaos_proto::gtfs_realtime::TimeRange> for DateTimePeriod {
-    type Error = Error;
-    fn try_from(proto: &chaos_proto::gtfs_realtime::TimeRange) -> Result<DateTimePeriod, Error> {
-        let start = timestamp_to_datetime(proto.get_start());
-        let end = timestamp_to_datetime(proto.get_end());
-        match (start, end) {
-            (Some(start), Some(end)) => {
-                DateTimePeriod::new(start, end).map_err(|err| format_err!("Error : {:?}", err))
-            }
-            _ => Err(format_err!("Failed converting timestamp to datetime")),
-        }
+fn make_messages(proto_messages: &[chaos_proto::chaos::Message]) -> Result<Vec<Message>, Error> {
+    let mut result = Vec::with_capacity(proto_messages.len());
+    for (idx, proto_message) in proto_messages.iter().enumerate() {
+        let message = make_message(proto_message)
+            .with_context(|| format!("Could not convert {}-th Message", idx))?;
+        result.push(message);
+    }
+    Ok(result)
+}
+
+fn make_message(proto: &chaos_proto::chaos::Message) -> Result<Message, Error> {
+    let text = if proto.has_text() {
+        proto.get_text().to_string()
+    } else {
+        bail!("Message has no text");
+    };
+    let channel = if proto.has_channel() {
+        proto.get_channel()
+    } else {
+        bail!("Message has no channel");
+    };
+
+    let result = Message {
+        text,
+        channel_id: channel.get_id().to_string(),
+        channel_name: channel.get_name().to_string(),
+        channel_content_type: channel.get_content_type().to_string(),
+        channel_types: channel.get_types().iter().map(make_channel_type).collect(),
+    };
+    Ok(result)
+}
+
+fn make_channel_type(proto: &chaos_proto::chaos::Channel_Type) -> ChannelType {
+    use chaos_proto::chaos::Channel_Type;
+    match proto {
+        Channel_Type::web => ChannelType::Web,
+        Channel_Type::sms => ChannelType::Sms,
+        Channel_Type::email => ChannelType::Email,
+        Channel_Type::mobile => ChannelType::Mobile,
+        Channel_Type::notification => ChannelType::Notification,
+        Channel_Type::twitter => ChannelType::Twitter,
+        Channel_Type::facebook => ChannelType::Facebook,
+        Channel_Type::unkown_type => ChannelType::UnknownType,
+        Channel_Type::title => ChannelType::Title,
+        Channel_Type::beacon => ChannelType::Beacon,
     }
 }
 
-impl From<&chaos_proto::chaos::Tag> for Tag {
-    fn from(proto: &chaos_proto::chaos::Tag) -> Tag {
-        Tag {
-            id: proto.get_id().to_string(),
-            name: proto.get_id().to_string(),
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_created_at()),
-        }
+fn make_application_pattern(
+    proto: &chaos_proto::chaos::Pattern,
+) -> Result<ApplicationPattern, Error> {
+    let begin_date = if proto.has_start_date() {
+        let timestamp = proto.get_start_date();
+        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
+        datetime.date()
+    } else {
+        bail!("Pattern has no start_date");
+    };
+    let end_date = if proto.has_end_date() {
+        let timestamp = proto.get_end_date();
+        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
+        datetime.date()
+    } else {
+        bail!("Pattern has no end_date");
+    };
+    let time_slots = proto.get_time_slots().iter().map(make_timeslot).collect();
+    Ok(ApplicationPattern {
+        begin_date,
+        end_date,
+        time_slots,
+    })
+}
+
+fn make_application_patterns(
+    proto_patterns: &[chaos_proto::chaos::Pattern],
+) -> Result<Vec<ApplicationPattern>, Error> {
+    let mut result = Vec::with_capacity(proto_patterns.len());
+    for (idx, proto_pattern) in proto_patterns.iter().enumerate() {
+        let pattern = make_application_pattern(proto_pattern)
+            .with_context(|| format!("Could not convert {}-th Pattern", idx))?;
+        result.push(pattern);
+    }
+    Ok(result)
+}
+
+fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> TimeSlot {
+    TimeSlot {
+        begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
+        end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
     }
 }
 
-impl From<&chaos_proto::chaos::Message> for Message {
-    fn from(proto: &chaos_proto::chaos::Message) -> Message {
-        let channel = proto.get_channel();
-        Message {
-            text: proto.get_text().to_string(),
-            channel_id: channel.get_id().to_string(),
-            channel_name: channel.get_name().to_string(),
-            channel_content_type: channel.get_content_type().to_string(),
-            channel_types: channel.get_types().iter().map(|t| t.into()).collect(),
-            created_at: timestamp_to_datetime(proto.get_created_at()),
-            updated_at: timestamp_to_datetime(proto.get_created_at()),
-        }
-    }
-}
-
-impl From<&chaos_proto::chaos::Channel_Type> for ChannelType {
-    fn from(proto: &chaos_proto::chaos::Channel_Type) -> ChannelType {
-        use chaos_proto::chaos::Channel_Type;
-        match proto {
-            Channel_Type::web => ChannelType::Web,
-            Channel_Type::sms => ChannelType::Sms,
-            Channel_Type::email => ChannelType::Email,
-            Channel_Type::mobile => ChannelType::Mobile,
-            Channel_Type::notification => ChannelType::Notification,
-            Channel_Type::twitter => ChannelType::Twitter,
-            Channel_Type::facebook => ChannelType::Facebook,
-            Channel_Type::unkown_type => ChannelType::UnknownType,
-            Channel_Type::title => ChannelType::Title,
-            Channel_Type::beacon => ChannelType::Beacon,
-        }
-    }
-}
-
-impl TryFrom<&chaos_proto::chaos::Pattern> for ApplicationPattern {
-    type Error = Error;
-    fn try_from(proto: &chaos_proto::chaos::Pattern) -> Result<ApplicationPattern, Error> {
-        let time_slots = proto.get_time_slots().iter().map(|ts| ts.into()).collect();
-        // TODO : check if get_start_date() and get_end_date() are really timestamps ?
-        let begin = timestamp_to_datetime(u64::from(proto.get_start_date()));
-        let end = timestamp_to_datetime(u64::from(proto.get_end_date()));
-        match (begin, end) {
-            (Some(begin), Some(end)) => Ok(ApplicationPattern {
-                begin_date: begin.date(),
-                end_date: end.date(),
-                time_slots,
-            }),
-            _ => Err(format_err!("Failed converting timestamp to datetime")),
-        }
-    }
-}
-
-impl From<&chaos_proto::chaos::TimeSlot> for TimeSlot {
-    fn from(proto: &chaos_proto::chaos::TimeSlot) -> TimeSlot {
-        TimeSlot {
-            begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
-            end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
-        }
-    }
+pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
+    let timestamp = i64::try_from(timestamp)?;
+    Ok(NaiveDateTime::from_timestamp(timestamp, 0))
 }
