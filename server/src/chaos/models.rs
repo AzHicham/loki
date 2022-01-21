@@ -5,16 +5,17 @@ use crate::{
     info,
     server_config::ChaosParams,
 };
-use anyhow::{bail, format_err, Error};
+use anyhow::{bail, format_err, Context, Error};
 use diesel::{
     pg::types::sql_types::Array,
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
 };
 use launch::loki::models::real_time_disruption::{
-    Impacted, Informed, LineId, LineSectionDisruption, NetworkId, RailSectionDisruption, RouteId,
-    StopAreaId, StopPointId,
+    BlockedStopArea, Impacted, Informed, LineId, LineSectionDisruption, NetworkId,
+    RailSectionDisruption, RouteId, StopAreaId, StopPointId,
 };
+use launch::loki::tracing::error;
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
     models::real_time_disruption::{
@@ -33,7 +34,7 @@ pub fn chaos_disruption_from_database(
     config: &ChaosParams,
     publication_period: (NaiveDate, NaiveDate),
     contributors: &[String],
-) -> Result<(), Error> {
+) -> Result<Vec<Disruption>, Error> {
     let connection = PgConnection::establish(&config.chaos_database)?;
 
     info!("Querying chaos database");
@@ -48,20 +49,16 @@ pub fn chaos_disruption_from_database(
 
     let mut disruption_maker = DisruptionMaker::default();
 
-    if let Err(ref err) = res {
-        println!("{}", err);
-    }
-
     info!("Converting database rows into Disruption");
-    for row in res.unwrap() {
-        print!(".");
+
+    for row in res? {
         if let Err(ref err) = disruption_maker.read_disruption(&row) {
-            println!("\n{}", err);
+            error!("{}", err);
         }
     }
-    info!("\nDisruptions ready to be applied");
+    info!("Disruptions ready to be applied");
 
-    Ok(())
+    Ok(disruption_maker.disruptions)
 }
 
 #[derive(Default)]
@@ -230,7 +227,7 @@ impl DisruptionMaker {
             row,
             impact,
         )?;
-        ImpactMaker::update_pt_objects(&mut impact_object_set.pt_objects_set, row, impact)?;
+        ImpactMaker::update_pt_objects(row, impact)?;
 
         Ok(())
     }
@@ -255,7 +252,6 @@ struct ImpactMaker {
     pub(crate) application_periods_set: HashSet<Uid>,
     pub(crate) application_pattern_set: HashSet<Uid>,
     pub(crate) messages_set: HashSet<Uid>,
-    pub(crate) pt_objects_set: HashSet<Uid>,
 }
 
 impl ImpactMaker {
@@ -263,7 +259,6 @@ impl ImpactMaker {
         self.application_periods_set.clear();
         self.application_pattern_set.clear();
         self.messages_set.clear();
-        self.pt_objects_set.clear();
     }
 
     fn update_application_period(
@@ -373,11 +368,7 @@ impl ImpactMaker {
         Ok(())
     }
 
-    fn update_pt_objects(
-        pt_object_set: &mut HashSet<Uid>,
-        row: &ChaosDisruption,
-        impact: &mut Impact,
-    ) -> Result<(), Error> {
+    fn update_pt_objects(row: &ChaosDisruption, impact: &mut Impact) -> Result<(), Error> {
         let id = if let Some(id) = &row.ptobject_uri {
             id.clone()
         } else {
@@ -424,7 +415,7 @@ impl ImpactMaker {
 
             (PtObjectType::LineSection, _) => {
                 // check if we need to create a new line section or just push a new route into it
-                let found_line_section: Option<&mut LineSectionDisruption> = impacted
+                let found_line_section = impacted
                     .iter_mut()
                     .filter_map(|pt| match pt {
                         Impacted::LineSection(line_section) => Some(line_section),
@@ -441,7 +432,7 @@ impl ImpactMaker {
                                 .routes
                                 .iter()
                                 .find(|route| route.id == *route_id);
-                            if let None = found_route {
+                            if found_route.is_none() {
                                 line_section.routes.push(RouteId {
                                     id: route_id.clone(),
                                 });
@@ -485,7 +476,7 @@ impl ImpactMaker {
             }
             (PtObjectType::RailSection, _) => {
                 // check if we need to create a new rail section or just push a new route into it
-                let found_rail_section: Option<&mut RailSectionDisruption> = impacted
+                let found_rail_section = impacted
                     .iter_mut()
                     .filter_map(|pt| match pt {
                         Impacted::RailSection(rail_section) => Some(rail_section),
@@ -502,7 +493,7 @@ impl ImpactMaker {
                                 .routes
                                 .iter()
                                 .find(|route| route.id == *route_id);
-                            if let None = found_route {
+                            if found_route.is_none() {
                                 rail_section.routes.push(RouteId {
                                     id: route_id.clone(),
                                 });
@@ -525,13 +516,31 @@ impl ImpactMaker {
                         } else {
                             bail!("PtObject has type rail_section but the field end is empty");
                         };
+                        let routes = if let Some(route_id) = &row.rs_route_uri {
+                            vec![RouteId {
+                                id: route_id.clone(),
+                            }]
+                        } else {
+                            vec![]
+                        };
+
+                        let blocked_stop_area = if let Some(blocked_stop_area) = &row.rs_blocked_sa
+                        {
+                            serde_json::from_str::<Vec<BlockedStopArea>>(blocked_stop_area.as_str())
+                                .with_context(|| {
+                                    "Could not deserialize blocked_stop_area of rail_section"
+                                })?
+                        } else {
+                            vec![]
+                        };
 
                         let line_section = RailSectionDisruption {
                             id,
                             line: LineId { id: line_id },
                             start: StopAreaId { id: start },
                             end: StopAreaId { id: end },
-                            routes: vec![],
+                            routes,
+                            blocked_stop_area,
                         };
                         impacted.push(Impacted::RailSection(line_section));
                     }
@@ -695,6 +704,8 @@ pub struct ChaosDisruption {
     pub rs_route_created_at: Option<NaiveDateTime>,
     #[sql_type = "Nullable<Timestamp>"]
     pub rs_route_updated_at: Option<NaiveDateTime>,
+    #[sql_type = "Nullable<Text>"]
+    pub rs_blocked_sa: Option<String>,
     // Message fields
     #[sql_type = "Nullable<Uuid>"]
     pub message_id: Option<Uid>,

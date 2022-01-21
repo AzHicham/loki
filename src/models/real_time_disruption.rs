@@ -40,6 +40,7 @@ use crate::{
     timetables::FlowDirection,
 };
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use serde::Deserialize;
 use std::{
     cmp::{max, min},
     fmt::{Debug, Display},
@@ -476,6 +477,13 @@ pub struct RailSectionDisruption {
     pub start: StopAreaId,
     pub end: StopAreaId,
     pub routes: Vec<RouteId>,
+    pub blocked_stop_area: Vec<BlockedStopArea>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct BlockedStopArea {
+    pub id: String,
+    pub order: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
