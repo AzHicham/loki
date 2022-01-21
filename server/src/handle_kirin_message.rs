@@ -55,23 +55,15 @@ pub fn handle_kirin_protobuf(
     header_datetime: &Option<NaiveDateTime>,
     model_validity_period: &(NaiveDate, NaiveDate),
 ) -> Result<Disruption, Error> {
-    create_disruption(feed_entity, header_datetime, model_validity_period)
-}
-
-pub fn create_disruption(
-    feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    header_datetime: &Option<NaiveDateTime>,
-    model_validity_period: &(NaiveDate, NaiveDate),
-) -> Result<Disruption, Error> {
     let disruption_id = feed_entity.get_id().to_string();
     if feed_entity.has_trip_update().not() {
-        return Err(format_err!("Feed entity has no trip_update"));
+        bail!("Feed entity has no trip_update");
     }
     // application_period == publication_period == validity_period
     let start = model_validity_period.0.and_hms(0, 0, 0);
     let end = model_validity_period.1.and_hms(12, 59, 59);
-    let application_period =
-        DateTimePeriod::new(start, end).map_err(|err| format_err!("Error : {:?}", err))?;
+    let application_period = DateTimePeriod::new(start, end)
+        .with_context(|| format!("Model has a bad validity period"))?;
     let trip_update = feed_entity.get_trip_update();
     let trip = trip_update.get_trip();
 

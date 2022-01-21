@@ -46,13 +46,7 @@ use launch::loki::{
     NaiveDateTime,
 };
 
-pub fn handle_chaos_protobuf(
-    chaos_disruption: &chaos_proto::chaos::Disruption,
-) -> Result<Disruption, Error> {
-    make_disruption(chaos_disruption)
-}
-
-fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
+pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
     let id = if proto.has_id() {
         proto.get_id().to_string()
     } else {
