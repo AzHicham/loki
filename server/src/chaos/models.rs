@@ -423,56 +423,119 @@ impl ImpactMaker {
             }
 
             (PtObjectType::LineSection, _) => {
-                let line_id = if let Some(line_id) = &row.ls_line_uri {
-                    line_id.clone()
-                } else {
-                    bail!("PtObject has type line_section but the field line_id is empty");
-                };
-                let start = if let Some(start) = &row.ls_start_uri {
-                    start.clone()
-                } else {
-                    bail!("PtObject has type line_section but the field start is empty");
-                };
-                let end = if let Some(end) = &row.ls_end_uri {
-                    end.clone()
-                } else {
-                    bail!("PtObject has type line_section but the field end is empty");
-                };
+                // check if we need to create a new line section or just push a new route into it
+                let found_line_section: Option<&mut LineSectionDisruption> = impacted
+                    .iter_mut()
+                    .filter_map(|pt| match pt {
+                        Impacted::LineSection(line_section) => Some(line_section),
+                        _ => None,
+                    })
+                    .find(|line_section| line_section.id == id);
 
-                let line_section = LineSectionDisruption {
-                    id,
-                    line: LineId { id: line_id },
-                    start: StopAreaId { id: start },
-                    end: StopAreaId { id: end },
-                    routes: vec![],
-                };
-                impacted.push(Impacted::LineSection(line_section));
+                match found_line_section {
+                    Some(line_section) => {
+                        // we found line_section so we push a new route
+                        // if not already in line_section.routes[]
+                        if let Some(route_id) = &row.ls_route_uri {
+                            let found_route = line_section
+                                .routes
+                                .iter()
+                                .find(|route| route.id == *route_id);
+                            if let None = found_route {
+                                line_section.routes.push(RouteId {
+                                    id: route_id.clone(),
+                                });
+                            }
+                        }
+                    }
+                    None => {
+                        let line_id = if let Some(line_id) = &row.ls_line_uri {
+                            line_id.clone()
+                        } else {
+                            bail!("PtObject has type line_section but the field line_id is empty");
+                        };
+                        let start = if let Some(start) = &row.ls_start_uri {
+                            start.clone()
+                        } else {
+                            bail!("PtObject has type line_section but the field start is empty");
+                        };
+                        let end = if let Some(end) = &row.ls_end_uri {
+                            end.clone()
+                        } else {
+                            bail!("PtObject has type line_section but the field end is empty");
+                        };
+                        let routes = if let Some(route_id) = &row.ls_route_uri {
+                            vec![RouteId {
+                                id: route_id.clone(),
+                            }]
+                        } else {
+                            vec![]
+                        };
+
+                        let line_section = LineSectionDisruption {
+                            id,
+                            line: LineId { id: line_id },
+                            start: StopAreaId { id: start },
+                            end: StopAreaId { id: end },
+                            routes,
+                        };
+                        impacted.push(Impacted::LineSection(line_section));
+                    }
+                }
             }
             (PtObjectType::RailSection, _) => {
-                let line_id = if let Some(line_id) = &row.rs_line_uri {
-                    line_id.clone()
-                } else {
-                    bail!("PtObject has type rail_section but the field line_id is empty");
-                };
-                let start = if let Some(start) = &row.rs_start_uri {
-                    start.clone()
-                } else {
-                    bail!("PtObject has type rail_section but the field start is empty");
-                };
-                let end = if let Some(end) = &row.rs_end_uri {
-                    end.clone()
-                } else {
-                    bail!("PtObject has type rail_section but the field end is empty");
-                };
+                // check if we need to create a new rail section or just push a new route into it
+                let found_rail_section: Option<&mut RailSectionDisruption> = impacted
+                    .iter_mut()
+                    .filter_map(|pt| match pt {
+                        Impacted::RailSection(rail_section) => Some(rail_section),
+                        _ => None,
+                    })
+                    .find(|rail_section| rail_section.id == id);
 
-                let line_section = RailSectionDisruption {
-                    id,
-                    line: LineId { id: line_id },
-                    start: StopAreaId { id: start },
-                    end: StopAreaId { id: end },
-                    routes: vec![],
-                };
-                impacted.push(Impacted::RailSection(line_section));
+                match found_rail_section {
+                    Some(rail_section) => {
+                        // we found rail_section so we push a new route
+                        // if not already in rail_section.routes[]
+                        if let Some(route_id) = &row.rs_route_uri {
+                            let found_route = rail_section
+                                .routes
+                                .iter()
+                                .find(|route| route.id == *route_id);
+                            if let None = found_route {
+                                rail_section.routes.push(RouteId {
+                                    id: route_id.clone(),
+                                });
+                            }
+                        }
+                    }
+                    None => {
+                        let line_id = if let Some(line_id) = &row.rs_line_uri {
+                            line_id.clone()
+                        } else {
+                            bail!("PtObject has type rail_section but the field line_id is empty");
+                        };
+                        let start = if let Some(start) = &row.rs_start_uri {
+                            start.clone()
+                        } else {
+                            bail!("PtObject has type rail_section but the field start is empty");
+                        };
+                        let end = if let Some(end) = &row.rs_end_uri {
+                            end.clone()
+                        } else {
+                            bail!("PtObject has type rail_section but the field end is empty");
+                        };
+
+                        let line_section = RailSectionDisruption {
+                            id,
+                            line: LineId { id: line_id },
+                            start: StopAreaId { id: start },
+                            end: StopAreaId { id: end },
+                            routes: vec![],
+                        };
+                        impacted.push(Impacted::RailSection(line_section));
+                    }
+                }
             }
         };
 
