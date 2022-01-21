@@ -842,7 +842,7 @@ fn handle_feed_entity(
     let base_model = &data_and_models.1;
     let real_time_model = &mut data_and_models.2;
 
-    real_time_model.apply_disruption(&disruption, base_model, data);
+    real_time_model.store_and_apply_disruption(disruption, base_model, data);
     Ok(())
 }
 
