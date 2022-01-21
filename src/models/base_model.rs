@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
+use transit_model::objects::{CommercialMode, Line, Network, Route, StopArea};
 use typed_index_collection::Idx;
 
 use crate::{
@@ -502,6 +503,26 @@ impl BaseModel {
             license: c.license.clone(),
             url: c.website.clone(),
         })
+    }
+
+    pub fn line(&self, id: &str) -> Option<&Line> {
+        self.collections.lines.get(id)
+    }
+
+    pub fn route(&self, id: &str) -> Option<&Route> {
+        self.collections.routes.get(id)
+    }
+
+    pub fn network(&self, id: &str) -> Option<&Network> {
+        self.collections.networks.get(id)
+    }
+
+    pub fn stop_area(&self, id: &str) -> Option<&StopArea> {
+        self.collections.stop_areas.get(id)
+    }
+
+    pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
+        self.collections.commercial_modes.get(id)
     }
 }
 

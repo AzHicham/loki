@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use crate::{chrono::NaiveDate, RealTimeLevel};
+use transit_model::objects::{CommercialMode, Line, Network, Route, StopArea};
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
@@ -226,6 +227,26 @@ impl<'model> ModelRefs<'model> {
 
     pub fn base_vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + 'model {
         self.base.vehicle_journeys()
+    }
+
+    pub fn line(&self, id: &str) -> Option<&Line> {
+        self.base.line(id)
+    }
+
+    pub fn route(&self, id: &str) -> Option<&Route> {
+        self.base.route(id)
+    }
+
+    pub fn network(&self, id: &str) -> Option<&Network> {
+        self.base.network(id)
+    }
+
+    pub fn stop_area(&self, id: &str) -> Option<&StopArea> {
+        self.base.stop_area(id)
+    }
+
+    pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
+        self.base.commercial_mode(id)
     }
 
     pub fn contains_line_id(&self, id: &str) -> bool {

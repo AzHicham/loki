@@ -50,6 +50,15 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::{
+    chrono::Timelike,
+    models::real_time_disruption::{
+        ApplicationPattern, ChannelType, DateTimePeriod, Disruption, DisruptionProperty, Effect,
+        Impact, Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption,
+        Severity, TimeSlot,
+    },
+    transit_model::objects::{Line, Network, Route, StopArea},
+};
 use std::convert::TryFrom;
 
 pub fn make_response(
@@ -653,4 +662,400 @@ fn make_shape_from_stop_points(
             })
             .collect(),
     }
+}
+
+fn make_impact(
+    impact: &Impact,
+    disruption: &Disruption,
+    model: &ModelRefs<'_>,
+) -> navitia_proto::Impact {
+    let mut impacted_objects: Vec<navitia_proto::ImpactedObject> = impact
+        .impacted_pt_objects
+        .iter()
+        .filter_map(|i| make_impacted_object_from_impacted(i, model).ok())
+        .collect();
+    for informed in &impact.informed_pt_objects {
+        if let Ok(object) = make_impacted_object_from_informed(&informed, model) {
+            impacted_objects.push(object)
+        }
+    }
+
+    let proto = navitia_proto::Impact {
+        uri: Some(impact.id.clone()),
+        disruption_uri: Some(disruption.id.clone()),
+        application_periods: impact.application_periods.iter().map(make_period).collect(),
+        status: Some(navitia_proto::ActiveStatus::Active as i32),
+        updated_at: Some(impact.updated_at.unwrap().timestamp() as u64),
+        tags: disruption.tags.iter().map(|t| t.name.clone()).collect(),
+        cause: Some(disruption.cause.wording.clone()),
+        messages: impact.messages.iter().map(make_message).collect(),
+        severity: Some(make_severity(&impact.severity)),
+        contributor: disruption.contributor.clone(),
+        impacted_objects,
+        category: Some(disruption.cause.category.clone()),
+        application_patterns: impact
+            .application_patterns
+            .iter()
+            .filter_map(|ap| make_application_pattern(ap).ok())
+            .collect(),
+        properties: disruption.properties.iter().map(make_property).collect(),
+    };
+
+    proto
+}
+
+fn make_impacted_object_from_impacted(
+    object: &Impacted,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::ImpactedObject, Error> {
+    let pt_object = match object {
+        Impacted::TripModified(trip) => {
+            return Err(format_err!(
+                "Cannot create ImpactedObject from Impacted::TripModified"
+            ))
+        }
+        Impacted::TripDeleted(trip) => {
+            return Err(format_err!(
+                "Cannot create ImpactedObject from Impacted::TripDeleted"
+            ))
+        }
+        Impacted::RouteDeleted(route) => make_route_pt_object(&route.id, model),
+        Impacted::LineDeleted(line) => make_line_pt_object(&line.id, model),
+        Impacted::NetworkDeleted(network) => make_network_pt_object(&network.id, model),
+        Impacted::LineSection(line_section) => make_line_pt_object(&line_section.line.id, model),
+        Impacted::RailSection(rail_section) => make_line_pt_object(&rail_section.line_id, model),
+        Impacted::StopAreaDeleted(stop_area) => make_stop_area_pt_object(&stop_area.id, model),
+        Impacted::StopPointDeleted(stop_point) => {
+            if let Some(stop_point_id) = model.stop_point_idx(&stop_point.id) {
+                make_stop_point_pt_object(&stop_point_id, model)
+            } else {
+                return Err(format_err!(
+                    "StopPoint.id: {} not found in BaseModel",
+                    stop_point.id
+                ));
+            }
+        }
+    };
+    let impacted_section = match object {
+        Impacted::LineSection(line_section) => Some(make_line_section_impact(line_section, model)?),
+        _ => None,
+    };
+    let impacted_rail_section = match object {
+        Impacted::RailSection(rail_section) => Some(make_rail_section_impact(rail_section, model)?),
+        _ => None,
+    };
+    Ok(navitia_proto::ImpactedObject {
+        pt_object: Some(pt_object?),
+        impacted_stops: vec![],
+        impacted_section,
+        impacted_rail_section,
+    })
+}
+
+fn make_impacted_object_from_informed(
+    object: &Informed,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::ImpactedObject, Error> {
+    let pt_object = match object {
+        Informed::Trip(trip) => {
+            return Err(format_err!(
+                "Cannot create ImpactedObject from Informed::Trip"
+            ))
+        }
+        Informed::Route(route) => make_route_pt_object(&route.id, model),
+        Informed::Line(line) => make_line_pt_object(&line.id, model),
+        Informed::Network(network) => make_network_pt_object(&network.id, model),
+        Informed::StopArea(stop_area) => make_stop_area_pt_object(&stop_area.id, model),
+        Informed::StopPoint(stop_point) => {
+            if let Some(stop_point_id) = model.stop_point_idx(&stop_point.id) {
+                make_stop_point_pt_object(&stop_point_id, model)
+            } else {
+                return Err(format_err!(
+                    "StopPoint.id: {} not found in BaseModel",
+                    stop_point.id
+                ));
+            }
+        }
+        Informed::Unknown => {
+            return Err(format_err!(
+                "Cannot create ImpactedObject from Informed::Unknown"
+            ))
+        }
+    };
+
+    Ok(navitia_proto::ImpactedObject {
+        pt_object: Some(pt_object?),
+        impacted_stops: vec![],
+        impacted_section: None,
+        impacted_rail_section: None,
+    })
+}
+
+fn make_property(property: &DisruptionProperty) -> navitia_proto::DisruptionProperty {
+    navitia_proto::DisruptionProperty {
+        key: property.key.clone(),
+        r#type: property.type_.clone(),
+        value: property.value.clone(),
+    }
+}
+
+fn make_period(period: &DateTimePeriod) -> navitia_proto::Period {
+    navitia_proto::Period {
+        begin: Some(period.start().timestamp() as u64),
+        end: Some(period.end().timestamp() as u64),
+    }
+}
+
+fn make_severity(severity: &Severity) -> navitia_proto::Severity {
+    navitia_proto::Severity {
+        name: severity.wording.clone(),
+        color: severity.color.clone(),
+        effect: Some(make_effect(severity.effect) as i32),
+        priority: severity.priority,
+    }
+}
+
+fn make_effect(effect: Effect) -> navitia_proto::severity::Effect {
+    match effect {
+        Effect::NoService => navitia_proto::severity::Effect::NoService,
+        Effect::ReducedService => navitia_proto::severity::Effect::ReducedService,
+        Effect::SignificantDelays => navitia_proto::severity::Effect::SignificantDelays,
+        Effect::Detour => navitia_proto::severity::Effect::Detour,
+        Effect::AdditionalService => navitia_proto::severity::Effect::AdditionalService,
+        Effect::ModifiedService => navitia_proto::severity::Effect::ModifiedService,
+        Effect::OtherEffect => navitia_proto::severity::Effect::OtherEffect,
+        Effect::UnknownEffect => navitia_proto::severity::Effect::UnknownEffect,
+        Effect::StopMoved => navitia_proto::severity::Effect::StopMoved,
+    }
+}
+
+fn make_message(message: &Message) -> navitia_proto::MessageContent {
+    navitia_proto::MessageContent {
+        text: Some(message.text.clone()),
+        channel: Some(navitia_proto::Channel {
+            id: Some(message.channel_id.clone()),
+            name: Some(message.channel_name.clone()),
+            content_type: Some(message.channel_content_type.clone()),
+            channel_types: message
+                .channel_types
+                .iter()
+                .map(|ct| make_channel_type(ct) as i32)
+                .collect(),
+        }),
+    }
+}
+
+fn make_channel_type(channel_type: &ChannelType) -> navitia_proto::channel::ChannelType {
+    match channel_type {
+        ChannelType::Web => navitia_proto::channel::ChannelType::Web,
+        ChannelType::Sms => navitia_proto::channel::ChannelType::Sms,
+        ChannelType::Email => navitia_proto::channel::ChannelType::Email,
+        ChannelType::Mobile => navitia_proto::channel::ChannelType::Mobile,
+        ChannelType::Notification => navitia_proto::channel::ChannelType::Notification,
+        ChannelType::Twitter => navitia_proto::channel::ChannelType::Twitter,
+        ChannelType::Facebook => navitia_proto::channel::ChannelType::Facebook,
+        ChannelType::UnknownType => navitia_proto::channel::ChannelType::UnknownType,
+        ChannelType::Title => navitia_proto::channel::ChannelType::Title,
+        ChannelType::Beacon => navitia_proto::channel::ChannelType::Beacon,
+    }
+}
+
+fn make_application_pattern(
+    pattern: &ApplicationPattern,
+) -> Result<navitia_proto::ApplicationPattern, Error> {
+    let app_period = DateTimePeriod::new(
+        pattern.begin_date.and_hms(0, 0, 0),
+        pattern.end_date.and_hms(0, 0, 0),
+    )?;
+    Ok(navitia_proto::ApplicationPattern {
+        application_period: make_period(&app_period),
+        time_slots: pattern.time_slots.iter().map(make_time_slot).collect(),
+        ..Default::default()
+    })
+}
+
+fn make_time_slot(time_slot: &TimeSlot) -> navitia_proto::TimeSlot {
+    navitia_proto::TimeSlot {
+        begin: time_slot.begin.num_seconds_from_midnight(),
+        end: time_slot.end.num_seconds_from_midnight(),
+    }
+}
+
+fn make_network_pt_object(
+    network_id: &str,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::PtObject, Error> {
+    if let Some(network) = model.network(network_id) {
+        let proto_network = make_network(network, model);
+
+        let mut proto = navitia_proto::PtObject {
+            name: network.name.clone(),
+            uri: network.id.clone(),
+            network: Some(proto_network),
+            ..Default::default()
+        };
+        proto.set_embedded_type(navitia_proto::NavitiaType::Network);
+        Ok(proto)
+    } else {
+        Err(format_err!(
+            "Network.id: {} not found in BaseModel",
+            network_id
+        ))
+    }
+}
+
+fn make_line_pt_object(
+    line_id: &str,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::PtObject, Error> {
+    if let Some(line) = model.line(line_id) {
+        let proto_line = make_line(line, model);
+
+        let proto = navitia_proto::PtObject {
+            embedded_type: Some(navitia_proto::NavitiaType::Line as i32),
+            name: line.name.clone(),
+            uri: line.id.clone(),
+            line: Some(proto_line),
+            ..Default::default()
+        };
+        Ok(proto)
+    } else {
+        Err(format_err!("Line.id: {} not found in BaseModel", line_id))
+    }
+}
+
+fn make_route_pt_object(
+    route_id: &str,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::PtObject, Error> {
+    if let Some(route) = model.route(route_id) {
+        let proto_route = make_route(route, model);
+
+        let proto = navitia_proto::PtObject {
+            embedded_type: Some(navitia_proto::NavitiaType::Route as i32),
+            name: route.name.clone(),
+            uri: route.id.clone(),
+            route: Some(Box::new(proto_route)),
+            ..Default::default()
+        };
+        Ok(proto)
+    } else {
+        Err(format_err!("Route.id: {} not found in BaseModel", route_id))
+    }
+}
+
+pub fn make_route(route: &Route, model: &ModelRefs) -> navitia_proto::Route {
+    navitia_proto::Route {
+        name: Some(route.name.clone()),
+        uri: Some(route.id.clone()),
+        codes: route.codes.iter().map(make_pt_object_code).collect(),
+        ..Default::default()
+    }
+}
+
+pub fn make_line(line: &Line, model: &ModelRefs) -> navitia_proto::Line {
+    navitia_proto::Line {
+        name: Some(line.name.clone()),
+        uri: Some(line.id.clone()),
+        code: line.code.clone(),
+        codes: line.codes.iter().map(make_pt_object_code).collect(),
+        color: line.color.as_ref().map(|color| format!("{}", color)),
+        text_color: line
+            .text_color
+            .as_ref()
+            .map(|text_color| format!("{}", text_color)),
+        commercial_mode: make_commercial_mode(&line.commercial_mode_id, model),
+        opening_time: line.opening_time.map(|t| t.total_seconds()),
+        closing_time: line.closing_time.map(|t| t.total_seconds()),
+        ..Default::default()
+    }
+}
+
+pub fn make_network(network: &Network, model: &ModelRefs) -> navitia_proto::Network {
+    navitia_proto::Network {
+        name: Some(network.name.clone()),
+        uri: Some(network.id.clone()),
+        codes: network.codes.iter().map(make_pt_object_code).collect(),
+        ..Default::default()
+    }
+}
+
+pub fn make_stop_area_pt_object(
+    id: &str,
+    model: &ModelRefs,
+) -> Result<navitia_proto::PtObject, Error> {
+    if let Some(stop_area) = model.stop_area(id) {
+        let proto_stop_area = make_stop_area_(&stop_area, model);
+
+        let proto = navitia_proto::PtObject {
+            embedded_type: Some(navitia_proto::NavitiaType::StopArea as i32),
+            name: stop_area.name.clone(),
+            uri: stop_area.id.clone(),
+            stop_area: Some(proto_stop_area),
+            ..Default::default()
+        };
+        Ok(proto)
+    } else {
+        Err(format_err!("StopArea.id: {} not found in BaseModel", id))
+    }
+}
+
+pub fn make_stop_area_(stop_area: &StopArea, model: &ModelRefs) -> navitia_proto::StopArea {
+    navitia_proto::StopArea {
+        name: Some(stop_area.name.clone()),
+        uri: Some(stop_area.id.clone()),
+        coord: Some(navitia_proto::GeographicalCoord {
+            lat: stop_area.coord.lat,
+            lon: stop_area.coord.lon,
+        }),
+        label: Some(stop_area.name.clone()),
+        codes: stop_area.codes.iter().map(make_pt_object_code).collect(),
+        timezone: stop_area.timezone.map(|timezone| timezone.to_string()),
+        ..Default::default()
+    }
+}
+
+pub fn make_line_section_impact(
+    line_section: &LineSectionDisruption,
+    model: &ModelRefs,
+) -> Result<navitia_proto::LineSectionImpact, Error> {
+    Ok(navitia_proto::LineSectionImpact {
+        from: make_stop_area_pt_object(&line_section.start_sa.id, model).ok(),
+        to: make_stop_area_pt_object(&line_section.stop_sa.id, model).ok(),
+        routes: line_section
+            .routes
+            .iter()
+            .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
+            .collect(),
+    })
+}
+
+pub fn make_rail_section_impact(
+    rail_section: &RailSectionDisruption,
+    model: &ModelRefs,
+) -> Result<navitia_proto::RailSectionImpact, Error> {
+    Ok(navitia_proto::RailSectionImpact {
+        from: make_stop_area_pt_object(&rail_section.start_id, model).ok(),
+        to: make_stop_area_pt_object(&rail_section.end_id, model).ok(),
+        routes: vec![],
+    })
+}
+
+pub fn make_pt_object_code(code: &(String, String)) -> navitia_proto::Code {
+    navitia_proto::Code {
+        r#type: code.0.clone(),
+        value: code.1.clone(),
+    }
+}
+
+pub fn make_commercial_mode(
+    commercial_mode_id: &str,
+    model: &ModelRefs,
+) -> Option<navitia_proto::CommercialMode> {
+    model
+        .commercial_mode(commercial_mode_id)
+        .map(|c| navitia_proto::CommercialMode {
+            uri: Some(c.id.clone()),
+            name: Some(c.name.clone()),
+        })
 }
