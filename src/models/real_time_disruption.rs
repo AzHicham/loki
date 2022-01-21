@@ -462,6 +462,7 @@ pub struct TripDisruption {
 
 #[derive(Debug, Clone)]
 pub struct LineSectionDisruption {
+    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,
@@ -471,10 +472,10 @@ pub struct LineSectionDisruption {
 #[derive(Debug, Clone)]
 pub struct RailSectionDisruption {
     pub id: String,
-    pub line_id: LineId,
-    pub start_id: StopAreaId,
-    pub end_id: StopAreaId,
-    pub route_id: RouteId,
+    pub line: LineId,
+    pub start: StopAreaId,
+    pub end: StopAreaId,
+    pub routes: Vec<RouteId>,
 }
 
 #[derive(Debug, Clone, Copy)]

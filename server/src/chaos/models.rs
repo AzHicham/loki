@@ -11,6 +11,10 @@ use diesel::{
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
 };
+use launch::loki::models::real_time_disruption::{
+    Impacted, Informed, LineId, LineSectionDisruption, NetworkId, RailSectionDisruption, RouteId,
+    StopAreaId, StopPointId,
+};
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
     models::real_time_disruption::{
@@ -374,6 +378,104 @@ impl ImpactMaker {
         row: &ChaosDisruption,
         impact: &mut Impact,
     ) -> Result<(), Error> {
+        let id = if let Some(id) = &row.ptobject_uri {
+            id.clone()
+        } else {
+            bail!("PtObject has no uri");
+        };
+        let impacted = &mut impact.impacted_pt_objects;
+        let informed = &mut impact.informed_pt_objects;
+
+        match (&row.ptobject_type, impact.severity.effect) {
+            (PtObjectType::Network, Effect::NoService) => {
+                impacted.push(Impacted::NetworkDeleted(NetworkId { id }));
+            }
+            (PtObjectType::Network, _) => {
+                informed.push(Informed::Network(NetworkId { id }));
+            }
+
+            (PtObjectType::Route, Effect::NoService) => {
+                impacted.push(Impacted::RouteDeleted(RouteId { id }));
+            }
+            (PtObjectType::Route, _) => {
+                informed.push(Informed::Route(RouteId { id }));
+            }
+
+            (PtObjectType::Line, Effect::NoService) => {
+                impacted.push(Impacted::LineDeleted(LineId { id }));
+            }
+            (PtObjectType::Line, _) => {
+                informed.push(Informed::Line(LineId { id }));
+            }
+
+            (PtObjectType::StopPoint, Effect::NoService) => {
+                impacted.push(Impacted::StopPointDeleted(StopPointId { id }));
+            }
+            (PtObjectType::StopPoint, _) => {
+                informed.push(Informed::StopPoint(StopPointId { id }));
+            }
+
+            (PtObjectType::StopArea, Effect::NoService) => {
+                impacted.push(Impacted::StopAreaDeleted(StopAreaId { id }));
+            }
+            (PtObjectType::StopArea, _) => {
+                informed.push(Informed::StopArea(StopAreaId { id }));
+            }
+
+            (PtObjectType::LineSection, _) => {
+                let line_id = if let Some(line_id) = &row.ls_line_uri {
+                    line_id.clone()
+                } else {
+                    bail!("PtObject has type line_section but the field line_id is empty");
+                };
+                let start = if let Some(start) = &row.ls_start_uri {
+                    start.clone()
+                } else {
+                    bail!("PtObject has type line_section but the field start is empty");
+                };
+                let end = if let Some(end) = &row.ls_end_uri {
+                    end.clone()
+                } else {
+                    bail!("PtObject has type line_section but the field end is empty");
+                };
+
+                let line_section = LineSectionDisruption {
+                    id,
+                    line: LineId { id: line_id },
+                    start: StopAreaId { id: start },
+                    end: StopAreaId { id: end },
+                    routes: vec![],
+                };
+                impacted.push(Impacted::LineSection(line_section));
+            }
+            (PtObjectType::RailSection, _) => {
+                let line_id = if let Some(line_id) = &row.rs_line_uri {
+                    line_id.clone()
+                } else {
+                    bail!("PtObject has type rail_section but the field line_id is empty");
+                };
+                let start = if let Some(start) = &row.rs_start_uri {
+                    start.clone()
+                } else {
+                    bail!("PtObject has type rail_section but the field start is empty");
+                };
+                let end = if let Some(end) = &row.rs_end_uri {
+                    end.clone()
+                } else {
+                    bail!("PtObject has type rail_section but the field end is empty");
+                };
+
+                let line_section = RailSectionDisruption {
+                    id,
+                    line: LineId { id: line_id },
+                    start: StopAreaId { id: start },
+                    end: StopAreaId { id: end },
+                    routes: vec![],
+                };
+                impacted.push(Impacted::RailSection(line_section));
+            }
+        };
+
         Ok(())
     }
 }

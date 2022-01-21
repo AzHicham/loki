@@ -45,6 +45,7 @@ use launch::loki::{
     },
     NaiveDateTime,
 };
+use protobuf::well_known_types::Type;
 
 pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
     let id = if proto.has_id() {
@@ -259,6 +260,7 @@ fn dispatch_pt_object(
             let end_stop_area = proto_line_section.get_end_point();
             let routes = proto_line_section.get_routes();
             let line_section = LineSectionDisruption {
+                id,
                 line: LineId {
                     id: line.get_uri().to_string(),
                 },
