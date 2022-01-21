@@ -73,6 +73,14 @@ pub struct DisruptionIdx {
     pub(super) idx: usize, // position in RealTimeModel.disruptions
 }
 
+impl DisruptionIdx {
+    // this here only to facilitate tests
+    // do not use elsewhere
+    pub fn new(idx: usize) -> Self {
+        Self { idx }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TripVersion {
     disruption_idx: DisruptionIdx,
