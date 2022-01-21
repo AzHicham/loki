@@ -76,6 +76,7 @@ pub fn handle_kirin_protobuf(
         updated_at: *header_datetime,
         cause: Cause::default(),
         tags: vec![],
+        properties: vec![],
         impacts: vec![make_impact(trip_update, disruption_id, header_datetime)?],
     };
 
