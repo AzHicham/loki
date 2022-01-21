@@ -1,16 +1,28 @@
 use crate::{
-    chaos::sql_types::{DisruptionStatus, ImpactStatus, PtObjectType},
+    chaos::sql_types::{
+        ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType,
+    },
+    info,
     server_config::ChaosParams,
 };
-use anyhow::Error;
+use anyhow::{format_err, private::format_err, Error};
 use diesel::{
     pg::types::sql_types::Array,
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
+    update,
 };
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
+    models::real_time_disruption::{
+        ApplicationPattern, ChannelType, DateTimePeriod, Disruption, DisruptionProperty, Effect,
+        Impact, Message, Severity, Tag, TimeSlot,
+    },
     NaiveDateTime,
+};
+use std::collections::{
+    hash_map::Entry::{Occupied, Vacant},
+    HashMap, HashSet,
 };
 use uuid::Uuid as Uid;
 
@@ -21,6 +33,7 @@ pub fn chaos_disruption_from_database(
 ) -> Result<(), Error> {
     let connection = PgConnection::establish(&config.chaos_database)?;
 
+    info!("Querying chaos database");
     let res = diesel::sql_query(include_str!("query.sql"))
         .bind::<Date, _>(publication_period.1)
         .bind::<Date, _>(publication_period.0)
@@ -30,12 +43,286 @@ pub fn chaos_disruption_from_database(
         .bind::<Int4, _>(config.chaos_batch_size as i32)
         .load::<ChaosDisruption>(&connection);
 
+    let mut disruption_maker = DisruptionMaker::default();
+
     if let Err(ref err) = res {
-        println!("{}", err.to_string());
+        println!("{}", err);
     }
-    println!("{:?}", res);
+
+    info!("Converting database rows into Disruption");
+    for row in res.unwrap() {
+        print!(".");
+        if let Err(ref err) = disruption_maker.read_disruption(&row) {
+            println!("\n{}", err);
+        }
+    }
+    info!("\nDisruptions ready to be applied");
 
     Ok(())
+}
+
+#[derive(Default)]
+struct DisruptionMaker {
+    pub(crate) disruptions: Vec<Disruption>,
+    pub(crate) disruptions_set: HashMap<Uid, usize>,
+    pub(crate) impacts_set: HashMap<Uid, usize>,
+    pub(crate) tags_set: HashSet<Uid>,
+    pub(crate) properties_set: HashSet<(String, String, String)>,
+
+    pub(crate) impact_object_set: ImpactMaker,
+}
+
+impl DisruptionMaker {
+    pub fn read_disruption(&mut self, row: &ChaosDisruption) -> Result<(), Error> {
+        let find_disruption = self.disruptions_set.entry(row.disruption_id);
+        let disruption = match find_disruption {
+            Vacant(entry) => {
+                let publication_period = if let (Some(start), Some(end)) = (
+                    row.disruption_start_publication_date,
+                    row.disruption_end_publication_date,
+                ) {
+                    DateTimePeriod::new(start, end)?
+                } else {
+                    return Err(format_err!(""));
+                };
+                let disruption = Disruption {
+                    id: row.disruption_id.to_string(),
+                    reference: row.disruption_reference.clone(),
+                    contributor: Some(row.contributor.clone()),
+                    publication_period,
+                    created_at: None,
+                    updated_at: None,
+                    cause: Default::default(),
+                    tags: vec![],
+                    properties: vec![],
+                    impacts: vec![],
+                };
+                // clear all set related to disruption
+                self.impacts_set.clear();
+                self.tags_set.clear();
+                self.properties_set.clear();
+                self.impact_object_set.clear();
+                self.disruptions.push(disruption);
+                let idx: usize = self.disruptions.len() - 1;
+                entry.insert(idx);
+                self.disruptions.last_mut().unwrap()
+            }
+            Occupied(entry) => self.disruptions.get_mut(*entry.get()).unwrap(),
+        };
+        DisruptionMaker::update_tags(&mut self.tags_set, row, disruption)?;
+        DisruptionMaker::update_properties(&mut self.properties_set, row, disruption)?;
+        DisruptionMaker::update_impacts(
+            &mut self.impact_object_set,
+            &mut self.impacts_set,
+            row,
+            disruption,
+        )?;
+        Ok(())
+    }
+
+    fn update_tags(
+        tags_set: &mut HashSet<Uid>,
+        row: &ChaosDisruption,
+        disruption: &mut Disruption,
+    ) -> Result<(), Error> {
+        if let Some(tag_id) = row.tag_id {
+            if !tags_set.contains(&tag_id) {
+                disruption.tags.push(Tag {
+                    id: tag_id.to_string(),
+                    name: row.tag_name.clone().unwrap_or_default(),
+                });
+                tags_set.insert(tag_id);
+            }
+        }
+        Ok(())
+    }
+
+    fn update_properties(
+        properties_set: &mut HashSet<(String, String, String)>,
+        row: &ChaosDisruption,
+        disruption: &mut Disruption,
+    ) -> Result<(), Error> {
+        if let (Some(type_), Some(key), Some(value)) = (
+            row.property_type.clone(),
+            row.property_key.clone(),
+            row.property_value.clone(),
+        ) {
+            let tuple = (type_.clone(), key.clone(), value.clone());
+            if !properties_set.contains(&tuple) {
+                disruption
+                    .properties
+                    .push(DisruptionProperty { key, type_, value });
+                properties_set.insert(tuple);
+            }
+        }
+        Ok(())
+    }
+
+    fn update_impacts(
+        impact_object_set: &mut ImpactMaker,
+        impacts_set: &mut HashMap<Uid, usize>,
+        row: &ChaosDisruption,
+        disruption: &mut Disruption,
+    ) -> Result<(), Error> {
+        let impact = if let Some(idx) = impacts_set.get(&row.impact_id) {
+            // Impact already in disruption
+            disruption.impacts.get_mut(*idx).unwrap()
+        } else {
+            // Or create a new impact We must then clear all sub-objects of impact
+            impact_object_set.clear();
+
+            let impact = Impact {
+                id: row.impact_id.to_string(),
+                created_at: None,
+                updated_at: None,
+                application_periods: vec![],
+                application_patterns: vec![],
+                severity: Severity {
+                    id: row.severity_id.to_string(),
+                    wording: Some(row.severity_wording.clone()),
+                    color: row.severity_color.clone(),
+                    priority: Some(row.severity_priority),
+                    effect: Effect::NoService,
+                    created_at: None,
+                    updated_at: None,
+                },
+                messages: vec![],
+                impacted_pt_objects: vec![],
+                informed_pt_objects: vec![],
+            };
+
+            disruption.impacts.push(impact);
+            let idx: usize = disruption.impacts.len() - 1;
+            impacts_set.insert(row.impact_id, idx);
+            disruption.impacts.last_mut().unwrap()
+        };
+
+        ImpactMaker::update_application_period(
+            &mut impact_object_set.application_periods_set,
+            row,
+            impact,
+        )?;
+        ImpactMaker::update_messages(&mut impact_object_set.messages_set, row, impact)?;
+        ImpactMaker::update_application_pattern(
+            &mut impact_object_set.application_pattern_set,
+            row,
+            impact,
+        )?;
+        ImpactMaker::update_pt_objects(&mut impact_object_set.pt_objects_set, row, impact)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct ImpactMaker {
+    pub(crate) application_periods_set: HashSet<Uid>,
+    pub(crate) application_pattern_set: HashSet<Uid>,
+    pub(crate) messages_set: HashSet<Uid>,
+    pub(crate) pt_objects_set: HashSet<Uid>,
+}
+
+impl ImpactMaker {
+    fn clear(&mut self) {
+        self.application_periods_set.clear();
+        self.application_pattern_set.clear();
+        self.messages_set.clear();
+        self.pt_objects_set.clear();
+    }
+
+    fn update_application_period(
+        application_periods_set: &mut HashSet<Uid>,
+        row: &ChaosDisruption,
+        impact: &mut Impact,
+    ) -> Result<(), Error> {
+        if !application_periods_set.contains(&row.application_id) {
+            let start = row.application_start_date;
+            let end = row.application_end_date;
+            if let (Some(start), Some(end)) = (start, end) {
+                impact
+                    .application_periods
+                    .push(DateTimePeriod::new(start, end)?);
+            } else {
+                return Err(format_err!("Application Period not set"));
+            }
+        }
+        Ok(())
+    }
+
+    fn update_messages(
+        messages_set: &mut HashSet<Uid>,
+        row: &ChaosDisruption,
+        impact: &mut Impact,
+    ) -> Result<(), Error> {
+        if let Some(message_id) = row.message_id {
+            if !messages_set.contains(&message_id) {
+                impact.messages.push(Message {
+                    text: row.message_text.clone().unwrap_or_default(),
+                    channel_id: row.channel_id.unwrap_or_default().to_string(),
+                    channel_name: row.channel_name.clone().unwrap_or_default(),
+                    channel_content_type: row.channel_content_type.clone().unwrap_or_default(),
+                    channel_types: row
+                        .channel_type
+                        .iter()
+                        .filter_map(|c| c.as_ref().map(ImpactMaker::make_channel_type))
+                        .collect(),
+                })
+            }
+        }
+        Ok(())
+    }
+
+    fn make_channel_type(channel_type: &ChannelTypeSQL) -> ChannelType {
+        match channel_type {
+            ChannelTypeSQL::Title => ChannelType::Title,
+            ChannelTypeSQL::Beacon => ChannelType::Beacon,
+            ChannelTypeSQL::Twitter => ChannelType::Twitter,
+            ChannelTypeSQL::Notification => ChannelType::Notification,
+            ChannelTypeSQL::Sms => ChannelType::Sms,
+            ChannelTypeSQL::Facebook => ChannelType::Facebook,
+            ChannelTypeSQL::Email => ChannelType::Email,
+            ChannelTypeSQL::Mobile => ChannelType::Mobile,
+            ChannelTypeSQL::Web => ChannelType::Web,
+        }
+    }
+
+    fn update_application_pattern(
+        application_pattern_set: &mut HashSet<Uid>,
+        row: &ChaosDisruption,
+        impact: &mut Impact,
+    ) -> Result<(), Error> {
+        if let Some(pattern_id) = row.pattern_id {
+            if !application_pattern_set.contains(&pattern_id) {
+                let begin = row.pattern_start_date;
+                let end = row.pattern_end_date;
+                let time_slots = row
+                    .time_slot_begin
+                    .iter()
+                    .filter_map(|begin| *begin)
+                    .zip(row.time_slot_end.iter().filter_map(|end| *end))
+                    .map(|(begin, end)| TimeSlot { begin, end })
+                    .collect();
+                if let (Some(begin_date), Some(end_date)) = (begin, end) {
+                    impact.application_patterns.push(ApplicationPattern {
+                        begin_date,
+                        end_date,
+                        time_slots,
+                    })
+                } else {
+                    return Err(format_err!("Application Period not set"));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn update_pt_objects(
+        pt_object_set: &mut HashSet<Uid>,
+        row: &ChaosDisruption,
+        impact: &mut Impact,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 // Remove ChaosDisruption when PR https://github.com/diesel-rs/diesel/pull/2254 is merged
@@ -210,10 +497,10 @@ pub struct ChaosDisruption {
     pub channel_created_at: Option<NaiveDateTime>,
     #[sql_type = "Nullable<Timestamp>"]
     pub channel_updated_at: Option<NaiveDateTime>,
-    #[sql_type = "Nullable<Uuid>"]
-    pub channel_type_id: Option<Uid>,
-    #[sql_type = "Nullable<Text>"]
-    pub channel_type: Option<String>,
+    // #[sql_type = "Nullable<Uuid>"]
+    //  pub channel_type_id: Option<Uid>,
+    #[sql_type = "Array<Nullable<crate::chaos::sql_types::channel_type_enum>>"]
+    pub channel_type: Vec<Option<ChannelTypeSQL>>,
     //  Property & Associate property fields
     #[sql_type = "Nullable<Text>"]
     pub property_value: Option<String>,
@@ -230,10 +517,10 @@ pub struct ChaosDisruption {
     pub pattern_weekly_pattern: Option<Vec<u8>>,
     #[sql_type = "Nullable<Uuid>"]
     pub pattern_id: Option<Uid>,
-    #[sql_type = "Nullable<Time>"]
-    pub time_slot_begin: Option<NaiveTime>,
-    #[sql_type = "Nullable<Time>"]
-    pub time_slot_end: Option<NaiveTime>,
-    #[sql_type = "Nullable<Uuid>"]
-    pub time_slot_id: Option<Uid>,
+    #[sql_type = "Array<Nullable<Time>>"]
+    pub time_slot_begin: Vec<Option<NaiveTime>>,
+    #[sql_type = "Array<Nullable<Time>>"]
+    pub time_slot_end: Vec<Option<NaiveTime>>,
+    // #[sql_type = "Nullable<Uuid>"]
+    //pub time_slot_id: Option<Uid>,
 }
