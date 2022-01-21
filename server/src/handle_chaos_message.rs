@@ -35,25 +35,18 @@
 // www.navitia.io
 
 use crate::chaos_proto::{self};
-use anyhow::{bail, format_err, Context, Error};
+use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
-        Effect, Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
-        NetworkDisruption, PtObjectType, RouteDisruption, Severity, StopAreaDisruption,
-        StopPointDisruption, Tag, TimeSlot, TripDisruption,
+        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact,
+        Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId, RouteId, Severity,
+        StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
 };
 
-pub fn handle_chaos_protobuf(
-    chaos_disruption: &chaos_proto::chaos::Disruption,
-) -> Result<Disruption, Error> {
-    make_disruption(chaos_disruption)
-}
-
-fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
+pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
     let id = if proto.has_id() {
         proto.get_id().to_string()
     } else {
@@ -173,12 +166,13 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
     let mut informed_pt_objects = vec![];
 
     for entity in proto.get_informed_entities() {
-        let entity = make_pt_object(entity, effect)?;
-        if let PtObjectType::Impacted(p) = entity {
-            impacted_pt_objects.push(p);
-        } else if let PtObjectType::Informed(p) = entity {
-            informed_pt_objects.push(p);
-        }
+        dispatch_pt_object(
+            entity,
+            &effect,
+            &mut impacted_pt_objects,
+            &mut informed_pt_objects,
+        )
+        .context("Failed to handle an informed entity")?;
     }
 
     Ok(Impact {
@@ -194,11 +188,14 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
     })
 }
 
-fn make_pt_object(
+fn dispatch_pt_object(
     proto: &chaos_proto::chaos::PtObject,
-    effect: Effect,
-) -> Result<PtObjectType, Error> {
-    use chaos_proto::chaos::PtObject_Type;
+    effect: &Effect,
+    impacted: &mut Vec<Impacted>,
+    informed: &mut Vec<Informed>,
+) -> Result<(), Error> {
+    use chaos_proto::chaos::PtObject_Type as Type;
+
     let id = if proto.has_uri() {
         proto.get_uri().to_string()
     } else {
@@ -210,85 +207,85 @@ fn make_pt_object(
         bail!("PtObject has no pt_object_type");
     };
 
-    let pt_object = match pt_object_type {
-        PtObject_Type::network => match effect {
-            Effect::NoService => {
-                PtObjectType::Impacted(Impacted::NetworkDeleted(NetworkDisruption { id }))
+    match (pt_object_type, effect) {
+        (Type::network, Effect::NoService) => {
+            impacted.push(Impacted::NetworkDeleted(NetworkId { id }));
+        }
+        (Type::network, _) => {
+            informed.push(Informed::Network(NetworkId { id }));
+        }
+
+        (Type::route, Effect::NoService) => {
+            impacted.push(Impacted::RouteDeleted(RouteId { id }));
+        }
+        (Type::route, _) => {
+            informed.push(Informed::Route(RouteId { id }));
+        }
+
+        (Type::line, Effect::NoService) => {
+            impacted.push(Impacted::LineDeleted(LineId { id }));
+        }
+        (Type::line, _) => {
+            informed.push(Informed::Line(LineId { id }));
+        }
+
+        (Type::stop_point, Effect::NoService) => {
+            impacted.push(Impacted::StopPointDeleted(StopPointId { id }));
+        }
+        (Type::stop_point, _) => {
+            informed.push(Informed::StopPoint(StopPointId { id }));
+        }
+
+        (Type::stop_area, Effect::NoService) => {
+            impacted.push(Impacted::StopAreaDeleted(StopAreaId { id }));
+        }
+        (Type::stop_area, _) => {
+            informed.push(Informed::StopArea(StopAreaId { id }));
+        }
+
+        (Type::trip, Effect::NoService) => {
+            impacted.push(Impacted::TripDeleted(VehicleJourneyId { id }));
+        }
+        (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId { id })),
+
+        (Type::line_section, _) => {
+            if !proto.has_pt_line_section() {
+                bail!("PtObject has type line_section but the field pt_line_section is empty");
             }
-            _ => PtObjectType::Informed(Informed::Network(NetworkDisruption { id })),
-        },
-        PtObject_Type::line => match effect {
-            Effect::NoService => {
-                PtObjectType::Impacted(Impacted::LineDeleted(LineDisruption { id }))
-            }
-            _ => PtObjectType::Informed(Informed::Line(LineDisruption { id })),
-        },
-        PtObject_Type::route => match effect {
-            Effect::NoService => {
-                PtObjectType::Impacted(Impacted::RouteDeleted(RouteDisruption { id }))
-            }
-            _ => PtObjectType::Informed(Informed::Route(RouteDisruption { id })),
-        },
-        PtObject_Type::trip => match effect {
-            Effect::NoService => PtObjectType::Impacted(Impacted::TripDeleted(TripDisruption {
-                id,
-                stop_times: vec![],
-                company_id: None,
-                physical_mode_id: None,
-                headsign: None,
-            })),
-            _ => PtObjectType::Informed(Informed::Trip(TripDisruption {
-                id,
-                stop_times: vec![],
-                company_id: None,
-                physical_mode_id: None,
-                headsign: None,
-            })),
-        },
-        PtObject_Type::stop_point => match effect {
-            Effect::NoService => {
-                PtObjectType::Impacted(Impacted::StopPointDeleted(StopPointDisruption { id }))
-            }
-            _ => PtObjectType::Informed(Informed::StopPoint(StopPointDisruption { id })),
-        },
-        PtObject_Type::stop_area => match effect {
-            Effect::NoService => {
-                PtObjectType::Impacted(Impacted::StopAreaDeleted(StopAreaDisruption { id }))
-            }
-            _ => PtObjectType::Informed(Informed::StopArea(StopAreaDisruption { id })),
-        },
-        PtObject_Type::line_section => {
-            let ls = proto.get_pt_line_section();
-            let line = ls.get_line();
-            let start = ls.get_start_point();
-            let end = ls.get_end_point();
-            let routes = ls.get_routes();
+            let proto_line_section = proto.get_pt_line_section();
+
+            let line = proto_line_section.get_line();
+            let start_stop_area = proto_line_section.get_start_point();
+            let end_stop_area = proto_line_section.get_end_point();
+            let routes = proto_line_section.get_routes();
             let line_section = LineSectionDisruption {
-                line: LineDisruption {
+                line: LineId {
                     id: line.get_uri().to_string(),
                 },
-                start_sa: StopAreaDisruption {
-                    id: start.get_uri().to_string(),
+                start: StopAreaId {
+                    id: start_stop_area.get_uri().to_string(),
                 },
-                stop_sa: StopAreaDisruption {
-                    id: end.get_uri().to_string(),
+                end: StopAreaId {
+                    id: end_stop_area.get_uri().to_string(),
                 },
                 routes: routes
                     .iter()
-                    .map(|r| RouteDisruption {
+                    .map(|r| RouteId {
                         id: r.get_uri().to_string(),
                     })
                     .collect(),
             };
-            match effect {
-                Effect::NoService => PtObjectType::Impacted(Impacted::LineSection(line_section)),
-                _ => return Err(format_err!("Not handled entity")),
-            }
+            impacted.push(Impacted::LineSection(line_section));
         }
-        PtObject_Type::rail_section => return Err(format_err!("Not handled entity")),
-        PtObject_Type::unkown_type => return Err(format_err!("Unknown entity")),
+        (Type::rail_section, _) => {
+            bail!("RailSection is not handled");
+        }
+        (Type::unkown_type, _) => {
+            bail!("PtObject with type unknown_type");
+        }
     };
-    Ok(pt_object)
+
+    Ok(())
 }
 
 fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error> {
@@ -554,4 +551,9 @@ fn make_property(
 pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
     let timestamp = i64::try_from(timestamp)?;
     Ok(NaiveDateTime::from_timestamp(timestamp, 0))
+}
+
+pub enum PtObject {
+    Impacted(Impacted),
+    Informed(Informed),
 }

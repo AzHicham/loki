@@ -30,7 +30,6 @@
 pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
-use crate::Utc;
 use chaos_proto::gtfs_realtime as kirin_proto;
 use launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::Message;
