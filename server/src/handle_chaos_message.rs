@@ -36,13 +36,12 @@
 
 use crate::chaos_proto::{self};
 use anyhow::{bail, Context, Error};
-use launch::loki::models::real_time_disruption::DisruptionProperty;
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact,
-        Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId, RouteId, Severity,
-        StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
+        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
+        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
+        RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
 };
@@ -444,9 +443,9 @@ fn make_message(proto: &chaos_proto::chaos::Message) -> Result<Message, Error> {
 
     let result = Message {
         text,
-        channel_id: channel.get_id().to_string(),
+        channel_id: Some(channel.get_id().to_string()),
         channel_name: channel.get_name().to_string(),
-        channel_content_type: channel.get_content_type().to_string(),
+        channel_content_type: Some(channel.get_content_type().to_string()),
         channel_types: channel.get_types().iter().map(make_channel_type).collect(),
     };
     Ok(result)

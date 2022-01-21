@@ -1,17 +1,15 @@
-use crate::chaos::sql_types::SeverityEffect;
 use crate::{
     chaos::sql_types::{
-        ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType,
+        ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType, SeverityEffect,
     },
     info,
     server_config::ChaosParams,
 };
-use anyhow::{bail, format_err, private::format_err, Error};
+use anyhow::{bail, format_err, Error};
 use diesel::{
     pg::types::sql_types::Array,
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
-    update,
 };
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
@@ -127,10 +125,15 @@ impl DisruptionMaker {
         disruption: &mut Disruption,
     ) -> Result<(), Error> {
         if let Some(tag_id) = row.tag_id {
+            let name = if let Some(name) = &row.tag_name {
+                name
+            } else {
+                bail!("Tag has no name");
+            };
             if !tags_set.contains(&tag_id) {
                 disruption.tags.push(Tag {
                     id: tag_id.to_string(),
-                    name: row.tag_name.clone().unwrap_or_default(),
+                    name: name.clone(),
                 });
                 tags_set.insert(tag_id);
             }
@@ -143,16 +146,25 @@ impl DisruptionMaker {
         row: &ChaosDisruption,
         disruption: &mut Disruption,
     ) -> Result<(), Error> {
-        if let (Some(type_), Some(key), Some(value)) = (
-            row.property_type.clone(),
-            row.property_key.clone(),
-            row.property_value.clone(),
-        ) {
+        // type_ is here like an Uuid
+        if let Some(type_) = &row.property_type {
+            let key = if let Some(key) = &row.property_key {
+                key
+            } else {
+                bail!("Property has no key");
+            };
+            let value = if let Some(value) = &row.property_value {
+                value
+            } else {
+                bail!("Property has no value");
+            };
             let tuple = (type_.clone(), key.clone(), value.clone());
             if !properties_set.contains(&tuple) {
-                disruption
-                    .properties
-                    .push(DisruptionProperty { key, type_, value });
+                disruption.properties.push(DisruptionProperty {
+                    key: key.clone(),
+                    type_: type_.clone(),
+                    value: value.clone(),
+                });
                 properties_set.insert(tuple);
             }
         }
@@ -187,7 +199,7 @@ impl DisruptionMaker {
                         .severity_effect
                         .as_ref()
                         .map_or(Effect::UnknownEffect, |e| {
-                            DisruptionMaker::make_severity_effect(&e)
+                            DisruptionMaker::make_severity_effect(e)
                         }),
                     created_at: None,
                     updated_at: None,
@@ -279,12 +291,22 @@ impl ImpactMaker {
         impact: &mut Impact,
     ) -> Result<(), Error> {
         if let Some(message_id) = row.message_id {
+            let text = if let Some(text) = &row.message_text {
+                text
+            } else {
+                bail!("Message has no text");
+            };
+            let channel_name = if let Some(channel_name) = &row.channel_name {
+                channel_name
+            } else {
+                bail!("Message has no channel_name");
+            };
             if !messages_set.contains(&message_id) {
                 impact.messages.push(Message {
-                    text: row.message_text.clone().unwrap_or_default(),
-                    channel_id: row.channel_id.unwrap_or_default().to_string(),
-                    channel_name: row.channel_name.clone().unwrap_or_default(),
-                    channel_content_type: row.channel_content_type.clone().unwrap_or_default(),
+                    text: text.clone(),
+                    channel_id: row.channel_id.map(|channel_id| channel_id.to_string()),
+                    channel_name: channel_name.clone(),
+                    channel_content_type: row.channel_content_type.clone(),
                     channel_types: row
                         .channel_type
                         .iter()
@@ -329,6 +351,7 @@ impl ImpactMaker {
                 };
 
                 // time_slot_begin && time_slot_end have always the same size
+                // thanks to the sql query
                 let time_slots = row
                     .time_slot_begin
                     .iter()
@@ -341,8 +364,6 @@ impl ImpactMaker {
                     end_date,
                     time_slots,
                 })
-            } else {
-                return Err(format_err!("Application Period not set"));
             }
         }
         Ok(())

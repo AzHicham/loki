@@ -362,9 +362,9 @@ pub struct Severity {
 #[derive(Debug, Clone)]
 pub struct Message {
     pub text: String,
-    pub channel_id: String,
+    pub channel_id: Option<String>,
     pub channel_name: String,
-    pub channel_content_type: String,
+    pub channel_content_type: Option<String>,
     pub channel_types: Vec<ChannelType>,
 }
 
