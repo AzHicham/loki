@@ -80,6 +80,7 @@ pub struct Disruption {
     pub cause: Cause,
     // localization ??
     pub tags: Vec<Tag>,
+    pub properties: Vec<DisruptionProperty>,
     pub impacts: Vec<Impact>,
 }
 
@@ -318,6 +319,13 @@ pub struct Cause {
     pub id: String,
     pub wording: String,
     pub category: String,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct DisruptionProperty {
+    pub key: String,
+    pub type_: String,
+    pub value: String,
 }
 
 #[derive(Default, Debug, Clone)]

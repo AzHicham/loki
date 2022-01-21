@@ -39,10 +39,10 @@ use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact,
-        Impacted, Informed, LineDisruption, LineSectionDisruption, Message, NetworkDisruption,
-        PtObjectType, RouteDisruption, Severity, StopAreaDisruption, StopPointDisruption, Tag,
-        TimeSlot, TripDisruption,
+        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
+        Effect, Impact, Impacted, Informed, LineDisruption, LineSectionDisruption, Message,
+        NetworkDisruption, PtObjectType, RouteDisruption, Severity, StopAreaDisruption,
+        StopPointDisruption, Tag, TimeSlot, TripDisruption,
     },
     NaiveDateTime,
 };
@@ -114,6 +114,8 @@ fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption,
         None
     };
 
+    let properties = make_properties(proto.get_properties())?;
+
     Ok(Disruption {
         id,
         reference,
@@ -122,6 +124,7 @@ fn make_disruption(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption,
         updated_at,
         cause,
         tags,
+        properties,
         impacts,
         contributor,
     })
@@ -509,6 +512,43 @@ fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> TimeSlot {
         begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
         end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
     }
+}
+
+fn make_properties(
+    proto_properties: &[chaos_proto::chaos::DisruptionProperty],
+) -> Result<Vec<DisruptionProperty>, Error> {
+    let mut result = Vec::with_capacity(proto_properties.len());
+    for (idx, proto_property) in proto_properties.iter().enumerate() {
+        let property = make_property(proto_property)
+            .with_context(|| format!("Could not convert {}-th DisruptionProperty", idx))?;
+        result.push(property);
+    }
+    Ok(result)
+}
+
+fn make_property(
+    proto: &chaos_proto::chaos::DisruptionProperty,
+) -> Result<DisruptionProperty, Error> {
+    let key = if proto.has_key() {
+        proto.get_key()
+    } else {
+        bail!("DisruptionProperty has no key");
+    };
+    let value = if proto.has_value() {
+        proto.get_value()
+    } else {
+        bail!("DisruptionProperty has no value");
+    };
+    let type_ = if proto.has_field_type() {
+        proto.get_field_type()
+    } else {
+        bail!("DisruptionProperty has no type_");
+    };
+    Ok(DisruptionProperty {
+        key: key.to_string(),
+        type_: type_.to_string(),
+        value: value.to_string(),
+    })
 }
 
 pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
