@@ -1,3 +1,4 @@
+use crate::chaos::sql_types::SeverityEffect;
 use crate::{
     chaos::sql_types::{
         ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType,
@@ -5,7 +6,7 @@ use crate::{
     info,
     server_config::ChaosParams,
 };
-use anyhow::{format_err, private::format_err, Error};
+use anyhow::{bail, format_err, private::format_err, Error};
 use diesel::{
     pg::types::sql_types::Array,
     prelude::*,
@@ -182,7 +183,12 @@ impl DisruptionMaker {
                     wording: Some(row.severity_wording.clone()),
                     color: row.severity_color.clone(),
                     priority: Some(row.severity_priority),
-                    effect: Effect::NoService,
+                    effect: row
+                        .severity_effect
+                        .as_ref()
+                        .map_or(Effect::UnknownEffect, |e| {
+                            DisruptionMaker::make_severity_effect(&e)
+                        }),
                     created_at: None,
                     updated_at: None,
                 },
@@ -212,6 +218,20 @@ impl DisruptionMaker {
 
         Ok(())
     }
+
+    fn make_severity_effect(effect: &SeverityEffect) -> Effect {
+        match effect {
+            SeverityEffect::NoService => Effect::NoService,
+            SeverityEffect::OtherEffect => Effect::OtherEffect,
+            SeverityEffect::ModifiedService => Effect::ModifiedService,
+            SeverityEffect::AdditionalService => Effect::AdditionalService,
+            SeverityEffect::StopMoved => Effect::StopMoved,
+            SeverityEffect::SignificantDelays => Effect::SignificantDelays,
+            SeverityEffect::ReducedService => Effect::ReducedService,
+            SeverityEffect::UnknownEffect => Effect::UnknownEffect,
+            SeverityEffect::Detour => Effect::Detour,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -236,15 +256,19 @@ impl ImpactMaker {
         impact: &mut Impact,
     ) -> Result<(), Error> {
         if !application_periods_set.contains(&row.application_id) {
-            let start = row.application_start_date;
-            let end = row.application_end_date;
-            if let (Some(start), Some(end)) = (start, end) {
-                impact
-                    .application_periods
-                    .push(DateTimePeriod::new(start, end)?);
+            let start_date = if let Some(start_date) = row.application_start_date {
+                start_date
             } else {
-                return Err(format_err!("Application Period not set"));
-            }
+                bail!("ApplicationPeriod has no start_date");
+            };
+            let end_date = if let Some(end_date) = row.application_end_date {
+                end_date
+            } else {
+                bail!("ApplicationPeriod has no start_date");
+            };
+            impact
+                .application_periods
+                .push(DateTimePeriod::new(start_date, end_date)?);
         }
         Ok(())
     }
@@ -293,8 +317,18 @@ impl ImpactMaker {
     ) -> Result<(), Error> {
         if let Some(pattern_id) = row.pattern_id {
             if !application_pattern_set.contains(&pattern_id) {
-                let begin = row.pattern_start_date;
-                let end = row.pattern_end_date;
+                let begin_date = if let Some(begin_date) = row.pattern_start_date {
+                    begin_date
+                } else {
+                    bail!("Pattern has no start_date");
+                };
+                let end_date = if let Some(end_date) = row.pattern_end_date {
+                    end_date
+                } else {
+                    bail!("Pattern has no end_date");
+                };
+
+                // time_slot_begin && time_slot_end have always the same size
                 let time_slots = row
                     .time_slot_begin
                     .iter()
@@ -302,15 +336,13 @@ impl ImpactMaker {
                     .zip(row.time_slot_end.iter().filter_map(|end| *end))
                     .map(|(begin, end)| TimeSlot { begin, end })
                     .collect();
-                if let (Some(begin_date), Some(end_date)) = (begin, end) {
-                    impact.application_patterns.push(ApplicationPattern {
-                        begin_date,
-                        end_date,
-                        time_slots,
-                    })
-                } else {
-                    return Err(format_err!("Application Period not set"));
-                }
+                impact.application_patterns.push(ApplicationPattern {
+                    begin_date,
+                    end_date,
+                    time_slots,
+                })
+            } else {
+                return Err(format_err!("Application Period not set"));
             }
         }
         Ok(())
@@ -406,6 +438,8 @@ pub struct ChaosDisruption {
     pub severity_is_visible: bool,
     #[sql_type = "Int4"]
     pub severity_priority: i32,
+    #[sql_type = "Nullable<crate::chaos::sql_types::severity_effect>"]
+    pub severity_effect: Option<SeverityEffect>,
     #[sql_type = "Timestamp"]
     pub severity_created_at: NaiveDateTime,
     #[sql_type = "Nullable<Timestamp>"]

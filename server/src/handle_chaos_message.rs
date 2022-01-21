@@ -36,6 +36,7 @@
 
 use crate::chaos_proto::{self};
 use anyhow::{bail, Context, Error};
+use launch::loki::models::real_time_disruption::DisruptionProperty;
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
@@ -397,7 +398,7 @@ fn make_datetime_period(
             end_timestamp
         )
     })?;
-    DateTimePeriod::new(start, end).map_err(|err| Error::from(err))
+    DateTimePeriod::new(start, end).map_err(Error::from)
 }
 
 fn make_periods(
