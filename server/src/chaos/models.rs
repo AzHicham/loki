@@ -11,17 +11,15 @@ use diesel::{
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
 };
-use launch::loki::models::real_time_disruption::{
-    BlockedStopArea, Impacted, Informed, LineId, LineSectionDisruption, NetworkId,
-    RailSectionDisruption, RouteId, StopAreaId, StopPointId,
-};
-use launch::loki::tracing::error;
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
     models::real_time_disruption::{
-        ApplicationPattern, ChannelType, DateTimePeriod, Disruption, DisruptionProperty, Effect,
-        Impact, Message, Severity, Tag, TimeSlot,
+        ApplicationPattern, BlockedStopArea, ChannelType, DateTimePeriod, Disruption,
+        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
+        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
+        TimeSlot,
     },
+    tracing::error,
     NaiveDateTime,
 };
 use std::collections::{
@@ -30,32 +28,43 @@ use std::collections::{
 };
 use uuid::Uuid as Uid;
 
-pub fn chaos_disruption_from_database(
+pub fn read_chaos_disruption_from_database(
     config: &ChaosParams,
     publication_period: (NaiveDate, NaiveDate),
     contributors: &[String],
 ) -> Result<Vec<Disruption>, Error> {
     let connection = PgConnection::establish(&config.chaos_database)?;
 
-    info!("Querying chaos database");
-    let res = diesel::sql_query(include_str!("query.sql"))
-        .bind::<Date, _>(publication_period.1)
-        .bind::<Date, _>(publication_period.0)
-        .bind::<Date, _>(publication_period.1)
-        .bind::<Array<Text>, _>(contributors)
-        .bind::<Int4, _>(config.chaos_batch_size as i32)
-        .bind::<Int4, _>(config.chaos_batch_size as i32)
-        .load::<ChaosDisruption>(&connection);
-
     let mut disruption_maker = DisruptionMaker::default();
 
-    info!("Converting database rows into Disruption");
+    let mut offset_query = 0;
 
-    for row in res? {
-        if let Err(ref err) = disruption_maker.read_disruption(&row) {
-            error!("{}", err);
+    loop {
+        info!("Querying chaos database");
+        let res = diesel::sql_query(include_str!("query.sql"))
+            .bind::<Date, _>(publication_period.1)
+            .bind::<Date, _>(publication_period.0)
+            .bind::<Date, _>(publication_period.1)
+            .bind::<Array<Text>, _>(contributors)
+            .bind::<Int4, _>(config.chaos_batch_size as i32)
+            .bind::<Int4, _>(offset_query as i32)
+            .load::<ChaosDisruption>(&connection);
+        // Increment offset in query
+        offset_query += config.chaos_batch_size;
+
+        let rows = res?;
+        if rows.is_empty() {
+            break;
+        }
+
+        info!("Converting database rows into Disruption");
+        for row in rows {
+            if let Err(ref err) = disruption_maker.read_disruption(&row) {
+                error!("{}", err);
+            }
         }
     }
+
     info!("Disruptions ready to be applied");
 
     Ok(disruption_maker.disruptions)

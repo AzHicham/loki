@@ -155,7 +155,7 @@ impl DataWorker {
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
         if let Err(err) = self.load_chaos_database().await {
-            error!("Error : {}", err);
+            error!("Loading chaos database failed: {}", err);
         }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
@@ -302,12 +302,27 @@ impl DataWorker {
             let calendar = data.calendar();
             (*calendar.first_date(), *calendar.last_date())
         }; // lock is released
-        if let Err(err) = chaos::models::chaos_disruption_from_database(
+        match chaos::models::read_chaos_disruption_from_database(
             &self.config.chaos_params,
             (start_date, end_date),
             &self.config.rabbitmq_params.rabbitmq_real_time_topics,
         ) {
-            error!("Loading chaos database failed : {:?}.", err);
+            Err(err) => error!("Loading chaos database failed : {:?}.", err),
+            Ok(disruptions) => {
+                let updater = |data_and_models: &mut DataAndModels| {
+                    let data = &mut data_and_models.0;
+                    let base_model = &data_and_models.1;
+                    let real_time_model = &mut data_and_models.2;
+                    for disruption in disruptions {
+                        real_time_model.apply_disruption(&disruption, base_model, data);
+                    }
+                    Ok(())
+                };
+                self.update_data_and_models(updater).await?;
+
+                let now = Utc::now().naive_utc();
+                self.send_status_update(StatusUpdate::RealTimeUpdate(now))?;
+            }
         }
         Ok(())
     }
@@ -823,19 +838,16 @@ fn handle_feed_entity(
     let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
         handle_chaos_protobuf(&chaos_disruption)
             .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
+    } else if feed_entity.has_trip_update() {
+        let calendar = data_and_models.0.calendar();
+        let calendar_period = (*calendar.first_date(), *calendar.last_date());
+        handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period)
+            .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?
     } else {
-        if feed_entity.has_trip_update() {
-            let calendar = data_and_models.0.calendar();
-            let calendar_period = (*calendar.first_date(), *calendar.last_date());
-            handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period).with_context(
-                || format!("Could not handle kirin disruption in FeedEntity {}", id),
-            )?
-        } else {
-            bail!(
-                "FeedEntity {} is a Kirin message but has no trip_update",
-                id
-            );
-        }
+        bail!(
+            "FeedEntity {} is a Kirin message but has no trip_update",
+            id
+        );
     };
 
     let data = &mut data_and_models.0;

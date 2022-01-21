@@ -153,10 +153,10 @@ fn read_impact(
                     base_model,
                     realtime_model,
                 ),
-                Impacted::RailSection(_) => todo!(),
-                Impacted::LineSection(_) => todo!(),
-                Impacted::StopAreaDeleted(_) => todo!(),
-                Impacted::StopPointDeleted(_) => todo!(),
+                Impacted::RailSection(_) => Err(DisruptionError::UnhandledImpact),
+                Impacted::LineSection(_) => Err(DisruptionError::UnhandledImpact),
+                Impacted::StopAreaDeleted(_) => Err(DisruptionError::UnhandledImpact),
+                Impacted::StopPointDeleted(_) => Err(DisruptionError::UnhandledImpact),
             };
             match update {
                 Err(err) => error!("Error occurred while creating real time update. {:?}", err),

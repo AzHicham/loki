@@ -36,17 +36,16 @@
 
 use crate::chaos_proto::{self};
 use anyhow::{bail, Context, Error};
-use launch::loki::models::real_time_disruption::{BlockedStopArea, RailSectionDisruption};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
-        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
-        RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
+        ApplicationPattern, BlockedStopArea, Cause, ChannelType, DateTimePeriod, Disruption,
+        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
+        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
+        TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
 };
-use protobuf::well_known_types::Type;
 
 pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
     let id = if proto.has_id() {
