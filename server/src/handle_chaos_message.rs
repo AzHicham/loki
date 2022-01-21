@@ -39,9 +39,9 @@ use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact,
-        Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId, RouteId, Severity,
-        StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
+        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
+        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
+        RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
 };

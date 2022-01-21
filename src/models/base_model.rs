@@ -292,8 +292,8 @@ impl BaseModel {
         self.collections.vehicle_journeys[idx].route_id.as_str()
     }
 
-    pub fn network_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
-        self.vehicle_journey_line(idx)
+    pub fn network_name(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> Option<&str> {
+        self.vehicle_journey_line(vehicle_journey_idx)
             .map(|line| line.network_id.as_str())
     }
 
