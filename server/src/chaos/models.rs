@@ -95,30 +95,7 @@ impl DisruptionMaker {
         let find_disruption = self.disruptions_set.entry(row.disruption_id);
         let disruption = match find_disruption {
             Vacant(entry) => {
-                let mut disruption = chaos_proto::chaos::Disruption::new();
-                disruption.set_id(row.disruption_id.to_string());
-                if let Some(reference) = &row.disruption_reference {
-                    disruption.set_reference(reference.clone());
-                }
-                disruption.set_created_at(u64::try_from(row.disruption_created_at.timestamp())?);
-                if let Some(updated_at) = &row.disruption_updated_at {
-                    disruption.set_updated_at(u64::try_from(updated_at.timestamp())?);
-                }
-                // Fill cause
-                let cause = disruption.mut_cause();
-                cause.set_wording(row.cause_wording.clone());
-                if let Some(category_name) = &row.category_name {
-                    let category = cause.mut_category();
-                    category.set_name(category_name.clone());
-                }
-                // Fill publication_period
-                let publication_period = disruption.mut_publication_period();
-                if let Some(start) = &row.disruption_start_publication_date {
-                    publication_period.set_start(u64::try_from(start.timestamp())?);
-                }
-                if let Some(end) = &row.disruption_end_publication_date {
-                    publication_period.set_end(u64::try_from(end.timestamp())?);
-                }
+                let disruption = DisruptionMaker::make_disruption(row)?;
 
                 // clear all set related to disruption
                 self.impacts_set.clear();
@@ -142,6 +119,35 @@ impl DisruptionMaker {
             disruption,
         )?;
         Ok(())
+    }
+
+    fn make_disruption(row: &ChaosDisruption) -> Result<chaos_proto::chaos::Disruption, Error> {
+        let mut disruption = chaos_proto::chaos::Disruption::new();
+        disruption.set_id(row.disruption_id.to_string());
+        disruption.set_contributor(row.contributor.clone());
+        if let Some(reference) = &row.disruption_reference {
+            disruption.set_reference(reference.clone());
+        }
+        disruption.set_created_at(u64::try_from(row.disruption_created_at.timestamp())?);
+        if let Some(updated_at) = &row.disruption_updated_at {
+            disruption.set_updated_at(u64::try_from(updated_at.timestamp())?);
+        }
+        // Fill cause
+        let cause = disruption.mut_cause();
+        cause.set_wording(row.cause_wording.clone());
+        if let Some(category_name) = &row.category_name {
+            let category = cause.mut_category();
+            category.set_name(category_name.clone());
+        }
+        // Fill publication_period
+        let publication_period = disruption.mut_publication_period();
+        if let Some(start) = &row.disruption_start_publication_date {
+            publication_period.set_start(u64::try_from(start.timestamp())?);
+        }
+        if let Some(end) = &row.disruption_end_publication_date {
+            publication_period.set_end(u64::try_from(end.timestamp())?);
+        }
+        Ok(disruption)
     }
 
     fn update_tags(
@@ -204,27 +210,9 @@ impl DisruptionMaker {
             // Impact already in disruption
             disruption.impacts.get_mut(*idx).unwrap()
         } else {
+            let impact = ImpactMaker::make_impact(row)?;
             // Or create a new impact We must then clear all  sub-objects sets belonging to impact
             impact_object_set.clear();
-            let mut impact = chaos_proto::chaos::Impact::new();
-            impact.set_id(row.impact_id.to_string());
-            impact.set_created_at(u64::try_from(row.impact_created_at.timestamp())?);
-            if let Some(updated_at) = &row.impact_updated_at {
-                impact.set_updated_at(u64::try_from(updated_at.timestamp())?);
-            }
-            // Fill severity
-            let severity = impact.mut_severity();
-            severity.set_id(row.severity_id.to_string());
-            severity.set_wording(row.severity_wording.clone());
-            severity.set_priority(row.severity_priority);
-            if let Some(color) = &row.severity_color {
-                severity.set_color(color.clone())
-            }
-            let effect = row
-                .severity_effect
-                .as_ref()
-                .unwrap_or(&SeverityEffect::UnknownEffect);
-            severity.set_effect(DisruptionMaker::make_severity_effect(effect));
 
             disruption.impacts.push(impact);
             let idx: usize = disruption.impacts.len() - 1;
@@ -277,6 +265,29 @@ impl ImpactMaker {
         self.application_periods_set.clear();
         self.application_pattern_set.clear();
         self.messages_set.clear();
+    }
+
+    fn make_impact(row: &ChaosDisruption) -> Result<chaos_proto::chaos::Impact, Error> {
+        let mut impact = chaos_proto::chaos::Impact::new();
+        impact.set_id(row.impact_id.to_string());
+        impact.set_created_at(u64::try_from(row.impact_created_at.timestamp())?);
+        if let Some(updated_at) = &row.impact_updated_at {
+            impact.set_updated_at(u64::try_from(updated_at.timestamp())?);
+        }
+        // Fill severity
+        let severity = impact.mut_severity();
+        severity.set_id(row.severity_id.to_string());
+        severity.set_wording(row.severity_wording.clone());
+        severity.set_priority(row.severity_priority);
+        if let Some(color) = &row.severity_color {
+            severity.set_color(color.clone())
+        }
+        let effect = row
+            .severity_effect
+            .as_ref()
+            .unwrap_or(&SeverityEffect::UnknownEffect);
+        severity.set_effect(DisruptionMaker::make_severity_effect(effect));
+        Ok(impact)
     }
 
     fn update_application_period(
@@ -401,7 +412,7 @@ impl ImpactMaker {
             return Ok(());
         }
 
-        // insert id even if already present
+        // insert id even if already present (possible with Line & Rail Section)
         pt_object_set.insert(id.clone());
 
         use chaos_proto::chaos::PtObject_Type;
@@ -409,21 +420,13 @@ impl ImpactMaker {
             PtObjectType::LineSection => {
                 // check if we need to create a new line section
                 // or just update it ie. push a new route into it
-                let line_id = if let Some(line_id) = &row.ls_line_uri {
-                    line_id.clone()
-                } else {
-                    bail!("PtObject has type line_section but the field line_id is empty");
-                };
                 let found_line_section = impact
                     .informed_entities
                     .iter_mut()
                     .filter(|pt_object| {
                         pt_object.get_pt_object_type() == PtObject_Type::line_section
                     })
-                    .find(|pt_object| {
-                        pt_object.get_uri() == id
-                            && pt_object.get_pt_line_section().get_line().get_uri() == line_id
-                    });
+                    .find(|pt_object| pt_object.get_uri() == id);
 
                 match found_line_section {
                     Some(pt_object) => {
@@ -480,21 +483,13 @@ impl ImpactMaker {
             }
             PtObjectType::RailSection => {
                 // check if we need to create a new rail section or just push a new route into it
-                let line_id = if let Some(line_id) = &row.rs_line_uri {
-                    line_id.clone()
-                } else {
-                    bail!("PtObject has type rail_section but the field line_id is empty");
-                };
                 let found_rail_section = impact
                     .informed_entities
                     .iter_mut()
                     .filter(|pt_object| {
                         pt_object.get_pt_object_type() == PtObject_Type::rail_section
                     })
-                    .find(|pt_object| {
-                        pt_object.get_uri() == id
-                            && pt_object.get_pt_rail_section().get_line().get_uri() == line_id
-                    });
+                    .find(|pt_object| pt_object.get_uri() == id);
 
                 match found_rail_section {
                     Some(pt_object) => {
@@ -567,7 +562,7 @@ impl ImpactMaker {
             }
             _ => {
                 let mut pt_object = chaos_proto::chaos::PtObject::new();
-                pt_object.set_uri(id.clone());
+                pt_object.set_uri(id);
                 pt_object.set_pt_object_type(ImpactMaker::make_pt_object_type(&pt_object_type));
                 impact.informed_entities.push(pt_object);
             }
