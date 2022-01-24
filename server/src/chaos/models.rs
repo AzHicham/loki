@@ -391,16 +391,14 @@ impl ImpactMaker {
 
         let pt_object_type = row.ptobject_type.clone();
 
-        // Early exit
-        if pt_object_set.contains(&id)
+        // Early exit if we already pushed a pt_object in impacts.informed_entities[]
+        // except for Line/rail section (they can be updated)
+        if !pt_object_set.insert(id.clone())
             && pt_object_type != PtObjectType::RailSection
             && pt_object_type != PtObjectType::LineSection
         {
             return Ok(());
         }
-
-        // insert id even if already present (possible with Line & Rail Section)
-        pt_object_set.insert(id.clone());
 
         use chaos_proto::chaos::PtObject_Type;
         match pt_object_type {
