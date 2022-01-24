@@ -48,7 +48,7 @@ use super::{
         intersection, DateTimePeriod, DisruptionError, Impacted, LineId, NetworkId, RouteId,
         StopTime, TripDisruption, VehicleJourneyId,
     },
-    real_time_model::{DisruptionIdx, Trip, TripData, TripVersion, UpdateError},
+    real_time_model::{DisruptionIdx, UpdateError},
     RealTimeModel,
 };
 use crate::DataUpdate;
@@ -121,7 +121,7 @@ impl RealTimeModel {
                         data,
                         &trip.id,
                         &application_periods,
-                        &disruption_idx,
+                        disruption_idx,
                     ),
                     Impacted::BaseTripUpdated(trip_disruption) => self.update_base_trip(
                         base_model,
@@ -244,9 +244,9 @@ impl RealTimeModel {
             }
             Ok(())
         } else {
-            return Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
+            Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
                 id: vehicle_journey_id.clone(),
-            }));
+            }))
         }
     }
 
@@ -346,7 +346,10 @@ impl RealTimeModel {
         application_periods: &[DateTimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
-        if let Some(_) = self.vehicle_journey_idx(vehicle_journey_id, base_model) {
+        if self
+            .vehicle_journey_idx(vehicle_journey_id, base_model)
+            .is_some()
+        {
             for application_period in application_periods.iter() {
                 for datetime in application_period {
                     let date = datetime.date();
@@ -374,7 +377,7 @@ impl RealTimeModel {
             vehicle_journey_id, date
         );
         let vj_idx = self.delete(*disruption_idx, vehicle_journey_id, date, base_model)?;
-        let removal_result = data.remove_real_time_vehicle(&vj_idx, &date);
+        let removal_result = data.remove_real_time_vehicle(&vj_idx, date);
         if let Err(removal_error) = removal_result {
             let model_ref = ModelRefs {
                 base: base_model,

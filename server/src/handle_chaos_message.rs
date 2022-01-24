@@ -68,7 +68,7 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
 
     let created_at = if proto.has_created_at() {
         let datetime = make_datetime(proto.get_created_at())
-            .context(format!("Could not parse disruption.created_at"))?;
+            .context("Could not parse disruption.created_at".to_string())?;
         Some(datetime)
     } else {
         None
@@ -76,7 +76,7 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
 
     let updated_at = if proto.has_updated_at() {
         let datetime = make_datetime(proto.get_updated_at())
-            .context(format!("Could not parse disruption.updated_at"))?;
+            .context("Could not parse disruption.updated_at".to_string())?;
         Some(datetime)
     } else {
         None
@@ -132,7 +132,7 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
 
     let created_at = if proto.has_created_at() {
         let datetime = make_datetime(proto.get_created_at())
-            .context(format!("Could not parse impact.created_at"))?;
+            .context("Could not parse impact.created_at".to_string())?;
         Some(datetime)
     } else {
         None
@@ -140,26 +140,27 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
 
     let updated_at = if proto.has_updated_at() {
         let datetime = make_datetime(proto.get_updated_at())
-            .context(format!("Could not parse impact.updated_at"))?;
+            .context("Could not parse impact.updated_at".to_string())?;
         Some(datetime)
     } else {
         None
     };
 
     let severity = if proto.has_severity() {
-        make_severity(proto.get_severity()).context(format!("Could not parse impact.severity"))?
+        make_severity(proto.get_severity())
+            .context("Could not parse impact.severity".to_string())?
     } else {
         bail!("Impact has no severity");
     };
 
     let application_periods = make_periods(proto.get_application_periods())
-        .context(format!("Could not parse impact.application_periods"))?;
+        .context("Could not parse impact.application_periods".to_string())?;
 
     let application_patterns = make_application_patterns(proto.get_application_patterns())
-        .context(format!("Could not parse impact.application_patterns"))?;
+        .context("Could not parse impact.application_patterns".to_string())?;
 
-    let messages =
-        make_messages(proto.get_messages()).context(format!("Could not parse impact.messages"))?;
+    let messages = make_messages(proto.get_messages())
+        .context("Could not parse impact.messages".to_string())?;
 
     let effect = severity.effect;
     let mut impacted_pt_objects = vec![];
@@ -297,7 +298,7 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
 
     let created_at = if proto.has_created_at() {
         let datetime = make_datetime(proto.get_created_at())
-            .context(format!("Could not parse severity.created_at"))?;
+            .context("Could not parse severity.created_at".to_string())?;
         Some(datetime)
     } else {
         None
@@ -305,7 +306,7 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
 
     let updated_at = if proto.has_updated_at() {
         let datetime = make_datetime(proto.get_updated_at())
-            .context(format!("Could not parse severity.updated_at"))?;
+            .context("Could not parse severity.updated_at".to_string())?;
         Some(datetime)
     } else {
         None
@@ -397,7 +398,7 @@ fn make_datetime_period(
             end_timestamp
         )
     })?;
-    DateTimePeriod::new(start, end).map_err(|err| Error::from(err))
+    DateTimePeriod::new(start, end).map_err(Error::from)
 }
 
 fn make_periods(

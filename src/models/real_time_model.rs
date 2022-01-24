@@ -314,11 +314,7 @@ impl RealTimeModel {
             Some(VehicleJourneyIdx::Base(transit_model_idx))
         } else {
             let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
-            if let Some(new_vj_idx) = has_new_vj_idx {
-                Some(VehicleJourneyIdx::New(new_vj_idx.clone()))
-            } else {
-                None
-            }
+            has_new_vj_idx.map(|new_vj_idx| VehicleJourneyIdx::New(new_vj_idx.clone()))
         }
     }
 

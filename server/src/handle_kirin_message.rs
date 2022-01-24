@@ -63,7 +63,7 @@ pub fn handle_kirin_protobuf(
     let start = model_validity_period.0.and_hms(0, 0, 0);
     let end = model_validity_period.1.and_hms(12, 59, 59);
     let application_period = DateTimePeriod::new(start, end)
-        .with_context(|| format!("Model has a bad validity period"))?;
+        .with_context(|| "Model has a bad validity period".to_string())?;
     let trip_update = feed_entity.get_trip_update();
     let trip = trip_update.get_trip();
 
@@ -338,7 +338,7 @@ fn make_severity(
 ) -> Severity {
     Severity {
         id: disruption_id,
-        wording: Some(make_severity_wording(effect.clone())),
+        wording: Some(make_severity_wording(effect)),
         color: Some("#000000".to_string()),
         priority: Some(42),
         effect,

@@ -261,7 +261,7 @@ fn create_no_service_disruption(
     severity.set_effect(gtfs_proto::Alert_Effect::NO_SERVICE);
 
     let mut impact = chaos_proto::chaos::Impact::default();
-    impact.set_id(format!("impact_{}", id.clone()));
+    impact.set_id(format!("impact_{}", id));
     impact.set_created_at(Utc::now().timestamp() as u64);
     impact.set_updated_at(Utc::now().timestamp() as u64);
     impact.mut_informed_entities().push(entity);

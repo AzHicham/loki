@@ -289,7 +289,7 @@ impl std::error::Error for DateTimePeriodError {}
 
 impl Display for DateTimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Self as Debug>::fmt(&self, f)
+        <Self as Debug>::fmt(self, f)
     }
 }
 

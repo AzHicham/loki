@@ -355,21 +355,24 @@ impl BaseModel {
 
     pub fn has_datetime_estimated(
         &self,
-        vehicle_journey_idx: BaseVehicleJourneyIdx,
-        from_stoptime_idx: StopTimeIdx,
-        to_stoptime_idx: StopTimeIdx,
+        _vehicle_journey_idx: BaseVehicleJourneyIdx,
+        _from_stoptime_idx: StopTimeIdx,
+        _to_stoptime_idx: StopTimeIdx,
     ) -> bool {
-        let stop_times =
-            self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
-        let is_empty = stop_times.is_empty();
-        if is_empty {
-            false
-        } else {
-            let first = stop_times.first().unwrap(); // unwrap is safe, since we checked that !is_empty
-            let last = stop_times.last().unwrap();
+        false
+        // TODO : update this function to use stop_time.precision
+        //
+        // let stop_times =
+        //     self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
+        // let is_empty = stop_times.is_empty();
+        // if is_empty {
+        //     false
+        // } else {
+        //     let first = stop_times.first().unwrap(); // unwrap is safe, since we checked that !is_empty
+        //     let last = stop_times.last().unwrap();
 
-            first.datetime_estimated || last.datetime_estimated
-        }
+        //     first.datetime_estimated || last.datetime_estimated
+        // }
     }
 }
 
