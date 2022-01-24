@@ -313,8 +313,12 @@ impl DataWorker {
                     let data = &mut data_and_models.0;
                     let base_model = &data_and_models.1;
                     let real_time_model = &mut data_and_models.2;
-                    for disruption in disruptions {
-                        //  real_time_model.store_and_apply_disruption(disruption, base_model, data);
+                    for chaos_disruption in disruptions {
+                        match handle_chaos_protobuf(&chaos_disruption) {
+                            Ok(disruption) => real_time_model
+                                .store_and_apply_disruption(disruption, base_model, data),
+                            Err(err) => error!("{}", err),
+                        }
                     }
                     Ok(())
                 };

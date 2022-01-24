@@ -11,9 +11,8 @@ use diesel::{
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
 };
-use launch::loki::chrono::Timelike;
 use launch::loki::{
-    chrono::{NaiveDate, NaiveTime},
+    chrono::{NaiveDate, NaiveTime, Timelike},
     models::real_time_disruption::BlockedStopArea,
     tracing::error,
     NaiveDateTime,
@@ -126,6 +125,7 @@ impl DisruptionMaker {
                 self.tags_set.clear();
                 self.properties_set.clear();
                 self.impact_object_set.clear();
+
                 self.disruptions.push(disruption);
                 let idx: usize = self.disruptions.len() - 1;
                 entry.insert(idx);
@@ -207,20 +207,24 @@ impl DisruptionMaker {
             // Or create a new impact We must then clear all  sub-objects sets belonging to impact
             impact_object_set.clear();
             let mut impact = chaos_proto::chaos::Impact::new();
+            impact.set_id(row.impact_id.to_string());
             impact.set_created_at(u64::try_from(row.impact_created_at.timestamp())?);
             if let Some(updated_at) = &row.impact_updated_at {
                 impact.set_updated_at(u64::try_from(updated_at.timestamp())?);
             }
             // Fill severity
             let severity = impact.mut_severity();
+            severity.set_id(row.severity_id.to_string());
             severity.set_wording(row.severity_wording.clone());
             severity.set_priority(row.severity_priority);
             if let Some(color) = &row.severity_color {
                 severity.set_color(color.clone())
             }
-            if let Some(effect) = &row.severity_effect {
-                severity.set_effect(DisruptionMaker::make_severity_effect(effect.clone()));
-            }
+            let effect = row
+                .severity_effect
+                .as_ref()
+                .unwrap_or(&SeverityEffect::UnknownEffect);
+            severity.set_effect(DisruptionMaker::make_severity_effect(effect));
 
             disruption.impacts.push(impact);
             let idx: usize = disruption.impacts.len() - 1;
@@ -289,7 +293,7 @@ impl ImpactMaker {
                 application_period.set_end(u64::try_from(end.timestamp())?);
             }
             impact.application_periods.push(application_period);
-            application_periods_set.insert(row.application_id.clone());
+            application_periods_set.insert(row.application_id);
         }
         Ok(())
     }
@@ -312,16 +316,14 @@ impl ImpactMaker {
                 if let Some(content_type) = &row.channel_content_type {
                     channel.set_content_type(content_type.clone())
                 }
-                for channel_type in row.channel_type.iter() {
-                    if let Some(channel_type) = channel_type {
-                        channel
-                            .types
-                            .push(ImpactMaker::make_channel_type(channel_type))
-                    }
+                for channel_type in row.channel_type.iter().flatten() {
+                    channel
+                        .types
+                        .push(ImpactMaker::make_channel_type(channel_type))
                 }
 
                 impact.messages.push(message);
-                messages_set.insert(message_id.clone());
+                messages_set.insert(message_id);
             }
         }
         Ok(())
@@ -357,12 +359,13 @@ impl ImpactMaker {
                     pattern.set_end_date(u32::try_from(end_date.and_hms(0, 0, 0).timestamp())?)
                 }
                 // time_slot_begin && time_slot_end have always the same size
+                // even after filter_map
                 // thanks to the sql query
                 let time_slots_iter = row
                     .time_slot_begin
                     .iter()
-                    .filter_map(|begin| *begin)
-                    .zip(row.time_slot_end.iter().filter_map(|end| *end));
+                    .flatten()
+                    .zip(row.time_slot_end.iter().flatten());
 
                 for (begin, end) in time_slots_iter {
                     let mut time_slot = chaos_proto::chaos::TimeSlot::new();
@@ -371,7 +374,7 @@ impl ImpactMaker {
                     pattern.time_slots.push(time_slot);
                 }
                 impact.application_patterns.push(pattern);
-                application_pattern_set.insert(pattern_id.clone());
+                application_pattern_set.insert(pattern_id);
             }
         }
         Ok(())
@@ -565,12 +568,25 @@ impl ImpactMaker {
             _ => {
                 let mut pt_object = chaos_proto::chaos::PtObject::new();
                 pt_object.set_uri(id.clone());
-                //  pt_object.set_pt_object_type();
+                pt_object.set_pt_object_type(ImpactMaker::make_pt_object_type(&pt_object_type));
                 impact.informed_entities.push(pt_object);
             }
         };
 
         Ok(())
+    }
+
+    fn make_pt_object_type(pt_object_type: &PtObjectType) -> chaos_proto::chaos::PtObject_Type {
+        use chaos_proto::chaos::PtObject_Type;
+        match pt_object_type {
+            PtObjectType::StopArea => PtObject_Type::stop_area,
+            PtObjectType::StopPoint => PtObject_Type::stop_point,
+            PtObjectType::LineSection => PtObject_Type::line_section,
+            PtObjectType::RailSection => PtObject_Type::rail_section,
+            PtObjectType::Route => PtObject_Type::route,
+            PtObjectType::Line => PtObject_Type::line,
+            PtObjectType::Network => PtObject_Type::network,
+        }
     }
 }
 
