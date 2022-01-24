@@ -160,15 +160,15 @@ pub struct ChaosParams {
     #[serde(default = "default_chaos_database")]
     pub chaos_database: String,
     #[serde(default = "default_batch_size")]
-    pub chaos_batch_size: u32,
+    pub chaos_batch_size: u16,
 }
 
 pub fn default_chaos_database() -> String {
     "postgres://guest:guest@localhost:5432/chaos".to_string()
 }
 
-pub fn default_batch_size() -> u32 {
-    20
+pub fn default_batch_size() -> u16 {
+    5000
 }
 
 impl Default for ChaosParams {

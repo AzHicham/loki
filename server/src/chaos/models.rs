@@ -17,10 +17,7 @@ use launch::loki::{
     tracing::error,
     NaiveDateTime,
 };
-use std::collections::{
-    hash_map::Entry::{Occupied, Vacant},
-    HashMap, HashSet,
-};
+use std::collections::{hash_map::Entry::Vacant, HashMap, HashSet};
 use uuid::Uuid as Uid;
 
 pub fn read_chaos_disruption_from_database(
@@ -32,7 +29,7 @@ pub fn read_chaos_disruption_from_database(
 
     let mut disruption_maker = DisruptionMaker::default();
 
-    let mut offset_query = 0;
+    let mut offset_query = 0_u16;
 
     loop {
         info!("Querying chaos database");
@@ -41,9 +38,9 @@ pub fn read_chaos_disruption_from_database(
             .bind::<Date, _>(publication_period.0)
             .bind::<Date, _>(publication_period.1)
             .bind::<Array<Text>, _>(contributors)
-            .bind::<Int4, _>(config.chaos_batch_size as i32)
-            .bind::<Int4, _>(offset_query as i32)
-            .load::<ChaosDisruption>(&connection);
+            .bind::<Int4, _>(i32::from(config.chaos_batch_size))
+            .bind::<Int4, _>(i32::from(offset_query))
+            .load::<ChaosRow>(&connection);
         // Increment offset in query
         offset_query += config.chaos_batch_size;
 
@@ -65,12 +62,12 @@ pub fn read_chaos_disruption_from_database(
     Ok(disruption_maker.disruptions.into_values().collect())
 }
 
-// Each ChaosDisruption contains only a part of a Disruption
-// So In order to construct a Disruption we parse & merge each ChaosDisruption
+// Each ChaosRow contains only a part of a Disruption
+// So In order to construct a Disruption we parse & merge each ChaosRow
 // this is the main goal of DisruptionMaker
 #[derive(Default)]
 struct DisruptionMaker {
-    // When we receive a ChaosDisruption we can create a new Disruption if the disruption id is new (ie not in disruptions_set)
+    // When we receive a ChaosRow we can create a new Disruption if the disruption id is new (ie not in disruptions_set)
     // or we update an already created Disruption stored in disruptions HashMap
     pub(crate) disruptions: HashMap<Uid, chaos_proto::chaos::Disruption>,
 
@@ -80,15 +77,15 @@ struct DisruptionMaker {
     // Note : tags and property do not need to be completed/updated
     // but an impact can be completed so we use a HashMap<Uid, usize>
     // in order to locate the correct position of impact in disruption.impacts[] vector
-    pub(crate) tags_set: HashSet<Uid>,
-    pub(crate) properties_set: HashSet<(String, String, String)>, //(type, key, value)
-    pub(crate) impacts_set: HashMap<Uid, usize>,
+    tags_set: HashSet<Uid>,
+    properties_set: HashSet<(String, String, String)>, //(type, key, value)
+    impacts_set: HashMap<Uid, usize>,
 
-    pub(crate) impact_object_set: ImpactMaker,
+    impact_object_set: ImpactMaker,
 }
 
 impl DisruptionMaker {
-    pub fn read_disruption(&mut self, row: &ChaosDisruption) -> Result<(), Error> {
+    pub fn read_disruption(&mut self, row: &ChaosRow) -> Result<(), Error> {
         let find_disruption = self.disruptions.entry(row.disruption_id);
         if let Vacant(entry) = find_disruption {
             let disruption = DisruptionMaker::make_disruption(row)?;
@@ -115,7 +112,7 @@ impl DisruptionMaker {
         Ok(())
     }
 
-    fn make_disruption(row: &ChaosDisruption) -> Result<chaos_proto::chaos::Disruption, Error> {
+    fn make_disruption(row: &ChaosRow) -> Result<chaos_proto::chaos::Disruption, Error> {
         let mut disruption = chaos_proto::chaos::Disruption::new();
         disruption.set_id(row.disruption_id.to_string());
         disruption.set_contributor(row.contributor.clone());
@@ -146,7 +143,7 @@ impl DisruptionMaker {
 
     fn update_tags(
         tags_set: &mut HashSet<Uid>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         if let Some(tag_id) = row.tag_id {
@@ -164,7 +161,7 @@ impl DisruptionMaker {
 
     fn update_properties(
         properties_set: &mut HashSet<(String, String, String)>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         // type_ is here like an Uuid
@@ -194,7 +191,7 @@ impl DisruptionMaker {
     fn update_impacts(
         impact_object_set: &mut ImpactMaker,
         impacts_set: &mut HashMap<Uid, usize>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         let impact = if let Some(idx) = impacts_set.get(&row.impact_id) {
@@ -245,10 +242,10 @@ impl DisruptionMaker {
 
 #[derive(Default)]
 struct ImpactMaker {
-    pub(crate) application_periods_set: HashSet<Uid>,
-    pub(crate) application_pattern_set: HashSet<Uid>,
-    pub(crate) messages_set: HashSet<Uid>,
-    pub(crate) pt_object_set: HashSet<String>,
+    application_periods_set: HashSet<Uid>,
+    application_pattern_set: HashSet<Uid>,
+    messages_set: HashSet<Uid>,
+    pt_object_set: HashSet<String>,
 }
 
 impl ImpactMaker {
@@ -258,7 +255,7 @@ impl ImpactMaker {
         self.messages_set.clear();
     }
 
-    fn make_impact(row: &ChaosDisruption) -> Result<chaos_proto::chaos::Impact, Error> {
+    fn make_impact(row: &ChaosRow) -> Result<chaos_proto::chaos::Impact, Error> {
         let mut impact = chaos_proto::chaos::Impact::new();
         impact.set_id(row.impact_id.to_string());
         impact.set_created_at(u64::try_from(row.impact_created_at.timestamp())?);
@@ -283,7 +280,7 @@ impl ImpactMaker {
 
     fn update_application_period(
         application_periods_set: &mut HashSet<Uid>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if application_periods_set.insert(row.application_id) {
@@ -301,7 +298,7 @@ impl ImpactMaker {
 
     fn update_messages(
         messages_set: &mut HashSet<Uid>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(message_id) = row.message_id {
@@ -345,7 +342,7 @@ impl ImpactMaker {
 
     fn update_application_pattern(
         application_pattern_set: &mut HashSet<Uid>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(pattern_id) = row.pattern_id {
@@ -380,7 +377,7 @@ impl ImpactMaker {
 
     fn update_pt_objects(
         pt_object_set: &mut HashSet<String>,
-        row: &ChaosDisruption,
+        row: &ChaosRow,
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         let id = if let Some(id) = &row.ptobject_uri {
@@ -393,12 +390,13 @@ impl ImpactMaker {
 
         // Early exit if we already pushed a pt_object in impacts.informed_entities[]
         // except for Line/rail section (they can be updated)
-        if !pt_object_set.insert(id.clone())
+        if pt_object_set.contains(&id)
             && pt_object_type != PtObjectType::RailSection
             && pt_object_type != PtObjectType::LineSection
         {
             return Ok(());
         }
+        pt_object_set.insert(id.clone());
 
         use chaos_proto::chaos::PtObject_Type;
         match pt_object_type {
@@ -570,10 +568,10 @@ impl ImpactMaker {
     }
 }
 
-// Remove ChaosDisruption when PR https://github.com/diesel-rs/diesel/pull/2254 is merged
+// Remove ChaosRow when PR https://github.com/diesel-rs/diesel/pull/2254 is merged
 // and use model_v2
 #[derive(Queryable, QueryableByName, Debug)]
-pub struct ChaosDisruption {
+pub struct ChaosRow {
     // Disruptions field
     #[sql_type = "Uuid"]
     pub disruption_id: Uid,
