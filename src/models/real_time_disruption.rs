@@ -60,7 +60,6 @@ pub struct Disruption {
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub cause: Cause,
-    // localization ??
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
     pub impacts: Vec<Impact>,

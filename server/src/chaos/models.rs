@@ -1,3 +1,39 @@
+// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
+//
+// This file is part of Navitia,
+// the software to build cool stuff with public transport.
+//
+// Hope you'll enjoy and contribute to this project,
+// powered by Kisio Digital (www.kisio.com).
+// Help us simplify mobility and open public transport:
+// a non ending quest to the responsive locomotion way of traveling!
+//
+// This contribution is a part of the research and development work of the
+// IVA Project which aims to enhance traveler information and is carried out
+// under the leadership of the Technological Research Institute SystemX,
+// with the partnership and support of the transport organization authority
+// Ile-De-France Mobilités (IDFM), SNCF, and public funds
+// under the scope of the French Program "Investissements d’Avenir".
+//
+// LICENCE: This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+//
+// Stay tuned using
+// twitter @navitia
+// channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
+// https://groups.google.com/d/forum/navitia
+// www.navitia.io
+
 use crate::{
     chaos::sql_types::{
         ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType, SeverityEffect,
@@ -31,8 +67,8 @@ pub fn read_chaos_disruption_from_database(
 
     let mut offset_query = 0_u16;
 
+    info!("Querying chaos database");
     loop {
-        info!("Querying chaos database");
         let res = diesel::sql_query(include_str!("query.sql"))
             .bind::<Date, _>(publication_period.1)
             .bind::<Date, _>(publication_period.0)
@@ -49,7 +85,6 @@ pub fn read_chaos_disruption_from_database(
             break;
         }
 
-        info!("Converting database rows into Disruption");
         for row in rows {
             if let Err(ref err) = disruption_maker.read_disruption(&row) {
                 error!("{}", err);
@@ -57,26 +92,26 @@ pub fn read_chaos_disruption_from_database(
         }
     }
 
-    info!("Disruptions ready to be applied");
-
     Ok(disruption_maker.disruptions.into_values().collect())
 }
 
-// Each ChaosRow contains only a part of a Disruption
-// So In order to construct a Disruption we parse & merge each ChaosRow
-// this is the main goal of DisruptionMaker
+// In the SQL query to the Chaos database, we ask to sort the response's rows by disruption id.
+// Then, we feed the rows to DisruptionMaker **in the order we receive them**.
+//
+// The information concerning all disruptions encountered is stored in the HashMap `disruptions`
+// that maps a disruption_id to a protobuf object.
+// The protobuf object is *incomplete* until all rows concerning this disruption are received.
+//
+// Note that we may receive the same "part" (i.e. tag/message/impact/...) of a disruption in several rows. But we don't want to "duplicate" this information in the protobuf object.
+// To have an "easy" way to determine if a "part" has already been stored, we use the HashSet/HashMaps `tags_set` `properties_set` `impact_set` and `impact_object_set`
+//
+// Hence, when the disruption id changes (i.e. the row has a `disruption_id` not present in `disruptions.keys()`, this means  we have receive all information
+// regarding the previous disruption.
+// So when a new disruption id arrives, we "clear" these HashMap/HashSets.
 #[derive(Default)]
 struct DisruptionMaker {
-    // When we receive a ChaosRow we can create a new Disruption if the disruption id is new (ie not in disruptions_set)
-    // or we update an already created Disruption stored in disruptions HashMap
     pub(crate) disruptions: HashMap<Uid, chaos_proto::chaos::Disruption>,
 
-    // For each disruption we can have multiple impact, tag and property
-    // In order to push unique impact, tag and property we use HashSet/HashMap
-    // to check if the corresponding tag, impact, property has already been pushed in a disruption
-    // Note : tags and property do not need to be completed/updated
-    // but an impact can be completed so we use a HashMap<Uid, usize>
-    // in order to locate the correct position of impact in disruption.impacts[] vector
     tags_set: HashSet<Uid>,
     properties_set: HashSet<(String, String, String)>, //(type, key, value)
     impacts_set: HashMap<Uid, usize>,
