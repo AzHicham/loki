@@ -55,6 +55,9 @@ pub struct ServerConfig {
     #[serde(flatten)]
     pub rabbitmq_params: RabbitMqParams,
 
+    #[serde(flatten)]
+    pub chaos_params: ChaosParams,
+
     /// number of workers that solve requests in parallel
     #[serde(default = "default_nb_workers")]
     pub nb_workers: usize,
@@ -68,6 +71,7 @@ impl ServerConfig {
             instance_name: instance_name.to_string(),
             request_default_params: config::RequestParams::default(),
             rabbitmq_params: RabbitMqParams::default(),
+            chaos_params: ChaosParams::default(),
             nb_workers: default_nb_workers(),
         }
     }
@@ -147,6 +151,31 @@ impl Default for RabbitMqParams {
             rabbitmq_connect_retry_interval: default_rabbitmq_connect_retry_interval(),
             reload_request_time_to_live: default_reload_request_time_to_live(),
             reload_kirin_timeout: default_reload_kirin_timeout(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChaosParams {
+    #[serde(default = "default_chaos_database")]
+    pub chaos_database: String,
+    #[serde(default = "default_batch_size")]
+    pub chaos_batch_size: u32,
+}
+
+pub fn default_chaos_database() -> String {
+    "postgres://guest:guest@localhost:5432/chaos".to_string()
+}
+
+pub fn default_batch_size() -> u32 {
+    20
+}
+
+impl Default for ChaosParams {
+    fn default() -> Self {
+        Self {
+            chaos_database: default_chaos_database(),
+            chaos_batch_size: default_batch_size(),
         }
     }
 }

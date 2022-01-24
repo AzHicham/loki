@@ -36,144 +36,78 @@
 
 use std::ops::Not;
 
-use anyhow::{format_err, Context, Error};
+use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
-    models::{
-        base_model::BaseModel,
-        real_time_disruption::{Disruption, StopTime, Trip, Update},
-        RealTimeModel,
+    models::real_time_disruption::{
+        Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Impacted, Message,
+        Severity, StopTime, TripDisruption, VehicleJourneyId,
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
     NaiveDateTime,
 };
 
-use crate::chaos_proto;
+use crate::{chaos_proto, handle_chaos_message::make_effect};
 
 pub fn handle_kirin_protobuf(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
+    header_datetime: &Option<NaiveDateTime>,
+    model_validity_period: &(NaiveDate, NaiveDate),
 ) -> Result<Disruption, Error> {
     let disruption_id = feed_entity.get_id().to_string();
-
     if feed_entity.has_trip_update().not() {
-        return Err(format_err!("Feed entity has no trip_update"));
+        bail!("Feed entity has no trip_update");
     }
+    // application_period == publication_period == validity_period
+    let start = model_validity_period.0.and_hms(0, 0, 0);
+    let end = model_validity_period.1.and_hms(12, 59, 59);
+    let application_period = DateTimePeriod::new(start, end)
+        .with_context(|| format!("Model has a bad validity period"))?;
     let trip_update = feed_entity.get_trip_update();
+    let trip = trip_update.get_trip();
 
-    let update = read_trip_update(trip_update, base_model, realtime_model).with_context(|| {
-        format!(
-            "Could not handle trip update of kirin disruption {}.",
-            disruption_id
-        )
-    })?;
-
-    let result = Disruption {
-        id: disruption_id,
-        updates: vec![update],
+    let disruption = Disruption {
+        id: disruption_id.clone(),
+        reference: Some(disruption_id.clone()),
+        contributor: chaos_proto::kirin::exts::contributor.get(trip),
+        publication_period: application_period,
+        created_at: *header_datetime,
+        updated_at: *header_datetime,
+        cause: Cause::default(),
+        tags: vec![],
+        properties: vec![],
+        impacts: vec![make_impact(trip_update, disruption_id, header_datetime)?],
     };
-    Ok(result)
+
+    Ok(disruption)
 }
 
-fn read_trip_update(
+fn make_impact(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
-    base_model: &BaseModel,
-    realtime_model: &RealTimeModel,
-) -> Result<Update, Error> {
-    if let Some(effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
-        use chaos_proto::gtfs_realtime::Alert_Effect::*;
-        match effect {
-            NO_SERVICE => {
-                let trip = read_trip(trip_update.get_trip())?;
-                Ok(Update::Delete(trip))
-            }
-            ADDITIONAL_SERVICE => {
-                let trip = read_trip(trip_update.get_trip())?;
-                let stop_times = create_stop_times_from_proto(
-                    trip_update.get_stop_time_update(),
-                    &trip.reference_date,
-                )?;
-                let trip_exists_in_base = {
-                    let has_vj_idx = base_model.vehicle_journey_idx(&trip.vehicle_journey_id);
-                    match has_vj_idx {
-                        None => false,
-                        Some(vj_idx) => base_model.trip_exists(vj_idx, trip.reference_date),
-                    }
-                };
-                if trip_exists_in_base {
-                    return Err(format_err!(
-                        "Additional service for trip {:?} that exists in the base schedule.",
-                        trip
-                    ));
-                }
+    disruption_id: String,
+    header_datetime: &Option<NaiveDateTime>,
+) -> Result<Impact, Error> {
+    let trip = trip_update.get_trip();
+    let effect: Effect =
+        if let Some(proto_effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
+            make_effect(proto_effect)
+        } else {
+            return Err(format_err!("TripUpdate has an empty effect."));
+        };
 
-                let trip_exists_in_realtime = realtime_model.is_present(&trip, base_model);
-                if trip_exists_in_realtime {
-                    Ok(Update::Modify(trip, stop_times))
-                } else {
-                    Ok(Update::Add(trip, stop_times))
-                }
-            }
-            OTHER_EFFECT | UNKNOWN_EFFECT | REDUCED_SERVICE | SIGNIFICANT_DELAYS | DETOUR
-            | MODIFIED_SERVICE => {
-                let trip = read_trip(trip_update.get_trip())?;
-
-                // the trip should exists in the base schedule
-                // for these effects
-                if let Some(base_vj_idx) = base_model.vehicle_journey_idx(&trip.vehicle_journey_id)
-                {
-                    if !base_model.trip_exists(base_vj_idx, trip.reference_date) {
-                        return Err(format_err!(
-                            "Kirin effect {:?} on vehicle {} on day {} cannot be applied since this base schedule vehicle is not valid on the day.",
-                            effect,
-                            trip.vehicle_journey_id,
-                            trip.reference_date
-                        ));
-                    }
-                } else {
-                    return Err(format_err!(
-                        "Kirin effect {:?} on vehicle {} cannot be applied since this vehicle does not exists in the base schedule.",
-                        effect,
-                        trip.vehicle_journey_id
-                    ));
-                }
-
-                let stop_times = create_stop_times_from_proto(
-                    trip_update.get_stop_time_update(),
-                    &trip.reference_date,
-                )
-                .with_context(|| "Could not handle stop times in kirin disruption.")?;
-
-                let trip_is_present = realtime_model.is_present(&trip, base_model);
-                if trip_is_present {
-                    Ok(Update::Modify(trip, stop_times))
-                } else {
-                    Ok(Update::Add(trip, stop_times))
-                }
-            }
-
-            STOP_MOVED => Err(format_err!("Unhandle effect on FeedEntity: {:?}", effect)),
-        }
-    } else {
-        Err(format_err!("No effect on FeedEntity."))
-    }
-}
-
-fn read_trip(trip_descriptor: &chaos_proto::gtfs_realtime::TripDescriptor) -> Result<Trip, Error> {
     let vehicle_journey_id = {
-        if trip_descriptor.has_trip_id().not() {
+        if trip.has_trip_id().not() {
             return Err(format_err!("TripDescriptor has an empty trip_id."));
         }
-        trip_descriptor.get_trip_id().to_string()
+        trip.get_trip_id().to_string()
     };
 
     let reference_date = {
-        if trip_descriptor.has_start_date().not() {
+        if trip.has_start_date().not() {
             return Err(format_err!("TripDescriptor has an empty start_time."));
         }
-        let start_date = trip_descriptor.get_start_date();
+        let start_date = trip.get_start_date();
         NaiveDate::parse_from_str(start_date, "%Y%m%d").with_context(|| {
             format!(
                 "TripDescriptor has a start date {} that could not be parsed.",
@@ -182,11 +116,83 @@ fn read_trip(trip_descriptor: &chaos_proto::gtfs_realtime::TripDescriptor) -> Re
         })?
     };
 
-    let result = Trip {
-        vehicle_journey_id,
-        reference_date,
+    let severity = make_severity(effect, disruption_id.clone(), header_datetime);
+
+    let stop_times = make_stop_times(trip_update, &reference_date)?;
+
+    let application_period = DateTimePeriod::new(
+        reference_date.and_hms(0, 0, 0),
+        reference_date.and_hms(12, 59, 59),
+    )
+    .map_err(|err| format_err!("Error : {:?}", err))?;
+
+    let company_id = chaos_proto::kirin::exts::company_id.get(trip);
+    let physical_mode_id =
+        chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
+    let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
+
+    let mut impacted_pt_objects = Vec::new();
+
+    let trip_id = VehicleJourneyId {
+        id: vehicle_journey_id,
     };
-    Ok(result)
+
+    // Please see kirin-proto documentation to understand the following code
+    // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
+    use Effect::*;
+    match effect {
+        NoService => {
+            impacted_pt_objects.push(Impacted::TripDeleted(trip_id));
+        }
+        OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
+        | ModifiedService => {
+            let trip_disruption = TripDisruption {
+                trip_id,
+                stop_times,
+                company_id,
+                physical_mode_id,
+                headsign,
+            };
+            impacted_pt_objects.push(Impacted::BaseTripUpdated(trip_disruption));
+        }
+        AdditionalService => {
+            let trip_disruption = TripDisruption {
+                trip_id,
+                stop_times,
+                company_id,
+                physical_mode_id,
+                headsign,
+            };
+            impacted_pt_objects.push(Impacted::NewTripUpdated(trip_disruption));
+        }
+        StopMoved => {
+            bail!("Unhandled effect on FeedEntity: {:?}", effect);
+        }
+    }
+
+    let informed_pt_objects = Vec::new();
+
+    Ok(Impact {
+        id: disruption_id,
+        created_at: *header_datetime,
+        updated_at: *header_datetime,
+        application_periods: vec![application_period],
+        application_patterns: vec![],
+        severity,
+        messages: make_message(trip_update),
+        impacted_pt_objects,
+        informed_pt_objects,
+    })
+}
+
+fn make_stop_times(
+    trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
+    reference_date: &NaiveDate,
+) -> Result<Vec<StopTime>, Error> {
+    let stop_times =
+        create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
+            .with_context(|| "Could not handle stop times in kirin disruption.")?;
+    Ok(stop_times)
 }
 
 fn create_stop_times_from_proto(
@@ -308,4 +314,50 @@ fn read_status(
     } else {
         Ok(false)
     }
+}
+
+fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Message> {
+    if let Some(text) = chaos_proto::kirin::exts::trip_message.get(trip_update) {
+        let message = Message {
+            text,
+            channel_id: "rt".to_string(),
+            channel_name: "rt".to_string(),
+            channel_content_type: "".to_string(),
+            channel_types: vec![ChannelType::Web, ChannelType::Mobile],
+        };
+        vec![message]
+    } else {
+        vec![]
+    }
+}
+
+fn make_severity(
+    effect: Effect,
+    disruption_id: String,
+    header_datetime: &Option<NaiveDateTime>,
+) -> Severity {
+    Severity {
+        id: disruption_id,
+        wording: Some(make_severity_wording(effect.clone())),
+        color: Some("#000000".to_string()),
+        priority: Some(42),
+        effect,
+        created_at: *header_datetime,
+        updated_at: *header_datetime,
+    }
+}
+
+fn make_severity_wording(effect: Effect) -> String {
+    match effect {
+        Effect::NoService => "trip canceled",
+        Effect::SignificantDelays => "trip delayed",
+        Effect::Detour => "detour",
+        Effect::ModifiedService => "trip modified",
+        Effect::ReducedService => "reduced service",
+        Effect::AdditionalService => "additional service",
+        Effect::OtherEffect => "other effect",
+        Effect::StopMoved => "stop moved",
+        Effect::UnknownEffect => "unknown effect",
+    }
+    .to_string()
 }

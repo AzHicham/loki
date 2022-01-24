@@ -212,12 +212,11 @@ impl<'model> ModelRefs<'model> {
     }
 
     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
-        self.real_time.new_vehicle_journeys_history.len()
+        self.real_time.nb_of_new_vehicle_journeys()
     }
 
     pub fn new_vehicle_journeys(&self) -> impl Iterator<Item = NewVehicleJourneyIdx> {
-        let range = 0..self.nb_of_new_vehicle_journeys();
-        range.map(|idx| NewVehicleJourneyIdx { idx })
+        self.real_time.new_vehicle_journeys()
     }
 
     pub fn nb_of_base_vehicle_journeys(&self) -> usize {

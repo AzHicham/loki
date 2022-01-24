@@ -98,6 +98,9 @@ async fn run() {
 
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
 
+    subtests::chaos_test::delete_network_on_invalid_period_test(&config).await;
+    subtests::chaos_test::delete_vj_test(&config).await;
+
     subtests::places_nearby_test::places_nearby_test(&config).await;
 
     info!("Everything went Ok ! Now stopping.");

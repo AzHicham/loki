@@ -35,6 +35,8 @@
 // www.navitia.io
 
 use crate::{
+    chaos, chaos_proto,
+    handle_chaos_message::make_datetime,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::{DataAndModels, Timetable},
@@ -42,7 +44,10 @@ use crate::{
     status_worker::{BaseDataInfo, StatusUpdate},
 };
 
-use super::{chaos_proto::gtfs_realtime, navitia_proto};
+use super::{
+    chaos_proto::{chaos::exts, gtfs_realtime},
+    navitia_proto,
+};
 use prost::Message as ProstMessage;
 use protobuf::Message as ProtobufMessage;
 
@@ -62,8 +67,8 @@ use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
-    tracing::{debug, error, info, log::trace},
-    DataTrait,
+    tracing::{debug, error, info, log::trace, warn},
+    DataTrait, NaiveDateTime,
 };
 
 use std::{
@@ -71,6 +76,7 @@ use std::{
     thread,
 };
 
+use crate::handle_chaos_message::handle_chaos_protobuf;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -145,6 +151,12 @@ impl DataWorker {
         self.load_data_from_disk()
             .await
             .with_context(|| "Error while loading data from disk.".to_string())?;
+
+        // After loading data from disk, load all disruption in chaos database
+        // Then apply all extracted disruptions
+        if let Err(err) = self.load_chaos_database().await {
+            error!("Error : {}", err);
+        }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
             self.config
@@ -227,8 +239,6 @@ impl DataWorker {
                         self.apply_realtime_messages().await?;
                         trace!("Successfully applied real time updates.");
                     }
-
-
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
@@ -280,24 +290,35 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }
 
+    async fn load_chaos_database(&mut self) -> Result<(), Error> {
+        let (start_date, end_date) = {
+            let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                format_err!(
+                    "DataWorker failed to acquire read lock on data_and_models : {}",
+                    err
+                )
+            })?;
+            let (data, _, _) = rw_lock_read_guard.deref();
+            let calendar = data.calendar();
+            (*calendar.first_date(), *calendar.last_date())
+        }; // lock is released
+        if let Err(err) = chaos::models::chaos_disruption_from_database(
+            &self.config.chaos_params,
+            (start_date, end_date),
+            &self.config.rabbitmq_params.rabbitmq_real_time_topics,
+        ) {
+            error!("Loading chaos database failed : {:?}.", err);
+        }
+        Ok(())
+    }
+
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
         let messages = std::mem::take(&mut self.kirin_messages);
         let updater = |data_and_models: &mut DataAndModels| {
-            let data = &mut data_and_models.0;
-            let base_model = &data_and_models.1;
-            let real_time_model = &mut data_and_models.2;
             for message in messages {
-                for feed_entity in message.entity {
-                    let disruption_result =
-                        handle_kirin_protobuf(&feed_entity, base_model, real_time_model);
-                    match disruption_result {
-                        Err(err) => {
-                            error!("Could not handle a kirin message {:?}", err);
-                        }
-                        Ok(disruption) => {
-                            real_time_model.apply_disruption(&disruption, base_model, data);
-                        }
-                    }
+                let result = handle_realtime_message(data_and_models, &message);
+                if let Err(err) = result {
+                    error!("Could not handle real time message. {:?}", err);
                 }
             }
             Ok(())
@@ -422,6 +443,11 @@ impl DataWorker {
                             // since we are going to request a full reload from kirin
                             self.kirin_messages.clear();
                             self.load_data_from_disk().await?;
+                            // After loading data from disk, load all disruption in chaos database
+                            // Then apply all extracted disruptions
+                            if let Err(err) = self.load_chaos_database().await {
+                                error!("Error : {}", err);
+                            }
                             self.reload_kirin(channel).await?;
                             debug!("Reload completed successfully.");
                         } else {
@@ -748,4 +774,90 @@ async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32,
         .queue_delete(queue_name, lapin::options::QueueDeleteOptions::default())
         .await
         .with_context(|| format!("Could not create delete to queue {}.", queue_name))
+}
+
+fn handle_realtime_message(
+    data_and_models: &mut DataAndModels,
+    message: &chaos_proto::gtfs_realtime::FeedMessage,
+) -> Result<(), Error> {
+    let header_datetime = parse_header_datetime(&message)
+        .map_err(|err| {
+            warn!(
+                "Received a FeedMessage with a bad header datetime. {:?}",
+                err
+            );
+        })
+        .ok();
+
+    for feed_entity in &message.entity {
+        let result = handle_feed_entity(data_and_models, feed_entity, &header_datetime);
+        if let Err(err) = result {
+            let datetime_str = header_datetime
+                .map(|datetime| format!("{}", datetime))
+                .unwrap_or("BadHeaderDatetime".to_string());
+            error!(
+                "An error occured while handling FeedMessage with timestamp {}. {:?}",
+                datetime_str, err
+            )
+        }
+    }
+    Ok(())
+}
+
+fn handle_feed_entity(
+    data_and_models: &mut DataAndModels,
+    feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
+    header_datetime: &Option<NaiveDateTime>,
+) -> Result<(), Error> {
+    if !feed_entity.has_id() {
+        bail!("FeedEntity has no id");
+    }
+    let id = feed_entity.get_id();
+    if feed_entity.get_is_deleted() {
+        bail!(
+            "FeedEntity {} has is_deleted == true. This is not supported",
+            id
+        );
+    }
+
+    let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+        handle_chaos_protobuf(&chaos_disruption)
+            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
+    } else {
+        if feed_entity.has_trip_update() {
+            let calendar = data_and_models.0.calendar();
+            let calendar_period = (*calendar.first_date(), *calendar.last_date());
+            handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period).with_context(
+                || format!("Could not handle kirin disruption in FeedEntity {}", id),
+            )?
+        } else {
+            bail!(
+                "FeedEntity {} is a Kirin message but has no trip_update",
+                id
+            );
+        }
+    };
+
+    let data = &mut data_and_models.0;
+    let base_model = &data_and_models.1;
+    let real_time_model = &mut data_and_models.2;
+
+    real_time_model.store_and_apply_disruption(disruption, base_model, data);
+    Ok(())
+}
+
+fn parse_header_datetime(
+    message: &chaos_proto::gtfs_realtime::FeedMessage,
+) -> Result<NaiveDateTime, Error> {
+    if message.has_header() {
+        let header = message.get_header();
+        if header.has_timestamp() {
+            let timestamp = header.get_timestamp();
+            make_datetime(timestamp)
+        } else {
+            bail!("FeedHeader has no timestamp");
+        }
+    } else {
+        bail!("FeedMessage has no header");
+    }
 }
