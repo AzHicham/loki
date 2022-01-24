@@ -98,7 +98,12 @@ impl ComputeWorker {
         (result, requests_channel_sender)
     }
 
-    pub fn run(mut self) -> Result<(), Error> {
+    pub fn run(mut self) {
+        let run_result = self.run_loop();
+        error!("Worker {} stopped : {:#?}", &self.worker_id.id, run_result);
+    }
+
+    pub fn run_loop(&mut self) -> Result<(), Error> {
         info!("Worker {} has launched.", self.worker_id.id);
         loop {
             // block on receiving message
@@ -114,28 +119,32 @@ impl ComputeWorker {
 
             info!("Worker {} received a request.", self.worker_id.id);
 
-            let proto_response = self
-                .handle_request(request_message.payload)
-                .with_context(|| format!("Compute worker {} will stop.", self.worker_id.id))?;
+            let reponse_result = self.handle_request(request_message.payload);
+            match reponse_result {
+                Err(err) => {
+                    error!("An error occured while solving a request : {:#?}", err);
+                }
+                Ok(proto_response) => {
+                    let response_message = ResponseMessage {
+                        payload: proto_response,
+                        client_id: request_message.client_id,
+                    };
 
-            let response_message = ResponseMessage {
-                payload: proto_response,
-                client_id: request_message.client_id,
-            };
+                    debug!("Worker {} finished solving.", self.worker_id.id);
 
-            debug!("Worker {} finished solving.", self.worker_id.id);
+                    // block until the response is sent
+                    self.responses_channel
+                        .blocking_send((self.worker_id, response_message))
+                        .with_context(|| {
+                            format!(
+                                "Compute worker {} could not send response. This worker will stop.",
+                                self.worker_id.id
+                            )
+                        })?;
 
-            // block until the response is sent
-            self.responses_channel
-                .blocking_send((self.worker_id, response_message))
-                .with_context(|| {
-                    format!(
-                        "Compute worker {} could not send response. This worker will stop.",
-                        self.worker_id.id
-                    )
-                })?;
-
-            debug!("Worker {} sent his response.", self.worker_id.id);
+                    debug!("Worker {} sent his response.", self.worker_id.id);
+                }
+            }
         }
     }
 
