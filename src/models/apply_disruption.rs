@@ -94,7 +94,7 @@ impl RealTimeModel {
                 .collect();
 
             for pt_object in &impact.impacted_pt_objects {
-                let update = match pt_object {
+                match pt_object {
                     Impacted::NetworkDeleted(network) => self.delete_network(
                         base_model,
                         data,
@@ -346,7 +346,7 @@ impl RealTimeModel {
         application_periods: &[DateTimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
-        if let Some(vj_idx) = self.vehicle_journey_idx(vehicle_journey_id, base_model) {
+        if let Some(_) = self.vehicle_journey_idx(vehicle_journey_id, base_model) {
             for application_period in application_periods.iter() {
                 for datetime in application_period {
                     let date = datetime.date();
@@ -390,7 +390,7 @@ impl RealTimeModel {
         Ok(())
     }
 
-    fn modify_trip<Data: DataTrait + DataUpdate>(
+    pub fn modify_trip<Data: DataTrait + DataUpdate>(
         &mut self,
         base_model: &BaseModel,
         data: &mut Data,

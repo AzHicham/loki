@@ -12,47 +12,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>
 
-use loki::{
-    chrono::NaiveDate,
-    models::real_time_disruption::{StopTime, Trip, Update},
-    time::SecondsSinceTimezonedDayStart,
-};
+use loki::{models::real_time_disruption::StopTime, time::SecondsSinceTimezonedDayStart};
 
-use super::model_builder::{AsDate, IntoTime};
-
-pub fn delete(vehicle_journey_id: String, date: NaiveDate) -> Update {
-    let trip = Trip {
-        vehicle_journey_id: vehicle_journey_id.clone(),
-        reference_date: date,
-    };
-    Update::Delete(trip)
-}
-
-pub fn add(
-    vehicle_journey_id: &str,
-    date: impl AsDate,
-    stop_times_builder: StopTimesBuilder,
-) -> Update {
-    let trip = Trip {
-        vehicle_journey_id: vehicle_journey_id.to_string(),
-        reference_date: date.as_date(),
-    };
-    Update::Add(trip, stop_times_builder.stop_times)
-}
-
-pub fn modify(
-    vehicle_journey_id: &str,
-    date: impl AsDate,
-    stop_times_builder: StopTimesBuilder,
-) -> Update {
-    let trip = Trip {
-        vehicle_journey_id: vehicle_journey_id.to_string(),
-        reference_date: date.as_date(),
-    };
-    Update::Modify(trip, stop_times_builder.stop_times)
-}
-
-pub struct DisruptionBuilder {}
+use super::model_builder::IntoTime;
 
 pub struct StopTimesBuilder {
     pub stop_times: Vec<StopTime>,
