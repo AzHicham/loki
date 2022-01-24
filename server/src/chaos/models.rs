@@ -62,7 +62,7 @@ pub fn read_chaos_disruption_from_database(
 
     info!("Disruptions ready to be applied");
 
-    Ok(disruption_maker.disruptions)
+    Ok(disruption_maker.disruptions.into_values().collect())
 }
 
 // Each ChaosDisruption contains only a part of a Disruption
@@ -71,11 +71,8 @@ pub fn read_chaos_disruption_from_database(
 #[derive(Default)]
 struct DisruptionMaker {
     // When we receive a ChaosDisruption we can create a new Disruption if the disruption id is new (ie not in disruptions_set)
-    // or we update an already created Disruption stored in disruptions vector
-    // to speed up lookup of Disruption that need update we use the HashMap<Uid, usize> disruptions_set
-    // with usize as index of the disruption in disruptions vector
-    pub(crate) disruptions: Vec<chaos_proto::chaos::Disruption>,
-    pub(crate) disruptions_set: HashMap<Uid, usize>,
+    // or we update an already created Disruption stored in disruptions HashMap
+    pub(crate) disruptions: HashMap<Uid, chaos_proto::chaos::Disruption>,
 
     // For each disruption we can have multiple impact, tag and property
     // In order to push unique impact, tag and property we use HashSet/HashMap
@@ -84,7 +81,7 @@ struct DisruptionMaker {
     // but an impact can be completed so we use a HashMap<Uid, usize>
     // in order to locate the correct position of impact in disruption.impacts[] vector
     pub(crate) tags_set: HashSet<Uid>,
-    pub(crate) properties_set: HashSet<(String, String, String)>,
+    pub(crate) properties_set: HashSet<(String, String, String)>, //(type, key, value)
     pub(crate) impacts_set: HashMap<Uid, usize>,
 
     pub(crate) impact_object_set: ImpactMaker,
@@ -92,24 +89,21 @@ struct DisruptionMaker {
 
 impl DisruptionMaker {
     pub fn read_disruption(&mut self, row: &ChaosDisruption) -> Result<(), Error> {
-        let find_disruption = self.disruptions_set.entry(row.disruption_id);
-        let disruption = match find_disruption {
-            Vacant(entry) => {
-                let disruption = DisruptionMaker::make_disruption(row)?;
+        let find_disruption = self.disruptions.entry(row.disruption_id);
+        if let Vacant(entry) = find_disruption {
+            let disruption = DisruptionMaker::make_disruption(row)?;
 
-                // clear all set related to disruption
-                self.impacts_set.clear();
-                self.tags_set.clear();
-                self.properties_set.clear();
-                self.impact_object_set.clear();
+            // clear all set related to disruption
+            self.impacts_set.clear();
+            self.tags_set.clear();
+            self.properties_set.clear();
+            self.impact_object_set.clear();
 
-                self.disruptions.push(disruption);
-                let idx: usize = self.disruptions.len() - 1;
-                entry.insert(idx);
-                self.disruptions.last_mut().unwrap()
-            }
-            Occupied(entry) => self.disruptions.get_mut(*entry.get()).unwrap(),
-        };
+            entry.insert(disruption);
+        }
+        // after previous insert unwrap is safe here!
+        let disruption = self.disruptions.get_mut(&row.disruption_id).unwrap();
+
         DisruptionMaker::update_tags(&mut self.tags_set, row, disruption)?;
         DisruptionMaker::update_properties(&mut self.properties_set, row, disruption)?;
         DisruptionMaker::update_impacts(
@@ -156,15 +150,13 @@ impl DisruptionMaker {
         disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         if let Some(tag_id) = row.tag_id {
-            if !tags_set.contains(&tag_id) {
+            if tags_set.insert(tag_id) {
                 let mut tag = chaos_proto::chaos::Tag::new();
                 tag.set_id(tag_id.to_string());
                 if let Some(name) = &row.tag_name {
                     tag.set_name(name.clone());
                 }
-
                 disruption.tags.push(tag);
-                tags_set.insert(tag_id);
             }
         }
         Ok(())
@@ -188,13 +180,12 @@ impl DisruptionMaker {
                 bail!("Property has no value");
             };
             let tuple = (type_.clone(), key.clone(), value.clone());
-            if !properties_set.contains(&tuple) {
+            if properties_set.insert(tuple) {
                 let mut property = chaos_proto::chaos::DisruptionProperty::new();
                 property.set_field_type(type_.clone());
                 property.set_key(key.clone());
                 property.set_value(value.clone());
                 disruption.properties.push(property);
-                properties_set.insert(tuple);
             }
         }
         Ok(())
@@ -210,8 +201,8 @@ impl DisruptionMaker {
             // Impact already in disruption
             disruption.impacts.get_mut(*idx).unwrap()
         } else {
-            let impact = ImpactMaker::make_impact(row)?;
             // Or create a new impact We must then clear all  sub-objects sets belonging to impact
+            let impact = ImpactMaker::make_impact(row)?;
             impact_object_set.clear();
 
             disruption.impacts.push(impact);
@@ -295,7 +286,7 @@ impl ImpactMaker {
         row: &ChaosDisruption,
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
-        if !application_periods_set.contains(&row.application_id) {
+        if application_periods_set.insert(row.application_id) {
             let mut application_period = chaos_proto::gtfs_realtime::TimeRange::new();
             if let Some(start) = &row.disruption_start_publication_date {
                 application_period.set_start(u64::try_from(start.timestamp())?);
@@ -304,7 +295,6 @@ impl ImpactMaker {
                 application_period.set_end(u64::try_from(end.timestamp())?);
             }
             impact.application_periods.push(application_period);
-            application_periods_set.insert(row.application_id);
         }
         Ok(())
     }
@@ -315,7 +305,7 @@ impl ImpactMaker {
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(message_id) = row.message_id {
-            if !messages_set.contains(&message_id) {
+            if messages_set.insert(message_id) {
                 let mut message = chaos_proto::chaos::Message::new();
                 if let Some(text) = &row.message_text {
                     message.set_text(text.clone());
@@ -332,9 +322,7 @@ impl ImpactMaker {
                         .types
                         .push(ImpactMaker::make_channel_type(channel_type))
                 }
-
                 impact.messages.push(message);
-                messages_set.insert(message_id);
             }
         }
         Ok(())
@@ -361,7 +349,7 @@ impl ImpactMaker {
         impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(pattern_id) = row.pattern_id {
-            if !application_pattern_set.contains(&pattern_id) {
+            if application_pattern_set.insert(pattern_id) {
                 let mut pattern = chaos_proto::chaos::Pattern::new();
                 if let Some(start_date) = row.pattern_start_date {
                     pattern.set_start_date(u32::try_from(start_date.and_hms(0, 0, 0).timestamp())?)
@@ -385,7 +373,6 @@ impl ImpactMaker {
                     pattern.time_slots.push(time_slot);
                 }
                 impact.application_patterns.push(pattern);
-                application_pattern_set.insert(pattern_id);
             }
         }
         Ok(())
