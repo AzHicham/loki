@@ -780,7 +780,7 @@ fn handle_realtime_message(
     data_and_models: &mut DataAndModels,
     message: &chaos_proto::gtfs_realtime::FeedMessage,
 ) -> Result<(), Error> {
-    let header_datetime = parse_header_datetime(&message)
+    let header_datetime = parse_header_datetime(message)
         .map_err(|err| {
             warn!(
                 "Received a FeedMessage with a bad header datetime. {:?}",
@@ -823,19 +823,16 @@ fn handle_feed_entity(
     let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
         handle_chaos_protobuf(&chaos_disruption)
             .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
+    } else if feed_entity.has_trip_update() {
+        let calendar = data_and_models.0.calendar();
+        let calendar_period = (*calendar.first_date(), *calendar.last_date());
+        handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period)
+            .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?
     } else {
-        if feed_entity.has_trip_update() {
-            let calendar = data_and_models.0.calendar();
-            let calendar_period = (*calendar.first_date(), *calendar.last_date());
-            handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period).with_context(
-                || format!("Could not handle kirin disruption in FeedEntity {}", id),
-            )?
-        } else {
-            bail!(
-                "FeedEntity {} is a Kirin message but has no trip_update",
-                id
-            );
-        }
+        bail!(
+            "FeedEntity {} is a Kirin message but has no trip_update",
+            id
+        );
     };
 
     let data = &mut data_and_models.0;

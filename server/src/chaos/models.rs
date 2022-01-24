@@ -31,7 +31,7 @@ pub fn chaos_disruption_from_database(
         .load::<ChaosDisruption>(&connection);
 
     if let Err(ref err) = res {
-        println!("{}", err.to_string());
+        println!("{}", err);
     }
     println!("{:?}", res);
 
