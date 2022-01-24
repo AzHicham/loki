@@ -799,7 +799,7 @@ fn handle_realtime_message(
     data_and_models: &mut DataAndModels,
     message: &chaos_proto::gtfs_realtime::FeedMessage,
 ) -> Result<(), Error> {
-    let header_datetime = parse_header_datetime(&message)
+    let header_datetime = parse_header_datetime(message)
         .map_err(|err| {
             warn!(
                 "Received a FeedMessage with a bad header datetime. {:?}",
