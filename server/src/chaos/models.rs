@@ -2,23 +2,19 @@ use crate::{
     chaos::sql_types::{
         ChannelType as ChannelTypeSQL, DisruptionStatus, ImpactStatus, PtObjectType, SeverityEffect,
     },
-    info,
+    chaos_proto, info,
     server_config::ChaosParams,
 };
-use anyhow::{bail, format_err, Context, Error};
+use anyhow::{bail, Context, Error};
 use diesel::{
     pg::types::sql_types::Array,
     prelude::*,
     sql_types::{Bit, Bool, Date, Int4, Nullable, Text, Time, Timestamp, Uuid},
 };
+use launch::loki::chrono::Timelike;
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime},
-    models::real_time_disruption::{
-        ApplicationPattern, BlockedStopArea, ChannelType, DateTimePeriod, Disruption,
-        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
-        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
-        TimeSlot,
-    },
+    models::real_time_disruption::BlockedStopArea,
     tracing::error,
     NaiveDateTime,
 };
@@ -32,7 +28,7 @@ pub fn read_chaos_disruption_from_database(
     config: &ChaosParams,
     publication_period: (NaiveDate, NaiveDate),
     contributors: &[String],
-) -> Result<Vec<Disruption>, Error> {
+) -> Result<Vec<chaos_proto::chaos::Disruption>, Error> {
     let connection = PgConnection::establish(&config.chaos_database)?;
 
     let mut disruption_maker = DisruptionMaker::default();
@@ -70,13 +66,27 @@ pub fn read_chaos_disruption_from_database(
     Ok(disruption_maker.disruptions)
 }
 
+// Each ChaosDisruption contains only a part of a Disruption
+// So In order to construct a Disruption we parse & merge each ChaosDisruption
+// this is the main goal of DisruptionMaker
 #[derive(Default)]
 struct DisruptionMaker {
-    pub(crate) disruptions: Vec<Disruption>,
+    // When we receive a ChaosDisruption we can create a new Disruption if the disruption id is new (ie not in disruptions_set)
+    // or we update an already created Disruption stored in disruptions vector
+    // to speed up lookup of Disruption that need update we use the HashMap<Uid, usize> disruptions_set
+    // with usize as index of the disruption in disruptions vector
+    pub(crate) disruptions: Vec<chaos_proto::chaos::Disruption>,
     pub(crate) disruptions_set: HashMap<Uid, usize>,
-    pub(crate) impacts_set: HashMap<Uid, usize>,
+
+    // For each disruption we can have multiple impact, tag and property
+    // In order to push unique impact, tag and property we use HashSet/HashMap
+    // to check if the corresponding tag, impact, property has already been pushed in a disruption
+    // Note : tags and property do not need to be completed/updated
+    // but an impact can be completed so we use a HashMap<Uid, usize>
+    // in order to locate the correct position of impact in disruption.impacts[] vector
     pub(crate) tags_set: HashSet<Uid>,
     pub(crate) properties_set: HashSet<(String, String, String)>,
+    pub(crate) impacts_set: HashMap<Uid, usize>,
 
     pub(crate) impact_object_set: ImpactMaker,
 }
@@ -86,26 +96,31 @@ impl DisruptionMaker {
         let find_disruption = self.disruptions_set.entry(row.disruption_id);
         let disruption = match find_disruption {
             Vacant(entry) => {
-                let publication_period = if let (Some(start), Some(end)) = (
-                    row.disruption_start_publication_date,
-                    row.disruption_end_publication_date,
-                ) {
-                    DateTimePeriod::new(start, end)?
-                } else {
-                    return Err(format_err!(""));
-                };
-                let disruption = Disruption {
-                    id: row.disruption_id.to_string(),
-                    reference: row.disruption_reference.clone(),
-                    contributor: Some(row.contributor.clone()),
-                    publication_period,
-                    created_at: None,
-                    updated_at: None,
-                    cause: Default::default(),
-                    tags: vec![],
-                    properties: vec![],
-                    impacts: vec![],
-                };
+                let mut disruption = chaos_proto::chaos::Disruption::new();
+                disruption.set_id(row.disruption_id.to_string());
+                if let Some(reference) = &row.disruption_reference {
+                    disruption.set_reference(reference.clone());
+                }
+                disruption.set_created_at(u64::try_from(row.disruption_created_at.timestamp())?);
+                if let Some(updated_at) = &row.disruption_updated_at {
+                    disruption.set_updated_at(u64::try_from(updated_at.timestamp())?);
+                }
+                // Fill cause
+                let cause = disruption.mut_cause();
+                cause.set_wording(row.cause_wording.clone());
+                if let Some(category_name) = &row.category_name {
+                    let category = cause.mut_category();
+                    category.set_name(category_name.clone());
+                }
+                // Fill publication_period
+                let publication_period = disruption.mut_publication_period();
+                if let Some(start) = &row.disruption_start_publication_date {
+                    publication_period.set_start(u64::try_from(start.timestamp())?);
+                }
+                if let Some(end) = &row.disruption_end_publication_date {
+                    publication_period.set_end(u64::try_from(end.timestamp())?);
+                }
+
                 // clear all set related to disruption
                 self.impacts_set.clear();
                 self.tags_set.clear();
@@ -132,19 +147,17 @@ impl DisruptionMaker {
     fn update_tags(
         tags_set: &mut HashSet<Uid>,
         row: &ChaosDisruption,
-        disruption: &mut Disruption,
+        disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         if let Some(tag_id) = row.tag_id {
-            let name = if let Some(name) = &row.tag_name {
-                name
-            } else {
-                bail!("Tag has no name");
-            };
             if !tags_set.contains(&tag_id) {
-                disruption.tags.push(Tag {
-                    id: tag_id.to_string(),
-                    name: name.clone(),
-                });
+                let mut tag = chaos_proto::chaos::Tag::new();
+                tag.set_id(tag_id.to_string());
+                if let Some(name) = &row.tag_name {
+                    tag.set_name(name.clone());
+                }
+
+                disruption.tags.push(tag);
                 tags_set.insert(tag_id);
             }
         }
@@ -154,7 +167,7 @@ impl DisruptionMaker {
     fn update_properties(
         properties_set: &mut HashSet<(String, String, String)>,
         row: &ChaosDisruption,
-        disruption: &mut Disruption,
+        disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         // type_ is here like an Uuid
         if let Some(type_) = &row.property_type {
@@ -170,11 +183,11 @@ impl DisruptionMaker {
             };
             let tuple = (type_.clone(), key.clone(), value.clone());
             if !properties_set.contains(&tuple) {
-                disruption.properties.push(DisruptionProperty {
-                    key: key.clone(),
-                    type_: type_.clone(),
-                    value: value.clone(),
-                });
+                let mut property = chaos_proto::chaos::DisruptionProperty::new();
+                property.set_field_type(type_.clone());
+                property.set_key(key.clone());
+                property.set_value(value.clone());
+                disruption.properties.push(property);
                 properties_set.insert(tuple);
             }
         }
@@ -185,39 +198,29 @@ impl DisruptionMaker {
         impact_object_set: &mut ImpactMaker,
         impacts_set: &mut HashMap<Uid, usize>,
         row: &ChaosDisruption,
-        disruption: &mut Disruption,
+        disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         let impact = if let Some(idx) = impacts_set.get(&row.impact_id) {
             // Impact already in disruption
             disruption.impacts.get_mut(*idx).unwrap()
         } else {
-            // Or create a new impact We must then clear all sub-objects of impact
+            // Or create a new impact We must then clear all  sub-objects sets belonging to impact
             impact_object_set.clear();
-
-            let impact = Impact {
-                id: row.impact_id.to_string(),
-                created_at: None,
-                updated_at: None,
-                application_periods: vec![],
-                application_patterns: vec![],
-                severity: Severity {
-                    id: row.severity_id.to_string(),
-                    wording: Some(row.severity_wording.clone()),
-                    color: row.severity_color.clone(),
-                    priority: Some(row.severity_priority),
-                    effect: row
-                        .severity_effect
-                        .as_ref()
-                        .map_or(Effect::UnknownEffect, |e| {
-                            DisruptionMaker::make_severity_effect(e)
-                        }),
-                    created_at: None,
-                    updated_at: None,
-                },
-                messages: vec![],
-                impacted_pt_objects: vec![],
-                informed_pt_objects: vec![],
-            };
+            let mut impact = chaos_proto::chaos::Impact::new();
+            impact.set_created_at(u64::try_from(row.impact_created_at.timestamp())?);
+            if let Some(updated_at) = &row.impact_updated_at {
+                impact.set_updated_at(u64::try_from(updated_at.timestamp())?);
+            }
+            // Fill severity
+            let severity = impact.mut_severity();
+            severity.set_wording(row.severity_wording.clone());
+            severity.set_priority(row.severity_priority);
+            if let Some(color) = &row.severity_color {
+                severity.set_color(color.clone())
+            }
+            if let Some(effect) = &row.severity_effect {
+                severity.set_effect(DisruptionMaker::make_severity_effect(effect.clone()));
+            }
 
             disruption.impacts.push(impact);
             let idx: usize = disruption.impacts.len() - 1;
@@ -236,22 +239,23 @@ impl DisruptionMaker {
             row,
             impact,
         )?;
-        ImpactMaker::update_pt_objects(row, impact)?;
+        ImpactMaker::update_pt_objects(&mut impact_object_set.pt_object_set, row, impact)?;
 
         Ok(())
     }
 
-    fn make_severity_effect(effect: &SeverityEffect) -> Effect {
+    fn make_severity_effect(effect: &SeverityEffect) -> chaos_proto::gtfs_realtime::Alert_Effect {
+        use chaos_proto::gtfs_realtime::Alert_Effect;
         match effect {
-            SeverityEffect::NoService => Effect::NoService,
-            SeverityEffect::OtherEffect => Effect::OtherEffect,
-            SeverityEffect::ModifiedService => Effect::ModifiedService,
-            SeverityEffect::AdditionalService => Effect::AdditionalService,
-            SeverityEffect::StopMoved => Effect::StopMoved,
-            SeverityEffect::SignificantDelays => Effect::SignificantDelays,
-            SeverityEffect::ReducedService => Effect::ReducedService,
-            SeverityEffect::UnknownEffect => Effect::UnknownEffect,
-            SeverityEffect::Detour => Effect::Detour,
+            SeverityEffect::NoService => Alert_Effect::NO_SERVICE,
+            SeverityEffect::OtherEffect => Alert_Effect::OTHER_EFFECT,
+            SeverityEffect::ModifiedService => Alert_Effect::MODIFIED_SERVICE,
+            SeverityEffect::AdditionalService => Alert_Effect::ADDITIONAL_SERVICE,
+            SeverityEffect::StopMoved => Alert_Effect::STOP_MOVED,
+            SeverityEffect::SignificantDelays => Alert_Effect::SIGNIFICANT_DELAYS,
+            SeverityEffect::ReducedService => Alert_Effect::REDUCED_SERVICE,
+            SeverityEffect::UnknownEffect => Alert_Effect::UNKNOWN_EFFECT,
+            SeverityEffect::Detour => Alert_Effect::DETOUR,
         }
     }
 }
@@ -261,6 +265,7 @@ struct ImpactMaker {
     pub(crate) application_periods_set: HashSet<Uid>,
     pub(crate) application_pattern_set: HashSet<Uid>,
     pub(crate) messages_set: HashSet<Uid>,
+    pub(crate) pt_object_set: HashSet<String>,
 }
 
 impl ImpactMaker {
@@ -273,22 +278,18 @@ impl ImpactMaker {
     fn update_application_period(
         application_periods_set: &mut HashSet<Uid>,
         row: &ChaosDisruption,
-        impact: &mut Impact,
+        impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if !application_periods_set.contains(&row.application_id) {
-            let start_date = if let Some(start_date) = row.application_start_date {
-                start_date
-            } else {
-                bail!("ApplicationPeriod has no start_date");
-            };
-            let end_date = if let Some(end_date) = row.application_end_date {
-                end_date
-            } else {
-                bail!("ApplicationPeriod has no start_date");
-            };
-            impact
-                .application_periods
-                .push(DateTimePeriod::new(start_date, end_date)?);
+            let mut application_period = chaos_proto::gtfs_realtime::TimeRange::new();
+            if let Some(start) = &row.disruption_start_publication_date {
+                application_period.set_start(u64::try_from(start.timestamp())?);
+            }
+            if let Some(end) = &row.disruption_end_publication_date {
+                application_period.set_end(u64::try_from(end.timestamp())?);
+            }
+            impact.application_periods.push(application_period);
+            application_periods_set.insert(row.application_id.clone());
         }
         Ok(())
     }
@@ -296,264 +297,276 @@ impl ImpactMaker {
     fn update_messages(
         messages_set: &mut HashSet<Uid>,
         row: &ChaosDisruption,
-        impact: &mut Impact,
+        impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(message_id) = row.message_id {
-            let text = if let Some(text) = &row.message_text {
-                text
-            } else {
-                bail!("Message has no text");
-            };
-            let channel_name = if let Some(channel_name) = &row.channel_name {
-                channel_name
-            } else {
-                bail!("Message has no channel_name");
-            };
             if !messages_set.contains(&message_id) {
-                impact.messages.push(Message {
-                    text: text.clone(),
-                    channel_id: row.channel_id.map(|channel_id| channel_id.to_string()),
-                    channel_name: channel_name.clone(),
-                    channel_content_type: row.channel_content_type.clone(),
-                    channel_types: row
-                        .channel_type
-                        .iter()
-                        .filter_map(|c| c.as_ref().map(ImpactMaker::make_channel_type))
-                        .collect(),
-                })
+                let mut message = chaos_proto::chaos::Message::new();
+                if let Some(text) = &row.message_text {
+                    message.set_text(text.clone());
+                }
+                let channel = message.mut_channel();
+                if let Some(name) = &row.channel_name {
+                    channel.set_name(name.clone())
+                }
+                if let Some(content_type) = &row.channel_content_type {
+                    channel.set_content_type(content_type.clone())
+                }
+                for channel_type in row.channel_type.iter() {
+                    if let Some(channel_type) = channel_type {
+                        channel
+                            .types
+                            .push(ImpactMaker::make_channel_type(channel_type))
+                    }
+                }
+
+                impact.messages.push(message);
+                messages_set.insert(message_id.clone());
             }
         }
         Ok(())
     }
 
-    fn make_channel_type(channel_type: &ChannelTypeSQL) -> ChannelType {
+    fn make_channel_type(channel_type: &ChannelTypeSQL) -> chaos_proto::chaos::Channel_Type {
+        use chaos_proto::chaos::Channel_Type;
         match channel_type {
-            ChannelTypeSQL::Title => ChannelType::Title,
-            ChannelTypeSQL::Beacon => ChannelType::Beacon,
-            ChannelTypeSQL::Twitter => ChannelType::Twitter,
-            ChannelTypeSQL::Notification => ChannelType::Notification,
-            ChannelTypeSQL::Sms => ChannelType::Sms,
-            ChannelTypeSQL::Facebook => ChannelType::Facebook,
-            ChannelTypeSQL::Email => ChannelType::Email,
-            ChannelTypeSQL::Mobile => ChannelType::Mobile,
-            ChannelTypeSQL::Web => ChannelType::Web,
+            ChannelTypeSQL::Title => Channel_Type::title,
+            ChannelTypeSQL::Beacon => Channel_Type::beacon,
+            ChannelTypeSQL::Twitter => Channel_Type::twitter,
+            ChannelTypeSQL::Notification => Channel_Type::notification,
+            ChannelTypeSQL::Sms => Channel_Type::sms,
+            ChannelTypeSQL::Facebook => Channel_Type::facebook,
+            ChannelTypeSQL::Email => Channel_Type::email,
+            ChannelTypeSQL::Mobile => Channel_Type::mobile,
+            ChannelTypeSQL::Web => Channel_Type::web,
         }
     }
 
     fn update_application_pattern(
         application_pattern_set: &mut HashSet<Uid>,
         row: &ChaosDisruption,
-        impact: &mut Impact,
+        impact: &mut chaos_proto::chaos::Impact,
     ) -> Result<(), Error> {
         if let Some(pattern_id) = row.pattern_id {
             if !application_pattern_set.contains(&pattern_id) {
-                let begin_date = if let Some(begin_date) = row.pattern_start_date {
-                    begin_date
-                } else {
-                    bail!("Pattern has no start_date");
-                };
-                let end_date = if let Some(end_date) = row.pattern_end_date {
-                    end_date
-                } else {
-                    bail!("Pattern has no end_date");
-                };
-
+                let mut pattern = chaos_proto::chaos::Pattern::new();
+                if let Some(start_date) = row.pattern_start_date {
+                    pattern.set_start_date(u32::try_from(start_date.and_hms(0, 0, 0).timestamp())?)
+                }
+                if let Some(end_date) = row.pattern_end_date {
+                    pattern.set_end_date(u32::try_from(end_date.and_hms(0, 0, 0).timestamp())?)
+                }
                 // time_slot_begin && time_slot_end have always the same size
                 // thanks to the sql query
-                let time_slots = row
+                let time_slots_iter = row
                     .time_slot_begin
                     .iter()
                     .filter_map(|begin| *begin)
-                    .zip(row.time_slot_end.iter().filter_map(|end| *end))
-                    .map(|(begin, end)| TimeSlot { begin, end })
-                    .collect();
-                impact.application_patterns.push(ApplicationPattern {
-                    begin_date,
-                    end_date,
-                    time_slots,
-                })
+                    .zip(row.time_slot_end.iter().filter_map(|end| *end));
+
+                for (begin, end) in time_slots_iter {
+                    let mut time_slot = chaos_proto::chaos::TimeSlot::new();
+                    time_slot.set_begin(begin.num_seconds_from_midnight());
+                    time_slot.set_end(end.num_seconds_from_midnight());
+                    pattern.time_slots.push(time_slot);
+                }
+                impact.application_patterns.push(pattern);
+                application_pattern_set.insert(pattern_id.clone());
             }
         }
         Ok(())
     }
 
-    fn update_pt_objects(row: &ChaosDisruption, impact: &mut Impact) -> Result<(), Error> {
+    fn update_pt_objects(
+        pt_object_set: &mut HashSet<String>,
+        row: &ChaosDisruption,
+        impact: &mut chaos_proto::chaos::Impact,
+    ) -> Result<(), Error> {
         let id = if let Some(id) = &row.ptobject_uri {
             id.clone()
         } else {
             bail!("PtObject has no uri");
         };
-        let impacted = &mut impact.impacted_pt_objects;
-        let informed = &mut impact.informed_pt_objects;
 
-        match (&row.ptobject_type, impact.severity.effect) {
-            (PtObjectType::Network, Effect::NoService) => {
-                impacted.push(Impacted::NetworkDeleted(NetworkId { id }));
-            }
-            (PtObjectType::Network, _) => {
-                informed.push(Informed::Network(NetworkId { id }));
-            }
+        let pt_object_type = row.ptobject_type.clone();
 
-            (PtObjectType::Route, Effect::NoService) => {
-                impacted.push(Impacted::RouteDeleted(RouteId { id }));
-            }
-            (PtObjectType::Route, _) => {
-                informed.push(Informed::Route(RouteId { id }));
-            }
+        // Early exit
+        if pt_object_set.contains(&id)
+            && pt_object_type != PtObjectType::RailSection
+            && pt_object_type != PtObjectType::LineSection
+        {
+            return Ok(());
+        }
 
-            (PtObjectType::Line, Effect::NoService) => {
-                impacted.push(Impacted::LineDeleted(LineId { id }));
-            }
-            (PtObjectType::Line, _) => {
-                informed.push(Informed::Line(LineId { id }));
-            }
+        // insert id even if already present
+        pt_object_set.insert(id.clone());
 
-            (PtObjectType::StopPoint, Effect::NoService) => {
-                impacted.push(Impacted::StopPointDeleted(StopPointId { id }));
-            }
-            (PtObjectType::StopPoint, _) => {
-                informed.push(Informed::StopPoint(StopPointId { id }));
-            }
-
-            (PtObjectType::StopArea, Effect::NoService) => {
-                impacted.push(Impacted::StopAreaDeleted(StopAreaId { id }));
-            }
-            (PtObjectType::StopArea, _) => {
-                informed.push(Informed::StopArea(StopAreaId { id }));
-            }
-
-            (PtObjectType::LineSection, _) => {
-                // check if we need to create a new line section or just push a new route into it
-                let found_line_section = impacted
+        use chaos_proto::chaos::PtObject_Type;
+        match pt_object_type {
+            PtObjectType::LineSection => {
+                // check if we need to create a new line section
+                // or just update it ie. push a new route into it
+                let line_id = if let Some(line_id) = &row.ls_line_uri {
+                    line_id.clone()
+                } else {
+                    bail!("PtObject has type line_section but the field line_id is empty");
+                };
+                let found_line_section = impact
+                    .informed_entities
                     .iter_mut()
-                    .filter_map(|pt| match pt {
-                        Impacted::LineSection(line_section) => Some(line_section),
-                        _ => None,
+                    .filter(|pt_object| {
+                        pt_object.get_pt_object_type() == PtObject_Type::line_section
                     })
-                    .find(|line_section| line_section.id == id);
+                    .find(|pt_object| {
+                        pt_object.get_uri() == id
+                            && pt_object.get_pt_line_section().get_line().get_uri() == line_id
+                    });
 
                 match found_line_section {
-                    Some(line_section) => {
+                    Some(pt_object) => {
                         // we found line_section so we push a new route
                         // if not already in line_section.routes[]
                         if let Some(route_id) = &row.ls_route_uri {
-                            let found_route = line_section
+                            let found_route = pt_object
+                                .get_pt_line_section()
                                 .routes
                                 .iter()
-                                .find(|route| route.id == *route_id);
+                                .find(|route| route.get_uri() == *route_id);
                             if found_route.is_none() {
-                                line_section.routes.push(RouteId {
-                                    id: route_id.clone(),
-                                });
+                                let mut route = chaos_proto::chaos::PtObject::new();
+                                route.set_uri(route_id.clone());
+                                route.set_pt_object_type(PtObject_Type::route);
+                                pt_object.mut_pt_line_section().routes.push(route);
                             }
                         }
                     }
                     None => {
-                        let line_id = if let Some(line_id) = &row.ls_line_uri {
-                            line_id.clone()
-                        } else {
-                            bail!("PtObject has type line_section but the field line_id is empty");
-                        };
-                        let start = if let Some(start) = &row.ls_start_uri {
-                            start.clone()
-                        } else {
-                            bail!("PtObject has type line_section but the field start is empty");
-                        };
-                        let end = if let Some(end) = &row.ls_end_uri {
-                            end.clone()
-                        } else {
-                            bail!("PtObject has type line_section but the field end is empty");
-                        };
-                        let routes = if let Some(route_id) = &row.ls_route_uri {
-                            vec![RouteId {
-                                id: route_id.clone(),
-                            }]
-                        } else {
-                            vec![]
-                        };
+                        let mut line_section = chaos_proto::chaos::LineSection::new();
+                        if let Some(line_id) = &row.ls_line_uri {
+                            let mut line = chaos_proto::chaos::PtObject::new();
+                            line.set_uri(line_id.clone());
+                            line.set_pt_object_type(PtObject_Type::line);
+                            line_section.set_line(line);
+                        }
+                        if let Some(start) = &row.ls_start_uri {
+                            let mut start_stop = chaos_proto::chaos::PtObject::new();
+                            start_stop.set_uri(start.clone());
+                            start_stop.set_pt_object_type(PtObject_Type::stop_area);
+                            line_section.set_start_point(start_stop);
+                        }
+                        if let Some(end) = &row.ls_end_uri {
+                            let mut end_stop = chaos_proto::chaos::PtObject::new();
+                            end_stop.set_uri(end.clone());
+                            end_stop.set_pt_object_type(PtObject_Type::stop_area);
+                            line_section.set_end_point(end_stop);
+                        }
+                        if let Some(route_id) = &row.ls_route_uri {
+                            let mut route = chaos_proto::chaos::PtObject::new();
+                            route.set_uri(route_id.clone());
+                            route.set_pt_object_type(PtObject_Type::route);
+                            line_section.routes.push(route);
+                        }
 
-                        let line_section = LineSectionDisruption {
-                            id,
-                            line: LineId { id: line_id },
-                            start: StopAreaId { id: start },
-                            end: StopAreaId { id: end },
-                            routes,
-                        };
-                        impacted.push(Impacted::LineSection(line_section));
+                        let mut pt_object = chaos_proto::chaos::PtObject::new();
+                        pt_object.set_uri(id.clone());
+                        pt_object.set_pt_object_type(PtObject_Type::line_section);
+                        pt_object.set_pt_line_section(line_section);
+                        impact.informed_entities.push(pt_object);
                     }
                 }
             }
-            (PtObjectType::RailSection, _) => {
+            PtObjectType::RailSection => {
                 // check if we need to create a new rail section or just push a new route into it
-                let found_rail_section = impacted
+                let line_id = if let Some(line_id) = &row.rs_line_uri {
+                    line_id.clone()
+                } else {
+                    bail!("PtObject has type rail_section but the field line_id is empty");
+                };
+                let found_rail_section = impact
+                    .informed_entities
                     .iter_mut()
-                    .filter_map(|pt| match pt {
-                        Impacted::RailSection(rail_section) => Some(rail_section),
-                        _ => None,
+                    .filter(|pt_object| {
+                        pt_object.get_pt_object_type() == PtObject_Type::rail_section
                     })
-                    .find(|rail_section| rail_section.id == id);
+                    .find(|pt_object| {
+                        pt_object.get_uri() == id
+                            && pt_object.get_pt_rail_section().get_line().get_uri() == line_id
+                    });
 
                 match found_rail_section {
-                    Some(rail_section) => {
+                    Some(pt_object) => {
                         // we found rail_section so we push a new route
                         // if not already in rail_section.routes[]
                         if let Some(route_id) = &row.rs_route_uri {
-                            let found_route = rail_section
+                            let found_route = pt_object
+                                .get_pt_rail_section()
                                 .routes
                                 .iter()
-                                .find(|route| route.id == *route_id);
+                                .find(|route| route.get_uri() == *route_id);
                             if found_route.is_none() {
-                                rail_section.routes.push(RouteId {
-                                    id: route_id.clone(),
-                                });
+                                let mut route = chaos_proto::chaos::PtObject::new();
+                                route.set_uri(route_id.clone());
+                                route.set_pt_object_type(PtObject_Type::route);
+                                pt_object.mut_pt_rail_section().routes.push(route);
                             }
                         }
                     }
                     None => {
-                        let line_id = if let Some(line_id) = &row.rs_line_uri {
-                            line_id.clone()
-                        } else {
-                            bail!("PtObject has type rail_section but the field line_id is empty");
-                        };
-                        let start = if let Some(start) = &row.rs_start_uri {
-                            start.clone()
-                        } else {
-                            bail!("PtObject has type rail_section but the field start is empty");
-                        };
-                        let end = if let Some(end) = &row.rs_end_uri {
-                            end.clone()
-                        } else {
-                            bail!("PtObject has type rail_section but the field end is empty");
-                        };
-                        let routes = if let Some(route_id) = &row.rs_route_uri {
-                            vec![RouteId {
-                                id: route_id.clone(),
-                            }]
-                        } else {
-                            vec![]
-                        };
+                        let mut rail_section = chaos_proto::chaos::RailSection::new();
+                        if let Some(line_id) = &row.rs_line_uri {
+                            let mut line = chaos_proto::chaos::PtObject::new();
+                            line.set_uri(line_id.clone());
+                            line.set_pt_object_type(PtObject_Type::line);
+                            rail_section.set_line(line);
+                        }
+                        if let Some(start) = &row.rs_start_uri {
+                            let mut start_stop = chaos_proto::chaos::PtObject::new();
+                            start_stop.set_uri(start.clone());
+                            start_stop.set_pt_object_type(PtObject_Type::stop_area);
+                            rail_section.set_start_point(start_stop);
+                        }
+                        if let Some(end) = &row.rs_end_uri {
+                            let mut end_stop = chaos_proto::chaos::PtObject::new();
+                            end_stop.set_uri(end.clone());
+                            end_stop.set_pt_object_type(PtObject_Type::stop_area);
+                            rail_section.set_end_point(end_stop);
+                        }
+                        if let Some(route_id) = &row.rs_route_uri {
+                            let mut route = chaos_proto::chaos::PtObject::new();
+                            route.set_uri(route_id.clone());
+                            route.set_pt_object_type(PtObject_Type::route);
+                            rail_section.routes.push(route);
+                        }
 
-                        let blocked_stop_area = if let Some(blocked_stop_area) = &row.rs_blocked_sa
-                        {
-                            serde_json::from_str::<Vec<BlockedStopArea>>(blocked_stop_area.as_str())
-                                .with_context(|| {
-                                    "Could not deserialize blocked_stop_area of rail_section"
-                                })?
-                        } else {
-                            vec![]
-                        };
+                        if let Some(blocked_stop_area) = &row.rs_blocked_sa {
+                            let blocked_stop_area = serde_json::from_str::<Vec<BlockedStopArea>>(
+                                blocked_stop_area.as_str(),
+                            )
+                            .with_context(|| {
+                                "Could not deserialize blocked_stop_area of rail_section"
+                            })?;
+                            for stop_area in blocked_stop_area {
+                                let mut pt_object_ordered =
+                                    chaos_proto::chaos::OrderedPtObject::new();
+                                pt_object_ordered.set_uri(stop_area.id);
+                                pt_object_ordered.set_order(stop_area.order);
+                                rail_section.blocked_stop_areas.push(pt_object_ordered);
+                            }
+                        }
 
-                        let line_section = RailSectionDisruption {
-                            id,
-                            line: LineId { id: line_id },
-                            start: StopAreaId { id: start },
-                            end: StopAreaId { id: end },
-                            routes,
-                            blocked_stop_area,
-                        };
-                        impacted.push(Impacted::RailSection(line_section));
+                        let mut pt_object = chaos_proto::chaos::PtObject::new();
+                        pt_object.set_uri(id.clone());
+                        pt_object.set_pt_object_type(PtObject_Type::rail_section);
+                        pt_object.set_pt_rail_section(rail_section);
+                        impact.informed_entities.push(pt_object);
                     }
                 }
+            }
+            _ => {
+                let mut pt_object = chaos_proto::chaos::PtObject::new();
+                pt_object.set_uri(id.clone());
+                //  pt_object.set_pt_object_type();
+                impact.informed_entities.push(pt_object);
             }
         };
 

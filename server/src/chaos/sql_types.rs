@@ -57,7 +57,7 @@ pub enum Status {
     Done,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Clone, Debug, PartialEq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "pt_object_type"]
 #[DbValueStyle = "snake_case"]
 pub enum PtObjectType {
