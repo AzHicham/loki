@@ -289,6 +289,7 @@ impl ImpactMaker {
         self.application_periods_set.clear();
         self.application_pattern_set.clear();
         self.messages_set.clear();
+        self.pt_object_set.clear();
     }
 
     fn make_impact(row: &ChaosRow) -> Result<chaos_proto::chaos::Impact, Error> {
