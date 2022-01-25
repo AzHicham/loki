@@ -320,9 +320,9 @@ fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Mes
     if let Some(text) = chaos_proto::kirin::exts::trip_message.get(trip_update) {
         let message = Message {
             text,
-            channel_id: "rt".to_string(),
+            channel_id: Some("rt".to_string()),
             channel_name: "rt".to_string(),
-            channel_content_type: "".to_string(),
+            channel_content_type: None,
             channel_types: vec![ChannelType::Web, ChannelType::Mobile],
         };
         vec![message]

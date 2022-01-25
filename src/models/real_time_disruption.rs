@@ -36,6 +36,7 @@
 
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use serde::Deserialize;
 use std::{
     cmp::{max, min},
     fmt::{Debug, Display},
@@ -59,7 +60,6 @@ pub struct Disruption {
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub cause: Cause,
-    // localization ??
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
     pub impacts: Vec<Impact>,
@@ -108,9 +108,9 @@ pub struct Severity {
 #[derive(Debug, Clone)]
 pub struct Message {
     pub text: String,
-    pub channel_id: String,
+    pub channel_id: Option<String>,
     pub channel_name: String,
-    pub channel_content_type: String,
+    pub channel_content_type: Option<String>,
     pub channel_types: Vec<ChannelType>,
 }
 
@@ -208,6 +208,7 @@ pub struct TripDisruption {
 
 #[derive(Debug, Clone)]
 pub struct LineSectionDisruption {
+    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,
@@ -217,10 +218,17 @@ pub struct LineSectionDisruption {
 #[derive(Debug, Clone)]
 pub struct RailSectionDisruption {
     pub id: String,
-    pub line_id: LineId,
-    pub start_id: StopAreaId,
-    pub end_id: StopAreaId,
-    pub route_id: RouteId,
+    pub line: LineId,
+    pub start: StopAreaId,
+    pub end: StopAreaId,
+    pub routes: Vec<RouteId>,
+    pub blocked_stop_area: Vec<BlockedStopArea>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct BlockedStopArea {
+    pub id: String,
+    pub order: u32,
 }
 
 #[derive(Debug, Clone, Copy)]

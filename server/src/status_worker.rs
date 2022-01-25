@@ -53,7 +53,8 @@ use tokio::{runtime::Builder, sync::mpsc};
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
     is_connected_to_rabbitmq: bool,
-    last_real_time_reload: Option<NaiveDateTime>,
+    last_kirin_reload: Option<NaiveDateTime>,
+    last_chaos_reload: Option<NaiveDateTime>,
     last_real_time_update: Option<NaiveDateTime>,
 
     zmq_channels: StatusWorkerToZmqChannels,
@@ -73,7 +74,8 @@ pub enum StatusUpdate {
     BaseDataLoad(BaseDataInfo),
     RabbitMqConnected,
     RabbitMqDisconnected,
-    RealTimeReload(NaiveDateTime),
+    ChaosReload(NaiveDateTime),
+    KirinReload(NaiveDateTime),
     RealTimeUpdate(NaiveDateTime),
 }
 
@@ -86,7 +88,8 @@ impl StatusWorker {
         let worker = Self {
             base_data_info: None,
             is_connected_to_rabbitmq: false,
-            last_real_time_reload: None,
+            last_chaos_reload: None,
+            last_kirin_reload: None,
             last_real_time_update: None,
             zmq_channels,
             status_update_receiver,
@@ -204,8 +207,9 @@ impl StatusWorker {
                 }
                 self.is_connected_to_rabbitmq = false;
             }
-            StatusUpdate::RealTimeReload(datetime) => {
-                self.last_real_time_reload = Some(datetime);
+            StatusUpdate::ChaosReload(datetime) => self.last_chaos_reload = Some(datetime),
+            StatusUpdate::KirinReload(datetime) => {
+                self.last_kirin_reload = Some(datetime);
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
                 self.last_real_time_update = Some(datetime);
