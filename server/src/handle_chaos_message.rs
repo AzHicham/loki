@@ -246,7 +246,7 @@ fn dispatch_pt_object(
         }
 
         (Type::trip, Effect::NoService) => {
-            impacted.push(Impacted::TripDeleted(VehicleJourneyId { id }));
+            impacted.push(Impacted::BaseTripDeleted(VehicleJourneyId { id }));
         }
         (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId { id })),
 

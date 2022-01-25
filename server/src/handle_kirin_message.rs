@@ -142,12 +142,13 @@ fn make_impact(
     use Effect::*;
     match effect {
         NoService => {
-            impacted_pt_objects.push(Impacted::TripDeleted(trip_id));
+            impacted_pt_objects.push(Impacted::TripDeleted(trip_id, reference_date));
         }
         OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
         | ModifiedService => {
             let trip_disruption = TripDisruption {
                 trip_id,
+                trip_date: reference_date,
                 stop_times,
                 company_id,
                 physical_mode_id,
@@ -158,6 +159,7 @@ fn make_impact(
         AdditionalService => {
             let trip_disruption = TripDisruption {
                 trip_id,
+                trip_date: reference_date,
                 stop_times,
                 company_id,
                 physical_mode_id,

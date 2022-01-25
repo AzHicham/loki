@@ -74,7 +74,10 @@ pub enum DisruptionError {
     LineAbsent(LineId),
     RouteAbsent(RouteId),
     VehicleJourneyAbsent(VehicleJourneyId),
-    TripAbsent(VehicleJourneyId, NaiveDate),
+    DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
+    ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
+    AddPresentTrip(VehicleJourneyId, NaiveDate),
+    NewTripWithBaseId(VehicleJourneyId, NaiveDate),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -147,16 +150,22 @@ pub struct Impact {
 
 #[derive(Debug, Clone)]
 pub enum Impacted {
+    // chaos
     NetworkDeleted(NetworkId),
     LineDeleted(LineId),
     RouteDeleted(RouteId),
-    TripDeleted(VehicleJourneyId),
-    BaseTripUpdated(TripDisruption),
-    NewTripUpdated(TripDisruption),
+
     RailSection(RailSectionDisruption),
     LineSection(LineSectionDisruption),
     StopAreaDeleted(StopAreaId),
     StopPointDeleted(StopPointId),
+    // delete from chaos
+    BaseTripDeleted(VehicleJourneyId),
+
+    //Kirin
+    TripDeleted(VehicleJourneyId, NaiveDate),
+    BaseTripUpdated(TripDisruption),
+    NewTripUpdated(TripDisruption),
 }
 
 #[derive(Debug, Clone)]
@@ -203,6 +212,7 @@ pub struct VehicleJourneyId {
 #[derive(Debug, Clone)]
 pub struct TripDisruption {
     pub trip_id: VehicleJourneyId,
+    pub trip_date: NaiveDate,
     pub stop_times: Vec<StopTime>,
     pub company_id: Option<String>,
     pub physical_mode_id: Option<String>,
