@@ -154,8 +154,8 @@ impl DataWorker {
 
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
-        if let Err(err) = self.load_chaos_database().await {
-            error!("Loading chaos database failed: {:?}", err);
+        if let Err(err) = self.reload_chaos().await {
+            error!("Error while reloading kirin. {:?}", err);
         }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
@@ -194,21 +194,21 @@ impl DataWorker {
                                 self.kirin_reload_done = true;
                             }
                             Err(err) => {
-                                error!("Error while reloading real time : {:?}", err);
+                                error!("Error while reloading kirin : {:?}", err);
                                 continue;
                             }
                         }
                     }
                     let result = self.main_loop(&channel).await;
                     error!(
-                        "DataWorker main loop exited : {:?}. I'll relaunch the worker.",
+                        "DataWorker main loop exited. I'll relaunch the worker. {:?} ",
                         result
                     );
                     self.send_status_update(StatusUpdate::RabbitMqDisconnected)?;
                 }
                 Err(err) => {
                     error!(
-                        "Error while connecting to rabbitmq : {:?}. I'll try to reconnect later.",
+                        "Error while connecting to rabbitmq. I'll try to reconnect later. {:?}",
                         err
                     );
                 }
@@ -290,7 +290,7 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }
 
-    async fn load_chaos_database(&mut self) -> Result<(), Error> {
+    async fn reload_chaos(&mut self) -> Result<(), Error> {
         let (start_date, end_date) = {
             let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
                 format_err!(
@@ -327,7 +327,7 @@ impl DataWorker {
                 self.update_data_and_models(updater).await?;
 
                 let now = Utc::now().naive_utc();
-                self.send_status_update(StatusUpdate::RealTimeUpdate(now))?;
+                self.send_status_update(StatusUpdate::ChaosReload(now))?;
             }
         }
         Ok(())
@@ -466,7 +466,7 @@ impl DataWorker {
                             self.load_data_from_disk().await?;
                             // After loading data from disk, load all disruption in chaos database
                             // Then apply all extracted disruptions
-                            if let Err(err) = self.load_chaos_database().await {
+                            if let Err(err) = self.reload_chaos().await {
                                 error!("Error during reload of Chaos database : {:?}", err);
                             }
                             self.reload_kirin(channel).await?;
@@ -742,7 +742,7 @@ impl DataWorker {
         delete_queue(channel, &queue_name).await?;
 
         let now = Utc::now().naive_utc();
-        self.send_status_update(StatusUpdate::RealTimeReload(now))
+        self.send_status_update(StatusUpdate::KirinReload(now))
     }
 
     fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), Error> {
