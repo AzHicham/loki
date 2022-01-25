@@ -59,6 +59,12 @@ pub fn handle_kirin_protobuf(
     if feed_entity.has_trip_update().not() {
         bail!("Feed entity has no trip_update");
     }
+
+    let updated_at = if let Some(header_datetime) = header_datetime {
+        header_datetime
+    } else {
+        bail!("Feed entity has no trip_update");
+    };
     // application_period == publication_period == validity_period
     let start = model_validity_period.0.and_hms(0, 0, 0);
     let end = model_validity_period.1.and_hms(12, 59, 59);
@@ -72,12 +78,10 @@ pub fn handle_kirin_protobuf(
         reference: Some(disruption_id.clone()),
         contributor: chaos_proto::kirin::exts::contributor.get(trip),
         publication_period: application_period,
-        created_at: *header_datetime,
-        updated_at: *header_datetime,
         cause: Cause::default(),
         tags: vec![],
         properties: vec![],
-        impacts: vec![make_impact(trip_update, disruption_id, header_datetime)?],
+        impacts: vec![make_impact(trip_update, disruption_id, updated_at)?],
     };
 
     Ok(disruption)
@@ -86,7 +90,7 @@ pub fn handle_kirin_protobuf(
 fn make_impact(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
     disruption_id: String,
-    header_datetime: &Option<NaiveDateTime>,
+    updated_at: &NaiveDateTime,
 ) -> Result<Impact, Error> {
     let trip = trip_update.get_trip();
     let effect: Effect =
@@ -116,7 +120,7 @@ fn make_impact(
         })?
     };
 
-    let severity = make_severity(effect, disruption_id.clone(), header_datetime);
+    let severity = make_severity(effect);
 
     let stop_times = make_stop_times(trip_update, &reference_date)?;
 
@@ -174,8 +178,7 @@ fn make_impact(
 
     Ok(Impact {
         id: disruption_id,
-        created_at: *header_datetime,
-        updated_at: *header_datetime,
+        updated_at: *updated_at,
         application_periods: vec![application_period],
         application_patterns: vec![],
         severity,
@@ -331,19 +334,12 @@ fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Mes
     }
 }
 
-fn make_severity(
-    effect: Effect,
-    disruption_id: String,
-    header_datetime: &Option<NaiveDateTime>,
-) -> Severity {
+fn make_severity(effect: Effect) -> Severity {
     Severity {
-        id: disruption_id,
         wording: Some(make_severity_wording(effect)),
         color: Some("#000000".to_string()),
         priority: Some(42),
         effect,
-        created_at: *header_datetime,
-        updated_at: *header_datetime,
     }
 }
 

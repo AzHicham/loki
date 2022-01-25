@@ -815,7 +815,7 @@ fn handle_realtime_message(
         if let Err(err) = result {
             let datetime_str = header_datetime
                 .map(|datetime| format!("{}", datetime))
-                .unwrap_or("BadHeaderDatetime".to_string());
+                .unwrap_or_else(|| "BadHeaderDatetime".to_string());
             error!(
                 "An error occured while handling FeedMessage with timestamp {}. {:?}",
                 datetime_str, err

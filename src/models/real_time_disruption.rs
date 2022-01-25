@@ -57,8 +57,6 @@ pub struct Disruption {
     pub reference: Option<String>,
     pub contributor: Option<String>,
     pub publication_period: DateTimePeriod,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
     pub cause: Cause,
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
@@ -76,7 +74,6 @@ pub enum DisruptionError {
 
 #[derive(Default, Debug, Clone)]
 pub struct Cause {
-    pub id: String,
     pub wording: String,
     pub category: String,
 }
@@ -90,19 +87,15 @@ pub struct DisruptionProperty {
 
 #[derive(Default, Debug, Clone)]
 pub struct Tag {
-    pub id: String,
     pub name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct Severity {
-    pub id: String,
     pub wording: Option<String>,
     pub color: Option<String>,
     pub priority: Option<i32>,
     pub effect: Effect,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -132,8 +125,7 @@ pub struct TimeSlot {
 #[derive(Debug, Clone)]
 pub struct Impact {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub updated_at: NaiveDateTime,
     pub application_periods: Vec<DateTimePeriod>,
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
@@ -208,7 +200,6 @@ pub struct TripDisruption {
 
 #[derive(Debug, Clone)]
 pub struct LineSectionDisruption {
-    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,
@@ -217,7 +208,6 @@ pub struct LineSectionDisruption {
 
 #[derive(Debug, Clone)]
 pub struct RailSectionDisruption {
-    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,

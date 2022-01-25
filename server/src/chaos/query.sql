@@ -1,34 +1,18 @@
 SELECT
     d.id as disruption_id,
     d.reference as disruption_reference,
-    d.note as disruption_note,
-    d.status as disruption_status,
     d.start_publication_date  AT TIME ZONE 'UTC' as disruption_start_publication_date,
     d.end_publication_date  AT TIME ZONE 'UTC' as disruption_end_publication_date,
-    d.created_at  AT TIME ZONE 'UTC' as disruption_created_at,
-    d.updated_at  AT TIME ZONE 'UTC' as disruption_updated_at,
     co.contributor_code as contributor,
 
     c.id as cause_id,
     c.wording as cause_wording,
-    c.is_visible as cause_visible,
-    c.created_at  AT TIME ZONE 'UTC' as cause_created_at,
-    c.updated_at  AT TIME ZONE 'UTC' as cause_updated_at,
-
     cat.name as category_name,
-    cat.id as category_id,
-    cat.created_at  AT TIME ZONE 'UTC' as category_created_at,
-    cat.updated_at  AT TIME ZONE 'UTC' as category_updated_at,
 
     t.id as tag_id,
     t.name as tag_name,
-    t.is_visible as tag_is_visible,
-    t.created_at  AT TIME ZONE 'UTC' as tag_created_at,
-    t.updated_at  AT TIME ZONE 'UTC' as tag_updated_at,
 
     i.id as impact_id,
-    i.status as impact_status,
-    i.disruption_id as impact_disruption_id,
     i.created_at  AT TIME ZONE 'UTC' as impact_created_at,
     i.updated_at  AT TIME ZONE 'UTC' as impact_updated_at,
 
@@ -39,59 +23,28 @@ SELECT
     s.id as severity_id,
     s.wording as severity_wording,
     s.color as severity_color,
-    s.is_visible as severity_is_visible,
     s.priority as severity_priority,
     s.effect as severity_effect,
-    s.created_at  AT TIME ZONE 'UTC' as severity_created_at,
-    s.updated_at  AT TIME ZONE 'UTC' as severity_updated_at,
 
-    p.id as ptobject_id,
     p.type as ptobject_type,
     p.uri as ptobject_uri,
-    p.created_at  AT TIME ZONE 'UTC' as ptobject_created_at,
-    p.updated_at  AT TIME ZONE 'UTC' as ptobject_updated_at,
 
     ls_line.uri as ls_line_uri,
-    ls_line.created_at  AT TIME ZONE 'UTC' as ls_line_created_at,
-    ls_line.updated_at  AT TIME ZONE 'UTC' as ls_line_updated_at,
     ls_start.uri as ls_start_uri,
-    ls_start.created_at  AT TIME ZONE 'UTC' as ls_start_created_at,
-    ls_start.updated_at  AT TIME ZONE 'UTC' as ls_start_updated_at,
     ls_end.uri as ls_end_uri,
-    ls_end.created_at  AT TIME ZONE 'UTC' as ls_end_created_at,
-    ls_end.updated_at  AT TIME ZONE 'UTC' as ls_end_updated_at,
-    ls_route.id AS ls_route_id,
     ls_route.uri AS ls_route_uri,
-    ls_route.created_at  AT TIME ZONE 'UTC' as ls_route_created_at,
-    ls_route.updated_at  AT TIME ZONE 'UTC' as ls_route_updated_at,
 
-    rs_line.id as rs_line_id,
     rs_line.uri as rs_line_uri,
-    rs_line.created_at  AT TIME ZONE 'UTC' as rs_line_created_at,
-    rs_line.updated_at  AT TIME ZONE 'UTC' as rs_line_updated_at,
     rs_start.uri as rs_start_uri,
-    rs_start.created_at  AT TIME ZONE 'UTC' as rs_start_created_at,
-    rs_start.updated_at  AT TIME ZONE 'UTC' as rs_start_updated_at,
     rs_end.uri as rs_end_uri,
-    rs_end.created_at  AT TIME ZONE 'UTC' as rs_end_created_at,
-    rs_end.updated_at  AT TIME ZONE 'UTC' as rs_end_updated_at,
-    rs_route.id AS rs_route_id,
     rs_route.uri AS rs_route_uri,
-    rs_route.created_at  AT TIME ZONE 'UTC' as rs_route_created_at,
-    rs_route.updated_at  AT TIME ZONE 'UTC' as rs_route_updated_at,
     rail_section.blocked_stop_areas as rs_blocked_sa,
 
     m.id as message_id,
     m.text as message_text,
-    m.created_at  AT TIME ZONE 'UTC' as message_created_at,
-    m.updated_at  AT TIME ZONE 'UTC' as message_updated_at,
-
     ch.id as channel_id,
     ch.name as channel_name,
     ch.content_type as channel_content_type,
-    ch.max_size as channel_max_size,
-    ch.created_at  AT TIME ZONE 'UTC' as channel_created_at,
-    ch.updated_at  AT TIME ZONE 'UTC' as channel_updated_at,
     array_agg(cht.name) as channel_type,
 
     adp.value as property_value, pr.key as property_key, pr.type as property_type,
@@ -137,15 +90,9 @@ FROM disruption AS d
          LEFT JOIN property pr ON pr.id = adp.property_id
          LEFT JOIN pattern AS pt ON pt.impact_id = i.id
          LEFT JOIN time_slot AS ts ON ts.pattern_id = pt.id
-WHERE (
-        NOT (d.start_publication_date >= $1 OR d.end_publication_date <= $2)
-        OR (d.start_publication_date <= $3 and d.end_publication_date IS NULL)
-    )
-  AND co.contributor_code = ANY($4)
-  AND d.status = 'published'
+WHERE d.status = 'published'
   AND i.status = 'published'
 GROUP BY d.id, co.id, c.id, cat.id, a.id, s.id, ls_line.id, rs_line.id,
          ls_start.id, ls_end.id, rs_start.id, rs_end.id, ls_route.id, rs_route.id,
          rail_section.id, t.id, p.id, i.id, m.id, ch.id, adp.value, pr.id, pt.id, ts.id
-ORDER BY d.id, c.id, t.id, i.id, m.id, ch.id
-LIMIT $5 OFFSET $6;
+ORDER BY d.id, c.id, t.id, i.id, m.id, ch.id;

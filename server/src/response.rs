@@ -675,17 +675,16 @@ fn make_impact(
         .filter_map(|i| make_impacted_object_from_impacted(i, model).ok())
         .collect();
     for informed in &impact.informed_pt_objects {
-        if let Ok(object) = make_impacted_object_from_informed(&informed, model) {
+        if let Ok(object) = make_impacted_object_from_informed(informed, model) {
             impacted_objects.push(object)
         }
     }
 
-    let proto = navitia_proto::Impact {
+    let mut proto = navitia_proto::Impact {
         uri: Some(impact.id.clone()),
         disruption_uri: Some(disruption.id.clone()),
         application_periods: impact.application_periods.iter().map(make_period).collect(),
-        status: Some(navitia_proto::ActiveStatus::Active as i32),
-        updated_at: Some(impact.updated_at.unwrap().timestamp() as u64),
+        updated_at: u64::try_from(impact.updated_at.timestamp()).ok(),
         tags: disruption.tags.iter().map(|t| t.name.clone()).collect(),
         cause: Some(disruption.cause.wording.clone()),
         messages: impact.messages.iter().map(make_message).collect(),
@@ -699,7 +698,9 @@ fn make_impact(
             .filter_map(|ap| make_application_pattern(ap).ok())
             .collect(),
         properties: disruption.properties.iter().map(make_property).collect(),
+        ..Default::default()
     };
+    proto.set_status(navitia_proto::ActiveStatus::Active);
 
     proto
 }
@@ -792,18 +793,20 @@ fn make_property(property: &DisruptionProperty) -> navitia_proto::DisruptionProp
 
 fn make_period(period: &DateTimePeriod) -> navitia_proto::Period {
     navitia_proto::Period {
-        begin: Some(period.start().timestamp() as u64),
-        end: Some(period.end().timestamp() as u64),
+        begin: u64::try_from(period.start().timestamp()).ok(),
+        end: u64::try_from(period.end().timestamp()).ok(),
     }
 }
 
 fn make_severity(severity: &Severity) -> navitia_proto::Severity {
-    navitia_proto::Severity {
+    let mut proto = navitia_proto::Severity {
         name: severity.wording.clone(),
         color: severity.color.clone(),
-        effect: Some(make_effect(severity.effect) as i32),
         priority: severity.priority,
-    }
+        ..Default::default()
+    };
+    proto.set_effect(make_effect(severity.effect));
+    proto
 }
 
 fn make_effect(effect: Effect) -> navitia_proto::severity::Effect {
@@ -821,18 +824,19 @@ fn make_effect(effect: Effect) -> navitia_proto::severity::Effect {
 }
 
 fn make_message(message: &Message) -> navitia_proto::MessageContent {
+    let mut channel = navitia_proto::Channel {
+        id: message.channel_id.clone(),
+        name: Some(message.channel_name.clone()),
+        content_type: message.channel_content_type.clone(),
+        channel_types: vec![],
+    };
+    for channel_type in &message.channel_types {
+        channel.push_channel_types(make_channel_type(channel_type))
+    }
+
     navitia_proto::MessageContent {
         text: Some(message.text.clone()),
-        channel: Some(navitia_proto::Channel {
-            id: message.channel_id.clone(),
-            name: Some(message.channel_name.clone()),
-            content_type: message.channel_content_type.clone(),
-            channel_types: message
-                .channel_types
-                .iter()
-                .map(|ct| make_channel_type(ct) as i32)
-                .collect(),
-        }),
+        channel: Some(channel),
     }
 }
 
@@ -902,13 +906,13 @@ fn make_line_pt_object(
     if let Some(line) = model.line(line_id) {
         let proto_line = make_line(line, model);
 
-        let proto = navitia_proto::PtObject {
-            embedded_type: Some(navitia_proto::NavitiaType::Line as i32),
+        let mut proto = navitia_proto::PtObject {
             name: line.name.clone(),
             uri: line.id.clone(),
             line: Some(proto_line),
             ..Default::default()
         };
+        proto.set_embedded_type(navitia_proto::NavitiaType::Line);
         Ok(proto)
     } else {
         Err(format_err!("Line.id: {} not found in BaseModel", line_id))
@@ -922,13 +926,13 @@ fn make_route_pt_object(
     if let Some(route) = model.route(route_id) {
         let proto_route = make_route(route, model);
 
-        let proto = navitia_proto::PtObject {
-            embedded_type: Some(navitia_proto::NavitiaType::Route as i32),
+        let mut proto = navitia_proto::PtObject {
             name: route.name.clone(),
             uri: route.id.clone(),
             route: Some(Box::new(proto_route)),
             ..Default::default()
         };
+        proto.set_embedded_type(navitia_proto::NavitiaType::Route);
         Ok(proto)
     } else {
         Err(format_err!("Route.id: {} not found in BaseModel", route_id))
@@ -978,13 +982,13 @@ pub fn make_stop_area_pt_object(
     if let Some(stop_area) = model.stop_area(id) {
         let proto_stop_area = make_stop_area_(&stop_area, model);
 
-        let proto = navitia_proto::PtObject {
-            embedded_type: Some(navitia_proto::NavitiaType::StopArea as i32),
+        let mut proto = navitia_proto::PtObject {
             name: stop_area.name.clone(),
             uri: stop_area.id.clone(),
             stop_area: Some(proto_stop_area),
             ..Default::default()
         };
+        proto.set_embedded_type(navitia_proto::NavitiaType::StopArea);
         Ok(proto)
     } else {
         Err(format_err!("StopArea.id: {} not found in BaseModel", id))
