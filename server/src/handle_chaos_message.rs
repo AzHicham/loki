@@ -39,9 +39,10 @@ use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, Cause, ChannelType, DateTimePeriod, Disruption, DisruptionProperty,
-        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
-        RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot, VehicleJourneyId,
+        ApplicationPattern, BlockedStopArea, Cause, ChannelType, DateTimePeriod, Disruption,
+        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
+        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
+        TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
 };
@@ -260,6 +261,7 @@ fn dispatch_pt_object(
             let end_stop_area = proto_line_section.get_end_point();
             let routes = proto_line_section.get_routes();
             let line_section = LineSectionDisruption {
+                id,
                 line: LineId {
                     id: line.get_uri().to_string(),
                 },
@@ -279,7 +281,42 @@ fn dispatch_pt_object(
             impacted.push(Impacted::LineSection(line_section));
         }
         (Type::rail_section, _) => {
-            bail!("RailSection is not handled");
+            if !proto.has_pt_rail_section() {
+                bail!("PtObject has type line_section but the field pt_line_section is empty");
+            }
+            let proto_rail_section = proto.get_pt_rail_section();
+
+            let line = proto_rail_section.get_line();
+            let start_stop_area = proto_rail_section.get_start_point();
+            let end_stop_area = proto_rail_section.get_end_point();
+            let routes = proto_rail_section.get_routes();
+            let blocked_stop_areas = proto_rail_section.get_blocked_stop_areas();
+            let rail_section = RailSectionDisruption {
+                id,
+                line: LineId {
+                    id: line.get_uri().to_string(),
+                },
+                start: StopAreaId {
+                    id: start_stop_area.get_uri().to_string(),
+                },
+                end: StopAreaId {
+                    id: end_stop_area.get_uri().to_string(),
+                },
+                routes: routes
+                    .iter()
+                    .map(|r| RouteId {
+                        id: r.get_uri().to_string(),
+                    })
+                    .collect(),
+                blocked_stop_area: blocked_stop_areas
+                    .iter()
+                    .map(|r| BlockedStopArea {
+                        id: r.get_uri().to_string(),
+                        order: r.get_order(),
+                    })
+                    .collect(),
+            };
+            impacted.push(Impacted::RailSection(rail_section));
         }
         (Type::unkown_type, _) => {
             bail!("PtObject with type unknown_type");
@@ -444,9 +481,9 @@ fn make_message(proto: &chaos_proto::chaos::Message) -> Result<Message, Error> {
 
     let result = Message {
         text,
-        channel_id: channel.get_id().to_string(),
+        channel_id: Some(channel.get_id().to_string()),
         channel_name: channel.get_name().to_string(),
-        channel_content_type: channel.get_content_type().to_string(),
+        channel_content_type: Some(channel.get_content_type().to_string()),
         channel_types: channel.get_types().iter().map(make_channel_type).collect(),
     };
     Ok(result)
