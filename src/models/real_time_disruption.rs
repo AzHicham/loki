@@ -34,7 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
+use crate::{
+    time::{SecondsSinceTimezonedDayStart, MAX_SECONDS_IN_UTC_DAY},
+    timetables::FlowDirection,
+};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
 use std::{
@@ -258,6 +261,11 @@ pub enum ChannelType {
     Beacon,
 }
 
+/// An half open interval of time.
+/// A instant `t` is contained in it
+/// if and only if
+///  `start <= t < end`
+///
 #[derive(Debug, Clone)]
 pub struct TimePeriod {
     start: NaiveDateTime,
@@ -266,7 +274,7 @@ pub struct TimePeriod {
 
 impl TimePeriod {
     pub fn new(start: NaiveDateTime, end: NaiveDateTime) -> Result<TimePeriod, TimePeriodError> {
-        if start <= end {
+        if start < end {
             Ok(TimePeriod { start, end })
         } else {
             Err(TimePeriodError::StartAfterEnd(start, end))
@@ -279,6 +287,34 @@ impl TimePeriod {
 
     pub fn end(&self) -> NaiveDateTime {
         self.end
+    }
+
+    pub fn contains(&self, t: &NaiveDateTime) -> bool {
+        self.start <= *t && *t < self.end
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.contains(&other.start) || other.contains(&self.start)
+    }
+
+    // Returns an iterator that contains all dates D such that
+    //  a vehicle_journey on D is "concerned" by this time_period,
+    //  where "concerned" means that a stop_time of the vehicle_journey
+    //   circulating on date D is contained in this time_period
+    //
+    // Note that the iterator may contains dates for which a vehicle
+    // journey is *NOT* concerned. The caller should check by himself.
+    pub fn dates_possibly_concerned(&self) -> DateIter {
+        // since the vehicle journey stop_times are given in local time
+        // and we accept values up to 48h, we use a 3 days offset
+        // that account for both
+        let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
+        let first_date = (self.start - offset).date();
+        let last_date = (self.end + offset).date();
+        DateIter {
+            current_date: first_date,
+            last_date,
+        }
     }
 }
 
@@ -302,9 +338,11 @@ impl Debug for TimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TimePeriodError::StartAfterEnd(start, end) => {
-                write!(f, "Error DateTimePeriod, start must be less or equal to end, start : {}, end : {}",
-                       start,
-                       end)
+                write!(
+                    f,
+                    "Bad TimePeriod, start {} must be strictly greater than end {}",
+                    start, end
+                )
             }
         }
     }
@@ -335,6 +373,27 @@ impl<'a> IntoIterator for &'a TimePeriod {
         DateTimePeriodIterator {
             period: self,
             current: self.start,
+        }
+    }
+}
+
+// Yields all dates between current_date (included)
+// and last_date (also included)
+pub struct DateIter {
+    current_date: NaiveDate,
+    last_date: NaiveDate,
+}
+
+impl Iterator for DateIter {
+    type Item = NaiveDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_date <= self.last_date {
+            let result = self.current_date.clone();
+            self.current_date = self.current_date.succ();
+            Some(result)
+        } else {
+            None
         }
     }
 }

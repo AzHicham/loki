@@ -346,18 +346,22 @@ impl RealTimeModel {
         application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
-        if self
-            .vehicle_journey_idx(vehicle_journey_id, base_model)
-            .is_some()
-        {
+        if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
             for application_period in application_periods.iter() {
-                // - determine all days that might result in a trip
-                // which is concerned by othe application periods
-                // - iterate all days, and test if the trip is in the application period,
-                //  delete the trip when this happens
-                for datetime in application_period {
-                    let date = datetime.date();
-                    self.delete_trip(base_model, data, vehicle_journey_id, &date, disruption_idx);
+                for date in application_period.dates_possibly_concerned() {
+                    if let Some(trip_period) =
+                        base_model.trip_time_period(vehicle_journey_idx, &date)
+                    {
+                        if application_period.intersects(&trip_period) {
+                            self.delete_trip(
+                                base_model,
+                                data,
+                                vehicle_journey_id,
+                                &date,
+                                disruption_idx,
+                            );
+                        }
+                    }
                 }
             }
             Ok(())

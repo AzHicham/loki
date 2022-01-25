@@ -39,9 +39,9 @@ use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, BlockedStopArea, Cause, ChannelType, DateTimePeriod, Disruption,
-        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
-        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
+        ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption, DisruptionProperty,
+        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
+        RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag, TimePeriod,
         TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
@@ -410,7 +410,7 @@ fn make_cause(proto: &chaos_proto::chaos::Cause) -> Cause {
 
 fn make_datetime_period(
     proto: &chaos_proto::gtfs_realtime::TimeRange,
-) -> Result<DateTimePeriod, Error> {
+) -> Result<TimePeriod, Error> {
     let start_timestamp = if proto.has_start() {
         proto.get_start()
     } else {
@@ -435,12 +435,12 @@ fn make_datetime_period(
             end_timestamp
         )
     })?;
-    DateTimePeriod::new(start, end).map_err(Error::from)
+    TimePeriod::new(start, end).map_err(Error::from)
 }
 
 fn make_periods(
     time_ranges: &[chaos_proto::gtfs_realtime::TimeRange],
-) -> Result<Vec<DateTimePeriod>, Error> {
+) -> Result<Vec<TimePeriod>, Error> {
     let mut result = Vec::with_capacity(time_ranges.len());
     for (idx, time_range) in time_ranges.iter().enumerate() {
         let period = make_datetime_period(time_range)

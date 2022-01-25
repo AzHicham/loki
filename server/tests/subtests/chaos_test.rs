@@ -31,7 +31,7 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
-use launch::loki::{chrono::Utc, models::real_time_disruption::DateTimePeriod, NaiveDateTime};
+use launch::loki::{chrono::Utc, models::real_time_disruption::TimePeriod, NaiveDateTime};
 use protobuf::Message;
 
 #[derive(Debug)]
@@ -78,7 +78,7 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
 
     // let's delete all Trip of "my_network" Network
     // between 2021-02-01 and 2021-02-01
-    let dt_period = DateTimePeriod::new(
+    let dt_period = TimePeriod::new(
         NaiveDateTime::parse_from_str("20210201T000000", "%Y%m%dT%H%M%S").unwrap(),
         NaiveDateTime::parse_from_str("20210201T230000", "%Y%m%dT%H%M%S").unwrap(),
     )
@@ -148,7 +148,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
-    let dt_period = DateTimePeriod::new(
+    let dt_period = TimePeriod::new(
         NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%dT%H%M%S").unwrap(),
         NaiveDateTime::parse_from_str("20210101T230000", "%Y%m%dT%H%M%S").unwrap(),
     )
@@ -212,7 +212,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
 
 fn create_no_service_disruption(
     pt_object: &PtObject,
-    application_period: &DateTimePeriod,
+    application_period: &TimePeriod,
 ) -> gtfs_proto::FeedMessage {
     let id = "baa0eefe-0340-41e1-a2a9-5a660755d54c".to_string();
 

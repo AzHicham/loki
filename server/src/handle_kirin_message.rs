@@ -40,8 +40,8 @@ use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
     models::real_time_disruption::{
-        Cause, ChannelType, DateTimePeriod, Disruption, Effect, Impact, Impacted, Message,
-        Severity, StopTime, TripDisruption, VehicleJourneyId,
+        Cause, ChannelType, Disruption, Effect, Impact, Impacted, Message, Severity, StopTime,
+        TimePeriod, TripDisruption, VehicleJourneyId,
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
@@ -62,7 +62,7 @@ pub fn handle_kirin_protobuf(
     // application_period == publication_period == validity_period
     let start = model_validity_period.0.and_hms(0, 0, 0);
     let end = model_validity_period.1.and_hms(12, 59, 59);
-    let application_period = DateTimePeriod::new(start, end)
+    let application_period = TimePeriod::new(start, end)
         .with_context(|| "Model has a bad validity period".to_string())?;
     let trip_update = feed_entity.get_trip_update();
     let trip = trip_update.get_trip();
@@ -120,7 +120,7 @@ fn make_impact(
 
     let stop_times = make_stop_times(trip_update, &reference_date)?;
 
-    let application_period = DateTimePeriod::new(
+    let application_period = TimePeriod::new(
         reference_date.and_hms(0, 0, 0),
         reference_date.and_hms(12, 59, 59),
     )
