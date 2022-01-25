@@ -709,21 +709,11 @@ fn make_impacted_object_from_impacted(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::ImpactedObject, Error> {
     let pt_object = match object {
-        Impacted::TripModified(trip) => {
-            return Err(format_err!(
-                "Cannot create ImpactedObject from Impacted::TripModified"
-            ))
-        }
-        Impacted::TripDeleted(trip) => {
-            return Err(format_err!(
-                "Cannot create ImpactedObject from Impacted::TripDeleted"
-            ))
-        }
         Impacted::RouteDeleted(route) => make_route_pt_object(&route.id, model),
         Impacted::LineDeleted(line) => make_line_pt_object(&line.id, model),
         Impacted::NetworkDeleted(network) => make_network_pt_object(&network.id, model),
         Impacted::LineSection(line_section) => make_line_pt_object(&line_section.line.id, model),
-        Impacted::RailSection(rail_section) => make_line_pt_object(&rail_section.line_id, model),
+        Impacted::RailSection(rail_section) => make_line_pt_object(&rail_section.line.id, model),
         Impacted::StopAreaDeleted(stop_area) => make_stop_area_pt_object(&stop_area.id, model),
         Impacted::StopPointDeleted(stop_point) => {
             if let Some(stop_point_id) = model.stop_point_idx(&stop_point.id) {
@@ -735,6 +725,7 @@ fn make_impacted_object_from_impacted(
                 ));
             }
         }
+        _ => return Err(format_err!("***")),
     };
     let impacted_section = match object {
         Impacted::LineSection(line_section) => Some(make_line_section_impact(line_section, model)?),
@@ -833,9 +824,9 @@ fn make_message(message: &Message) -> navitia_proto::MessageContent {
     navitia_proto::MessageContent {
         text: Some(message.text.clone()),
         channel: Some(navitia_proto::Channel {
-            id: Some(message.channel_id.clone()),
+            id: message.channel_id.clone(),
             name: Some(message.channel_name.clone()),
-            content_type: Some(message.channel_content_type.clone()),
+            content_type: message.channel_content_type.clone(),
             channel_types: message
                 .channel_types
                 .iter()
@@ -1020,8 +1011,8 @@ pub fn make_line_section_impact(
     model: &ModelRefs,
 ) -> Result<navitia_proto::LineSectionImpact, Error> {
     Ok(navitia_proto::LineSectionImpact {
-        from: make_stop_area_pt_object(&line_section.start_sa.id, model).ok(),
-        to: make_stop_area_pt_object(&line_section.stop_sa.id, model).ok(),
+        from: make_stop_area_pt_object(&line_section.start.id, model).ok(),
+        to: make_stop_area_pt_object(&line_section.end.id, model).ok(),
         routes: line_section
             .routes
             .iter()
@@ -1035,8 +1026,8 @@ pub fn make_rail_section_impact(
     model: &ModelRefs,
 ) -> Result<navitia_proto::RailSectionImpact, Error> {
     Ok(navitia_proto::RailSectionImpact {
-        from: make_stop_area_pt_object(&rail_section.start_id, model).ok(),
-        to: make_stop_area_pt_object(&rail_section.end_id, model).ok(),
+        from: make_stop_area_pt_object(&rail_section.start.id, model).ok(),
+        to: make_stop_area_pt_object(&rail_section.end.id, model).ok(),
         routes: vec![],
     })
 }
