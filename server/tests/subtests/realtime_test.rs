@@ -749,6 +749,10 @@ fn create_disruption_inner(
 
     let mut feed_header = kirin_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
+    let header_datetime = NaiveDate::from_ymd(2020, 1, 1).and_hms(12, 0, 0);
+    if let Ok(timestamp) = u64::try_from(header_datetime.timestamp()) {
+        feed_header.set_timestamp(timestamp);
+    }
 
     let mut feed_message = kirin_proto::FeedMessage::new();
     feed_message.mut_entity().push(feed_entity);

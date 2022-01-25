@@ -63,7 +63,7 @@ pub fn handle_kirin_protobuf(
     let updated_at = if let Some(header_datetime) = header_datetime {
         header_datetime
     } else {
-        bail!("Feed entity has no trip_update");
+        bail!("Feed header has no header_datetime");
     };
     // application_period == publication_period == validity_period
     let start = model_validity_period.0.and_hms(0, 0, 0);

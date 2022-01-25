@@ -925,7 +925,6 @@ fn make_route_pt_object(
 ) -> Result<navitia_proto::PtObject, Error> {
     if let Some(route) = model.route(route_id) {
         let proto_route = make_route(route, model);
-
         let mut proto = navitia_proto::PtObject {
             name: route.name.clone(),
             uri: route.id.clone(),
@@ -940,10 +939,22 @@ fn make_route_pt_object(
 }
 
 pub fn make_route(route: &Route, model: &ModelRefs) -> navitia_proto::Route {
+    let direction = if let Some(destination_id) = &route.destination_id {
+        if let Ok(direction) = make_stop_area_pt_object(destination_id, model) {
+            Some(Box::new(direction))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     navitia_proto::Route {
         name: Some(route.name.clone()),
         uri: Some(route.id.clone()),
         codes: route.codes.iter().map(make_pt_object_code).collect(),
+        direction_type: route.direction_type.clone(),
+        direction,
         ..Default::default()
     }
 }
@@ -1032,7 +1043,11 @@ pub fn make_rail_section_impact(
     Ok(navitia_proto::RailSectionImpact {
         from: make_stop_area_pt_object(&rail_section.start.id, model).ok(),
         to: make_stop_area_pt_object(&rail_section.end.id, model).ok(),
-        routes: vec![],
+        routes: rail_section
+            .routes
+            .iter()
+            .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
+            .collect(),
     })
 }
 

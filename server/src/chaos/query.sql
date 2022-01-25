@@ -90,8 +90,13 @@ FROM disruption AS d
          LEFT JOIN property pr ON pr.id = adp.property_id
          LEFT JOIN pattern AS pt ON pt.impact_id = i.id
          LEFT JOIN time_slot AS ts ON ts.pattern_id = pt.id
-WHERE d.status = 'published'
-  AND i.status = 'published'
+WHERE (
+        NOT (d.start_publication_date >= $1 OR d.end_publication_date <= $2)
+        OR (d.start_publication_date <= $3 and d.end_publication_date IS NULL)
+    )
+    AND co.contributor_code = ANY($4)
+    AND d.status = 'published'
+    AND i.status = 'published'
 GROUP BY d.id, co.id, c.id, cat.id, a.id, s.id, ls_line.id, rs_line.id,
          ls_start.id, ls_end.id, rs_start.id, rs_end.id, ls_route.id, rs_route.id,
          rail_section.id, t.id, p.id, i.id, m.id, ch.id, adp.value, pr.id, pt.id, ts.id
