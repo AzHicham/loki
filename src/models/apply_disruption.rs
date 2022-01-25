@@ -45,8 +45,8 @@ use tracing::{debug, error, trace};
 
 use super::{
     real_time_disruption::{
-        intersection, DateTimePeriod, DisruptionError, Impacted, LineId, NetworkId, RouteId,
-        StopTime, TripDisruption, VehicleJourneyId,
+        intersection, DisruptionError, Impacted, LineId, NetworkId, RouteId, StopTime, TimePeriod,
+        TripDisruption, VehicleJourneyId,
     },
     real_time_model::{DisruptionIdx, UpdateError},
     RealTimeModel,
@@ -81,13 +81,13 @@ impl RealTimeModel {
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), UpdateError> {
         let validity_period = base_model.validity_period();
-        let calendar_period = DateTimePeriod::new(
+        let calendar_period = TimePeriod::new(
             validity_period.0.and_hms(0, 0, 0),
             validity_period.1.and_hms(12, 59, 59),
         );
 
         if let Ok(calendar_period) = calendar_period {
-            let application_periods: Vec<DateTimePeriod> = impact
+            let application_periods: Vec<TimePeriod> = impact
                 .application_periods
                 .iter()
                 .filter_map(|ap| intersection(ap, &calendar_period))
@@ -152,7 +152,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         trip_disruption: &TripDisruption,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         let vehicle_journey_id = &trip_disruption.trip_id.id;
@@ -203,7 +203,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         trip_disruption: &TripDisruption,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         let vehicle_journey_id = &trip_disruption.trip_id.id;
@@ -255,7 +255,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         network_id: &str,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         if base_model.contains_network_id(network_id) {
@@ -285,7 +285,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         line_id: &str,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         if !base_model.contains_line_id(line_id) {
@@ -314,7 +314,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         route_id: &str,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         if !base_model.contains_route_id(route_id) {
@@ -343,7 +343,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         vehicle_journey_id: &str,
-        application_periods: &[DateTimePeriod],
+        application_periods: &[TimePeriod],
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         if self
@@ -351,6 +351,10 @@ impl RealTimeModel {
             .is_some()
         {
             for application_period in application_periods.iter() {
+                // - determine all days that might result in a trip
+                // which is concerned by othe application periods
+                // - iterate all days, and test if the trip is in the application period,
+                //  delete the trip when this happens
                 for datetime in application_period {
                     let date = datetime.date();
                     self.delete_trip(base_model, data, vehicle_journey_id, &date, disruption_idx);

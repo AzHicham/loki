@@ -56,7 +56,7 @@ pub struct Disruption {
     pub id: String,
     pub reference: Option<String>,
     pub contributor: Option<String>,
-    pub publication_period: DateTimePeriod,
+    pub publication_period: TimePeriod,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub cause: Cause,
@@ -134,7 +134,7 @@ pub struct Impact {
     pub id: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
-    pub application_periods: Vec<DateTimePeriod>,
+    pub application_periods: Vec<TimePeriod>,
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
     pub messages: Vec<Message>,
@@ -259,20 +259,17 @@ pub enum ChannelType {
 }
 
 #[derive(Debug, Clone)]
-pub struct DateTimePeriod {
+pub struct TimePeriod {
     start: NaiveDateTime,
     end: NaiveDateTime,
 }
 
-impl DateTimePeriod {
-    pub fn new(
-        start: NaiveDateTime,
-        end: NaiveDateTime,
-    ) -> Result<DateTimePeriod, DateTimePeriodError> {
+impl TimePeriod {
+    pub fn new(start: NaiveDateTime, end: NaiveDateTime) -> Result<TimePeriod, TimePeriodError> {
         if start <= end {
-            Ok(DateTimePeriod { start, end })
+            Ok(TimePeriod { start, end })
         } else {
-            Err(DateTimePeriodError::DateTimePeriodError(start, end))
+            Err(TimePeriodError::StartAfterEnd(start, end))
         }
     }
 
@@ -285,26 +282,26 @@ impl DateTimePeriod {
     }
 }
 
-pub fn intersection(lhs: &DateTimePeriod, rhs: &DateTimePeriod) -> Option<DateTimePeriod> {
-    DateTimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
+pub fn intersection(lhs: &TimePeriod, rhs: &TimePeriod) -> Option<TimePeriod> {
+    TimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
 }
 
-pub enum DateTimePeriodError {
-    DateTimePeriodError(NaiveDateTime, NaiveDateTime),
+pub enum TimePeriodError {
+    StartAfterEnd(NaiveDateTime, NaiveDateTime),
 }
 
-impl std::error::Error for DateTimePeriodError {}
+impl std::error::Error for TimePeriodError {}
 
-impl Display for DateTimePeriodError {
+impl Display for TimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }
 }
 
-impl Debug for DateTimePeriodError {
+impl Debug for TimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DateTimePeriodError::DateTimePeriodError(start, end) => {
+            TimePeriodError::StartAfterEnd(start, end) => {
                 write!(f, "Error DateTimePeriod, start must be less or equal to end, start : {}, end : {}",
                        start,
                        end)
@@ -314,7 +311,7 @@ impl Debug for DateTimePeriodError {
 }
 
 pub struct DateTimePeriodIterator<'a> {
-    period: &'a DateTimePeriod,
+    period: &'a TimePeriod,
     current: NaiveDateTime,
 }
 
@@ -330,7 +327,7 @@ impl<'a> Iterator for DateTimePeriodIterator<'a> {
     }
 }
 
-impl<'a> IntoIterator for &'a DateTimePeriod {
+impl<'a> IntoIterator for &'a TimePeriod {
     type Item = NaiveDateTime;
     type IntoIter = DateTimePeriodIterator<'a>;
 
