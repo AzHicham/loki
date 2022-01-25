@@ -61,13 +61,14 @@ pub fn read_chaos_disruption_from_database(
     publication_period: (NaiveDate, NaiveDate),
     contributors: &[String],
 ) -> Result<Vec<chaos_proto::chaos::Disruption>, Error> {
-    let connection = PgConnection::establish(&config.chaos_database)?;
+    let connection = PgConnection::establish(&config.chaos_database)
+        .context("Connection to chaos database failed")?;
 
     let mut disruption_maker = DisruptionMaker::default();
 
     let mut offset_query = 0_u16;
 
-    info!("Querying chaos database");
+    info!("Querying chaos database {}", &config.chaos_database);
     loop {
         let res = diesel::sql_query(include_str!("query.sql"))
             .bind::<Date, _>(publication_period.1)
@@ -87,7 +88,7 @@ pub fn read_chaos_disruption_from_database(
 
         for row in rows {
             if let Err(ref err) = disruption_maker.read_disruption(&row) {
-                error!("{}", err);
+                error!("Error while handling a row from chaos database : {:?}", err);
             }
         }
     }

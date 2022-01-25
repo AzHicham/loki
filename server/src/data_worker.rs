@@ -155,7 +155,7 @@ impl DataWorker {
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
         if let Err(err) = self.load_chaos_database().await {
-            error!("Loading chaos database failed: {}", err);
+            error!("Loading chaos database failed: {:?}", err);
         }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
@@ -317,7 +317,9 @@ impl DataWorker {
                         match handle_chaos_protobuf(&chaos_disruption) {
                             Ok(disruption) => real_time_model
                                 .store_and_apply_disruption(disruption, base_model, data),
-                            Err(err) => error!("{}", err),
+                            Err(err) => {
+                                error!("Error while applying chaos disruption : {:?}", err)
+                            }
                         }
                     }
                     Ok(())
@@ -465,7 +467,7 @@ impl DataWorker {
                             // After loading data from disk, load all disruption in chaos database
                             // Then apply all extracted disruptions
                             if let Err(err) = self.load_chaos_database().await {
-                                error!("Error : {}", err);
+                                error!("Error during reload of Chaos database : {:?}", err);
                             }
                             self.reload_kirin(channel).await?;
                             debug!("Reload completed successfully.");
