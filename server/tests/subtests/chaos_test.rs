@@ -31,7 +31,11 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
-use launch::loki::{chrono::Utc, models::real_time_disruption::TimePeriod, NaiveDateTime};
+use launch::loki::{
+    chrono::{NaiveDate, Utc},
+    models::real_time_disruption::TimePeriod,
+    NaiveDateTime,
+};
 use protobuf::Message;
 
 #[derive(Debug)]
@@ -291,6 +295,10 @@ fn create_no_service_disruption(
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
+    let timestamp = NaiveDate::from_ymd(2022, 1, 1)
+        .and_hms(12, 0, 0)
+        .timestamp();
+    feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = gtfs_proto::FeedMessage::new();
     feed_message.mut_entity().push(feed_entity);
