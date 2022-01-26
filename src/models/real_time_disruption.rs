@@ -394,7 +394,7 @@ impl Iterator for DateIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_date <= self.last_date {
-            let result = self.current_date.clone();
+            let result = self.current_date;
             self.current_date = self.current_date.succ();
             Some(result)
         } else {
