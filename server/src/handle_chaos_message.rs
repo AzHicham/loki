@@ -39,9 +39,9 @@ use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::real_time_disruption::{
-        ApplicationPattern, BlockedStopArea, Cause, ChannelType, DateTimePeriod, Disruption,
-        DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
-        Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag,
+        ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption, DisruptionProperty,
+        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
+        RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag, TimePeriod,
         TimeSlot, VehicleJourneyId,
     },
     NaiveDateTime,
@@ -65,22 +65,6 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
             .context("Could not parse disruption.publication_period")?
     } else {
         bail!("Disruption has no publication period");
-    };
-
-    let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse disruption.created_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
-    let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse disruption.updated_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
     };
 
     let cause = if proto.has_cause() {
@@ -114,8 +98,6 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
         id,
         reference,
         publication_period,
-        created_at,
-        updated_at,
         cause,
         tags,
         properties,
@@ -132,19 +114,17 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
     };
 
     let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse impact.created_at".to_string())?;
-        Some(datetime)
+        make_datetime(proto.get_created_at())
+            .context("Could not parse impact.created_at".to_string())?
     } else {
-        None
+        bail!("Impact has no created_at datetime");
     };
 
     let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse impact.updated_at".to_string())?;
-        Some(datetime)
+        make_datetime(proto.get_updated_at())
+            .context("Could not parse impact.updated_at".to_string())?
     } else {
-        None
+        created_at
     };
 
     let severity = if proto.has_severity() {
@@ -179,7 +159,6 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
 
     Ok(Impact {
         id,
-        created_at,
         updated_at,
         severity,
         application_periods,
@@ -246,7 +225,7 @@ fn dispatch_pt_object(
         }
 
         (Type::trip, Effect::NoService) => {
-            impacted.push(Impacted::TripDeleted(VehicleJourneyId { id }));
+            impacted.push(Impacted::BaseTripDeleted(VehicleJourneyId { id }));
         }
         (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId { id })),
 
@@ -333,22 +312,6 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
         bail!("Severity has no id");
     };
 
-    let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse severity.created_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
-    let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse severity.updated_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
     let effect = if proto.has_effect() {
         make_effect(proto.get_effect())
     } else {
@@ -379,8 +342,6 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
         color,
         priority,
         effect,
-        created_at,
-        updated_at,
     };
     Ok(result)
 }
@@ -410,7 +371,7 @@ fn make_cause(proto: &chaos_proto::chaos::Cause) -> Cause {
 
 fn make_datetime_period(
     proto: &chaos_proto::gtfs_realtime::TimeRange,
-) -> Result<DateTimePeriod, Error> {
+) -> Result<TimePeriod, Error> {
     let start_timestamp = if proto.has_start() {
         proto.get_start()
     } else {
@@ -435,12 +396,12 @@ fn make_datetime_period(
             end_timestamp
         )
     })?;
-    DateTimePeriod::new(start, end).map_err(Error::from)
+    TimePeriod::new(start, end).map_err(Error::from)
 }
 
 fn make_periods(
     time_ranges: &[chaos_proto::gtfs_realtime::TimeRange],
-) -> Result<Vec<DateTimePeriod>, Error> {
+) -> Result<Vec<TimePeriod>, Error> {
     let mut result = Vec::with_capacity(time_ranges.len());
     for (idx, time_range) in time_ranges.iter().enumerate() {
         let period = make_datetime_period(time_range)

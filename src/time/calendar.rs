@@ -235,13 +235,13 @@ impl Calendar {
         timezone: &Timezone,
     ) -> SecondsSinceDatasetUTCStart {
         debug_assert!(day.days < self.nb_of_days());
-        let date = *self.first_date() + chrono::Duration::days(day.days as i64);
+        let date = *self.first_date() + chrono::Duration::days(i64::from(day.days));
         // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
         debug_assert!(self.contains_date(&date));
         use chrono::offset::TimeZone;
         let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
             - chrono::Duration::hours(12)
-            + chrono::Duration::seconds(seconds_in_day.seconds as i64);
+            + chrono::Duration::seconds(i64::from(seconds_in_day.seconds));
         use chrono_tz::UTC;
         let datetime_utc = datetime_timezoned.with_timezone(&UTC).naive_utc();
 
