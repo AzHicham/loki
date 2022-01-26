@@ -172,7 +172,7 @@ impl RealTimeModel {
                 VehicleJourneyId {
                     id: vehicle_journey_id.to_string(),
                 },
-                date.clone(),
+                date,
             ));
         }
 
@@ -216,7 +216,7 @@ impl RealTimeModel {
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
-                    date.clone(),
+                    date,
                 ));
             }
 
@@ -404,7 +404,7 @@ impl RealTimeModel {
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
-                    date.clone(),
+                    *date,
                 )
             })?;
         let removal_result = data.remove_real_time_vehicle(&vj_idx, date);
@@ -449,7 +449,7 @@ impl RealTimeModel {
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
-                    date.clone(),
+                    *date,
                 )
             })?;
         let dates = std::iter::once(*date);
@@ -510,7 +510,7 @@ impl RealTimeModel {
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
-                    date.clone(),
+                    *date,
                 )
             })?;
         trace!(
