@@ -562,8 +562,3 @@ pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
     let timestamp = i64::try_from(timestamp)?;
     Ok(NaiveDateTime::from_timestamp(timestamp, 0))
 }
-
-pub enum PtObject {
-    Impacted(Impacted),
-    Informed(Informed),
-}
