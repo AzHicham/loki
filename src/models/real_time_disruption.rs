@@ -34,7 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
+use crate::{
+    time::{SecondsSinceTimezonedDayStart, MAX_SECONDS_IN_UTC_DAY},
+    timetables::FlowDirection,
+};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
 use std::{
@@ -56,7 +59,7 @@ pub struct Disruption {
     pub id: String,
     pub reference: Option<String>,
     pub contributor: Option<String>,
-    pub publication_period: DateTimePeriod,
+    pub publication_period: TimePeriod,
     pub cause: Cause,
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
@@ -69,7 +72,10 @@ pub enum DisruptionError {
     LineAbsent(LineId),
     RouteAbsent(RouteId),
     VehicleJourneyAbsent(VehicleJourneyId),
-    TripAbsent(VehicleJourneyId, NaiveDate),
+    DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
+    ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
+    AddPresentTrip(VehicleJourneyId, NaiveDate),
+    NewTripWithBaseId(VehicleJourneyId, NaiveDate),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -127,7 +133,7 @@ pub struct TimeSlot {
 pub struct Impact {
     pub id: String,
     pub updated_at: NaiveDateTime,
-    pub application_periods: Vec<DateTimePeriod>,
+    pub application_periods: Vec<TimePeriod>,
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
     pub messages: Vec<Message>,
@@ -137,16 +143,22 @@ pub struct Impact {
 
 #[derive(Debug, Clone)]
 pub enum Impacted {
+    // chaos
     NetworkDeleted(NetworkId),
     LineDeleted(LineId),
     RouteDeleted(RouteId),
-    TripDeleted(VehicleJourneyId),
-    BaseTripUpdated(TripDisruption),
-    NewTripUpdated(TripDisruption),
+
     RailSection(RailSectionDisruption),
     LineSection(LineSectionDisruption),
     StopAreaDeleted(StopAreaId),
     StopPointDeleted(StopPointId),
+    // delete from chaos
+    BaseTripDeleted(VehicleJourneyId),
+
+    //Kirin
+    TripDeleted(VehicleJourneyId, NaiveDate),
+    BaseTripUpdated(TripDisruption),
+    NewTripUpdated(TripDisruption),
 }
 
 #[derive(Debug, Clone)]
@@ -193,6 +205,7 @@ pub struct VehicleJourneyId {
 #[derive(Debug, Clone)]
 pub struct TripDisruption {
     pub trip_id: VehicleJourneyId,
+    pub trip_date: NaiveDate,
     pub stop_times: Vec<StopTime>,
     pub company_id: Option<String>,
     pub physical_mode_id: Option<String>,
@@ -249,21 +262,23 @@ pub enum ChannelType {
     Beacon,
 }
 
+/// An half open interval of time.
+/// A instant `t` is contained in it
+/// if and only if
+///  `start <= t < end`
+///
 #[derive(Debug, Clone)]
-pub struct DateTimePeriod {
+pub struct TimePeriod {
     start: NaiveDateTime,
     end: NaiveDateTime,
 }
 
-impl DateTimePeriod {
-    pub fn new(
-        start: NaiveDateTime,
-        end: NaiveDateTime,
-    ) -> Result<DateTimePeriod, DateTimePeriodError> {
-        if start <= end {
-            Ok(DateTimePeriod { start, end })
+impl TimePeriod {
+    pub fn new(start: NaiveDateTime, end: NaiveDateTime) -> Result<TimePeriod, TimePeriodError> {
+        if start < end {
+            Ok(TimePeriod { start, end })
         } else {
-            Err(DateTimePeriodError::DateTimePeriodError(start, end))
+            Err(TimePeriodError::StartAfterEnd(start, end))
         }
     }
 
@@ -274,38 +289,68 @@ impl DateTimePeriod {
     pub fn end(&self) -> NaiveDateTime {
         self.end
     }
+
+    pub fn contains(&self, t: &NaiveDateTime) -> bool {
+        self.start <= *t && *t < self.end
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.contains(&other.start) || other.contains(&self.start)
+    }
+
+    // Returns an iterator that contains all dates D such that
+    //  a vehicle_journey on D is "concerned" by this time_period,
+    //  where "concerned" means that a stop_time of the vehicle_journey
+    //   circulating on date D is contained in this time_period
+    //
+    // Note that the iterator may contains dates for which a vehicle
+    // journey is *NOT* concerned. The caller should check by himself.
+    pub fn dates_possibly_concerned(&self) -> DateIter {
+        // since the vehicle journey stop_times are given in local time
+        // and we accept values up to 48h, we use a 3 days offset
+        // that account for both
+        let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
+        let first_date = (self.start - offset).date();
+        let last_date = (self.end + offset).date();
+        DateIter {
+            current_date: first_date,
+            last_date,
+        }
+    }
 }
 
-pub fn intersection(lhs: &DateTimePeriod, rhs: &DateTimePeriod) -> Option<DateTimePeriod> {
-    DateTimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
+pub fn intersection(lhs: &TimePeriod, rhs: &TimePeriod) -> Option<TimePeriod> {
+    TimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
 }
 
-pub enum DateTimePeriodError {
-    DateTimePeriodError(NaiveDateTime, NaiveDateTime),
+pub enum TimePeriodError {
+    StartAfterEnd(NaiveDateTime, NaiveDateTime),
 }
 
-impl std::error::Error for DateTimePeriodError {}
+impl std::error::Error for TimePeriodError {}
 
-impl Display for DateTimePeriodError {
+impl Display for TimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }
 }
 
-impl Debug for DateTimePeriodError {
+impl Debug for TimePeriodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DateTimePeriodError::DateTimePeriodError(start, end) => {
-                write!(f, "Error DateTimePeriod, start must be less or equal to end, start : {}, end : {}",
-                       start,
-                       end)
+            TimePeriodError::StartAfterEnd(start, end) => {
+                write!(
+                    f,
+                    "Bad TimePeriod, start {} must be strictly greater than end {}",
+                    start, end
+                )
             }
         }
     }
 }
 
 pub struct DateTimePeriodIterator<'a> {
-    period: &'a DateTimePeriod,
+    period: &'a TimePeriod,
     current: NaiveDateTime,
 }
 
@@ -321,7 +366,7 @@ impl<'a> Iterator for DateTimePeriodIterator<'a> {
     }
 }
 
-impl<'a> IntoIterator for &'a DateTimePeriod {
+impl<'a> IntoIterator for &'a TimePeriod {
     type Item = NaiveDateTime;
     type IntoIter = DateTimePeriodIterator<'a>;
 
@@ -329,6 +374,27 @@ impl<'a> IntoIterator for &'a DateTimePeriod {
         DateTimePeriodIterator {
             period: self,
             current: self.start,
+        }
+    }
+}
+
+// Yields all dates between current_date (included)
+// and last_date (also included)
+pub struct DateIter {
+    current_date: NaiveDate,
+    last_date: NaiveDate,
+}
+
+impl Iterator for DateIter {
+    type Item = NaiveDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_date <= self.last_date {
+            let result = self.current_date.clone();
+            self.current_date = self.current_date.succ();
+            Some(result)
+        } else {
+            None
         }
     }
 }
