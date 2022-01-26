@@ -67,22 +67,6 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
         bail!("Disruption has no publication period");
     };
 
-    let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse disruption.created_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
-    let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse disruption.updated_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
     let cause = if proto.has_cause() {
         make_cause(proto.get_cause())
     } else {
@@ -114,8 +98,6 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
         id,
         reference,
         publication_period,
-        created_at,
-        updated_at,
         cause,
         tags,
         properties,
@@ -132,19 +114,17 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
     };
 
     let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse impact.created_at".to_string())?;
-        Some(datetime)
+        make_datetime(proto.get_created_at())
+            .context("Could not parse impact.created_at".to_string())?
     } else {
-        None
+        bail!("Impact has no created_at datetime");
     };
 
     let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse impact.updated_at".to_string())?;
-        Some(datetime)
+        make_datetime(proto.get_updated_at())
+            .context("Could not parse impact.updated_at".to_string())?
     } else {
-        None
+        created_at
     };
 
     let severity = if proto.has_severity() {
@@ -179,7 +159,6 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
 
     Ok(Impact {
         id,
-        created_at,
         updated_at,
         severity,
         application_periods,
@@ -333,22 +312,6 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
         bail!("Severity has no id");
     };
 
-    let created_at = if proto.has_created_at() {
-        let datetime = make_datetime(proto.get_created_at())
-            .context("Could not parse severity.created_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
-    let updated_at = if proto.has_updated_at() {
-        let datetime = make_datetime(proto.get_updated_at())
-            .context("Could not parse severity.updated_at".to_string())?;
-        Some(datetime)
-    } else {
-        None
-    };
-
     let effect = if proto.has_effect() {
         make_effect(proto.get_effect())
     } else {
@@ -379,8 +342,6 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
         color,
         priority,
         effect,
-        created_at,
-        updated_at,
     };
     Ok(result)
 }

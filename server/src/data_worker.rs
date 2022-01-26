@@ -67,7 +67,7 @@ use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
     models::{base_model::BaseModel, RealTimeModel},
-    tracing::{debug, error, info, log::trace, warn},
+    tracing::{debug, error, info, log::trace},
     DataTrait, NaiveDateTime,
 };
 
@@ -802,23 +802,14 @@ fn handle_realtime_message(
     message: &chaos_proto::gtfs_realtime::FeedMessage,
 ) -> Result<(), Error> {
     let header_datetime = parse_header_datetime(message)
-        .map_err(|err| {
-            warn!(
-                "Received a FeedMessage with a bad header datetime. {:?}",
-                err
-            );
-        })
-        .ok();
+        .context("Received a FeedMessage with a bad header datetime.")?;
 
     for feed_entity in &message.entity {
         let result = handle_feed_entity(data_and_models, feed_entity, &header_datetime);
         if let Err(err) = result {
-            let datetime_str = header_datetime
-                .map(|datetime| format!("{}", datetime))
-                .unwrap_or("BadHeaderDatetime".to_string());
             error!(
                 "An error occured while handling FeedMessage with timestamp {}. {:?}",
-                datetime_str, err
+                header_datetime, err
             )
         }
     }
@@ -828,7 +819,7 @@ fn handle_realtime_message(
 fn handle_feed_entity(
     data_and_models: &mut DataAndModels,
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
-    header_datetime: &Option<NaiveDateTime>,
+    header_datetime: &NaiveDateTime,
 ) -> Result<(), Error> {
     if !feed_entity.has_id() {
         bail!("FeedEntity has no id");
@@ -845,9 +836,7 @@ fn handle_feed_entity(
         handle_chaos_protobuf(&chaos_disruption)
             .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
     } else if feed_entity.has_trip_update() {
-        let calendar = data_and_models.0.calendar();
-        let calendar_period = (*calendar.first_date(), *calendar.last_date());
-        handle_kirin_protobuf(feed_entity, header_datetime, &calendar_period)
+        handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1)
             .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?
     } else {
         bail!(

@@ -60,8 +60,6 @@ pub struct Disruption {
     pub reference: Option<String>,
     pub contributor: Option<String>,
     pub publication_period: TimePeriod,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
     pub cause: Cause,
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
@@ -107,8 +105,6 @@ pub struct Severity {
     pub color: Option<String>,
     pub priority: Option<i32>,
     pub effect: Effect,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -138,8 +134,7 @@ pub struct TimeSlot {
 #[derive(Debug, Clone)]
 pub struct Impact {
     pub id: String,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub updated_at: NaiveDateTime,
     pub application_periods: Vec<TimePeriod>,
     pub application_patterns: Vec<ApplicationPattern>,
     pub severity: Severity,
