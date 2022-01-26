@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use transit_model::objects::{CommercialMode, Line, Network, Route, StopArea};
+use transit_model::objects::{CommercialMode, Line, Network, Route, StopArea, VehicleJourney};
 use typed_index_collection::Idx;
 
 use crate::{
@@ -217,6 +217,10 @@ impl BaseModel {
 impl BaseModel {
     pub fn nb_of_vehicle_journeys(&self) -> usize {
         self.collections.vehicle_journeys.len()
+    }
+
+    pub fn vehicle_journey(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> &VehicleJourney {
+        &self.collections.vehicle_journeys[vehicle_journey_idx]
     }
 
     pub fn vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + '_ {

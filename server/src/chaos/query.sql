@@ -100,4 +100,5 @@ WHERE (
 GROUP BY d.id, co.id, c.id, cat.id, a.id, s.id, ls_line.id, rs_line.id,
          ls_start.id, ls_end.id, rs_start.id, rs_end.id, ls_route.id, rs_route.id,
          rail_section.id, t.id, p.id, i.id, m.id, ch.id, adp.value, pr.id, pt.id, ts.id
-ORDER BY d.id, c.id, t.id, i.id, m.id, ch.id;
+ORDER BY d.id, c.id, t.id, i.id, m.id, ch.id
+LIMIT $5 OFFSET $6;

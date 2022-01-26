@@ -112,6 +112,7 @@ pub struct ApplicationPattern {
     pub begin_date: NaiveDate,
     pub end_date: NaiveDate,
     pub time_slots: Vec<TimeSlot>,
+    pub week_pattern: [bool; 7],
 }
 
 #[derive(Debug, Clone)]

@@ -50,6 +50,7 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::transit_model::objects::{Properties, PropertiesMap};
 use launch::loki::{
     chrono::Timelike,
     models::real_time_disruption::{
@@ -669,11 +670,13 @@ fn make_impact(
     disruption: &Disruption,
     model: &ModelRefs<'_>,
 ) -> navitia_proto::Impact {
-    let mut impacted_objects: Vec<navitia_proto::ImpactedObject> = impact
-        .impacted_pt_objects
-        .iter()
-        .filter_map(|i| make_impacted_object_from_impacted(i, model).ok())
-        .collect();
+    let mut impacted_objects =
+        Vec::with_capacity(impact.impacted_pt_objects.len() + impact.informed_pt_objects.len());
+    for impacted in &impact.impacted_pt_objects {
+        if let Ok(object) = make_impacted_object_from_impacted(impacted, model) {
+            impacted_objects.push(object)
+        }
+    }
     for informed in &impact.informed_pt_objects {
         if let Ok(object) = make_impacted_object_from_informed(informed, model) {
             impacted_objects.push(object)
@@ -710,6 +713,9 @@ fn make_impacted_object_from_impacted(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::ImpactedObject, Error> {
     let pt_object = match object {
+        Impacted::TripDeleted(trip) => make_vehicle_journey_pt_object(&trip.id, model),
+        Impacted::NewTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
+        Impacted::BaseTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
         Impacted::RouteDeleted(route) => make_route_pt_object(&route.id, model),
         Impacted::LineDeleted(line) => make_line_pt_object(&line.id, model),
         Impacted::NetworkDeleted(network) => make_network_pt_object(&network.id, model),
@@ -726,7 +732,6 @@ fn make_impacted_object_from_impacted(
                 ));
             }
         }
-        _ => return Err(format_err!("***")),
     };
     let impacted_section = match object {
         Impacted::LineSection(line_section) => Some(make_line_section_impact(line_section, model)?),
@@ -749,11 +754,7 @@ fn make_impacted_object_from_informed(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::ImpactedObject, Error> {
     let pt_object = match object {
-        Informed::Trip(trip) => {
-            return Err(format_err!(
-                "Cannot create ImpactedObject from Informed::Trip"
-            ))
-        }
+        Informed::Trip(trip) => make_vehicle_journey_pt_object(&trip.id, model),
         Informed::Route(route) => make_route_pt_object(&route.id, model),
         Informed::Line(line) => make_line_pt_object(&line.id, model),
         Informed::Network(network) => make_network_pt_object(&network.id, model),
@@ -862,10 +863,19 @@ fn make_application_pattern(
         pattern.begin_date.and_hms(0, 0, 0),
         pattern.end_date.and_hms(0, 0, 0),
     )?;
+    let week_pattern = navitia_proto::WeekPattern {
+        monday: Some(pattern.week_pattern[0]),
+        tuesday: Some(pattern.week_pattern[1]),
+        wednesday: Some(pattern.week_pattern[2]),
+        thursday: Some(pattern.week_pattern[3]),
+        friday: Some(pattern.week_pattern[4]),
+        saturday: Some(pattern.week_pattern[5]),
+        sunday: Some(pattern.week_pattern[6]),
+    };
     Ok(navitia_proto::ApplicationPattern {
         application_period: make_period(&app_period),
         time_slots: pattern.time_slots.iter().map(make_time_slot).collect(),
-        ..Default::default()
+        week_pattern,
     })
 }
 
@@ -977,7 +987,7 @@ pub fn make_line(line: &Line, model: &ModelRefs) -> navitia_proto::Line {
     }
 }
 
-pub fn make_network(network: &Network, model: &ModelRefs) -> navitia_proto::Network {
+pub fn make_network(network: &Network, _model: &ModelRefs) -> navitia_proto::Network {
     navitia_proto::Network {
         name: Some(network.name.clone()),
         uri: Some(network.id.clone()),
@@ -1006,7 +1016,7 @@ pub fn make_stop_area_pt_object(
     }
 }
 
-pub fn make_stop_area_(stop_area: &StopArea, model: &ModelRefs) -> navitia_proto::StopArea {
+pub fn make_stop_area_(stop_area: &StopArea, _model: &ModelRefs) -> navitia_proto::StopArea {
     navitia_proto::StopArea {
         name: Some(stop_area.name.clone()),
         uri: Some(stop_area.id.clone()),
@@ -1068,4 +1078,87 @@ pub fn make_commercial_mode(
             uri: Some(c.id.clone()),
             name: Some(c.name.clone()),
         })
+}
+
+pub fn make_vehicle_journey_pt_object(
+    id: &str,
+    model: &ModelRefs,
+) -> Result<navitia_proto::PtObject, Error> {
+    if let Some(vj_idx) = model.vehicle_journey_idx(id) {
+        let proto_trip = make_vehicle_journey(&vj_idx, model);
+
+        let mut proto = navitia_proto::PtObject {
+            name: "".to_string(),
+            uri: id.to_string(),
+            vehicle_journey: Some(Box::new(proto_trip)),
+            ..Default::default()
+        };
+        proto.set_embedded_type(navitia_proto::NavitiaType::VehicleJourney);
+        Ok(proto)
+    } else {
+        Err(format_err!(
+            "VehicleJourney.id: {} not found in BaseModel",
+            id
+        ))
+    }
+}
+
+pub fn make_vehicle_journey(
+    vj_idx: &VehicleJourneyIdx,
+    model: &ModelRefs,
+) -> navitia_proto::VehicleJourney {
+    use VehicleJourneyPropertyKey::*;
+    match vj_idx {
+        VehicleJourneyIdx::Base(idx) => {
+            let vehicle_journey = model.vehicle_journey(idx);
+            let properties = vehicle_journey.properties();
+            navitia_proto::VehicleJourney {
+                name: Some(vehicle_journey.id.clone()),
+                uri: Some(vehicle_journey.id.clone()),
+                headsign: vehicle_journey.headsign.clone(),
+                wheelchair_accessible: Some(get_vehicle_property(properties, WheelChairAccessible)),
+                bike_accepted: Some(get_vehicle_property(properties, BikeAccepted)),
+                air_conditioned: Some(get_vehicle_property(properties, AirConditioned)),
+                visual_announcement: Some(get_vehicle_property(properties, VisualAnnouncement)),
+                audible_announcement: Some(get_vehicle_property(properties, AudibleAnnouncement)),
+                appropriate_escort: Some(get_vehicle_property(properties, AppropriateEscort)),
+                appropriate_signage: Some(get_vehicle_property(properties, AppropriateSignage)),
+                school_vehicle: Some(get_vehicle_property(properties, SchoolVehicle)),
+                is_adapted: Some(true), // RTLevel::Adapted has been removed
+                ..Default::default()
+            }
+        }
+        VehicleJourneyIdx::New(_idx) => navitia_proto::VehicleJourney {
+            ..Default::default()
+        },
+    }
+}
+
+fn get_vehicle_property(properties: &PropertiesMap, key: VehicleJourneyPropertyKey) -> bool {
+    let string_key = match key {
+        VehicleJourneyPropertyKey::WheelChairAccessible => "wheelchair_accessible",
+        VehicleJourneyPropertyKey::BikeAccepted => "bike_accepted",
+        VehicleJourneyPropertyKey::AirConditioned => "air_conditioned",
+        VehicleJourneyPropertyKey::VisualAnnouncement => "visual_announcement",
+        VehicleJourneyPropertyKey::AudibleAnnouncement => "audible_announcement",
+        VehicleJourneyPropertyKey::AppropriateEscort => "appropriate_escort",
+        VehicleJourneyPropertyKey::AppropriateSignage => "appropriate_signage",
+        VehicleJourneyPropertyKey::SchoolVehicle => "school_vehicle_type",
+    };
+    let value = properties.get(string_key);
+    match value {
+        Some(value) => matches!(value.as_str(), "1"), // return true only if value == "1"
+        None => false,
+    }
+}
+
+pub enum VehicleJourneyPropertyKey {
+    WheelChairAccessible,
+    BikeAccepted,
+    AirConditioned,
+    VisualAnnouncement,
+    AudibleAnnouncement,
+    AppropriateEscort,
+    AppropriateSignage,
+    SchoolVehicle,
 }

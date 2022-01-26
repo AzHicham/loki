@@ -473,10 +473,32 @@ fn make_application_pattern(
         bail!("Pattern has no end_date");
     };
     let time_slots = proto.get_time_slots().iter().map(make_timeslot).collect();
+    if proto.has_end_date() {
+        let timestamp = proto.get_end_date();
+        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
+        datetime.date()
+    } else {
+        bail!("Pattern has no end_date");
+    };
+    let mut week_pattern = [false; 7];
+    if proto.has_week_pattern() {
+        let proto_week_pattern = proto.get_week_pattern();
+        week_pattern[0] = proto_week_pattern.get_monday();
+        week_pattern[1] = proto_week_pattern.get_tuesday();
+        week_pattern[2] = proto_week_pattern.get_wednesday();
+        week_pattern[3] = proto_week_pattern.get_thursday();
+        week_pattern[4] = proto_week_pattern.get_friday();
+        week_pattern[5] = proto_week_pattern.get_saturday();
+        week_pattern[6] = proto_week_pattern.get_sunday();
+    } else {
+        bail!("Pattern has no week_pattern");
+    };
+
     Ok(ApplicationPattern {
         begin_date,
         end_date,
         time_slots,
+        week_pattern,
     })
 }
 
