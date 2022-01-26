@@ -1041,29 +1041,10 @@ pub fn make_line_section_impact(
     line_section: &LineSectionDisruption,
     model: &ModelRefs,
 ) -> Result<navitia_proto::LineSectionImpact, Error> {
-    let routes = if line_section.routes.is_empty() {
-        model
-            .routes()
-            .filter_map(|route| {
-                if line_section.line.id == route.line_id {
-                    Some(make_route(route, model))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    } else {
-        line_section
-            .routes
-            .iter()
-            .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
-            .collect()
-    };
-
     Ok(navitia_proto::LineSectionImpact {
         from: make_stop_area_pt_object(&line_section.start.id, model).ok(),
         to: make_stop_area_pt_object(&line_section.end.id, model).ok(),
-        routes,
+        routes: vec![],
     })
 }
 
@@ -1071,28 +1052,10 @@ pub fn make_rail_section_impact(
     rail_section: &RailSectionDisruption,
     model: &ModelRefs,
 ) -> Result<navitia_proto::RailSectionImpact, Error> {
-    let routes = if rail_section.routes.is_empty() {
-        model
-            .routes()
-            .filter_map(|route| {
-                if rail_section.line.id == route.line_id {
-                    Some(make_route(route, model))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    } else {
-        rail_section
-            .routes
-            .iter()
-            .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
-            .collect()
-    };
     Ok(navitia_proto::RailSectionImpact {
         from: make_stop_area_pt_object(&rail_section.start.id, model).ok(),
         to: make_stop_area_pt_object(&rail_section.end.id, model).ok(),
-        routes,
+        routes: vec![],
     })
 }
 
