@@ -37,6 +37,7 @@
 use std::{collections::HashMap, hash::Hash};
 
 use crate::chrono::NaiveDate;
+use crate::models::real_time_disruption::Disruption;
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
@@ -391,6 +392,10 @@ impl RealTimeModel {
     pub fn new_vehicle_journeys(&self) -> impl Iterator<Item = NewVehicleJourneyIdx> {
         let range = 0..self.nb_of_new_vehicle_journeys();
         range.map(|idx| NewVehicleJourneyIdx { idx })
+    }
+
+    pub fn disruptions(&self) -> impl Iterator<Item = &Disruption> {
+        self.disruptions.iter()
     }
 
     pub fn new() -> Self {

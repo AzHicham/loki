@@ -342,6 +342,9 @@ impl ImpactMaker {
                 if let Some(name) = &row.channel_name {
                     channel.set_name(name.clone())
                 }
+                if let Some(channel_id) = &row.channel_id {
+                    channel.set_id(channel_id.to_string());
+                }
                 if let Some(content_type) = &row.channel_content_type {
                     channel.set_content_type(content_type.clone())
                 }

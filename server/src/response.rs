@@ -983,6 +983,12 @@ pub fn make_line(line: &Line, model: &ModelRefs) -> navitia_proto::Line {
         commercial_mode: make_commercial_mode(&line.commercial_mode_id, model),
         opening_time: line.opening_time.map(|t| t.total_seconds()),
         closing_time: line.closing_time.map(|t| t.total_seconds()),
+        // todo add physical_mode of this line
+        properties: line
+            .object_properties
+            .iter()
+            .map(make_pt_object_property)
+            .collect(),
         ..Default::default()
     }
 }
@@ -1035,14 +1041,29 @@ pub fn make_line_section_impact(
     line_section: &LineSectionDisruption,
     model: &ModelRefs,
 ) -> Result<navitia_proto::LineSectionImpact, Error> {
-    Ok(navitia_proto::LineSectionImpact {
-        from: make_stop_area_pt_object(&line_section.start.id, model).ok(),
-        to: make_stop_area_pt_object(&line_section.end.id, model).ok(),
-        routes: line_section
+    let routes = if line_section.routes.is_empty() {
+        model
+            .routes()
+            .filter_map(|route| {
+                if line_section.line.id == route.line_id {
+                    Some(make_route(route, model))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        line_section
             .routes
             .iter()
             .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
-            .collect(),
+            .collect()
+    };
+
+    Ok(navitia_proto::LineSectionImpact {
+        from: make_stop_area_pt_object(&line_section.start.id, model).ok(),
+        to: make_stop_area_pt_object(&line_section.end.id, model).ok(),
+        routes,
     })
 }
 
@@ -1050,14 +1071,28 @@ pub fn make_rail_section_impact(
     rail_section: &RailSectionDisruption,
     model: &ModelRefs,
 ) -> Result<navitia_proto::RailSectionImpact, Error> {
-    Ok(navitia_proto::RailSectionImpact {
-        from: make_stop_area_pt_object(&rail_section.start.id, model).ok(),
-        to: make_stop_area_pt_object(&rail_section.end.id, model).ok(),
-        routes: rail_section
+    let routes = if rail_section.routes.is_empty() {
+        model
+            .routes()
+            .filter_map(|route| {
+                if rail_section.line.id == route.line_id {
+                    Some(make_route(route, model))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        rail_section
             .routes
             .iter()
             .filter_map(|r| model.route(&r.id).map(|route| make_route(route, model)))
-            .collect(),
+            .collect()
+    };
+    Ok(navitia_proto::RailSectionImpact {
+        from: make_stop_area_pt_object(&rail_section.start.id, model).ok(),
+        to: make_stop_area_pt_object(&rail_section.end.id, model).ok(),
+        routes,
     })
 }
 
@@ -1065,6 +1100,13 @@ pub fn make_pt_object_code(code: &(String, String)) -> navitia_proto::Code {
     navitia_proto::Code {
         r#type: code.0.clone(),
         value: code.1.clone(),
+    }
+}
+
+pub fn make_pt_object_property(property: (&String, &String)) -> navitia_proto::Property {
+    navitia_proto::Property {
+        name: Some(property.0.clone()),
+        value: Some(property.1.clone()),
     }
 }
 
@@ -1077,6 +1119,18 @@ pub fn make_commercial_mode(
         .map(|c| navitia_proto::CommercialMode {
             uri: Some(c.id.clone()),
             name: Some(c.name.clone()),
+        })
+}
+
+pub fn make_physical_mode(
+    physical_mode_id: &str,
+    model: &ModelRefs,
+) -> Option<navitia_proto::PhysicalMode> {
+    model
+        .physical_mode(physical_mode_id)
+        .map(|p| navitia_proto::PhysicalMode {
+            uri: Some(p.id.clone()),
+            name: Some(p.name.clone()),
         })
 }
 

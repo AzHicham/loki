@@ -35,7 +35,9 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use transit_model::objects::{CommercialMode, Line, Network, Route, StopArea, VehicleJourney};
+use transit_model::objects::{
+    CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+};
 use typed_index_collection::Idx;
 
 use crate::{
@@ -520,6 +522,10 @@ impl BaseModel {
         self.collections.routes.get(id)
     }
 
+    pub fn routes(&self) -> impl Iterator<Item = &Route> {
+        self.collections.routes.iter().map(|(_, route)| route)
+    }
+
     pub fn network(&self, id: &str) -> Option<&Network> {
         self.collections.networks.get(id)
     }
@@ -530,6 +536,9 @@ impl BaseModel {
 
     pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
         self.collections.commercial_modes.get(id)
+    }
+    pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
+        self.collections.physical_modes.get(id)
     }
 }
 
