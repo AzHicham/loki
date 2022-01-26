@@ -50,15 +50,14 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
-use launch::loki::transit_model::objects::{Properties, PropertiesMap};
 use launch::loki::{
     chrono::Timelike,
     models::real_time_disruption::{
-        ApplicationPattern, ChannelType, DateTimePeriod, Disruption, DisruptionProperty, Effect,
-        Impact, Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption,
-        Severity, TimeSlot,
+        ApplicationPattern, ChannelType, Disruption, DisruptionProperty, Effect, Impact, Impacted,
+        Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity, TimePeriod,
+        TimeSlot,
     },
-    transit_model::objects::{Line, Network, Route, StopArea},
+    transit_model::objects::{Line, Network, Properties, PropertiesMap, Route, StopArea},
 };
 use std::convert::TryFrom;
 
@@ -713,7 +712,12 @@ fn make_impacted_object_from_impacted(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::ImpactedObject, Error> {
     let pt_object = match object {
-        Impacted::TripDeleted(trip) => make_vehicle_journey_pt_object(&trip.id, model),
+        Impacted::TripDeleted(vehicle_journey_id, _) => {
+            make_vehicle_journey_pt_object(&vehicle_journey_id.id, model)
+        }
+        Impacted::BaseTripDeleted(vehicle_journey_id) => {
+            make_vehicle_journey_pt_object(&vehicle_journey_id.id, model)
+        }
         Impacted::NewTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
         Impacted::BaseTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
         Impacted::RouteDeleted(route) => make_route_pt_object(&route.id, model),
@@ -792,7 +796,7 @@ fn make_property(property: &DisruptionProperty) -> navitia_proto::DisruptionProp
     }
 }
 
-fn make_period(period: &DateTimePeriod) -> navitia_proto::Period {
+fn make_period(period: &TimePeriod) -> navitia_proto::Period {
     navitia_proto::Period {
         begin: u64::try_from(period.start().timestamp()).ok(),
         end: u64::try_from(period.end().timestamp()).ok(),
@@ -859,7 +863,7 @@ fn make_channel_type(channel_type: &ChannelType) -> navitia_proto::channel::Chan
 fn make_application_pattern(
     pattern: &ApplicationPattern,
 ) -> Result<navitia_proto::ApplicationPattern, Error> {
-    let app_period = DateTimePeriod::new(
+    let app_period = TimePeriod::new(
         pattern.begin_date.and_hms(0, 0, 0),
         pattern.end_date.and_hms(0, 0, 0),
     )?;

@@ -36,8 +36,7 @@
 
 use std::{collections::HashMap, hash::Hash};
 
-use crate::chrono::NaiveDate;
-use crate::models::real_time_disruption::Disruption;
+use crate::{chrono::NaiveDate, models::real_time_disruption::Disruption};
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},

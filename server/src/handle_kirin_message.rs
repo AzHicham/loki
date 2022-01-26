@@ -386,7 +386,6 @@ fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Mes
     }
 }
 
-
 fn make_severity(effect: Effect) -> Severity {
     Severity {
         wording: Some(make_severity_wording(effect)),
