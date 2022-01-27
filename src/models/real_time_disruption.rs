@@ -319,6 +319,67 @@ impl TimePeriod {
     }
 }
 
+pub struct TimePeriods<'a> {
+    periods: &'a [TimePeriod],
+}
+
+impl<'a> TimePeriods<'a> {
+    pub fn new(periods: &'a [TimePeriod]) -> Option<Self> {
+        if periods.is_empty() {
+            None
+        } else {
+            Some(Self { periods })
+        }
+    }
+
+    pub fn contains(&self, t: &NaiveDateTime) -> bool {
+        for period in self.periods {
+            if period.contains(t) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn intersects(&self, other: &TimePeriod) -> bool {
+        for period in self.periods {
+            if period.intersects(other) {
+                return true;
+            }
+        }
+        false
+    }
+
+    // Returns an iterator that contains all dates D such that
+    //  a vehicle_journey on D is "concerned" by this time_periods,
+    //  where "concerned" means that a stop_time of the vehicle_journey
+    //   circulating on date D is contained in this time_periods
+    //
+    // Note that the iterator may contains dates for which a vehicle
+    // journey is *NOT* concerned. The caller should check by himself.
+    pub fn dates_possibly_concerned(&self) -> DateIter {
+        let earliest_datetime = self
+            .periods
+            .iter()
+            .map(|period| period.start)
+            .min()
+            .unwrap(); // unwrap safe here because we check in new() that ! periods.is_empty()
+
+        let latest_datetime = self.periods.iter().map(|period| period.end).max().unwrap(); // unwrap safe here because we check in new() that ! periods.is_empty()
+
+        // since the vehicle journey stop_times are given in local time
+        // and we accept values up to 48h, we use a 3 days offset
+        // that account for both
+        let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
+        let first_date = (earliest_datetime - offset).date();
+        let last_date = (latest_datetime + offset).date();
+        DateIter {
+            current_date: first_date,
+            last_date,
+        }
+    }
+}
+
 pub fn intersection(lhs: &TimePeriod, rhs: &TimePeriod) -> Option<TimePeriod> {
     TimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
 }
