@@ -125,7 +125,7 @@ fn make_impact(
         })?
     };
 
-    let severity = make_severity(effect, disruption_id.clone());
+    let severity = make_severity(effect);
 
     let stop_times = make_stop_times(trip_update, &reference_date)?;
 
@@ -386,9 +386,8 @@ fn make_message(trip_update: &chaos_proto::gtfs_realtime::TripUpdate) -> Vec<Mes
     }
 }
 
-fn make_severity(effect: Effect, disruption_id: String) -> Severity {
+fn make_severity(effect: Effect) -> Severity {
     Severity {
-        id: disruption_id,
         wording: Some(make_severity_wording(effect)),
         color: Some("#000000".to_string()),
         priority: Some(42),

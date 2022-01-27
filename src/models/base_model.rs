@@ -35,6 +35,9 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
+use transit_model::objects::{
+    CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+};
 use typed_index_collection::Idx;
 
 use crate::{
@@ -218,6 +221,10 @@ impl BaseModel {
 impl BaseModel {
     pub fn nb_of_vehicle_journeys(&self) -> usize {
         self.collections.vehicle_journeys.len()
+    }
+
+    pub fn vehicle_journey(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> &VehicleJourney {
+        &self.collections.vehicle_journeys[vehicle_journey_idx]
     }
 
     pub fn vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + '_ {
@@ -551,6 +558,33 @@ impl BaseModel {
             license: c.license.clone(),
             url: c.website.clone(),
         })
+    }
+
+    pub fn line(&self, id: &str) -> Option<&Line> {
+        self.collections.lines.get(id)
+    }
+
+    pub fn route(&self, id: &str) -> Option<&Route> {
+        self.collections.routes.get(id)
+    }
+
+    pub fn routes(&self) -> impl Iterator<Item = &Route> {
+        self.collections.routes.iter().map(|(_, route)| route)
+    }
+
+    pub fn network(&self, id: &str) -> Option<&Network> {
+        self.collections.networks.get(id)
+    }
+
+    pub fn stop_area(&self, id: &str) -> Option<&StopArea> {
+        self.collections.stop_areas.get(id)
+    }
+
+    pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
+        self.collections.commercial_modes.get(id)
+    }
+    pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
+        self.collections.physical_modes.get(id)
     }
 }
 
