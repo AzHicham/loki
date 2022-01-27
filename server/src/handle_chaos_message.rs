@@ -38,11 +38,17 @@ use crate::chaos_proto::{self};
 use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
-    models::real_time_disruption::{
-        ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption, DisruptionProperty,
-        Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption, Message, NetworkId,
-        RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId, Tag, TimePeriod,
-        TimeSlot, VehicleJourneyId,
+    models::{
+        base_model::{
+            strip_id_prefix, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_ROUTE,
+            PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY,
+        },
+        real_time_disruption::{
+            ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption,
+            DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
+            Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId,
+            Tag, TimePeriod, TimeSlot, VehicleJourneyId,
+        },
     },
     NaiveDateTime,
 };
@@ -191,66 +197,66 @@ fn dispatch_pt_object(
     match (pt_object_type, effect) {
         (Type::network, Effect::NoService) => {
             impacted.push(Impacted::NetworkDeleted(NetworkId {
-                id: id.trim_start_matches("network:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_NETWORK).to_string(),
             }));
         }
         (Type::network, _) => {
             informed.push(Informed::Network(NetworkId {
-                id: id.trim_start_matches("network:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_NETWORK).to_string(),
             }));
         }
 
         (Type::route, Effect::NoService) => {
             impacted.push(Impacted::RouteDeleted(RouteId {
-                id: id.trim_start_matches("route:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_ROUTE).to_string(),
             }));
         }
         (Type::route, _) => {
             informed.push(Informed::Route(RouteId {
-                id: id.trim_start_matches("route:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_ROUTE).to_string(),
             }));
         }
 
         (Type::line, Effect::NoService) => {
             impacted.push(Impacted::LineDeleted(LineId {
-                id: id.trim_start_matches("line:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_LINE).to_string(),
             }));
         }
         (Type::line, _) => {
             informed.push(Informed::Line(LineId {
-                id: id.trim_start_matches("line:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_LINE).to_string(),
             }));
         }
 
         (Type::stop_point, Effect::NoService) => {
             impacted.push(Impacted::StopPointDeleted(StopPointId {
-                id: id.trim_start_matches("stop_point:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_STOP_POINT).to_string(),
             }));
         }
         (Type::stop_point, _) => {
             informed.push(Informed::StopPoint(StopPointId {
-                id: id.trim_start_matches("stop_point:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_STOP_POINT).to_string(),
             }));
         }
 
         (Type::stop_area, Effect::NoService) => {
             impacted.push(Impacted::StopAreaDeleted(StopAreaId {
-                id: id.trim_start_matches("stop_area:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_STOP_AREA).to_string(),
             }));
         }
         (Type::stop_area, _) => {
             informed.push(Informed::StopArea(StopAreaId {
-                id: id.trim_start_matches("stop_area:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_STOP_AREA).to_string(),
             }));
         }
 
         (Type::trip, Effect::NoService) => {
             impacted.push(Impacted::BaseTripDeleted(VehicleJourneyId {
-                id: id.trim_start_matches("vehicle_journey:").to_string(),
+                id: strip_id_prefix(&id, PREFIX_ID_VEHICLE_JOURNEY).to_string(),
             }));
         }
         (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId {
-            id: id.trim_start_matches("vehicle_journey:").to_string(),
+            id: strip_id_prefix(&id, PREFIX_ID_VEHICLE_JOURNEY).to_string(),
         })),
 
         (Type::line_section, _) => {
@@ -265,24 +271,18 @@ fn dispatch_pt_object(
             let routes = proto_line_section.get_routes();
             let line_section = LineSectionDisruption {
                 line: LineId {
-                    id: line.get_uri().trim_start_matches("line:").to_string(),
+                    id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
                 },
                 start: StopAreaId {
-                    id: start_stop_area
-                        .get_uri()
-                        .trim_start_matches("stop_area:")
-                        .to_string(),
+                    id: strip_id_prefix(start_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
                 },
                 end: StopAreaId {
-                    id: end_stop_area
-                        .get_uri()
-                        .trim_start_matches("stop_area:")
-                        .to_string(),
+                    id: strip_id_prefix(end_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteId {
-                        id: r.get_uri().trim_start_matches("route:").to_string(),
+                        id: strip_id_prefix(r.get_uri(), PREFIX_ID_ROUTE).to_string(),
                     })
                     .collect(),
             };
@@ -301,31 +301,25 @@ fn dispatch_pt_object(
             let blocked_stop_areas = proto_rail_section.get_blocked_stop_areas();
             let rail_section = RailSectionDisruption {
                 line: LineId {
-                    id: line.get_uri().trim_start_matches("line:").to_string(),
+                    id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
                 },
                 start: StopAreaId {
-                    id: start_stop_area
-                        .get_uri()
-                        .trim_start_matches("stop_area:")
-                        .to_string(),
+                    id: strip_id_prefix(start_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
                 },
                 end: StopAreaId {
-                    id: end_stop_area
-                        .get_uri()
-                        .trim_start_matches("stop_area:")
-                        .to_string(),
+                    id: strip_id_prefix(end_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteId {
-                        id: r.get_uri().trim_start_matches("route:").to_string(),
+                        id: strip_id_prefix(r.get_uri(), PREFIX_ID_ROUTE).to_string(),
                     })
                     .collect(),
                 blocked_stop_area: blocked_stop_areas
                     .iter()
-                    .map(|r| BlockedStopArea {
-                        id: r.get_uri().trim_start_matches("stop_area:").to_string(),
-                        order: r.get_order(),
+                    .map(|sa| BlockedStopArea {
+                        id: strip_id_prefix(sa.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
+                        order: sa.get_order(),
                     })
                     .collect(),
             };

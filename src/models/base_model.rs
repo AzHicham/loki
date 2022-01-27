@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
+use tracing::warn;
 use transit_model::objects::{
     CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
@@ -47,6 +48,25 @@ use crate::{
 use super::{
     real_time_disruption::TimePeriod, Contributor, Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx,
 };
+
+pub const PREFIX_ID_NETWORK: &str = "network:";
+pub const PREFIX_ID_LINE: &str = "line:";
+pub const PREFIX_ID_ROUTE: &str = "route:";
+pub const PREFIX_ID_VEHICLE_JOURNEY: &str = "vehicle_journey:";
+pub const PREFIX_ID_STOP_AREA: &str = "stop_area:";
+pub const PREFIX_ID_STOP_POINT: &str = "stop_point:";
+
+pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
+    id.strip_prefix(prefix)
+        .or_else(|| {
+            warn!(
+                "Provided uri {} doesn't start with `{}`. I continue with it",
+                id, prefix,
+            );
+            Some(id)
+        })
+        .unwrap()
+}
 
 pub type Collections = transit_model::model::Collections;
 
