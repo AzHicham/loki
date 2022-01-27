@@ -35,6 +35,9 @@
 // www.navitia.io
 
 use crate::{chrono::NaiveDate, RealTimeLevel};
+use transit_model::objects::{
+    CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+};
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
@@ -66,28 +69,28 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn stop_point_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
+    pub fn stop_point_name(&self, stop_idx: &StopPointIdx) -> &str {
         match stop_idx {
             StopPointIdx::Base(idx) => self.base.stop_point_name(*idx),
             StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
         }
     }
 
-    pub fn stop_area_name<'a>(&'a self, stop_idx: &StopPointIdx) -> &'a str {
+    pub fn stop_area_name(&self, stop_idx: &StopPointIdx) -> &str {
         match stop_idx {
             StopPointIdx::Base(idx) => self.base.stop_area_name(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
 
-    pub fn vehicle_journey_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn vehicle_journey_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self.base.vehicle_journey_name(*idx),
             VehicleJourneyIdx::New(idx) => &self.real_time.new_vehicle_journeys_history[idx.idx].0,
         }
     }
 
-    pub fn line_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn line_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         let unknown_line = "unknown_line";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self.base.line_name(*idx).unwrap_or(unknown_line),
@@ -95,14 +98,14 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn route_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn route_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self.base.route_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_route",
         }
     }
 
-    pub fn network_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn network_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         let unknown_network = "unknown_network";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -116,14 +119,14 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn physical_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn physical_mode_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self.base.physical_mode_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
         }
     }
 
-    pub fn commercial_mode_name<'a>(&'a self, vehicle_journey_idx: &VehicleJourneyIdx) -> &'a str {
+    pub fn commercial_mode_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         let unknown_commercial_mode = "unknown_commercial_mode";
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
@@ -225,6 +228,43 @@ impl<'model> ModelRefs<'model> {
 
     pub fn base_vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + 'model {
         self.base.vehicle_journeys()
+    }
+
+    pub fn vehicle_journey_idx(&self, id: &str) -> Option<VehicleJourneyIdx> {
+        self.real_time.vehicle_journey_idx(id, self.base)
+    }
+
+    // works only for base vehicle_journey at this time
+    pub fn vehicle_journey(&self, vehicle_journey_idx: &BaseVehicleJourneyIdx) -> &VehicleJourney {
+        self.base.vehicle_journey(*vehicle_journey_idx)
+    }
+
+    pub fn routes(&self) -> impl Iterator<Item = &Route> {
+        self.base.routes()
+    }
+
+    pub fn line(&self, id: &str) -> Option<&Line> {
+        self.base.line(id)
+    }
+
+    pub fn route(&self, id: &str) -> Option<&Route> {
+        self.base.route(id)
+    }
+
+    pub fn network(&self, id: &str) -> Option<&Network> {
+        self.base.network(id)
+    }
+
+    pub fn stop_area(&self, id: &str) -> Option<&StopArea> {
+        self.base.stop_area(id)
+    }
+
+    pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
+        self.base.commercial_mode(id)
+    }
+
+    pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
+        self.base.physical_mode(id)
     }
 
     pub fn contains_line_id(&self, id: &str) -> bool {
