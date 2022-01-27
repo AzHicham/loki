@@ -190,44 +190,68 @@ fn dispatch_pt_object(
 
     match (pt_object_type, effect) {
         (Type::network, Effect::NoService) => {
-            impacted.push(Impacted::NetworkDeleted(NetworkId { id }));
+            impacted.push(Impacted::NetworkDeleted(NetworkId {
+                id: id.trim_start_matches("network:").to_string(),
+            }));
         }
         (Type::network, _) => {
-            informed.push(Informed::Network(NetworkId { id }));
+            informed.push(Informed::Network(NetworkId {
+                id: id.trim_start_matches("network:").to_string(),
+            }));
         }
 
         (Type::route, Effect::NoService) => {
-            impacted.push(Impacted::RouteDeleted(RouteId { id }));
+            impacted.push(Impacted::RouteDeleted(RouteId {
+                id: id.trim_start_matches("route:").to_string(),
+            }));
         }
         (Type::route, _) => {
-            informed.push(Informed::Route(RouteId { id }));
+            informed.push(Informed::Route(RouteId {
+                id: id.trim_start_matches("route:").to_string(),
+            }));
         }
 
         (Type::line, Effect::NoService) => {
-            impacted.push(Impacted::LineDeleted(LineId { id }));
+            impacted.push(Impacted::LineDeleted(LineId {
+                id: id.trim_start_matches("line:").to_string(),
+            }));
         }
         (Type::line, _) => {
-            informed.push(Informed::Line(LineId { id }));
+            informed.push(Informed::Line(LineId {
+                id: id.trim_start_matches("line:").to_string(),
+            }));
         }
 
         (Type::stop_point, Effect::NoService) => {
-            impacted.push(Impacted::StopPointDeleted(StopPointId { id }));
+            impacted.push(Impacted::StopPointDeleted(StopPointId {
+                id: id.trim_start_matches("stop_point:").to_string(),
+            }));
         }
         (Type::stop_point, _) => {
-            informed.push(Informed::StopPoint(StopPointId { id }));
+            informed.push(Informed::StopPoint(StopPointId {
+                id: id.trim_start_matches("stop_point:").to_string(),
+            }));
         }
 
         (Type::stop_area, Effect::NoService) => {
-            impacted.push(Impacted::StopAreaDeleted(StopAreaId { id }));
+            impacted.push(Impacted::StopAreaDeleted(StopAreaId {
+                id: id.trim_start_matches("stop_area:").to_string(),
+            }));
         }
         (Type::stop_area, _) => {
-            informed.push(Informed::StopArea(StopAreaId { id }));
+            informed.push(Informed::StopArea(StopAreaId {
+                id: id.trim_start_matches("stop_area:").to_string(),
+            }));
         }
 
         (Type::trip, Effect::NoService) => {
-            impacted.push(Impacted::BaseTripDeleted(VehicleJourneyId { id }));
+            impacted.push(Impacted::BaseTripDeleted(VehicleJourneyId {
+                id: id.trim_start_matches("vehicle_journey:").to_string(),
+            }));
         }
-        (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId { id })),
+        (Type::trip, _) => informed.push(Informed::Trip(VehicleJourneyId {
+            id: id.trim_start_matches("vehicle_journey:").to_string(),
+        })),
 
         (Type::line_section, _) => {
             if !proto.has_pt_line_section() {
@@ -242,18 +266,24 @@ fn dispatch_pt_object(
             let line_section = LineSectionDisruption {
                 id,
                 line: LineId {
-                    id: line.get_uri().to_string(),
+                    id: line.get_uri().trim_start_matches("line:").to_string(),
                 },
                 start: StopAreaId {
-                    id: start_stop_area.get_uri().to_string(),
+                    id: start_stop_area
+                        .get_uri()
+                        .trim_start_matches("stop_area:")
+                        .to_string(),
                 },
                 end: StopAreaId {
-                    id: end_stop_area.get_uri().to_string(),
+                    id: end_stop_area
+                        .get_uri()
+                        .trim_start_matches("stop_area:")
+                        .to_string(),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteId {
-                        id: r.get_uri().to_string(),
+                        id: r.get_uri().trim_start_matches("route:").to_string(),
                     })
                     .collect(),
             };
@@ -273,24 +303,30 @@ fn dispatch_pt_object(
             let rail_section = RailSectionDisruption {
                 id,
                 line: LineId {
-                    id: line.get_uri().to_string(),
+                    id: line.get_uri().trim_start_matches("line:").to_string(),
                 },
                 start: StopAreaId {
-                    id: start_stop_area.get_uri().to_string(),
+                    id: start_stop_area
+                        .get_uri()
+                        .trim_start_matches("stop_area:")
+                        .to_string(),
                 },
                 end: StopAreaId {
-                    id: end_stop_area.get_uri().to_string(),
+                    id: end_stop_area
+                        .get_uri()
+                        .trim_start_matches("stop_area:")
+                        .to_string(),
                 },
                 routes: routes
                     .iter()
                     .map(|r| RouteId {
-                        id: r.get_uri().to_string(),
+                        id: r.get_uri().trim_start_matches("route:").to_string(),
                     })
                     .collect(),
                 blocked_stop_area: blocked_stop_areas
                     .iter()
                     .map(|r| BlockedStopArea {
-                        id: r.get_uri().to_string(),
+                        id: r.get_uri().trim_start_matches("stop_area:").to_string(),
                         order: r.get_order(),
                     })
                     .collect(),

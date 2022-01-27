@@ -109,7 +109,9 @@ fn make_impact(
         if trip.has_trip_id().not() {
             return Err(format_err!("TripDescriptor has an empty trip_id."));
         }
-        trip.get_trip_id().to_string()
+        trip.get_trip_id()
+            .trim_start_matches("vehicle_journey:")
+            .to_string()
     };
 
     let reference_date = {
@@ -313,7 +315,10 @@ fn create_stop_time_from_proto(
     if proto.has_stop_id().not() {
         return Err(format_err!("StopTime does not have a stop_id."));
     }
-    let stop_id = proto.get_stop_id().to_string();
+    let stop_id = proto
+        .get_stop_id()
+        .trim_start_matches("stop_point:")
+        .to_string();
 
     let stop_time = StopTime {
         stop_id,
