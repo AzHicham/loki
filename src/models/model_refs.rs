@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{chrono::NaiveDate, RealTimeLevel};
+use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
 use transit_model::objects::{
     CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
@@ -306,7 +306,7 @@ impl<'model> ModelRefs<'model> {
             StopPointIdx::Base(idx) => self.base.stop_point_uri(*idx),
             StopPointIdx::New(idx) => {
                 let id = &self.real_time.new_stops[idx.idx].name;
-                format!("stop_point:{}", id)
+                format!("{}{}", PREFIX_ID_STOP_POINT, id)
             }
         }
     }

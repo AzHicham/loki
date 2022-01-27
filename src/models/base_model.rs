@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use chrono::{Duration, NaiveDate};
+use tracing::warn;
 use transit_model::objects::{
     CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
@@ -48,6 +49,26 @@ use crate::{
 use super::{
     real_time_disruption::TimePeriod, Contributor, Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx,
 };
+
+pub const PREFIX_ID_NETWORK: &str = "network:";
+pub const PREFIX_ID_LINE: &str = "line:";
+pub const PREFIX_ID_ROUTE: &str = "route:";
+pub const PREFIX_ID_VEHICLE_JOURNEY: &str = "vehicle_journey:";
+pub const PREFIX_ID_STOP_AREA: &str = "stop_area:";
+pub const PREFIX_ID_STOP_POINT: &str = "stop_point:";
+pub const PREFIX_ID_COMMERCIAL_MODE: &str = "commercial_mode:";
+pub const PREFIX_ID_PHYSICAL_MODE: &str = "physical_mode:";
+pub const PREFIX_ID_COORD: &str = "coord:";
+
+pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
+    id.strip_prefix(prefix).unwrap_or_else(|| {
+        warn!(
+            "Provided uri {} doesn't start with `{}`. I continue with it",
+            id, prefix,
+        );
+        id
+    })
+}
 
 pub type Collections = transit_model::model::Collections;
 
@@ -154,7 +175,7 @@ impl BaseModel {
 
     pub fn stop_point_uri(&self, idx: BaseStopPointIdx) -> String {
         let id = &self.collections.stop_points[idx].id;
-        format!("stop_point:{}", id)
+        format!("{}{}", PREFIX_ID_STOP_POINT, id)
     }
 
     pub fn house_number(&self, idx: BaseStopPointIdx) -> Option<&str> {
@@ -204,7 +225,7 @@ impl BaseModel {
 
     pub fn stop_area_uri(&self, stop_area_id: &str) -> Option<String> {
         let stop_area = self.collections.stop_areas.get(stop_area_id)?;
-        Some(format!("stop_area:{}", stop_area.id))
+        Some(format!("{}{}", PREFIX_ID_STOP_AREA, stop_area.id))
     }
 
     pub fn stop_area_coord(&self, stop_area_id: &str) -> Option<Coord> {

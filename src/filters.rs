@@ -35,7 +35,13 @@
 // www.navitia.io
 
 use crate::{
-    models::{ModelRefs, StopPointIdx, VehicleJourneyIdx},
+    models::{
+        base_model::{
+            PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
+            PREFIX_ID_ROUTE, PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT,
+        },
+        ModelRefs, StopPointIdx, VehicleJourneyIdx,
+    },
     tracing::warn,
 };
 
@@ -212,7 +218,7 @@ fn parse_filter<'a>(
     filter_str: &'a str,
     filter_provenance: &str,
 ) -> Result<Filter<'a>, ()> {
-    if let Some(line_id) = filter_str.strip_prefix("line:") {
+    if let Some(line_id) = filter_str.strip_prefix(PREFIX_ID_LINE) {
         if model.contains_line_id(line_id) {
             let filter = Filter::Vehicle(VehicleFilter::Line(line_id));
             return Ok(filter);
@@ -224,7 +230,7 @@ fn parse_filter<'a>(
             return Err(());
         }
     }
-    if let Some(route_id) = filter_str.strip_prefix("route:") {
+    if let Some(route_id) = filter_str.strip_prefix(PREFIX_ID_ROUTE) {
         if model.contains_route_id(route_id) {
             let filter = Filter::Vehicle(VehicleFilter::Route(route_id));
             return Ok(filter);
@@ -236,7 +242,7 @@ fn parse_filter<'a>(
             return Err(());
         }
     }
-    if let Some(network_id) = filter_str.strip_prefix("network:") {
+    if let Some(network_id) = filter_str.strip_prefix(PREFIX_ID_NETWORK) {
         if model.contains_network_id(network_id) {
             let filter = Filter::Vehicle(VehicleFilter::Network(network_id));
             return Ok(filter);
@@ -249,7 +255,7 @@ fn parse_filter<'a>(
         }
     }
 
-    if let Some(physical_mode_id) = filter_str.strip_prefix("physical_mode:") {
+    if let Some(physical_mode_id) = filter_str.strip_prefix(PREFIX_ID_PHYSICAL_MODE) {
         if model.contains_physical_mode_id(physical_mode_id) {
             let filter = Filter::Vehicle(VehicleFilter::PhysicalMode(physical_mode_id));
             return Ok(filter);
@@ -262,7 +268,7 @@ fn parse_filter<'a>(
         }
     }
 
-    if let Some(commercial_model_id) = filter_str.strip_prefix("commercial_mode:") {
+    if let Some(commercial_model_id) = filter_str.strip_prefix(PREFIX_ID_COMMERCIAL_MODE) {
         if model.contains_commercial_model_id(commercial_model_id) {
             let filter = Filter::Vehicle(VehicleFilter::CommercialMode(commercial_model_id));
             return Ok(filter);
@@ -275,7 +281,7 @@ fn parse_filter<'a>(
         }
     }
 
-    if let Some(stop_point_id) = filter_str.strip_prefix("stop_point:") {
+    if let Some(stop_point_id) = filter_str.strip_prefix(PREFIX_ID_STOP_POINT) {
         if model.contains_stop_point_id(stop_point_id) {
             let filter = Filter::Stop(StopFilter::StopPoint(stop_point_id));
             return Ok(filter);
@@ -288,7 +294,7 @@ fn parse_filter<'a>(
         }
     }
 
-    if let Some(stop_area_id) = filter_str.strip_prefix("stop_area:") {
+    if let Some(stop_area_id) = filter_str.strip_prefix(PREFIX_ID_STOP_AREA) {
         if model.contains_stop_area_id(stop_area_id) {
             let filter = Filter::Stop(StopFilter::StopArea(stop_area_id));
             return Ok(filter);
