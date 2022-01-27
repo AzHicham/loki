@@ -66,7 +66,7 @@ pub fn handle_kirin_protobuf(
     let (start_date, end_date) = base_model.validity_period();
 
     let publication_period =
-        TimePeriod::new(start_date.and_hms(0, 0, 0), end_date.and_hms(24, 0, 0))
+        TimePeriod::new(start_date.and_hms(0, 0, 0), end_date.and_hms(23, 59, 59))
             .with_context(|| "BaseModel has a bad validity period".to_string())?;
 
     let trip_update = feed_entity.get_trip_update();
@@ -137,7 +137,7 @@ fn make_impact(
         };
     let model_validity_period = {
         let (start_date, end_date) = base_model.validity_period();
-        TimePeriod::new(start_date.and_hms(0, 0, 0), end_date.and_hms(24, 0, 0))
+        TimePeriod::new(start_date.and_hms(0, 0, 0), end_date.and_hms(23, 59, 59))
             .with_context(|| "BaseModel has a bad validity period".to_string())?
     };
 
