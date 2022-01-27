@@ -80,7 +80,6 @@ pub enum DisruptionError {
 
 #[derive(Default, Debug, Clone)]
 pub struct Cause {
-    pub id: String,
     pub wording: String,
     pub category: String,
 }
@@ -94,13 +93,11 @@ pub struct DisruptionProperty {
 
 #[derive(Default, Debug, Clone)]
 pub struct Tag {
-    pub id: String,
     pub name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct Severity {
-    pub id: String,
     pub wording: Option<String>,
     pub color: Option<String>,
     pub priority: Option<i32>,
@@ -121,6 +118,7 @@ pub struct ApplicationPattern {
     pub begin_date: NaiveDate,
     pub end_date: NaiveDate,
     pub time_slots: Vec<TimeSlot>,
+    pub week_pattern: [bool; 7],
 }
 
 #[derive(Debug, Clone)]
@@ -216,7 +214,6 @@ pub struct TripDisruption {
 
 #[derive(Debug, Clone)]
 pub struct LineSectionDisruption {
-    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,
@@ -225,7 +222,6 @@ pub struct LineSectionDisruption {
 
 #[derive(Debug, Clone)]
 pub struct RailSectionDisruption {
-    pub id: String,
     pub line: LineId,
     pub start: StopAreaId,
     pub end: StopAreaId,

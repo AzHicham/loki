@@ -264,7 +264,6 @@ fn dispatch_pt_object(
             let end_stop_area = proto_line_section.get_end_point();
             let routes = proto_line_section.get_routes();
             let line_section = LineSectionDisruption {
-                id,
                 line: LineId {
                     id: line.get_uri().trim_start_matches("line:").to_string(),
                 },
@@ -301,7 +300,6 @@ fn dispatch_pt_object(
             let routes = proto_rail_section.get_routes();
             let blocked_stop_areas = proto_rail_section.get_blocked_stop_areas();
             let rail_section = RailSectionDisruption {
-                id,
                 line: LineId {
                     id: line.get_uri().trim_start_matches("line:").to_string(),
                 },
@@ -342,12 +340,6 @@ fn dispatch_pt_object(
 }
 
 fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error> {
-    let id = if proto.has_id() {
-        proto.get_id().to_string()
-    } else {
-        bail!("Severity has no id");
-    };
-
     let effect = if proto.has_effect() {
         make_effect(proto.get_effect())
     } else {
@@ -373,7 +365,6 @@ fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error
     };
 
     let result = Severity {
-        id,
         wording,
         color,
         priority,
@@ -399,7 +390,6 @@ pub fn make_effect(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
 
 fn make_cause(proto: &chaos_proto::chaos::Cause) -> Cause {
     Cause {
-        id: proto.get_id().to_string(),
         wording: proto.get_wording().to_string(),
         category: proto.get_category().get_name().to_string(),
     }
@@ -449,7 +439,6 @@ fn make_periods(
 
 fn make_tag(proto: &chaos_proto::chaos::Tag) -> Tag {
     Tag {
-        id: proto.get_id().to_string(),
         name: proto.get_id().to_string(),
     }
 }
@@ -520,10 +509,32 @@ fn make_application_pattern(
         bail!("Pattern has no end_date");
     };
     let time_slots = proto.get_time_slots().iter().map(make_timeslot).collect();
+    if proto.has_end_date() {
+        let timestamp = proto.get_end_date();
+        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
+        datetime.date()
+    } else {
+        bail!("Pattern has no end_date");
+    };
+    let mut week_pattern = [false; 7];
+    if proto.has_week_pattern() {
+        let proto_week_pattern = proto.get_week_pattern();
+        week_pattern[0] = proto_week_pattern.get_monday();
+        week_pattern[1] = proto_week_pattern.get_tuesday();
+        week_pattern[2] = proto_week_pattern.get_wednesday();
+        week_pattern[3] = proto_week_pattern.get_thursday();
+        week_pattern[4] = proto_week_pattern.get_friday();
+        week_pattern[5] = proto_week_pattern.get_saturday();
+        week_pattern[6] = proto_week_pattern.get_sunday();
+    } else {
+        bail!("Pattern has no week_pattern");
+    };
+
     Ok(ApplicationPattern {
         begin_date,
         end_date,
         time_slots,
+        week_pattern,
     })
 }
 
@@ -586,9 +597,4 @@ fn make_property(
 pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
     let timestamp = i64::try_from(timestamp)?;
     Ok(NaiveDateTime::from_timestamp(timestamp, 0))
-}
-
-pub enum PtObject {
-    Impacted(Impacted),
-    Informed(Informed),
 }
