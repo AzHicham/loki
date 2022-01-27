@@ -61,15 +61,13 @@ pub const PREFIX_ID_PHYSICAL_MODE: &str = "physical_mode:";
 pub const PREFIX_ID_COORD: &str = "coord:";
 
 pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
-    id.strip_prefix(prefix)
-        .or_else(|| {
-            warn!(
-                "Provided uri {} doesn't start with `{}`. I continue with it",
-                id, prefix,
-            );
-            Some(id)
-        })
-        .unwrap()
+    id.strip_prefix(prefix).unwrap_or_else(|| {
+        warn!(
+            "Provided uri {} doesn't start with `{}`. I continue with it",
+            id, prefix,
+        );
+        id
+    })
 }
 
 pub type Collections = transit_model::model::Collections;
