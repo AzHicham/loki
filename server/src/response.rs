@@ -1011,7 +1011,7 @@ pub fn make_stop_area_pt_object(
     model: &ModelRefs,
 ) -> Result<navitia_proto::PtObject, Error> {
     if let Some(stop_area) = model.stop_area(id) {
-        let proto_stop_area = make_stop_area_(&stop_area, model);
+        let proto_stop_area = make_stop_area_(stop_area, model);
 
         let mut proto = navitia_proto::PtObject {
             name: stop_area.name.clone(),
