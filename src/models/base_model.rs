@@ -34,11 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
+use chrono::{Duration, NaiveDate};
 use transit_model::objects::{
     CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
-use chrono::{Duration, NaiveDate};
 
 use typed_index_collection::Idx;
 

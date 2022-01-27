@@ -80,12 +80,11 @@ impl RealTimeModel {
         data: &mut Data,
         disruption_idx: &DisruptionIdx,
     ) {
-        let model_periods = vec![base_model.time_period()];
+        let model_periods = [base_model.time_period()];
+        let model_periods = TimePeriods::new(&model_periods).unwrap(); // unwrap is safe here, because the input slice is not empty
 
         let application_periods =
-            TimePeriods::new(&impact.application_periods).unwrap_or_else(|| {
-                TimePeriods::new(&model_periods).unwrap() // unwrap is safe here, because model_periods is not empty
-            });
+            TimePeriods::new(&impact.application_periods).unwrap_or(model_periods);
 
         for pt_object in &impact.impacted_pt_objects {
             let result = match pt_object {
