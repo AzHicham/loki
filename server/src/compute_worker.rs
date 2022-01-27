@@ -42,7 +42,11 @@ use launch::{
         self,
         chrono::Utc,
         filters::Filters,
-        models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
+        models::{
+            base_model::{BaseModel, PREFIX_ID_STOP_POINT},
+            real_time_model::RealTimeModel,
+            ModelRefs,
+        },
         request::generic_request,
         tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
@@ -324,7 +328,7 @@ where
                 })?;
             let stop_point_uri = location_context
                 .place
-                .strip_prefix("stop_point:")
+                .strip_prefix(PREFIX_ID_STOP_POINT)
                 .map(|uri| uri.to_string())
                 .or_else(|| {
                     warn!(
@@ -359,7 +363,7 @@ where
                 })?;
             let stop_point_uri = location_context
                 .place
-                .strip_prefix("stop_point:")
+                .strip_prefix(PREFIX_ID_STOP_POINT)
                 .map(|uri| uri.to_string())
                 .or_else(|| {
                     warn!(

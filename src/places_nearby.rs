@@ -37,7 +37,10 @@
 extern crate static_assertions;
 
 use super::geometry::{bounding_box, distance_coord_to_coord};
-use crate::models::{base_model::BaseStopPoints, Coord, ModelRefs, StopPointIdx};
+use crate::models::{
+    base_model::{BaseStopPoints, PREFIX_ID_COORD, PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT},
+    Coord, ModelRefs, StopPointIdx,
+};
 use regex::Regex;
 use std::fmt::{Display, Formatter};
 
@@ -140,20 +143,20 @@ impl Display for BadPlacesNearby {
 impl std::error::Error for BadPlacesNearby {}
 
 fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNearby> {
-    return if let Some(stop_point_id) = uri.strip_prefix("stop_point:") {
+    return if let Some(stop_point_id) = uri.strip_prefix(PREFIX_ID_STOP_POINT) {
         if let Some(stop_point_idx) = model.base.stop_point_idx(stop_point_id) {
             let coord = model.base.coord(stop_point_idx);
             Ok(coord)
         } else {
             Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
         }
-    } else if let Some(stop_area_id) = uri.strip_prefix("stop_area:") {
+    } else if let Some(stop_area_id) = uri.strip_prefix(PREFIX_ID_STOP_AREA) {
         if let Some(coord) = model.base.stop_area_coord(stop_area_id) {
             Ok(coord)
         } else {
             Err(BadPlacesNearby::InvalidPtObject(uri.to_string()))
         }
-    } else if let Some(coord_str) = uri.strip_prefix("coord:") {
+    } else if let Some(coord_str) = uri.strip_prefix(PREFIX_ID_COORD) {
         lazy_static! {
             static ref COORD_REGEX: Regex =
                 Regex::new(r"^([-+]?[0-9]*\.?[0-9]*):([-+]?[0-9]*\.?[0-9]*)$",).unwrap();
