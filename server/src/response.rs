@@ -53,6 +53,10 @@ use anyhow::{format_err, Context, Error};
 use launch::loki::{
     chrono::Timelike,
     models::{
+        base_model::{
+            PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
+            PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
+        },
         real_time_disruption::{
             ApplicationPattern, ChannelType, Disruption, DisruptionProperty, Effect, Impact,
             Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity,
@@ -484,21 +488,33 @@ fn make_pt_display_info(
         physical_mode: Some(model.physical_mode_name(vehicle_journey_idx).to_string()),
         uris: Some(navitia_proto::Uris {
             vehicle_journey: Some(format!(
-                "vehicle_journey:{}",
+                "{}{}",
+                PREFIX_ID_VEHICLE_JOURNEY,
                 model.vehicle_journey_name(vehicle_journey_idx)
             )),
-            line: Some(format!("line:{}", model.line_name(vehicle_journey_idx))),
-            route: Some(format!("route:{}", model.route_name(vehicle_journey_idx))),
+            line: Some(format!(
+                "{}{}",
+                PREFIX_ID_LINE,
+                model.line_name(vehicle_journey_idx)
+            )),
+            route: Some(format!(
+                "{}{}",
+                PREFIX_ID_ROUTE,
+                model.route_name(vehicle_journey_idx)
+            )),
             commercial_mode: Some(format!(
-                "commercial_mode:{}",
+                "{}{}",
+                PREFIX_ID_COMMERCIAL_MODE,
                 model.commercial_mode_name(vehicle_journey_idx)
             )),
             physical_mode: Some(format!(
-                "physical_mode:{}",
+                "{}{}",
+                PREFIX_ID_PHYSICAL_MODE,
                 model.physical_mode_name(vehicle_journey_idx)
             )),
             network: Some(format!(
-                "network:{}",
+                "{}{}",
+                PREFIX_ID_NETWORK,
                 model.network_name(vehicle_journey_idx)
             )),
             ..Default::default()

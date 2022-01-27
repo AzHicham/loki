@@ -155,47 +155,47 @@ impl RealTimeModel {
             if let Err(err) = result {
                 error!("Error while applying impact {} : {:?}", impact.id, err);
             }
+        }
 
-            for pt_object in &impact.informed_pt_objects {
-                let result = match pt_object {
-                    Informed::Network(network) => self.informed_network(
-                        base_model,
-                        &network.id,
-                        &application_periods,
-                        disruption_idx,
-                        impact_idx,
-                    ),
-                    Informed::Route(route) => self.informed_route(
-                        base_model,
-                        &route.id,
-                        &application_periods,
-                        disruption_idx,
-                        impact_idx,
-                    ),
-                    Informed::Line(line) => self.informed_line(
-                        base_model,
-                        &line.id,
-                        &application_periods,
-                        disruption_idx,
-                        impact_idx,
-                    ),
-                    Informed::Trip(trip) => self.informed_base_vehicle_journey(
-                        base_model,
-                        &trip.id,
-                        &application_periods,
-                        disruption_idx,
-                        impact_idx,
-                    ),
-                    Informed::StopArea(_) => todo!(),
-                    Informed::StopPoint(_) => todo!(),
-                    Informed::Unknown => todo!(),
-                };
-                if let Err(err) = result {
-                    error!(
-                        "Error while storing informed impact {} : {:?}",
-                        impact.id, err
-                    );
-                }
+        for pt_object in &impact.informed_pt_objects {
+            let result = match pt_object {
+                Informed::Network(network) => self.informed_network(
+                    base_model,
+                    &network.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Route(route) => self.informed_route(
+                    base_model,
+                    &route.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Line(line) => self.informed_line(
+                    base_model,
+                    &line.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Trip(trip) => self.informed_base_vehicle_journey(
+                    base_model,
+                    &trip.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::StopArea(_) => todo!(),
+                Informed::StopPoint(_) => todo!(),
+                Informed::Unknown => todo!(),
+            };
+            if let Err(err) = result {
+                error!(
+                    "Error while storing informed impact {} : {:?}",
+                    impact.id, err
+                );
             }
         }
     }
