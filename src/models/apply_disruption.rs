@@ -313,7 +313,7 @@ impl RealTimeModel {
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
-        if base_model.contains_network_id(network_id) {
+        if !base_model.contains_network_id(network_id) {
             return Err(DisruptionError::NetworkAbsent(NetworkId {
                 id: network_id.to_string(),
             }));
@@ -632,7 +632,7 @@ impl RealTimeModel {
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
-        if base_model.contains_network_id(network_id) {
+        if !base_model.contains_network_id(network_id) {
             return Err(DisruptionError::NetworkAbsent(NetworkId {
                 id: network_id.to_string(),
             }));

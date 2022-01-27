@@ -235,17 +235,19 @@ pub struct BlockedStopArea {
     pub order: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Effect {
-    NoService,
-    ReducedService,
-    SignificantDelays,
-    Detour,
-    AdditionalService,
-    ModifiedService,
-    OtherEffect,
-    UnknownEffect,
+    // DO NOT change the order of effects !!
+    // Effects are ordered from the least to the worst impact
     StopMoved,
+    UnknownEffect,
+    OtherEffect,
+    ModifiedService,
+    AdditionalService,
+    Detour,
+    SignificantDelays,
+    ReducedService,
+    NoService,
 }
 
 #[derive(Debug, Clone)]

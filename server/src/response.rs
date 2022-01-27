@@ -77,10 +77,15 @@ pub fn make_response(
         journeys: journeys
             .iter()
             .enumerate()
-            .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
+            .map(|(idx, journey)| {
+                // compute locally, disruption attached to a journey
+                // this is needed to compute the worst impact on each response
+                let linked_disruptions = make_linked_disruption_for_journey(journey, model);
+                make_journey(request_input, journey, idx, &linked_disruptions, model)
+            })
             .collect::<Result<Vec<_>, _>>()?,
         feed_publishers: make_feed_publishers(model),
-        impacts: make_impacts(journeys, model),
+        impacts: make_impacts(&journeys, model),
         ..Default::default()
     };
 
@@ -89,13 +94,10 @@ pub fn make_response(
     Ok(proto)
 }
 
-fn make_impacts(
-    journeys: Vec<loki::Response>,
-    model: &ModelRefs<'_>,
-) -> Vec<navitia_proto::Impact> {
+fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navitia_proto::Impact> {
     let linked_disruptions = make_linked_disruptions(journeys, model);
     linked_disruptions
-        .into_iter()
+        .iter()
         .map(|(disruption_idx, impact_idx)| {
             let (disruption, impact) = model
                 .real_time
@@ -105,29 +107,11 @@ fn make_impacts(
         .collect()
 }
 
-fn make_linked_disruptions(
-    journeys: Vec<loki::Response>,
-    model: &ModelRefs<'_>,
-) -> LinkedDisruption {
+fn make_linked_disruptions(journeys: &[loki::Response], model: &ModelRefs<'_>) -> LinkedDisruption {
     let mut linked_disruption = LinkedDisruption::new();
-    for journey in &journeys {
-        {
-            let vehicle = &journey.first_vehicle;
-            let disruptions = model
-                .real_time
-                .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-            if let Some(disruptions) = disruptions {
-                linked_disruption.extend(disruptions)
-            }
-        }
-        for (_, _, vehicle) in &journey.connections {
-            let disruptions = model
-                .real_time
-                .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-            if let Some(disruptions) = disruptions {
-                linked_disruption.extend(disruptions)
-            }
-        }
+    for journey in journeys {
+        let disruptions = make_linked_disruption_for_journey(journey, model);
+        linked_disruption.extend(disruptions);
     }
     // remove duplicated pair of (disruption, impact)
     linked_disruption.sort_unstable();
@@ -135,10 +119,70 @@ fn make_linked_disruptions(
     linked_disruption
 }
 
+fn make_linked_disruption_for_journey(
+    journey: &loki::Response,
+    model: &ModelRefs<'_>,
+) -> LinkedDisruption {
+    let mut linked_disruption = LinkedDisruption::new();
+    {
+        let vehicle = &journey.first_vehicle;
+        let disruptions = model
+            .real_time
+            .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        if let Some(disruptions) = disruptions {
+            linked_disruption.extend(disruptions)
+        }
+    }
+    for (_, _, vehicle) in &journey.connections {
+        let disruptions = model
+            .real_time
+            .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        if let Some(disruptions) = disruptions {
+            linked_disruption.extend(disruptions)
+        }
+    }
+
+    // remove duplicated pair of (disruption, impact)
+    linked_disruption.sort_unstable();
+    linked_disruption.dedup();
+    linked_disruption
+}
+
+fn compute_worst_impact(
+    linked_disruptions: &LinkedDisruption,
+    model: &ModelRefs<'_>,
+) -> Option<Effect> {
+    linked_disruptions
+        .into_iter()
+        .map(|(disruption_idx, impact_idx)| {
+            let (_, impact) = model
+                .real_time
+                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+            impact.severity.effect
+        })
+        .max()
+}
+
+fn effect_to_string(effect: &Effect) -> String {
+    match effect {
+        Effect::NoService => "NO_SERVICE",
+        Effect::ReducedService => "REDUCED_SERVICE",
+        Effect::SignificantDelays => "SIGNIFICANT_DELAYS",
+        Effect::Detour => "DETOUR",
+        Effect::AdditionalService => "ADDITIONAL_SERVICE",
+        Effect::ModifiedService => "MODIFIED_SERVICE",
+        Effect::OtherEffect => "OTHER_EFFECT",
+        Effect::UnknownEffect => "UNKNOWN_EFFECT",
+        Effect::StopMoved => "STOP_MOVED",
+    }
+    .to_string()
+}
+
 fn make_journey(
     request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
+    linked_disruptions: &LinkedDisruption,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,
@@ -164,6 +208,8 @@ fn make_journey(
             taxi: Some(0),
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
+        most_serious_disruption_effect: compute_worst_impact(linked_disruptions, model)
+            .map(|effect| effect_to_string(&effect)),
         ..Default::default()
     };
 
