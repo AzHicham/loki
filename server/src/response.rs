@@ -50,6 +50,7 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::models::real_time_model::LinkedDisruption;
 use launch::loki::{
     chrono::Timelike,
     models::real_time_disruption::{
@@ -73,12 +74,57 @@ pub fn make_response(
             .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
         feed_publishers: make_feed_publishers(model),
+        impacts: make_impacts(journeys, model),
         ..Default::default()
     };
 
     proto.set_response_type(navitia_proto::ResponseType::ItineraryFound);
 
     Ok(proto)
+}
+
+fn make_impacts(
+    journeys: Vec<loki::Response>,
+    model: &ModelRefs<'_>,
+) -> Vec<navitia_proto::Impact> {
+    let linked_disruptions = make_linked_disruptions(journeys, model);
+    linked_disruptions
+        .into_iter()
+        .map(|(disruption_idx, impact_idx)| {
+            let (disruption, impact) = model
+                .real_time
+                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+            make_impact(impact, disruption, model)
+        })
+        .collect()
+}
+
+fn make_linked_disruptions(
+    journeys: Vec<loki::Response>,
+    model: &ModelRefs<'_>,
+) -> LinkedDisruption {
+    let mut linked_disruption = LinkedDisruption::new();
+    for journey in &journeys {
+        {
+            let vehicle = &journey.first_vehicle;
+            let disruptions = model
+                .real_time
+                .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+            if let Some(disruptions) = disruptions {
+                linked_disruption.extend(disruptions)
+            }
+        }
+        for (_, _, vehicle) in &journey.connections {
+            let disruptions = model
+                .real_time
+                .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+            if let Some(disruptions) = disruptions {
+                linked_disruption.extend(disruptions)
+            }
+        }
+    }
+    linked_disruption.dedup();
+    linked_disruption
 }
 
 fn make_journey(

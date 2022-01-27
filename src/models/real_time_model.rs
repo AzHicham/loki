@@ -37,6 +37,7 @@
 use std::{collections::HashMap, hash::Hash};
 use tracing::warn;
 
+use crate::models::real_time_disruption::Impact;
 use crate::{chrono::NaiveDate, models::real_time_disruption::Disruption};
 
 use super::{
@@ -63,7 +64,7 @@ pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
-type LinkedDisruption = Vec<(DisruptionIdx, Vec<ImpactIdx>)>;
+pub type LinkedDisruption = Vec<(DisruptionIdx, ImpactIdx)>;
 
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
@@ -328,6 +329,7 @@ impl RealTimeModel {
             // This case should never happen
             // Informed impact from chaos never affect a new_vehicle_journeys
             // but only base vehicle_journey
+            // warn!
             let histories = &mut self.new_vehicle_journeys_history;
             let idx = self
                 .new_vehicle_journeys_id_to_idx
@@ -360,25 +362,19 @@ impl RealTimeModel {
             .entry(*date)
             .or_insert_with(LinkedDisruption::new);
 
-        let find_disruption = &mut linked_disruptions
-            .iter_mut()
-            .find(|(disruption, _)| *disruption == disruption_idx);
+        let find_disruption_impact = linked_disruptions
+            .iter()
+            .find(|disruption_impact| (disruption_idx, impact_idx) == **disruption_impact);
 
-        match find_disruption {
-            Some((_, ref mut impacts)) => {
-                let find_impact = &mut impacts.iter().find(|impact| **impact == impact_idx);
-                match find_impact {
-                    Some(_) => {
-                        warn!("Disruption : {:?} and Impact : {:?} already link to this vehicle_journey {:?}",
-                                disruption_idx, impact_idx, vehicle_journey_id);
-                    }
-                    None => {
-                        impacts.push(impact_idx);
-                    }
-                }
+        match find_disruption_impact {
+            Some(_) => {
+                warn!(
+                    "Disruption : {:?} & Impact : {:?} already linked to this vehicle_journey {:?}",
+                    disruption_idx, impact_idx, vehicle_journey_id
+                );
             }
             None => {
-                linked_disruptions.push((disruption_idx, vec![impact_idx]));
+                linked_disruptions.push((disruption_idx, impact_idx));
             }
         }
     }
@@ -505,8 +501,34 @@ impl RealTimeModel {
         range.map(|idx| NewVehicleJourneyIdx { idx })
     }
 
-    pub fn disruptions(&self) -> impl Iterator<Item = &Disruption> {
-        self.disruptions.iter()
+    pub fn get_disruption_and_impact(
+        &self,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> (&Disruption, &Impact) {
+        let disruption = &self.disruptions[disruption_idx.idx];
+        let impact = &disruption.impacts[impact_idx.idx];
+        (disruption, impact)
+    }
+
+    pub fn get_linked_disruption(
+        &self,
+        vj_idx: &VehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> Option<&LinkedDisruption> {
+        let history = match vj_idx {
+            VehicleJourneyIdx::Base(vj_idx) => {
+                self.base_vehicle_journeys_idx_to_history.get(vj_idx)
+            }
+            VehicleJourneyIdx::New(vj_idx) => self
+                .new_vehicle_journeys_history
+                .get(vj_idx.idx)
+                .map(|(_, history)| history),
+        };
+        match history {
+            Some(history) => history.linked_disruption.get(date),
+            None => None,
+        }
     }
 
     pub fn new() -> Self {
