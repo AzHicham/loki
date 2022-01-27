@@ -440,32 +440,32 @@ fn make_pt_display_info(
         physical_mode: Some(model.physical_mode_name(vehicle_journey_idx).to_string()),
         uris: Some(navitia_proto::Uris {
             vehicle_journey: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_VEHICLE_JOURNEY,
                 model.vehicle_journey_name(vehicle_journey_idx)
             )),
             line: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_LINE,
                 model.line_name(vehicle_journey_idx)
             )),
             route: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_ROUTE,
                 model.route_name(vehicle_journey_idx)
             )),
             commercial_mode: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_COMMERCIAL_MODE,
                 model.commercial_mode_name(vehicle_journey_idx)
             )),
             physical_mode: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_PHYSICAL_MODE,
                 model.physical_mode_name(vehicle_journey_idx)
             )),
             network: Some(format!(
-                "{}:{}",
+                "{}{}",
                 PREFIX_ID_NETWORK,
                 model.network_name(vehicle_journey_idx)
             )),
