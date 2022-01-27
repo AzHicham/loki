@@ -34,10 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate};
 use transit_model::objects::{
     CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
+
 use typed_index_collection::Idx;
 
 use crate::{
@@ -66,6 +67,7 @@ pub type BaseStopTime = transit_model::objects::StopTime;
 #[derive(Debug, Clone)]
 pub enum BadModel {
     NoDataset,
+    StartDateAfterEndDate,
 }
 
 impl BaseModel {
@@ -103,6 +105,9 @@ impl BaseModel {
         let validity_period = collections
             .calculate_validity_period()
             .map_err(|_| BadModel::NoDataset)?;
+        if validity_period.0 > validity_period.1 {
+            return Err(BadModel::StartDateAfterEndDate);
+        }
         Ok(Self {
             collections,
             loads_data,
@@ -117,6 +122,13 @@ impl BaseModel {
 
     pub fn validity_period(&self) -> (NaiveDate, NaiveDate) {
         self.validity_period
+    }
+
+    pub fn time_period(&self) -> TimePeriod {
+        let start_datetime = self.validity_period.0.and_hms(0, 0, 0);
+        let end_datetime = self.validity_period.1.and_hms(0, 0, 0) + Duration::days(1);
+        TimePeriod::new(start_datetime, end_datetime).unwrap() // unwrap is safe here, because we check in new()
+                                                               // that validity_period.0 <= validity_period.1
     }
 }
 
