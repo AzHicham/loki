@@ -37,8 +37,10 @@
 use std::{collections::HashMap, hash::Hash};
 use tracing::warn;
 
-use crate::models::real_time_disruption::Impact;
-use crate::{chrono::NaiveDate, models::real_time_disruption::Disruption};
+use crate::{
+    chrono::NaiveDate,
+    models::real_time_disruption::{Disruption, Impact},
+};
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
@@ -72,14 +74,14 @@ pub struct VehicleJourneyHistory {
     linked_disruption: HashMap<NaiveDate, LinkedDisruption>,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
 pub struct DisruptionIdx {
     pub(super) idx: usize, // position in RealTimeModel.disruptions
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
 pub struct ImpactIdx {
-    pub(super) idx: usize, // position in RealTimeModel.disruptions
+    pub(super) idx: usize, // position in RealTimeModel.disruption.impacts
 }
 
 impl DisruptionIdx {
@@ -329,7 +331,11 @@ impl RealTimeModel {
             // This case should never happen
             // Informed impact from chaos never affect a new_vehicle_journeys
             // but only base vehicle_journey
-            // warn!
+            warn!(
+                "A new vehicle journey '{}', should not be impacted from a informed impact. \
+                    disruption_idx {:?}, impact_idx {:?}",
+                vehicle_journey_id, disruption_idx, impact_idx
+            );
             let histories = &mut self.new_vehicle_journeys_history;
             let idx = self
                 .new_vehicle_journeys_id_to_idx

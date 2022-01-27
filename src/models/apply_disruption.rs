@@ -51,9 +51,10 @@ use super::{
     real_time_model::DisruptionIdx,
     RealTimeModel,
 };
-use crate::models::real_time_disruption::Informed;
-use crate::models::real_time_model::ImpactIdx;
-use crate::DataUpdate;
+use crate::{
+    models::{real_time_disruption::Informed, real_time_model::ImpactIdx},
+    DataUpdate,
+};
 
 use super::{base_model::BaseModel, real_time_disruption as disruption, ModelRefs};
 

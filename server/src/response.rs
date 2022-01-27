@@ -50,13 +50,15 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
-use launch::loki::models::real_time_model::LinkedDisruption;
 use launch::loki::{
     chrono::Timelike,
-    models::real_time_disruption::{
-        ApplicationPattern, ChannelType, Disruption, DisruptionProperty, Effect, Impact, Impacted,
-        Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity, TimePeriod,
-        TimeSlot,
+    models::{
+        real_time_disruption::{
+            ApplicationPattern, ChannelType, Disruption, DisruptionProperty, Effect, Impact,
+            Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity,
+            TimePeriod, TimeSlot,
+        },
+        real_time_model::LinkedDisruption,
     },
     transit_model::objects::{Line, Network, Properties, PropertiesMap, Route, StopArea},
 };
@@ -123,6 +125,8 @@ fn make_linked_disruptions(
             }
         }
     }
+    // remove duplicated pair of (disruption, impact)
+    linked_disruption.sort_unstable();
     linked_disruption.dedup();
     linked_disruption
 }
