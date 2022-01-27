@@ -291,17 +291,25 @@ impl RealTimeModel {
     }
 
     fn get_or_insert_stop(&mut self, stop_id: &str, base_model: &BaseModel) -> StopPointIdx {
+        self.stop_point_idx(stop_id, base_model)
+            .unwrap_or_else(|| {
+                let idx = NewStopPointIdx {
+                    idx: self.new_stops.len(),
+                };
+                self.new_stop_id_to_idx
+                    .insert(stop_id.to_string(), idx.clone());
+                StopPointIdx::New(idx)
+            })
+    }
+
+    pub fn stop_point_idx(&self, stop_id : &str, base_model: &BaseModel) -> Option<StopPointIdx> {
         if let Some(idx) = base_model.stop_point_idx(stop_id) {
-            StopPointIdx::Base(idx)
+            Some(StopPointIdx::Base(idx))
         } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
-            StopPointIdx::New(idx.clone())
-        } else {
-            let idx = NewStopPointIdx {
-                idx: self.new_stops.len(),
-            };
-            self.new_stop_id_to_idx
-                .insert(stop_id.to_string(), idx.clone());
-            StopPointIdx::New(idx)
+            Some(StopPointIdx::New(idx.clone()))
+        }
+        else {
+            None
         }
     }
 

@@ -37,16 +37,17 @@
 use crate::{
     chrono::NaiveDate,
     transit_data::{
-        data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
+        data_interface::{Data as DataTrait}, handle_insertion_error, handle_modify_error,
         handle_removal_error,
-    },
+    }, time::calendar,
 };
+use chrono::Duration;
 use tracing::{debug, error, trace};
 
 use super::{
     real_time_disruption::{
-        DisruptionError, Impacted, LineId, NetworkId, RouteId, StopTime, TimePeriods,
-        TripDisruption, VehicleJourneyId,
+        DisruptionError, Impacted, LineId, NetworkId, RouteId,  TimePeriods,
+        TripDisruption, VehicleJourneyId, StopPointId,
     },
     real_time_model::DisruptionIdx,
     RealTimeModel,
@@ -132,12 +133,76 @@ impl RealTimeModel {
                 Impacted::RailSection(_) => todo!(),
                 Impacted::LineSection(_) => todo!(),
                 Impacted::StopAreaDeleted(_) => todo!(),
-                Impacted::StopPointDeleted(_) => todo!(),
+                Impacted::StopPointDeleted(stop_point_id) => self.delete_stop_point(base_model, data, &stop_point_id.id, &application_periods, disruption_idx),
             };
             if let Err(err) = result {
                 error!("Error while applying impact {} : {:?}", impact.id, err);
             }
         }
+    }
+
+    fn delete_stop_point<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        stop_point_id : &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+    ) -> Result<(), DisruptionError> {
+        let stop_point_idx = self.stop_point_idx(stop_point_id, base_model).ok_or_else(|| 
+            DisruptionError::StopPointAbsent(StopPointId{id : stop_point_id.to_string()})
+        )?;
+
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            if let Ok(base_stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                let contains_stop_point = base_stop_times.clone().find(|stop_time| stop_time.stop == stop_point_idx).is_some();
+                if ! contains_stop_point {
+                    continue;
+                }
+                let timezone = base_model.timezone(vehicle_journey_idx).unwrap_or(chrono_tz::UTC);
+                for date in application_periods.dates_possibly_concerned() {
+                    if let Some(time_period) = base_model.trip_time_period(vehicle_journey_idx, &date) {
+                        if application_periods.intersects(&time_period) {
+                            let is_stop_time_concerned = |stop_time : &super::StopTime | {
+                                let board_time = calendar::compose(&date, &stop_time.board_time, &timezone);
+                                let debark_time = calendar::compose(&date, &stop_time.debark_time, &timezone);
+                                application_periods.contains(&board_time)
+                                || application_periods.contains(&debark_time)
+                            };
+                            let is_trip_concerned = base_stop_times.clone()
+                                .find(is_stop_time_concerned).is_some();
+
+                            if ! is_trip_concerned {
+                                continue;
+                            }
+
+                            
+                            let new_stop_times = base_stop_times
+                                .clone()
+                                .filter(|stop_time| ! is_stop_time_concerned(stop_time))
+                                .map(|stop_time| disruption::StopTime {
+                                    stop_id: base_model.stop_point_name(stop_time.stop).to_string(),
+                                    arrival_time: stop_time.debark_time,
+                                    departure_time: stop_time.board_time,
+                                    flow_direction: stop_time.flow_direction,
+                                });
+
+                            self.modify_trip(base_model, data, vehicle_journey_id, &date, stop_times, disruption_idx);
+
+                            
+                        }
+                    }
+                }
+
+                
+            }
+            
+        }
+        
+
+
+        Ok(())
+
     }
 
     fn update_new_trip<Data: DataTrait + DataUpdate>(
@@ -418,7 +483,7 @@ impl RealTimeModel {
         data: &mut Data,
         vehicle_journey_id: &str,
         date: &NaiveDate,
-        stop_times: &[StopTime],
+        stop_times: &[disruption::StopTime],
         disruption_idx: DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         debug!(
@@ -479,7 +544,7 @@ impl RealTimeModel {
         data: &mut Data,
         vehicle_journey_id: &str,
         date: &NaiveDate,
-        stop_times: &[StopTime],
+        stop_times: &[disruption::StopTime],
         disruption_idx: DisruptionIdx,
     ) -> Result<(), DisruptionError> {
         debug!(

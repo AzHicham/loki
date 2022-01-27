@@ -43,7 +43,7 @@ use transit_model::objects::{
 use typed_index_collection::Idx;
 
 use crate::{
-    time::SecondsSinceTimezonedDayStart, timetables::FlowDirection, LoadsData, PositiveDuration,
+    time::{SecondsSinceTimezonedDayStart, calendar}, timetables::FlowDirection, LoadsData, PositiveDuration,
 };
 
 use super::{
@@ -397,39 +397,29 @@ impl BaseModel {
         if !self.trip_exists(vehicle_journey_idx, *date) {
             return None;
         }
-        let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
-        let stop_times = &vj.stop_times;
+        let stop_times = self.stop_times(vehicle_journey_idx).ok()?;
         let timezone = self
             .timezone(vehicle_journey_idx)
             .unwrap_or(chrono_tz::Tz::UTC);
 
-        // we assume that the stop_times are ordered by increasing times
-        // so we just look at the first and last stop_time
-        let first_stop_time = stop_times.first()?;
-        let first_time_local =
-            std::cmp::min(first_stop_time.arrival_time, first_stop_time.departure_time);
 
-        let last_stop_time = stop_times.last()?;
+        let earliest_local_time = stop_times.clone()
+            .map(|stop_time| std::cmp::min(stop_time.board_time, stop_time.debark_time))
+            .min()?;
 
-        let last_time_local =
-            std::cmp::min(last_stop_time.arrival_time, last_stop_time.departure_time);
+        let latest_local_time = stop_times.clone()
+            .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
+            .max()?;
 
-        // From : https://developers.google.com/transit/gtfs/reference#field_types
-        // The local times of a vehicle journey are interpreted as a duration
-        // since "noon minus 12h" on each day.
-        let first_time_utc = timezone.from_utc_date(date).and_hms(12, 0, 0)
-            - chrono::Duration::hours(12)
-            + chrono::Duration::seconds(i64::from(first_time_local.total_seconds()));
 
-        let last_time_utc = timezone.from_utc_date(date).and_hms(12, 0, 0)
-            - chrono::Duration::hours(12)
-            + chrono::Duration::seconds(i64::from(last_time_local.total_seconds()));
+        let first_time_utc = calendar::compose(date, &earliest_local_time, &timezone);
+        let last_time_utc = calendar::compose(date, &latest_local_time, &timezone);
 
         // since TimePeriod is open at the end, we add 1s to the last_time
         // so that the constructed time_period contains last_time
         let last_time_utc = last_time_utc + chrono::Duration::seconds(1);
 
-        TimePeriod::new(first_time_utc.naive_utc(), last_time_utc.naive_utc()).ok()
+        TimePeriod::new(first_time_utc, last_time_utc).ok()
     }
 
     pub fn co2_emission(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> Option<f32> {
