@@ -64,7 +64,9 @@ use launch::loki::{
         },
         real_time_model::LinkedDisruption,
     },
-    transit_model::objects::{Line, Network, Properties, PropertiesMap, Route, StopArea},
+    transit_model::objects::{
+        Availability, Line, Network, Properties, PropertiesMap, Route, StopArea,
+    },
 };
 use std::convert::TryFrom;
 
@@ -465,6 +467,7 @@ pub fn make_stop_point(
             .collect()
         }),
         platform_code: model.platform_code(stop_point_idx).map(|s| s.to_string()),
+        has_equipments: make_equipments(stop_point_idx, model),
         fare_zone: model
             .fare_zone_id(stop_point_idx)
             .map(|s| navitia_proto::FareZone {
@@ -1294,4 +1297,47 @@ pub enum VehicleJourneyPropertyKey {
     AppropriateEscort,
     AppropriateSignage,
     SchoolVehicle,
+}
+
+pub fn make_equipments(
+    stop_point_idx: &StopPointIdx,
+    model: &ModelRefs,
+) -> Option<navitia_proto::HasEquipments> {
+    use navitia_proto::has_equipments::Equipment::*;
+    let mut equipments = navitia_proto::HasEquipments::default();
+    let stop_point_equipments = model.equipment(stop_point_idx)?;
+    if stop_point_equipments.wheelchair_boarding == Availability::Available {
+        equipments.has_equipments.push(HasWheelchairBoarding as i32);
+    }
+    if stop_point_equipments.sheltered == Availability::Available {
+        equipments.has_equipments.push(HasSheltered as i32);
+    }
+    if stop_point_equipments.elevator == Availability::Available {
+        equipments.has_equipments.push(HasElevator as i32);
+    }
+    if stop_point_equipments.escalator == Availability::Available {
+        equipments.has_equipments.push(HasEscalator as i32);
+    }
+    if stop_point_equipments.bike_accepted == Availability::Available {
+        equipments.has_equipments.push(HasBikeAccepted as i32);
+    }
+    if stop_point_equipments.bike_depot == Availability::Available {
+        equipments.has_equipments.push(HasBikeDepot as i32);
+    }
+    if stop_point_equipments.visual_announcement == Availability::Available {
+        equipments.has_equipments.push(HasVisualAnnouncement as i32);
+    }
+    if stop_point_equipments.audible_announcement == Availability::Available {
+        equipments
+            .has_equipments
+            .push(HasAudibleAnnouncement as i32);
+    }
+    if stop_point_equipments.appropriate_escort == Availability::Available {
+        equipments.has_equipments.push(HasAppropriateEscort as i32);
+    }
+    if stop_point_equipments.appropriate_signage == Availability::Available {
+        equipments.has_equipments.push(HasAppropriateSignage as i32);
+    }
+
+    Some(equipments)
 }
