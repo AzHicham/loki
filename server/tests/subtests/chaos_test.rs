@@ -169,7 +169,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     .await;
 
     // let's make the same request, but on the realtime level
-    // we should get no journey in the response
+    // we should get no journey in the response an no linked impact
     {
         let mut realtime_request = journey_request.clone();
         realtime_request
@@ -183,9 +183,10 @@ pub async fn delete_vj_test(config: &ServerConfig) {
         )
         .await;
         assert_eq!(journeys_response.journeys.len(), 0);
+        assert_eq!(journeys_response.impacts.len(), 0);
     }
     // with the same request on the 'base schedule' level
-    // we should get a journey in the response
+    // we should get a journey in the response with a linked impact
     {
         let mut realtime_request = journey_request.clone();
         realtime_request
@@ -210,6 +211,18 @@ pub async fn delete_vj_test(config: &ServerConfig) {
                 .as_ref()
                 .unwrap(),
             "vehicle_journey:matin"
+        );
+        assert_eq!(
+            journeys_response.impacts[0].uri.as_ref().unwrap(),
+            "impact_baa0eefe-0340-41e1-a2a9-5a660755d54c"
+        );
+        assert_eq!(
+            journeys_response.impacts[0].impacted_objects[0]
+                .pt_object
+                .as_ref()
+                .unwrap()
+                .uri,
+            "matin"
         );
     }
 }

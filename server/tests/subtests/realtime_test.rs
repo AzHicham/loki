@@ -108,6 +108,20 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             arrival_time(&journeys_response.journeys[0]),
             date.and_hms(9, 0, 0)
         );
+        // on base schedule, we expect a linked impact
+        // because the journey in response is impacted by a disruption
+        assert_eq!(
+            journeys_response.impacts[0].uri.as_ref().unwrap(),
+            "test_delete_matin_2021-01-01"
+        );
+        assert_eq!(
+            journeys_response.impacts[0].impacted_objects[0]
+                .pt_object
+                .as_ref()
+                .unwrap()
+                .uri,
+            "matin"
+        );
 
         // on the realtime level, the trip should now arrive at 10h
         let journeys_response = crate::send_request_and_wait_for_response(
@@ -119,6 +133,9 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             arrival_time(&journeys_response.journeys[0]),
             date.and_hms(10, 0, 0)
         );
+        // on the realtime level, an impact should be returned
+        // because the vehicle in journey response was created by a disruption
+        //assert_eq!(journeys_response.impacts.len(), 1);
     }
 
     // let's delete the "matin" trip
@@ -163,12 +180,14 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
 
         // since nothing should be added, we should get
         // no journey for the request on the realtime level
+        // and no linked impact either
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
         )
         .await;
         assert_eq!(journeys_response.journeys.len(), 0);
+        assert_eq!(journeys_response.impacts.len(), 0);
     }
 
     // let's now 'add' the removed base trip "matin" with flag SIGNIFICANT_DELAYS
@@ -185,8 +204,9 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
-        // since nothing should be added, we should get
-        // no journey for the request on the realtime level
+        // since we added the previously removed base vehicle , we should get
+        // a journey for the request on the realtime level
+        // and no linked impact because the added vehicle is not impacted by any other disruption
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -196,6 +216,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
+        assert_eq!(journeys_response.impacts.len(), 0);
     }
 }
 
@@ -256,6 +277,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
         // on the realtime level, we should get no journey in the response
+        // and no linked_impact because journey_response.journeys[] is empty
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -264,7 +286,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         assert_eq!(journeys_response.journeys.len(), 0);
 
         // with the same request on the 'base schedule' level
-        // we should get a journey in the response
+        // we should get a journey in the response and a linked impact to previously sent disruption
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             base_request.clone(),
@@ -273,6 +295,14 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         assert_eq!(
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
+        );
+        assert_eq!(
+            journeys_response.impacts[0].impacted_objects[0]
+                .pt_object
+                .as_ref()
+                .unwrap()
+                .uri,
+            "matin"
         );
     }
 
