@@ -79,12 +79,7 @@ pub fn make_response(
         journeys: journeys
             .iter()
             .enumerate()
-            .map(|(idx, journey)| {
-                // compute locally, disruption attached to a journey
-                // this is needed to compute the worst impact on each response
-                let linked_disruptions = make_linked_disruptions_for_journey(journey, model);
-                make_journey(request_input, journey, idx, &linked_disruptions, model)
-            })
+            .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
         feed_publishers: make_feed_publishers(model),
         impacts: make_impacts(&journeys, model),
@@ -153,7 +148,30 @@ fn make_linked_disruptions_for_journey(
     linked_disruptions
 }
 
-fn compute_worst_impact(
+fn worst_effect_on_journey(journey: &loki::Response, model: &ModelRefs<'_>) -> Option<Effect> {
+    let mut worst_effect: Option<Effect> = {
+        let vehicle = &journey.first_vehicle;
+        let has_disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        has_disruptions
+            .map(|disruptions| compute_worst_effect(disruptions, model))
+            .flatten()
+    };
+    for (_, _, vehicle) in &journey.connections {
+        let has_disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        let has_effect = has_disruptions
+            .map(|disruptions| compute_worst_effect(disruptions, model))
+            .flatten();
+
+        worst_effect = has_effect.into_iter().chain(worst_effect.into_iter()).max();
+    }
+    worst_effect
+}
+
+fn compute_worst_effect(
     linked_disruptions: &LinkedDisruptions,
     model: &ModelRefs<'_>,
 ) -> Option<Effect> {
@@ -187,7 +205,6 @@ fn make_journey(
     request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
-    linked_disruptions: &LinkedDisruptions,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,
@@ -213,7 +230,7 @@ fn make_journey(
             taxi: Some(0),
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
-        most_serious_disruption_effect: compute_worst_impact(linked_disruptions, model)
+        most_serious_disruption_effect: worst_effect_on_journey(journey, model)
             .map(|effect| effect_to_string(&effect)),
         ..Default::default()
     };
