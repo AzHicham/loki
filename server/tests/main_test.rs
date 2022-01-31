@@ -41,7 +41,7 @@ use prost::Message;
 use protobuf::Message as ProtobuMessage;
 
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
-use shiplift::builder::PullOptionsBuilder;
+use shiplift::builder::{PullOptionsBuilder, RmContainerOptionsBuilder};
 
 mod subtests;
 
@@ -214,7 +214,10 @@ async fn stop_rabbitmq_docker(container_id: &str) {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
     container.stop(None).await.unwrap();
-    container.delete().await.unwrap();
+    container
+        .remove(RmContainerOptionsBuilder::default().volumes(true).build())
+        .await
+        .unwrap();
 }
 
 async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) {
