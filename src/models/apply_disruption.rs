@@ -42,7 +42,7 @@ use crate::{
         handle_removal_error,
     },
 };
-use chrono::Duration;
+
 use tracing::{debug, error, trace};
 
 use super::{
@@ -131,9 +131,13 @@ impl RealTimeModel {
                 Impacted::NewTripUpdated(trip_disruption) => {
                     self.update_new_trip(base_model, data, trip_disruption, disruption_idx)
                 }
-                Impacted::RailSection(_) => todo!(),
-                Impacted::LineSection(_) => todo!(),
-                Impacted::StopAreaDeleted(_) => todo!(),
+                Impacted::StopAreaDeleted(stop_area_id) => self.delete_stop_area(
+                    base_model,
+                    data,
+                    &stop_area_id.id,
+                    &application_periods,
+                    disruption_idx,
+                ),
                 Impacted::StopPointDeleted(stop_point_id) => self.delete_stop_point(
                     base_model,
                     data,
@@ -141,11 +145,40 @@ impl RealTimeModel {
                     &application_periods,
                     disruption_idx,
                 ),
+                Impacted::RailSection(_) => todo!(),
+                Impacted::LineSection(_) => todo!(),
             };
             if let Err(err) = result {
                 error!("Error while applying impact {} : {:?}", impact.id, err);
             }
         }
+    }
+
+    fn delete_stop_area<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        stop_area_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+    ) -> Result<(), DisruptionError> {
+        for stop_point in base_model.stop_points() {
+            let stop_area_of_stop_point = base_model.stop_area_name(stop_point);
+            if stop_area_id == stop_area_of_stop_point {
+                let stop_point_id = base_model.stop_point_name(stop_point);
+                let result = self.delete_stop_point(
+                    base_model,
+                    data,
+                    stop_point_id,
+                    application_periods,
+                    disruption_idx,
+                );
+                if let Err(err) = result {
+                    error!("Error while deleting stop area {}. {:?}", stop_area_id, err);
+                }
+            }
+        }
+        Ok(())
     }
 
     fn delete_stop_point<Data: DataTrait + DataUpdate>(
@@ -204,7 +237,7 @@ impl RealTimeModel {
                                 .filter(|stop_time| !is_stop_time_concerned(stop_time))
                                 .collect();
 
-                            self.modify_trip(
+                            let result = self.modify_trip(
                                 base_model,
                                 data,
                                 vehicle_journey_id,
@@ -212,6 +245,12 @@ impl RealTimeModel {
                                 stop_times,
                                 *disruption_idx,
                             );
+                            if let Err(err) = result {
+                                error!(
+                                    "Error while deleting stop point {}. {:?}",
+                                    stop_point_id, err
+                                );
+                            }
                         }
                     }
                 }
