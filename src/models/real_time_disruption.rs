@@ -69,6 +69,7 @@ pub struct Disruption {
 #[derive(Debug, Clone)]
 pub enum DisruptionError {
     StopPointAbsent(StopPointId),
+    StopAreaAbsent(StopAreaId),
     NetworkAbsent(NetworkId),
     LineAbsent(LineId),
     RouteAbsent(RouteId),

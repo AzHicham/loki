@@ -175,6 +175,10 @@ impl BaseModel {
         &self.collections.stop_points[stop_idx].name
     }
 
+    pub fn stop_point_id(&self, stop_idx: BaseStopPointIdx) -> &str {
+        &self.collections.stop_points[stop_idx].id
+    }
+
     pub fn stop_point_uri(&self, idx: BaseStopPointIdx) -> String {
         let id = &self.collections.stop_points[idx].id;
         format!("{}{}", PREFIX_ID_STOP_POINT, id)

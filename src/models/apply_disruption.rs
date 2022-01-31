@@ -47,8 +47,8 @@ use tracing::{debug, error, trace};
 
 use super::{
     real_time_disruption::{
-        DisruptionError, Impacted, LineId, NetworkId, RouteId, StopPointId, TimePeriods,
-        TripDisruption, VehicleJourneyId,
+        DisruptionError, Impacted, LineId, NetworkId, RouteId, StopAreaId, StopPointId,
+        TimePeriods, TripDisruption, VehicleJourneyId,
     },
     real_time_model::DisruptionIdx,
     RealTimeModel,
@@ -162,10 +162,15 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
     ) -> Result<(), DisruptionError> {
+        if !base_model.contains_stop_area_id(stop_area_id) {
+            return Err(DisruptionError::StopAreaAbsent(StopAreaId {
+                id: stop_area_id.to_string(),
+            }));
+        }
         for stop_point in base_model.stop_points() {
             let stop_area_of_stop_point = base_model.stop_area_name(stop_point);
             if stop_area_id == stop_area_of_stop_point {
-                let stop_point_id = base_model.stop_point_name(stop_point);
+                let stop_point_id = base_model.stop_point_id(stop_point);
                 let result = self.delete_stop_point(
                     base_model,
                     data,

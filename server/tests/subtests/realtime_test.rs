@@ -34,6 +34,8 @@ use chaos_proto::gtfs_realtime as kirin_proto;
 use launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::Message;
 
+use crate::{arrival_time, first_section_vj_name};
+
 // try to remove/add/modify a vehicle in the base schedule
 pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
     // the ntfs (in tests/a_small_ntfs) contains just one trip
@@ -759,22 +761,4 @@ fn create_disruption_inner(
     feed_message.set_header(feed_header);
 
     feed_message
-}
-
-fn first_section_vj_name(journey: &navitia_proto::Journey) -> &str {
-    journey.sections[0]
-        .pt_display_informations
-        .as_ref()
-        .unwrap()
-        .uris
-        .as_ref()
-        .unwrap()
-        .vehicle_journey
-        .as_ref()
-        .unwrap()
-}
-
-fn arrival_time(journey: &navitia_proto::Journey) -> NaiveDateTime {
-    let timestamp = journey.arrival_date_time();
-    NaiveDateTime::from_timestamp(timestamp as i64, 0)
 }
