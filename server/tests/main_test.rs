@@ -91,6 +91,8 @@ async fn run() {
         .rabbitmq_real_time_topics
         .push("test_realtime_topic".to_string());
 
+    wait_until_connected_to_postgresql(&config.chaos_params.chaos_database).await;
+
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
     wait_until_data_loaded_after(zmq_endpoint, &start_test_datetime).await;
@@ -261,6 +263,27 @@ async fn wait_until_connected_to_rabbitmq(zmq_endpoint: &str) {
         tokio::select! {
             status_response = send_status_request_and_wait_for_response(zmq_endpoint) => {
                 if status_response.is_connected_to_rabbitmq.unwrap() {
+                    return;
+                }
+            }
+            _ = & mut timeout => {
+                panic!("Not connected to rabbitmq before timeout.");
+            }
+        }
+    }
+}
+
+async fn wait_until_connected_to_postgresql(chaos_endpoint: &str) {
+    use diesel::prelude::*;
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    tokio::pin!(timeout);
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+            connection = async { PgConnection::establish(chaos_endpoint) } => {
+                if connection.is_ok() {
                     return;
                 }
             }
