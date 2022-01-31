@@ -12,12 +12,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>
 
-use loki::{models::real_time_disruption::StopTime, time::SecondsSinceTimezonedDayStart};
+use loki::{
+    models,
+    models::{base_model::BaseModel, real_time_disruption as disruption, RealTimeModel},
+    time::SecondsSinceTimezonedDayStart,
+};
 
 use super::model_builder::IntoTime;
 
 pub struct StopTimesBuilder {
-    pub stop_times: Vec<StopTime>,
+    pub stop_times: Vec<disruption::StopTime>,
 }
 
 impl StopTimesBuilder {
@@ -32,7 +36,7 @@ impl StopTimesBuilder {
             time.into_time().total_seconds(),
         ))
         .unwrap();
-        let stop_time = StopTime {
+        let stop_time = disruption::StopTime {
             stop_id: stop_id.to_string(),
             arrival_time: time,
             departure_time: time,
@@ -40,5 +44,13 @@ impl StopTimesBuilder {
         };
         self.stop_times.push(stop_time);
         self
+    }
+
+    pub fn finalize(
+        self,
+        real_time_model: &mut RealTimeModel,
+        base_model: &BaseModel,
+    ) -> Vec<models::StopTime> {
+        real_time_model.make_stop_times(&self.stop_times, base_model)
     }
 }

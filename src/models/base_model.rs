@@ -395,7 +395,6 @@ impl BaseModel {
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Option<TimePeriod> {
-        use chrono::TimeZone;
         if !self.trip_exists(vehicle_journey_idx, *date) {
             return None;
         }

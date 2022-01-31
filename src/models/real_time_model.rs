@@ -269,7 +269,7 @@ impl RealTimeModel {
         vj_idx
     }
 
-    pub(super) fn make_stop_times(
+    pub fn make_stop_times(
         &mut self,
         stop_times: &[disruption::StopTime],
         base_model: &BaseModel,
