@@ -31,9 +31,8 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
-use launch::loki::chrono::{NaiveTime, Timelike};
 use launch::loki::{
-    chrono::{NaiveDate, Utc},
+    chrono::{NaiveDate, NaiveTime, Timelike, Utc},
     models::real_time_disruption::TimePeriod,
     NaiveDateTime,
 };

@@ -62,7 +62,7 @@ use launch::loki::{
             Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity,
             TimePeriod, TimeSlot,
         },
-        real_time_model::LinkedDisruption,
+        real_time_model::LinkedDisruptions,
     },
     transit_model::objects::{
         Availability, Line, Network, Properties, PropertiesMap, Route, StopArea,
@@ -82,7 +82,7 @@ pub fn make_response(
             .map(|(idx, journey)| {
                 // compute locally, disruption attached to a journey
                 // this is needed to compute the worst impact on each response
-                let linked_disruptions = make_linked_disruption_for_journey(journey, model);
+                let linked_disruptions = make_linked_disruptions_for_journey(journey, model);
                 make_journey(request_input, journey, idx, &linked_disruptions, model)
             })
             .collect::<Result<Vec<_>, _>>()?,
@@ -109,49 +109,52 @@ fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navit
         .collect()
 }
 
-fn make_linked_disruptions(journeys: &[loki::Response], model: &ModelRefs<'_>) -> LinkedDisruption {
-    let mut linked_disruption = LinkedDisruption::new();
+fn make_linked_disruptions(
+    journeys: &[loki::Response],
+    model: &ModelRefs<'_>,
+) -> LinkedDisruptions {
+    let mut linked_disruptions = LinkedDisruptions::new();
     for journey in journeys {
-        let disruptions = make_linked_disruption_for_journey(journey, model);
-        linked_disruption.extend(disruptions);
+        let disruptions = make_linked_disruptions_for_journey(journey, model);
+        linked_disruptions.extend(disruptions);
     }
     // remove duplicated pair of (disruption, impact)
-    linked_disruption.sort_unstable();
-    linked_disruption.dedup();
-    linked_disruption
+    linked_disruptions.sort_unstable();
+    linked_disruptions.dedup();
+    linked_disruptions
 }
 
-fn make_linked_disruption_for_journey(
+fn make_linked_disruptions_for_journey(
     journey: &loki::Response,
     model: &ModelRefs<'_>,
-) -> LinkedDisruption {
-    let mut linked_disruption = LinkedDisruption::new();
+) -> LinkedDisruptions {
+    let mut linked_disruptions = LinkedDisruptions::new();
     {
         let vehicle = &journey.first_vehicle;
         let disruptions = model
             .real_time
-            .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
         if let Some(disruptions) = disruptions {
-            linked_disruption.extend(disruptions)
+            linked_disruptions.extend(disruptions)
         }
     }
     for (_, _, vehicle) in &journey.connections {
         let disruptions = model
             .real_time
-            .get_linked_disruption(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
         if let Some(disruptions) = disruptions {
-            linked_disruption.extend(disruptions)
+            linked_disruptions.extend(disruptions)
         }
     }
 
     // remove duplicated pair of (disruption, impact)
-    linked_disruption.sort_unstable();
-    linked_disruption.dedup();
-    linked_disruption
+    linked_disruptions.sort_unstable();
+    linked_disruptions.dedup();
+    linked_disruptions
 }
 
 fn compute_worst_impact(
-    linked_disruptions: &LinkedDisruption,
+    linked_disruptions: &LinkedDisruptions,
     model: &ModelRefs<'_>,
 ) -> Option<Effect> {
     linked_disruptions
@@ -184,7 +187,7 @@ fn make_journey(
     request_input: &RequestInput,
     journey: &loki::Response,
     journey_id: usize,
-    linked_disruptions: &LinkedDisruption,
+    linked_disruptions: &LinkedDisruptions,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Journey, Error> {
     // we have one section for the first vehicle,

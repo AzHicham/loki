@@ -41,8 +41,7 @@ use prost::Message;
 use protobuf::Message as ProtobuMessage;
 
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
-use shiplift::builder::PullOptionsBuilder;
-use shiplift::BuildOptions;
+use shiplift::{builder::PullOptionsBuilder, BuildOptions};
 
 mod subtests;
 
