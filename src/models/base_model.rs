@@ -43,7 +43,9 @@ use transit_model::objects::{
 use typed_index_collection::Idx;
 
 use crate::{
-    time::{SecondsSinceTimezonedDayStart, calendar}, timetables::FlowDirection, LoadsData, PositiveDuration,
+    time::{calendar, SecondsSinceTimezonedDayStart},
+    timetables::FlowDirection,
+    LoadsData, PositiveDuration,
 };
 
 use super::{
@@ -402,15 +404,15 @@ impl BaseModel {
             .timezone(vehicle_journey_idx)
             .unwrap_or(chrono_tz::Tz::UTC);
 
-
-        let earliest_local_time = stop_times.clone()
+        let earliest_local_time = stop_times
+            .clone()
             .map(|stop_time| std::cmp::min(stop_time.board_time, stop_time.debark_time))
             .min()?;
 
-        let latest_local_time = stop_times.clone()
+        let latest_local_time = stop_times
+            .clone()
             .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
             .max()?;
-
 
         let first_time_utc = calendar::compose(date, &earliest_local_time, &timezone);
         let last_time_utc = calendar::compose(date, &latest_local_time, &timezone);

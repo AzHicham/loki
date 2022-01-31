@@ -240,7 +240,6 @@ impl Calendar {
         debug_assert!(self.contains_date(&date));
         let datetime_utc = compose(&date, seconds_in_day, timezone);
 
-
         debug_assert!(self.contains_datetime(&datetime_utc));
         let seconds_i64 = (datetime_utc - self.first_datetime()).num_seconds();
         // seconds_i64 should be >=0 since
@@ -311,8 +310,11 @@ impl Calendar {
     }
 }
 
-
-pub fn compose(date : &NaiveDate, time_in_day : &SecondsSinceTimezonedDayStart, timezone : &chrono_tz::Tz) -> NaiveDateTime {
+pub fn compose(
+    date: &NaiveDate,
+    time_in_day: &SecondsSinceTimezonedDayStart,
+    timezone: &chrono_tz::Tz,
+) -> NaiveDateTime {
     use chrono::offset::TimeZone;
     // From : https://developers.google.com/transit/gtfs/reference#field_types
     // The local times of a vehicle journey are interpreted as a duration
