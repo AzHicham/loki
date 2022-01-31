@@ -438,39 +438,34 @@ INSERT INTO public.associate_disruption_tag (tag_id, disruption_id)
 VALUES ('53207848-5e58-11eb-bc4d-005056a40962', 'dddddddd-dddd-dddd-dddd-dddddddddddd');
 
 -- Insert a severity with :
--- wording : '10 à 15 min'
+-- wording : 'accident'
 -- color : '#99DD66'
 -- effect : 'no_service'
 -- priority : 4
 INSERT INTO public.severity (id, created_at, updated_at, wording, color, is_visible, effect, priority, client_id)
-VALUES ('d94ba49e-5ec1-11e4-8d47-005056a40962', '2014-10-28 16:45:39.528055', '2015-10-21 13:32:34.591280', '10 à 15 min',
+VALUES ('d94ba49e-5ec1-11e4-8d47-005056a40962', '2014-10-28 16:45:39.528055', '2015-10-21 13:32:34.591280', 'accident',
         '#99DD66', false, 'no_service', 4, 'cccccccc-cccc-cccc-cccc-cccccccccccc');
 
 -- Insert an impact linked to previously inserted disruption and Uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+-- and with last update time : '2018-08-28 15:50:08.000000'
 INSERT INTO public.impact (created_at, updated_at, id, disruption_id, status, severity_id, send_notifications, version, notification_date)
 VALUES ('2018-08-28 15:45:08.000000', '2018-08-28 15:50:08.000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff',
         'dddddddd-dddd-dddd-dddd-dddddddddddd', 'published', 'd94ba49e-5ec1-11e4-8d47-005056a40962', true, 1, '2018-08-03 16:28:37.000000');
 
 -- Insert an application_periods linked to previously inserted impact
--- application_periods : [2021-01-12 14:05:00.000000, 2021-01-12 14:40:00.000000]
+-- application_periods : [2021-01-01 14:00:00.000000, 2021-01-02 22:00:00.000000]
 INSERT INTO public.application_periods (created_at, updated_at, id, start_date, end_date, impact_id)
-VALUES ('2021-01-14 16:06:53.000000', null, '849813dc-5682-11eb-b8c6-005056a40962', '2021-01-12 14:05:00.000000',
-        '2021-01-12 14:40:00.000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
-
+VALUES ('2021-01-01 14:00:00.000000', null, '849813dc-5682-11eb-b8c6-005056a40962',
+        '2021-01-01 14:00:00.000000', '2021-01-02 22:00:00.000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 
 -- Insert affected pt_object :
--- A Network with id 'network:Amelys'
--- A line with id 'line:Amelys'
+-- A line with id 'line:rer_c'
 INSERT INTO public.pt_object (created_at, updated_at, id, type, uri)
-VALUES ('2014-07-22 06:27:18.771922', null, '3b025d14-1169-11e4-a924-005056a40962', 'network', 'network:Amelys');
-INSERT INTO public.pt_object (created_at, updated_at, id, type, uri)
-VALUES ('2014-07-22 06:27:18.771922', null, 'ffffffff-1169-11e4-a924-005056a40962', 'line', 'line:Amelys');
+VALUES ('2014-07-22 06:27:18.771922', null, 'ffffffff-1169-11e4-a924-005056a40962', 'line', 'line:rer_c');
 
 -- Insert link between previously inserted affected pt_object and impact
 INSERT INTO public.associate_impact_pt_object (impact_id, pt_object_id)
-VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff', '3b025d14-1169-11e4-a924-005056a40962');
 VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff', 'ffffffff-1169-11e4-a924-005056a40962');
-
 
 -- Insert a channel with :
 -- name: 'web et mobile
@@ -482,7 +477,6 @@ VALUES ('2015-09-29 11:34:05.026707', null, 'fd4cec38-669d-11e5-b2c1-005056a4096
 -- Insert a channel_type named 'web' linked to previously created channel
 INSERT INTO public.channel_type (created_at, updated_at, id, channel_id, name)
 VALUES ('2015-08-13 08:06:49.641730', null, '3fd1e558-4192-11e5-bd14-005056a40962', 'fd4cec38-669d-11e5-b2c1-005056a40962', 'web');
-
 
 -- Insert a message linked to previously created impact and channel
 -- and with test: 'Test Message'
@@ -497,17 +491,17 @@ VALUES ('2018-03-29 11:33:31.247305', null, '01e6a074-3345-11e8-82eb-005056a4096
 
 -- Insert link between previously created disruption.property and disruption
 INSERT INTO public.associate_disruption_property (value, disruption_id, property_id)
-VALUES ('Test', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '01e6a074-3345-11e8-82eb-005056a40962');
+VALUES ('property value test', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '01e6a074-3345-11e8-82eb-005056a40962');
 
 -- Insert a disruption.property linked to impact with :
--- period: ['2021-03-08', '2021-08-31']
+-- period: ['2021-01-01', '2021-08-31']
 -- weekly pattern: '1111100'
 INSERT INTO public.pattern (created_at, updated_at, id, start_date, end_date, weekly_pattern, impact_id, timezone)
-VALUES ('2021-03-08 13:31:30.000000', null, '9742a3f8-8012-11eb-906d-005056a40962', '2021-03-08', '2021-08-31',
-        B'1111100', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Europe/Paris');
+VALUES ('2021-01-01 14:00:00.000000', null, '9742a3f8-8012-11eb-906d-005056a40962', '2021-01-01', '2021-01-02',
+        B'1101100', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Europe/Paris');
 
 -- Insert a time_slot linked to pattern with :
 -- time_period: ['09:00:00', '12:00:00']
 INSERT INTO public.time_slot (created_at, updated_at, id, begin, "end", pattern_id)
 VALUES ('2021-03-08 13:31:30.000000', null, '9742bec4-8012-11eb-906d-005056a40962',
-        '09:00:00', '12:00:00', '9742a3f8-8012-11eb-906d-005056a40962');
+        '14:00:00', '22:00:00', '9742a3f8-8012-11eb-906d-005056a40962');

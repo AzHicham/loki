@@ -31,6 +31,7 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
+use launch::loki::chrono::{NaiveTime, Timelike};
 use launch::loki::{
     chrono::{NaiveDate, Utc},
     models::real_time_disruption::TimePeriod,
@@ -44,6 +45,145 @@ enum PtObject<'a> {
     Line(&'a str),
     Route(&'a str),
     Trip(&'a str),
+}
+
+// Reload choas database and check if all required information's are correctly loaded
+// and transformed into loki::Disruption
+pub async fn load_database_test(config: &ServerConfig) {
+    let datetime =
+        NaiveDateTime::parse_from_str("2021-01-01 18:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+    // initial request
+    let journey_request =
+        crate::make_journeys_request("stop_point:pontoise", "stop_point:dourdan", datetime);
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            journey_request.clone(),
+        )
+        .await;
+        // info!("{:#?}", journeys_response);
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .pt_display_informations
+                .as_ref()
+                .unwrap()
+                .uris
+                .as_ref()
+                .unwrap()
+                .vehicle_journey
+                .as_ref()
+                .unwrap(),
+            "vehicle_journey:rer_c_soir"
+        );
+        // We should get a disruption in journeys_response, that was loaded from the chaos database
+        // We ccheck that informations contained in this disruption matche with thoses in database
+        assert_eq!(journeys_response.impacts.len(), 1);
+        let impact = &journeys_response.impacts[0];
+        assert_eq!(
+            impact.uri.as_ref().unwrap(),
+            "ffffffff-ffff-ffff-ffff-ffffffffffff"
+        );
+        assert_eq!(
+            impact.disruption_uri.as_ref().unwrap(),
+            "dddddddd-dddd-dddd-dddd-dddddddddddd"
+        );
+        assert_eq!(impact.contributor.as_ref().unwrap(), "test_realtime_topic");
+        let updated_at =
+            NaiveDateTime::parse_from_str("2018-08-28 15:50:08", "%Y-%m-%d %H:%M:%S").unwrap();
+        assert_eq!(impact.updated_at.unwrap(), updated_at.timestamp() as u64);
+
+        assert_eq!(impact.application_periods.len(), 1);
+        let application_periods = &impact.application_periods[0];
+        let begin =
+            NaiveDateTime::parse_from_str("2021-01-01 14:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let end =
+            NaiveDateTime::parse_from_str("2021-01-02 22:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        assert_eq!(application_periods.begin.unwrap(), begin.timestamp() as u64);
+        assert_eq!(application_periods.end.unwrap(), end.timestamp() as u64);
+
+        assert_eq!(impact.cause.as_ref().unwrap(), "cause_wording");
+        assert_eq!(impact.category.as_ref().unwrap(), "Cat name");
+        assert_eq!(impact.tags, vec!["prolongation".to_string()]);
+
+        assert_eq!(impact.messages.len(), 1);
+        let message = &impact.messages[0];
+        assert_eq!(message.text.as_ref().unwrap(), "Test Message");
+        let channel = message.channel.as_ref().unwrap();
+        assert_eq!(
+            channel.id.as_ref().unwrap(),
+            "fd4cec38-669d-11e5-b2c1-005056a40962"
+        );
+        assert_eq!(channel.name.as_ref().unwrap(), "web et mobile");
+        assert_eq!(channel.content_type.as_ref().unwrap(), "text/html");
+
+        let severity = impact.severity.as_ref().unwrap();
+        assert_eq!(severity.name.as_ref().unwrap(), "accident");
+        assert_eq!(severity.color.as_ref().unwrap(), "#99DD66");
+        assert_eq!(
+            severity.effect.unwrap(),
+            navitia_proto::severity::Effect::NoService as i32
+        );
+        assert_eq!(severity.priority.unwrap(), 4);
+        assert_eq!(impact.properties.len(), 1);
+        let property = &impact.properties[0];
+        assert_eq!(&property.key, "ccb9e71f-619c-4972-97cd-ae506d31852d");
+        assert_eq!(&property.r#type, "Property Test");
+        assert_eq!(&property.value, "property value test");
+
+        assert_eq!(impact.application_patterns.len(), 1);
+        let pattern = &impact.application_patterns[0];
+        let begin =
+            NaiveDateTime::parse_from_str("2021-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let end =
+            NaiveDateTime::parse_from_str("2021-01-02 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        assert_eq!(
+            pattern.application_period.begin.unwrap(),
+            begin.timestamp() as u64
+        );
+        assert_eq!(
+            pattern.application_period.end.unwrap(),
+            end.timestamp() as u64
+        );
+
+        assert_eq!(pattern.time_slots.len(), 1);
+        let time_slot = &pattern.time_slots[0];
+        let begin = NaiveTime::from_hms(14, 00, 00);
+        let end = NaiveTime::from_hms(22, 00, 00);
+        assert_eq!(time_slot.begin, begin.num_seconds_from_midnight());
+        assert_eq!(time_slot.end, end.num_seconds_from_midnight());
+
+        let week_pattern = &pattern.week_pattern;
+        assert_eq!(week_pattern.monday, Some(true));
+        assert_eq!(week_pattern.tuesday, Some(true));
+        assert_eq!(week_pattern.wednesday, Some(false));
+        assert_eq!(week_pattern.thursday, Some(true));
+        assert_eq!(week_pattern.friday, Some(true));
+        assert_eq!(week_pattern.saturday, Some(false));
+        assert_eq!(week_pattern.sunday, Some(false));
+    }
+
+    // let's make the same request, but on the realtime level
+    // we should get no journey in the response
+    // because the chaos disruption stored in the chaos database
+    // has a NO_SERVICE effect
+    {
+        let mut realtime_request = journey_request.clone();
+        realtime_request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
 }
 
 // try to remove all vehicle of a network

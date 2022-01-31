@@ -316,10 +316,10 @@ impl ImpactMaker {
     ) -> Result<(), Error> {
         if application_periods_set.insert(row.application_id) {
             let mut application_period = chaos_proto::gtfs_realtime::TimeRange::new();
-            if let Some(start) = &row.disruption_start_publication_date {
+            if let Some(start) = &row.application_start_date {
                 application_period.set_start(u64::try_from(start.timestamp())?);
             }
-            if let Some(end) = &row.disruption_end_publication_date {
+            if let Some(end) = &row.application_end_date {
                 application_period.set_end(u64::try_from(end.timestamp())?);
             }
             impact.application_periods.push(application_period);
