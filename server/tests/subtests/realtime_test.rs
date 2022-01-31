@@ -206,7 +206,6 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
 
         // since we added the previously removed base vehicle , we should get
         // a journey for the request on the realtime level
-        // and no linked impact because the added vehicle is not impacted by any other disruption
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -216,7 +215,6 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
-        assert_eq!(journeys_response.impacts.len(), 0);
     }
 }
 
