@@ -319,7 +319,7 @@ pub fn compose(
     // From : https://developers.google.com/transit/gtfs/reference#field_types
     // The local times of a vehicle journey are interpreted as a duration
     // since "noon minus 12h" on each day.
-    let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
+    let datetime_timezoned = timezone.from_utc_date(date).and_hms(12, 0, 0)
         - chrono::Duration::hours(12)
         + chrono::Duration::seconds(i64::from(time_in_day.seconds));
     use chrono_tz::UTC;

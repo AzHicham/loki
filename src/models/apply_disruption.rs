@@ -202,8 +202,7 @@ impl RealTimeModel {
             if let Ok(base_stop_times) = base_model.stop_times(vehicle_journey_idx) {
                 let contains_stop_point = base_stop_times
                     .clone()
-                    .find(|stop_time| stop_time.stop == stop_point_idx)
-                    .is_some();
+                    .any(|stop_time| stop_time.stop == stop_point_idx);
                 if !contains_stop_point {
                     continue;
                 }
@@ -225,8 +224,7 @@ impl RealTimeModel {
                             };
                             let is_trip_concerned = base_stop_times
                                 .clone()
-                                .find(is_stop_time_concerned)
-                                .is_some();
+                                .any(|stop_time| is_stop_time_concerned(&stop_time));
 
                             if !is_trip_concerned {
                                 continue;
