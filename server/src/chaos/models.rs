@@ -316,10 +316,10 @@ impl ImpactMaker {
     ) -> Result<(), Error> {
         if application_periods_set.insert(row.application_id) {
             let mut application_period = chaos_proto::gtfs_realtime::TimeRange::new();
-            if let Some(start) = &row.disruption_start_publication_date {
+            if let Some(start) = &row.application_start_date {
                 application_period.set_start(u64::try_from(start.timestamp())?);
             }
-            if let Some(end) = &row.disruption_end_publication_date {
+            if let Some(end) = &row.application_end_date {
                 application_period.set_end(u64::try_from(end.timestamp())?);
             }
             impact.application_periods.push(application_period);
@@ -398,15 +398,22 @@ impl ImpactMaker {
                     .zip(row.time_slot_end.iter().flatten());
 
                 if let Some(week_pattern) = &row.pattern_weekly_pattern {
-                    if week_pattern.len() == 7 {
+                    // Bit(7) is coded into a vec of size 5
+                    // like [0, 0, 0, 7, 248]
+                    // with last element corresponding to the bit pattern
+                    // example : 248 -> "11111000"
+                    if week_pattern.len() == 5 {
                         let mut proto_week = chaos_proto::chaos::WeekPattern::new();
-                        proto_week.set_monday(week_pattern[0] != 0);
-                        proto_week.set_tuesday(week_pattern[1] != 0);
-                        proto_week.set_wednesday(week_pattern[2] != 0);
-                        proto_week.set_thursday(week_pattern[3] != 0);
-                        proto_week.set_friday(week_pattern[4] != 0);
-                        proto_week.set_saturday(week_pattern[0] != 0);
-                        proto_week.set_sunday(week_pattern[6] != 0);
+                        // unwrap is safe thanks to len check before
+                        let char_bit = format!("{:b}", week_pattern.last().unwrap());
+                        let mut iter = char_bit.chars();
+                        proto_week.set_monday(iter.next() == Some('1'));
+                        proto_week.set_tuesday(iter.next() == Some('1'));
+                        proto_week.set_wednesday(iter.next() == Some('1'));
+                        proto_week.set_thursday(iter.next() == Some('1'));
+                        proto_week.set_friday(iter.next() == Some('1'));
+                        proto_week.set_saturday(iter.next() == Some('1'));
+                        proto_week.set_sunday(iter.next() == Some('1'));
                         pattern.set_week_pattern(proto_week);
                     } else {
                         bail!("pattern_weekly_pattern must have a size of 7");

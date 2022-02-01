@@ -62,8 +62,11 @@ use launch::loki::{
             Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity,
             TimePeriod, TimeSlot,
         },
+        real_time_model::LinkedDisruptions,
     },
-    transit_model::objects::{Line, Network, Properties, PropertiesMap, Route, StopArea},
+    transit_model::objects::{
+        Availability, Line, Network, Properties, PropertiesMap, Route, StopArea,
+    },
 };
 use std::convert::TryFrom;
 
@@ -79,12 +82,123 @@ pub fn make_response(
             .map(|(idx, journey)| make_journey(request_input, journey, idx, model))
             .collect::<Result<Vec<_>, _>>()?,
         feed_publishers: make_feed_publishers(model),
+        impacts: make_impacts(&journeys, model),
         ..Default::default()
     };
 
     proto.set_response_type(navitia_proto::ResponseType::ItineraryFound);
 
     Ok(proto)
+}
+
+fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navitia_proto::Impact> {
+    let linked_disruptions = make_linked_disruptions(journeys, model);
+    linked_disruptions
+        .iter()
+        .map(|(disruption_idx, impact_idx)| {
+            let (disruption, impact) = model
+                .real_time
+                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+            make_impact(impact, disruption, model)
+        })
+        .collect()
+}
+
+fn make_linked_disruptions(
+    journeys: &[loki::Response],
+    model: &ModelRefs<'_>,
+) -> LinkedDisruptions {
+    let mut linked_disruptions = LinkedDisruptions::new();
+    for journey in journeys {
+        let disruptions = make_linked_disruptions_for_journey(journey, model);
+        linked_disruptions.extend(disruptions);
+    }
+    // remove duplicated pair of (disruption, impact)
+    linked_disruptions.sort_unstable();
+    linked_disruptions.dedup();
+    linked_disruptions
+}
+
+fn make_linked_disruptions_for_journey(
+    journey: &loki::Response,
+    model: &ModelRefs<'_>,
+) -> LinkedDisruptions {
+    let mut linked_disruptions = LinkedDisruptions::new();
+    {
+        let vehicle = &journey.first_vehicle;
+        let disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        if let Some(disruptions) = disruptions {
+            linked_disruptions.extend(disruptions)
+        }
+    }
+    for (_, _, vehicle) in &journey.connections {
+        let disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        if let Some(disruptions) = disruptions {
+            linked_disruptions.extend(disruptions)
+        }
+    }
+
+    // remove duplicated pair of (disruption, impact)
+    linked_disruptions.sort_unstable();
+    linked_disruptions.dedup();
+    linked_disruptions
+}
+
+fn worst_effect_on_journey(journey: &loki::Response, model: &ModelRefs<'_>) -> Option<Effect> {
+    let mut worst_effect: Option<Effect> = {
+        let vehicle = &journey.first_vehicle;
+        let has_disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        has_disruptions
+            .map(|disruptions| compute_worst_effect(disruptions, model))
+            .flatten()
+    };
+    for (_, _, vehicle) in &journey.connections {
+        let has_disruptions = model
+            .real_time
+            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
+        let has_effect = has_disruptions
+            .map(|disruptions| compute_worst_effect(disruptions, model))
+            .flatten();
+
+        worst_effect = has_effect.into_iter().chain(worst_effect.into_iter()).max();
+    }
+    worst_effect
+}
+
+fn compute_worst_effect(
+    linked_disruptions: &LinkedDisruptions,
+    model: &ModelRefs<'_>,
+) -> Option<Effect> {
+    linked_disruptions
+        .into_iter()
+        .map(|(disruption_idx, impact_idx)| {
+            let (_, impact) = model
+                .real_time
+                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+            impact.severity.effect
+        })
+        .max()
+}
+
+fn effect_to_string(effect: &Effect) -> String {
+    match effect {
+        Effect::NoService => "NO_SERVICE",
+        Effect::ReducedService => "REDUCED_SERVICE",
+        Effect::SignificantDelays => "SIGNIFICANT_DELAYS",
+        Effect::Detour => "DETOUR",
+        Effect::AdditionalService => "ADDITIONAL_SERVICE",
+        Effect::ModifiedService => "MODIFIED_SERVICE",
+        Effect::OtherEffect => "OTHER_EFFECT",
+        Effect::UnknownEffect => "UNKNOWN_EFFECT",
+        Effect::StopMoved => "STOP_MOVED",
+    }
+    .to_string()
 }
 
 fn make_journey(
@@ -116,6 +230,8 @@ fn make_journey(
             taxi: Some(0),
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
+        most_serious_disruption_effect: worst_effect_on_journey(journey, model)
+            .map(|effect| effect_to_string(&effect)),
         ..Default::default()
     };
 
@@ -371,6 +487,7 @@ pub fn make_stop_point(
             .collect()
         }),
         platform_code: model.platform_code(stop_point_idx).map(|s| s.to_string()),
+        has_equipments: make_equipments(stop_point_idx, model),
         fare_zone: model
             .fare_zone_id(stop_point_idx)
             .map(|s| navitia_proto::FareZone {
@@ -1200,4 +1317,47 @@ pub enum VehicleJourneyPropertyKey {
     AppropriateEscort,
     AppropriateSignage,
     SchoolVehicle,
+}
+
+pub fn make_equipments(
+    stop_point_idx: &StopPointIdx,
+    model: &ModelRefs,
+) -> Option<navitia_proto::HasEquipments> {
+    use navitia_proto::has_equipments::Equipment::*;
+    let mut equipments = navitia_proto::HasEquipments::default();
+    let stop_point_equipments = model.equipment(stop_point_idx)?;
+    if stop_point_equipments.wheelchair_boarding == Availability::Available {
+        equipments.has_equipments.push(HasWheelchairBoarding as i32);
+    }
+    if stop_point_equipments.sheltered == Availability::Available {
+        equipments.has_equipments.push(HasSheltered as i32);
+    }
+    if stop_point_equipments.elevator == Availability::Available {
+        equipments.has_equipments.push(HasElevator as i32);
+    }
+    if stop_point_equipments.escalator == Availability::Available {
+        equipments.has_equipments.push(HasEscalator as i32);
+    }
+    if stop_point_equipments.bike_accepted == Availability::Available {
+        equipments.has_equipments.push(HasBikeAccepted as i32);
+    }
+    if stop_point_equipments.bike_depot == Availability::Available {
+        equipments.has_equipments.push(HasBikeDepot as i32);
+    }
+    if stop_point_equipments.visual_announcement == Availability::Available {
+        equipments.has_equipments.push(HasVisualAnnouncement as i32);
+    }
+    if stop_point_equipments.audible_announcement == Availability::Available {
+        equipments
+            .has_equipments
+            .push(HasAudibleAnnouncement as i32);
+    }
+    if stop_point_equipments.appropriate_escort == Availability::Available {
+        equipments.has_equipments.push(HasAppropriateEscort as i32);
+    }
+    if stop_point_equipments.appropriate_signage == Availability::Available {
+        equipments.has_equipments.push(HasAppropriateSignage as i32);
+    }
+
+    Some(equipments)
 }

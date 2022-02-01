@@ -28,6 +28,7 @@
 // www.navitia.io
 
 use std::{
+    env,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -38,10 +39,10 @@ use loki_server::{
     chaos_proto, master_worker::MasterWorker, navitia_proto, server_config::ServerConfig,
 };
 use prost::Message;
-use protobuf::Message as ProtobuMessage;
+use protobuf::Message as ProtobufMessage;
 
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
-use shiplift::builder::{PullOptionsBuilder, RmContainerOptionsBuilder};
+use shiplift::builder::{BuildOptions, PullOptionsBuilder, RmContainerOptionsBuilder};
 
 mod subtests;
 
@@ -74,10 +75,13 @@ async fn run() {
     let input_data_path = working_dir_path.to_path_buf();
     let instance_name = "my_test_instance";
     let zmq_endpoint = "tcp://127.0.0.1:30001";
+    let chaos_endpoint = "postgresql://chaos:chaos@localhost:5430/chaos";
 
-    let container_id = start_rabbitmq_docker().await;
+    let container_postgres_id = start_postgres_docker().await;
+    let container_rabbitmq_id = start_rabbitmq_docker().await;
 
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
+    config.chaos_params.chaos_database = chaos_endpoint.to_string();
     config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
     config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
@@ -86,6 +90,8 @@ async fn run() {
         .rabbitmq_params
         .rabbitmq_real_time_topics
         .push("test_realtime_topic".to_string());
+
+    wait_until_connected_to_postgresql(&config.chaos_params.chaos_database).await;
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
@@ -97,7 +103,11 @@ async fn run() {
 
     subtests::realtime_test::remove_add_modify_base_vj_on_invalid_day_test(&config).await;
 
+    let reload_data_datetime = Utc::now().naive_utc();
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
+    wait_until_realtime_updated_after(zmq_endpoint, &reload_data_datetime).await;
+
+    subtests::chaos_test::load_database_test(&config).await;
 
     subtests::chaos_test::delete_network_on_invalid_period_test(&config).await;
     subtests::chaos_test::delete_vj_test(&config).await;
@@ -112,7 +122,8 @@ async fn run() {
 
     info!("Everything went Ok ! Now stopping.");
 
-    stop_rabbitmq_docker(&container_id).await;
+    stop_docker(&container_postgres_id).await;
+    stop_docker(&container_rabbitmq_id).await;
     working_dir.close().unwrap();
 }
 
@@ -190,6 +201,68 @@ async fn start_rabbitmq_docker() -> String {
     id
 }
 
+// launch a postgres docker as
+//
+//   docker build -t postgres_docker_test -f ./postgres-docker/ .
+//   docker run -p 5430:5432 postgres_docker_test
+//
+// management is available on http://localhost:15673
+async fn start_postgres_docker() -> String {
+    let container_name = "postgres_test";
+
+    let docker = shiplift::Docker::new();
+
+    // let's pull the image from dockerhub
+    {
+        use futures::StreamExt;
+
+        let dockerfile_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("tests")
+            .join("postgres-docker");
+        let build_option = BuildOptions::builder(format!("{}", dockerfile_dir.display()))
+            .dockerfile("pg-Dockerfile".to_string())
+            .tag("postgres_docker_test:latest")
+            .build();
+
+        let mut stream = docker.images().build(&build_option);
+
+        while let Some(build_result) = stream.next().await {
+            match build_result {
+                Ok(output) => {
+                    info!("Pulled {:?} from docker hub.", output)
+                }
+                Err(e) => {
+                    panic!("Error while pulling from dockerhub: {}", e);
+                }
+            }
+        }
+    }
+
+    // if there was a problem at previous run, the docker container may still be running
+    // so let's stop it if some is found
+    {
+        let old_container = docker.containers().get(container_name);
+        let _ = old_container.stop(None).await;
+        let _ = old_container.delete().await;
+    }
+
+    let options = shiplift::ContainerOptions::builder("postgres_docker_test:latest")
+        .expose(5432, "tcp", 5430)
+        .env(vec![
+            "POSTGRES_USER=chaos",
+            "POSTGRES_PASSWORD=chaos",
+            "POSTGRES_DB=chaos",
+        ])
+        .name(container_name)
+        .build();
+    let id = docker.containers().create(&options).await.unwrap().id;
+
+    docker.containers().get(&id).start().await.unwrap();
+    println!("{id}");
+    id
+}
+
 async fn wait_until_connected_to_rabbitmq(zmq_endpoint: &str) {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
@@ -210,7 +283,28 @@ async fn wait_until_connected_to_rabbitmq(zmq_endpoint: &str) {
     }
 }
 
-async fn stop_rabbitmq_docker(container_id: &str) {
+async fn wait_until_connected_to_postgresql(chaos_endpoint: &str) {
+    use diesel::prelude::*;
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    tokio::pin!(timeout);
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+            connection = async { PgConnection::establish(chaos_endpoint) } => {
+                if connection.is_ok() {
+                    return;
+                }
+            }
+            _ = & mut timeout => {
+                panic!("Not connected to rabbitmq before timeout.");
+            }
+        }
+    }
+}
+
+async fn stop_docker(container_id: &str) {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
     container.stop(None).await.unwrap();

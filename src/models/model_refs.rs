@@ -36,7 +36,7 @@
 
 use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
 use transit_model::objects::{
-    CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+    CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
 
 use super::{
@@ -321,6 +321,13 @@ impl<'model> ModelRefs<'model> {
     pub fn street_name(&self, stop_point_idx: &StopPointIdx) -> Option<&'model str> {
         match stop_point_idx {
             StopPointIdx::Base(idx) => self.base.street_name(*idx),
+            StopPointIdx::New(_) => None,
+        }
+    }
+
+    pub fn equipment(&self, stop_point_idx: &StopPointIdx) -> Option<&'model Equipment> {
+        match stop_point_idx {
+            StopPointIdx::Base(idx) => self.base.equipment(*idx),
             StopPointIdx::New(_) => None,
         }
     }

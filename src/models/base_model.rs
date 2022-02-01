@@ -37,7 +37,7 @@
 use chrono::{Duration, NaiveDate};
 use tracing::warn;
 use transit_model::objects::{
-    CommercialMode, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+    CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
 
 use typed_index_collection::Idx;
@@ -197,6 +197,13 @@ impl BaseModel {
         let address_id = &stop_point.address_id.as_ref()?;
         let address = &self.collections.addresses.get(address_id)?;
         Some(address.street_name.as_str())
+    }
+
+    pub fn equipment(&self, idx: BaseStopPointIdx) -> Option<&Equipment> {
+        let stop_point = &self.collections.stop_points[idx];
+        let equipment_id = &stop_point.equipment_id.as_ref()?;
+        let equipment = &self.collections.equipments.get(equipment_id)?;
+        Some(equipment)
     }
 
     pub fn coord(&self, idx: BaseStopPointIdx) -> Coord {

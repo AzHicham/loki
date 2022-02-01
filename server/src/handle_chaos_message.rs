@@ -433,7 +433,7 @@ fn make_periods(
 
 fn make_tag(proto: &chaos_proto::chaos::Tag) -> Tag {
     Tag {
-        name: proto.get_id().to_string(),
+        name: proto.get_name().to_string(),
     }
 }
 

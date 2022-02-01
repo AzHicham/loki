@@ -56,6 +56,7 @@ use utils::{
     Config,
 };
 
+use loki::models::real_time_model::ImpactIdx;
 use rstest::rstest;
 
 #[rstest]
@@ -564,6 +565,7 @@ where
 
         let date = "2020-01-01".as_date();
         let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
         let result = real_time_model.modify_trip(
             &base_model,
             &mut data,
@@ -571,6 +573,7 @@ where
             &date,
             stop_times,
             disruption_idx,
+            impact_idx,
         );
         assert!(result.is_ok());
     }
@@ -676,9 +679,11 @@ where
         let vehicle_journey_id = "invalid_date_vj".to_string();
         let date = "1999-01-01".as_date();
         let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
         let (vj_idx, stop_times) = real_time_model
             .add(
                 disruption_idx,
+                impact_idx,
                 &vehicle_journey_id,
                 &date,
                 Vec::new(),
@@ -720,9 +725,11 @@ where
         let date = "1999-01-01".as_date();
 
         let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
         let (vj_idx, stop_times) = real_time_model
             .add(
                 disruption_idx,
+                impact_idx,
                 &vehicle_journey_id,
                 &date,
                 Vec::new(),
@@ -763,6 +770,7 @@ where
         let vehicle_journey_id = "time_travel_vj".to_string();
         let date = "2020-01-01".as_date();
         let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
         let stop_times = StopTimesBuilder::new()
             .st("A", "09:45:00")
             .st("B", "08:05:00")
@@ -772,6 +780,7 @@ where
         let (vj_idx, stop_times) = real_time_model
             .add(
                 disruption_idx,
+                impact_idx,
                 &vehicle_journey_id,
                 &date,
                 stop_times,
@@ -841,6 +850,7 @@ where
         let vehicle_journey_id = "inserted_twice_vj".to_string();
         let date = "2020-01-01".as_date();
         let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
         let stop_times = StopTimesBuilder::new()
             .st("A", "09:45:00")
             .st("B", "10:05:00")
@@ -850,6 +860,7 @@ where
         let (vj_idx, stop_times) = real_time_model
             .add(
                 disruption_idx,
+                impact_idx,
                 &vehicle_journey_id,
                 &date,
                 stop_times,

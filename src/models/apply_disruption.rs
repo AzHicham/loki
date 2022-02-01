@@ -53,7 +53,10 @@ use super::{
     real_time_model::DisruptionIdx,
     RealTimeModel,
 };
-use crate::DataUpdate;
+use crate::{
+    models::{real_time_disruption::Informed, real_time_model::ImpactIdx},
+    DataUpdate,
+};
 
 use super::{base_model::BaseModel, real_time_disruption as disruption, ModelRefs};
 
@@ -68,8 +71,9 @@ impl RealTimeModel {
             idx: self.disruptions.len(),
         };
 
-        for impact in &disruption.impacts {
-            self.apply_impact(impact, base_model, data, &disruption_idx);
+        for (idx, impact) in disruption.impacts.iter().enumerate() {
+            let impact_idx = ImpactIdx { idx };
+            self.apply_impact(impact, base_model, data, &disruption_idx, &impact_idx);
         }
 
         self.disruptions.push(disruption);
@@ -81,6 +85,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) {
         let model_periods = [base_model.time_period()];
         let model_periods = TimePeriods::new(&model_periods).unwrap(); // unwrap is safe here, because the input slice is not empty
@@ -96,6 +101,7 @@ impl RealTimeModel {
                     &network.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::LineDeleted(line) => self.delete_line(
                     base_model,
@@ -103,6 +109,7 @@ impl RealTimeModel {
                     &line.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::RouteDeleted(route) => self.delete_route(
                     base_model,
@@ -110,6 +117,7 @@ impl RealTimeModel {
                     &route.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::BaseTripDeleted(trip) => self.delete_base_vehicle_journey(
                     base_model,
@@ -117,6 +125,7 @@ impl RealTimeModel {
                     &trip.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::TripDeleted(vehicle_journey_id, date) => self.delete_trip(
                     base_model,
@@ -124,19 +133,29 @@ impl RealTimeModel {
                     &vehicle_journey_id.id,
                     date,
                     disruption_idx,
+                    impact_idx,
                 ),
-                Impacted::BaseTripUpdated(trip_disruption) => {
-                    self.update_base_trip(base_model, data, trip_disruption, disruption_idx)
-                }
-                Impacted::NewTripUpdated(trip_disruption) => {
-                    self.update_new_trip(base_model, data, trip_disruption, disruption_idx)
-                }
+                Impacted::BaseTripUpdated(trip_disruption) => self.update_base_trip(
+                    base_model,
+                    data,
+                    trip_disruption,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Impacted::NewTripUpdated(trip_disruption) => self.update_new_trip(
+                    base_model,
+                    data,
+                    trip_disruption,
+                    disruption_idx,
+                    impact_idx,
+                ),
                 Impacted::StopAreaDeleted(stop_area_id) => self.delete_stop_area(
                     base_model,
                     data,
                     &stop_area_id.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::StopPointDeleted(stop_point_id) => self.delete_stop_point(
                     base_model,
@@ -144,12 +163,55 @@ impl RealTimeModel {
                     &stop_point_id.id,
                     &application_periods,
                     disruption_idx,
+                    impact_idx,
                 ),
                 Impacted::RailSection(_) => todo!(),
                 Impacted::LineSection(_) => todo!(),
             };
             if let Err(err) = result {
                 error!("Error while applying impact {} : {:?}", impact.id, err);
+            }
+        }
+
+        for pt_object in &impact.informed_pt_objects {
+            let result = match pt_object {
+                Informed::Network(network) => self.informed_network(
+                    base_model,
+                    &network.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Route(route) => self.informed_route(
+                    base_model,
+                    &route.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Line(line) => self.informed_line(
+                    base_model,
+                    &line.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::Trip(trip) => self.informed_base_vehicle_journey(
+                    base_model,
+                    &trip.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::StopArea(_) => todo!(),
+                Informed::StopPoint(_) => todo!(),
+                Informed::Unknown => todo!(),
+            };
+            if let Err(err) = result {
+                error!(
+                    "Error while storing informed impact {} : {:?}",
+                    impact.id, err
+                );
             }
         }
     }
@@ -161,6 +223,7 @@ impl RealTimeModel {
         stop_area_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         if !base_model.contains_stop_area_id(stop_area_id) {
             return Err(DisruptionError::StopAreaAbsent(StopAreaId {
@@ -177,6 +240,7 @@ impl RealTimeModel {
                     stop_point_id,
                     application_periods,
                     disruption_idx,
+                    impact_idx,
                 );
                 if let Err(err) = result {
                     error!("Error while deleting stop area {}. {:?}", stop_area_id, err);
@@ -193,6 +257,7 @@ impl RealTimeModel {
         stop_point_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         let stop_point_idx = self
             .stop_point_idx(stop_point_id, base_model)
@@ -220,6 +285,9 @@ impl RealTimeModel {
                     {
                         if application_periods.intersects(&time_period) {
                             let is_stop_time_concerned = |stop_time: &super::StopTime| {
+                                if stop_time.stop != stop_point_idx {
+                                    return false;
+                                }
                                 let board_time =
                                     calendar::compose(&date, &stop_time.board_time, &timezone);
                                 let debark_time =
@@ -247,6 +315,7 @@ impl RealTimeModel {
                                 &date,
                                 stop_times,
                                 *disruption_idx,
+                                *impact_idx,
                             );
                             if let Err(err) = result {
                                 error!(
@@ -269,6 +338,7 @@ impl RealTimeModel {
         data: &mut Data,
         trip_disruption: &TripDisruption,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         let vehicle_journey_id = &trip_disruption.trip_id.id;
 
@@ -299,6 +369,7 @@ impl RealTimeModel {
                 &date,
                 stop_times,
                 *disruption_idx,
+                *impact_idx,
             )
         } else {
             self.add_trip(
@@ -308,6 +379,7 @@ impl RealTimeModel {
                 &date,
                 stop_times,
                 *disruption_idx,
+                *impact_idx,
             )
         }
     }
@@ -318,6 +390,7 @@ impl RealTimeModel {
         data: &mut Data,
         trip_disruption: &TripDisruption,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         let vehicle_journey_id = &trip_disruption.trip_id.id;
         let stop_times = self.make_stop_times(&trip_disruption.stop_times, base_model);
@@ -343,6 +416,7 @@ impl RealTimeModel {
                     &date,
                     stop_times,
                     *disruption_idx,
+                    *impact_idx,
                 )
             } else {
                 self.add_trip(
@@ -352,6 +426,7 @@ impl RealTimeModel {
                     &date,
                     stop_times,
                     *disruption_idx,
+                    *impact_idx,
                 )
             }
         } else {
@@ -368,8 +443,9 @@ impl RealTimeModel {
         network_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
-        if base_model.contains_network_id(network_id) {
+        if !base_model.contains_network_id(network_id) {
             return Err(DisruptionError::NetworkAbsent(NetworkId {
                 id: network_id.to_string(),
             }));
@@ -384,6 +460,7 @@ impl RealTimeModel {
                     vehicle_journey_id,
                     application_periods,
                     disruption_idx,
+                    impact_idx,
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
@@ -401,6 +478,7 @@ impl RealTimeModel {
         line_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         if !base_model.contains_line_id(line_id) {
             return Err(DisruptionError::LineAbsent(LineId {
@@ -416,6 +494,7 @@ impl RealTimeModel {
                     vehicle_journey_id,
                     application_periods,
                     disruption_idx,
+                    impact_idx,
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
@@ -433,6 +512,7 @@ impl RealTimeModel {
         route_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         if !base_model.contains_route_id(route_id) {
             return Err(DisruptionError::RouteAbsent(RouteId {
@@ -448,6 +528,7 @@ impl RealTimeModel {
                     vehicle_journey_id,
                     application_periods,
                     disruption_idx,
+                    impact_idx,
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
@@ -465,6 +546,7 @@ impl RealTimeModel {
         vehicle_journey_id: &str,
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
             for date in application_periods.dates_possibly_concerned() {
@@ -476,6 +558,7 @@ impl RealTimeModel {
                             vehicle_journey_id,
                             &date,
                             disruption_idx,
+                            impact_idx,
                         );
                         // we should never get a DeleteAbsentTrip error
                         // since we check in trip_time_period() that this trip exists
@@ -504,13 +587,20 @@ impl RealTimeModel {
         vehicle_journey_id: &str,
         date: &NaiveDate,
         disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
         debug!(
             "Deleting vehicle journey {} on day {}",
             vehicle_journey_id, date
         );
         let vj_idx = self
-            .delete(*disruption_idx, vehicle_journey_id, date, base_model)
+            .delete(
+                *disruption_idx,
+                *impact_idx,
+                vehicle_journey_id,
+                date,
+                base_model,
+            )
             .map_err(|_| {
                 DisruptionError::DeleteAbsentTrip(
                     VehicleJourneyId {
@@ -543,6 +633,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         stop_times: Vec<super::StopTime>,
         disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
     ) -> Result<(), DisruptionError> {
         debug!(
             "Modifying vehicle journey {} on date {}",
@@ -551,6 +642,7 @@ impl RealTimeModel {
         let (vj_idx, stop_times) = self
             .modify(
                 disruption_idx,
+                impact_idx,
                 vehicle_journey_id,
                 date,
                 stop_times,
@@ -604,6 +696,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         stop_times: Vec<super::StopTime>,
         disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
     ) -> Result<(), DisruptionError> {
         debug!(
             "Adding a new vehicle journey {} on date {}",
@@ -612,6 +705,7 @@ impl RealTimeModel {
         let (vj_idx, stop_times) = self
             .add(
                 disruption_idx,
+                impact_idx,
                 vehicle_journey_id,
                 date,
                 stop_times,
@@ -660,5 +754,132 @@ impl RealTimeModel {
         }
 
         Ok(())
+    }
+
+    fn informed_network(
+        &mut self,
+        base_model: &BaseModel,
+        network_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        if !base_model.contains_network_id(network_id) {
+            return Err(DisruptionError::NetworkAbsent(NetworkId {
+                id: network_id.to_string(),
+            }));
+        }
+
+        for base_vehicle_journey_idx in base_model.vehicle_journeys() {
+            if base_model.network_name(base_vehicle_journey_idx) == Some(network_id) {
+                let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
+                let result = self.informed_base_vehicle_journey(
+                    base_model,
+                    vehicle_journey_id,
+                    application_periods,
+                    disruption_idx,
+                    impact_idx,
+                );
+                // we should never get a VehicleJourneyAbsent error
+                if let Err(err) = result {
+                    error!("Unexpected error while deleting a route {:?}", err);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn informed_line(
+        &mut self,
+        base_model: &BaseModel,
+        line_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        if !base_model.contains_line_id(line_id) {
+            return Err(DisruptionError::LineAbsent(LineId {
+                id: line_id.to_string(),
+            }));
+        }
+        for base_vehicle_journey_idx in base_model.vehicle_journeys() {
+            if base_model.line_name(base_vehicle_journey_idx) == Some(line_id) {
+                let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
+                let result = self.informed_base_vehicle_journey(
+                    base_model,
+                    vehicle_journey_id,
+                    application_periods,
+                    disruption_idx,
+                    impact_idx,
+                );
+                // we should never get a VehicleJourneyAbsent error
+                if let Err(err) = result {
+                    error!("Unexpected error while deleting a line {:?}", err);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn informed_route(
+        &mut self,
+        base_model: &BaseModel,
+        route_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        if !base_model.contains_route_id(route_id) {
+            return Err(DisruptionError::RouteAbsent(RouteId {
+                id: route_id.to_string(),
+            }));
+        }
+        for base_vehicle_journey_idx in base_model.vehicle_journeys() {
+            if base_model.route_name(base_vehicle_journey_idx) == route_id {
+                let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
+                let result = self.informed_base_vehicle_journey(
+                    base_model,
+                    vehicle_journey_id,
+                    application_periods,
+                    disruption_idx,
+                    impact_idx,
+                );
+                // we should never get a VehicleJourneyAbsent error
+                if let Err(err) = result {
+                    error!("Unexpected error while deleting a route {:?}", err);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn informed_base_vehicle_journey(
+        &mut self,
+        base_model: &BaseModel,
+        vehicle_journey_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+            for date in application_periods.dates_possibly_concerned() {
+                if let Some(trip_period) = base_model.trip_time_period(vehicle_journey_idx, &date) {
+                    if application_periods.intersects(&trip_period) {
+                        self.insert_informed_linked_disruption(
+                            vehicle_journey_id,
+                            &date,
+                            base_model,
+                            *disruption_idx,
+                            *impact_idx,
+                        );
+                    }
+                }
+            }
+            Ok(())
+        } else {
+            Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
+                id: vehicle_journey_id.to_string(),
+            }))
+        }
     }
 }
