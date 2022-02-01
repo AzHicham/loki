@@ -228,7 +228,7 @@ fn dispatch_pt_object(
             }));
         }
 
-        (Type::stop_point, Effect::NoService) => {
+        (Type::stop_point, Effect::NoService | Effect::Detour) => {
             impacted.push(Impacted::StopPointDeleted(StopPointId {
                 id: strip_id_prefix(&id, PREFIX_ID_STOP_POINT).to_string(),
             }));
@@ -239,7 +239,7 @@ fn dispatch_pt_object(
             }));
         }
 
-        (Type::stop_area, Effect::NoService) => {
+        (Type::stop_area, Effect::NoService | Effect::Detour) => {
             impacted.push(Impacted::StopAreaDeleted(StopAreaId {
                 id: strip_id_prefix(&id, PREFIX_ID_STOP_AREA).to_string(),
             }));

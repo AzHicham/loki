@@ -203,8 +203,20 @@ impl RealTimeModel {
                     disruption_idx,
                     impact_idx,
                 ),
-                Informed::StopArea(_) => todo!(),
-                Informed::StopPoint(_) => todo!(),
+                Informed::StopArea(stop_area) => self.informed_stop_area(
+                    base_model,
+                    &stop_area.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
+                Informed::StopPoint(stop_point) => self.informed_stop_point(
+                    base_model,
+                    &stop_point.id,
+                    &application_periods,
+                    disruption_idx,
+                    impact_idx,
+                ),
                 Informed::Unknown => todo!(),
             };
             if let Err(err) = result {
@@ -848,6 +860,100 @@ impl RealTimeModel {
                 if let Err(err) = result {
                     error!("Unexpected error while deleting a route {:?}", err);
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn informed_stop_point(
+        &mut self,
+        base_model: &BaseModel,
+        stop_point_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        let stop_point_idx = self
+            .stop_point_idx(stop_point_id, base_model)
+            .ok_or_else(|| {
+                DisruptionError::StopPointAbsent(StopPointId {
+                    id: stop_point_id.to_string(),
+                })
+            })?;
+
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            let vehicle_journey_id = base_model.vehicle_journey_name(vehicle_journey_idx);
+            if let Ok(base_stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                let contains_stop_point = base_stop_times
+                    .clone()
+                    .any(|stop_time| stop_time.stop == stop_point_idx);
+                if !contains_stop_point {
+                    continue;
+                }
+                let timezone = base_model
+                    .timezone(vehicle_journey_idx)
+                    .unwrap_or(chrono_tz::UTC);
+                for date in application_periods.dates_possibly_concerned() {
+                    if let Some(time_period) =
+                        base_model.trip_time_period(vehicle_journey_idx, &date)
+                    {
+                        if application_periods.intersects(&time_period) {
+                            let is_stop_time_concerned = |stop_time: &super::StopTime| {
+                                if stop_time.stop != stop_point_idx {
+                                    return false;
+                                }
+                                let board_time =
+                                    calendar::compose(&date, &stop_time.board_time, &timezone);
+                                let debark_time =
+                                    calendar::compose(&date, &stop_time.debark_time, &timezone);
+                                application_periods.contains(&board_time)
+                                    || application_periods.contains(&debark_time)
+                            };
+                            let is_trip_concerned = base_stop_times
+                                .clone()
+                                .any(|stop_time| is_stop_time_concerned(&stop_time));
+
+                            if is_trip_concerned {
+                                self.insert_informed_linked_disruption(
+                                    vehicle_journey_id,
+                                    &date,
+                                    base_model,
+                                    *disruption_idx,
+                                    *impact_idx,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn informed_stop_area(
+        &mut self,
+        base_model: &BaseModel,
+        stop_area_id: &str,
+        application_periods: &TimePeriods,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        if !base_model.contains_stop_area_id(stop_area_id) {
+            return Err(DisruptionError::StopAreaAbsent(StopAreaId {
+                id: stop_area_id.to_string(),
+            }));
+        }
+        for stop_point in base_model.stop_points() {
+            let stop_area_of_stop_point = base_model.stop_area_name(stop_point);
+            if stop_area_id == stop_area_of_stop_point {
+                let stop_point_id = base_model.stop_point_id(stop_point);
+                self.informed_stop_point(
+                    base_model,
+                    stop_point_id,
+                    application_periods,
+                    disruption_idx,
+                    impact_idx,
+                )?;
             }
         }
         Ok(())
