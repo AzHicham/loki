@@ -32,12 +32,13 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
 use launch::loki::{
+    chrono,
     chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
     models::real_time_disruption::TimePeriod,
 };
 use protobuf::Message;
 
-use crate::{first_section_vj_name, reload_base_data};
+use crate::{first_section_vj_name, reload_base_data, wait_until_realtime_updated_after};
 
 #[derive(Debug)]
 enum PtObject<'a> {
@@ -225,7 +226,12 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
 
     // let's delete all Trip of "my_network" Network
     // between 2021-02-01 and 2021-02-01
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let date_disruption = date + chrono::Duration::days(30);
+    let dt_period = TimePeriod::new(
+        date_disruption.and_hms(0, 0, 0),
+        date_disruption.and_hms(23, 0, 0),
+    )
+    .unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
     let realtime_message =
         create_no_service_disruption(&PtObject::Network("my_network"), &dt_period);
@@ -323,7 +329,11 @@ pub async fn delete_vj_test(config: &ServerConfig) {
 
 pub async fn delete_line_test(config: &ServerConfig) {
     // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
     reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
 
     // the ntfs (in tests/a_small_ntfs) contains just one trip
     // with a vehicle_journey named "matin"
@@ -395,7 +405,11 @@ pub async fn delete_line_test(config: &ServerConfig) {
 
 pub async fn delete_route_test(config: &ServerConfig) {
     // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
     reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
 
     // the ntfs (in tests/a_small_ntfs) contains just one trip
     // with a vehicle_journey named "matin"
@@ -467,7 +481,11 @@ pub async fn delete_route_test(config: &ServerConfig) {
 
 pub async fn delete_stop_point_test(config: &ServerConfig) {
     // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
     reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
 
     // the ntfs (in tests/a_small_ntfs) contains just one trip
     // with a vehicle_journey named "matin"
@@ -505,7 +523,7 @@ pub async fn delete_stop_point_test(config: &ServerConfig) {
         );
     }
 
-    // let's delete the only trip
+    // let's mark the StopPoint 'massy' as not in service
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
     let realtime_message =
@@ -536,12 +554,24 @@ pub async fn delete_stop_point_test(config: &ServerConfig) {
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
+        assert_eq!(
+            journeys_response.impacts[0].impacted_objects[0]
+                .pt_object
+                .as_ref()
+                .unwrap()
+                .uri,
+            "stop_point:massy"
+        );
     }
 }
 
 pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
     // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
     reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
 
     // the ntfs (in tests/a_small_ntfs) contains just one trip
     // with a vehicle_journey named "matin"
@@ -597,13 +627,17 @@ pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
             realtime_request.clone(),
         )
         .await;
-        assert_eq!(journeys_response.journeys.len(), 0);
+        assert_eq!(journeys_response.journeys.len(), 1);
     }
 }
 
 pub async fn delete_stop_area_test(config: &ServerConfig) {
     // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
     reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
 
     // the ntfs (in tests/a_small_ntfs) contains just one trip
     // with a vehicle_journey named "matin"
@@ -681,7 +715,7 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
                 .as_ref()
                 .unwrap()
                 .uri,
-            "matin"
+            "massy_area"
         );
     }
 }

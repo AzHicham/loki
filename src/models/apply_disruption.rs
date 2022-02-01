@@ -285,6 +285,9 @@ impl RealTimeModel {
                     {
                         if application_periods.intersects(&time_period) {
                             let is_stop_time_concerned = |stop_time: &super::StopTime| {
+                                if stop_time.stop != stop_point_idx {
+                                    return false;
+                                }
                                 let board_time =
                                     calendar::compose(&date, &stop_time.board_time, &timezone);
                                 let debark_time =
