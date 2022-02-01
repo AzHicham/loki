@@ -37,7 +37,7 @@
 use chrono::{FixedOffset, NaiveDate};
 use std::fmt::{Display, Formatter};
 
-mod calendar;
+pub mod calendar;
 pub mod days_map;
 pub mod days_patterns;
 pub mod timezones_patterns;

@@ -1,8 +1,8 @@
 stop_id,visible,stop_name,stop_lat,stop_lon,zone_id,location_type,parent_station,stop_timezone,equipment_id,contributor_id,geometry_id
-massy,1,"Massy",48.725529,2.260294,,0,stop_area:massy,UTC,,my_contributor,
-paris,1,"Paris",48.858821,2.347589,,0,stop_area:paris,UTC,,my_contributor,
-stop_area:massy,1,"Massy",48.725529,2.260294,,1,,UTC,,my_contributor,
-stop_area:paris,1,"Paris",48.858821,2.347589,,1,,UTC,,my_contributor,
+massy,1,"Massy",48.725529,2.260294,,0,massy_area,UTC,,my_contributor,
+paris,1,"Paris",48.858821,2.347589,,0,paris_area,UTC,,my_contributor,
+massy_area,1,"Massy Area",48.725529,2.260294,,1,,UTC,,my_contributor,
+paris_area,1,"Paris Area",48.858821,2.347589,,1,,UTC,,my_contributor,
 pontoise,1,"Massy",49.0510,2.1006,,0,stop_area:pontoise,UTC,,my_contributor,
 dourdan,1,"Paris",48.5292,2.0153,,0,stop_area:dourdan,UTC,,my_contributor,
 stop_area:pontoise,1,"Pontoise",49.0510,2.1006,,1,,UTC,,my_contributor,

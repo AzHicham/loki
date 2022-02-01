@@ -32,11 +32,12 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
 use launch::loki::{
-    chrono::{NaiveDate, NaiveTime, Timelike, Utc},
+    chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
     models::real_time_disruption::TimePeriod,
-    NaiveDateTime,
 };
 use protobuf::Message;
+
+use crate::{first_section_vj_name, reload_base_data};
 
 #[derive(Debug)]
 enum PtObject<'a> {
@@ -44,6 +45,8 @@ enum PtObject<'a> {
     Line(&'a str),
     Route(&'a str),
     Trip(&'a str),
+    StopPoint(&'a str),
+    StopArea(&'a str),
 }
 
 // Reload choas database and check if all required information's are correctly loaded
@@ -188,44 +191,41 @@ pub async fn load_database_test(config: &ServerConfig) {
 // try to remove all vehicle of a network
 // but on a period that don't intersect with calendar validity_period
 pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
 
-    // initial request
-    let journey_request =
-        crate::make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
 
     // let's first check that we do get a response
     {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
-            journey_request.clone(),
+            base_request.clone(),
         )
         .await;
-        // info!("{:#?}", journeys_response);
         // check that we have a journey, that uses the only trip in the ntfs
         assert_eq!(
-            journeys_response.journeys[0].sections[0]
-                .pt_display_informations
-                .as_ref()
-                .unwrap()
-                .uris
-                .as_ref()
-                .unwrap()
-                .vehicle_journey
-                .as_ref()
-                .unwrap(),
+            first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
     }
 
     // let's delete all Trip of "my_network" Network
     // between 2021-02-01 and 2021-02-01
-    let dt_period = TimePeriod::new(
-        NaiveDateTime::parse_from_str("20210201T000000", "%Y%m%dT%H%M%S").unwrap(),
-        NaiveDateTime::parse_from_str("20210201T230000", "%Y%m%dT%H%M%S").unwrap(),
-    )
-    .unwrap();
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
     let realtime_message =
         create_no_service_disruption(&PtObject::Network("my_network"), &dt_period);
@@ -243,12 +243,6 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
     // because the disruption previously sent had no effect
     // due to application period
     {
-        let mut realtime_request = journey_request.clone();
-        realtime_request
-            .journeys
-            .as_mut()
-            .unwrap()
-            .set_realtime_level(navitia_proto::RtLevel::Realtime);
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -259,63 +253,269 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
 }
 
 pub async fn delete_vj_test(config: &ServerConfig) {
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 08:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
 
-    // initial request
-    let journey_request =
-        crate::make_journeys_request("stop_point:massy", "stop_point:paris", datetime);
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
 
     // let's first check that we do get a response
     {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
-            journey_request.clone(),
+            base_request.clone(),
         )
         .await;
-        // info!("{:#?}", journeys_response);
         // check that we have a journey, that uses the only trip in the ntfs
         assert_eq!(
-            journeys_response.journeys[0].sections[0]
-                .pt_display_informations
-                .as_ref()
-                .unwrap()
-                .uris
-                .as_ref()
-                .unwrap()
-                .vehicle_journey
-                .as_ref()
-                .unwrap(),
+            first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
     }
 
     // let's delete the only trip
-    let dt_period = TimePeriod::new(
-        NaiveDateTime::parse_from_str("20210101T000000", "%Y%m%dT%H%M%S").unwrap(),
-        NaiveDateTime::parse_from_str("20210101T230000", "%Y%m%dT%H%M%S").unwrap(),
-    )
-    .unwrap();
-    let send_realtime_message_datetime = Utc::now().naive_utc();
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+
     let realtime_message = create_no_service_disruption(&PtObject::Trip("matin"), &dt_period);
+
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
-    // wait until realtime message is taken into account
-    crate::wait_until_realtime_updated_after(
-        &config.requests_socket,
-        &send_realtime_message_datetime,
-    )
-    .await;
-
     // let's make the same request, but on the realtime level
-    // we should get no journey in the response an no linked impact
+    // we should get no journey in the response
     {
-        let mut realtime_request = journey_request.clone();
-        realtime_request
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+}
+
+pub async fn delete_line_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    reload_base_data(config).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
             .journeys
             .as_mut()
             .unwrap()
             .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's delete the only trip
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+
+    let realtime_message = create_no_service_disruption(&PtObject::Line("rer_b"), &dt_period);
+
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the same request, but on the realtime level
+    // we should get no journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+}
+
+pub async fn delete_route_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    reload_base_data(config).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's delete the only trip
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+
+    let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
+
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the same request, but on the realtime level
+    // we should get no journey in the response an no linked impact
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+}
+
+pub async fn delete_stop_point_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    reload_base_data(config).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's delete the only trip
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+
+    let realtime_message =
+        create_no_service_disruption(&PtObject::StopPoint("stop_point:massy"), &dt_period);
+
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the same request, but on the realtime level
+    // we should get no journey in the response
+    {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -327,28 +527,148 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // with the same request on the 'base schedule' level
     // we should get a journey in the response with a linked impact
     {
-        let mut realtime_request = journey_request.clone();
-        realtime_request
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+}
+
+pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    reload_base_data(config).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
             .journeys
             .as_mut()
             .unwrap()
-            .set_realtime_level(navitia_proto::RtLevel::BaseSchedule);
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // the vehicle circulate at 8:00 at massy
+    // so if the application_period of the disruption
+    // starts at 8:30, it should not remove the vehicle
+    let dt_period = TimePeriod::new(date.and_hms(8, 30, 0), date.and_hms(23, 0, 0)).unwrap();
+
+    let realtime_message =
+        create_no_service_disruption(&PtObject::StopPoint("stop_point:massy"), &dt_period);
+
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the same request, but on the realtime level
+    // we should get a journey in the response
+    {
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
         )
         .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+}
+
+pub async fn delete_stop_area_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    reload_base_data(config).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
         assert_eq!(
-            journeys_response.journeys[0].sections[0]
-                .pt_display_informations
-                .as_ref()
-                .unwrap()
-                .uris
-                .as_ref()
-                .unwrap()
-                .vehicle_journey
-                .as_ref()
-                .unwrap(),
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's delete the only trip
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+
+    let realtime_message =
+        create_no_service_disruption(&PtObject::StopArea("stop_area:massy_area"), &dt_period);
+
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the same request, but on the realtime level
+    // we should get no journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
         assert_eq!(
@@ -388,6 +708,14 @@ fn create_no_service_disruption(
         }
         PtObject::Trip(id) => {
             entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::trip);
+            entity.set_uri(id.to_string());
+        }
+        PtObject::StopArea(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::stop_area);
+            entity.set_uri(id.to_string());
+        }
+        PtObject::StopPoint(id) => {
+            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::stop_point);
             entity.set_uri(id.to_string());
         }
     }

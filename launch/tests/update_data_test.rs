@@ -561,7 +561,7 @@ where
             .st("A", "09:45:00")
             .st("B", "10:05:00")
             .st("C", "10:10:00")
-            .stop_times;
+            .finalize(&mut real_time_model, &base_model);
 
         let date = "2020-01-01".as_date();
         let disruption_idx = DisruptionIdx::new(0);
@@ -571,7 +571,7 @@ where
             &mut data,
             "first",
             &date,
-            &stop_times,
+            stop_times,
             disruption_idx,
             impact_idx,
         );
@@ -686,7 +686,7 @@ where
                 impact_idx,
                 &vehicle_journey_id,
                 &date,
-                &Vec::new(),
+                Vec::new(),
                 &base_model,
             )
             .unwrap();
@@ -732,7 +732,7 @@ where
                 impact_idx,
                 &vehicle_journey_id,
                 &date,
-                &Vec::new(),
+                Vec::new(),
                 &base_model,
             )
             .unwrap();
@@ -775,14 +775,15 @@ where
             .st("A", "09:45:00")
             .st("B", "08:05:00")
             .st("C", "10:10:00")
-            .stop_times;
+            .finalize(&mut real_time_model, &base_model);
+
         let (vj_idx, stop_times) = real_time_model
             .add(
                 disruption_idx,
                 impact_idx,
                 &vehicle_journey_id,
                 &date,
-                stop_times.as_slice(),
+                stop_times,
                 &base_model,
             )
             .unwrap();
@@ -854,7 +855,7 @@ where
             .st("A", "09:45:00")
             .st("B", "10:05:00")
             .st("C", "10:10:00")
-            .stop_times;
+            .finalize(&mut real_time_model, &base_model);
 
         let (vj_idx, stop_times) = real_time_model
             .add(
@@ -862,7 +863,7 @@ where
                 impact_idx,
                 &vehicle_journey_id,
                 &date,
-                stop_times.as_slice(),
+                stop_times,
                 &base_model,
             )
             .unwrap();

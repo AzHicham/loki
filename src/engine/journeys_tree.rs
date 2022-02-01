@@ -141,7 +141,7 @@ impl<PT: RequestTypes> JourneysTree<PT> {
         criteria: &PT::Criteria,
         journey: &mut Journey<PT>,
     ) {
-        journey.arrival = (&self.arrives[arrive.id].0).clone();
+        journey.arrival = self.arrives[arrive.id].0.clone();
         let connection_legs = &mut journey.connection_legs;
         let new_departure_leg = self.fill_journey_data(arrive, connection_legs);
         journey.departure_leg = new_departure_leg;
@@ -149,7 +149,7 @@ impl<PT: RequestTypes> JourneysTree<PT> {
     }
 
     pub fn create_journey(&self, arrive: &Arrive, criteria: &PT::Criteria) -> Journey<PT> {
-        let arrival = (&self.arrives[arrive.id].0).clone();
+        let arrival = self.arrives[arrive.id].0.clone();
         let mut connection_legs: Vec<ConnectionLeg<PT>> = Vec::new();
         let departure_leg = self.fill_journey_data(arrive, &mut connection_legs);
         Journey {

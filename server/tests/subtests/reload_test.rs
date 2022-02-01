@@ -30,11 +30,11 @@
 use std::path::Path;
 
 pub use loki_server;
-use loki_server::{navitia_proto, server_config::ServerConfig};
-use prost::Message;
+use loki_server::server_config::ServerConfig;
 
-use lapin::{options::BasicPublishOptions, BasicProperties};
-use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime};
+use launch::loki::NaiveDateTime;
+
+use crate::reload_base_data;
 
 // changes the ntfs file on disk, send a reload order, and check
 // that the new data is indeed loaded
@@ -73,10 +73,7 @@ pub async fn reload_test(config: &ServerConfig, data_dir_path: &Path) {
     )
     .unwrap();
 
-    let before_reload_datetime = Utc::now().naive_utc();
-    send_reload_order(config).await;
-
-    crate::wait_until_data_loaded_after(&config.requests_socket, &before_reload_datetime).await;
+    reload_base_data(config).await;
 
     let journeys_response =
         crate::send_request_and_wait_for_response(&config.requests_socket, journeys_request).await;
@@ -92,35 +89,4 @@ pub async fn reload_test(config: &ServerConfig, data_dir_path: &Path) {
             .as_str(),
         "Hello Renamed"
     );
-}
-
-async fn send_reload_order(config: &ServerConfig) {
-    // connect to rabbitmq
-    let connection = lapin::Connection::connect(
-        &config.rabbitmq_params.rabbitmq_endpoint,
-        lapin::ConnectionProperties::default(),
-    )
-    .await
-    .unwrap();
-    let channel = connection.create_channel().await.unwrap();
-
-    let mut task = navitia_proto::Task::default();
-    task.set_action(navitia_proto::Action::Reload);
-    let payload = task.encode_to_vec();
-
-    let routing_key = format!("{}.task.reload", &config.instance_name);
-    channel
-        .basic_publish(
-            &config.rabbitmq_params.rabbitmq_exchange,
-            &routing_key,
-            BasicPublishOptions::default(),
-            payload,
-            BasicProperties::default(),
-        )
-        .await
-        .unwrap()
-        .await
-        .unwrap();
-
-    info!("Reload message published with routing key {}.", routing_key);
 }
