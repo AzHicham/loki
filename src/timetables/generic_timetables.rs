@@ -715,7 +715,7 @@ where
 
         let first_board_time = board_times.clone().next().unwrap();
         let first_board_time_binary_search =
-            (&self.board_times_by_position[0]).binary_search(&first_board_time);
+            self.board_times_by_position[0].binary_search(&first_board_time);
         match first_board_time_binary_search {
             // here, first_board_time has not been found in &self.board_times_by_position[0]
             // and insert_idx is the index where this first_board_time should be inserted

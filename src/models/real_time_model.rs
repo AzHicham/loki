@@ -302,10 +302,10 @@ impl RealTimeModel {
     pub fn stop_point_idx(&self, stop_id: &str, base_model: &BaseModel) -> Option<StopPointIdx> {
         if let Some(idx) = base_model.stop_point_idx(stop_id) {
             Some(StopPointIdx::Base(idx))
-        } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
-            Some(StopPointIdx::New(idx.clone()))
         } else {
-            None
+            self.new_stop_id_to_idx
+                .get(stop_id)
+                .map(|idx| StopPointIdx::New(idx.clone()))
         }
     }
 
