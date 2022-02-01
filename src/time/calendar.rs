@@ -238,12 +238,7 @@ impl Calendar {
         let date = *self.first_date() + chrono::Duration::days(i64::from(day.days));
         // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
         debug_assert!(self.contains_date(&date));
-        use chrono::offset::TimeZone;
-        let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
-            - chrono::Duration::hours(12)
-            + chrono::Duration::seconds(i64::from(seconds_in_day.seconds));
-        use chrono_tz::UTC;
-        let datetime_utc = datetime_timezoned.with_timezone(&UTC).naive_utc();
+        let datetime_utc = compose(&date, seconds_in_day, timezone);
 
         debug_assert!(self.contains_datetime(&datetime_utc));
         let seconds_i64 = (datetime_utc - self.first_datetime()).num_seconds();
@@ -313,6 +308,22 @@ impl Calendar {
         debug_assert!(days_offset < self.nb_of_days());
         DaysSinceDatasetStart { days: days_offset }
     }
+}
+
+pub fn compose(
+    date: &NaiveDate,
+    time_in_day: &SecondsSinceTimezonedDayStart,
+    timezone: &chrono_tz::Tz,
+) -> NaiveDateTime {
+    use chrono::offset::TimeZone;
+    // From : https://developers.google.com/transit/gtfs/reference#field_types
+    // The local times of a vehicle journey are interpreted as a duration
+    // since "noon minus 12h" on each day.
+    let datetime_timezoned = timezone.from_utc_date(date).and_hms(12, 0, 0)
+        - chrono::Duration::hours(12)
+        + chrono::Duration::seconds(i64::from(time_in_day.seconds));
+    use chrono_tz::UTC;
+    datetime_timezoned.with_timezone(&UTC).naive_utc()
 }
 
 pub struct DaysIter {

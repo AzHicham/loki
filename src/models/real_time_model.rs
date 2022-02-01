@@ -157,7 +157,7 @@ impl RealTimeModel {
         disruption_idx: DisruptionIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
-        stop_times: &[disruption::StopTime],
+        stop_times: Vec<super::StopTime>,
         base_model: &BaseModel,
     ) -> Result<(VehicleJourneyIdx, Vec<StopTime>), UpdateError> {
         if self.is_present(vehicle_journey_id, date, base_model) {
@@ -167,7 +167,6 @@ impl RealTimeModel {
             });
             Err(err)
         } else {
-            let stop_times = self.make_stop_times(stop_times, base_model);
             let trip_version = TripVersion {
                 disruption_idx,
                 trip_data: TripData::Present(stop_times.clone()),
@@ -182,7 +181,7 @@ impl RealTimeModel {
         disruption_idx: DisruptionIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
-        stop_times: &[disruption::StopTime],
+        stop_times: Vec<super::StopTime>,
         base_model: &BaseModel,
     ) -> Result<(VehicleJourneyIdx, Vec<StopTime>), UpdateError> {
         if !self.is_present(vehicle_journey_id, date, base_model) {
@@ -192,7 +191,6 @@ impl RealTimeModel {
             });
             Err(err)
         } else {
-            let stop_times = self.make_stop_times(stop_times, base_model);
             let trip_version = TripVersion {
                 disruption_idx,
                 trip_data: TripData::Present(stop_times.clone()),
@@ -271,7 +269,7 @@ impl RealTimeModel {
         vj_idx
     }
 
-    fn make_stop_times(
+    pub fn make_stop_times(
         &mut self,
         stop_times: &[disruption::StopTime],
         base_model: &BaseModel,
@@ -291,17 +289,23 @@ impl RealTimeModel {
     }
 
     fn get_or_insert_stop(&mut self, stop_id: &str, base_model: &BaseModel) -> StopPointIdx {
-        if let Some(idx) = base_model.stop_point_idx(stop_id) {
-            StopPointIdx::Base(idx)
-        } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
-            StopPointIdx::New(idx.clone())
-        } else {
+        self.stop_point_idx(stop_id, base_model).unwrap_or_else(|| {
             let idx = NewStopPointIdx {
                 idx: self.new_stops.len(),
             };
             self.new_stop_id_to_idx
                 .insert(stop_id.to_string(), idx.clone());
             StopPointIdx::New(idx)
+        })
+    }
+
+    pub fn stop_point_idx(&self, stop_id: &str, base_model: &BaseModel) -> Option<StopPointIdx> {
+        if let Some(idx) = base_model.stop_point_idx(stop_id) {
+            Some(StopPointIdx::Base(idx))
+        } else if let Some(idx) = self.new_stop_id_to_idx.get(stop_id) {
+            Some(StopPointIdx::New(idx.clone()))
+        } else {
+            None
         }
     }
 

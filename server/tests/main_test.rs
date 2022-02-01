@@ -32,6 +32,7 @@ use std::{
     str::FromStr,
 };
 
+use lapin::{options::BasicPublishOptions, BasicProperties};
 pub use loki_server;
 use loki_server::{
     chaos_proto, master_worker::MasterWorker, navitia_proto, server_config::ServerConfig,
@@ -40,7 +41,7 @@ use prost::Message;
 use protobuf::Message as ProtobuMessage;
 
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
-use shiplift::builder::PullOptionsBuilder;
+use shiplift::builder::{PullOptionsBuilder, RmContainerOptionsBuilder};
 
 mod subtests;
 
@@ -100,6 +101,12 @@ async fn run() {
 
     subtests::chaos_test::delete_network_on_invalid_period_test(&config).await;
     subtests::chaos_test::delete_vj_test(&config).await;
+
+    subtests::chaos_test::delete_line_test(&config).await;
+    subtests::chaos_test::delete_route_test(&config).await;
+    subtests::chaos_test::delete_stop_point_test(&config).await;
+    subtests::chaos_test::delete_stop_area_test(&config).await;
+    subtests::chaos_test::delete_stop_point_on_invalid_period_test(&config).await;
 
     subtests::places_nearby_test::places_nearby_test(&config).await;
 
@@ -207,7 +214,10 @@ async fn stop_rabbitmq_docker(container_id: &str) {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
     container.stop(None).await.unwrap();
-    container.delete().await.unwrap();
+    container
+        .remove(RmContainerOptionsBuilder::default().volumes(true).build())
+        .await
+        .unwrap();
 }
 
 async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) {
@@ -240,7 +250,7 @@ async fn wait_until_data_loaded_after(zmq_endpoint: &str, after_datetime: &Naive
 async fn wait_until_realtime_updated_after(zmq_endpoint: &str, after_datetime: &NaiveDateTime) {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
-    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
     loop {
         retry_interval.tick().await;
@@ -357,4 +367,60 @@ fn make_journeys_request(
     };
     request.set_requested_api(navitia_proto::Api::PtPlanner);
     request
+}
+
+fn first_section_vj_name(journey: &navitia_proto::Journey) -> &str {
+    journey.sections[0]
+        .pt_display_informations
+        .as_ref()
+        .unwrap()
+        .uris
+        .as_ref()
+        .unwrap()
+        .vehicle_journey
+        .as_ref()
+        .unwrap()
+}
+
+fn arrival_time(journey: &navitia_proto::Journey) -> NaiveDateTime {
+    let timestamp = journey.arrival_date_time();
+    NaiveDateTime::from_timestamp(timestamp as i64, 0)
+}
+
+async fn send_reload_order(config: &ServerConfig) {
+    // connect to rabbitmq
+    let connection = lapin::Connection::connect(
+        &config.rabbitmq_params.rabbitmq_endpoint,
+        lapin::ConnectionProperties::default(),
+    )
+    .await
+    .unwrap();
+    let channel = connection.create_channel().await.unwrap();
+
+    let mut task = navitia_proto::Task::default();
+    task.set_action(navitia_proto::Action::Reload);
+    let payload = task.encode_to_vec();
+
+    let routing_key = format!("{}.task.reload", &config.instance_name);
+    channel
+        .basic_publish(
+            &config.rabbitmq_params.rabbitmq_exchange,
+            &routing_key,
+            BasicPublishOptions::default(),
+            payload,
+            BasicProperties::default(),
+        )
+        .await
+        .unwrap()
+        .await
+        .unwrap();
+
+    info!("Reload message published with routing key {}.", routing_key);
+}
+
+async fn reload_base_data(config: &ServerConfig) {
+    let before_reload_datetime = Utc::now().naive_utc();
+    send_reload_order(config).await;
+
+    crate::wait_until_data_loaded_after(&config.requests_socket, &before_reload_datetime).await;
 }
