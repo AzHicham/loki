@@ -98,7 +98,7 @@ fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navit
         .map(|(disruption_idx, impact_idx)| {
             let (disruption, impact) = model
                 .real_time
-                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+                .get_disruption_and_impact(disruption_idx, impact_idx);
             make_impact(impact, disruption, model)
         })
         .collect()
@@ -154,17 +154,14 @@ fn worst_effect_on_journey(journey: &loki::Response, model: &ModelRefs<'_>) -> O
         let has_disruptions = model
             .real_time
             .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        has_disruptions
-            .map(|disruptions| compute_worst_effect(disruptions, model))
-            .flatten()
+        has_disruptions.and_then(|disruptions| compute_worst_effect(disruptions, model))
     };
     for (_, _, vehicle) in &journey.connections {
         let has_disruptions = model
             .real_time
             .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        let has_effect = has_disruptions
-            .map(|disruptions| compute_worst_effect(disruptions, model))
-            .flatten();
+        let has_effect =
+            has_disruptions.and_then(|disruptions| compute_worst_effect(disruptions, model));
 
         worst_effect = has_effect.into_iter().chain(worst_effect.into_iter()).max();
     }
@@ -176,11 +173,11 @@ fn compute_worst_effect(
     model: &ModelRefs<'_>,
 ) -> Option<Effect> {
     linked_disruptions
-        .into_iter()
+        .iter()
         .map(|(disruption_idx, impact_idx)| {
             let (_, impact) = model
                 .real_time
-                .get_disruption_and_impact(&disruption_idx, &impact_idx);
+                .get_disruption_and_impact(disruption_idx, impact_idx);
             impact.severity.effect
         })
         .max()
