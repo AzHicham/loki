@@ -207,9 +207,13 @@ impl StatusWorker {
                 }
                 self.is_connected_to_rabbitmq = false;
             }
-            StatusUpdate::ChaosReload(datetime) => self.last_chaos_reload = Some(datetime),
+            StatusUpdate::ChaosReload(datetime) => {
+                self.last_chaos_reload = Some(datetime);
+                self.last_real_time_update = Some(datetime);
+            }
             StatusUpdate::KirinReload(datetime) => {
                 self.last_kirin_reload = Some(datetime);
+                self.last_real_time_update = Some(datetime);
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
                 self.last_real_time_update = Some(datetime);

@@ -102,7 +102,9 @@ async fn run() {
 
     subtests::realtime_test::remove_add_modify_base_vj_on_invalid_day_test(&config).await;
 
+    let reload_data_datetime = Utc::now().naive_utc();
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
+    wait_until_realtime_updated_after(zmq_endpoint, &reload_data_datetime).await;
 
     subtests::chaos_test::load_database_test(&config).await;
 
