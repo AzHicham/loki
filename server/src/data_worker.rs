@@ -736,13 +736,16 @@ impl DataWorker {
                 self.handle_incoming_kirin_message(message).await?;
                 self.apply_realtime_messages().await?;
                 info!("Realtime reload completed successfully.");
+
+                // Update last kirin reload datetime in case of success only
+                let now = Utc::now().naive_utc();
+                self.send_status_update(StatusUpdate::KirinReload(now))?
             }
         }
 
         delete_queue(channel, &queue_name).await?;
 
-        let now = Utc::now().naive_utc();
-        self.send_status_update(StatusUpdate::KirinReload(now))
+        Ok(())
     }
 
     fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), Error> {
