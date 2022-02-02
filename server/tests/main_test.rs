@@ -118,6 +118,8 @@ async fn run() {
     subtests::chaos_test::delete_stop_area_test(&config).await;
     subtests::chaos_test::delete_stop_point_on_invalid_period_test(&config).await;
 
+    subtests::chaos_test::cancel_disruption_on_route_test(&config).await;
+
     subtests::places_nearby_test::places_nearby_test(&config).await;
 
     info!("Everything went Ok ! Now stopping.");

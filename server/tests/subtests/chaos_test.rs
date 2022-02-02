@@ -447,7 +447,7 @@ pub async fn delete_route_test(config: &ServerConfig) {
         );
     }
 
-    // let's delete the only trip
+    // let's delete the only route
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
     let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
@@ -476,6 +476,57 @@ pub async fn delete_route_test(config: &ServerConfig) {
             first_section_vj_name(&journeys_response.journeys[0]),
             "vehicle_journey:matin"
         );
+    }
+}
+
+pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
+    reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains just one trip
+    // with a vehicle_journey named "matin"
+    // departing from "massy" at 8h and arriving to "paris" at 9h
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's delete the only route
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message.clone()).await;
+
+    // then revert previously sent disruption
+    let cancel_realtime_message = create_cancel_disruption(&realtime_message.entity[0]);
+    crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
+
+    // let's make a request on the realtime level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
     }
 }
 
@@ -806,6 +857,30 @@ fn create_no_service_disruption(
     feed_entity
         .mut_unknown_fields()
         .add_length_delimited(field_number, vec);
+
+    let mut feed_header = gtfs_proto::FeedHeader::new();
+    feed_header.set_gtfs_realtime_version("1.0".to_string());
+    let timestamp = NaiveDate::from_ymd(2022, 1, 1)
+        .and_hms(12, 0, 0)
+        .timestamp();
+    feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
+
+    let mut feed_message = gtfs_proto::FeedMessage::new();
+    feed_message.mut_entity().push(feed_entity);
+    feed_message.set_header(feed_header);
+
+    feed_message
+}
+
+fn create_cancel_disruption(
+    disruption_to_cancel: &gtfs_proto::FeedEntity,
+) -> gtfs_proto::FeedMessage {
+    let id = disruption_to_cancel.get_id();
+
+    // put the update in a feed_entity
+    let mut feed_entity = gtfs_proto::FeedEntity::new();
+    feed_entity.set_id(id.to_string());
+    feed_entity.set_is_deleted(true);
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());

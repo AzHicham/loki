@@ -1095,6 +1095,10 @@ impl RealTimeModel {
         disruption_idx: DisruptionIdx,
         impact_idx: ImpactIdx,
     ) -> Result<(), DisruptionError> {
+        debug!(
+            "Restore vehicle journey {} on day {}",
+            vehicle_journey_id, date
+        );
         let (vj_idx, stop_times) = self
             .restore_base_vehicle_journey(
                 disruption_idx,
@@ -1118,7 +1122,7 @@ impl RealTimeModel {
         let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
         let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
 
-        let modify_result = data.modify_real_time_vehicle(
+        let result = data.insert_real_time_vehicle(
             stops,
             flows,
             board_times,
@@ -1126,14 +1130,14 @@ impl RealTimeModel {
             base_model.loads_data(),
             dates,
             &chrono_tz::UTC,
-            &VehicleJourneyIdx::Base(vj_idx),
+            VehicleJourneyIdx::Base(vj_idx),
         );
-        if let Err(err) = modify_result {
+        if let Err(err) = result {
             let model_ref = ModelRefs {
                 base: base_model,
                 real_time: self,
             };
-            handle_modify_error(
+            handle_insertion_error(
                 &model_ref,
                 data.calendar().first_date(),
                 data.calendar().last_date(),

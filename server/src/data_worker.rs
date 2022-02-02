@@ -834,23 +834,26 @@ fn handle_feed_entity(
     let real_time_model = &mut data_and_models.2;
 
     if feed_entity.get_is_deleted() {
-        real_time_model.cancel_disruption_by_id(&id, base_model, data);
+        real_time_model.cancel_disruption_by_id(id, base_model, data);
+    } else {
+        let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+            handle_chaos_protobuf(&chaos_disruption).with_context(|| {
+                format!("Could not handle chaos disruption in FeedEntity {}", id)
+            })?
+        } else if feed_entity.has_trip_update() {
+            handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1).with_context(
+                || format!("Could not handle kirin disruption in FeedEntity {}", id),
+            )?
+        } else {
+            bail!(
+                "FeedEntity {} is a Kirin message but has no trip_update",
+                id
+            );
+        };
+
+        real_time_model.store_and_apply_disruption(disruption, base_model, data);
     }
 
-    let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
-        handle_chaos_protobuf(&chaos_disruption)
-            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
-    } else if feed_entity.has_trip_update() {
-        handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1)
-            .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?
-    } else {
-        bail!(
-            "FeedEntity {} is a Kirin message but has no trip_update",
-            id
-        );
-    };
-
-    real_time_model.store_and_apply_disruption(disruption, base_model, data);
     Ok(())
 }
 
