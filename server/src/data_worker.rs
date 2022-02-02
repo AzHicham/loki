@@ -828,11 +828,13 @@ fn handle_feed_entity(
         bail!("FeedEntity has no id");
     }
     let id = feed_entity.get_id();
+
+    let data = &mut data_and_models.0;
+    let base_model = &data_and_models.1;
+    let real_time_model = &mut data_and_models.2;
+
     if feed_entity.get_is_deleted() {
-        bail!(
-            "FeedEntity {} has is_deleted == true. This is not supported",
-            id
-        );
+        real_time_model.cancel_disruption_by_id(&id, base_model, data);
     }
 
     let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
@@ -847,10 +849,6 @@ fn handle_feed_entity(
             id
         );
     };
-
-    let data = &mut data_and_models.0;
-    let base_model = &data_and_models.1;
-    let real_time_model = &mut data_and_models.2;
 
     real_time_model.store_and_apply_disruption(disruption, base_model, data);
     Ok(())

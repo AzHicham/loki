@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use std::collections::hash_map::Entry;
 use std::{collections::HashMap, hash::Hash};
 use tracing::warn;
 
@@ -239,6 +240,42 @@ impl RealTimeModel {
         }
     }
 
+    pub fn restore_base_vehicle_journey(
+        &mut self,
+        disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
+        vehicle_journey_id: &str,
+        date: &NaiveDate,
+        base_model: &BaseModel,
+    ) -> Result<(BaseVehicleJourneyIdx, Vec<StopTime>), UpdateError> {
+        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+            self.remove_version(
+                &transit_model_idx,
+                date,
+                base_model,
+                disruption_idx,
+                impact_idx,
+            );
+            if let Ok(base_stop_times) = base_model.stop_times(transit_model_idx) {
+                let stop_times: Vec<_> = base_stop_times.clone().collect();
+                Ok((transit_model_idx, stop_times))
+            } else {
+                // FIX ME add NOT FOUND STOP TIME ERROR
+                let err = UpdateError::ModifyAbsentTrip(Trip {
+                    vehicle_journey_id: vehicle_journey_id.to_string(),
+                    reference_date: *date,
+                });
+                Err(err)
+            }
+        } else {
+            let err = UpdateError::ModifyAbsentTrip(Trip {
+                vehicle_journey_id: vehicle_journey_id.to_string(),
+                reference_date: *date,
+            });
+            Err(err)
+        }
+    }
+
     pub fn is_present(
         &self,
         vehicle_journey_id: &str,
@@ -311,6 +348,36 @@ impl RealTimeModel {
         vj_idx
     }
 
+    fn remove_version(
+        &mut self,
+        transit_model_idx: &BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+        base_model: &BaseModel,
+        disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
+    ) {
+        let vehicle_journey_id = base_model.vehicle_journey_name(*transit_model_idx);
+        let history = self
+            .base_vehicle_journeys_idx_to_history
+            .get_mut(transit_model_idx);
+
+        if let Some(history) = history {
+            history.by_reference_date.remove(date);
+            RealTimeModel::remove_linked_disruption(
+                &mut history.linked_disruptions,
+                disruption_idx,
+                impact_idx,
+                vehicle_journey_id,
+                date,
+            );
+        } else {
+            warn!(
+                "No history found for vehicle journey {} at date {}",
+                vehicle_journey_id, *date
+            )
+        }
+    }
+
     pub fn insert_informed_linked_disruption(
         &mut self,
         vehicle_journey_id: &str,
@@ -379,6 +446,28 @@ impl RealTimeModel {
             }
             None => {
                 linked_disruptions.push((disruption_idx, impact_idx));
+            }
+        }
+    }
+
+    fn remove_linked_disruption(
+        linked_disruptions_map: &mut HashMap<NaiveDate, LinkedDisruptions>,
+        disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
+        vehicle_journey_id: &str,
+        date: &NaiveDate,
+    ) {
+        let linked_disruptions = linked_disruptions_map.entry(*date);
+
+        match linked_disruptions {
+            Entry::Occupied(mut linked_disruptions) => linked_disruptions
+                .get_mut()
+                .retain(|disruption_impact| (disruption_idx, impact_idx) != *disruption_impact),
+            Entry::Vacant(_) => {
+                warn!(
+                    "Linked disruption not found for this vehicle journey {} at this date {}",
+                    vehicle_journey_id, date
+                );
             }
         }
     }
