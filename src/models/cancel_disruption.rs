@@ -49,9 +49,9 @@ use super::{
     real_time_model::DisruptionIdx,
     RealTimeModel,
 };
-use crate::time::calendar;
 use crate::{
     models::{real_time_disruption::Informed, real_time_model::ImpactIdx, VehicleJourneyIdx},
+    time::calendar,
     DataUpdate,
 };
 
@@ -98,14 +98,6 @@ impl RealTimeModel {
 
         for pt_object in &impact.impacted_pt_objects {
             let result = match pt_object {
-                Impacted::TripDeleted(trip, date) => self.cancel_impact_on_trip(
-                    base_model,
-                    data,
-                    &trip.id,
-                    date,
-                    disruption_idx,
-                    impact_idx,
-                ),
                 Impacted::BaseTripDeleted(trip) => self.cancel_impact_on_base_vehicle_journey(
                     base_model,
                     data,
@@ -156,8 +148,9 @@ impl RealTimeModel {
                 ),
                 Impacted::RailSection(_) => todo!(),
                 Impacted::LineSection(_) => todo!(),
-                Impacted::NewTripUpdated(_) => todo!(),
-                Impacted::BaseTripUpdated(_) => todo!(),
+                Impacted::TripDeleted(_, _)
+                | Impacted::NewTripUpdated(_)
+                | Impacted::BaseTripUpdated(_) => Err(DisruptionError::CancelKirinDisruption),
             };
             if let Err(err) = result {
                 error!("Error while cancelling impact {} : {:?}", impact.id, err);

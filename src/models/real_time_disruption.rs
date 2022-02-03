@@ -78,6 +78,8 @@ pub enum DisruptionError {
     ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
     AddPresentTrip(VehicleJourneyId, NaiveDate),
     NewTripWithBaseId(VehicleJourneyId, NaiveDate),
+    // it is not allowed to cancel a kirin disruption
+    CancelKirinDisruption,
 }
 
 #[derive(Default, Debug, Clone)]
