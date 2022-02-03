@@ -53,6 +53,8 @@ use super::{
     real_time_model::DisruptionIdx,
     RealTimeModel,
 };
+use crate::models::real_time_disruption::intersection;
+use crate::models::StopPointIdx;
 use crate::{
     models::{real_time_disruption::Informed, real_time_model::ImpactIdx},
     DataUpdate,
@@ -87,11 +89,18 @@ impl RealTimeModel {
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
     ) {
-        let model_periods = [base_model.time_period()];
-        let model_periods = TimePeriods::new(&model_periods).unwrap(); // unwrap is safe here, because the input slice is not empty
+        let model_period = [base_model.time_period()];
+        let model_periods = TimePeriods::new(&model_period).unwrap(); // unwrap is safe here, because the input slice is not empty
 
-        let application_periods =
-            TimePeriods::new(&impact.application_periods).unwrap_or(model_periods);
+        // filter application_periods by model_period
+        // by taking the intersection of theses two TimePeriods
+        let application_periods: Vec<_> = impact
+            .application_periods
+            .iter()
+            .filter_map(|application_periods| intersection(application_periods, &model_period[0]))
+            .collect();
+
+        let application_periods = TimePeriods::new(&application_periods).unwrap_or(model_periods);
 
         for pt_object in &impact.impacted_pt_objects {
             let result = match pt_object {
@@ -160,7 +169,7 @@ impl RealTimeModel {
                 Impacted::StopPointDeleted(stop_point_id) => self.delete_stop_point(
                     base_model,
                     data,
-                    &stop_point_id.id,
+                    &[&stop_point_id.id],
                     &application_periods,
                     disruption_idx,
                     impact_idx,
@@ -242,22 +251,24 @@ impl RealTimeModel {
                 id: stop_area_id.to_string(),
             }));
         }
+        let mut concerned_stop_point = Vec::new();
         for stop_point in base_model.stop_points() {
             let stop_area_of_stop_point = base_model.stop_area_name(stop_point);
             if stop_area_id == stop_area_of_stop_point {
                 let stop_point_id = base_model.stop_point_id(stop_point);
-                let result = self.delete_stop_point(
-                    base_model,
-                    data,
-                    stop_point_id,
-                    application_periods,
-                    disruption_idx,
-                    impact_idx,
-                );
-                if let Err(err) = result {
-                    error!("Error while deleting stop area {}. {:?}", stop_area_id, err);
-                }
+                concerned_stop_point.push(stop_point_id);
             }
+        }
+        let result = self.delete_stop_point(
+            base_model,
+            data,
+            &concerned_stop_point,
+            application_periods,
+            disruption_idx,
+            impact_idx,
+        );
+        if let Err(err) = result {
+            error!("Error while deleting stop area {}. {:?}", stop_area_id, err);
         }
         Ok(())
     }
@@ -266,25 +277,29 @@ impl RealTimeModel {
         &mut self,
         base_model: &BaseModel,
         data: &mut Data,
-        stop_point_id: &str,
+        stop_point_id: &[&str],
         application_periods: &TimePeriods,
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
     ) -> Result<(), DisruptionError> {
-        let stop_point_idx = self
-            .stop_point_idx(stop_point_id, base_model)
-            .ok_or_else(|| {
-                DisruptionError::StopPointAbsent(StopPointId {
-                    id: stop_point_id.to_string(),
-                })
-            })?;
+        let stop_point_idx: Vec<StopPointIdx> = stop_point_id
+            .iter()
+            .filter_map(|id| self.stop_point_idx(id, base_model))
+            .collect();
+        //self
+        // .stop_point_idx(stop_point_id, base_model)
+        // .ok_or_else(|| {
+        //     DisruptionError::StopPointAbsent(StopPointId {
+        //         id: stop_point_id.to_string(),
+        //     })
+        // })?;
 
         for vehicle_journey_idx in base_model.vehicle_journeys() {
             let vehicle_journey_id = base_model.vehicle_journey_name(vehicle_journey_idx);
             if let Ok(base_stop_times) = base_model.stop_times(vehicle_journey_idx) {
                 let contains_stop_point = base_stop_times
                     .clone()
-                    .any(|stop_time| stop_time.stop == stop_point_idx);
+                    .any(|stop_time| stop_point_idx.iter().any(|sp| sp == &stop_time.stop));
                 if !contains_stop_point {
                     continue;
                 }
@@ -297,7 +312,9 @@ impl RealTimeModel {
                     {
                         if application_periods.intersects(&time_period) {
                             let is_stop_time_concerned = |stop_time: &super::StopTime| {
-                                if stop_time.stop != stop_point_idx {
+                                let concerned_stop_point =
+                                    stop_point_idx.iter().any(|sp| sp == &stop_time.stop);
+                                if !concerned_stop_point {
                                     return false;
                                 }
                                 let board_time =
@@ -307,33 +324,27 @@ impl RealTimeModel {
                                 application_periods.contains(&board_time)
                                     || application_periods.contains(&debark_time)
                             };
-                            let is_trip_concerned = base_stop_times
-                                .clone()
-                                .any(|stop_time| is_stop_time_concerned(&stop_time));
-
-                            if !is_trip_concerned {
-                                continue;
-                            }
 
                             let stop_times: Vec<_> = base_stop_times
                                 .clone()
                                 .filter(|stop_time| !is_stop_time_concerned(stop_time))
                                 .collect();
 
-                            let result = self.modify_trip(
-                                base_model,
-                                data,
-                                vehicle_journey_id,
-                                &date,
-                                stop_times,
-                                *disruption_idx,
-                                *impact_idx,
-                            );
-                            if let Err(err) = result {
-                                error!(
-                                    "Error while deleting stop point {}. {:?}",
-                                    stop_point_id, err
+                            // if size changed it means that our vehicle is affected
+                            // and need to be modified
+                            if stop_times.len() != base_stop_times.len() {
+                                let result = self.modify_trip(
+                                    base_model,
+                                    data,
+                                    vehicle_journey_id,
+                                    &date,
+                                    stop_times,
+                                    *disruption_idx,
+                                    *impact_idx,
                                 );
+                                if let Err(err) = result {
+                                    error!("Error while deleting stop point. {:?}", err);
+                                }
                             }
                         }
                     }
