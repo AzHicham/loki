@@ -205,7 +205,7 @@ impl RealTimeModel {
             };
             if let Err(err) = result {
                 error!(
-                    "Error while storing informed impact {} : {:?}",
+                    "Error while cancelling informed impact {} : {:?}",
                     impact.id, err
                 );
             }
@@ -298,7 +298,7 @@ impl RealTimeModel {
                         // since we check in trip_time_period() that this trip exists
                         if let Err(err) = result {
                             error!(
-                                "Unexpected error while deleting a base vehicle journey {:?}",
+                                "Unexpected error while cancelling impact on a base vehicle journey {:?}",
                                 err
                             );
                         }
@@ -342,7 +342,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a network {:?}",
+                        err
+                    );
                 }
             }
         }
@@ -376,7 +379,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a line {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a line {:?}",
+                        err
+                    );
                 }
             }
         }
@@ -410,7 +416,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a route {:?}",
+                        err
+                    );
                 }
             }
         }
@@ -445,7 +454,7 @@ impl RealTimeModel {
                 );
                 if let Err(err) = result {
                     error!(
-                        "Error while restoring stop area {}. {:?}",
+                        "Error while cancelling impact on a stop area {}. {:?}",
                         stop_area_id, err
                     );
                 }
@@ -517,7 +526,7 @@ impl RealTimeModel {
                             );
                             if let Err(err) = result {
                                 error!(
-                                    "Error while restoring stop point {}. {:?}",
+                                    "Error while cancelling impact on a stop point {}. {:?}",
                                     stop_point_id, err
                                 );
                             }
@@ -576,7 +585,7 @@ impl RealTimeModel {
                         // since we check in trip_time_period() that this trip exists
                         if let Err(err) = result {
                             error!(
-                                "Unexpected error while deleting a base vehicle journey {:?}",
+                                "Unexpected error while cancelling impact on a base vehicle journey {:?}",
                                 err
                             );
                         }
@@ -618,7 +627,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a route {:?}",
+                        err
+                    );
                 }
             }
         }
@@ -650,7 +662,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a line {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a line {:?}",
+                        err
+                    );
                 }
             }
         }
@@ -682,7 +697,10 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!(
+                        "Unexpected error while cancelling impact on a route {:?}",
+                        err
+                    );
                 }
             }
         }

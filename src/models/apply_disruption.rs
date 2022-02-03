@@ -794,7 +794,7 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!("Unexpected error while informing a route {:?}", err);
                 }
             }
         }
@@ -826,7 +826,7 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a line {:?}", err);
+                    error!("Unexpected error while informing a line {:?}", err);
                 }
             }
         }
@@ -858,7 +858,7 @@ impl RealTimeModel {
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
-                    error!("Unexpected error while deleting a route {:?}", err);
+                    error!("Unexpected error while informing a route {:?}", err);
                 }
             }
         }
