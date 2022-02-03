@@ -514,6 +514,30 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message.clone()).await;
 
+    // let's make the  request, but the realtime level
+    // we should get no journey since the vj should be deleted
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
     // then revert previously sent disruption
     let cancel_realtime_message = create_cancel_disruption(&realtime_message.entity[0]);
     crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
@@ -526,7 +550,10 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
             realtime_request.clone(),
         )
         .await;
-        assert_eq!(journeys_response.journeys.len(), 1);
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
     }
 }
 
