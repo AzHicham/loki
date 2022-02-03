@@ -34,8 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::collections::hash_map::Entry;
-use std::{collections::HashMap, hash::Hash};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    hash::Hash,
+};
 use tracing::warn;
 
 use crate::{
@@ -420,6 +422,36 @@ impl RealTimeModel {
             vehicle_journey_id,
             date,
         );
+    }
+
+    pub fn cancel_informed_linked_disruption(
+        &mut self,
+        vehicle_journey_id: &str,
+        date: &NaiveDate,
+        base_model: &BaseModel,
+        disruption_idx: DisruptionIdx,
+        impact_idx: ImpactIdx,
+    ) {
+        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+            let history = self
+                .base_vehicle_journeys_idx_to_history
+                .get_mut(&transit_model_idx);
+
+            if let Some(history) = history {
+                RealTimeModel::remove_linked_disruption(
+                    &mut history.linked_disruptions,
+                    disruption_idx,
+                    impact_idx,
+                    vehicle_journey_id,
+                    date,
+                );
+            } else {
+                warn!(
+                    "No history found for vehicle journey {} at date {}",
+                    vehicle_journey_id, *date
+                )
+            }
+        }
     }
 
     fn insert_linked_disruption(
