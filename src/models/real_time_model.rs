@@ -151,8 +151,6 @@ pub enum UpdateError {
 impl RealTimeModel {
     pub fn delete(
         &mut self,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         base_model: &BaseModel,
@@ -161,14 +159,7 @@ impl RealTimeModel {
             let trip_version = TripVersion {
                 trip_data: TripData::Deleted(),
             };
-            let idx = self.set_version(
-                vehicle_journey_id,
-                date,
-                base_model,
-                trip_version,
-                disruption_idx,
-                impact_idx,
-            );
+            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
 
             Ok(idx)
         } else {
@@ -182,8 +173,6 @@ impl RealTimeModel {
 
     pub fn add(
         &mut self,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         stop_times: Vec<super::StopTime>,
@@ -199,22 +188,13 @@ impl RealTimeModel {
             let trip_version = TripVersion {
                 trip_data: TripData::Present(stop_times.clone()),
             };
-            let idx = self.set_version(
-                vehicle_journey_id,
-                date,
-                base_model,
-                trip_version,
-                disruption_idx,
-                impact_idx,
-            );
+            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
             Ok((idx, stop_times))
         }
     }
 
     pub fn modify(
         &mut self,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         stop_times: Vec<super::StopTime>,
@@ -230,34 +210,19 @@ impl RealTimeModel {
             let trip_version = TripVersion {
                 trip_data: TripData::Present(stop_times.clone()),
             };
-            let idx = self.set_version(
-                vehicle_journey_id,
-                date,
-                base_model,
-                trip_version,
-                disruption_idx,
-                impact_idx,
-            );
+            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
             Ok((idx, stop_times))
         }
     }
 
     pub fn restore_base_vehicle_journey(
         &mut self,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         base_model: &BaseModel,
     ) -> Result<(BaseVehicleJourneyIdx, Vec<StopTime>), UpdateError> {
         if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-            self.remove_version(
-                &transit_model_idx,
-                date,
-                base_model,
-                disruption_idx,
-                impact_idx,
-            );
+            self.remove_version(&transit_model_idx, date, base_model);
             if let Ok(base_stop_times) = base_model.stop_times(transit_model_idx) {
                 let stop_times: Vec<_> = base_stop_times.clone().collect();
                 Ok((transit_model_idx, stop_times))
@@ -312,8 +277,6 @@ impl RealTimeModel {
         date: &NaiveDate,
         base_model: &BaseModel,
         trip_version: TripVersion,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
     ) -> VehicleJourneyIdx {
         let (history, vj_idx) = if let Some(transit_model_idx) =
             base_model.vehicle_journey_idx(vehicle_journey_id)
@@ -340,13 +303,6 @@ impl RealTimeModel {
         };
 
         history.by_reference_date.insert(*date, trip_version);
-        RealTimeModel::insert_linked_disruption(
-            &mut history.linked_disruptions,
-            disruption_idx,
-            impact_idx,
-            vehicle_journey_id,
-            date,
-        );
         vj_idx
     }
 
@@ -355,8 +311,6 @@ impl RealTimeModel {
         transit_model_idx: &BaseVehicleJourneyIdx,
         date: &NaiveDate,
         base_model: &BaseModel,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
     ) {
         let vehicle_journey_id = base_model.vehicle_journey_name(*transit_model_idx);
         let history = self
@@ -365,13 +319,6 @@ impl RealTimeModel {
 
         if let Some(history) = history {
             history.by_reference_date.remove(date);
-            RealTimeModel::remove_linked_disruption(
-                &mut history.linked_disruptions,
-                disruption_idx,
-                impact_idx,
-                vehicle_journey_id,
-                date,
-            );
         } else {
             warn!(
                 "No history found for vehicle journey {} at date {}",
