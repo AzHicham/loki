@@ -558,7 +558,7 @@ impl RealTimeModel {
 
     //----------------------------------------------------------------------------------------
     // elementary functions operating on trips (VJ + date)
-    // Use for chaos and kirin
+    // Used for chaos and kirin
     fn add_trip<Data: DataTrait + DataUpdate>(
         &mut self,
         base_model: &BaseModel,

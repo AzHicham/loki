@@ -34,67 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod chaos_disruption;
-pub mod kirin_disruption;
-pub mod time_periods;
 
 use crate::{
-    time::{SecondsSinceTimezonedDayStart, MAX_SECONDS_IN_UTC_DAY},
-    timetables::FlowDirection,
+    time::MAX_SECONDS_IN_UTC_DAY,
 };
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use serde::Deserialize;
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use std::{
     cmp::{max, min},
     fmt::{Debug, Display},
-    mem,
 };
-
-#[derive(Debug, Clone)]
-pub struct StopTime {
-    pub stop_id: String,
-    pub arrival_time: SecondsSinceTimezonedDayStart,
-    pub departure_time: SecondsSinceTimezonedDayStart,
-    pub flow_direction: FlowDirection,
-}
-
-
-// #[derive(Debug, Clone)]
-// pub enum DisruptionError {
-//     StopPointAbsent(StopPointId),
-//     StopAreaAbsent(StopAreaId),
-//     NetworkAbsent(NetworkId),
-//     LineAbsent(LineId),
-//     RouteAbsent(RouteId),
-//     VehicleJourneyAbsent(VehicleJourneyId),
-//     DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
-//     ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
-//     AddPresentTrip(VehicleJourneyId, NaiveDate),
-//     NewTripWithBaseId(VehicleJourneyId, NaiveDate),
-//     // it is not allowed to cancel a kirin disruption
-//     CancelKirinDisruption,
-// }
-
-
-#[derive(Debug, Clone)]
-pub struct VehicleJourneyId {
-    pub id: String,
-}
-
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
-pub enum Effect {
-    // DO NOT change the order of effects !!
-    // Effects are ordered from the least to the worst impact
-    StopMoved,
-    UnknownEffect,
-    OtherEffect,
-    ModifiedService,
-    AdditionalService,
-    Detour,
-    SignificantDelays,
-    ReducedService,
-    NoService,
-}
 
 
 /// An half open interval of time.
@@ -241,35 +189,6 @@ impl Debug for TimePeriodError {
                     start, end
                 )
             }
-        }
-    }
-}
-
-pub struct DateTimePeriodIterator<'a> {
-    period: &'a TimePeriod,
-    current: NaiveDateTime,
-}
-
-impl<'a> Iterator for DateTimePeriodIterator<'a> {
-    type Item = NaiveDateTime;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current <= self.period.end {
-            let next = self.current + Duration::days(1);
-            Some(mem::replace(&mut self.current, next))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a TimePeriod {
-    type Item = NaiveDateTime;
-    type IntoIter = DateTimePeriodIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        DateTimePeriodIterator {
-            period: self,
-            current: self.start,
         }
     }
 }

@@ -42,12 +42,11 @@ use tracing::warn;
 
 use crate::{
     chrono::NaiveDate,
-    models::real_time_disruption::{Disruption, Impact},
 };
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption as disruption, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
+    real_time_disruption::{self as disruption, chaos_disruption::ChaosDisruption, kirin_disruption::KirinDisruption}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {
@@ -61,7 +60,9 @@ pub struct RealTimeModel {
     pub(super) new_stop_id_to_idx: HashMap<String, NewStopPointIdx>,
     pub(super) new_stops: Vec<StopData>,
 
-    pub(super) disruptions: Vec<disruption::Disruption>,
+    pub(super) chaos_disruptions: Vec<ChaosDisruption>,
+
+    pub(super) kirin_disruptions : Vec<KirinDisruption>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -69,47 +70,29 @@ pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
-pub type LinkedDisruptions = Vec<(DisruptionIdx, ImpactIdx)>;
-
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
     by_reference_date: HashMap<NaiveDate, TripVersion>,
-    linked_disruptions: HashMap<NaiveDate, LinkedDisruptions>,
-}
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
-pub struct DisruptionIdx {
-    pub(super) idx: usize, // position in RealTimeModel.disruptions
-}
-
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
-pub struct ImpactIdx {
-    pub(super) idx: usize, // position in RealTimeModel.disruption.impacts
-}
-
-impl DisruptionIdx {
-    // this here only to facilitate tests
-    // do not use elsewhere
-    pub fn new(idx: usize) -> Self {
-        Self { idx }
-    }
-}
-
-impl ImpactIdx {
-    // this here only to facilitate tests
-    // do not use elsewhere
-    pub fn new(idx: usize) -> Self {
-        Self { idx }
-    }
+    // provides all chaos impacts that affect this (vehicle_journey, date)
+    linked_chaos_impacts: HashMap<NaiveDate, Vec< ChaosImpactIdx> >,
+    // provides the kirin disruption (if any) that affect this (vehicle_journey, date)
+    linked_kirin_disruption : HashMap<NaiveDate, Option<KirinDisruptionIdx> >,
 }
 
 #[derive(Debug, Clone)]
-pub struct TripVersion {
-    trip_data: TripData,
+pub struct ChaosImpactIdx {
+    pub(super) disruption_idx: usize, // position in RealTimeModel.chaos_disruptions
+    pub(super) impact_idx : usize, // position in ChaosDisruption.impacts
 }
 
 #[derive(Debug, Clone)]
-pub enum TripData {
+pub struct KirinDisruptionIdx {
+    pub(super) idx : usize, // position in RealTimeModel.kirin_disruptions
+}
+
+#[derive(Debug, Clone)]
+pub enum TripVersion {
     Deleted(),              // the trip is currently disabled
     Present(Vec<StopTime>), // list of all stop times of this trip
 }
@@ -156,9 +139,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
     ) -> Result<VehicleJourneyIdx, UpdateError> {
         if self.is_present(vehicle_journey_id, date, base_model) {
-            let trip_version = TripVersion {
-                trip_data: TripData::Deleted(),
-            };
+            let trip_version = TripVersion::Deleted();
             let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
 
             Ok(idx)
@@ -185,9 +166,7 @@ impl RealTimeModel {
             });
             Err(err)
         } else {
-            let trip_version = TripVersion {
-                trip_data: TripData::Present(stop_times.clone()),
-            };
+            let trip_version = TripVersion::Present(stop_times.clone());
             let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
             Ok((idx, stop_times))
         }
@@ -207,9 +186,7 @@ impl RealTimeModel {
             });
             Err(err)
         } else {
-            let trip_version = TripVersion {
-                trip_data: TripData::Present(stop_times.clone()),
-            };
+            let trip_version = TripVersion ::Present(stop_times.clone());
             let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
             Ok((idx, stop_times))
         }
@@ -252,8 +229,8 @@ impl RealTimeModel {
         if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
             let last_version = self.base_vehicle_journey_last_version(&transit_model_idx, date);
             match last_version {
-                Some(&TripData::Deleted()) => false,
-                Some(&TripData::Present(_)) => true,
+                Some(&TripVersion::Deleted()) => false,
+                Some(&TripVersion::Present(_)) => true,
                 None => base_model.trip_exists(transit_model_idx, *date),
             }
         } else {
@@ -262,8 +239,8 @@ impl RealTimeModel {
                 let last_version = self.new_vehicle_journey_last_version(new_vj_idx, date);
                 match last_version {
                     None => false,
-                    Some(&TripData::Deleted()) => false,
-                    Some(&TripData::Present(_)) => true,
+                    Some(&TripVersion::Deleted()) => false,
+                    Some(&TripVersion::Present(_)) => true,
                 }
             } else {
                 false
