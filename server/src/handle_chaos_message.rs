@@ -43,12 +43,7 @@ use launch::loki::{
             strip_id_prefix, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_ROUTE,
             PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY,
         },
-        real_time_disruption::{
-            ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption,
-            DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
-            Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId,
-            Tag, TimePeriod, TimeSlot, VehicleJourneyId,
-        },
+        
     },
     NaiveDateTime,
 };

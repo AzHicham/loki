@@ -46,7 +46,7 @@ use crate::{
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption::{self as disruption, chaos_disruption::ChaosDisruption, kirin_disruption::KirinDisruption}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
+    real_time_disruption::{self as disruption, chaos_disruption::{ChaosDisruption, ChaosImpact}, kirin_disruption::KirinDisruption}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {
@@ -70,17 +70,19 @@ pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
+pub type LinkedChaosImpacts = Vec<ChaosImpactIdx>;
+
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
     by_reference_date: HashMap<NaiveDate, TripVersion>,
 
     // provides all chaos impacts that affect this (vehicle_journey, date)
-    linked_chaos_impacts: HashMap<NaiveDate, Vec< ChaosImpactIdx> >,
+    linked_chaos_impacts: HashMap<NaiveDate, LinkedChaosImpacts >,
     // provides the kirin disruption (if any) that affect this (vehicle_journey, date)
     linked_kirin_disruption : HashMap<NaiveDate, Option<KirinDisruptionIdx> >,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChaosImpactIdx {
     pub(super) disruption_idx: usize, // position in RealTimeModel.chaos_disruptions
     pub(super) impact_idx : usize, // position in ChaosDisruption.impacts
@@ -304,13 +306,12 @@ impl RealTimeModel {
         }
     }
 
-    pub fn insert_informed_linked_disruption(
+    pub fn link_chaos_impact(
         &mut self,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         base_model: &BaseModel,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
+        chaos_impact_idx : ChaosImpactIdx,
     ) {
         let history = if let Some(transit_model_idx) =
             base_model.vehicle_journey_idx(vehicle_journey_id)
@@ -323,9 +324,9 @@ impl RealTimeModel {
             // Informed impact from chaos never affect a new_vehicle_journeys
             // but only base vehicle_journey
             warn!(
-                "A new vehicle journey '{}', should not be impacted from a informed impact. \
-                    disruption_idx {:?}, impact_idx {:?}",
-                vehicle_journey_id, disruption_idx, impact_idx
+                "A new vehicle journey '{}', should not be affected from a chaos impact. \
+                     impact_idx {:?}",
+                vehicle_journey_id, chaos_impact_idx
             );
             let histories = &mut self.new_vehicle_journeys_history;
             let idx = self
@@ -339,22 +340,34 @@ impl RealTimeModel {
             &mut self.new_vehicle_journeys_history[idx.idx].1
         };
 
-        RealTimeModel::insert_linked_disruption(
-            &mut history.linked_disruptions,
-            disruption_idx,
-            impact_idx,
-            vehicle_journey_id,
-            date,
-        );
+        let linked_impacts = history.linked_chaos_impacts
+            .entry(*date)
+            .or_insert_with(LinkedChaosImpacts::new);
+
+        let find_disruption_impact = linked_impacts
+            .iter()
+            .find(|impact_idx| **impact_idx == chaos_impact_idx);
+
+        match find_disruption_impact {
+            Some(_) => {
+                warn!(
+                    "Chaos impact : {:?} already linked to vehicle_journey {} on date {}",
+                    chaos_impact_idx, vehicle_journey_id, date
+                );
+            }
+            None => {
+                linked_impacts.push(chaos_impact_idx);
+            }
+        }
+
     }
 
-    pub fn cancel_informed_linked_disruption(
+    pub fn remove_linked_chaos_impact(
         &mut self,
         vehicle_journey_id: &str,
         date: &NaiveDate,
         base_model: &BaseModel,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
+        chaos_impact_idx : &ChaosImpactIdx,
     ) {
         if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
             let history = self
@@ -362,71 +375,28 @@ impl RealTimeModel {
                 .get_mut(&transit_model_idx);
 
             if let Some(history) = history {
-                RealTimeModel::remove_linked_disruption(
-                    &mut history.linked_disruptions,
-                    disruption_idx,
-                    impact_idx,
-                    vehicle_journey_id,
-                    date,
-                );
+
+                match  history.linked_chaos_impacts.entry(*date) {
+                    Entry::Occupied(mut linked_impacts) => linked_impacts
+                        .get_mut()
+                        .retain(|impact_idx| *impact_idx != *chaos_impact_idx),
+                    Entry::Vacant(_) => {
+                        warn!(
+                            "Cannot removed absent linked chaos impact {:?} for vehicle journey {} at date {}",
+                            chaos_impact_idx, vehicle_journey_id, date
+                        );
+                    }
+                }
             } else {
                 warn!(
-                    "No history found for vehicle journey {} at date {}",
-                    vehicle_journey_id, *date
-                )
-            }
-        }
-    }
-
-    fn insert_linked_disruption(
-        linked_disruptions_map: &mut HashMap<NaiveDate, LinkedDisruptions>,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-    ) {
-        let linked_disruptions = linked_disruptions_map
-            .entry(*date)
-            .or_insert_with(LinkedDisruptions::new);
-
-        let find_disruption_impact = linked_disruptions
-            .iter()
-            .find(|disruption_impact| (disruption_idx, impact_idx) == **disruption_impact);
-
-        match find_disruption_impact {
-            Some(_) => {
-                warn!(
-                    "Disruption : {:?} & Impact : {:?} already linked to this vehicle_journey {:?}",
-                    disruption_idx, impact_idx, vehicle_journey_id
-                );
-            }
-            None => {
-                linked_disruptions.push((disruption_idx, impact_idx));
-            }
-        }
-    }
-
-    fn remove_linked_disruption(
-        linked_disruptions_map: &mut HashMap<NaiveDate, LinkedDisruptions>,
-        disruption_idx: DisruptionIdx,
-        impact_idx: ImpactIdx,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-    ) {
-        let linked_disruptions = linked_disruptions_map.entry(*date);
-
-        match linked_disruptions {
-            Entry::Occupied(mut linked_disruptions) => linked_disruptions
-                .get_mut()
-                .retain(|disruption_impact| (disruption_idx, impact_idx) != *disruption_impact),
-            Entry::Vacant(_) => {
-                warn!(
-                    "Linked disruption not found for this vehicle journey {} at this date {}",
-                    vehicle_journey_id, date
+                    "Cannot removed linked chaos impact {:?} for vehicle journey {} at date {}. \
+                     There is no realtime history for this (vehicle, date).",
+                    chaos_impact_idx, vehicle_journey_id, date
                 );
             }
         }
     }
+
 
     pub fn make_stop_times(
         &mut self,
@@ -490,7 +460,7 @@ impl RealTimeModel {
     ) -> Option<RealTimeStopTimes<'a>> {
         let trip_data = self.last_version(vehicle_journey_idx, date)?;
 
-        if let TripData::Present(stop_times) = trip_data {
+        if let TripVersion::Present(stop_times) = trip_data {
             let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
             let inner = stop_times[range].iter();
             Some(RealTimeStopTimes { inner })
@@ -499,7 +469,7 @@ impl RealTimeModel {
         }
     }
 
-    pub fn last_version(&self, idx: &VehicleJourneyIdx, date: &NaiveDate) -> Option<&TripData> {
+    pub fn last_version(&self, idx: &VehicleJourneyIdx, date: &NaiveDate) -> Option<&TripVersion> {
         match idx {
             VehicleJourneyIdx::Base(base_idx) => {
                 self.base_vehicle_journey_last_version(base_idx, date)
@@ -512,14 +482,14 @@ impl RealTimeModel {
         &self,
         idx: &BaseVehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&TripData> {
+    ) -> Option<&TripVersion> {
         self.base_vehicle_journeys_idx_to_history
             .get(idx)
             .and_then(|vehicle_journey_history| {
                 vehicle_journey_history
                     .by_reference_date
                     .get(date)
-                    .map(|trip_version| &trip_version.trip_data)
+                    
             })
     }
 
@@ -527,12 +497,12 @@ impl RealTimeModel {
         &self,
         idx: &NewVehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&TripData> {
+    ) -> Option<&TripVersion> {
         self.new_vehicle_journeys_history[idx.idx]
             .1
             .by_reference_date
             .get(date)
-            .map(|trip_version| &trip_version.trip_data)
+            
     }
 
     pub fn new_vehicle_journey_is_present(&self, trip: &Trip) -> bool {
@@ -556,21 +526,20 @@ impl RealTimeModel {
         range.map(|idx| NewVehicleJourneyIdx { idx })
     }
 
-    pub fn get_disruption_and_impact(
+    pub fn get_chaos_disruption_and_impact(
         &self,
-        disruption_idx: &DisruptionIdx,
-        impact_idx: &ImpactIdx,
-    ) -> (&Disruption, &Impact) {
-        let disruption = &self.disruptions[disruption_idx.idx];
-        let impact = &disruption.impacts[impact_idx.idx];
+        chaos_impact_idx : &ChaosImpactIdx,
+    ) -> (&ChaosDisruption, &ChaosImpact) {
+        let disruption = &self.chaos_disruptions[chaos_impact_idx.disruption_idx];
+        let impact = &disruption.impacts[chaos_impact_idx.impact_idx];
         (disruption, impact)
     }
 
-    pub fn get_linked_disruptions(
+    pub fn get_linked_chaos_impacts(
         &self,
         vj_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&LinkedDisruptions> {
+    ) -> Option<&LinkedChaosImpacts> {
         let history = match vj_idx {
             VehicleJourneyIdx::Base(vj_idx) => {
                 self.base_vehicle_journeys_idx_to_history.get(vj_idx)
@@ -581,7 +550,7 @@ impl RealTimeModel {
                 .map(|(_, history)| history),
         };
         match history {
-            Some(history) => history.linked_disruptions.get(date),
+            Some(history) => history.linked_chaos_impacts.get(date),
             None => None,
         }
     }
@@ -593,7 +562,8 @@ impl RealTimeModel {
             base_vehicle_journeys_idx_to_history: HashMap::new(),
             new_stop_id_to_idx: HashMap::new(),
             new_stops: Vec::new(),
-            disruptions: Vec::new(),
+            chaos_disruptions: Vec::new(),
+            kirin_disruptions : Vec::new(),
         }
     }
 }
@@ -614,7 +584,8 @@ impl VehicleJourneyHistory {
     pub fn new() -> Self {
         Self {
             by_reference_date: HashMap::new(),
-            linked_disruptions: HashMap::new(),
+            linked_chaos_impacts: HashMap::new(),
+            linked_kirin_disruption : HashMap::new(),
         }
     }
 }

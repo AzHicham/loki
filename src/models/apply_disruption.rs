@@ -47,16 +47,15 @@ use tracing::{debug, error, trace, warn};
 
 use super::{
     real_time_disruption::{
-        DisruptionError, Impacted, LineId, NetworkId, RouteId, StopAreaId, StopPointId,
-        TimePeriods, TripDisruption, VehicleJourneyId,
+        TimePeriods,  VehicleJourneyId,
     },
-    real_time_model::DisruptionIdx,
+
     RealTimeModel,
 };
 use crate::models::real_time_disruption::intersection;
 use crate::models::{StopPointIdx, VehicleJourneyIdx};
 use crate::{
-    models::{real_time_disruption::Informed, real_time_model::ImpactIdx},
+
     DataUpdate,
 };
 

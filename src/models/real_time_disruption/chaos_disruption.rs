@@ -50,11 +50,11 @@ pub struct ChaosDisruption {
     pub cause: Cause,
     pub tags: Vec<Tag>,
     pub properties: Vec<DisruptionProperty>,
-    pub impacts: Vec<Impact>,
+    pub impacts: Vec<ChaosImpact>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Impact {
+pub struct ChaosImpact {
     pub id: String,
     pub updated_at: NaiveDateTime,
     pub application_periods: Vec<TimePeriod>,
