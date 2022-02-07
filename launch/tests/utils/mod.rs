@@ -192,6 +192,16 @@ where
     Ok(responses)
 }
 
+pub fn build_data_and_test<Timetables, F>(model: &ModelRefs<'_>, f: F)
+where
+    Timetables: for<'a> TimetablesIter<'a> + loki::timetables::Timetables,
+    F: FnOnce(TransitData<Timetables>) -> (),
+{
+    use loki::DataTrait;
+    let data: TransitData<Timetables> = launch::read::build_transit_data(model.base);
+    f(data);
+}
+
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
     model: &'a ModelRefs<'a>,

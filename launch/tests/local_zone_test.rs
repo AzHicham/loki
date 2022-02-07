@@ -41,10 +41,13 @@ use launch::{
     datetime::DateTimeRepresent,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
-use loki::{models::base_model::BaseModel, PositiveDuration, RealTimeLevel};
+use loki::{
+    models::base_model::BaseModel, DailyData, DataTrait, PeriodicData, PeriodicSplitVjData,
+    PositiveDuration, RealTimeLevel, TransitData,
+};
 use rstest::rstest;
 use utils::{
-    build_and_solve, from_to_stop_point_names,
+    build_and_solve, build_data_and_test, from_to_stop_point_names,
     model_builder::{AsDateTime, ModelBuilder},
     Config,
 };
@@ -91,6 +94,131 @@ fn test_local_zone_routing(
 
     let responses = build_and_solve(&model_refs, &config)?;
     assert_eq!(responses.len(), 0);
+
+    let config = Config::new("2022-01-01T09:59:00", "A", "C");
+    let config = Config {
+        comparator_type: comparator_type.clone(),
+        data_implem,
+        ..config
+    };
+
+    let responses = build_and_solve(&model_refs, &config)?;
+
+    assert_eq!(responses.len(), 1);
+
+    let journey = &responses[0];
+    assert_eq!(journey.nb_of_sections(), 1);
+
+    Ok(())
+}
+
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_local_zone_timetable(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    let model = ModelBuilder::new("2022-01-01", "2022-01-02")
+        .vj("LocalZone", |vj_builder| {
+            vj_builder
+                .route("1")
+                .st_detailed("A", "10:00:00", "10:00:00", 0u8, 0u8, None)
+                .st_detailed("B", "10:05:00", "10:05:00", 0u8, 0u8, None)
+                .st_detailed("C", "10:10:00", "10:10:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("D", "10:15:00", "10:15:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("E", "10:20:00", "10:20:00", 0u8, 0u8, Some(2u16));
+        })
+        .build();
+
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
+
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+    assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
+
+    // Since there are 3 different local zone, 3 missions must be created
+    let expected_mission_nb = 3;
+    match data_implem {
+        DataImplem::Periodic => build_data_and_test::<PeriodicData, _>(
+            &model_refs,
+            |data: TransitData<PeriodicData>| {
+                assert_eq!(data.nb_of_missions(), expected_mission_nb);
+            },
+        ),
+        DataImplem::Daily => {
+            build_data_and_test::<DailyData, _>(&model_refs, |data: TransitData<DailyData>| {
+                assert_eq!(data.nb_of_missions(), expected_mission_nb);
+            })
+        }
+        DataImplem::PeriodicSplitVj => build_data_and_test::<PeriodicSplitVjData, _>(
+            &model_refs,
+            |data: TransitData<PeriodicSplitVjData>| {
+                assert_eq!(data.nb_of_missions(), expected_mission_nb);
+            },
+        ),
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_local_zone_routing_multiple_vj(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    let model = ModelBuilder::new("2022-01-01", "2022-01-02")
+        .vj("LocalZone", |vj_builder| {
+            vj_builder
+                .route("1")
+                .st_detailed("A", "10:00:00", "10:00:00", 0u8, 0u8, None)
+                .st_detailed("B", "10:05:00", "10:05:00", 0u8, 0u8, None)
+                .st_detailed("C", "10:10:00", "10:10:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("D", "10:15:00", "10:15:00", 0u8, 0u8, Some(1u16));
+        })
+        .vj("NoLocalZone", |vj_builder| {
+            vj_builder
+                .route("1")
+                .st_detailed("A", "10:00:00", "10:00:00", 0u8, 0u8, None)
+                .st_detailed("B", "10:05:00", "10:05:00", 0u8, 0u8, None)
+                .st_detailed("C", "10:10:00", "10:10:00", 0u8, 0u8, None)
+                .st_detailed("D", "10:15:00", "10:15:00", 0u8, 0u8, None);
+        })
+        .build();
+
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
+            .unwrap();
+
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+    let config = Config::new("2022-01-01T09:59:00", "A", "B");
+    let config = Config {
+        comparator_type: comparator_type.clone(),
+        data_implem,
+        ..config
+    };
+
+    assert_eq!(base_model.nb_of_vehicle_journeys(), 2);
+
+    let responses = build_and_solve(&model_refs, &config)?;
+    assert_eq!(responses.len(), 1);
 
     let config = Config::new("2022-01-01T09:59:00", "A", "C");
     let config = Config {
