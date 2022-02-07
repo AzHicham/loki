@@ -43,7 +43,7 @@ use crate::{
     },
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::day_to_timetable::VehicleJourneyToTimetable,
-    timetables::FlowDirection,
+    timetables::FlowDirection::*,
     transit_data::{Stop, TransitData},
     RealTimeLevel,
 };
@@ -223,7 +223,7 @@ where
         local_zones.sort();
         local_zones.dedup();
 
-        if local_zones.clone().len() == 1 {
+        if local_zones.len() == 1 {
             let insert_result = self.insert_inner(
                 stops,
                 flows,
@@ -243,8 +243,6 @@ where
             };
             use crate::transit_data::data_interface::Data;
             if let Err(err) = insert_result {
-                println!("errprprprp");
-
                 handle_insertion_error(
                     &model,
                     self.calendar().first_date(),
@@ -254,24 +252,19 @@ where
             }
         } else {
             for local_zone in local_zones {
+                // we change the flows regarding the `local_zone` so that:
+                // - we can only board on stops that belong to `local_zone`
+                // - we can only debark on stops that don't belong to `local_zone`
                 let local_flows = stop_times.clone().map(|s| {
                     if s.local_zone_id == local_zone {
                         match s.flow_direction {
-                            FlowDirection::BoardOnly | FlowDirection::BoardAndDebark => {
-                                FlowDirection::BoardOnly
-                            }
-                            FlowDirection::DebarkOnly | FlowDirection::NoBoardDebark => {
-                                FlowDirection::NoBoardDebark
-                            }
+                            BoardOnly | BoardAndDebark => BoardOnly,
+                            DebarkOnly | NoBoardDebark => NoBoardDebark,
                         }
                     } else {
                         match s.flow_direction {
-                            FlowDirection::BoardOnly | FlowDirection::NoBoardDebark => {
-                                FlowDirection::NoBoardDebark
-                            }
-                            FlowDirection::DebarkOnly | FlowDirection::BoardAndDebark => {
-                                FlowDirection::DebarkOnly
-                            }
+                            BoardOnly | NoBoardDebark => NoBoardDebark,
+                            DebarkOnly | BoardAndDebark => DebarkOnly,
                         }
                     }
                 });
@@ -280,7 +273,7 @@ where
                     local_flows,
                     board_times.clone(),
                     debark_times.clone(),
-                    loads_data.clone(),
+                    loads_data,
                     dates.clone(),
                     &timezone,
                     vehicle_journey_idx.clone(),

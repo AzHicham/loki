@@ -154,7 +154,7 @@ where
 
             if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 vehicle_journey_idx,
-                &mut None,
+                &None,
                 &day,
                 &self.days_patterns,
             ) {

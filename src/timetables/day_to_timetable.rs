@@ -130,7 +130,7 @@ where
     ) -> Result<(), InsertionError> {
         let day_to_timetable = self
             .data
-            .entry((vehicle_journey_idx.clone(), local_zone.clone()))
+            .entry((vehicle_journey_idx.clone(), *local_zone))
             .or_insert_with(DayToTimetable::new);
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
@@ -159,7 +159,7 @@ where
     ) -> Result<Timetable, Unknown> {
         let day_to_timetable = self
             .data
-            .get_mut(&(vehicle_journey_idx.clone(), local_zone.clone()))
+            .get_mut(&(vehicle_journey_idx.clone(), *local_zone))
             .ok_or(Unknown::VehicleJourneyIdx)?;
         day_to_timetable
             .real_time
@@ -172,9 +172,7 @@ where
         vehicle_journey_idx: &VehicleJourneyIdx,
         local_zone: &LocalZone,
     ) -> bool {
-        let has_day_to_timetable = self
-            .data
-            .get(&(vehicle_journey_idx.clone(), local_zone.clone()));
+        let has_day_to_timetable = self.data.get(&(vehicle_journey_idx.clone(), *local_zone));
         if let Some(day_to_timetable) = has_day_to_timetable {
             !day_to_timetable.base.is_empty()
         } else {
@@ -189,9 +187,7 @@ where
         day: &DaysSinceDatasetStart,
         days_patterns: &DaysPatterns,
     ) -> bool {
-        let has_day_to_timetable = self
-            .data
-            .get(&(vehicle_journey_idx.clone(), local_zone.clone()));
+        let has_day_to_timetable = self.data.get(&(vehicle_journey_idx.clone(), *local_zone));
         if let Some(day_to_timetable) = has_day_to_timetable {
             day_to_timetable.real_time.get(day, days_patterns).is_some()
         } else {
