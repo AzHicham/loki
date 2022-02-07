@@ -655,6 +655,7 @@ impl<'a> Iterator for BaseStopTimes<'a> {
                 board_time: board_time(stop_time).unwrap(),
                 debark_time: debark_time(stop_time).unwrap(),
                 flow_direction: flow(stop_time).unwrap(),
+                local_zone_id: stop_time.local_zone_id,
             }
         })
     }

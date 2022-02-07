@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use chrono::Local;
 use std::collections::HashMap;
 
 use crate::{
@@ -46,8 +47,10 @@ use crate::{
     RealTimeLevel,
 };
 
+pub type LocalZone = Option<u16>;
+
 pub struct VehicleJourneyToTimetable<Timetable> {
-    data: HashMap<VehicleJourneyIdx, DayToTimetable<Timetable>>,
+    data: HashMap<(VehicleJourneyIdx, LocalZone), DayToTimetable<Timetable>>,
 }
 
 struct DayToTimetable<Timetable> {
@@ -77,13 +80,14 @@ where
     pub fn insert_base_and_realtime_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         days_pattern_to_insert: &DaysPattern,
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
     ) -> Result<(), InsertionError> {
         let day_to_timetable = self
             .data
-            .entry(vehicle_journey_idx.clone())
+            .entry((vehicle_journey_idx.clone(), *local_zone))
             .or_insert_with(DayToTimetable::new);
 
         let base_insert_result = day_to_timetable.base.insert(
@@ -119,13 +123,14 @@ where
     pub fn insert_real_time_only_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         days_pattern_to_insert: &DaysPattern,
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
     ) -> Result<(), InsertionError> {
         let day_to_timetable = self
             .data
-            .entry(vehicle_journey_idx.clone())
+            .entry((vehicle_journey_idx.clone(), local_zone.clone()))
             .or_insert_with(DayToTimetable::new);
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
@@ -148,12 +153,13 @@ where
     pub fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         day: &DaysSinceDatasetStart,
         days_patterns: &mut DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let day_to_timetable = self
             .data
-            .get_mut(vehicle_journey_idx)
+            .get_mut(&(vehicle_journey_idx.clone(), local_zone.clone()))
             .ok_or(Unknown::VehicleJourneyIdx)?;
         day_to_timetable
             .real_time
@@ -161,8 +167,14 @@ where
             .map_err(|_| Unknown::DayForVehicleJourney)
     }
 
-    pub fn base_vehicle_exists(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
-        let has_day_to_timetable = self.data.get(vehicle_journey_idx);
+    pub fn base_vehicle_exists(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
+    ) -> bool {
+        let has_day_to_timetable = self
+            .data
+            .get(&(vehicle_journey_idx.clone(), local_zone.clone()));
         if let Some(day_to_timetable) = has_day_to_timetable {
             !day_to_timetable.base.is_empty()
         } else {
@@ -173,10 +185,13 @@ where
     pub fn real_time_vehicle_exists(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         day: &DaysSinceDatasetStart,
         days_patterns: &DaysPatterns,
     ) -> bool {
-        let has_day_to_timetable = self.data.get(vehicle_journey_idx);
+        let has_day_to_timetable = self
+            .data
+            .get(&(vehicle_journey_idx.clone(), local_zone.clone()));
         if let Some(day_to_timetable) = has_day_to_timetable {
             day_to_timetable.real_time.get(day, days_patterns).is_some()
         } else {

@@ -39,7 +39,10 @@ use tracing::log::error;
 use crate::{
     loads_data::LoadsData,
     models::{StopPointIdx, VehicleJourneyIdx},
-    timetables::{day_to_timetable::Unknown, InsertionError, ModifyError, RemovalError},
+    timetables::{
+        day_to_timetable::LocalZone, day_to_timetable::Unknown, InsertionError, ModifyError,
+        RemovalError,
+    },
     transit_data::TransitData,
 };
 
@@ -67,7 +70,7 @@ where
         // We get the timetable, and then remove `date` from its real_time days_pattern
         let timetable = self
             .vehicle_journey_to_timetable
-            .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
+            .remove_real_time_vehicle(vehicle_journey_idx, &None, &day, &mut self.days_patterns)
             .map_err(|err| match err {
                 Unknown::VehicleJourneyIdx => {
                     RemovalError::UnknownVehicleJourney(vehicle_journey_idx.clone())
@@ -116,6 +119,7 @@ where
             valid_dates,
             timezone,
             vehicle_journey_idx,
+            &None,
             RealTimeLevel::RealTime,
         )
     }
@@ -150,6 +154,7 @@ where
 
             if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 vehicle_journey_idx,
+                &mut None,
                 &day,
                 &self.days_patterns,
             ) {
@@ -166,7 +171,7 @@ where
 
             let timetable = self
                 .vehicle_journey_to_timetable
-                .remove_real_time_vehicle(vehicle_journey_idx, &day, &mut self.days_patterns)
+                .remove_real_time_vehicle(vehicle_journey_idx, &None, &day, &mut self.days_patterns)
                 .unwrap(); // unwrap is safe, because we checked above that real_time_vehicle_exists()
 
             self.timetables.remove(
@@ -206,6 +211,7 @@ where
                 .vehicle_journey_to_timetable
                 .insert_real_time_only_vehicle(
                     vehicle_journey_idx,
+                    &None,
                     days_pattern,
                     timetable,
                     &mut self.days_patterns,
@@ -243,6 +249,7 @@ where
         valid_dates: Dates,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
+        local_zone_id: &LocalZone,
         real_time_level: RealTimeLevel,
     ) -> Result<(), InsertionError>
     where
@@ -257,7 +264,7 @@ where
         if real_time_level == RealTimeLevel::Base
             && self
                 .vehicle_journey_to_timetable
-                .base_vehicle_exists(&vehicle_journey_idx)
+                .base_vehicle_exists(&vehicle_journey_idx, local_zone_id)
         {
             return Err(InsertionError::BaseVehicleJourneyAlreadyExists(
                 vehicle_journey_idx.clone(),
@@ -273,6 +280,7 @@ where
 
             if self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 &vehicle_journey_idx,
+                &None,
                 &day,
                 &self.days_patterns,
             ) {
@@ -322,6 +330,7 @@ where
                     .vehicle_journey_to_timetable
                     .insert_base_and_realtime_vehicle(
                         &vehicle_journey_idx,
+                        &None,
                         days_pattern,
                         timetable,
                         &mut self.days_patterns,
@@ -330,6 +339,7 @@ where
                     .vehicle_journey_to_timetable
                     .insert_real_time_only_vehicle(
                         &vehicle_journey_idx,
+                        &None,
                         days_pattern,
                         timetable,
                         &mut self.days_patterns,

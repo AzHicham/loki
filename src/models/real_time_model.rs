@@ -397,6 +397,7 @@ impl RealTimeModel {
                 board_time: stop_time.departure_time,
                 debark_time: stop_time.arrival_time,
                 flow_direction: stop_time.flow_direction,
+                local_zone_id: None,
             });
         }
         result
