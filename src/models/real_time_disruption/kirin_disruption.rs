@@ -93,3 +93,95 @@ pub struct StopTime {
     pub departure_time: SecondsSinceTimezonedDayStart,
     pub flow_direction: FlowDirection,
 }
+
+impl RealTimeModel {
+    //----------------------------------------------------------------------------------------
+    // functions operating on TC objects for KIRIN
+    fn update_new_trip<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        trip_disruption: &TripDisruption,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        let vehicle_journey_id = &trip_disruption.trip_id.id;
+
+        let has_base_vj_idx = base_model.vehicle_journey_idx(vehicle_journey_id);
+        let date = trip_disruption.trip_date;
+        let trip_exists_in_base = {
+            match has_base_vj_idx {
+                None => false,
+                Some(vj_idx) => base_model.trip_exists(vj_idx, date),
+            }
+        };
+
+        if trip_exists_in_base {
+            return Err(DisruptionError::NewTripWithBaseId(
+                VehicleJourneyId {
+                    id: vehicle_journey_id.to_string(),
+                },
+                date,
+            ));
+        }
+        let stop_times = self.make_stop_times(&trip_disruption.stop_times, base_model);
+
+        if self.is_present(vehicle_journey_id, &date, base_model) {
+            self.modify_trip(
+                base_model,
+                data,
+                vehicle_journey_id,
+                &date,
+                stop_times,
+                disruption_idx,
+                impact_idx,
+            )
+        } else {
+            self.add_trip(base_model, data, vehicle_journey_id, &date, stop_times)
+        }
+    }
+
+    fn update_base_trip<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        trip_disruption: &TripDisruption,
+        disruption_idx: &DisruptionIdx,
+        impact_idx: &ImpactIdx,
+    ) -> Result<(), DisruptionError> {
+        let vehicle_journey_id = &trip_disruption.trip_id.id;
+        let stop_times = self.make_stop_times(&trip_disruption.stop_times, base_model);
+
+        if let Some(base_vj_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+            let date = trip_disruption.trip_date;
+            let trip_exists_in_base = base_model.trip_exists(base_vj_idx, date);
+
+            if !trip_exists_in_base {
+                return Err(DisruptionError::ModifyAbsentTrip(
+                    VehicleJourneyId {
+                        id: vehicle_journey_id.to_string(),
+                    },
+                    date,
+                ));
+            }
+
+            if self.is_present(vehicle_journey_id, &date, base_model) {
+                self.modify_trip(
+                    base_model,
+                    data,
+                    vehicle_journey_id,
+                    &date,
+                    stop_times,
+                    disruption_idx,
+                    impact_idx,
+                )
+            } else {
+                self.add_trip(base_model, data, vehicle_journey_id, &date, stop_times)
+            }
+        } else {
+            Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
+                id: vehicle_journey_id.clone(),
+            }))
+        }
+    }
+}
