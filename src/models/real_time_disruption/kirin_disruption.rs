@@ -35,8 +35,16 @@
 // www.navitia.io
 
 use crate::{
+
+    transit_data::{
+        data_interface::Data as DataTrait,
+        data_interface::DataUpdate,
+    }, models::{base_model::BaseModel, real_time_model::{KirinDisruptionIdx, UpdateError}}, 
+};
+
+use crate::{
     time::{SecondsSinceTimezonedDayStart},
-    timetables::FlowDirection,
+    timetables::FlowDirection, models::RealTimeModel,
 };
 use chrono::{ NaiveDate, NaiveDateTime};
 
@@ -101,14 +109,13 @@ impl RealTimeModel {
         &mut self,
         base_model: &BaseModel,
         data: &mut Data,
-        trip_disruption: &TripDisruption,
-        disruption_idx: &DisruptionIdx,
-        impact_idx: &ImpactIdx,
-    ) -> Result<(), DisruptionError> {
-        let vehicle_journey_id = &trip_disruption.trip_id.id;
+        vehicle_journey_id : &str,
+        date : NaiveDate,
+        update_data: &UpdateData,
+        kirin_disruption_idx : KirinDisruptionIdx
+    ) -> Result<(), UpdateError> {
 
         let has_base_vj_idx = base_model.vehicle_journey_idx(vehicle_journey_id);
-        let date = trip_disruption.trip_date;
         let trip_exists_in_base = {
             match has_base_vj_idx {
                 None => false,

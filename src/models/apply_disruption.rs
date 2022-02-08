@@ -36,11 +36,11 @@
 
 use crate::{
     chrono::NaiveDate,
-    time::calendar,
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
     },
+    models::{real_time_model::UpdateError, VehicleJourneyIdx}
 };
 
 use tracing::{debug, error, trace, warn};
@@ -53,7 +53,6 @@ use super::{
     RealTimeModel,
 };
 use crate::models::real_time_disruption::intersection;
-use crate::models::{StopPointIdx, VehicleJourneyIdx};
 use crate::{
 
     DataUpdate,
@@ -61,12 +60,6 @@ use crate::{
 
 use super::{base_model::BaseModel, real_time_disruption as disruption, ModelRefs};
 
-pub enum ActionType {
-    ApplyImpact,
-    ApplyInform,
-    CancelImpact,
-    CancelInform,
-}
 
 impl RealTimeModel {
     
@@ -81,7 +74,7 @@ impl RealTimeModel {
         vehicle_journey_id: &str,
         date: &NaiveDate,
         stop_times: Vec<super::StopTime>,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), UpdateError> {
         debug!(
             "Adding a new vehicle journey {} on date {}",
             vehicle_journey_id, date
@@ -89,7 +82,7 @@ impl RealTimeModel {
         let (vj_idx, stop_times) = self
             .add(vehicle_journey_id, date, stop_times, base_model)
             .map_err(|_| {
-                DisruptionError::AddPresentTrip(
+                UpdateError::AddPresentTrip(
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
@@ -142,7 +135,7 @@ impl RealTimeModel {
         stop_times: Vec<super::StopTime>,
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), UpdateError> {
         debug!(
             "Modifying vehicle journey {} on date {}",
             vehicle_journey_id, date
@@ -150,7 +143,7 @@ impl RealTimeModel {
         let (vj_idx, stop_times) = self
             .modify(vehicle_journey_id, date, stop_times, base_model)
             .map_err(|_| {
-                DisruptionError::ModifyAbsentTrip(
+                UpdateError::ModifyAbsentTrip(
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
@@ -205,7 +198,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), UpdateError> {
         debug!(
             "Deleting vehicle journey {} on day {}",
             vehicle_journey_id, date
@@ -213,7 +206,7 @@ impl RealTimeModel {
         let vj_idx = self
             .delete(vehicle_journey_id, date, base_model)
             .map_err(|_| {
-                DisruptionError::DeleteAbsentTrip(
+                UpdateError::DeleteAbsentTrip(
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
@@ -253,7 +246,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), UpdateError> {
         debug!(
             "Restore vehicle journey {} on day {}",
             vehicle_journey_id, date
@@ -261,7 +254,7 @@ impl RealTimeModel {
         let (vj_idx, stop_times) = self
             .restore_base_vehicle_journey(vehicle_journey_id, date, base_model)
             .map_err(|_| {
-                DisruptionError::ModifyAbsentTrip(
+                UpdateError::ModifyAbsentTrip(
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },

@@ -38,7 +38,7 @@ use crate::{
     transit_data::{
         data_interface::Data as DataTrait,
         data_interface::DataUpdate,
-    }, models::{base_model::BaseModel, real_time_model::ChaosImpactIdx, RealTimeModel}, time::calendar,
+    }, models::{base_model::{BaseModel, BaseVehicleJourneyIdx}, real_time_model::ChaosImpactIdx, RealTimeModel, StopPointIdx}, time::calendar,
 };
 
 
@@ -221,6 +221,12 @@ pub enum Action {
     Inform,
     CancelAlteration,
     CancelInform,
+}
+
+
+pub enum ChaosImpactError {
+    VehicleJourneyAbsent(VehicleJourneyId),
+    NetworkAbsent(NetworkId),
 }
 
 impl RealTimeModel {
@@ -409,7 +415,7 @@ impl RealTimeModel {
         &mut self,
         base_model: &BaseModel,
         data: &mut Data,
-        vehicle_journey_id: &str,
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
@@ -419,7 +425,7 @@ impl RealTimeModel {
                 let result = self.delete_trip(
                     base_model,
                     data,
-                    vehicle_journey_id,
+                    vehicle_journey_idx,
                     date,
                     chaos_impact_idx
                 );
@@ -433,7 +439,7 @@ impl RealTimeModel {
                 }
             }
             Action::ApplyInform => self.insert_informed_linked_disruption(
-                vehicle_journey_id,
+                vehicle_journey_idx,
                 date,
                 base_model,
                 chaos_impact_idx
@@ -442,7 +448,7 @@ impl RealTimeModel {
                 let result = self.restore_base_trip(
                     base_model,
                     data,
-                    vehicle_journey_id,
+                    vehicle_journey_idx,
                     date,
                     chaos_impact_idx
                 );
@@ -454,7 +460,7 @@ impl RealTimeModel {
                 }
             }
             Action::CancelInform => self.cancel_informed_linked_disruption(
-                vehicle_journey_id,
+                vehicle_journey_idx,
                 date,
                 base_model,
                 chaos_impact_idx
@@ -471,7 +477,7 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
             for date in application_periods.dates_possibly_concerned() {
                 if let Some(trip_period) = base_model.trip_time_period(vehicle_journey_idx, &date) {
@@ -489,7 +495,7 @@ impl RealTimeModel {
             }
             Ok(())
         } else {
-            Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
+            Err(ChaosImpactError::VehicleJourneyAbsent(VehicleJourneyId {
                 id: vehicle_journey_id.to_string(),
             }))
         }
@@ -503,9 +509,9 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         if !base_model.contains_network_id(network_id) {
-            return Err(DisruptionError::NetworkAbsent(NetworkId {
+            return Err(ChaosImpactError::NetworkAbsent(NetworkId {
                 id: network_id.to_string(),
             }));
         }
@@ -519,7 +525,7 @@ impl RealTimeModel {
                     vehicle_journey_id,
                     application_periods,
                     chaos_impact_idx,
-                            action
+                    action
                 );
                 // we should never get a VehicleJourneyAbsent error
                 if let Err(err) = result {
@@ -538,9 +544,9 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         if !base_model.contains_line_id(line_id) {
-            return Err(DisruptionError::LineAbsent(LineId {
+            return Err(ChaosImpactError::LineAbsent(LineId {
                 id: line_id.to_string(),
             }));
         }
@@ -552,7 +558,6 @@ impl RealTimeModel {
                     data,
                     vehicle_journey_id,
                     application_periods,
-                    disruption_idx,
                     chaos_impact_idx,
                     action
                 );
@@ -573,9 +578,9 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         if !base_model.contains_route_id(route_id) {
-            return Err(DisruptionError::RouteAbsent(RouteId {
+            return Err(ChaosImpactError::RouteAbsent(RouteId {
                 id: route_id.to_string(),
             }));
         }
@@ -587,7 +592,6 @@ impl RealTimeModel {
                     data,
                     vehicle_journey_id,
                     application_periods,
-                    disruption_idx,
                     chaos_impact_idx,
                     action
                 );
@@ -608,9 +612,9 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         if !base_model.contains_stop_area_id(stop_area_id) {
-            return Err(DisruptionError::StopAreaAbsent(StopAreaId {
+            return Err(ChaosImpactError::StopAreaAbsent(StopAreaId {
                 id: stop_area_id.to_string(),
             }));
         }
@@ -627,7 +631,6 @@ impl RealTimeModel {
             data,
             &concerned_stop_point,
             application_periods,
-            disruption_idx,
             chaos_impact_idx,
                             action
         );
@@ -645,13 +648,13 @@ impl RealTimeModel {
         application_periods: &TimePeriods,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
-    ) -> Result<(), DisruptionError> {
+    ) -> Result<(), ChaosImpactError> {
         let stop_point_idx: Vec<StopPointIdx> = stop_point_id
             .iter()
             .filter_map(|id| {
                 let stop_point_idx = self.stop_point_idx(id, base_model);
                 if stop_point_idx.is_none() {
-                    let err = DisruptionError::StopPointAbsent(StopPointId { id: id.to_string() });
+                    let err = ChaosImpactError::StopPointAbsent(StopPointId { id: id.to_string() });
                     error!("Error while deleting stop point {}. {:?}", id, err);
                 }
                 stop_point_idx
