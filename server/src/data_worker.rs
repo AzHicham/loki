@@ -394,19 +394,17 @@ impl DataWorker {
 
     async fn handle_incoming_kirin_message(
         &mut self,
-        has_real_time_message: Option<
-            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
-        >,
+        has_real_time_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
     ) -> Result<(), Error> {
         match has_real_time_message {
-            Some(Ok((channel, delivery))) => {
+            Some(Ok(delivery)) => {
                 // acknowledge reception of the message
-                let _ = channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                let _ = delivery
+                    .ack(BasicAckOptions::default())
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of kirin message : {:?}",
+                            "Error while acknowledging reception of kirin message : {:?}",
                             err
                         );
                     });
@@ -436,20 +434,18 @@ impl DataWorker {
 
     async fn handle_reload_message(
         &mut self,
-        has_reload_message: Option<
-            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
-        >,
+        has_reload_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
         channel: &lapin::Channel,
     ) -> Result<(), Error> {
         match has_reload_message {
-            Some(Ok((reload_channel, delivery))) => {
+            Some(Ok(delivery)) => {
                 // acknowledge reception of the message
-                let _ = reload_channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                let _ = delivery
+                    .ack(BasicAckOptions::default())
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of reload message. {:?}",
+                            "Error while acknowledging reception of reload message. {:?}",
                             err
                         );
                     });
@@ -705,7 +701,7 @@ impl DataWorker {
                 &self.config.rabbitmq_params.rabbitmq_exchange,
                 routing_key,
                 BasicPublishOptions::default(),
-                payload,
+                &payload,
                 BasicProperties::default().with_expiration(time_to_live_in_milliseconds),
             )
             .await?

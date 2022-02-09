@@ -392,7 +392,7 @@ async fn send_realtime_message_and_wait_until_reception(
             &config.rabbitmq_params.rabbitmq_exchange,
             routing_key,
             lapin::options::BasicPublishOptions::default(),
-            payload,
+            &payload,
             lapin::BasicProperties::default(),
         )
         .await
@@ -501,7 +501,7 @@ async fn send_reload_order(config: &ServerConfig) {
             &config.rabbitmq_params.rabbitmq_exchange,
             &routing_key,
             BasicPublishOptions::default(),
-            payload,
+            &payload,
             BasicProperties::default(),
         )
         .await
