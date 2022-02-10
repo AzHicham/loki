@@ -102,6 +102,12 @@ pub struct StopTime {
     pub flow_direction: FlowDirection,
 }
 
+pub enum KirinUpdateError{
+    NewTripWithBaseId(VehicleJourneyId, NaiveDate),
+    ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
+    VehicleJourneyAbsent(VehicleJourneyId),
+}
+
 impl RealTimeModel {
     //----------------------------------------------------------------------------------------
     // functions operating on TC objects for KIRIN
@@ -113,7 +119,7 @@ impl RealTimeModel {
         date : NaiveDate,
         update_data: &UpdateData,
         kirin_disruption_idx : KirinDisruptionIdx
-    ) -> Result<(), UpdateError> {
+    ) -> Result<(), KirinUpdateError> {
 
         let has_base_vj_idx = base_model.vehicle_journey_idx(vehicle_journey_id);
         let trip_exists_in_base = {
@@ -124,14 +130,14 @@ impl RealTimeModel {
         };
 
         if trip_exists_in_base {
-            return Err(DisruptionError::NewTripWithBaseId(
+            return Err(KirinUpdateError::NewTripWithBaseId(
                 VehicleJourneyId {
                     id: vehicle_journey_id.to_string(),
                 },
                 date,
             ));
         }
-        let stop_times = self.make_stop_times(&trip_disruption.stop_times, base_model);
+        let stop_times = self.make_stop_times(update_data.stop_times.as_slice(), base_model);
 
         if self.is_present(vehicle_journey_id, &date, base_model) {
             self.modify_trip(
@@ -152,19 +158,20 @@ impl RealTimeModel {
         &mut self,
         base_model: &BaseModel,
         data: &mut Data,
-        trip_disruption: &TripDisruption,
+        vehicle_journey_id : &str,
+        date : NaiveDate,
+        update_data: &UpdateData,
         disruption_idx: &DisruptionIdx,
         impact_idx: &ImpactIdx,
-    ) -> Result<(), DisruptionError> {
-        let vehicle_journey_id = &trip_disruption.trip_id.id;
-        let stop_times = self.make_stop_times(&trip_disruption.stop_times, base_model);
+    ) -> Result<(), KirinUpdateError> {
+        let stop_times = self.make_stop_times(update_data.stop_times.as_slice(), base_model);
 
         if let Some(base_vj_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-            let date = trip_disruption.trip_date;
+
             let trip_exists_in_base = base_model.trip_exists(base_vj_idx, date);
 
             if !trip_exists_in_base {
-                return Err(DisruptionError::ModifyAbsentTrip(
+                return Err(KirinUpdateError::ModifyAbsentTrip(
                     VehicleJourneyId {
                         id: vehicle_journey_id.to_string(),
                     },
@@ -186,8 +193,8 @@ impl RealTimeModel {
                 self.add_trip(base_model, data, vehicle_journey_id, &date, stop_times)
             }
         } else {
-            Err(DisruptionError::VehicleJourneyAbsent(VehicleJourneyId {
-                id: vehicle_journey_id.clone(),
+            Err(KirinUpdateError::VehicleJourneyAbsent(VehicleJourneyId {
+                id: vehicle_journey_id.to_string(),
             }))
         }
     }

@@ -46,7 +46,8 @@ use crate::{
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption::{self as disruption, chaos_disruption::{ChaosDisruption, ChaosImpact}, kirin_disruption::KirinDisruption}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
+    real_time_disruption::{self as disruption, chaos_disruption::{ChaosDisruption, ChaosImpact}, 
+    kirin_disruption::{KirinDisruption, self}}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {
@@ -400,7 +401,7 @@ impl RealTimeModel {
 
     pub fn make_stop_times(
         &mut self,
-        stop_times: &[disruption::StopTime],
+        stop_times: &[kirin_disruption::StopTime],
         base_model: &BaseModel,
     ) -> Vec<StopTime> {
         let mut result = Vec::new();
