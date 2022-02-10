@@ -223,7 +223,7 @@ pub enum Action {
     CancelInform,
 }
 
-
+#[derive(Debug, Clone)]
 pub enum ChaosImpactError {
     VehicleJourneyAbsent(VehicleJourneyId),
     NetworkAbsent(NetworkId),

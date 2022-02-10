@@ -834,6 +834,7 @@ fn handle_feed_entity(
     let real_time_model = &mut data_and_models.2;
 
     if feed_entity.get_is_deleted() {
+        // TODO : cancel_disruption is allowed only for chaos disruptions
         real_time_model.cancel_disruption_by_id(id, base_model, data);
     } else {
         let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {

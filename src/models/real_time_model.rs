@@ -46,7 +46,7 @@ use crate::{
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption::{self as disruption, chaos_disruption::{ChaosDisruption, ChaosImpact}, 
+    real_time_disruption::{ chaos_disruption::{ChaosDisruption, ChaosImpact}, 
     kirin_disruption::{KirinDisruption, self}}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
 };
 

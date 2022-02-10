@@ -39,7 +39,7 @@ use crate::{
     transit_data::{
         data_interface::Data as DataTrait,
         data_interface::DataUpdate,
-    }, models::{base_model::BaseModel, real_time_model::{KirinDisruptionIdx, UpdateError}}, 
+    }, models::{base_model::BaseModel, real_time_model::{KirinDisruptionIdx, UpdateError}, self}, 
 };
 
 use crate::{
@@ -47,6 +47,7 @@ use crate::{
     timetables::FlowDirection, models::RealTimeModel,
 };
 use chrono::{ NaiveDate, NaiveDateTime};
+use tracing::debug;
 
 use std::{
     fmt::{Debug},
@@ -146,8 +147,7 @@ impl RealTimeModel {
                 vehicle_journey_id,
                 &date,
                 stop_times,
-                disruption_idx,
-                impact_idx,
+                kirin_disruption_idx,
             )
         } else {
             self.add_trip(base_model, data, vehicle_journey_id, &date, stop_times)
@@ -161,8 +161,7 @@ impl RealTimeModel {
         vehicle_journey_id : &str,
         date : NaiveDate,
         update_data: &UpdateData,
-        disruption_idx: &DisruptionIdx,
-        impact_idx: &ImpactIdx,
+        kirin_disruption_idx : KirinDisruptionIdx,
     ) -> Result<(), KirinUpdateError> {
         let stop_times = self.make_stop_times(update_data.stop_times.as_slice(), base_model);
 
@@ -186,8 +185,7 @@ impl RealTimeModel {
                     vehicle_journey_id,
                     &date,
                     stop_times,
-                    disruption_idx,
-                    impact_idx,
+                    kirin_disruption_idx
                 )
             } else {
                 self.add_trip(base_model, data, vehicle_journey_id, &date, stop_times)
@@ -198,4 +196,127 @@ impl RealTimeModel {
             }))
         }
     }
+
+    fn add_trip<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        vehicle_journey_id: &str,
+        date: &NaiveDate,
+        stop_times: Vec<super::StopTime>,
+    ) -> Result<(), UpdateError> {
+        debug!(
+            "Adding a new vehicle journey {} on date {}",
+            vehicle_journey_id, date
+        );
+        let (vj_idx, stop_times) = self
+            .add(vehicle_journey_id, date, stop_times, base_model)
+            .map_err(|_| {
+                UpdateError::AddPresentTrip(
+                    VehicleJourneyId {
+                        id: vehicle_journey_id.to_string(),
+                    },
+                    *date,
+                )
+            })?;
+        trace_macros!(
+            "New vehicle journey {} on date {} stored in real time model. Stop times : {:#?} ",
+            vehicle_journey_id,
+            date,
+            stop_times
+        );
+        let dates = std::iter::once(*date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+        let insert_result = data.insert_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &chrono_tz::UTC,
+            vj_idx,
+        );
+        let model_ref = ModelRefs {
+            base: base_model,
+            real_time: self,
+        };
+        if let Err(err) = insert_result {
+            handle_insertion_error(
+                &model_ref,
+                data.calendar().first_date(),
+                data.calendar().last_date(),
+                &err,
+            );
+        }
+
+        Ok(())
+    }
+
+    fn modify_trip<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        vehicle_journey_id: &str,
+        date: &NaiveDate,
+        stop_times: Vec<models::StopTime>,
+        kirin_disruption_idx : KirinDisruptionIdx,
+    ) -> Result<(), UpdateError> {
+        debug!(
+            "Modifying vehicle journey {} on date {}",
+            vehicle_journey_id, date
+        );
+        let (vj_idx, stop_times) = self
+            .modify(vehicle_journey_id, date, stop_times, base_model)
+            .map_err(|_| {
+                UpdateError::ModifyAbsentTrip(
+                    VehicleJourneyId {
+                        id: vehicle_journey_id.to_string(),
+                    },
+                    *date,
+                )
+            })?;
+        let dates = std::iter::once(*date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+
+        let modify_result = data.modify_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &chrono_tz::UTC,
+            &vj_idx,
+        );
+        match modify_result {
+            Ok(_) => self.insert_informed_linked_disruption(
+                vehicle_journey_id,
+                date,
+                base_model,
+                *disruption_idx,
+                *impact_idx,
+            ),
+            Err(err) => {
+                let model_ref = ModelRefs {
+                    base: base_model,
+                    real_time: self,
+                };
+                handle_modify_error(
+                    &model_ref,
+                    data.calendar().first_date(),
+                    data.calendar().last_date(),
+                    &err,
+                );
+            }
+        }
+        Ok(())
+    }
+
 }
