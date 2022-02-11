@@ -90,7 +90,7 @@ pub enum Impacted {
 pub enum Informed {
     Network(NetworkId),
     Line(LineId),
-    Route(RouteId),
+    Route(RouteId), 
     Trip(VehicleJourneyId),
     StopArea(StopAreaId),
     StopPoint(StopPointId),
