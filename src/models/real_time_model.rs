@@ -38,7 +38,7 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     hash::Hash,
 };
-use tracing::warn;
+use tracing::{warn, error};
 
 use crate::{
     chrono::NaiveDate,
@@ -66,7 +66,7 @@ pub struct RealTimeModel {
     pub(super) kirin_disruptions : Vec<KirinDisruption>,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
@@ -384,37 +384,16 @@ impl RealTimeModel {
 
     pub fn link_chaos_impact(
         &mut self,
-        vehicle_journey_id: &str,
+        base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
         base_model: &BaseModel,
-        chaos_impact_idx : ChaosImpactIdx,
+        chaos_impact_idx : &ChaosImpactIdx,
     ) {
-        let history = if let Some(transit_model_idx) =
-            base_model.vehicle_journey_idx(vehicle_journey_id)
-        {
+        let history =
             self.base_vehicle_journeys_idx_to_history
-                .entry(transit_model_idx)
-                .or_insert_with(VehicleJourneyHistory::new)
-        } else {
-            // This case should never happen
-            // Informed impact from chaos never affect a new_vehicle_journeys
-            // but only base vehicle_journey
-            warn!(
-                "A new vehicle journey '{}', should not be affected from a chaos impact. \
-                     impact_idx {:?}",
-                vehicle_journey_id, chaos_impact_idx
-            );
-            let histories = &mut self.new_vehicle_journeys_history;
-            let idx = self
-                .new_vehicle_journeys_id_to_idx
-                .entry(vehicle_journey_id.to_string())
-                .or_insert_with(|| {
-                    let idx = histories.len();
-                    histories.push((vehicle_journey_id.to_string(), VehicleJourneyHistory::new()));
-                    NewVehicleJourneyIdx { idx }
-                });
-            &mut self.new_vehicle_journeys_history[idx.idx].1
-        };
+                .entry(base_vehicle_journey_idx)
+                .or_insert_with(VehicleJourneyHistory::new);
+
 
         let linked_impacts = history.linked_chaos_impacts
             .entry(*date)
@@ -422,51 +401,52 @@ impl RealTimeModel {
 
         let find_disruption_impact = linked_impacts
             .iter()
-            .find(|impact_idx| **impact_idx == chaos_impact_idx);
+            .find(|impact_idx| **impact_idx == *chaos_impact_idx);
 
         match find_disruption_impact {
             Some(_) => {
+                let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
                 warn!(
                     "Chaos impact : {:?} already linked to vehicle_journey {} on date {}",
                     chaos_impact_idx, vehicle_journey_id, date
                 );
             }
             None => {
-                linked_impacts.push(chaos_impact_idx);
+                linked_impacts.push(chaos_impact_idx.clone());
             }
         }
-
     }
 
-    pub fn remove_linked_chaos_impact(
+    pub fn unlink_chaos_impact(
         &mut self,
-        vehicle_journey_id: &str,
+        base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
         base_model: &BaseModel,
         chaos_impact_idx : &ChaosImpactIdx,
     ) {
-        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-            let history = self
-                .base_vehicle_journeys_idx_to_history
-                .get_mut(&transit_model_idx);
+        let history =
+            self.base_vehicle_journeys_idx_to_history
+                .entry(base_vehicle_journey_idx)
+                .or_insert_with(VehicleJourneyHistory::new);
 
-            if let Some(history) = history {
 
-                match  history.linked_chaos_impacts.entry(*date) {
-                    Entry::Occupied(mut linked_impacts) => linked_impacts
-                        .get_mut()
-                        .retain(|impact_idx| *impact_idx != *chaos_impact_idx),
-                    Entry::Vacant(_) => {
-                        warn!(
-                            "Cannot removed absent linked chaos impact {:?} for vehicle journey {} at date {}",
-                            chaos_impact_idx, vehicle_journey_id, date
-                        );
-                    }
-                }
-            } else {
+        let linked_impacts = history.linked_chaos_impacts
+            .entry(*date)
+            .or_insert_with(LinkedChaosImpacts::new);
+
+        let find_disruption_impact = linked_impacts
+            .iter()
+            .find(|impact_idx| **impact_idx == *chaos_impact_idx);
+
+        match find_disruption_impact {
+            Some(_) => {
+                linked_impacts.retain(|impact_idx| *impact_idx == *chaos_impact_idx);
+                
+            }
+            None => {
+                let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
                 warn!(
-                    "Cannot removed linked chaos impact {:?} for vehicle journey {} at date {}. \
-                     There is no realtime history for this (vehicle, date).",
+                    "Cannot unlink absent chaos impact {:?} on vehicle_journey {} on date {}",
                     chaos_impact_idx, vehicle_journey_id, date
                 );
             }
@@ -568,6 +548,22 @@ impl RealTimeModel {
                     
             })
     }
+
+    pub fn base_vehicle_journey_is_present(&self,
+        idx : &BaseVehicleJourneyIdx,
+        date : &NaiveDate,
+        base_model : &BaseModel,
+    ) -> bool  {
+  
+        let last_version = self.base_vehicle_journey_last_version(idx, date);
+        match last_version {
+            Some(&TripVersion::Deleted()) => false,
+            Some(&TripVersion::Present(_)) => true,
+            None => base_model.trip_exists(*idx, *date),
+        }
+        
+    }
+
 
     pub(super) fn new_vehicle_journey_last_version(
         &self,

@@ -85,7 +85,7 @@ pub fn handle_kirin_protobuf(
         if trip_descriptor.has_start_date().not() {
             return Err(format_err!("TripDescriptor has an empty start_time."));
         }
-        let start_date = trip.get_start_date();
+        let start_date = trip_descriptor.get_start_date();
         NaiveDate::parse_from_str(start_date, "%Y%m%d").with_context(|| {
             format!(
                 "TripDescriptor has a start date {} that could not be parsed.",

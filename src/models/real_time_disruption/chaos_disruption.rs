@@ -37,14 +37,14 @@ use crate::{
 
     transit_data::{
         data_interface::Data as DataTrait,
-        data_interface::DataUpdate,
-    }, models::{base_model::{BaseModel, BaseVehicleJourneyIdx}, real_time_model::ChaosImpactIdx, RealTimeModel, StopPointIdx}, time::calendar,
+        data_interface::DataUpdate, handle_removal_error,
+    }, models::{base_model::{BaseModel, BaseVehicleJourneyIdx}, real_time_model::{ChaosImpactIdx, TripVersion, VehicleJourneyHistory}, RealTimeModel, StopPointIdx, VehicleJourneyIdx, ModelRefs, self}, time::calendar,
 };
 
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
-use tracing::error;
+use tracing::{error, debug};
 
 
 use super::{TimePeriod, Effect, intersection, TimePeriods};
@@ -226,7 +226,12 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub enum ChaosImpactError {
     VehicleJourneyAbsent(VehicleJourneyId),
+    LineAbsent(LineId),
+    RouteAbsent(RouteId),
     NetworkAbsent(NetworkId),
+    StopPointAbsent(StopPointId),
+    StopAreaAbsent(StopAreaId),
+    DeletePresentTrip(VehicleJourneyId, NaiveDate),
 }
 
 impl RealTimeModel {
@@ -240,17 +245,17 @@ impl RealTimeModel {
         base_model: &BaseModel,
         data: &mut Data,
     ) {
-        let disruption_idx =  self.disruptions.len();
+        let disruption_idx =  self.chaos_disruptions.len();
 
         for (idx, impact) in disruption.impacts.iter().enumerate() {
-            let impact_idx = ChaosImpactIdx { 
+            let chaos_impact_idx = ChaosImpactIdx { 
                 disruption_idx, 
                 impact_idx : idx
             };
-            self.apply_impact(impact, base_model, data, &disruption_idx, &impact_idx);
+            self.apply_impact(impact, base_model, data, &chaos_impact_idx, false);
         }
 
-        self.disruptions.push(disruption);
+        self.chaos_disruptions.push(disruption);
     }
 
     fn apply_impact<Data: DataTrait + DataUpdate>(
@@ -396,7 +401,6 @@ impl RealTimeModel {
                     data,
                     &[&stop_point.id],
                     &application_periods,
-                    &application_periods,
                     impact_idx,
                     &informed_action,
                 ),
@@ -409,65 +413,6 @@ impl RealTimeModel {
             }
         }
     }
-
-
-    fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
-        &mut self,
-        base_model: &BaseModel,
-        data: &mut Data,
-        vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
-        chaos_impact_idx : &ChaosImpactIdx,
-        action: &Action,
-    ) {
-        match action {
-            Action::Alter => {
-                let result = self.delete_trip(
-                    base_model,
-                    data,
-                    vehicle_journey_idx,
-                    date,
-                    chaos_impact_idx
-                );
-                // we should never get a DeleteAbsentTrip error
-                // since we check in trip_time_period() that this trip exists
-                if let Err(err) = result {
-                    error!(
-                        "Unexpected error while deleting a base vehicle journey {:?}",
-                        err
-                    );
-                }
-            }
-            Action::ApplyInform => self.insert_informed_linked_disruption(
-                vehicle_journey_idx,
-                date,
-                base_model,
-                chaos_impact_idx
-            ),
-            Action::CancelImpact => {
-                let result = self.restore_base_trip(
-                    base_model,
-                    data,
-                    vehicle_journey_idx,
-                    date,
-                    chaos_impact_idx
-                );
-                if let Err(err) = result {
-                    error!(
-                        "Unexpected error while restoring a base vehicle journey {:?}",
-                        err
-                    );
-                }
-            }
-            Action::CancelInform => self.cancel_informed_linked_disruption(
-                vehicle_journey_idx,
-                date,
-                base_model,
-                chaos_impact_idx
-            ),
-        }
-    }
-
 
     fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
         &mut self,
@@ -485,7 +430,7 @@ impl RealTimeModel {
                         self.dispatch_on_base_vehicle_journey(
                             base_model,
                             data,
-                            vehicle_journey_id,
+                            vehicle_journey_idx,
                             &date,
                             chaos_impact_idx,
                             action
@@ -500,6 +445,81 @@ impl RealTimeModel {
             }))
         }
     }
+
+
+    fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        base_vehicle_journey_idx: BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+        chaos_impact_idx : &ChaosImpactIdx,
+        action: &Action,
+    ) {
+        match action {
+            Action::Alter => {
+                let result = self.delete_base_trip(
+                    base_model,
+                    data,
+                    &base_vehicle_journey_idx,
+                    date,
+                    chaos_impact_idx
+                );
+                self.link_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
+            }
+            Action::Inform => {
+                self.link_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
+            },
+            Action::CancelAlteration => {
+                error!("Cancel chaos impact not implemented yet.");
+            }
+            Action::CancelInform => {
+               self.unlink_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
+            },
+        }
+    }
+
+    pub fn delete_base_trip<Data: DataTrait + DataUpdate>(
+        &mut self,
+        base_model: &BaseModel,
+        data: &mut Data,
+        base_vehicle_journey_idx: &BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+        chaos_impact_idx : &ChaosImpactIdx
+    ) -> Result<(), ()>
+    {
+
+        if !self.base_vehicle_journey_is_present(base_vehicle_journey_idx, &date, base_model) {
+            error!("Deleting an absent base trip {} on {}", base_model.vehicle_journey_name(*base_vehicle_journey_idx), date);
+            return Err(());
+        }
+
+        let trip_version = TripVersion::Deleted();
+
+        self.set_base_trip_version(*base_vehicle_journey_idx, &date, trip_version);
+
+
+        let vj_idx = VehicleJourneyIdx::Base(*base_vehicle_journey_idx);
+        let removal_result = data.remove_real_time_vehicle(&vj_idx, date);
+        if let Err(err) = removal_result {
+            let model_ref = ModelRefs {
+                base: base_model,
+                real_time: self,
+            };
+            handle_removal_error(
+                &model_ref,
+                data.calendar().first_date(),
+                data.calendar().last_date(),
+                &err,
+            );
+            
+        }
+
+        Ok(())
+    }
+
+
+
 
     fn apply_on_network<Data: DataTrait + DataUpdate>(
         &mut self,
@@ -678,7 +698,7 @@ impl RealTimeModel {
                         base_model.trip_time_period(vehicle_journey_idx, &date)
                     {
                         if application_periods.intersects(&time_period) {
-                            let is_stop_time_concerned = |stop_time: &super::StopTime| {
+                            let is_stop_time_concerned = |stop_time: &models::StopTime| {
                                 let concerned_stop_point =
                                     stop_point_idx.iter().any(|sp| sp == &stop_time.stop);
                                 if !concerned_stop_point {
@@ -726,52 +746,56 @@ impl RealTimeModel {
         data: &mut Data,
         vehicle_journey_id: &str,
         date: &NaiveDate,
-        stop_times: Vec<super::StopTime>,
+        stop_times: Vec<models::StopTime>,
         chaos_impact_idx : &ChaosImpactIdx,
         action: &Action,
     ) {
-        match action {
-            Action::Alter => {
-                let result = self.modify_trip(
-                    base_model,
-                    data,
-                    vehicle_journey_id,
-                    date,
-                    stop_times,
-                    chaos_impact_idx,
-                );
-                if let Err(err) = result {
-                    error!("Error while deleting stop point. {:?}", err);
-                }
-            }
-            Action::Inform => self.insert_informed_linked_disruption(
-                vehicle_journey_id,
-                date,
-                base_model,
-                chaos_impact_idx,
-            ),
-            Action::CancelAlteration => {
-                let result = self.restore_base_trip(
-                    base_model,
-                    data,
-                    vehicle_journey_id,
-                    date,
-                    chaos_impact_idx
-                );
-                if let Err(err) = result {
-                    error!(
-                        "Unexpected error while restoring a base vehicle journey {:?}",
-                        err
-                    );
-                }
-            }
-            Action::CancelInform => self.cancel_informed_linked_disruption(
-                vehicle_journey_id,
-                date,
-                base_model,
-                chaos_impact_idx
-            ),
-        }
+    //     match action {
+    //         Action::Alter => {
+    //             let result = self.modify_trip(
+    //                 base_model,
+    //                 data,
+    //                 vehicle_journey_id,
+    //                 date,
+    //                 stop_times,
+    //                 chaos_impact_idx,
+    //             );
+    //             if let Err(err) = result {
+    //                 error!("Error while deleting stop point. {:?}", err);
+    //             }
+    //         }
+    //         Action::Inform => self.insert_informed_linked_disruption(
+    //             vehicle_journey_id,
+    //             date,
+    //             base_model,
+    //             chaos_impact_idx,
+    //         ),
+    //         Action::CancelAlteration => {
+    //             let result = self.restore_base_trip(
+    //                 base_model,
+    //                 data,
+    //                 vehicle_journey_id,
+    //                 date,
+    //                 chaos_impact_idx
+    //             );
+    //             if let Err(err) = result {
+    //                 error!(
+    //                     "Unexpected error while restoring a base vehicle journey {:?}",
+    //                     err
+    //                 );
+    //             }
+    //         }
+    //         Action::CancelInform => self.cancel_informed_linked_disruption(
+    //             vehicle_journey_id,
+    //             date,
+    //             base_model,
+    //             chaos_impact_idx
+    //         ),
+    //     }
     }
+
+    
+
+
 
 }

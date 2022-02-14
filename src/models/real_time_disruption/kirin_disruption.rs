@@ -38,7 +38,7 @@ use crate::{
 
     transit_data::{
         data_interface::Data as DataTrait,
-        data_interface::DataUpdate, handle_insertion_error, handle_modify_error,
+        data_interface::DataUpdate, handle_insertion_error, handle_modify_error, handle_removal_error,
     }, models::{base_model::BaseModel, real_time_model::{KirinDisruptionIdx, UpdateError, TripVersion}, self, ModelRefs, VehicleJourneyIdx}, 
 };
 
@@ -107,7 +107,10 @@ pub struct StopTime {
 pub enum KirinUpdateError{
     NewTripWithBaseId(VehicleJourneyId),
     BaseVehicleJourneyAbsent(VehicleJourneyId),
+    DeleteAbsentTrip(VehicleJourneyId),
 }
+
+
 
 
 
@@ -134,7 +137,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
 
     let stop_times = real_time_model.make_stop_times(update_data.stop_times.as_slice(), base_model);
 
-    let trip_version = TripVersion::Present(stop_times);
+    let trip_version = TripVersion::Present(stop_times.clone());
 
     let has_previous_trip_version = real_time_model.set_new_trip_version(new_vehicle_journey_idx, &date, trip_version);
 
@@ -156,7 +159,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
                 real_time_model,
                 base_model,
                 data,
-                vehicle_journey_idx,
+                vehicle_journey_idx.clone(),
                 &date,
                 stop_times,
             );
@@ -188,7 +191,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
 
     let stop_times = real_time_model.make_stop_times(update_data.stop_times.as_slice(), base_model);
 
-    let trip_version = TripVersion::Present(stop_times);
+    let trip_version = TripVersion::Present(stop_times.clone());
 
     let has_previous_trip_version = real_time_model.set_base_trip_version(base_vj_idx, &date, trip_version);
 
@@ -208,7 +211,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
                 real_time_model,
                 base_model,
                 data,
-                vehicle_journey_idx,
+                vehicle_journey_idx.clone(),
                 &date,
                 stop_times,
             );
@@ -217,6 +220,60 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
 
     real_time_model.set_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
 
+
+    Ok(())
+
+}
+
+fn delete_trip<Data: DataTrait + DataUpdate>(
+    real_time_model : &mut RealTimeModel,
+    base_model: &BaseModel,
+    data: &mut Data,
+    vehicle_journey_id : &str,
+    date : NaiveDate,
+    kirin_disruption_idx : KirinDisruptionIdx,
+) -> Result<(), KirinUpdateError> {
+
+
+
+    let vj_idx = {
+        let model_refs = ModelRefs {
+            base: base_model,
+            real_time: real_time_model,
+        };
+        model_refs.vehicle_journey_idx(vehicle_journey_id)
+            .ok_or_else(|| KirinUpdateError::DeleteAbsentTrip(VehicleJourneyId{id : vehicle_journey_id.to_string()}))
+    }?;
+
+    if !real_time_model.is_present(vehicle_journey_id, &date, base_model) {
+        return Err(KirinUpdateError::DeleteAbsentTrip(VehicleJourneyId{id : vehicle_journey_id.to_string()}));
+    }
+
+    let trip_version = TripVersion::Deleted();
+    match vj_idx {
+        VehicleJourneyIdx::Base(base_idx) => {
+            real_time_model.set_base_trip_version(base_idx, &date, trip_version);
+        },
+        VehicleJourneyIdx::New(new_vj_idx) => {
+            real_time_model.set_new_trip_version(new_vj_idx, &date, trip_version);
+        }
+    }
+    let removal_result = data.remove_real_time_vehicle(&vj_idx, &date);
+    if let Err(err) = removal_result {
+        let model_ref = ModelRefs {
+            base: base_model,
+            real_time: real_time_model,
+        };
+        handle_removal_error(
+            &model_ref,
+            data.calendar().first_date(),
+            data.calendar().last_date(),
+            &err,
+        );
+    }
+
+
+    real_time_model.set_kirin_disruption(&vj_idx, date, kirin_disruption_idx);
 
     Ok(())
 
