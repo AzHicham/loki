@@ -37,11 +37,13 @@
 use chrono::{Duration, NaiveDate};
 use tracing::warn;
 use transit_model::objects::{
-    CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
+    Availability, CommercialMode, Equipment, Line, Network, PhysicalMode, Properties, Route,
+    StopArea, VehicleJourney,
 };
 
 use typed_index_collection::Idx;
 
+use crate::models::TransferIdx;
 use crate::{
     time::{calendar, SecondsSinceTimezonedDayStart},
     timetables::FlowDirection,
@@ -91,6 +93,30 @@ pub type BaseStopTime = transit_model::objects::StopTime;
 pub enum BadModel {
     NoDataset,
     StartDateAfterEndDate,
+}
+
+pub enum VehicleJourneyPropertyKey {
+    WheelChairAccessible,
+    BikeAccepted,
+    AirConditioned,
+    VisualAnnouncement,
+    AudibleAnnouncement,
+    AppropriateEscort,
+    AppropriateSignage,
+    SchoolVehicle,
+}
+
+pub enum EquipmentPropertyKey {
+    WheelChairBoarding,
+    Sheltered,
+    Elevator,
+    Escalator,
+    BikeAccepted,
+    BikeDepot,
+    VisualAnnouncement,
+    AudibleAnnouncement,
+    AppropriateEscort,
+    AppropriateSignage,
 }
 
 impl BaseModel {
@@ -204,6 +230,18 @@ impl BaseModel {
         let equipment_id = &stop_point.equipment_id.as_ref()?;
         let equipment = &self.collections.equipments.get(equipment_id)?;
         Some(equipment)
+    }
+
+    pub fn stop_point_property(
+        &self,
+        stop_point_idx: BaseStopPointIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        if let Some(equipments) = self.equipment(stop_point_idx) {
+            self.equipment_property(equipments, property_key)
+        } else {
+            false
+        }
     }
 
     pub fn coord(&self, idx: BaseStopPointIdx) -> Coord {
@@ -323,6 +361,29 @@ impl BaseModel {
     pub fn line_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.vehicle_journey_route(idx)
             .map(|route| route.line_id.as_str())
+    }
+
+    pub fn vehicle_journey_property(
+        &self,
+        idx: BaseVehicleJourneyIdx,
+        property_key: VehicleJourneyPropertyKey,
+    ) -> bool {
+        let string_key = match property_key {
+            VehicleJourneyPropertyKey::WheelChairAccessible => "wheelchair_accessible",
+            VehicleJourneyPropertyKey::BikeAccepted => "bike_accepted",
+            VehicleJourneyPropertyKey::AirConditioned => "air_conditioned",
+            VehicleJourneyPropertyKey::VisualAnnouncement => "visual_announcement",
+            VehicleJourneyPropertyKey::AudibleAnnouncement => "audible_announcement",
+            VehicleJourneyPropertyKey::AppropriateEscort => "appropriate_escort",
+            VehicleJourneyPropertyKey::AppropriateSignage => "appropriate_signage",
+            VehicleJourneyPropertyKey::SchoolVehicle => "school_vehicle_type",
+        };
+        let properties = &self.collections.vehicle_journeys[idx].properties();
+        let value = properties.get(string_key);
+        match value {
+            Some(value) => matches!(value.as_str(), "1"), // return true only if value == "1"
+            None => false,
+        }
     }
 
     pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -583,7 +644,26 @@ impl BaseModel {
             .unwrap_or(0u32);
         PositiveDuration { seconds }
     }
+
+    pub fn transfer_property(
+        &self,
+        transfer_idx: BaseTransferIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        let transfer = &self.collections.transfers[transfer_idx];
+        if let Some(equipment_id) = &transfer.equipment_id {
+            let equipments = &self.collections.equipments.get(equipment_id);
+            if let Some(equipments) = equipments {
+                self.equipment_property(equipments, property_key)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
 }
+
 // various
 impl BaseModel {
     pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
@@ -618,8 +698,29 @@ impl BaseModel {
     pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
         self.collections.commercial_modes.get(id)
     }
+
     pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
         self.collections.physical_modes.get(id)
+    }
+
+    fn equipment_property(
+        &self,
+        equipments: &Equipment,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        let property = match property_key {
+            EquipmentPropertyKey::WheelChairBoarding => equipments.bike_accepted,
+            EquipmentPropertyKey::Sheltered => equipments.sheltered,
+            EquipmentPropertyKey::Elevator => equipments.elevator,
+            EquipmentPropertyKey::Escalator => equipments.escalator,
+            EquipmentPropertyKey::BikeAccepted => equipments.bike_accepted,
+            EquipmentPropertyKey::BikeDepot => equipments.bike_depot,
+            EquipmentPropertyKey::VisualAnnouncement => equipments.visual_announcement,
+            EquipmentPropertyKey::AudibleAnnouncement => equipments.audible_announcement,
+            EquipmentPropertyKey::AppropriateEscort => equipments.appropriate_escort,
+            EquipmentPropertyKey::AppropriateSignage => equipments.appropriate_signage,
+        };
+        property == Availability::Available
     }
 }
 

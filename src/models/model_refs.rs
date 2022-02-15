@@ -34,6 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::models::base_model::{EquipmentPropertyKey, VehicleJourneyPropertyKey};
+use crate::models::TransferIdx;
 use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
 use transit_model::objects::{
     CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
@@ -123,6 +125,39 @@ impl<'model> ModelRefs<'model> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => self.base.physical_mode_name(*idx),
             VehicleJourneyIdx::New(_idx) => "unknown_physical_mode",
+        }
+    }
+
+    pub fn vehicle_journey_property(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        property_key: VehicleJourneyPropertyKey,
+    ) -> bool {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => self.base.vehicle_journey_property(*idx, property_key),
+            VehicleJourneyIdx::New(_idx) => false,
+        }
+    }
+
+    pub fn stop_point_property(
+        &self,
+        stop_point_idx: &StopPointIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        match stop_point_idx {
+            StopPointIdx::Base(idx) => self.base.stop_point_property(*idx, property_key),
+            StopPointIdx::New(_idx) => false,
+        }
+    }
+
+    pub fn transfer_property(
+        &self,
+        transfer_idx: &TransferIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        match transfer_idx {
+            TransferIdx::Base(idx) => self.base.transfer_property(*idx, property_key),
+            TransferIdx::New(_idx) => false,
         }
     }
 

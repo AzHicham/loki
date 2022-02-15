@@ -50,6 +50,10 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::models::base_model::VehicleJourneyPropertyKey::{
+    AirConditioned, AppropriateEscort, AppropriateSignage, AudibleAnnouncement, BikeAccepted,
+    SchoolVehicle, VisualAnnouncement, WheelChairAccessible,
+};
 use launch::loki::{
     chrono::Timelike,
     models::{
@@ -64,9 +68,7 @@ use launch::loki::{
         },
         real_time_model::LinkedDisruptions,
     },
-    transit_model::objects::{
-        Availability, Line, Network, Properties, PropertiesMap, Route, StopArea,
-    },
+    transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
 use std::convert::TryFrom;
 
@@ -1257,63 +1259,24 @@ pub fn make_vehicle_journey_pt_object(
 }
 
 pub fn make_vehicle_journey(
-    vj_idx: &VehicleJourneyIdx,
+    idx: &VehicleJourneyIdx,
     model: &ModelRefs,
 ) -> navitia_proto::VehicleJourney {
-    use VehicleJourneyPropertyKey::*;
-    match vj_idx {
-        VehicleJourneyIdx::Base(idx) => {
-            let vehicle_journey = model.vehicle_journey(idx);
-            let properties = vehicle_journey.properties();
-            navitia_proto::VehicleJourney {
-                name: Some(vehicle_journey.id.clone()),
-                uri: Some(vehicle_journey.id.clone()),
-                headsign: vehicle_journey.headsign.clone(),
-                wheelchair_accessible: Some(get_vehicle_property(properties, WheelChairAccessible)),
-                bike_accepted: Some(get_vehicle_property(properties, BikeAccepted)),
-                air_conditioned: Some(get_vehicle_property(properties, AirConditioned)),
-                visual_announcement: Some(get_vehicle_property(properties, VisualAnnouncement)),
-                audible_announcement: Some(get_vehicle_property(properties, AudibleAnnouncement)),
-                appropriate_escort: Some(get_vehicle_property(properties, AppropriateEscort)),
-                appropriate_signage: Some(get_vehicle_property(properties, AppropriateSignage)),
-                school_vehicle: Some(get_vehicle_property(properties, SchoolVehicle)),
-                is_adapted: Some(true), // RTLevel::Adapted has been removed
-                ..Default::default()
-            }
-        }
-        VehicleJourneyIdx::New(_idx) => navitia_proto::VehicleJourney {
-            ..Default::default()
-        },
+    navitia_proto::VehicleJourney {
+        name: Some(model.vehicle_journey_name(idx).to_string()),
+        uri: Some(model.vehicle_journey_name(idx).to_string()),
+        //  headsign: model.headsign(),
+        wheelchair_accessible: Some(model.vehicle_journey_property(idx, WheelChairAccessible)),
+        bike_accepted: Some(model.vehicle_journey_property(idx, BikeAccepted)),
+        air_conditioned: Some(model.vehicle_journey_property(idx, AirConditioned)),
+        visual_announcement: Some(model.vehicle_journey_property(idx, VisualAnnouncement)),
+        audible_announcement: Some(model.vehicle_journey_property(idx, AudibleAnnouncement)),
+        appropriate_escort: Some(model.vehicle_journey_property(idx, AppropriateEscort)),
+        appropriate_signage: Some(model.vehicle_journey_property(idx, AppropriateSignage)),
+        school_vehicle: Some(model.vehicle_journey_property(idx, SchoolVehicle)),
+        is_adapted: Some(false), // RTLevel::Adapted has been removed
+        ..Default::default()
     }
-}
-
-fn get_vehicle_property(properties: &PropertiesMap, key: VehicleJourneyPropertyKey) -> bool {
-    let string_key = match key {
-        VehicleJourneyPropertyKey::WheelChairAccessible => "wheelchair_accessible",
-        VehicleJourneyPropertyKey::BikeAccepted => "bike_accepted",
-        VehicleJourneyPropertyKey::AirConditioned => "air_conditioned",
-        VehicleJourneyPropertyKey::VisualAnnouncement => "visual_announcement",
-        VehicleJourneyPropertyKey::AudibleAnnouncement => "audible_announcement",
-        VehicleJourneyPropertyKey::AppropriateEscort => "appropriate_escort",
-        VehicleJourneyPropertyKey::AppropriateSignage => "appropriate_signage",
-        VehicleJourneyPropertyKey::SchoolVehicle => "school_vehicle_type",
-    };
-    let value = properties.get(string_key);
-    match value {
-        Some(value) => matches!(value.as_str(), "1"), // return true only if value == "1"
-        None => false,
-    }
-}
-
-pub enum VehicleJourneyPropertyKey {
-    WheelChairAccessible,
-    BikeAccepted,
-    AirConditioned,
-    VisualAnnouncement,
-    AudibleAnnouncement,
-    AppropriateEscort,
-    AppropriateSignage,
-    SchoolVehicle,
 }
 
 pub fn make_equipments(
