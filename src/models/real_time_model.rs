@@ -83,13 +83,13 @@ pub struct VehicleJourneyHistory {
     linked_kirin_disruption : HashMap<NaiveDate, KirinDisruptionIdx>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChaosImpactIdx {
     pub(super) disruption_idx: usize, // position in RealTimeModel.chaos_disruptions
     pub(super) impact_idx : usize, // position in ChaosDisruption.impacts
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KirinDisruptionIdx {
     pub(super) idx : usize, // position in RealTimeModel.kirin_disruptions
 }
@@ -140,65 +140,7 @@ pub enum UpdateResult {
 }
 
 impl RealTimeModel {
-    pub fn delete(
-        &mut self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        base_model: &BaseModel,
-    ) -> Result<VehicleJourneyIdx, UpdateError> {
-        if self.is_present(vehicle_journey_id, date, base_model) {
-            let trip_version = TripVersion::Deleted();
-            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
-
-            Ok(idx)
-        } else {
-            let err = UpdateError::DeleteAbsentTrip(Trip {
-                vehicle_journey_id: vehicle_journey_id.to_string(),
-                reference_date: *date,
-            });
-            Err(err)
-        }
-    }
-
-    pub fn add(
-        &mut self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        stop_times: Vec<super::StopTime>,
-        base_model: &BaseModel,
-    ) -> Result<(VehicleJourneyIdx, Vec<StopTime>), UpdateError> {
-        if self.is_present(vehicle_journey_id, date, base_model) {
-            let err = UpdateError::AddPresentTrip(Trip {
-                vehicle_journey_id: vehicle_journey_id.to_string(),
-                reference_date: *date,
-            });
-            Err(err)
-        } else {
-            let trip_version = TripVersion::Present(stop_times.clone());
-            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
-            Ok((idx, stop_times))
-        }
-    }
-
-    pub fn modify(
-        &mut self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        stop_times: Vec<super::StopTime>,
-        base_model: &BaseModel,
-    ) -> Result<(VehicleJourneyIdx, Vec<StopTime>), UpdateError> {
-        if !self.is_present(vehicle_journey_id, date, base_model) {
-            let err = UpdateError::ModifyAbsentTrip(Trip {
-                vehicle_journey_id: vehicle_journey_id.to_string(),
-                reference_date: *date,
-            });
-            Err(err)
-        } else {
-            let trip_version = TripVersion ::Present(stop_times.clone());
-            let idx = self.set_version(vehicle_journey_id, date, base_model, trip_version);
-            Ok((idx, stop_times))
-        }
-    }
+   
 
     pub fn set_base_trip_version(
         &mut self,
@@ -211,7 +153,6 @@ impl RealTimeModel {
                 .base_vehicle_journeys_idx_to_history
                 .entry(vehicle_journey_idx)
                 .or_insert_with(VehicleJourneyHistory::new);
-        let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         history.by_reference_date.insert(*date, trip_version)
     
@@ -269,6 +210,22 @@ impl RealTimeModel {
 
     }
 
+    pub fn get_kirin_disruption(&self,
+        vehicle_journey_idx : &VehicleJourneyIdx, 
+        date : NaiveDate,
+    ) -> Option<&KirinDisruptionIdx> {
+        let history = match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(base_idx) => {
+                self.base_vehicle_journeys_idx_to_history
+                    .get(base_idx)?
+            },
+            VehicleJourneyIdx::New(new_idx) => {
+                & self.new_vehicle_journeys_history[new_idx.idx].1
+            },
+        };
+        history.linked_kirin_disruption.get(&date)
+    }
+
 
     pub fn restore_base_vehicle_journey(
         &mut self,
@@ -276,110 +233,27 @@ impl RealTimeModel {
         date: &NaiveDate,
         base_model: &BaseModel,
     ) -> Result<(BaseVehicleJourneyIdx, Vec<StopTime>), UpdateError> {
-        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-            self.remove_version(&transit_model_idx, date, base_model);
-            if let Ok(base_stop_times) = base_model.stop_times(transit_model_idx) {
-                let stop_times: Vec<_> = base_stop_times.clone().collect();
-                Ok((transit_model_idx, stop_times))
-            } else {
-                // FIX ME add NOT FOUND STOP TIME ERROR
-                let err = UpdateError::ModifyAbsentTrip(Trip {
-                    vehicle_journey_id: vehicle_journey_id.to_string(),
-                    reference_date: *date,
-                });
-                Err(err)
-            }
-        } else {
-            let err = UpdateError::ModifyAbsentTrip(Trip {
-                vehicle_journey_id: vehicle_journey_id.to_string(),
-                reference_date: *date,
-            });
-            Err(err)
-        }
-    }
-
-    pub fn is_present(
-        &self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        base_model: &BaseModel,
-    ) -> bool {
-        if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-            let last_version = self.base_vehicle_journey_last_version(&transit_model_idx, date);
-            match last_version {
-                Some(&TripVersion::Deleted()) => false,
-                Some(&TripVersion::Present(_)) => true,
-                None => base_model.trip_exists(transit_model_idx, *date),
-            }
-        } else {
-            let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
-            if let Some(new_vj_idx) = has_new_vj_idx {
-                let last_version = self.new_vehicle_journey_last_version(new_vj_idx, date);
-                match last_version {
-                    None => false,
-                    Some(&TripVersion::Deleted()) => false,
-                    Some(&TripVersion::Present(_)) => true,
-                }
-            } else {
-                false
-            }
-        }
-    }
-
-    fn set_version(
-        &mut self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        base_model: &BaseModel,
-        trip_version: TripVersion,
-    ) -> VehicleJourneyIdx {
-        let (history, vj_idx) = if let Some(transit_model_idx) =
-            base_model.vehicle_journey_idx(vehicle_journey_id)
-        {
-            let history = self
-                .base_vehicle_journeys_idx_to_history
-                .entry(transit_model_idx)
-                .or_insert_with(VehicleJourneyHistory::new);
-            let vj_idx = VehicleJourneyIdx::Base(transit_model_idx);
-            (history, vj_idx)
-        } else {
-            let histories = &mut self.new_vehicle_journeys_history;
-            let idx = self
-                .new_vehicle_journeys_id_to_idx
-                .entry(vehicle_journey_id.to_string())
-                .or_insert_with(|| {
-                    let idx = histories.len();
-                    histories.push((vehicle_journey_id.to_string(), VehicleJourneyHistory::new()));
-                    NewVehicleJourneyIdx { idx }
-                });
-            let history = &mut self.new_vehicle_journeys_history[idx.idx].1;
-            let vj_idx = VehicleJourneyIdx::New(idx.clone());
-            (history, vj_idx)
-        };
-
-        history.by_reference_date.insert(*date, trip_version);
-        vj_idx
-    }
-
-    fn remove_version(
-        &mut self,
-        transit_model_idx: &BaseVehicleJourneyIdx,
-        date: &NaiveDate,
-        base_model: &BaseModel,
-    ) {
-        let vehicle_journey_id = base_model.vehicle_journey_name(*transit_model_idx);
-        let history = self
-            .base_vehicle_journeys_idx_to_history
-            .get_mut(transit_model_idx);
-
-        if let Some(history) = history {
-            history.by_reference_date.remove(date);
-        } else {
-            warn!(
-                "No history found for vehicle journey {} at date {}",
-                vehicle_journey_id, *date
-            )
-        }
+        todo!();
+        // if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+        //     self.remove_version(&transit_model_idx, date, base_model);
+        //     if let Ok(base_stop_times) = base_model.stop_times(transit_model_idx) {
+        //         let stop_times: Vec<_> = base_stop_times.clone().collect();
+        //         Ok((transit_model_idx, stop_times))
+        //     } else {
+        //         // FIX ME add NOT FOUND STOP TIME ERROR
+        //         let err = UpdateError::ModifyAbsentTrip(Trip {
+        //             vehicle_journey_id: vehicle_journey_id.to_string(),
+        //             reference_date: *date,
+        //         });
+        //         Err(err)
+        //     }
+        // } else {
+        //     let err = UpdateError::ModifyAbsentTrip(Trip {
+        //         vehicle_journey_id: vehicle_journey_id.to_string(),
+        //         reference_date: *date,
+        //     });
+        //     Err(err)
+        // }
     }
 
     pub fn link_chaos_impact(
@@ -451,6 +325,27 @@ impl RealTimeModel {
                 );
             }
         }
+    }
+
+    pub fn get_linked_chaos_impacts(
+        &self,
+        base_vehicle_journey_idx: BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> Option<&[ChaosImpactIdx]> {
+        
+        let history = self.base_vehicle_journeys_idx_to_history
+                .get(&base_vehicle_journey_idx)?;
+        let impacts = history.linked_chaos_impacts.get(date)?;
+        Some(impacts.as_slice())
+
+    }
+
+    pub fn get_chaos_disruption(&self, 
+        chaos_impact_idx : &ChaosImpactIdx
+    ) -> Option<(&ChaosDisruption, &ChaosImpact)> {
+        let disruption = self.chaos_disruptions.get(chaos_impact_idx.disruption_idx)?;
+        let impact = disruption.impacts.get(chaos_impact_idx.impact_idx)?;
+        Some((disruption, impact))
     }
 
 
@@ -605,26 +500,6 @@ impl RealTimeModel {
         let disruption = &self.chaos_disruptions[chaos_impact_idx.disruption_idx];
         let impact = &disruption.impacts[chaos_impact_idx.impact_idx];
         (disruption, impact)
-    }
-
-    pub fn get_linked_chaos_impacts(
-        &self,
-        vj_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
-    ) -> Option<&LinkedChaosImpacts> {
-        let history = match vj_idx {
-            VehicleJourneyIdx::Base(vj_idx) => {
-                self.base_vehicle_journeys_idx_to_history.get(vj_idx)
-            }
-            VehicleJourneyIdx::New(vj_idx) => self
-                .new_vehicle_journeys_history
-                .get(vj_idx.idx)
-                .map(|(_, history)| history),
-        };
-        match history {
-            Some(history) => history.linked_chaos_impacts.get(date),
-            None => None,
-        }
     }
 
     pub fn new() -> Self {
