@@ -32,6 +32,7 @@
 //! # }
 //! ```
 
+use loki::transit_model::objects::{Equipment, Properties};
 use loki::{
     chrono_tz::{self},
     transit_model::{
@@ -335,6 +336,7 @@ impl<'a> ModelBuilder {
         from_stop_id: &str,
         to_stop_id: &str,
         transfer_duration: impl IntoTime,
+        equipment_id: Option<String>,
     ) -> Self {
         let duration = transfer_duration.into_time().total_seconds();
         self.collections.transfers.push(Transfer {
@@ -342,7 +344,7 @@ impl<'a> ModelBuilder {
             to_stop_id: to_stop_id.to_string(),
             min_transfer_time: Some(duration),
             real_min_transfer_time: Some(duration),
-            equipment_id: None,
+            equipment_id,
         });
         self
     }
@@ -359,6 +361,21 @@ impl<'a> ModelBuilder {
             };
             initer(&mut sa);
             sa
+        });
+        self
+    }
+
+    pub fn equipment<F>(mut self, id: &str, mut initer: F) -> Self
+    where
+        F: FnMut(&mut Equipment),
+    {
+        self.collections.equipments.get_or_create_with(id, || {
+            let mut eq = Equipment {
+                id: id.to_owned(),
+                ..Default::default()
+            };
+            initer(&mut eq);
+            eq
         });
         self
     }
@@ -653,7 +670,20 @@ impl<'a> VehicleJourneyBuilder<'a> {
         self
     }
 
-    pub fn block_id(self, block_id: &str) -> Self {
+    pub fn add_property(self, key: &str, value: &str) -> Self {
+        {
+            let vj = &mut self
+                .model
+                .collections
+                .vehicle_journeys
+                .index_mut(self.vj_idx);
+            vj.properties_mut()
+                .insert(key.to_string(), value.to_string());
+        }
+        self
+    }
+
+    pub fn property(self, block_id: &str) -> Self {
         {
             let vj = &mut self
                 .model

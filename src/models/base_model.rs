@@ -653,7 +653,8 @@ impl BaseModel {
         if let Some(equipment_id) = &transfer.equipment_id {
             let equipments = &self.collections.equipments.get(equipment_id);
             if let Some(equipments) = equipments {
-                self.equipment_property(equipments, property_key)
+                let val = self.equipment_property(equipments, property_key);
+                val
             } else {
                 false
             }
@@ -708,7 +709,7 @@ impl BaseModel {
         property_key: EquipmentPropertyKey,
     ) -> bool {
         let property = match property_key {
-            EquipmentPropertyKey::WheelChairBoarding => equipments.bike_accepted,
+            EquipmentPropertyKey::WheelChairBoarding => equipments.wheelchair_boarding,
             EquipmentPropertyKey::Sheltered => equipments.sheltered,
             EquipmentPropertyKey::Elevator => equipments.elevator,
             EquipmentPropertyKey::Escalator => equipments.escalator,

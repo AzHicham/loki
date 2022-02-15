@@ -58,7 +58,7 @@ impl<'data> Iterator for OutgoingTransfersAtStop<'data> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(item) = self.inner.next() {
+            return if let Some(item) = self.inner.next() {
                 if self.must_be_wheelchair_accessible
                     && !self.transfers_data[item.2.idx].wheelchair_accessible
                 {
@@ -68,10 +68,10 @@ impl<'data> Iterator for OutgoingTransfersAtStop<'data> {
                 {
                     continue;
                 }
-                return Some(item);
+                Some(item)
             } else {
-                return None;
-            }
+                None
+            };
         }
     }
 }
@@ -106,6 +106,7 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
             inner: stop_data.position_in_timetables.iter(),
         }
     }
+
     pub fn outgoing_transfers_at(
         &self,
         stop: &Stop,

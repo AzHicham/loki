@@ -115,6 +115,8 @@ impl<'a> Config<'a> {
             end: end.into(),
             allowed_uri: Default::default(),
             forbidden_uri: Default::default(),
+            bike_accessible: false,
+            wheelchair_accessible: false,
         }
     }
 }

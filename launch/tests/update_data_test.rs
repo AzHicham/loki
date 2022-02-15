@@ -97,7 +97,7 @@ where
                 .st("F", "10:30:00")
                 .st("G", "10:40:00");
         })
-        .add_transfer("C", "E", "00:02:00")
+        .add_transfer("C", "E", "00:02:00", None)
         .build();
 
     let config = Config::new("2020-01-01T08:00:00", "A", "G");

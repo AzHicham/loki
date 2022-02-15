@@ -53,6 +53,7 @@ pub struct TransitDataFiltered<'data, 'filter, Data> {
     memory: &'filter FilterMemory,
 }
 
+#[derive(Debug)]
 pub struct FilterMemory {
     allowed_base_stop_points: Vec<bool>,
     allowed_new_stop_points: Vec<bool>,
