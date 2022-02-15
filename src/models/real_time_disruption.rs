@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod apply_disruption;
 pub mod chaos_disruption;
 pub mod kirin_disruption;
 pub mod time_periods;
