@@ -95,9 +95,10 @@ pub struct StopTime {
 
 #[derive(Debug, Clone)]
 pub enum KirinUpdateError {
-    NewTripWithBaseId(VehicleJourneyId),
-    BaseVehicleJourneyAbsent(VehicleJourneyId),
-    DeleteAbsentTrip(VehicleJourneyId),
+    NewTripWithBaseId(VehicleJourneyId, NaiveDate),
+    BaseVehicleJourneyUnknown(VehicleJourneyId),
+    BaseTripAbsent(VehicleJourneyId, NaiveDate),
+    DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
 }
 
 pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
@@ -161,10 +162,15 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
     kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
     debug!("Kirin update on new trip {vehicle_journey_id}");
-    if base_model.vehicle_journey_idx(vehicle_journey_id).is_some() {
-        return Err(KirinUpdateError::NewTripWithBaseId(VehicleJourneyId {
-            id: vehicle_journey_id.to_string(),
-        }));
+    if let Some(base_vj_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
+        if base_model.trip_exists(base_vj_idx, date) {
+            return Err(KirinUpdateError::NewTripWithBaseId(
+                VehicleJourneyId {
+                    id: vehicle_journey_id.to_string(),
+                },
+                date,
+            ));
+        }
     }
 
     let new_vehicle_journey_idx = real_time_model.insert_new_vehicle_journey(vehicle_journey_id);
@@ -219,10 +225,20 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
     let base_vj_idx = base_model
         .vehicle_journey_idx(vehicle_journey_id)
         .ok_or_else(|| {
-            KirinUpdateError::BaseVehicleJourneyAbsent(VehicleJourneyId {
+            KirinUpdateError::BaseVehicleJourneyUnknown(VehicleJourneyId {
                 id: vehicle_journey_id.to_string(),
             })
         })?;
+
+    let trip_exists_in_base = base_model.trip_exists(base_vj_idx, date);
+    if !trip_exists_in_base {
+        return Err(KirinUpdateError::BaseTripAbsent(
+            VehicleJourneyId {
+                id: vehicle_journey_id.to_string(),
+            },
+            date,
+        ));
+    }
 
     let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vj_idx);
 
@@ -230,10 +246,10 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
 
     let trip_version = TripVersion::Present(stop_times.clone());
 
-    let has_previous_trip_version =
+    let has_previous_real_time_version =
         real_time_model.set_base_trip_version(base_vj_idx, &date, trip_version);
 
-    match has_previous_trip_version {
+    match has_previous_real_time_version {
         Some(TripVersion::Deleted()) => {
             apply_disruption::add_trip(
                 real_time_model,
@@ -274,19 +290,41 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
     kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
     debug!("Kirin delete trip {vehicle_journey_id}");
-    let vj_idx = {
-        let model_refs = ModelRefs {
-            base: base_model,
-            real_time: real_time_model,
-        };
-        model_refs
-            .vehicle_journey_idx(vehicle_journey_id)
-            .ok_or_else(|| {
-                KirinUpdateError::DeleteAbsentTrip(VehicleJourneyId {
+
+    let has_base_vj = base_model
+        .vehicle_journey_idx(vehicle_journey_id)
+        .map(|base_vj_idx| {
+            if base_model.trip_exists(base_vj_idx, date) {
+                Some(VehicleJourneyIdx::Base(base_vj_idx))
+            } else {
+                None
+            }
+        })
+        .flatten();
+
+    let has_new_vj = real_time_model
+        .new_vehicle_journey_idx(vehicle_journey_id)
+        .map(|new_vj_idx| {
+            if real_time_model.new_vehicle_journey_is_present(&new_vj_idx, &date) {
+                Some(VehicleJourneyIdx::New(new_vj_idx))
+            } else {
+                None
+            }
+        })
+        .flatten();
+
+    let vj_idx = match (has_base_vj, has_new_vj) {
+        (Some(idx), _) => idx,
+        (_, Some(idx)) => idx,
+        _ => {
+            return Err(KirinUpdateError::DeleteAbsentTrip(
+                VehicleJourneyId {
                     id: vehicle_journey_id.to_string(),
-                })
-            })
-    }?;
+                },
+                date.clone(),
+            ));
+        }
+    };
 
     apply_disruption::delete_trip(real_time_model, base_model, data, &vj_idx, date);
 

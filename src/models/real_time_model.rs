@@ -118,13 +118,6 @@ pub struct Trip {
     pub reference_date: NaiveDate,
 }
 
-#[derive(Debug, Clone)]
-pub enum Update {
-    Delete(Trip),
-    Add(Trip, Vec<StopTime>),
-    Modify(Trip, Vec<StopTime>),
-}
-
 impl RealTimeModel {
     pub fn set_base_trip_version(
         &mut self,
@@ -339,6 +332,14 @@ impl RealTimeModel {
         }
     }
 
+    pub fn new_vehicle_journey_idx(
+        &self,
+        vehicle_journey_id: &str,
+    ) -> Option<NewVehicleJourneyIdx> {
+        let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
+        has_new_vj_idx.cloned()
+    }
+
     pub fn vehicle_journey_idx(
         &self,
         vehicle_journey_id: &str,
@@ -414,15 +415,14 @@ impl RealTimeModel {
             .get(date)
     }
 
-    pub fn new_vehicle_journey_is_present(&self, trip: &Trip) -> bool {
-        let has_new_vj_idx = self
-            .new_vehicle_journeys_id_to_idx
-            .get(&trip.vehicle_journey_id);
-        if let Some(new_vj_idx) = has_new_vj_idx {
-            self.new_vehicle_journey_last_version(new_vj_idx, &trip.reference_date)
-                .is_some()
-        } else {
-            false
+    pub fn new_vehicle_journey_is_present(
+        &self,
+        idx: &NewVehicleJourneyIdx,
+        date: &NaiveDate,
+    ) -> bool {
+        match self.new_vehicle_journey_last_version(idx, &date) {
+            Some(TripVersion::Present(_)) => true,
+            _ => false,
         }
     }
 
