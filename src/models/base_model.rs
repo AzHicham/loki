@@ -43,7 +43,6 @@ use transit_model::objects::{
 
 use typed_index_collection::Idx;
 
-use crate::models::TransferIdx;
 use crate::{
     time::{calendar, SecondsSinceTimezonedDayStart},
     timetables::FlowDirection,

@@ -54,6 +54,7 @@ use crate::{
 use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
+use crate::models::base_model::EquipmentPropertyKey;
 use tracing::{info, warn};
 
 use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
@@ -123,9 +124,22 @@ where
         let duration = base_model.transfer_duration(transfer_idx);
         let walking_duration = base_model.transfer_walking_duration(transfer_idx);
 
+        let bike_accessible =
+            base_model.transfer_property(transfer_idx, EquipmentPropertyKey::BikeAccepted);
+        let wheelchair_accessible =
+            base_model.transfer_property(transfer_idx, EquipmentPropertyKey::WheelChairBoarding);
+
         let transfer_idx = TransferIdx::Base(transfer_idx);
 
-        self.insert_transfer_inner(from_stop, to_stop, transfer_idx, duration, walking_duration);
+        self.insert_transfer_inner(
+            from_stop,
+            to_stop,
+            transfer_idx,
+            duration,
+            walking_duration,
+            bike_accessible,
+            wheelchair_accessible,
+        );
 
         Ok(())
     }
@@ -137,6 +151,8 @@ where
         transfer_idx: TransferIdx,
         duration: PositiveDuration,
         walking_duration: PositiveDuration,
+        bike_accessible: bool,
+        wheelchair_accessible: bool,
     ) {
         let transfer = Transfer {
             idx: self.transfers_data.len(),
@@ -150,6 +166,8 @@ where
             to_stop,
             durations: durations.clone(),
             transit_model_transfer_idx: transfer_idx,
+            bike_accessible,
+            wheelchair_accessible,
         };
         self.transfers_data.push(transfer_data);
         let from_stop_data = &mut self.stops_data[from_stop.idx];

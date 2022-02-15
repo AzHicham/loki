@@ -93,6 +93,8 @@ pub struct TransferData {
     pub to_stop: Stop,
     pub durations: TransferDurations,
     pub transit_model_transfer_idx: TransferIdx,
+    pub bike_accessible: bool,
+    pub wheelchair_accessible: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
@@ -371,12 +373,33 @@ where
 
     type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
-        self.outgoing_transfers_at(from_stop)
+        self.inner_outgoing_transfers_at(from_stop, false, false)
+    }
+    fn inner_outgoing_transfers_at(
+        &'a self,
+        from_stop: &Self::Stop,
+        must_be_bike_accessible: bool,
+        must_be_wheelchair_accessible: bool,
+    ) -> Self::OutgoingTransfersAtStop {
+        self.outgoing_transfers_at(
+            from_stop,
+            must_be_bike_accessible,
+            must_be_wheelchair_accessible,
+        )
     }
 
     type IncomingTransfersAtStop = iters::IncomingTransfersAtStop<'a>;
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
-        self.incoming_transfers_at(stop)
+        self.inner_incoming_transfers_at(stop, false, false)
+    }
+
+    fn inner_incoming_transfers_at(
+        &'a self,
+        stop: &Self::Stop,
+        must_be_bike_accessible: bool,
+        must_be_wheelchair_accessible: bool,
+    ) -> Self::IncomingTransfersAtStop {
+        self.incoming_transfers_at(stop, must_be_bike_accessible, must_be_wheelchair_accessible)
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;

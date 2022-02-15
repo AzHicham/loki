@@ -147,6 +147,7 @@ impl<'a> Filters<'a> {
         // there is some allowed filters, but none of them applies, so the vehicle_journey is invalid
         false
     }
+
     pub fn is_stop_point_valid(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
         for forbid_filter in self.forbidden_stops.iter() {
@@ -182,6 +183,14 @@ impl<'a> Filters<'a> {
 
         // there is some allowed filters, but none of them applies, so the idx is invalid
         false
+    }
+
+    pub fn must_be_wheelchair_accessible(&self) -> bool {
+        self.must_be_wheelchair_accessible
+    }
+
+    pub fn must_be_bike_accessible(&self) -> bool {
+        self.must_be_bike_accessible
     }
 
     pub fn new<T>(

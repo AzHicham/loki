@@ -37,11 +37,67 @@
 use super::{Stop, Transfer, TransferDurations, TransitData};
 
 use crate::timetables::Timetables as TimetablesTrait;
+use crate::transit_data::TransferData;
 
-pub type OutgoingTransfersAtStop<'data> =
-    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
-pub type IncomingTransfersAtStop<'data> =
-    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
+pub struct OutgoingTransfersAtStop<'data> {
+    pub inner: std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>,
+    pub transfers_data: &'data [TransferData],
+    pub must_be_bike_accessible: bool,
+    pub must_be_wheelchair_accessible: bool,
+}
+
+pub struct IncomingTransfersAtStop<'data> {
+    pub inner: std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>,
+    pub transfers_data: &'data [TransferData],
+    pub must_be_bike_accessible: bool,
+    pub must_be_wheelchair_accessible: bool,
+}
+
+impl<'data> Iterator for OutgoingTransfersAtStop<'data> {
+    type Item = &'data (Stop, TransferDurations, Transfer);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(item) = self.inner.next() {
+                if self.must_be_wheelchair_accessible
+                    && !self.transfers_data[item.2.idx].wheelchair_accessible
+                {
+                    continue;
+                }
+                if self.must_be_bike_accessible && !self.transfers_data[item.2.idx].bike_accessible
+                {
+                    continue;
+                }
+                return Some(item);
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+impl<'data> Iterator for IncomingTransfersAtStop<'data> {
+    type Item = &'data (Stop, TransferDurations, Transfer);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(item) = self.inner.next() {
+                if self.must_be_wheelchair_accessible
+                    && !self.transfers_data[item.2.idx].wheelchair_accessible
+                {
+                    continue;
+                }
+                if self.must_be_bike_accessible && !self.transfers_data[item.2.idx].bike_accessible
+                {
+                    continue;
+                }
+                return Some(item);
+            } else {
+                return None;
+            }
+        }
+    }
+}
 
 impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     pub fn missions_of(&self, stop: &Stop) -> MissionsOfStop<Timetables> {
@@ -50,15 +106,34 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
             inner: stop_data.position_in_timetables.iter(),
         }
     }
-
-    pub fn outgoing_transfers_at(&self, stop: &Stop) -> OutgoingTransfersAtStop {
+    pub fn outgoing_transfers_at(
+        &self,
+        stop: &Stop,
+        must_be_bike_accessible: bool,
+        must_be_wheelchair_accessible: bool,
+    ) -> OutgoingTransfersAtStop {
         let stop_data = self.stop_data(stop);
-        stop_data.outgoing_transfers.iter()
+        OutgoingTransfersAtStop {
+            inner: stop_data.outgoing_transfers.iter(),
+            transfers_data: &self.transfers_data,
+            must_be_bike_accessible,
+            must_be_wheelchair_accessible,
+        }
     }
 
-    pub fn incoming_transfers_at(&self, stop: &Stop) -> IncomingTransfersAtStop {
+    pub fn incoming_transfers_at(
+        &self,
+        stop: &Stop,
+        must_be_bike_accessible: bool,
+        must_be_wheelchair_accessible: bool,
+    ) -> IncomingTransfersAtStop {
         let stop_data = self.stop_data(stop);
-        stop_data.incoming_transfers.iter()
+        IncomingTransfersAtStop {
+            inner: stop_data.incoming_transfers.iter(),
+            transfers_data: &self.transfers_data,
+            must_be_bike_accessible,
+            must_be_wheelchair_accessible,
+        }
     }
 }
 

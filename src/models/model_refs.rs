@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::models::base_model::{EquipmentPropertyKey, VehicleJourneyPropertyKey};
+use crate::models::base_model::{BaseTransferIdx, EquipmentPropertyKey, VehicleJourneyPropertyKey};
 use crate::models::TransferIdx;
 use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
 use transit_model::objects::{
@@ -247,6 +247,14 @@ impl<'model> ModelRefs<'model> {
 
     pub fn base_stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + 'model {
         self.base.stop_points()
+    }
+
+    pub fn nb_of_transfers(&self) -> usize {
+        self.base.nb_of_transfers()
+    }
+
+    pub fn base_transfers(&self) -> impl Iterator<Item = BaseTransferIdx> + 'model {
+        self.base.transfers()
     }
 
     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
