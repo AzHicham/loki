@@ -53,7 +53,7 @@ use crate::{
     timetables::FlowDirection, models::RealTimeModel,
 };
 use chrono::{ NaiveDate, NaiveDateTime};
-use tracing::{debug, trace, error};
+use tracing::{ error};
 
 
 use std::{

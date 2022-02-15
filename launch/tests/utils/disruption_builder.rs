@@ -14,7 +14,7 @@
 
 use loki::{
     models,
-    models::{base_model::BaseModel, real_time_disruption::{self as disruption, kirin_disruption}, RealTimeModel},
+    models::{base_model::BaseModel, real_time_disruption::{ kirin_disruption}, RealTimeModel},
     time::SecondsSinceTimezonedDayStart,
 };
 

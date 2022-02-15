@@ -570,7 +570,7 @@ where
         let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
         let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
 
-        let base_vj_idx = base_model.vehicle_journey_idx("matin").unwrap();
+        let base_vj_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(base_vj_idx);
 
         let result = data.modify_real_time_vehicle(stops, flows, board_times, debark_times, base_model.loads_data(), dates, &UTC, &vj_idx);

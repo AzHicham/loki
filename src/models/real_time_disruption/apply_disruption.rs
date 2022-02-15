@@ -40,10 +40,9 @@ use crate::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
     },
-    models::{real_time_model::{UpdateError, TripVersion}, VehicleJourneyIdx, RealTimeModel, self}
+    models::{real_time_model::{TripVersion}, VehicleJourneyIdx, RealTimeModel, self}
 };
 
-use tracing::{debug, error, trace, warn};
 
 use crate::models::{
 

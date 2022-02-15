@@ -35,10 +35,10 @@
 // www.navitia.io
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{ HashMap},
     hash::Hash,
 };
-use tracing::{warn, error};
+use tracing::{warn};
 
 use crate::{
     chrono::NaiveDate,
@@ -127,17 +127,7 @@ pub enum Update {
     Modify(Trip, Vec<StopTime>),
 }
 
-#[derive(Debug, Clone)]
-pub enum UpdateError {
-    DeleteAbsentTrip(Trip),
-    ModifyAbsentTrip(Trip),
-    AddPresentTrip(Trip),
-}
 
-pub enum UpdateResult {
-    Add,
-    Modify
-}
 
 impl RealTimeModel {
    
@@ -226,35 +216,6 @@ impl RealTimeModel {
         history.linked_kirin_disruption.get(&date)
     }
 
-
-    pub fn restore_base_vehicle_journey(
-        &mut self,
-        vehicle_journey_id: &str,
-        date: &NaiveDate,
-        base_model: &BaseModel,
-    ) -> Result<(BaseVehicleJourneyIdx, Vec<StopTime>), UpdateError> {
-        todo!();
-        // if let Some(transit_model_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-        //     self.remove_version(&transit_model_idx, date, base_model);
-        //     if let Ok(base_stop_times) = base_model.stop_times(transit_model_idx) {
-        //         let stop_times: Vec<_> = base_stop_times.clone().collect();
-        //         Ok((transit_model_idx, stop_times))
-        //     } else {
-        //         // FIX ME add NOT FOUND STOP TIME ERROR
-        //         let err = UpdateError::ModifyAbsentTrip(Trip {
-        //             vehicle_journey_id: vehicle_journey_id.to_string(),
-        //             reference_date: *date,
-        //         });
-        //         Err(err)
-        //     }
-        // } else {
-        //     let err = UpdateError::ModifyAbsentTrip(Trip {
-        //         vehicle_journey_id: vehicle_journey_id.to_string(),
-        //         reference_date: *date,
-        //     });
-        //     Err(err)
-        // }
-    }
 
     pub fn link_chaos_impact(
         &mut self,
