@@ -33,8 +33,7 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
 use launch::loki::{
     chrono,
-    chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
-    models::real_time_disruption::TimePeriod,
+    chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc}, models::real_time_disruption::time_periods::TimePeriod,
 };
 use protobuf::Message;
 

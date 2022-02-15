@@ -190,7 +190,7 @@ impl RealTimeModel {
     }
 
 
-    pub fn set_kirin_disruption(&mut self, 
+    pub fn set_linked_kirin_disruption(&mut self, 
         vehicle_journey_idx : &VehicleJourneyIdx, 
         date : NaiveDate,
         kirin_disruption_idx : KirinDisruptionIdx,
@@ -210,7 +210,7 @@ impl RealTimeModel {
 
     }
 
-    pub fn get_kirin_disruption(&self,
+    pub fn get_linked_kirin_disruption(&self,
         vehicle_journey_idx : &VehicleJourneyIdx, 
         date : NaiveDate,
     ) -> Option<&KirinDisruptionIdx> {
@@ -348,6 +348,9 @@ impl RealTimeModel {
         Some((disruption, impact))
     }
 
+    pub fn get_kirin_disruption(&self, kirin_disruption_idx : &KirinDisruptionIdx) -> &KirinDisruption {
+       & self.kirin_disruptions[kirin_disruption_idx.idx]
+    }
 
     pub fn make_stop_times(
         &mut self,

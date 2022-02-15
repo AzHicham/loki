@@ -197,7 +197,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
         }
     }
 
-    real_time_model.set_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
+    real_time_model.set_linked_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
 
     Ok(())
 }
@@ -249,7 +249,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
         }
     }
 
-    real_time_model.set_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
+    real_time_model.set_linked_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
 
 
     Ok(())
@@ -279,7 +279,7 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
     
     apply_disruption::delete_trip(real_time_model, base_model, data, &vj_idx, date);
 
-    real_time_model.set_kirin_disruption(&vj_idx, date, kirin_disruption_idx);
+    real_time_model.set_linked_kirin_disruption(&vj_idx, date, kirin_disruption_idx);
 
     Ok(())
 
