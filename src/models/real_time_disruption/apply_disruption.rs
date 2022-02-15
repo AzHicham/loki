@@ -46,13 +46,11 @@ use crate::{
 use tracing::{debug, error, trace, warn};
 
 use crate::models::{
-    real_time_disruption::{
-        TimePeriods,  VehicleJourneyId,
-    },
+
     base_model::BaseModel, ModelRefs
 
 };
-use crate::models::real_time_disruption::intersection;
+
 use crate::{
 
     DataUpdate,
@@ -131,7 +129,7 @@ pub (super) fn add_trip<Data: DataTrait + DataUpdate>(
     }
 }
 
-pub (super) fn modify_trip<Data: DataTrait + DataUpdate>(
+pub fn modify_trip<Data: DataTrait + DataUpdate>(
     real_time_model : &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,

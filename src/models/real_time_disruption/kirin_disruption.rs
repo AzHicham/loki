@@ -60,7 +60,7 @@ use std::{
     fmt::{Debug},
 };
 
-use super::{TimePeriod, Effect, VehicleJourneyId, apply_disruption};
+use super::{ apply_disruption, time_periods::TimePeriod, Effect, VehicleJourneyId};
 
 
 #[derive(Debug, Clone)]

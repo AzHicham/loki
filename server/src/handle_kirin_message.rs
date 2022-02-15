@@ -42,9 +42,9 @@ use launch::loki::{
     models::{
         base_model::{strip_id_prefix, BaseModel, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY},
         real_time_disruption::{
-             Effect,  StopTime,
-            TimePeriod,  VehicleJourneyId, kirin_disruption::{KirinDisruption, UpdateType},
-        },
+             Effect,  
+             VehicleJourneyId, kirin_disruption::{KirinDisruption, UpdateType, UpdateData, self}, time_periods::TimePeriod,
+        }, 
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
@@ -125,7 +125,7 @@ pub fn handle_kirin_protobuf(
         }
     };
 
-    let company_id = chaos_proto::kirin::exts::company_id.get(trip);
+    let company_id = chaos_proto::kirin::exts::company_id.get(trip_descriptor);
     let physical_mode_id =
         chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
@@ -171,7 +171,7 @@ pub fn handle_kirin_protobuf(
         id: disruption_id,
         contributor,
         message,
-        updated_at: todo!(),
+        updated_at: header_datetime.clone(),
         application_period,
         effect,
         trip_id,
@@ -180,7 +180,7 @@ pub fn handle_kirin_protobuf(
     })
 }
 
-fn make_time_period(stop_times: &[StopTime], reference_date: &NaiveDate) -> Option<TimePeriod> {
+fn make_time_period(stop_times: &[kirin_disruption::StopTime], reference_date: &NaiveDate) -> Option<TimePeriod> {
     let min = stop_times
         .iter()
         .map(|stop_time| std::cmp::min(stop_time.arrival_time, stop_time.departure_time))
@@ -204,7 +204,7 @@ fn make_time_period(stop_times: &[StopTime], reference_date: &NaiveDate) -> Opti
 fn make_stop_times(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
     reference_date: &NaiveDate,
-) -> Result<Vec<StopTime>, Error> {
+) -> Result<Vec<kirin_disruption::StopTime>, Error> {
     let stop_times =
         create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
             .with_context(|| "Could not handle stop times in kirin disruption.")?;
@@ -215,7 +215,7 @@ fn make_stop_times(
 fn create_stop_times_from_proto(
     proto: &[chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate],
     reference_date: &NaiveDate,
-) -> Result<Vec<StopTime>, Error> {
+) -> Result<Vec<kirin_disruption::StopTime>, Error> {
     proto
         .iter()
         .map(|p| create_stop_time_from_proto(p, reference_date))
@@ -225,7 +225,7 @@ fn create_stop_times_from_proto(
 fn create_stop_time_from_proto(
     proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate,
     reference_date: &NaiveDate,
-) -> Result<StopTime, Error> {
+) -> Result<kirin_disruption::StopTime, Error> {
     let has_arrival_time = if proto.has_arrival() {
         let arrival_time = read_time(proto.get_arrival(), reference_date)
             .context("StopTime has a bad arrival time")?;
@@ -277,7 +277,7 @@ fn create_stop_time_from_proto(
     }
     let stop_id = strip_id_prefix(proto.get_stop_id(), PREFIX_ID_STOP_POINT).to_string();
 
-    let stop_time = StopTime {
+    let stop_time = kirin_disruption::StopTime {
         stop_id,
         arrival_time,
         departure_time,

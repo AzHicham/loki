@@ -39,50 +39,12 @@ pub mod chaos_disruption;
 pub mod kirin_disruption;
 pub mod time_periods;
 
-use crate::{
-    time::{SecondsSinceTimezonedDayStart, MAX_SECONDS_IN_UTC_DAY},
-    timetables::FlowDirection,
-};
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use serde::Deserialize;
-use std::{
-    cmp::{max, min},
-    fmt::{Debug, Display},
-    mem,
-};
-
-#[derive(Debug, Clone)]
-pub struct StopTime {
-    pub stop_id: String,
-    pub arrival_time: SecondsSinceTimezonedDayStart,
-    pub departure_time: SecondsSinceTimezonedDayStart,
-    pub flow_direction: FlowDirection,
-}
-
-
-// #[derive(Debug, Clone)]
-// pub enum DisruptionError {
-//     StopPointAbsent(StopPointId),
-//     StopAreaAbsent(StopAreaId),
-//     NetworkAbsent(NetworkId),
-//     LineAbsent(LineId),
-//     RouteAbsent(RouteId),
-//     VehicleJourneyAbsent(VehicleJourneyId),
-//     DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
-//     ModifyAbsentTrip(VehicleJourneyId, NaiveDate),
-//     AddPresentTrip(VehicleJourneyId, NaiveDate),
-//     NewTripWithBaseId(VehicleJourneyId, NaiveDate),
-//     // it is not allowed to cancel a kirin disruption
-//     CancelKirinDisruption,
-// }
-
-
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyId {
     pub id: String,
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Ord, Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Effect {
     // DO NOT change the order of effects !!
     // Effects are ordered from the least to the worst impact
@@ -97,201 +59,24 @@ pub enum Effect {
     NoService,
 }
 
-
-/// An half open interval of time.
-/// A instant `t` is contained in it
-/// if and only if
-///  `start <= t < end`
-///
-#[derive(Debug, Clone)]
-pub struct TimePeriod {
-    start: NaiveDateTime,
-    end: NaiveDateTime,
-}
-
-impl TimePeriod {
-    pub fn new(start: NaiveDateTime, end: NaiveDateTime) -> Result<TimePeriod, TimePeriodError> {
-        if start < end {
-            Ok(TimePeriod { start, end })
-        } else {
-            Err(TimePeriodError::StartAfterEnd(start, end))
-        }
-    }
-
-    pub fn start(&self) -> NaiveDateTime {
-        self.start
-    }
-
-    pub fn end(&self) -> NaiveDateTime {
-        self.end
-    }
-
-    pub fn contains(&self, t: &NaiveDateTime) -> bool {
-        self.start <= *t && *t < self.end
-    }
-
-    pub fn intersects(&self, other: &Self) -> bool {
-        self.contains(&other.start) || other.contains(&self.start)
-    }
-
-    // Returns an iterator that contains all dates D such that
-    //  a vehicle_journey on D is "concerned" by this time_period,
-    //  where "concerned" means that a stop_time of the vehicle_journey
-    //   circulating on date D is contained in this time_period
-    //
-    // Note that the iterator may contains dates for which a vehicle
-    // journey is *NOT* concerned. The caller should check by himself.
-    pub fn dates_possibly_concerned(&self) -> DateIter {
-        // since the vehicle journey stop_times are given in local time
-        // and we accept values up to 48h, we use a 3 days offset
-        // that account for both
-        let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
-        let first_date = (self.start - offset).date();
-        let last_date = (self.end + offset).date();
-        DateIter {
-            current_date: first_date,
-            last_date,
-        }
-    }
-}
-
-pub struct TimePeriods<'a> {
-    periods: &'a [TimePeriod],
-}
-
-impl<'a> TimePeriods<'a> {
-    pub fn new(periods: &'a [TimePeriod]) -> Option<Self> {
-        if periods.is_empty() {
-            None
-        } else {
-            Some(Self { periods })
-        }
-    }
-
-    pub fn contains(&self, t: &NaiveDateTime) -> bool {
-        for period in self.periods {
-            if period.contains(t) {
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn intersects(&self, other: &TimePeriod) -> bool {
-        for period in self.periods {
-            if period.intersects(other) {
-                return true;
-            }
-        }
-        false
-    }
-
-    // Returns an iterator that contains all dates D such that
-    //  a vehicle_journey on D is "concerned" by this time_periods,
-    //  where "concerned" means that a stop_time of the vehicle_journey
-    //   circulating on date D is contained in this time_periods
-    //
-    // Note that the iterator may contains dates for which a vehicle
-    // journey is *NOT* concerned. The caller should check by himself.
-    pub fn dates_possibly_concerned(&self) -> DateIter {
-        let earliest_datetime = self
-            .periods
-            .iter()
-            .map(|period| period.start)
-            .min()
-            .unwrap(); // unwrap safe here because we check in new() that ! periods.is_empty()
-
-        let latest_datetime = self.periods.iter().map(|period| period.end).max().unwrap(); // unwrap safe here because we check in new() that ! periods.is_empty()
-
-        // since the vehicle journey stop_times are given in local time
-        // and we accept values up to 48h, we use a 3 days offset
-        // that account for both
-        let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
-        let first_date = (earliest_datetime - offset).date();
-        let last_date = (latest_datetime + offset).date();
-        DateIter {
-            current_date: first_date,
-            last_date,
-        }
-    }
-}
-
-pub fn intersection(lhs: &TimePeriod, rhs: &TimePeriod) -> Option<TimePeriod> {
-    TimePeriod::new(max(lhs.start, rhs.start), min(lhs.end, rhs.end)).ok()
-}
-
-pub enum TimePeriodError {
-    StartAfterEnd(NaiveDateTime, NaiveDateTime),
-}
-
-impl std::error::Error for TimePeriodError {}
-
-impl Display for TimePeriodError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Self as Debug>::fmt(self, f)
-    }
-}
-
-impl Debug for TimePeriodError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Effect {
+    fn level(&self) -> u8 {
         match self {
-            TimePeriodError::StartAfterEnd(start, end) => {
-                write!(
-                    f,
-                    "Bad TimePeriod, start {} must be strictly greater than end {}",
-                    start, end
-                )
-            }
+            Effect::StopMoved => 0,
+            Effect::UnknownEffect => 1,
+            Effect::OtherEffect => 2,
+            Effect::ModifiedService => 3,
+            Effect::AdditionalService => 4,
+            Effect::Detour => 5,
+            Effect::SignificantDelays => 6,
+            Effect::ReducedService => 7,
+            Effect::NoService => 8,
         }
     }
 }
 
-pub struct DateTimePeriodIterator<'a> {
-    period: &'a TimePeriod,
-    current: NaiveDateTime,
-}
-
-impl<'a> Iterator for DateTimePeriodIterator<'a> {
-    type Item = NaiveDateTime;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current <= self.period.end {
-            let next = self.current + Duration::days(1);
-            Some(mem::replace(&mut self.current, next))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a TimePeriod {
-    type Item = NaiveDateTime;
-    type IntoIter = DateTimePeriodIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        DateTimePeriodIterator {
-            period: self,
-            current: self.start,
-        }
-    }
-}
-
-// Yields all dates between current_date (included)
-// and last_date (also included)
-pub struct DateIter {
-    current_date: NaiveDate,
-    last_date: NaiveDate,
-}
-
-impl Iterator for DateIter {
-    type Item = NaiveDate;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_date <= self.last_date {
-            let result = self.current_date;
-            self.current_date = self.current_date.succ();
-            Some(result)
-        } else {
-            None
-        }
+impl PartialOrd for Effect {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.level().partial_cmp(&other.level())
     }
 }

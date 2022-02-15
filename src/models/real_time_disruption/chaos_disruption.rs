@@ -47,7 +47,7 @@ use serde::Deserialize;
 use tracing::{error};
 
 
-use super::{TimePeriod, Effect, intersection, TimePeriods, apply_disruption};
+use super::{ apply_disruption, time_periods::{TimePeriod, intersection, TimePeriods}, VehicleJourneyId, Effect};
 
 #[derive(Debug, Clone)]
 pub struct ChaosDisruption {
@@ -121,10 +121,7 @@ pub struct StopAreaId {
     pub id: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct VehicleJourneyId {
-    pub id: String,
-}
+
 
 #[derive(Debug, Clone)]
 pub struct LineSection {
@@ -190,6 +187,7 @@ pub struct Severity {
     pub priority: Option<i32>,
     pub effect: Effect,
 }
+
 
 #[derive(Debug, Clone)]
 pub struct Message {

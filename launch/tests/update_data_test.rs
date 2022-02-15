@@ -43,8 +43,8 @@ use loki::{
     chrono_tz::UTC,
     models::{
         base_model::BaseModel,
-        real_time_model::{DisruptionIdx, RealTimeModel},
-        ModelRefs, StopTime, VehicleJourneyIdx,
+        real_time_model::{ RealTimeModel},
+        ModelRefs, StopTime, VehicleJourneyIdx, real_time_disruption::apply_disruption,
     },
     request::generic_request,
     timetables::{InsertionError, Timetables, TimetablesIter},
@@ -56,7 +56,6 @@ use utils::{
     Config,
 };
 
-use loki::models::real_time_model::ImpactIdx;
 use rstest::rstest;
 
 #[rstest]
@@ -564,18 +563,16 @@ where
             .finalize(&mut real_time_model, &base_model);
 
         let date = "2020-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
-        let result = real_time_model.modify_trip(
-            &base_model,
-            &mut data,
-            "first",
-            &date,
-            stop_times,
-            &disruption_idx,
-            &impact_idx,
+
+        apply_disruption::modify_trip(
+            & mut real_time_model, 
+            &base_model, 
+            &mut data, 
+            vehicle_journey_idx, 
+            &date, 
+            stop_times
         );
-        assert!(result.is_ok());
+
     }
 
     {

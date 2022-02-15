@@ -14,14 +14,14 @@
 
 use loki::{
     models,
-    models::{base_model::BaseModel, real_time_disruption as disruption, RealTimeModel},
+    models::{base_model::BaseModel, real_time_disruption::{self as disruption, kirin_disruption}, RealTimeModel},
     time::SecondsSinceTimezonedDayStart,
 };
 
 use super::model_builder::IntoTime;
 
 pub struct StopTimesBuilder {
-    pub stop_times: Vec<disruption::StopTime>,
+    pub stop_times: Vec<kirin_disruption::StopTime>,
 }
 
 impl StopTimesBuilder {
@@ -36,7 +36,7 @@ impl StopTimesBuilder {
             time.into_time().total_seconds(),
         ))
         .unwrap();
-        let stop_time = disruption::StopTime {
+        let stop_time = kirin_disruption::StopTime {
             stop_id: stop_id.to_string(),
             arrival_time: time,
             departure_time: time,

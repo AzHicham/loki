@@ -47,9 +47,8 @@ use diesel::{
 };
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime, Timelike},
-    models::real_time_disruption::BlockedStopArea,
     tracing::error,
-    NaiveDateTime,
+    NaiveDateTime, models::real_time_disruption::chaos_disruption::BlockedStopArea,
 };
 use std::collections::{hash_map::Entry::Vacant, HashMap, HashSet};
 use uuid::Uuid as Uid;
