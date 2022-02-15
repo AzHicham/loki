@@ -466,8 +466,6 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
-        // since nothing should be added, we should get
-        // no journey for the request on the realtime level
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),

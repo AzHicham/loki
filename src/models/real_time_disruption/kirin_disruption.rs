@@ -47,7 +47,7 @@ use crate::{
     models::RealTimeModel, time::SecondsSinceTimezonedDayStart, timetables::FlowDirection,
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use tracing::error;
+use tracing::{debug, error};
 
 use std::fmt::Debug;
 
@@ -160,6 +160,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
     update_data: &UpdateData,
     kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
+    debug!("Kirin update on new trip {vehicle_journey_id}");
     if base_model.vehicle_journey_idx(vehicle_journey_id).is_some() {
         return Err(KirinUpdateError::NewTripWithBaseId(VehicleJourneyId {
             id: vehicle_journey_id.to_string(),
@@ -178,7 +179,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
     let vehicle_journey_idx = VehicleJourneyIdx::New(new_vehicle_journey_idx);
 
     match has_previous_trip_version {
-        Some(_) => {
+        Some(TripVersion::Present(_)) => {
             apply_disruption::modify_trip(
                 real_time_model,
                 base_model,
@@ -188,7 +189,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
                 stop_times,
             );
         }
-        None => {
+        Some(TripVersion::Deleted()) | None => {
             apply_disruption::add_trip(
                 real_time_model,
                 base_model,
@@ -214,6 +215,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
     update_data: &UpdateData,
     kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
+    debug!("Kirin update on base trip {vehicle_journey_id}");
     let base_vj_idx = base_model
         .vehicle_journey_idx(vehicle_journey_id)
         .ok_or_else(|| {
@@ -232,22 +234,26 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
         real_time_model.set_base_trip_version(base_vj_idx, &date, trip_version);
 
     match has_previous_trip_version {
-        Some(_) => {
-            apply_disruption::modify_trip(
-                real_time_model,
-                base_model,
-                data,
-                &vehicle_journey_idx,
-                &date,
-                stop_times,
-            );
-        }
-        None => {
+        Some(TripVersion::Deleted()) => {
             apply_disruption::add_trip(
                 real_time_model,
                 base_model,
                 data,
                 vehicle_journey_idx.clone(),
+                &date,
+                stop_times,
+            );
+        }
+        Some(TripVersion::Present(_))
+        | None  // if None, it means we have no real time version of this base vehicle,
+                // so the vehicle is present on the real time level in transit_data
+                // as its real time version is the same as the base version
+         => {
+            apply_disruption::modify_trip(
+                real_time_model,
+                base_model,
+                data,
+                &vehicle_journey_idx,
                 &date,
                 stop_times,
             );
@@ -267,6 +273,7 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
     date: NaiveDate,
     kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
+    debug!("Kirin delete trip {vehicle_journey_id}");
     let vj_idx = {
         let model_refs = ModelRefs {
             base: base_model,
