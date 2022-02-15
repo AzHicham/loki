@@ -34,20 +34,18 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{
-    collections::{ HashMap},
-    hash::Hash,
-};
-use tracing::{warn};
+use std::{collections::HashMap, hash::Hash};
+use tracing::warn;
 
-use crate::{
-    chrono::NaiveDate,
-};
+use crate::chrono::NaiveDate;
 
 use super::{
     base_model::{BaseModel, BaseVehicleJourneyIdx},
-    real_time_disruption::{ chaos_disruption::{ChaosDisruption, ChaosImpact}, 
-    kirin_disruption::{KirinDisruption, self}}, StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
+    real_time_disruption::{
+        chaos_disruption::{ChaosDisruption, ChaosImpact},
+        kirin_disruption::{self, KirinDisruption},
+    },
+    StopPointIdx, StopTime, StopTimeIdx, VehicleJourneyIdx,
 };
 
 pub struct RealTimeModel {
@@ -63,7 +61,7 @@ pub struct RealTimeModel {
 
     pub(super) chaos_disruptions: Vec<ChaosDisruption>,
 
-    pub(super) kirin_disruptions : Vec<KirinDisruption>,
+    pub(super) kirin_disruptions: Vec<KirinDisruption>,
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -78,20 +76,20 @@ pub struct VehicleJourneyHistory {
     by_reference_date: HashMap<NaiveDate, TripVersion>,
 
     // provides all chaos impacts that affect this (vehicle_journey, date)
-    linked_chaos_impacts: HashMap<NaiveDate, LinkedChaosImpacts >,
+    linked_chaos_impacts: HashMap<NaiveDate, LinkedChaosImpacts>,
     // provides the kirin disruption (if any) that affect this (vehicle_journey, date)
-    linked_kirin_disruption : HashMap<NaiveDate, KirinDisruptionIdx>,
+    linked_kirin_disruption: HashMap<NaiveDate, KirinDisruptionIdx>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChaosImpactIdx {
     pub(super) disruption_idx: usize, // position in RealTimeModel.chaos_disruptions
-    pub(super) impact_idx : usize, // position in ChaosDisruption.impacts
+    pub(super) impact_idx: usize,     // position in ChaosDisruption.impacts
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KirinDisruptionIdx {
-    pub(super) idx : usize, // position in RealTimeModel.kirin_disruptions
+    pub(super) idx: usize, // position in RealTimeModel.kirin_disruptions
 }
 
 #[derive(Debug, Clone)]
@@ -127,45 +125,33 @@ pub enum Update {
     Modify(Trip, Vec<StopTime>),
 }
 
-
-
 impl RealTimeModel {
-   
-
     pub fn set_base_trip_version(
         &mut self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
-        trip_version : TripVersion
-    ) -> Option<TripVersion>
-    {
+        trip_version: TripVersion,
+    ) -> Option<TripVersion> {
         let history = self
-                .base_vehicle_journeys_idx_to_history
-                .entry(vehicle_journey_idx)
-                .or_insert_with(VehicleJourneyHistory::new);
+            .base_vehicle_journeys_idx_to_history
+            .entry(vehicle_journey_idx)
+            .or_insert_with(VehicleJourneyHistory::new);
 
         history.by_reference_date.insert(*date, trip_version)
-    
     }
 
     pub fn set_new_trip_version(
         &mut self,
         vehicle_journey_idx: NewVehicleJourneyIdx,
         date: &NaiveDate,
-        trip_version : TripVersion
-    ) -> Option<TripVersion>
-    {
-
+        trip_version: TripVersion,
+    ) -> Option<TripVersion> {
         let history = &mut self.new_vehicle_journeys_history[vehicle_journey_idx.idx].1;
-        
+
         history.by_reference_date.insert(*date, trip_version)
-    
     }
 
-    pub fn insert_new_vehicle_journey(
-        &mut self,
-        vehicle_journey_id : &str
-    ) -> NewVehicleJourneyIdx {
+    pub fn insert_new_vehicle_journey(&mut self, vehicle_journey_id: &str) -> NewVehicleJourneyIdx {
         let histories = &mut self.new_vehicle_journeys_history;
         let idx = self
             .new_vehicle_journeys_id_to_idx
@@ -179,58 +165,54 @@ impl RealTimeModel {
         idx.clone()
     }
 
-
-    pub fn set_linked_kirin_disruption(&mut self, 
-        vehicle_journey_idx : &VehicleJourneyIdx, 
-        date : NaiveDate,
-        kirin_disruption_idx : KirinDisruptionIdx,
-    ) -> Option<KirinDisruptionIdx>
-    {
+    pub fn set_linked_kirin_disruption(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: NaiveDate,
+        kirin_disruption_idx: KirinDisruptionIdx,
+    ) -> Option<KirinDisruptionIdx> {
         let history = match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(base_idx) => {
-                self.base_vehicle_journeys_idx_to_history
-                    .entry(*base_idx)
-                    .or_insert_with(VehicleJourneyHistory::new)
-            },
+            VehicleJourneyIdx::Base(base_idx) => self
+                .base_vehicle_journeys_idx_to_history
+                .entry(*base_idx)
+                .or_insert_with(VehicleJourneyHistory::new),
             VehicleJourneyIdx::New(new_idx) => {
-                & mut self.new_vehicle_journeys_history[new_idx.idx].1
-            },
+                &mut self.new_vehicle_journeys_history[new_idx.idx].1
+            }
         };
-        history.linked_kirin_disruption.insert(date, kirin_disruption_idx)
-
+        history
+            .linked_kirin_disruption
+            .insert(date, kirin_disruption_idx)
     }
 
-    pub fn get_linked_kirin_disruption(&self,
-        vehicle_journey_idx : &VehicleJourneyIdx, 
-        date : NaiveDate,
+    pub fn get_linked_kirin_disruption(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: NaiveDate,
     ) -> Option<&KirinDisruptionIdx> {
         let history = match vehicle_journey_idx {
             VehicleJourneyIdx::Base(base_idx) => {
-                self.base_vehicle_journeys_idx_to_history
-                    .get(base_idx)?
-            },
-            VehicleJourneyIdx::New(new_idx) => {
-                & self.new_vehicle_journeys_history[new_idx.idx].1
-            },
+                self.base_vehicle_journeys_idx_to_history.get(base_idx)?
+            }
+            VehicleJourneyIdx::New(new_idx) => &self.new_vehicle_journeys_history[new_idx.idx].1,
         };
         history.linked_kirin_disruption.get(&date)
     }
-
 
     pub fn link_chaos_impact(
         &mut self,
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
         base_model: &BaseModel,
-        chaos_impact_idx : &ChaosImpactIdx,
+        chaos_impact_idx: &ChaosImpactIdx,
     ) {
-        let history =
-            self.base_vehicle_journeys_idx_to_history
-                .entry(base_vehicle_journey_idx)
-                .or_insert_with(VehicleJourneyHistory::new);
+        let history = self
+            .base_vehicle_journeys_idx_to_history
+            .entry(base_vehicle_journey_idx)
+            .or_insert_with(VehicleJourneyHistory::new);
 
-
-        let linked_impacts = history.linked_chaos_impacts
+        let linked_impacts = history
+            .linked_chaos_impacts
             .entry(*date)
             .or_insert_with(LinkedChaosImpacts::new);
 
@@ -257,15 +239,15 @@ impl RealTimeModel {
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
         base_model: &BaseModel,
-        chaos_impact_idx : &ChaosImpactIdx,
+        chaos_impact_idx: &ChaosImpactIdx,
     ) {
-        let history =
-            self.base_vehicle_journeys_idx_to_history
-                .entry(base_vehicle_journey_idx)
-                .or_insert_with(VehicleJourneyHistory::new);
+        let history = self
+            .base_vehicle_journeys_idx_to_history
+            .entry(base_vehicle_journey_idx)
+            .or_insert_with(VehicleJourneyHistory::new);
 
-
-        let linked_impacts = history.linked_chaos_impacts
+        let linked_impacts = history
+            .linked_chaos_impacts
             .entry(*date)
             .or_insert_with(LinkedChaosImpacts::new);
 
@@ -276,7 +258,6 @@ impl RealTimeModel {
         match find_disruption_impact {
             Some(_) => {
                 linked_impacts.retain(|impact_idx| *impact_idx == *chaos_impact_idx);
-                
             }
             None => {
                 let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
@@ -293,24 +274,29 @@ impl RealTimeModel {
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
     ) -> Option<&[ChaosImpactIdx]> {
-        
-        let history = self.base_vehicle_journeys_idx_to_history
-                .get(&base_vehicle_journey_idx)?;
+        let history = self
+            .base_vehicle_journeys_idx_to_history
+            .get(&base_vehicle_journey_idx)?;
         let impacts = history.linked_chaos_impacts.get(date)?;
         Some(impacts.as_slice())
-
     }
 
-    pub fn get_chaos_disruption(&self, 
-        chaos_impact_idx : &ChaosImpactIdx
+    pub fn get_chaos_disruption(
+        &self,
+        chaos_impact_idx: &ChaosImpactIdx,
     ) -> Option<(&ChaosDisruption, &ChaosImpact)> {
-        let disruption = self.chaos_disruptions.get(chaos_impact_idx.disruption_idx)?;
+        let disruption = self
+            .chaos_disruptions
+            .get(chaos_impact_idx.disruption_idx)?;
         let impact = disruption.impacts.get(chaos_impact_idx.impact_idx)?;
         Some((disruption, impact))
     }
 
-    pub fn get_kirin_disruption(&self, kirin_disruption_idx : &KirinDisruptionIdx) -> &KirinDisruption {
-       & self.kirin_disruptions[kirin_disruption_idx.idx]
+    pub fn get_kirin_disruption(
+        &self,
+        kirin_disruption_idx: &KirinDisruptionIdx,
+    ) -> &KirinDisruption {
+        &self.kirin_disruptions[kirin_disruption_idx.idx]
     }
 
     pub fn make_stop_times(
@@ -400,29 +386,22 @@ impl RealTimeModel {
     ) -> Option<&TripVersion> {
         self.base_vehicle_journeys_idx_to_history
             .get(idx)
-            .and_then(|vehicle_journey_history| {
-                vehicle_journey_history
-                    .by_reference_date
-                    .get(date)
-                    
-            })
+            .and_then(|vehicle_journey_history| vehicle_journey_history.by_reference_date.get(date))
     }
 
-    pub fn base_vehicle_journey_is_present(&self,
-        idx : &BaseVehicleJourneyIdx,
-        date : &NaiveDate,
-        base_model : &BaseModel,
-    ) -> bool  {
-  
+    pub fn base_vehicle_journey_is_present(
+        &self,
+        idx: &BaseVehicleJourneyIdx,
+        date: &NaiveDate,
+        base_model: &BaseModel,
+    ) -> bool {
         let last_version = self.base_vehicle_journey_last_version(idx, date);
         match last_version {
             Some(&TripVersion::Deleted()) => false,
             Some(&TripVersion::Present(_)) => true,
             None => base_model.trip_exists(*idx, *date),
         }
-        
     }
-
 
     pub(super) fn new_vehicle_journey_last_version(
         &self,
@@ -433,7 +412,6 @@ impl RealTimeModel {
             .1
             .by_reference_date
             .get(date)
-            
     }
 
     pub fn new_vehicle_journey_is_present(&self, trip: &Trip) -> bool {
@@ -459,7 +437,7 @@ impl RealTimeModel {
 
     pub fn get_chaos_disruption_and_impact(
         &self,
-        chaos_impact_idx : &ChaosImpactIdx,
+        chaos_impact_idx: &ChaosImpactIdx,
     ) -> (&ChaosDisruption, &ChaosImpact) {
         let disruption = &self.chaos_disruptions[chaos_impact_idx.disruption_idx];
         let impact = &disruption.impacts[chaos_impact_idx.impact_idx];
@@ -474,7 +452,7 @@ impl RealTimeModel {
             new_stop_id_to_idx: HashMap::new(),
             new_stops: Vec::new(),
             chaos_disruptions: Vec::new(),
-            kirin_disruptions : Vec::new(),
+            kirin_disruptions: Vec::new(),
         }
     }
 }
@@ -496,7 +474,7 @@ impl VehicleJourneyHistory {
         Self {
             by_reference_date: HashMap::new(),
             linked_chaos_impacts: HashMap::new(),
-            linked_kirin_disruption : HashMap::new(),
+            linked_kirin_disruption: HashMap::new(),
         }
     }
 }

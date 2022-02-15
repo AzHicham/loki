@@ -42,9 +42,10 @@ use launch::loki::{
     models::{
         base_model::{strip_id_prefix, BaseModel, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY},
         real_time_disruption::{
-             Effect,  
-             VehicleJourneyId, kirin_disruption::{KirinDisruption, UpdateType, UpdateData, self}, time_periods::TimePeriod,
-        }, 
+            kirin_disruption::{self, KirinDisruption, UpdateData, UpdateType},
+            time_periods::TimePeriod,
+            Effect, VehicleJourneyId,
+        },
     },
     time::SecondsSinceTimezonedDayStart,
     timetables::FlowDirection,
@@ -130,8 +131,6 @@ pub fn handle_kirin_protobuf(
         chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
 
-
-
     let trip_id = VehicleJourneyId {
         id: vehicle_journey_id,
     };
@@ -140,26 +139,20 @@ pub fn handle_kirin_protobuf(
     // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
     use Effect::*;
     let update = match effect {
-        NoService => {
-            UpdateType::TripDeleted()
-        }
+        NoService => UpdateType::TripDeleted(),
         OtherEffect | UnknownEffect | ReducedService | SignificantDelays | Detour
-        | ModifiedService => {
-            UpdateType::BaseTripUpdated(UpdateData{
-                stop_times,
-                company_id,
-                physical_mode_id,
-                headsign,
-            })
-        }
-        AdditionalService => {
-            UpdateType::NewTripUpdated(UpdateData{
-                stop_times,
-                company_id,
-                physical_mode_id,
-                headsign,
-            })
-        }
+        | ModifiedService => UpdateType::BaseTripUpdated(UpdateData {
+            stop_times,
+            company_id,
+            physical_mode_id,
+            headsign,
+        }),
+        AdditionalService => UpdateType::NewTripUpdated(UpdateData {
+            stop_times,
+            company_id,
+            physical_mode_id,
+            headsign,
+        }),
         StopMoved => {
             bail!("Unhandled effect on FeedEntity: {:?}", effect);
         }
@@ -167,7 +160,7 @@ pub fn handle_kirin_protobuf(
 
     let message = chaos_proto::kirin::exts::trip_message.get(trip_update);
 
-    Ok(KirinDisruption{
+    Ok(KirinDisruption {
         id: disruption_id,
         contributor,
         message,
@@ -180,7 +173,10 @@ pub fn handle_kirin_protobuf(
     })
 }
 
-fn make_time_period(stop_times: &[kirin_disruption::StopTime], reference_date: &NaiveDate) -> Option<TimePeriod> {
+fn make_time_period(
+    stop_times: &[kirin_disruption::StopTime],
+    reference_date: &NaiveDate,
+) -> Option<TimePeriod> {
     let min = stop_times
         .iter()
         .map(|stop_time| std::cmp::min(stop_time.arrival_time, stop_time.departure_time))

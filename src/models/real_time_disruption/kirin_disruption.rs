@@ -35,33 +35,23 @@
 // www.navitia.io
 
 use crate::{
-
-    transit_data::{
-        data_interface::Data as DataTrait,
-        data_interface::DataUpdate,
-    }, 
     models::{
-        base_model::BaseModel, 
-        real_time_model::{KirinDisruptionIdx, TripVersion}, 
-        ModelRefs, 
-        VehicleJourneyIdx}
-        , 
+        base_model::BaseModel,
+        real_time_model::{KirinDisruptionIdx, TripVersion},
+        ModelRefs, VehicleJourneyIdx,
+    },
+    transit_data::data_interface::{Data as DataTrait, DataUpdate},
 };
 
 use crate::{
-    time::{SecondsSinceTimezonedDayStart},
-    timetables::FlowDirection, models::RealTimeModel,
+    models::RealTimeModel, time::SecondsSinceTimezonedDayStart, timetables::FlowDirection,
 };
-use chrono::{ NaiveDate, NaiveDateTime};
-use tracing::{ error};
+use chrono::{NaiveDate, NaiveDateTime};
+use tracing::error;
 
+use std::fmt::Debug;
 
-use std::{
-    fmt::{Debug},
-};
-
-use super::{ apply_disruption, time_periods::TimePeriod, Effect, VehicleJourneyId};
-
+use super::{apply_disruption, time_periods::TimePeriod, Effect, VehicleJourneyId};
 
 #[derive(Debug, Clone)]
 pub struct KirinDisruption {
@@ -73,17 +63,12 @@ pub struct KirinDisruption {
     pub updated_at: NaiveDateTime,
     pub application_period: TimePeriod,
     pub effect: Effect,
-    
+
     pub trip_id: VehicleJourneyId,
     pub trip_date: NaiveDate,
 
-    pub update : UpdateType,
+    pub update: UpdateType,
 }
-
-
-
-
-
 
 #[derive(Debug, Clone)]
 pub enum UpdateType {
@@ -92,7 +77,6 @@ pub enum UpdateType {
     NewTripUpdated(UpdateData),
 }
 
-
 #[derive(Debug, Clone)]
 pub struct UpdateData {
     pub stop_times: Vec<StopTime>,
@@ -100,7 +84,6 @@ pub struct UpdateData {
     pub physical_mode_id: Option<String>,
     pub headsign: Option<String>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct StopTime {
@@ -111,57 +94,76 @@ pub struct StopTime {
 }
 
 #[derive(Debug, Clone)]
-pub enum KirinUpdateError{
+pub enum KirinUpdateError {
     NewTripWithBaseId(VehicleJourneyId),
     BaseVehicleJourneyAbsent(VehicleJourneyId),
     DeleteAbsentTrip(VehicleJourneyId),
 }
 
-
 pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     disruption: KirinDisruption,
     base_model: &BaseModel,
     data: &mut Data,
 ) {
     let kirin_disruption_idx = KirinDisruptionIdx {
-        idx : real_time_model.kirin_disruptions.len()
+        idx: real_time_model.kirin_disruptions.len(),
     };
 
     let date = disruption.trip_date;
     let vehicle_journey_id = disruption.trip_id.id.as_str();
 
     let result = match &disruption.update {
-        UpdateType::TripDeleted() => delete_trip(real_time_model, base_model, data, vehicle_journey_id, date, kirin_disruption_idx),
-        UpdateType::BaseTripUpdated(update_data) => update_base_trip(real_time_model, base_model, data, vehicle_journey_id, date, &update_data, kirin_disruption_idx),
-        UpdateType::NewTripUpdated(update_data) => update_new_trip(real_time_model, base_model, data, vehicle_journey_id, date, &update_data, kirin_disruption_idx),
+        UpdateType::TripDeleted() => delete_trip(
+            real_time_model,
+            base_model,
+            data,
+            vehicle_journey_id,
+            date,
+            kirin_disruption_idx,
+        ),
+        UpdateType::BaseTripUpdated(update_data) => update_base_trip(
+            real_time_model,
+            base_model,
+            data,
+            vehicle_journey_id,
+            date,
+            &update_data,
+            kirin_disruption_idx,
+        ),
+        UpdateType::NewTripUpdated(update_data) => update_new_trip(
+            real_time_model,
+            base_model,
+            data,
+            vehicle_journey_id,
+            date,
+            &update_data,
+            kirin_disruption_idx,
+        ),
     };
     if let Err(err) = result {
-        error!("Error while applying kirin disruption {}. {:?}", disruption.id, err);
+        error!(
+            "Error while applying kirin disruption {}. {:?}",
+            disruption.id, err
+        );
     }
 
     real_time_model.kirin_disruptions.push(disruption);
-
 }
 
-
-
 fn update_new_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    vehicle_journey_id : &str,
-    date : NaiveDate,
+    vehicle_journey_id: &str,
+    date: NaiveDate,
     update_data: &UpdateData,
-    kirin_disruption_idx : KirinDisruptionIdx
+    kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
-
     if base_model.vehicle_journey_idx(vehicle_journey_id).is_some() {
-        return Err(KirinUpdateError::NewTripWithBaseId(
-            VehicleJourneyId {
-                id: vehicle_journey_id.to_string(),
-            },
-        ));
+        return Err(KirinUpdateError::NewTripWithBaseId(VehicleJourneyId {
+            id: vehicle_journey_id.to_string(),
+        }));
     }
 
     let new_vehicle_journey_idx = real_time_model.insert_new_vehicle_journey(vehicle_journey_id);
@@ -170,7 +172,8 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
 
     let trip_version = TripVersion::Present(stop_times.clone());
 
-    let has_previous_trip_version = real_time_model.set_new_trip_version(new_vehicle_journey_idx, &date, trip_version);
+    let has_previous_trip_version =
+        real_time_model.set_new_trip_version(new_vehicle_journey_idx, &date, trip_version);
 
     let vehicle_journey_idx = VehicleJourneyIdx::New(new_vehicle_journey_idx);
 
@@ -184,7 +187,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
                 &date,
                 stop_times,
             );
-        },
+        }
         None => {
             apply_disruption::add_trip(
                 real_time_model,
@@ -203,20 +206,21 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
 }
 
 fn update_base_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    vehicle_journey_id : &str,
-    date : NaiveDate,
+    vehicle_journey_id: &str,
+    date: NaiveDate,
     update_data: &UpdateData,
-    kirin_disruption_idx : KirinDisruptionIdx,
+    kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
-    
-    let base_vj_idx = base_model.vehicle_journey_idx(vehicle_journey_id).ok_or_else(|| 
-        KirinUpdateError::BaseVehicleJourneyAbsent(VehicleJourneyId {
-            id: vehicle_journey_id.to_string(),
-        })
-    )?;
+    let base_vj_idx = base_model
+        .vehicle_journey_idx(vehicle_journey_id)
+        .ok_or_else(|| {
+            KirinUpdateError::BaseVehicleJourneyAbsent(VehicleJourneyId {
+                id: vehicle_journey_id.to_string(),
+            })
+        })?;
 
     let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vj_idx);
 
@@ -224,7 +228,8 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
 
     let trip_version = TripVersion::Present(stop_times.clone());
 
-    let has_previous_trip_version = real_time_model.set_base_trip_version(base_vj_idx, &date, trip_version);
+    let has_previous_trip_version =
+        real_time_model.set_base_trip_version(base_vj_idx, &date, trip_version);
 
     match has_previous_trip_version {
         Some(_) => {
@@ -236,7 +241,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
                 &date,
                 stop_times,
             );
-        },
+        }
         None => {
             apply_disruption::add_trip(
                 real_time_model,
@@ -251,38 +256,36 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
 
     real_time_model.set_linked_kirin_disruption(&vehicle_journey_idx, date, kirin_disruption_idx);
 
-
     Ok(())
-
 }
 
 fn delete_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    vehicle_journey_id : &str,
-    date : NaiveDate,
-    kirin_disruption_idx : KirinDisruptionIdx,
+    vehicle_journey_id: &str,
+    date: NaiveDate,
+    kirin_disruption_idx: KirinDisruptionIdx,
 ) -> Result<(), KirinUpdateError> {
-
-
-
     let vj_idx = {
         let model_refs = ModelRefs {
             base: base_model,
             real_time: real_time_model,
         };
-        model_refs.vehicle_journey_idx(vehicle_journey_id)
-            .ok_or_else(|| KirinUpdateError::DeleteAbsentTrip(VehicleJourneyId{id : vehicle_journey_id.to_string()}))
+        model_refs
+            .vehicle_journey_idx(vehicle_journey_id)
+            .ok_or_else(|| {
+                KirinUpdateError::DeleteAbsentTrip(VehicleJourneyId {
+                    id: vehicle_journey_id.to_string(),
+                })
+            })
     }?;
 
-    
     apply_disruption::delete_trip(real_time_model, base_model, data, &vj_idx, date);
 
     real_time_model.set_linked_kirin_disruption(&vj_idx, date, kirin_disruption_idx);
 
     Ok(())
-
 }
 
 // fn add_trip<Data: DataTrait + DataUpdate>(
@@ -359,7 +362,6 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
 //             data.calendar().last_date(),
 //             &err,
 //         );
-        
+
 //     }
 // }
-

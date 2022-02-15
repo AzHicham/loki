@@ -34,20 +34,25 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 use crate::{
-
-    transit_data::{
-        data_interface::Data as DataTrait,
-        data_interface::DataUpdate,
-    }, models::{base_model::{BaseModel, BaseVehicleJourneyIdx}, real_time_model::{ChaosImpactIdx,}, RealTimeModel, StopPointIdx, VehicleJourneyIdx, self}, time::calendar,
+    models::{
+        self,
+        base_model::{BaseModel, BaseVehicleJourneyIdx},
+        real_time_model::ChaosImpactIdx,
+        RealTimeModel, StopPointIdx, VehicleJourneyIdx,
+    },
+    time::calendar,
+    transit_data::data_interface::{Data as DataTrait, DataUpdate},
 };
-
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
-use tracing::{error};
+use tracing::error;
 
-
-use super::{ apply_disruption, time_periods::{TimePeriod, intersection, TimePeriods}, VehicleJourneyId, Effect};
+use super::{
+    apply_disruption,
+    time_periods::{intersection, TimePeriod, TimePeriods},
+    Effect, VehicleJourneyId,
+};
 
 #[derive(Debug, Clone)]
 pub struct ChaosDisruption {
@@ -90,7 +95,7 @@ pub enum Impacted {
 pub enum Informed {
     Network(NetworkId),
     Line(LineId),
-    Route(RouteId), 
+    Route(RouteId),
     Trip(VehicleJourneyId),
     StopArea(StopAreaId),
     StopPoint(StopPointId),
@@ -121,8 +126,6 @@ pub struct StopAreaId {
     pub id: String,
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct LineSection {
     pub line: LineId,
@@ -146,7 +149,6 @@ pub struct BlockedStopArea {
     pub order: u32,
 }
 
-
 #[derive(Debug, Clone)]
 pub enum ChannelType {
     Web,
@@ -160,7 +162,6 @@ pub enum ChannelType {
     Title,
     Beacon,
 }
-
 
 #[derive(Default, Debug, Clone)]
 pub struct Cause {
@@ -187,7 +188,6 @@ pub struct Severity {
     pub priority: Option<i32>,
     pub effect: Effect,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -232,37 +232,39 @@ pub enum ChaosImpactError {
     DeletePresentTrip(VehicleJourneyId, NaiveDate),
 }
 
-
-
-
-
-
 pub fn store_and_apply_chaos_disruption<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     disruption: ChaosDisruption,
     base_model: &BaseModel,
     data: &mut Data,
 ) {
-    let disruption_idx =  real_time_model.chaos_disruptions.len();
+    let disruption_idx = real_time_model.chaos_disruptions.len();
 
     for (idx, impact) in disruption.impacts.iter().enumerate() {
-        let chaos_impact_idx = ChaosImpactIdx { 
-            disruption_idx, 
-            impact_idx : idx
+        let chaos_impact_idx = ChaosImpactIdx {
+            disruption_idx,
+            impact_idx: idx,
         };
-        apply_impact(real_time_model, impact, base_model, data, &chaos_impact_idx, false);
+        apply_impact(
+            real_time_model,
+            impact,
+            base_model,
+            data,
+            &chaos_impact_idx,
+            false,
+        );
     }
 
     real_time_model.chaos_disruptions.push(disruption);
 }
 
 fn apply_impact<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     impact: &ChaosImpact,
     base_model: &BaseModel,
     data: &mut Data,
     impact_idx: &ChaosImpactIdx,
-    cancel_impact : bool,
+    cancel_impact: bool,
 ) {
     let model_period = [base_model.time_period()];
     // filter application_periods by model_period
@@ -281,8 +283,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
 
     let impact_action = if cancel_impact {
         Action::CancelAlteration
-    }
-    else {
+    } else {
         Action::Alter
     };
 
@@ -344,7 +345,6 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
             ),
             Impacted::RailSection(_) => todo!(),
             Impacted::LineSection(_) => todo!(),
-
         };
         if let Err(err) = result {
             error!("Error while applying impact {} : {:?}", impact.id, err);
@@ -353,8 +353,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
 
     let informed_action = if cancel_impact {
         Action::CancelInform
-    }
-    else {
+    } else {
         Action::Inform
     };
 
@@ -425,16 +424,24 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
 }
 
 fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     vehicle_journey_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
     if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
-        apply_on_base_vehicle_journey_idx(real_time_model, base_model, data, vehicle_journey_idx, application_periods, chaos_impact_idx, action);
+        apply_on_base_vehicle_journey_idx(
+            real_time_model,
+            base_model,
+            data,
+            vehicle_journey_idx,
+            application_periods,
+            chaos_impact_idx,
+            action,
+        );
         Ok(())
     } else {
         Err(ChaosImpactError::VehicleJourneyAbsent(VehicleJourneyId {
@@ -444,15 +451,14 @@ fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
 }
 
 fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     vehicle_journey_idx: BaseVehicleJourneyIdx,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) {
-
     for date in application_periods.dates_possibly_concerned() {
         if let Some(trip_period) = base_model.trip_time_period(vehicle_journey_idx, &date) {
             if application_periods.intersects(&trip_period) {
@@ -463,23 +469,20 @@ fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
                     vehicle_journey_idx,
                     &date,
                     chaos_impact_idx,
-                    action
+                    action,
                 );
             }
         }
     }
-
-    
 }
 
-
 fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     date: &NaiveDate,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) {
     match action {
@@ -491,31 +494,49 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
                 &base_vehicle_journey_idx,
                 date,
             );
-            real_time_model.link_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
+            real_time_model.link_chaos_impact(
+                base_vehicle_journey_idx,
+                date,
+                base_model,
+                chaos_impact_idx,
+            );
         }
         Action::Inform => {
-            real_time_model.link_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
-        },
+            real_time_model.link_chaos_impact(
+                base_vehicle_journey_idx,
+                date,
+                base_model,
+                chaos_impact_idx,
+            );
+        }
         Action::CancelAlteration => {
             error!("Cancel chaos impact not implemented yet.");
         }
         Action::CancelInform => {
-            real_time_model.unlink_chaos_impact(base_vehicle_journey_idx, date, base_model, chaos_impact_idx);
-        },
+            real_time_model.unlink_chaos_impact(
+                base_vehicle_journey_idx,
+                date,
+                base_model,
+                chaos_impact_idx,
+            );
+        }
     }
 }
 
 pub fn delete_base_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     base_vehicle_journey_idx: &BaseVehicleJourneyIdx,
     date: &NaiveDate,
-) -> Result<(), ()>
-{
-
-    if !real_time_model.base_vehicle_journey_is_present(base_vehicle_journey_idx, &date, base_model) {
-        error!("Deleting an absent base trip {} on {}", base_model.vehicle_journey_name(*base_vehicle_journey_idx), date);
+) -> Result<(), ()> {
+    if !real_time_model.base_vehicle_journey_is_present(base_vehicle_journey_idx, &date, base_model)
+    {
+        error!(
+            "Deleting an absent base trip {} on {}",
+            base_model.vehicle_journey_name(*base_vehicle_journey_idx),
+            date
+        );
         return Err(());
     }
 
@@ -525,16 +546,13 @@ pub fn delete_base_trip<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-
-
-
 fn apply_on_network<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     network_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
     if !base_model.contains_network_id(network_id) {
@@ -552,7 +570,7 @@ fn apply_on_network<Data: DataTrait + DataUpdate>(
                 base_vehicle_journey_idx,
                 application_periods,
                 chaos_impact_idx,
-                action
+                action,
             );
         }
     }
@@ -560,12 +578,12 @@ fn apply_on_network<Data: DataTrait + DataUpdate>(
 }
 
 fn apply_on_line<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     line_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
     if !base_model.contains_line_id(line_id) {
@@ -582,7 +600,7 @@ fn apply_on_line<Data: DataTrait + DataUpdate>(
                 base_vehicle_journey_idx,
                 application_periods,
                 chaos_impact_idx,
-                action
+                action,
             );
         }
     }
@@ -590,12 +608,12 @@ fn apply_on_line<Data: DataTrait + DataUpdate>(
 }
 
 fn apply_on_route<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     route_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
     if !base_model.contains_route_id(route_id) {
@@ -612,21 +630,20 @@ fn apply_on_route<Data: DataTrait + DataUpdate>(
                 base_vehicle_journey_idx,
                 application_periods,
                 chaos_impact_idx,
-                action
+                action,
             );
-            
         }
     }
     Ok(())
 }
 
 fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     stop_area_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
     if !base_model.contains_stop_area_id(stop_area_id) {
@@ -635,56 +652,67 @@ fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
         }));
     }
 
-    let is_stop_point_concerned = |stop_point : & StopPointIdx| {
+    let is_stop_point_concerned = |stop_point: &StopPointIdx| {
         if let StopPointIdx::Base(base_stop_point) = stop_point {
             let stop_area = base_model.stop_area_name(*base_stop_point);
             stop_area == stop_area_id
-        }
-        else {
+        } else {
             false
         }
     };
 
-    apply_on_stop_point_by_closure(real_time_model, base_model, data, is_stop_point_concerned, application_periods, chaos_impact_idx, action);
+    apply_on_stop_point_by_closure(
+        real_time_model,
+        base_model,
+        data,
+        is_stop_point_concerned,
+        application_periods,
+        chaos_impact_idx,
+        action,
+    );
 
     Ok(())
-    
 }
 
 fn apply_on_stop_point<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     stop_point_id: &str,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
-    let stop_point_idx = base_model.stop_point_idx(stop_point_id)
-        .ok_or_else(|| 
-            ChaosImpactError::StopPointAbsent(StopPointId { id: stop_point_id.to_string() }) 
-        )?;
-    let is_stop_point_concerned = |stop_point : & StopPointIdx| {
-        *stop_point == StopPointIdx::Base(stop_point_idx)
-    };
+    let stop_point_idx = base_model.stop_point_idx(stop_point_id).ok_or_else(|| {
+        ChaosImpactError::StopPointAbsent(StopPointId {
+            id: stop_point_id.to_string(),
+        })
+    })?;
+    let is_stop_point_concerned =
+        |stop_point: &StopPointIdx| *stop_point == StopPointIdx::Base(stop_point_idx);
 
-    apply_on_stop_point_by_closure(real_time_model, base_model, data, is_stop_point_concerned, application_periods, chaos_impact_idx, action);
+    apply_on_stop_point_by_closure(
+        real_time_model,
+        base_model,
+        data,
+        is_stop_point_concerned,
+        application_periods,
+        chaos_impact_idx,
+        action,
+    );
 
     Ok(())
 }
 
-
-
-fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F : Fn(&StopPointIdx) -> bool >(
-    real_time_model : &mut RealTimeModel,
+fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPointIdx) -> bool>(
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    is_stop_point_concerned : F,
+    is_stop_point_concerned: F,
     application_periods: &TimePeriods,
-    chaos_impact_idx : &ChaosImpactIdx,
+    chaos_impact_idx: &ChaosImpactIdx,
     action: &Action,
 ) {
-
     for base_vehicle_journey_idx in base_model.vehicle_journeys() {
         if let Ok(base_stop_times) = base_model.stop_times(base_vehicle_journey_idx) {
             let contains_concerned_stop_point = base_stop_times
@@ -702,7 +730,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F : Fn(&StopPoin
                 {
                     if application_periods.intersects(&time_period) {
                         let is_stop_time_concerned = |stop_time: &models::StopTime| {
-                            if ! is_stop_point_concerned(&stop_time.stop) {
+                            if !is_stop_point_concerned(&stop_time.stop) {
                                 return false;
                             }
                             let board_time =
@@ -713,10 +741,12 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F : Fn(&StopPoin
                                 || application_periods.contains(&debark_time)
                         };
 
-                        let has_a_stop_time_concerned =  base_stop_times.clone().any(|stop_time| is_stop_time_concerned(&stop_time));
+                        let has_a_stop_time_concerned = base_stop_times
+                            .clone()
+                            .any(|stop_time| is_stop_time_concerned(&stop_time));
 
-                        if ! has_a_stop_time_concerned {
-                            continue
+                        if !has_a_stop_time_concerned {
+                            continue;
                         }
 
                         match action {
@@ -725,19 +755,42 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F : Fn(&StopPoin
                                     .clone()
                                     .filter(|stop_time| !is_stop_time_concerned(stop_time))
                                     .collect();
-                                let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
-                                apply_disruption::modify_trip(real_time_model, base_model, data, &vehicle_journey_idx, &date, stop_times);
-                                real_time_model.link_chaos_impact(base_vehicle_journey_idx, &date, base_model, chaos_impact_idx);
-                            },
+                                let vehicle_journey_idx =
+                                    VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+                                apply_disruption::modify_trip(
+                                    real_time_model,
+                                    base_model,
+                                    data,
+                                    &vehicle_journey_idx,
+                                    &date,
+                                    stop_times,
+                                );
+                                real_time_model.link_chaos_impact(
+                                    base_vehicle_journey_idx,
+                                    &date,
+                                    base_model,
+                                    chaos_impact_idx,
+                                );
+                            }
                             Action::Inform => {
-                                real_time_model.link_chaos_impact(base_vehicle_journey_idx, &date, base_model, chaos_impact_idx);
-                            },
+                                real_time_model.link_chaos_impact(
+                                    base_vehicle_journey_idx,
+                                    &date,
+                                    base_model,
+                                    chaos_impact_idx,
+                                );
+                            }
                             Action::CancelAlteration => {
                                 error!("Cancel chaos impact not implemented yet.");
-                            },
+                            }
                             Action::CancelInform => {
-                                real_time_model.unlink_chaos_impact(base_vehicle_journey_idx, &date, base_model, chaos_impact_idx);
-                            },
+                                real_time_model.unlink_chaos_impact(
+                                    base_vehicle_journey_idx,
+                                    &date,
+                                    base_model,
+                                    chaos_impact_idx,
+                                );
+                            }
                         }
                     }
                 }
@@ -745,9 +798,3 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F : Fn(&StopPoin
         }
     }
 }
-
-
-
-
-
-

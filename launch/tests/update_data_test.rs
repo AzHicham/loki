@@ -42,9 +42,8 @@ use launch::{config::DataImplem, solver::Solver};
 use loki::{
     chrono_tz::UTC,
     models::{
-        base_model::BaseModel,
-        real_time_model::{ RealTimeModel},
-        ModelRefs, StopTime, VehicleJourneyIdx, self,
+        self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
+        VehicleJourneyIdx,
     },
     request::generic_request,
     timetables::{InsertionError, Timetables, TimetablesIter},
@@ -573,9 +572,17 @@ where
         let base_vj_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(base_vj_idx);
 
-        let result = data.modify_real_time_vehicle(stops, flows, board_times, debark_times, base_model.loads_data(), dates, &UTC, &vj_idx);
+        let result = data.modify_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            &vj_idx,
+        );
         assert!(result.is_ok());
-
     }
 
     {
@@ -680,7 +687,7 @@ where
         let date = "1999-01-01".as_date();
         let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
         let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
-        let stop_times : Vec<models::StopTime> = Vec::new();
+        let stop_times: Vec<models::StopTime> = Vec::new();
         let dates = std::iter::once(date);
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -716,7 +723,7 @@ where
 
         let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
         let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
-        let stop_times : Vec<models::StopTime> = Vec::new();
+        let stop_times: Vec<models::StopTime> = Vec::new();
         let dates = std::iter::empty();
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);

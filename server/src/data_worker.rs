@@ -66,7 +66,14 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
-    models::{base_model::BaseModel, RealTimeModel, real_time_disruption::{ chaos_disruption::store_and_apply_chaos_disruption, kirin_disruption::store_and_apply_kirin_disruption}},
+    models::{
+        base_model::BaseModel,
+        real_time_disruption::{
+            chaos_disruption::store_and_apply_chaos_disruption,
+            kirin_disruption::store_and_apply_kirin_disruption,
+        },
+        RealTimeModel,
+    },
     tracing::{debug, error, info, log::trace},
     DataTrait, NaiveDateTime,
 };
@@ -316,9 +323,13 @@ impl DataWorker {
                     for chaos_disruption in disruptions {
                         match handle_chaos_protobuf(&chaos_disruption) {
                             Ok(disruption) => {
-                                store_and_apply_chaos_disruption(real_time_model, disruption, base_model, data);
-        
-                            },
+                                store_and_apply_chaos_disruption(
+                                    real_time_model,
+                                    disruption,
+                                    base_model,
+                                    data,
+                                );
+                            }
                             Err(err) => {
                                 error!("Error while decoding chaos disruption protobuf : {:?}", err)
                             }
@@ -845,9 +856,11 @@ fn handle_feed_entity(
             })?;
             store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
         } else if feed_entity.has_trip_update() {
-            let kirin_disruption = handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1).with_context(
-                || format!("Could not handle kirin disruption in FeedEntity {}", id),
-            )?;
+            let kirin_disruption =
+                handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1)
+                    .with_context(|| {
+                        format!("Could not handle kirin disruption in FeedEntity {}", id)
+                    })?;
             store_and_apply_kirin_disruption(real_time_model, kirin_disruption, base_model, data);
         } else {
             bail!(

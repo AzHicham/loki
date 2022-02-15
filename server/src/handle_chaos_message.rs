@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{chaos_proto::{self}, };
+use crate::chaos_proto::{self};
 use anyhow::{bail, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
@@ -42,13 +42,23 @@ use launch::loki::{
         base_model::{
             strip_id_prefix, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_ROUTE,
             PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY,
-        }, real_time_disruption::{chaos_disruption::{ChaosDisruption, ChaosImpact, Impacted, Informed, NetworkId, RouteId, LineId, StopPointId, StopAreaId, LineSection, RailSection, BlockedStopArea, Severity, Cause, Tag, Message, ChannelType, ApplicationPattern, TimeSlot, DisruptionProperty}, VehicleJourneyId, time_periods::TimePeriod, Effect},
-        
+        },
+        real_time_disruption::{
+            chaos_disruption::{
+                ApplicationPattern, BlockedStopArea, Cause, ChannelType, ChaosDisruption,
+                ChaosImpact, DisruptionProperty, Impacted, Informed, LineId, LineSection, Message,
+                NetworkId, RailSection, RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot,
+            },
+            time_periods::TimePeriod,
+            Effect, VehicleJourneyId,
+        },
     },
     NaiveDateTime,
 };
 
-pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<ChaosDisruption, Error> {
+pub fn handle_chaos_protobuf(
+    proto: &chaos_proto::chaos::Disruption,
+) -> Result<ChaosDisruption, Error> {
     let id = if proto.has_id() {
         proto.get_id().to_string()
     } else {

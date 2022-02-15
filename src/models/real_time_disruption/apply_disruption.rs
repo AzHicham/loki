@@ -36,41 +36,29 @@
 
 use crate::{
     chrono::NaiveDate,
+    models::{self, real_time_model::TripVersion, RealTimeModel, VehicleJourneyIdx},
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
     },
-    models::{real_time_model::{TripVersion}, VehicleJourneyIdx, RealTimeModel, self}
 };
 
+use crate::models::{base_model::BaseModel, ModelRefs};
 
-use crate::models::{
+use crate::DataUpdate;
 
-    base_model::BaseModel, ModelRefs
-
-};
-
-use crate::{
-
-    DataUpdate,
-};
-
-
-
-pub (super) fn delete_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    vehicle_journey_idx : &VehicleJourneyIdx,
-    date : NaiveDate,
-)  {
-
-
+    vehicle_journey_idx: &VehicleJourneyIdx,
+    date: NaiveDate,
+) {
     let trip_version = TripVersion::Deleted();
     match vehicle_journey_idx {
         VehicleJourneyIdx::Base(base_idx) => {
             real_time_model.set_base_trip_version(*base_idx, &date, trip_version);
-        },
+        }
         VehicleJourneyIdx::New(new_vj_idx) => {
             real_time_model.set_new_trip_version(*new_vj_idx, &date, trip_version);
         }
@@ -90,15 +78,14 @@ pub (super) fn delete_trip<Data: DataTrait + DataUpdate>(
     }
 }
 
-pub (super) fn add_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     vehicle_journey_idx: VehicleJourneyIdx,
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,
-)  {
-
+) {
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -129,14 +116,13 @@ pub (super) fn add_trip<Data: DataTrait + DataUpdate>(
 }
 
 pub fn modify_trip<Data: DataTrait + DataUpdate>(
-    real_time_model : &mut RealTimeModel,
+    real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
-
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -153,7 +139,7 @@ pub fn modify_trip<Data: DataTrait + DataUpdate>(
         &chrono_tz::UTC,
         vehicle_journey_idx,
     );
-    if let Err(err) =  modify_result {
+    if let Err(err) = modify_result {
         let model_ref = ModelRefs {
             base: base_model,
             real_time: real_time_model,
@@ -164,7 +150,5 @@ pub fn modify_trip<Data: DataTrait + DataUpdate>(
             data.calendar().last_date(),
             &err,
         );
-        
     }
 }
-

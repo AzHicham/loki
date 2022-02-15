@@ -34,16 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-
-use crate::{
-    time::MAX_SECONDS_IN_UTC_DAY,
-};
+use crate::time::MAX_SECONDS_IN_UTC_DAY;
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 use std::{
     cmp::{max, min},
     fmt::{Debug, Display},
 };
-
 
 /// An half open interval of time.
 /// A instant `t` is contained in it
