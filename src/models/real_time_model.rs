@@ -276,7 +276,7 @@ impl RealTimeModel {
         match find_disruption_impact {
             Some(_) => {
                 linked_impacts.retain(|(impact_idx, object_idx)| {
-                    *impact_idx == *chaos_impact_idx && *object_idx == *impact_object_idx
+                    !(*impact_idx == *chaos_impact_idx && *object_idx == *impact_object_idx)
                 });
             }
             None => {

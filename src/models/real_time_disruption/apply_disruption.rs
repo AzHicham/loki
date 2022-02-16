@@ -34,12 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use tracing::debug;
+
 use crate::{
     chrono::NaiveDate,
-    models::{
-        self, base_model::BaseVehicleJourneyIdx, real_time_model::TripVersion, RealTimeModel,
-        VehicleJourneyIdx,
-    },
+    models::{self, real_time_model::TripVersion, RealTimeModel, VehicleJourneyIdx},
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
@@ -57,6 +56,18 @@ pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
 ) {
+    {
+        let model_ref = ModelRefs {
+            base: base_model,
+            real_time: real_time_model,
+        };
+        debug!(
+            "Deleting vehicle journey {} on {}",
+            model_ref.vehicle_journey_name(vehicle_journey_idx),
+            date
+        );
+    }
+
     let trip_version = TripVersion::Deleted();
     match vehicle_journey_idx {
         VehicleJourneyIdx::Base(base_idx) => {
@@ -89,6 +100,17 @@ pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
+    {
+        let model_ref = ModelRefs {
+            base: base_model,
+            real_time: real_time_model,
+        };
+        debug!(
+            "Adding vehicle journey {} on {}",
+            model_ref.vehicle_journey_name(&vehicle_journey_idx),
+            date
+        );
+    }
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -126,6 +148,17 @@ pub fn modify_trip<Data: DataTrait + DataUpdate>(
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
+    {
+        let model_ref = ModelRefs {
+            base: base_model,
+            real_time: real_time_model,
+        };
+        debug!(
+            "Modifying vehicle journey {} on {}",
+            model_ref.vehicle_journey_name(&vehicle_journey_idx),
+            date
+        );
+    }
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);

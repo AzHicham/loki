@@ -69,7 +69,7 @@ use launch::loki::{
     models::{
         base_model::BaseModel,
         real_time_disruption::{
-            chaos_disruption::store_and_apply_chaos_disruption,
+            chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
             kirin_disruption::store_and_apply_kirin_disruption,
         },
         RealTimeModel,
@@ -847,8 +847,7 @@ fn handle_feed_entity(
     let real_time_model = &mut data_and_models.2;
 
     if feed_entity.get_is_deleted() {
-        // TODO : cancel_disruption is allowed only for chaos disruptions
-        error!("Cancel disruption is not implemented yet");
+        cancel_chaos_disruption(real_time_model, id, base_model, data);
     } else {
         if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
             let chaos_disruption = handle_chaos_protobuf(&chaos_disruption).with_context(|| {

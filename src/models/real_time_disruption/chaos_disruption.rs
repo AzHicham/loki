@@ -46,7 +46,7 @@ use crate::{
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 use super::{
     apply_disruption,
@@ -214,6 +214,7 @@ pub struct TimeSlot {
     pub end: NaiveTime,
 }
 
+#[derive(Debug, Clone)]
 pub enum Action {
     Alter,
     Inform,
@@ -238,7 +239,9 @@ pub fn store_and_apply_chaos_disruption<Data: DataTrait + DataUpdate>(
     base_model: &BaseModel,
     data: &mut Data,
 ) {
+    debug!("Apply chaos disruption {}", disruption.id);
     let disruption_idx = real_time_model.chaos_disruptions.len();
+    real_time_model.chaos_disruptions.push(disruption.clone());
 
     for (idx, impact) in disruption.impacts.iter().enumerate() {
         let chaos_impact_idx = ChaosImpactIdx {
@@ -254,8 +257,39 @@ pub fn store_and_apply_chaos_disruption<Data: DataTrait + DataUpdate>(
             false,
         );
     }
+}
 
-    real_time_model.chaos_disruptions.push(disruption);
+pub fn cancel_chaos_disruption<Data: DataTrait + DataUpdate>(
+    real_time_model: &mut RealTimeModel,
+    disruption_id: &str,
+    base_model: &BaseModel,
+    data: &mut Data,
+) {
+    debug!("Cancel chaos disruption {disruption_id}");
+
+    let has_disruption_idx = real_time_model
+        .chaos_disruptions
+        .iter()
+        .position(|disruption| disruption.id == disruption_id);
+    if let Some(disruption_idx) = has_disruption_idx {
+        let disruption = &real_time_model.chaos_disruptions[disruption_idx].clone();
+        for (idx, impact) in disruption.impacts.iter().enumerate() {
+            let chaos_impact_idx = ChaosImpactIdx {
+                disruption_idx,
+                impact_idx: idx,
+            };
+            apply_impact(
+                real_time_model,
+                impact,
+                base_model,
+                data,
+                &chaos_impact_idx,
+                true,
+            );
+        }
+    } else {
+        error!("Cannot cancel disruption {disruption_id} since it was not found in present disruptions.");
+    }
 }
 
 fn apply_impact<Data: DataTrait + DataUpdate>(
@@ -447,6 +481,16 @@ fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        vehicle_journey_id,
+    );
     if let Some(vehicle_journey_idx) = base_model.vehicle_journey_idx(vehicle_journey_id) {
         apply_on_base_vehicle_journey_idx(
             real_time_model,
@@ -504,6 +548,17 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} on {}",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        base_model.vehicle_journey_name(base_vehicle_journey_idx),
+        date
+    );
     match action {
         Action::Alter => {
             let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
@@ -578,6 +633,16 @@ fn apply_on_network<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on network {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        network_id,
+    );
     if !base_model.contains_network_id(network_id) {
         return Err(ChaosImpactError::NetworkAbsent(NetworkId {
             id: network_id.to_string(),
@@ -611,6 +676,16 @@ fn apply_on_line<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on line {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        line_id,
+    );
     if !base_model.contains_line_id(line_id) {
         return Err(ChaosImpactError::LineAbsent(LineId {
             id: line_id.to_string(),
@@ -643,6 +718,16 @@ fn apply_on_route<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on route {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        route_id,
+    );
     if !base_model.contains_route_id(route_id) {
         return Err(ChaosImpactError::RouteAbsent(RouteId {
             id: route_id.to_string(),
@@ -675,6 +760,16 @@ fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on stop area {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        stop_area_id,
+    );
     if !base_model.contains_stop_area_id(stop_area_id) {
         return Err(ChaosImpactError::StopAreaAbsent(StopAreaId {
             id: stop_area_id.to_string(),
@@ -714,6 +809,16 @@ fn apply_on_stop_point<Data: DataTrait + DataUpdate>(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) -> Result<(), ChaosImpactError> {
+    debug!(
+        "Apply chaos disruption {}, {}-th impact, {:?} on stop point {} ",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        action,
+        stop_point_id,
+    );
     let stop_point_idx = base_model.stop_point_idx(stop_point_id).ok_or_else(|| {
         ChaosImpactError::StopPointAbsent(StopPointId {
             id: stop_point_id.to_string(),
@@ -937,6 +1042,16 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     date: NaiveDate,
 ) {
+    debug!(
+        "Cancel chaos disruption {}, {}-th impact,  vehicle journey {} on {}",
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
+        chaos_impact_idx.impact_idx,
+        base_model.vehicle_journey_name(base_vehicle_journey_idx),
+        date,
+    );
     let contains_impact_to_remove = {
         let has_linked_chaos_impacts =
             real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, &date);
@@ -981,11 +1096,6 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
         }
     };
 
-    real_time_model.set_base_trip_version(
-        base_vehicle_journey_idx,
-        &date,
-        TripVersion::Present(base_stop_times.clone()),
-    );
     // restore the vehicle to its base schedule
     if real_time_model.base_vehicle_journey_is_present(&base_vehicle_journey_idx, &date, base_model)
     {
@@ -995,7 +1105,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             data,
             &vehicle_journey_idx,
             &date,
-            base_stop_times,
+            base_stop_times.clone(),
         );
     } else {
         apply_disruption::add_trip(
@@ -1004,9 +1114,15 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             data,
             vehicle_journey_idx.clone(),
             &date,
-            base_stop_times,
+            base_stop_times.clone(),
         )
     }
+
+    real_time_model.set_base_trip_version(
+        base_vehicle_journey_idx,
+        &date,
+        TripVersion::Present(base_stop_times),
+    );
 
     let linked_chaos_impacts = {
         let has_linked_chaos_impacts =
@@ -1023,6 +1139,17 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
 
     // iterate all linked_chaos_impacts and apply them to this vj
     for (impact_idx, object_idx) in linked_chaos_impacts {
+        debug!(
+            "Reapplying disruption {} impact {:?} object {:?} on vehicle journey {:?} on {}",
+            real_time_model
+                .get_chaos_disruption_and_impact(&impact_idx)
+                .0
+                .id,
+            impact_idx,
+            object_idx,
+            base_model.vehicle_journey_name(base_vehicle_journey_idx),
+            date,
+        );
         let (impacted_object, application_periods) = match object_idx {
             ChaosImpactObjectIdx::Informed(_) => {
                 continue;
@@ -1037,7 +1164,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
         };
 
         if application_periods.is_empty() {
-            return;
+            continue;
         }
         // unwrap is safe here because we checked if application_periods is empty or not
         let application_periods = TimePeriods::new(&application_periods).unwrap();
@@ -1045,18 +1172,21 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
         match impacted_object {
             Impacted::NetworkDeleted(_)
             | Impacted::LineDeleted(_)
-            | Impacted::LineSection(_)
+            | Impacted::RouteDeleted(_)
             | Impacted::BaseTripDeleted(_) => {
-                dispatch_on_base_vehicle_journey(
-                    real_time_model,
-                    base_model,
-                    data,
-                    base_vehicle_journey_idx,
+                if real_time_model.base_vehicle_journey_is_present(
+                    &base_vehicle_journey_idx,
                     &date,
-                    chaos_impact_idx,
-                    chaos_object_idx,
-                    &Action::Alter,
-                );
+                    base_model,
+                ) {
+                    apply_disruption::delete_trip(
+                        real_time_model,
+                        base_model,
+                        data,
+                        &vehicle_journey_idx,
+                        date,
+                    );
+                }
             }
             Impacted::StopAreaDeleted(StopAreaId { id }) => {
                 if base_model.contains_stop_area_id(&id) {
@@ -1095,7 +1225,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
                     );
                 }
             }
-            Impacted::RouteDeleted(_) => todo!(),
+            Impacted::LineSection(_) => todo!(),
             Impacted::RailSection(_) => todo!(),
         }
     }
