@@ -37,7 +37,7 @@ use crate::{
     models::{
         self,
         base_model::{BaseModel, BaseVehicleJourneyIdx},
-        real_time_model::ChaosImpactIdx,
+        real_time_model::{ChaosImpactIdx, TripVersion},
         RealTimeModel, StopPointIdx, VehicleJourneyIdx,
     },
     time::calendar,
@@ -46,7 +46,7 @@ use crate::{
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
-use tracing::error;
+use tracing::{error, warn};
 
 use super::{
     apply_disruption,
@@ -268,7 +268,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
 ) {
     let model_period = [base_model.time_period()];
     // filter application_periods by model_period
-    // by taking the intersection of theses two TimePeriodsapplication_periods
+    // by taking the intersection of theses two TimePeriods
     let application_periods: Vec<_> = impact
         .application_periods
         .iter()
@@ -278,7 +278,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
     if application_periods.is_empty() {
         return;
     }
-    // unwrap is sfe here because we checked if application_periods is empty or not
+    // unwrap is safe here because we checked if application_periods is empty or not
     let application_periods = TimePeriods::new(&application_periods).unwrap();
 
     let impact_action = if cancel_impact {
@@ -487,13 +487,28 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
 ) {
     match action {
         Action::Alter => {
-            let result = delete_base_trip(
-                real_time_model,
-                base_model,
-                data,
+            let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+
+            if real_time_model.base_vehicle_journey_is_present(
                 &base_vehicle_journey_idx,
-                date,
-            );
+                &date,
+                base_model,
+            ) {
+                apply_disruption::delete_trip(
+                    real_time_model,
+                    base_model,
+                    data,
+                    &vehicle_journey_idx,
+                    *date,
+                );
+            } else {
+                warn!("Chaos impact {:?} asked for removal of already absent vehicle journey {} on {}",
+                    chaos_impact_idx,
+                    base_model.vehicle_journey_name(base_vehicle_journey_idx),
+                    date,
+                );
+            }
+
             real_time_model.link_chaos_impact(
                 base_vehicle_journey_idx,
                 date,
@@ -521,29 +536,6 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
             );
         }
     }
-}
-
-pub fn delete_base_trip<Data: DataTrait + DataUpdate>(
-    real_time_model: &mut RealTimeModel,
-    base_model: &BaseModel,
-    data: &mut Data,
-    base_vehicle_journey_idx: &BaseVehicleJourneyIdx,
-    date: &NaiveDate,
-) -> Result<(), ()> {
-    if !real_time_model.base_vehicle_journey_is_present(base_vehicle_journey_idx, &date, base_model)
-    {
-        error!(
-            "Deleting an absent base trip {} on {}",
-            base_model.vehicle_journey_name(*base_vehicle_journey_idx),
-            date
-        );
-        return Err(());
-    }
-
-    let vj_idx = VehicleJourneyIdx::Base(*base_vehicle_journey_idx);
-    apply_disruption::delete_trip(real_time_model, base_model, data, &vj_idx, *date);
-
-    Ok(())
 }
 
 fn apply_on_network<Data: DataTrait + DataUpdate>(
@@ -725,6 +717,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
                 .timezone(base_vehicle_journey_idx)
                 .unwrap_or(chrono_tz::UTC);
             for date in application_periods.dates_possibly_concerned() {
+                // check if the vehicle exists on the real time level
                 if let Some(time_period) =
                     base_model.trip_time_period(base_vehicle_journey_idx, &date)
                 {
@@ -751,20 +744,16 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
 
                         match action {
                             Action::Alter => {
-                                let stop_times: Vec<_> = base_stop_times
-                                    .clone()
-                                    .filter(|stop_time| !is_stop_time_concerned(stop_time))
-                                    .collect();
-                                let vehicle_journey_idx =
-                                    VehicleJourneyIdx::Base(base_vehicle_journey_idx);
-                                apply_disruption::modify_trip(
+                                remove_stop_points_from_trip(
                                     real_time_model,
                                     base_model,
                                     data,
-                                    &vehicle_journey_idx,
-                                    &date,
-                                    stop_times,
+                                    &is_stop_point_concerned,
+                                    application_periods,
+                                    base_vehicle_journey_idx,
+                                    date,
                                 );
+
                                 real_time_model.link_chaos_impact(
                                     base_vehicle_journey_idx,
                                     &date,
@@ -797,4 +786,154 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
             }
         }
     }
+}
+
+fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointIdx) -> bool>(
+    real_time_model: &mut RealTimeModel,
+    base_model: &BaseModel,
+    data: &mut Data,
+    is_stop_point_concerned: &F,
+    application_periods: &TimePeriods,
+    base_vehicle_journey_idx: BaseVehicleJourneyIdx,
+    date: NaiveDate,
+) {
+    let timezone = base_model
+        .timezone(base_vehicle_journey_idx)
+        .unwrap_or(chrono_tz::UTC);
+
+    let is_stop_time_concerned = |stop_time: &models::StopTime| {
+        if !is_stop_point_concerned(&stop_time.stop) {
+            return false;
+        }
+        let board_time = calendar::compose(&date, &stop_time.board_time, &timezone);
+        let debark_time = calendar::compose(&date, &stop_time.debark_time, &timezone);
+        application_periods.contains(&board_time) || application_periods.contains(&debark_time)
+    };
+
+    let real_time_version =
+        real_time_model.base_vehicle_journey_last_version(&base_vehicle_journey_idx, &date);
+    let base_stop_times = base_model.stop_times(base_vehicle_journey_idx);
+
+    let new_stop_times: Vec<_> = match (real_time_version, base_stop_times) {
+        (Some(TripVersion::Deleted()), _) => {
+            // the trip was deleted, so there is nothing to do
+            return;
+        }
+        (None, Err(_)) => {
+            // no real_time version, and no base stop times
+            // there is nothing that can be done
+            return;
+        }
+        (Some(TripVersion::Present(stop_times)), _) => {
+            // We have a real time version
+
+            let has_a_stop_time_concerned = stop_times
+                .iter()
+                .any(|stop_time| is_stop_time_concerned(&stop_time));
+
+            // no stop_time concenred on the real time level
+            // so there is nothing to do
+            if !has_a_stop_time_concerned {
+                return;
+            }
+
+            stop_times
+                .iter()
+                .filter(|stop_time| !is_stop_time_concerned(stop_time))
+                .map(|stop_time| stop_time.clone())
+                .collect()
+        }
+        (None, Ok(stop_times)) => {
+            // there is no real time version for this vehicle, so
+            // we take the base schedule
+
+            // if the trip does not exists on this day on the base schedule, nothing to do
+            if !base_model.trip_exists(base_vehicle_journey_idx, date) {
+                return;
+            }
+            let has_a_stop_time_concerned = stop_times
+                .clone()
+                .any(|stop_time| is_stop_time_concerned(&stop_time));
+
+            if !has_a_stop_time_concerned {
+                return;
+            }
+
+            stop_times
+                .filter(|stop_time| !is_stop_time_concerned(stop_time))
+                .collect()
+        }
+    };
+    let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+
+    apply_disruption::modify_trip(
+        real_time_model,
+        base_model,
+        data,
+        &vehicle_journey_idx,
+        &date,
+        new_stop_times,
+    );
+}
+
+fn cancel_impact<Data: DataTrait + DataUpdate>(
+    real_time_model: &mut RealTimeModel,
+    base_model: &BaseModel,
+    data: &mut Data,
+    chaos_impact_idx: &ChaosImpactIdx,
+    base_vehicle_journey_idx: BaseVehicleJourneyIdx,
+    date: NaiveDate,
+) {
+    let contains_impact_to_remove = {
+        let has_linked_chaos_impacts =
+            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, &date);
+
+        if let Some(linked_chaos_impacts) = has_linked_chaos_impacts {
+            linked_chaos_impacts.contains(chaos_impact_idx)
+        } else {
+            false
+        }
+    };
+
+    if !contains_impact_to_remove {
+        return;
+    }
+
+    real_time_model.unlink_chaos_impact(
+        base_vehicle_journey_idx,
+        &date,
+        base_model,
+        chaos_impact_idx,
+    );
+
+    {
+        let (_, impact_to_remove) =
+            real_time_model.get_chaos_disruption_and_impact(chaos_impact_idx);
+        // if the impact_to_remove has no impacted_pt_objects, it means that
+        // this impact has not modified the stop_times of this vehicle_journey
+        // so we have nothing to do
+        if impact_to_remove.impacted_pt_objects.is_empty() {
+            return;
+        }
+    }
+
+    let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+
+    // check if any chaos disruption is a Delete disruption. When this happens, it means that
+    // the vehicle is still deleted
+    let linked_chaos_impacts = {
+        let has_linked_chaos_impacts =
+            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, &date);
+
+        if let Some(linked_chaos_impacts) = has_linked_chaos_impacts {
+            linked_chaos_impacts
+        } else {
+            // if the is no linked_impacts
+            return;
+        }
+    };
+
+    // restore base vj
+
+    // iterate all linked_chaos_impacts and apply them to this vj
 }

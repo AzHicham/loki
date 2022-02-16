@@ -38,7 +38,7 @@ use crate::{
     models::{
         base_model::BaseModel,
         real_time_model::{KirinDisruptionIdx, TripVersion},
-        ModelRefs, VehicleJourneyIdx,
+        VehicleJourneyIdx,
     },
     transit_data::data_interface::{Data as DataTrait, DataUpdate},
 };
@@ -148,7 +148,6 @@ pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
             disruption.id, err
         );
     }
-
     real_time_model.kirin_disruptions.push(disruption);
 }
 
@@ -332,81 +331,3 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
 
     Ok(())
 }
-
-// fn add_trip<Data: DataTrait + DataUpdate>(
-//     real_time_model : &mut RealTimeModel,
-//     base_model: &BaseModel,
-//     data: &mut Data,
-//     vehicle_journey_idx: VehicleJourneyIdx,
-//     date: &NaiveDate,
-//     stop_times: Vec<models::StopTime>,
-// )  {
-
-//     let dates = std::iter::once(*date);
-//     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
-//     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
-//     let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
-//     let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
-//     let insert_result = data.insert_real_time_vehicle(
-//         stops,
-//         flows,
-//         board_times,
-//         debark_times,
-//         base_model.loads_data(),
-//         dates,
-//         &chrono_tz::UTC,
-//         vehicle_journey_idx,
-//     );
-//     let model_ref = ModelRefs {
-//         base: base_model,
-//         real_time: real_time_model,
-//     };
-//     if let Err(err) = insert_result {
-//         handle_insertion_error(
-//             &model_ref,
-//             data.calendar().first_date(),
-//             data.calendar().last_date(),
-//             &err,
-//         );
-//     }
-// }
-
-// fn modify_trip<Data: DataTrait + DataUpdate>(
-//     real_time_model : &mut RealTimeModel,
-//     base_model: &BaseModel,
-//     data: &mut Data,
-//     vehicle_journey_idx: &VehicleJourneyIdx,
-//     date: &NaiveDate,
-//     stop_times: Vec<models::StopTime>,
-// ) {
-
-//     let dates = std::iter::once(*date);
-//     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
-//     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
-//     let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
-//     let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
-
-//     let modify_result = data.modify_real_time_vehicle(
-//         stops,
-//         flows,
-//         board_times,
-//         debark_times,
-//         base_model.loads_data(),
-//         dates,
-//         &chrono_tz::UTC,
-//         vehicle_journey_idx,
-//     );
-//     if let Err(err) =  modify_result {
-//         let model_ref = ModelRefs {
-//             base: base_model,
-//             real_time: real_time_model,
-//         };
-//         handle_modify_error(
-//             &model_ref,
-//             data.calendar().first_date(),
-//             data.calendar().last_date(),
-//             &err,
-//         );
-
-//     }
-// }

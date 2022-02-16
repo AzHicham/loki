@@ -36,7 +36,10 @@
 
 use crate::{
     chrono::NaiveDate,
-    models::{self, real_time_model::TripVersion, RealTimeModel, VehicleJourneyIdx},
+    models::{
+        self, base_model::BaseVehicleJourneyIdx, real_time_model::TripVersion, RealTimeModel,
+        VehicleJourneyIdx,
+    },
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
