@@ -69,7 +69,7 @@ pub struct NewVehicleJourneyIdx {
     pub idx: usize, // position in new_vehicle_journeys_history
 }
 
-pub type LinkedChaosImpacts = Vec<ChaosImpactIdx>;
+pub type LinkedChaosImpacts = Vec<(ChaosImpactIdx, ChaosImpactObjectIdx)>;
 
 #[derive(Debug, Clone)]
 pub struct VehicleJourneyHistory {
@@ -85,6 +85,12 @@ pub struct VehicleJourneyHistory {
 pub struct ChaosImpactIdx {
     pub(super) disruption_idx: usize, // position in RealTimeModel.chaos_disruptions
     pub(super) impact_idx: usize,     // position in ChaosDisruption.impacts
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChaosImpactObjectIdx {
+    Impacted(usize), // position in ChaosImpact.impacted
+    Informed(usize), // position in ChaosImpact.informed
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -178,6 +184,23 @@ impl RealTimeModel {
             .insert(date, kirin_disruption_idx)
     }
 
+    pub fn unset_linked_kirin_disruption(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        date: NaiveDate,
+    ) {
+        let history = match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(base_idx) => self
+                .base_vehicle_journeys_idx_to_history
+                .entry(*base_idx)
+                .or_insert_with(VehicleJourneyHistory::new),
+            VehicleJourneyIdx::New(new_idx) => {
+                &mut self.new_vehicle_journeys_history[new_idx.idx].1
+            }
+        };
+        history.linked_kirin_disruption.remove(&date);
+    }
+
     pub fn get_linked_kirin_disruption(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
@@ -198,6 +221,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         base_model: &BaseModel,
         chaos_impact_idx: &ChaosImpactIdx,
+        impact_object_idx: &ChaosImpactObjectIdx,
     ) {
         let history = self
             .base_vehicle_journeys_idx_to_history
@@ -209,9 +233,9 @@ impl RealTimeModel {
             .entry(*date)
             .or_insert_with(LinkedChaosImpacts::new);
 
-        let find_disruption_impact = linked_impacts
-            .iter()
-            .find(|impact_idx| **impact_idx == *chaos_impact_idx);
+        let find_disruption_impact = linked_impacts.iter().find(|(impact_idx, object_idx)| {
+            *impact_idx == *chaos_impact_idx && *object_idx == *impact_object_idx
+        });
 
         match find_disruption_impact {
             Some(_) => {
@@ -222,7 +246,7 @@ impl RealTimeModel {
                 );
             }
             None => {
-                linked_impacts.push(chaos_impact_idx.clone());
+                linked_impacts.push((chaos_impact_idx.clone(), impact_object_idx.clone()));
             }
         }
     }
@@ -233,6 +257,7 @@ impl RealTimeModel {
         date: &NaiveDate,
         base_model: &BaseModel,
         chaos_impact_idx: &ChaosImpactIdx,
+        impact_object_idx: &ChaosImpactObjectIdx,
     ) {
         let history = self
             .base_vehicle_journeys_idx_to_history
@@ -244,13 +269,15 @@ impl RealTimeModel {
             .entry(*date)
             .or_insert_with(LinkedChaosImpacts::new);
 
-        let find_disruption_impact = linked_impacts
-            .iter()
-            .find(|impact_idx| **impact_idx == *chaos_impact_idx);
+        let find_disruption_impact = linked_impacts.iter().find(|(impact_idx, object_idx)| {
+            *impact_idx == *chaos_impact_idx && *object_idx == *impact_object_idx
+        });
 
         match find_disruption_impact {
             Some(_) => {
-                linked_impacts.retain(|impact_idx| *impact_idx == *chaos_impact_idx);
+                linked_impacts.retain(|(impact_idx, object_idx)| {
+                    *impact_idx == *chaos_impact_idx && *object_idx == *impact_object_idx
+                });
             }
             None => {
                 let vehicle_journey_id = base_model.vehicle_journey_name(base_vehicle_journey_idx);
@@ -266,7 +293,7 @@ impl RealTimeModel {
         &self,
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&[ChaosImpactIdx]> {
+    ) -> Option<&[(ChaosImpactIdx, ChaosImpactObjectIdx)]> {
         let history = self
             .base_vehicle_journeys_idx_to_history
             .get(&base_vehicle_journey_idx)?;

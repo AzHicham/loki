@@ -164,7 +164,7 @@ fn fill_linked_chaos_impacts_and_kirin_disruptions(
             .get_linked_chaos_impacts(base_vj_idx, &vehicle.day_for_vehicle_journey);
         if let Some(impacts) = has_impacts {
             for impact_idx in impacts {
-                chaos_impacts.insert(impact_idx.clone());
+                chaos_impacts.insert(impact_idx.0.clone());
             }
         }
     }
@@ -209,7 +209,7 @@ fn worst_effect_on_vehicle(
                     .map(|chaos_impact_idx| {
                         let (_, chaos_impact) = models
                             .real_time
-                            .get_chaos_disruption_and_impact(chaos_impact_idx);
+                            .get_chaos_disruption_and_impact(&chaos_impact_idx.0);
                         chaos_impact.severity.effect
                     })
                     .max()
