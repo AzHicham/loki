@@ -94,7 +94,7 @@ impl<'a> StopFilter<'a> {
     }
 }
 
-enum Filter<'a> {
+pub enum Filter<'a> {
     Stop(StopFilter<'a>),
     Vehicle(VehicleFilter<'a>),
 }
@@ -213,7 +213,7 @@ impl<'a> Filters<'a> {
     }
 }
 
-fn parse_filter<'a>(
+pub fn parse_filter<'a>(
     model: &ModelRefs<'_>,
     filter_str: &'a str,
     filter_provenance: &str,

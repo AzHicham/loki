@@ -34,7 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::{
+    compute_worker::loki::schedule::NextStopTimeRequestInput,
+    load_balancer::WorkerId,
+    master_worker::Timetable,
+    zmq_worker::{RequestMessage, ResponseMessage},
+};
 use anyhow::{bail, format_err, Context, Error};
+use core::slice;
+use launch::loki::filters::parse_filter;
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -60,12 +68,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::sync::mpsc;
-
-use crate::{
-    load_balancer::WorkerId,
-    master_worker::Timetable,
-    zmq_worker::{RequestMessage, ResponseMessage},
-};
 
 use super::{navitia_proto, response};
 
@@ -171,6 +173,14 @@ impl ComputeWorker {
                 });
                 self.handle_places_nearby(places_nearby_request)
             }
+            navitia_proto::Api::NextDepartures => {
+                let places_nearby_request = proto_request.next_stop_times.ok_or_else(|| {
+                    format_err!(
+                        "request.next_stop_times should not be empty for api NextDepartures."
+                    )
+                });
+                self.handle_next_stop_times(places_nearby_request)
+            }
             _ => {
                 bail!(
                     "I can't handle the requested api : {:?}",
@@ -235,7 +245,7 @@ impl ComputeWorker {
                 warn!("Could not handle places nearby request : {}", err);
                 Ok(make_error_response(&err))
             }
-            Ok(places_nearbyy_request) => {
+            Ok(places_nearby_request) => {
                 let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
                     format_err!(
                         "Compute worker {} failed to acquire read lock on data_and_models. {}",
@@ -247,10 +257,10 @@ impl ComputeWorker {
                 let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let radius = places_nearbyy_request.distance;
-                let uri = places_nearbyy_request.uri;
-                let start_page = places_nearbyy_request.start_page as usize;
-                let count = places_nearbyy_request.count as usize;
+                let radius = places_nearby_request.distance;
+                let uri = places_nearby_request.uri;
+                let start_page = places_nearby_request.start_page as usize;
+                let count = places_nearby_request.count as usize;
 
                 match places_nearby_impl(&model_refs, &uri, radius) {
                     Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
@@ -261,6 +271,35 @@ impl ComputeWorker {
                     )),
                     Err(err) => Ok(make_error_response(&format_err!("{}", err))),
                 }
+            }
+        }
+    }
+
+    fn handle_next_stop_times(
+        &mut self,
+        proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
+            Err(err) => {
+                // send a response saying that the journey request could not be handled
+                warn!("Could not handle next stop times request : {}", err);
+                Ok(make_error_response(&err))
+            }
+            Ok(request) => {
+                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
+                        self.worker_id.id,
+                        err
+                    )
+                })?;
+
+                let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let model_refs = ModelRefs::new(base_model, real_time_model);
+
+                let request_input = make_next_stop_times_request(&request, &model_refs);
+
+                Ok(make_error_response(&format_err!("{}", "err")))
             }
         }
     }
@@ -531,4 +570,57 @@ fn make_places_nearby_proto_response(
         }),
         ..Default::default()
     }
+}
+
+fn make_next_stop_times_request<'a>(
+    proto: &'a navitia_proto::NextStopTimeRequest,
+    model: &ModelRefs,
+) -> Result<NextStopTimeRequestInput<'a>, Error> {
+    let filters = Filters::new(
+        model,
+        &proto.forbidden_uri,
+        slice::from_ref(&proto.departure_filter),
+    );
+    let datetime = if let Some(proto_datetime) = proto.from_datetime {
+        let proto_datetime = i64::try_from(proto_datetime).with_context(|| {
+            format!(
+                "Datetime {} cannot be converted to a valid i64 timestamp.",
+                proto_datetime
+            )
+        })?;
+        loki::NaiveDateTime::from_timestamp(proto_datetime, 0)
+    } else {
+        return Err(format_err!("No from_datetime provided."));
+    };
+    let duration = u32::try_from(proto.duration)
+        .with_context(|| format!("duration {} cannot be converted to u32.", proto.count))?;
+
+    let nb_stoptimes = u32::try_from(proto.nb_stoptimes)
+        .with_context(|| format!("nb_stoptimes {} cannot be converted to u32.", proto.count))?;
+
+    let real_time_level = match proto.realtime_level() {
+        navitia_proto::RtLevel::BaseSchedule => RealTimeLevel::Base,
+        navitia_proto::RtLevel::Realtime | navitia_proto::RtLevel::AdaptedSchedule => {
+            RealTimeLevel::RealTime
+        }
+    };
+
+    let start_page = usize::try_from(proto.start_page).with_context(|| {
+        format!(
+            "start_page {} cannot be converted to usize.",
+            proto.start_page
+        )
+    })?;
+    let count = usize::try_from(proto.count)
+        .with_context(|| format!("count {} cannot be converted to usize.", proto.count))?;
+
+    Ok(NextStopTimeRequestInput {
+        filters,
+        datetime,
+        duration,
+        nb_stoptimes,
+        real_time_level,
+        start_page,
+        count,
+    })
 }

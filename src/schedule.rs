@@ -34,50 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-extern crate static_assertions;
+use crate::filters::{Filter, Filters};
+use crate::{PositiveDuration, RealTimeLevel};
+use chrono::NaiveDateTime;
 
-mod engine;
-pub mod filters;
-pub mod geometry;
-pub mod loads_data;
-pub mod models;
-pub mod places_nearby;
-pub mod request;
-pub mod schedule;
-pub mod time;
-pub mod timetables;
-mod transit_data;
-pub mod transit_data_filtered;
-
-pub use chrono::{self, NaiveDateTime};
-pub use chrono_tz;
-pub use time::PositiveDuration;
-pub use tracing;
-pub use transit_model;
-pub use typed_index_collection;
-
-pub use transit_data::data_interface::{
-    Data as DataTrait, DataIO, DataUpdate, DataWithIters, RealTimeLevel, TransitTypes,
-};
-
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
-
-pub use loads_data::LoadsData;
-
-pub use transit_data::TransitData;
-
-pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
-};
-
-pub use engine::multicriteria_raptor::MultiCriteriaRaptor;
-
-pub mod response;
-
-pub type Response = response::Response;
-
-#[macro_use]
-extern crate lazy_static;
+pub struct NextStopTimeRequestInput<'a> {
+    pub filters: Option<Filters<'a>>,
+    pub datetime: NaiveDateTime,
+    pub duration: u32,
+    pub nb_stoptimes: u32,
+    pub real_time_level: RealTimeLevel,
+    pub start_page: usize,
+    pub count: usize,
+}
