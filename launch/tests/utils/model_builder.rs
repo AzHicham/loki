@@ -336,7 +336,6 @@ impl<'a> ModelBuilder {
         from_stop_id: &str,
         to_stop_id: &str,
         transfer_duration: impl IntoTime,
-        equipment_id: Option<String>,
     ) -> Self {
         let duration = transfer_duration.into_time().total_seconds();
         self.collections.transfers.push(Transfer {
@@ -344,7 +343,7 @@ impl<'a> ModelBuilder {
             to_stop_id: to_stop_id.to_string(),
             min_transfer_time: Some(duration),
             real_min_transfer_time: Some(duration),
-            equipment_id,
+            equipment_id: None,
         });
         self
     }

@@ -81,7 +81,7 @@ pub fn fixture_model() -> BaseModel {
             sp.stop_area_id = "sa:F".to_string()
         })
         .stop_point("G", |sp| {
-            sp.equipment_id = Some("EQWB".to_string());
+            sp.equipment_id = Some("EQW".to_string());
             sp.stop_area_id = "sa:G".to_string()
         })
         .vj("toto", |vj_builder| {
@@ -122,10 +122,10 @@ pub fn fixture_model() -> BaseModel {
                 .st("C", "10:35:00")
                 .st("J", "10:55:00");
         })
-        .add_transfer("B", "F", "00:02:00", Some("EQWB".to_string()))
-        .add_transfer("G", "H", "00:02:00", None)
-        .add_transfer("C", "I", "00:02:00", None)
-        .add_transfer("C", "C", "00:02:00", None)
+        .add_transfer("B", "F", "00:02:00")
+        .add_transfer("G", "H", "00:02:00")
+        .add_transfer("C", "I", "00:02:00")
+        .add_transfer("C", "C", "00:02:00")
         .build();
 
     let loads_data = loki::LoadsData::empty();
@@ -473,10 +473,10 @@ fn test_filter_accessibility_with_transfer(
 
     let responses = build_and_solve(&model_refs, &config)?;
 
-    // A & B & F & G stop_points are marked as bike_accessible & wheelchair_accessible
+    // A & B & F stop_points are marked as bike_accessible & wheelchair_accessible
     // "toto_bike" is bike accessible & "toto" is wheelchair_accessible
     // "tata" is bike accessible &  wheelchair_accessible
-    // But transfer B -> F is only wheelchair_accessible
+    // But stop_point "G" is marked as wheelchair_accessible only
     // We should find a response when we query with wheelchair_accessible = true
     // but not with bike_accessible = true
     assert_eq!(responses.len(), 1);

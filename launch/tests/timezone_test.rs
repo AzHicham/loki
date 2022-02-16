@@ -260,7 +260,7 @@ fn test_paris_london(#[case] data_implem: DataImplem) -> Result<(), Error> {
                 .st("D", "11:30:00")
                 .st("E", "11:45:00");
         })
-        .add_transfer("C", "C", "00:00:02", None)
+        .add_transfer("C", "C", "00:00:02")
         .build();
 
     let base_model =
@@ -364,7 +364,7 @@ fn test_paris_new_york(#[case] data_implem: DataImplem) -> Result<(), Error> {
                 .st("D", "10:30:00")
                 .st("E", "10:45:00");
         })
-        .add_transfer("C", "C", "00:00:02", None)
+        .add_transfer("C", "C", "00:00:02")
         .build();
 
     let base_model =

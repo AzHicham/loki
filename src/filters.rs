@@ -185,14 +185,6 @@ impl<'a> Filters<'a> {
         false
     }
 
-    pub fn must_be_wheelchair_accessible(&self) -> bool {
-        self.must_be_wheelchair_accessible
-    }
-
-    pub fn must_be_bike_accessible(&self) -> bool {
-        self.must_be_bike_accessible
-    }
-
     pub fn new<T>(
         model: &ModelRefs<'_>,
         forbidden_uri: &'a [T],

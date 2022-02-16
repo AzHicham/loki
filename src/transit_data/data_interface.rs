@@ -248,13 +248,6 @@ where
     /// Should not return twice the same `Transfer`.
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop;
 
-    fn inner_outgoing_transfers_at(
-        &'a self,
-        from_stop: &Self::Stop,
-        must_be_bike_accessible: bool,
-        must_be_wheelchair_accessible: bool,
-    ) -> Self::OutgoingTransfersAtStop;
-
     /// Iterator for all `Transfer`s that can debark at a `Stop`
     type IncomingTransfersAtStop: Iterator<
         Item = &'a (Self::Stop, TransferDurations, Self::Transfer),
@@ -263,13 +256,6 @@ where
     ///
     /// Should not return twice the same `Transfer`.
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop;
-
-    fn inner_incoming_transfers_at(
-        &'a self,
-        stop: &Self::Stop,
-        must_be_bike_accessible: bool,
-        must_be_wheelchair_accessible: bool,
-    ) -> Self::IncomingTransfersAtStop;
 
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;

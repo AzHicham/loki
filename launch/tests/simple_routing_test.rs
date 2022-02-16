@@ -138,7 +138,7 @@ fn test_routing_with_transfers(
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
-        .add_transfer("B", "F", "00:02:00", None)
+        .add_transfer("B", "F", "00:02:00")
         .build();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
@@ -245,7 +245,7 @@ fn test_routing_backward(
                 .st("F", "10:20:00")
                 .st("G", "10:30:00");
         })
-        .add_transfer("B", "F", "00:02:00", None)
+        .add_transfer("B", "F", "00:02:00")
         .build();
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
@@ -369,8 +369,8 @@ fn test_second_pass_forward(
                 .st("I", "10:40:00")
                 .st("J", "10:45:00");
         })
-        .add_transfer("B", "F", "00:02:00", None)
-        .add_transfer("G", "H", "00:02:00", None)
+        .add_transfer("B", "F", "00:02:00")
+        .add_transfer("G", "H", "00:02:00")
         .build();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -444,7 +444,7 @@ fn test_second_pass_backward(
                 .st("F", "10:15:00")
                 .st("G", "10:25:00");
         })
-        .add_transfer("B", "F", "00:02:00", None)
+        .add_transfer("B", "F", "00:02:00")
         .build();
 
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
