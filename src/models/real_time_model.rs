@@ -218,7 +218,7 @@ impl RealTimeModel {
     pub fn link_chaos_impact(
         &mut self,
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         base_model: &BaseModel,
         chaos_impact_idx: &ChaosImpactIdx,
         impact_object_idx: &ChaosImpactObjectIdx,
@@ -230,7 +230,7 @@ impl RealTimeModel {
 
         let linked_impacts = history
             .linked_chaos_impacts
-            .entry(*date)
+            .entry(date)
             .or_insert_with(LinkedChaosImpacts::new);
 
         let find_disruption_impact = linked_impacts.iter().find(|(impact_idx, object_idx)| {
@@ -254,7 +254,7 @@ impl RealTimeModel {
     pub fn unlink_chaos_impact(
         &mut self,
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         base_model: &BaseModel,
         chaos_impact_idx: &ChaosImpactIdx,
         impact_object_idx: &ChaosImpactObjectIdx,
@@ -266,7 +266,7 @@ impl RealTimeModel {
 
         let linked_impacts = history
             .linked_chaos_impacts
-            .entry(*date)
+            .entry(date)
             .or_insert_with(LinkedChaosImpacts::new);
 
         let find_disruption_impact = linked_impacts.iter().find(|(impact_idx, object_idx)| {
@@ -292,12 +292,12 @@ impl RealTimeModel {
     pub fn get_linked_chaos_impacts(
         &self,
         base_vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<&[(ChaosImpactIdx, ChaosImpactObjectIdx)]> {
         let history = self
             .base_vehicle_journeys_idx_to_history
             .get(&base_vehicle_journey_idx)?;
-        let impacts = history.linked_chaos_impacts.get(date)?;
+        let impacts = history.linked_chaos_impacts.get(&date)?;
         Some(impacts.as_slice())
     }
 

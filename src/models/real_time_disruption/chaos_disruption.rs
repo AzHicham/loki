@@ -514,21 +514,21 @@ fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
     data: &mut Data,
-    vehicle_journey_idx: BaseVehicleJourneyIdx,
+    base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
 ) {
     for date in application_periods.dates_possibly_concerned() {
-        if let Some(trip_period) = base_model.trip_time_period(vehicle_journey_idx, &date) {
+        if let Some(trip_period) = base_model.trip_time_period(base_vehicle_journey_idx, &date) {
             if application_periods.intersects(&trip_period) {
                 dispatch_on_base_vehicle_journey(
                     real_time_model,
                     base_model,
                     data,
-                    vehicle_journey_idx,
-                    &date,
+                    base_vehicle_journey_idx,
+                    date,
                     chaos_impact_idx,
                     chaos_object_idx,
                     action,
@@ -543,7 +543,7 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     base_model: &BaseModel,
     data: &mut Data,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
-    date: &NaiveDate,
+    date: NaiveDate,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: &Action,
@@ -561,26 +561,33 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     );
     match action {
         Action::Alter => {
+            // we consider that Kirin information is more "fresh" than chaos
+            // so if we have a Kirin information on this (vehicle_journey, date)
+            // we do not apply chaos modifications
             let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
-
-            if real_time_model.base_vehicle_journey_is_present(
-                &base_vehicle_journey_idx,
-                date,
-                base_model,
-            ) {
-                apply_disruption::delete_trip(
-                    real_time_model,
+            if real_time_model
+                .get_linked_kirin_disruption(&vehicle_journey_idx, date)
+                .is_none()
+            {
+                if real_time_model.base_vehicle_journey_is_present(
+                    &base_vehicle_journey_idx,
+                    &date,
                     base_model,
-                    data,
-                    &vehicle_journey_idx,
-                    *date,
-                );
-            } else {
-                warn!("Chaos impact {:?} asked for removal of already absent vehicle journey {} on {}",
-                    chaos_impact_idx,
-                    base_model.vehicle_journey_name(base_vehicle_journey_idx),
-                    date,
-                );
+                ) {
+                    apply_disruption::delete_trip(
+                        real_time_model,
+                        base_model,
+                        data,
+                        &vehicle_journey_idx,
+                        date,
+                    );
+                } else {
+                    warn!("Chaos impact {:?} asked for removal of already absent vehicle journey {} on {}",
+                        chaos_impact_idx,
+                        base_model.vehicle_journey_name(base_vehicle_journey_idx),
+                        date,
+                    );
+                }
             }
 
             real_time_model.link_chaos_impact(
@@ -608,7 +615,7 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
                 chaos_impact_idx,
                 chaos_object_idx,
                 base_vehicle_journey_idx,
-                *date,
+                date,
             );
         }
         Action::CancelInform => {
@@ -902,7 +909,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
 
                                 real_time_model.link_chaos_impact(
                                     base_vehicle_journey_idx,
-                                    &date,
+                                    date,
                                     base_model,
                                     chaos_impact_idx,
                                     chaos_object_idx,
@@ -911,7 +918,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
                             Action::Inform => {
                                 real_time_model.link_chaos_impact(
                                     base_vehicle_journey_idx,
-                                    &date,
+                                    date,
                                     base_model,
                                     chaos_impact_idx,
                                     chaos_object_idx,
@@ -931,7 +938,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
                             Action::CancelInform => {
                                 real_time_model.unlink_chaos_impact(
                                     base_vehicle_journey_idx,
-                                    &date,
+                                    date,
                                     base_model,
                                     chaos_impact_idx,
                                     chaos_object_idx,
@@ -954,6 +961,17 @@ fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointId
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     date: NaiveDate,
 ) {
+    // we consider that Kirin information is more "fresh" than chaos
+    // so if we have a Kirin information on this (vehicle_journey, date)
+    // we do not apply chaos modifications
+    let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+    if real_time_model
+        .get_linked_kirin_disruption(&vehicle_journey_idx, date)
+        .is_some()
+    {
+        return;
+    }
+
     let timezone = base_model
         .timezone(base_vehicle_journey_idx)
         .unwrap_or(chrono_tz::UTC);
@@ -1052,9 +1070,10 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
         base_model.vehicle_journey_name(base_vehicle_journey_idx),
         date,
     );
+
     let contains_impact_to_remove = {
         let has_linked_chaos_impacts =
-            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, &date);
+            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, date);
 
         if let Some(linked_chaos_impacts) = has_linked_chaos_impacts {
             let val = (chaos_impact_idx.clone(), chaos_object_idx.clone());
@@ -1070,11 +1089,22 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
 
     real_time_model.unlink_chaos_impact(
         base_vehicle_journey_idx,
-        &date,
+        date,
         base_model,
         chaos_impact_idx,
         chaos_object_idx,
     );
+
+    // we consider that Kirin information is more "fresh" than chaos
+    // so if we have a Kirin information on this (vehicle_journey, date)
+    // we do not need to reapply chaos modifications
+    let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
+    if real_time_model
+        .get_linked_kirin_disruption(&vehicle_journey_idx, date)
+        .is_some()
+    {
+        return;
+    }
 
     {
         let (_, impact_to_remove) =
@@ -1126,7 +1156,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
 
     let linked_chaos_impacts = {
         let has_linked_chaos_impacts =
-            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, &date);
+            real_time_model.get_linked_chaos_impacts(base_vehicle_journey_idx, date);
 
         if let Some(linked_chaos_impacts) = has_linked_chaos_impacts {
             linked_chaos_impacts.to_vec()
@@ -1229,7 +1259,4 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             Impacted::RailSection(_) => todo!(),
         }
     }
-
-    // unset Kirin disruption, if any
-    real_time_model.unset_linked_kirin_disruption(&vehicle_journey_idx, date);
 }
