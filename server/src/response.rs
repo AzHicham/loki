@@ -202,19 +202,17 @@ fn worst_effect_on_vehicle(
         let has_impacts = models
             .real_time
             .get_linked_chaos_impacts(*base_vj_idx, date);
-        has_impacts
-            .map(|impacts| {
-                impacts
-                    .iter()
-                    .map(|chaos_impact_idx| {
-                        let (_, chaos_impact) = models
-                            .real_time
-                            .get_chaos_disruption_and_impact(&chaos_impact_idx.0);
-                        chaos_impact.severity.effect
-                    })
-                    .max()
-            })
-            .flatten()
+        has_impacts.and_then(|impacts| {
+            impacts
+                .iter()
+                .map(|chaos_impact_idx| {
+                    let (_, chaos_impact) = models
+                        .real_time
+                        .get_chaos_disruption_and_impact(&chaos_impact_idx.0);
+                    chaos_impact.severity.effect
+                })
+                .max()
+        })
     } else {
         None
     };

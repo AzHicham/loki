@@ -565,7 +565,7 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
 
             if real_time_model.base_vehicle_journey_is_present(
                 &base_vehicle_journey_idx,
-                &date,
+                date,
                 base_model,
             ) {
                 apply_disruption::delete_trip(
@@ -986,7 +986,7 @@ fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointId
 
             let has_a_stop_time_concerned = stop_times
                 .iter()
-                .any(|stop_time| is_stop_time_concerned(&stop_time));
+                .any(|stop_time| is_stop_time_concerned(stop_time));
 
             // no stop_time concenred on the real time level
             // so there is nothing to do
@@ -997,7 +997,7 @@ fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointId
             stop_times
                 .iter()
                 .filter(|stop_time| !is_stop_time_concerned(stop_time))
-                .map(|stop_time| stop_time.clone())
+                .cloned()
                 .collect()
         }
         (None, Ok(stop_times)) => {

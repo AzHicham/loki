@@ -161,7 +161,7 @@ impl RealTimeModel {
                 NewVehicleJourneyIdx { idx }
             });
 
-        idx.clone()
+        *idx
     }
 
     pub fn set_linked_kirin_disruption(
@@ -376,7 +376,7 @@ impl RealTimeModel {
             Some(VehicleJourneyIdx::Base(transit_model_idx))
         } else {
             let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
-            has_new_vj_idx.map(|new_vj_idx| VehicleJourneyIdx::New(new_vj_idx.clone()))
+            has_new_vj_idx.map(|new_vj_idx| VehicleJourneyIdx::New(*new_vj_idx))
         }
     }
 
@@ -447,7 +447,7 @@ impl RealTimeModel {
         idx: &NewVehicleJourneyIdx,
         date: &NaiveDate,
     ) -> bool {
-        match self.new_vehicle_journey_last_version(idx, &date) {
+        match self.new_vehicle_journey_last_version(idx, date) {
             Some(TripVersion::Present(_)) => true,
             _ => false,
         }

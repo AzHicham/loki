@@ -44,7 +44,7 @@ pub struct VehicleJourneyId {
     pub id: String,
 }
 
-#[derive(Ord, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Effect {
     // DO NOT change the order of effects !!
     // Effects are ordered from the least to the worst impact
@@ -77,6 +77,12 @@ impl Effect {
 
 impl PartialOrd for Effect {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.level().partial_cmp(&other.level())
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Effect {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.level().cmp(&other.level())
     }
 }

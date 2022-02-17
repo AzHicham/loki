@@ -77,7 +77,7 @@ pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
             real_time_model.set_new_trip_version(*new_vj_idx, &date, trip_version);
         }
     }
-    let removal_result = data.remove_real_time_vehicle(&vehicle_journey_idx, &date);
+    let removal_result = data.remove_real_time_vehicle(vehicle_journey_idx, &date);
     if let Err(err) = removal_result {
         let model_ref = ModelRefs {
             base: base_model,
@@ -155,7 +155,7 @@ pub fn modify_trip<Data: DataTrait + DataUpdate>(
         };
         debug!(
             "Modifying vehicle journey {} on {}",
-            model_ref.vehicle_journey_name(&vehicle_journey_idx),
+            model_ref.vehicle_journey_name(vehicle_journey_idx),
             date
         );
     }

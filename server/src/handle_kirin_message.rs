@@ -164,7 +164,7 @@ pub fn handle_kirin_protobuf(
         id: disruption_id,
         contributor,
         message,
-        updated_at: header_datetime.clone(),
+        updated_at: *header_datetime,
         application_period,
         effect,
         trip_id,

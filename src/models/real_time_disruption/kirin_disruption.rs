@@ -129,7 +129,7 @@ pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
             data,
             vehicle_journey_id,
             date,
-            &update_data,
+            update_data,
             kirin_disruption_idx,
         ),
         UpdateType::NewTripUpdated(update_data) => update_new_trip(
@@ -138,7 +138,7 @@ pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
             data,
             vehicle_journey_id,
             date,
-            &update_data,
+            update_data,
             kirin_disruption_idx,
         ),
     };
@@ -292,25 +292,23 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
 
     let has_base_vj = base_model
         .vehicle_journey_idx(vehicle_journey_id)
-        .map(|base_vj_idx| {
+        .and_then(|base_vj_idx| {
             if base_model.trip_exists(base_vj_idx, date) {
                 Some(VehicleJourneyIdx::Base(base_vj_idx))
             } else {
                 None
             }
-        })
-        .flatten();
+        });
 
     let has_new_vj = real_time_model
         .new_vehicle_journey_idx(vehicle_journey_id)
-        .map(|new_vj_idx| {
+        .and_then(|new_vj_idx| {
             if real_time_model.new_vehicle_journey_is_present(&new_vj_idx, &date) {
                 Some(VehicleJourneyIdx::New(new_vj_idx))
             } else {
                 None
             }
-        })
-        .flatten();
+        });
 
     let vj_idx = match (has_base_vj, has_new_vj) {
         (Some(idx), _) => idx,
@@ -320,7 +318,7 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
                 VehicleJourneyId {
                     id: vehicle_journey_id.to_string(),
                 },
-                date.clone(),
+                date,
             ));
         }
     };

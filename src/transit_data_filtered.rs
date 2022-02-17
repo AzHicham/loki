@@ -95,7 +95,7 @@ impl FilterMemory {
         self.allowed_new_vehicle_journeys
             .resize(model.nb_of_new_vehicle_journeys(), true);
         for idx in model.new_vehicle_journeys() {
-            let vj_idx = VehicleJourneyIdx::New(idx.clone());
+            let vj_idx = VehicleJourneyIdx::New(idx);
             self.allowed_new_vehicle_journeys[idx.idx] =
                 filters.is_vehicle_journey_valid(&vj_idx, model)
         }
