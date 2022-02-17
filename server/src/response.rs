@@ -161,7 +161,7 @@ fn fill_linked_chaos_impacts_and_kirin_disruptions(
     if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle.vehicle_journey {
         let has_impacts = models
             .real_time
-            .get_linked_chaos_impacts(base_vj_idx, &vehicle.day_for_vehicle_journey);
+            .get_linked_chaos_impacts(base_vj_idx, vehicle.day_for_vehicle_journey);
         if let Some(impacts) = has_impacts {
             for impact_idx in impacts {
                 chaos_impacts.insert(impact_idx.0.clone());
@@ -201,7 +201,7 @@ fn worst_effect_on_vehicle(
     let has_chaos_worst_effect = if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle_journey_idx {
         let has_impacts = models
             .real_time
-            .get_linked_chaos_impacts(*base_vj_idx, date);
+            .get_linked_chaos_impacts(*base_vj_idx, *date);
         has_impacts.and_then(|impacts| {
             impacts
                 .iter()

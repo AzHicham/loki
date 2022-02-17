@@ -288,7 +288,7 @@ pub fn cancel_chaos_disruption<Data: DataTrait + DataUpdate>(
             );
         }
     } else {
-        error!("Cannot cancel disruption {disruption_id} since it was not found in present disruptions.");
+        error!("Cannot cancel chaos disruption {disruption_id} since it was not found in present disruptions.");
     }
 }
 
