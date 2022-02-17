@@ -36,38 +36,28 @@
 
 use crate::{
     chrono::NaiveDate,
+    models::{real_time_model::UpdateError, VehicleJourneyIdx},
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
     },
-    models::{real_time_model::UpdateError, VehicleJourneyIdx}
 };
 
 use tracing::{debug, error, trace, warn};
 
 use super::{
-    real_time_disruption::{
-        TimePeriods,  VehicleJourneyId,
-    },
-
+    real_time_disruption::{TimePeriods, VehicleJourneyId},
     RealTimeModel,
 };
-use crate::models::real_time_disruption::intersection;
-use crate::{
-
-    DataUpdate,
-};
+use crate::{models::real_time_disruption::intersection, DataUpdate};
 
 use super::{base_model::BaseModel, real_time_disruption as disruption, ModelRefs};
 
-
 impl RealTimeModel {
-    
-
     //----------------------------------------------------------------------------------------
     // elementary functions operating on trips (VJ + date)
     // Used for chaos and kirin
-    
+
     pub fn delete_trip<Data: DataTrait + DataUpdate>(
         &mut self,
         base_model: &BaseModel,
@@ -179,5 +169,4 @@ impl RealTimeModel {
         }
         Ok(())
     }
-
 }
