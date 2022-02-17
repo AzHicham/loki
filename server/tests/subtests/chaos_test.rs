@@ -233,8 +233,11 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
     )
     .unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
-    let realtime_message =
-        create_no_service_disruption(&PtObject::Network("my_network"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::Network("my_network"),
+        &dt_period,
+        "no_service_on_my_network",
+    );
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
     // wait until realtime message is taken into account
@@ -298,7 +301,11 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // let's delete the only trip
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message = create_no_service_disruption(&PtObject::Trip("matin"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::Trip("matin"),
+        &dt_period,
+        "no_service_on_trip_matin",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -374,7 +381,11 @@ pub async fn delete_line_test(config: &ServerConfig) {
     // let's delete the only trip
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message = create_no_service_disruption(&PtObject::Line("rer_b"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::Line("rer_b"),
+        &dt_period,
+        "no_service_on_line_rer_b",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -450,7 +461,11 @@ pub async fn delete_route_test(config: &ServerConfig) {
     // let's delete the only route
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::Route("rer_b_nord"),
+        &dt_period,
+        "no_service_on_route_rer_b_nord",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -511,7 +526,9 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
 
     // let's delete the only route
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
-    let realtime_message = create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period);
+    let disruption_id = "no_service_on_route_rer_b_nord";
+    let realtime_message =
+        create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period, &disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message.clone()).await;
 
     // let's make the  request, but the realtime level
@@ -539,7 +556,7 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     }
 
     // then revert previously sent disruption
-    let cancel_realtime_message = create_cancel_disruption(&realtime_message.entity[0]);
+    let cancel_realtime_message = create_cancel_disruption(&disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
 
     // let's make a request on the realtime level
@@ -604,8 +621,11 @@ pub async fn delete_stop_point_test(config: &ServerConfig) {
     // let's mark the StopPoint 'massy' as not in service
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message =
-        create_no_service_disruption(&PtObject::StopPoint("stop_point:massy"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::StopPoint("stop_point:massy"),
+        &dt_period,
+        "no_service_on_stop_point_massy",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -692,8 +712,11 @@ pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
     // starts at 8:30, it should not remove the vehicle
     let dt_period = TimePeriod::new(date.and_hms(8, 30, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message =
-        create_no_service_disruption(&PtObject::StopPoint("stop_point:massy"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::StopPoint("stop_point:massy"),
+        &dt_period,
+        "no_service_on_stop_point_massy",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -706,6 +729,199 @@ pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
         )
         .await;
         assert_eq!(journeys_response.journeys.len(), 1);
+    }
+}
+
+pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &ServerConfig) {
+    // let's reload the data to forget about previous disruptions
+    // We must wait for chaos to be loaded in order to not send realtime message
+    // before chaos database loading
+    let reload_data_datetime = Utc::now().naive_utc();
+    reload_base_data(config).await;
+    wait_until_realtime_updated_after(&config.requests_socket, &reload_data_datetime).await;
+
+    // the ntfs (in tests/a_small_ntfs) contains
+    // a vehicle_journey named "matin" with stop_times :
+    //  - "massy" at 8h
+    //  - "paris" at 9h
+    //  - "cdg" at  9h30
+    // on day 2021-01-01
+    let date = NaiveDate::from_ymd(2021, 1, 1);
+    let request_datetime = date.and_hms(8, 0, 0);
+
+    // initial request, on base schedule
+    let base_request =
+        crate::make_journeys_request("stop_point:massy", "stop_point:cdg", request_datetime);
+
+    // same request, but on the realtime level
+    let realtime_request = {
+        let mut request = base_request.clone();
+        request
+            .journeys
+            .as_mut()
+            .unwrap()
+            .set_realtime_level(navitia_proto::RtLevel::Realtime);
+        request
+    };
+
+    // let's first check that we do get a response
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        // check that we have a journey, that uses the only trip in the ntfs
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+    }
+
+    // let's mark the StopPoint 'paris' as not in service
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let delete_massy_disruption_id = "no_service_on_stop_point_massy";
+    let realtime_message = create_no_service_disruption(
+        &PtObject::StopPoint("stop_point:paris"),
+        &dt_period,
+        &delete_massy_disruption_id,
+    );
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the realtime level request
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+        // since we removed the stop_point paris, we should get just 2 stop_times (massy and cdg)
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .stop_date_times
+                .len(),
+            2
+        );
+        assert_eq!(journeys_response.impacts.len(), 1);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response with a linked impact
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+        // on the base level, we should get 3 stop_times
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .stop_date_times
+                .len(),
+            3
+        );
+        assert_eq!(
+            journeys_response.impacts[0].impacted_objects[0]
+                .pt_object
+                .as_ref()
+                .unwrap()
+                .uri,
+            "stop_point:paris"
+        );
+    }
+
+    // let's mark now the StopPoint 'cdg' as not in service
+    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let delete_cdg_disruption_id = "no_service_on_stop_point_cdg";
+
+    let realtime_message = create_no_service_disruption(
+        &PtObject::StopPoint("stop_point:cdg"),
+        &dt_period,
+        &delete_cdg_disruption_id,
+    );
+    crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
+
+    // let's make the realtime level request
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        // since we removed the stop_point cdg, we should get no journey
+        assert_eq!(journeys_response.journeys.len(), 0);
+    }
+    // with the same request on the 'base schedule' level
+    // we should get a journey in the response with 2 linked impacts
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            base_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+        assert_eq!(
+            first_section_vj_name(&journeys_response.journeys[0]),
+            "vehicle_journey:matin"
+        );
+        // on the base level, we should get 3 stop_times
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .stop_date_times
+                .len(),
+            3
+        );
+        assert_eq!(journeys_response.impacts.len(), 2);
+    }
+
+    // let's cancel the disruption on stop_point cdg
+    let cancel_realtime_message = create_cancel_disruption(&delete_cdg_disruption_id);
+    crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
+
+    // let's make the realtime level request
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+        // since we removed the stop_point paris, we should get just 2 stop_times (massy and cdg)
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .stop_date_times
+                .len(),
+            2
+        );
+        assert_eq!(journeys_response.impacts.len(), 1);
+    }
+
+    // let's cancel the disruption on stop_point massy
+    let cancel_realtime_message = create_cancel_disruption(&delete_massy_disruption_id);
+    crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
+
+    // let's make the realtime level request
+    {
+        let journeys_response = crate::send_request_and_wait_for_response(
+            &config.requests_socket,
+            realtime_request.clone(),
+        )
+        .await;
+        assert_eq!(journeys_response.journeys.len(), 1);
+        //  we should get just 3 stop_times (massy, paris and cdg)
+        assert_eq!(
+            journeys_response.journeys[0].sections[0]
+                .stop_date_times
+                .len(),
+            3
+        );
+        // we should get no impact, since both have been cancelled
+        assert_eq!(journeys_response.impacts.len(), 0);
     }
 }
 
@@ -756,8 +972,11 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
     // let's delete the only trip
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
 
-    let realtime_message =
-        create_no_service_disruption(&PtObject::StopArea("stop_area:massy_area"), &dt_period);
+    let realtime_message = create_no_service_disruption(
+        &PtObject::StopArea("stop_area:massy_area"),
+        &dt_period,
+        "no_service_on_stop_area_massy",
+    );
 
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -785,7 +1004,7 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
         );
         assert_eq!(
             journeys_response.impacts[0].uri.as_ref().unwrap(),
-            "impact_baa0eefe-0340-41e1-a2a9-5a660755d54c"
+            "no_service_on_stop_area_massy"
         );
         assert_eq!(
             journeys_response.impacts[0].impacted_objects[0]
@@ -801,8 +1020,9 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
 fn create_no_service_disruption(
     pt_object: &PtObject,
     application_period: &TimePeriod,
+    disruption_id: &str,
 ) -> gtfs_proto::FeedMessage {
-    let id = "baa0eefe-0340-41e1-a2a9-5a660755d54c".to_string();
+    let id = disruption_id.to_string();
 
     let mut entity = chaos_proto::chaos::PtObject::new();
     match pt_object {
@@ -857,7 +1077,7 @@ fn create_no_service_disruption(
     severity.set_effect(gtfs_proto::Alert_Effect::NO_SERVICE);
 
     let mut impact = chaos_proto::chaos::Impact::default();
-    impact.set_id(format!("impact_{}", id));
+    impact.set_id(id.clone());
     impact.set_created_at(Utc::now().timestamp() as u64);
     impact.set_updated_at(Utc::now().timestamp() as u64);
     impact.mut_informed_entities().push(entity);
@@ -899,14 +1119,10 @@ fn create_no_service_disruption(
     feed_message
 }
 
-fn create_cancel_disruption(
-    disruption_to_cancel: &gtfs_proto::FeedEntity,
-) -> gtfs_proto::FeedMessage {
-    let id = disruption_to_cancel.get_id();
-
+fn create_cancel_disruption(id_of_disruption_to_cancel: &str) -> gtfs_proto::FeedMessage {
     // put the update in a feed_entity
     let mut feed_entity = gtfs_proto::FeedEntity::new();
-    feed_entity.set_id(id.to_string());
+    feed_entity.set_id(id_of_disruption_to_cancel.to_string());
     feed_entity.set_is_deleted(true);
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
