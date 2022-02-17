@@ -1023,7 +1023,7 @@ fn make_kirin_impact(
         updated_at: u64::try_from(disruption.updated_at.timestamp()).ok(),
         tags: Vec::new(),
         cause: None,
-        messages: messages,
+        messages,
         severity: Some(severity),
         contributor: disruption.contributor.clone(),
         impacted_objects: vec![impacted_pt_object],

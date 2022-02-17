@@ -270,7 +270,7 @@ impl DataWorker {
                         "Could not read data from disk at {:?}. {:?}. \
                             I'll keep running with an empty model.",
                         launch_params.input_data_path, err
-                    )
+                    );
                 })
                 .unwrap_or_else(|()| BaseModel::empty());
 
@@ -331,7 +331,10 @@ impl DataWorker {
                                 );
                             }
                             Err(err) => {
-                                error!("Error while decoding chaos disruption protobuf : {:?}", err)
+                                error!(
+                                    "Error while decoding chaos disruption protobuf : {:?}",
+                                    err
+                                );
                             }
                         }
                     }
@@ -752,7 +755,7 @@ impl DataWorker {
 
                 // Update last kirin reload datetime in case of success only
                 let now = Utc::now().naive_utc();
-                self.send_status_update(StatusUpdate::KirinReload(now))?
+                self.send_status_update(StatusUpdate::KirinReload(now))?;
             }
         }
 
@@ -826,7 +829,7 @@ fn handle_realtime_message(
             error!(
                 "An error occured while handling FeedMessage with timestamp {}. {:?}",
                 header_datetime, err
-            )
+            );
         }
     }
     Ok(())
@@ -848,26 +851,22 @@ fn handle_feed_entity(
 
     if feed_entity.get_is_deleted() {
         cancel_chaos_disruption(real_time_model, id, base_model, data);
+    } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+        let chaos_disruption = handle_chaos_protobuf(&chaos_disruption)
+            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?;
+        store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
+    } else if feed_entity.has_trip_update() {
+        let kirin_disruption =
+            handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1).with_context(
+                || format!("Could not handle kirin disruption in FeedEntity {}", id),
+            )?;
+        store_and_apply_kirin_disruption(real_time_model, kirin_disruption, base_model, data);
     } else {
-        if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
-            let chaos_disruption = handle_chaos_protobuf(&chaos_disruption).with_context(|| {
-                format!("Could not handle chaos disruption in FeedEntity {}", id)
-            })?;
-            store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
-        } else if feed_entity.has_trip_update() {
-            let kirin_disruption =
-                handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1)
-                    .with_context(|| {
-                        format!("Could not handle kirin disruption in FeedEntity {}", id)
-                    })?;
-            store_and_apply_kirin_disruption(real_time_model, kirin_disruption, base_model, data);
-        } else {
-            bail!(
-                "FeedEntity {} is a Kirin message but has no trip_update",
-                id
-            );
-        };
-    }
+        bail!(
+            "FeedEntity {} is a Kirin message but has no trip_update",
+            id
+        );
+    };
 
     Ok(())
 }

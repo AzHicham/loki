@@ -249,8 +249,8 @@ impl ComputeWorker {
 
                 let radius = places_nearbyy_request.distance;
                 let uri = places_nearbyy_request.uri;
-                let start_page = places_nearbyy_request.start_page as usize;
-                let count = places_nearbyy_request.count as usize;
+                let start_page = usize::try_from(places_nearbyy_request.start_page).unwrap_or(0);
+                let count = usize::try_from(places_nearbyy_request.count).unwrap_or(0);
 
                 match places_nearby_impl(&model_refs, &uri, radius) {
                     Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
@@ -523,10 +523,10 @@ fn make_places_nearby_proto_response(
     navitia_proto::Response {
         places_nearby: pt_objects[range.clone()].to_owned(),
         pagination: Some(Pagination {
-            start_page: start_page as i32,
-            total_result: size as i32,
-            items_per_page: count as i32,
-            items_on_page: range.len() as i32,
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(range.len()).unwrap_or_default(),
             ..Default::default()
         }),
         ..Default::default()
