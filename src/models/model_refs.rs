@@ -34,9 +34,16 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::models::base_model::{BaseTransferIdx, EquipmentPropertyKey, VehicleJourneyPropertyKey};
-use crate::models::TransferIdx;
-use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
+use crate::{
+    chrono::NaiveDate,
+    models::{
+        base_model::{
+            BaseTransferIdx, EquipmentPropertyKey, VehicleJourneyPropertyKey, PREFIX_ID_STOP_POINT,
+        },
+        TransferIdx,
+    },
+    RealTimeLevel,
+};
 use transit_model::objects::{
     CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };

@@ -32,14 +32,13 @@
 //! # }
 //! ```
 
-use loki::transit_model::objects::{Equipment, Properties};
 use loki::{
     chrono_tz::{self},
     transit_model::{
         model::Collections,
         objects::{
-            Calendar, CommercialMode, Date, Line, Network, PhysicalMode, Route, StopArea,
-            StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
+            Calendar, CommercialMode, Date, Equipment, Line, Network, PhysicalMode, Properties,
+            Route, StopArea, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
         },
         Model,
     },

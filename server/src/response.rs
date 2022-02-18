@@ -63,15 +63,14 @@ use loki::{
     geometry::distance_coord_to_coord,
 };
 
-
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::models::base_model::VehicleJourneyPropertyKey::{
-    AirConditioned, AppropriateEscort, AppropriateSignage, AudibleAnnouncement, BikeAccepted,
-    SchoolVehicle, VisualAnnouncement, WheelChairAccessible,
-};
 use launch::loki::{
     chrono::Timelike,
     models::base_model::{
+        VehicleJourneyPropertyKey::{
+            AirConditioned, AppropriateEscort, AppropriateSignage, AudibleAnnouncement,
+            BikeAccepted, SchoolVehicle, VisualAnnouncement, WheelChairAccessible,
+        },
         PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },

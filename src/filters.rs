@@ -34,12 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::models::base_model::{EquipmentPropertyKey, VehicleJourneyPropertyKey};
 use crate::{
     models::{
         base_model::{
-            PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
-            PREFIX_ID_ROUTE, PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT,
+            EquipmentPropertyKey, VehicleJourneyPropertyKey, PREFIX_ID_COMMERCIAL_MODE,
+            PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE, PREFIX_ID_ROUTE,
+            PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT,
         },
         ModelRefs, StopPointIdx, VehicleJourneyIdx,
     },

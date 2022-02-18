@@ -38,9 +38,9 @@ mod utils;
 use anyhow::Error;
 use launch::config::{ComparatorType, DataImplem};
 
-use loki::transit_model::objects::Availability::Available;
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
+    transit_model::objects::Availability::Available,
     PositiveDuration, RealTimeLevel,
 };
 use rstest::{fixture, rstest};
