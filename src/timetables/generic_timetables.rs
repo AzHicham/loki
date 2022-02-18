@@ -34,13 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{
-    borrow::Borrow,
-    cmp::{max, min, Ordering},
-    collections::BTreeMap,
-    fmt::Debug,
-    ops::Not,
-};
+use std::{borrow::Borrow, cmp::Ordering, collections::BTreeMap, fmt::Debug, ops::Not};
 use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
@@ -52,15 +46,13 @@ use crate::{
 use std::cmp::Ordering::{Greater, Less};
 
 #[derive(Debug)]
-pub(super) struct Timetables<Time, Load, TimezoneData, VehicleData> {
+pub(super) struct GenericTimetables<Time, Load, VehicleData> {
     pub(super) stop_flows_to_timetables: BTreeMap<StopFlows, Vec<Timetable>>,
-    pub(super) timetable_datas: Vec<TimetableData<Time, Load, TimezoneData, VehicleData>>,
+    pub(super) timetable_datas: Vec<TimetableData<Time, Load, VehicleData>>,
 }
 
 #[derive(Debug)]
-pub(super) struct TimetableData<Time, Load, TimezoneData, VehicleData> {
-    pub(super) timezone_data: TimezoneData,
-
+pub(super) struct TimetableData<Time, Load, VehicleData> {
     pub(super) stop_flows: StopFlows,
 
     /// vehicle data, ordered by increasing times
@@ -88,10 +80,6 @@ pub(super) struct TimetableData<Time, Load, TimezoneData, VehicleData> {
     ///  so for each `position` the vector
     ///  debark_times_by_position[position] is sorted by increasing times
     pub(super) debark_times_by_position: Vec<Vec<Time>>,
-
-    pub(super) earliest_and_latest_board_time_by_position: Vec<(Time, Time)>,
-
-    pub(super) earliest_and_latest_debark_time_by_position: Vec<(Time, Time)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -117,21 +105,16 @@ pub struct Trip {
     pub(super) day: DaysSinceDatasetStart,
 }
 
-impl<Time, Load, TimezoneData, VehicleData> Timetables<Time, Load, TimezoneData, VehicleData>
+impl<Time, Load, VehicleData> GenericTimetables<Time, Load, VehicleData>
 where
     Time: Ord + Clone + Debug,
     Load: Ord + Clone + Debug,
-    TimezoneData: PartialEq + Clone,
 {
     pub(super) fn new() -> Self {
         Self {
             stop_flows_to_timetables: BTreeMap::new(),
             timetable_datas: Vec::new(),
         }
-    }
-
-    pub(super) fn timezone_data(&self, timetable: &Timetable) -> &TimezoneData {
-        &self.timetable_data(timetable).timezone_data
     }
 
     pub(super) fn nb_of_timetables(&self) -> usize {
@@ -141,14 +124,14 @@ where
     pub(super) fn timetable_data(
         &self,
         timetable: &Timetable,
-    ) -> &TimetableData<Time, Load, TimezoneData, VehicleData> {
+    ) -> &TimetableData<Time, Load, VehicleData> {
         &self.timetable_datas[timetable.idx]
     }
 
     pub(super) fn timetable_data_mut(
         &mut self,
         timetable: &Timetable,
-    ) -> &mut TimetableData<Time, Load, TimezoneData, VehicleData> {
+    ) -> &mut TimetableData<Time, Load, VehicleData> {
         &mut self.timetable_datas[timetable.idx]
     }
 
@@ -254,22 +237,6 @@ where
         (time, load)
     }
 
-    pub(super) fn earliest_and_latest_board_time(
-        &self,
-        position: &Position,
-    ) -> Option<&(Time, Time)> {
-        let timetable_data = self.timetable_data(&position.timetable);
-        timetable_data.earliest_and_latest_board_time(position.idx)
-    }
-
-    pub(super) fn earliest_and_latest_debark_time(
-        &self,
-        position: &Position,
-    ) -> Option<&(Time, Time)> {
-        let timetable_data = self.timetable_data(&position.timetable);
-        timetable_data.earliest_and_latest_debark_time(position.idx)
-    }
-
     pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
@@ -335,7 +302,6 @@ where
         board_times: BoardTimes,
         debark_times: DebarkTimes,
         loads: Loads,
-        timezone_data: TimezoneData,
         vehicle_data: VehicleData,
     ) -> Result<Timetable, VehicleTimesError>
     where
@@ -396,7 +362,6 @@ where
                 corrected_board_times.clone(),
                 corrected_debark_times.clone(),
                 loads.clone(),
-                timezone_data.clone(),
                 vehicle_data.clone(),
             );
             if is_inserted {
@@ -408,7 +373,6 @@ where
             corrected_board_times,
             corrected_debark_times,
             loads,
-            timezone_data,
             vehicle_data,
         );
         let timetable = Timetable {
@@ -420,11 +384,10 @@ where
     }
 }
 
-impl<Time, Load, TimezoneData, VehicleData> TimetableData<Time, Load, TimezoneData, VehicleData>
+impl<Time, Load, VehicleData> TimetableData<Time, Load, VehicleData>
 where
     Time: Ord + Clone + Debug,
     Load: Ord + Debug,
-    TimezoneData: PartialEq,
 {
     fn can_board(&self, position_idx: usize) -> bool {
         match &self.stop_flows[position_idx].1 {
@@ -459,22 +422,6 @@ where
     fn board_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
         if self.can_board(position_idx) {
             Some(&self.board_times_by_position[position_idx][vehicle_idx])
-        } else {
-            None
-        }
-    }
-
-    fn earliest_and_latest_board_time(&self, position_idx: usize) -> Option<&(Time, Time)> {
-        if self.can_board(position_idx) {
-            Some(&self.earliest_and_latest_board_time_by_position[position_idx])
-        } else {
-            None
-        }
-    }
-
-    fn earliest_and_latest_debark_time(&self, position_idx: usize) -> Option<&(Time, Time)> {
-        if self.can_debark(position_idx) {
-            Some(&self.earliest_and_latest_debark_time_by_position[position_idx])
         } else {
             None
         }
@@ -638,7 +585,6 @@ where
         board_times: BoardTimes,
         debark_times: DebarkTimes,
         loads: Loads,
-        timezone_data: TimezoneData,
         vehicle_data: VehicleData,
     ) -> Self
     where
@@ -652,23 +598,13 @@ where
         assert!(board_times.len() == nb_of_positions);
         assert!(debark_times.len() == nb_of_positions);
         assert!(loads.len() == nb_of_positions - 1);
-        let earliest_and_latest_board_time_by_position: Vec<_> = board_times
-            .clone()
-            .map(|board_time| (board_time.clone(), board_time))
-            .collect();
-        let earliest_and_latest_debark_time_by_position: Vec<_> = board_times
-            .clone()
-            .map(|debark_time| (debark_time.clone(), debark_time))
-            .collect();
+
         let mut result = Self {
-            timezone_data,
             stop_flows,
             vehicle_datas: Vec::new(),
             vehicle_loads: Vec::new(),
             debark_times_by_position: vec![Vec::new(); nb_of_positions],
             board_times_by_position: vec![Vec::new(); nb_of_positions],
-            earliest_and_latest_board_time_by_position,
-            earliest_and_latest_debark_time_by_position,
         };
         result.do_insert(board_times, debark_times, loads, vehicle_data, 0);
         result
@@ -681,7 +617,6 @@ where
         board_times: BoardTimes,
         debark_times: DebarkTimes,
         loads: Loads,
-        timezone_data: TimezoneData,
         vehicle_data: VehicleData,
     ) -> bool
     where
@@ -693,9 +628,6 @@ where
         assert!(board_times.len() == self.nb_of_positions());
         assert!(debark_times.len() == self.nb_of_positions());
         assert!(loads.len() + 1 == self.nb_of_positions());
-        if self.timezone_data != timezone_data {
-            return false;
-        }
         let has_insert_idx =
             self.find_insert_idx(board_times.clone(), debark_times.clone(), loads.clone());
         if let Some(insert_idx) = has_insert_idx {
@@ -898,10 +830,6 @@ where
         for (position, (board_time, debark_time)) in board_times.zip(debark_times).enumerate() {
             self.board_times_by_position[position].insert(insert_idx, board_time.clone());
             self.debark_times_by_position[position].insert(insert_idx, debark_time);
-
-            let (earliest, latest) = &mut self.earliest_and_latest_board_time_by_position[position];
-            *earliest = min(earliest.clone(), board_time.clone());
-            *latest = max(latest.clone(), board_time);
         }
         self.vehicle_datas.insert(insert_idx, vehicle_data);
 

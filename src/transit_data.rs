@@ -33,10 +33,10 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
+pub mod data_init;
 pub mod data_interface;
+pub mod data_iters;
 pub mod data_update;
-pub mod init;
-pub mod iters;
 
 use chrono::NaiveDate;
 
@@ -50,8 +50,8 @@ use crate::{
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
         generic_timetables::{Position, PositionPair, VehicleTimesError},
-        periodic_split_vj_by_tz::TripsIter,
-        InsertionError, ModifyError, PeriodicSplitVjByTzTimetables,
+        utc_timetables::TripsIter,
+        InsertionError, ModifyError, UTCTimetables,
     },
     RealTimeLevel,
 };
@@ -62,9 +62,9 @@ use crate::timetables::RemovalError;
 
 use crate::tracing::error;
 
-use self::iters::MissionsOfStop;
+use self::data_iters::MissionsOfStop;
 
-pub type Timetables = PeriodicSplitVjByTzTimetables;
+pub type Timetables = UTCTimetables;
 
 pub struct TransitData {
     pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,
@@ -363,12 +363,12 @@ impl<'a> data_interface::DataIters<'a> for TransitData {
         self.missions_of(stop)
     }
 
-    type OutgoingTransfersAtStop = iters::OutgoingTransfersAtStop<'a>;
+    type OutgoingTransfersAtStop = data_iters::OutgoingTransfersAtStop<'a>;
     fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
         self.outgoing_transfers_at(from_stop)
     }
 
-    type IncomingTransfersAtStop = iters::IncomingTransfersAtStop<'a>;
+    type IncomingTransfersAtStop = data_iters::IncomingTransfersAtStop<'a>;
     fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
         self.incoming_transfers_at(stop)
     }

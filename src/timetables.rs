@@ -36,11 +36,11 @@
 
 pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
-mod iters;
+mod timetable_iters;
 
-pub mod periodic_split_vj_by_tz;
+pub mod utc_timetables;
 
-pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
+pub use utc_timetables::UTCTimetables;
 
 use std::hash::Hash;
 

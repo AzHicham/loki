@@ -37,7 +37,6 @@
 use anyhow::{bail, Context, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
-    timetables::PeriodicSplitVjByTzTimetables,
     tracing::{error, info},
     DataIO, TransitData,
 };
@@ -48,8 +47,6 @@ use crate::{
     data_worker::DataWorker, load_balancer::LoadBalancer, status_worker::StatusWorker,
     zmq_worker::ZmqWorker, ServerConfig,
 };
-
-pub type Timetable = PeriodicSplitVjByTzTimetables;
 
 pub type DataAndModels = (TransitData, BaseModel, RealTimeModel);
 
