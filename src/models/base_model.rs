@@ -305,6 +305,47 @@ impl BaseModel {
         }
     }
 
+    pub fn stop_points_of_route(&self, route_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.routes.get_idx(route_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_line(&self, line_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.lines.get_idx(line_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_network(&self, network_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.networks.get_idx(network_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_physical_mode(
+        &self,
+        physical_mode_id: &str,
+    ) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.physical_modes.get_idx(physical_mode_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_commercial_mode(
+        &self,
+        commercial_mode_id: &str,
+    ) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.commercial_modes.get_idx(commercial_mode_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
     pub fn physical_mode_id(&self, physical_mode_idx: Idx<PhysicalMode>) -> &str {
         &self.model.physical_modes[physical_mode_idx].id
     }

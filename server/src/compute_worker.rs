@@ -602,7 +602,10 @@ fn make_next_stop_times_request<'a>(
     {
         input
     } else {
-        return Err(format_err!("Cannot parse departure_filter"));
+        return Err(format_err!(
+            "Cannot parse departure_filter {}",
+            proto.departure_filter
+        ));
     };
 
     let filters = Filters::new(model, &proto.forbidden_uri, &[], false, false);

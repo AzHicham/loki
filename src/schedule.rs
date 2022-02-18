@@ -34,6 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::filters::VehicleFilter;
 use crate::{
     filters::{Filter, Filters, StopFilter},
     models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx},
@@ -60,7 +61,7 @@ pub struct NextStopTimeRequestInput<'a> {
 pub struct NextStopTimeResponse {
     pub stop_point: StopPointIdx,
     pub vehicle_journey: VehicleJourneyIdx,
-    pub date: NaiveDateTime,
+    pub datetime: NaiveDateTime,
     pub stop_time_idx: StopTimeIdx,
 }
 
@@ -71,7 +72,15 @@ pub fn generate_stop_for_next_stoptimes<'a, 'data>(
     match input {
         Filter::Stop(StopFilter::StopPoint(id)) => model.stop_point_idx(id).map(|idx| vec![idx]),
         Filter::Stop(StopFilter::StopArea(id)) => Some(model.stop_points_of_stop_area(id)),
-        _ => None,
+        Filter::Vehicle(VehicleFilter::Line(id)) => Some(model.stop_points_of_line(id)),
+        Filter::Vehicle(VehicleFilter::Route(id)) => Some(model.stop_points_of_route(id)),
+        Filter::Vehicle(VehicleFilter::Network(id)) => Some(model.stop_points_of_network(id)),
+        Filter::Vehicle(VehicleFilter::PhysicalMode(id)) => {
+            Some(model.stop_points_of_physical_mode(id))
+        }
+        Filter::Vehicle(VehicleFilter::CommercialMode(id)) => {
+            Some(model.stop_points_of_commercial_mode(id))
+        }
     }
 }
 
@@ -101,7 +110,7 @@ where
                 for (mission, position) in data.missions_at(&stop) {
                     let mut count = 0;
                     let mut next_time = from_datetime;
-                    'outer: while count < request.count {
+                    'outer: while count < request.nb_stoptimes {
                         let earliest_trip_time = data.earliest_trip_to_board_at(
                             &next_time,
                             &mission,
@@ -113,7 +122,7 @@ where
                                 response.push(NextStopTimeResponse {
                                     stop_point: stop_idx.clone(),
                                     vehicle_journey: data.vehicle_journey_idx(&trip),
-                                    date: data.to_naive_datetime(&boarding_time),
+                                    datetime: data.to_naive_datetime(&boarding_time),
                                     stop_time_idx: data.stoptime_idx(&position, &trip),
                                 });
                                 count += 1;
@@ -129,8 +138,9 @@ where
         }
     }
 
-    response
-        .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.date.cmp(&rhs.date));
+    response.sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| {
+        lhs.datetime.cmp(&rhs.datetime)
+    });
     response
         .into_iter()
         .take(request.nb_stoptimes as usize)
