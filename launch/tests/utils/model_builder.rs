@@ -37,8 +37,8 @@ use loki::{
     transit_model::{
         model::Collections,
         objects::{
-            Calendar, CommercialMode, Date, Line, Network, PhysicalMode, Route, StopArea,
-            StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
+            Calendar, CommercialMode, Date, Equipment, Line, Network, PhysicalMode, Properties,
+            Route, StopArea, StopPoint, StopTime, Time, Transfer, ValidityPeriod, VehicleJourney,
         },
         Model,
     },
@@ -363,6 +363,21 @@ impl<'a> ModelBuilder {
         self
     }
 
+    pub fn equipment<F>(mut self, id: &str, mut initer: F) -> Self
+    where
+        F: FnMut(&mut Equipment),
+    {
+        self.collections.equipments.get_or_create_with(id, || {
+            let mut eq = Equipment {
+                id: id.to_owned(),
+                ..Default::default()
+            };
+            initer(&mut eq);
+            eq
+        });
+        self
+    }
+
     pub fn stop_point<F>(mut self, id: &str, mut initer: F) -> Self
     where
         F: FnMut(&mut StopPoint),
@@ -653,7 +668,20 @@ impl<'a> VehicleJourneyBuilder<'a> {
         self
     }
 
-    pub fn block_id(self, block_id: &str) -> Self {
+    pub fn add_property(self, key: &str, value: &str) -> Self {
+        {
+            let vj = &mut self
+                .model
+                .collections
+                .vehicle_journeys
+                .index_mut(self.vj_idx);
+            vj.properties_mut()
+                .insert(key.to_string(), value.to_string());
+        }
+        self
+    }
+
+    pub fn property(self, block_id: &str) -> Self {
         {
             let vj = &mut self
                 .model

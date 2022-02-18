@@ -417,10 +417,15 @@ where
         request_default_params.max_nb_of_legs
     });
 
+    let must_be_wheelchair_accessible = journey_request.wheelchair.unwrap_or(false);
+    let must_be_bike_accessible = journey_request.bike_in_pt.unwrap_or(false);
+
     let data_filters = Filters::new(
         model,
         &journey_request.forbidden_uris,
         &journey_request.allowed_id,
+        must_be_wheelchair_accessible,
+        must_be_bike_accessible,
     );
 
     let request_input = RequestInput {

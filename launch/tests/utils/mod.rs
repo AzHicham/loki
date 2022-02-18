@@ -85,6 +85,9 @@ pub struct Config<'a> {
 
     // Forbidden_uri
     pub forbidden_uri: Vec<&'a str>,
+
+    pub wheelchair_accessible: bool,
+    pub bike_accessible: bool,
 }
 
 impl<'a> Config<'a> {
@@ -112,6 +115,8 @@ impl<'a> Config<'a> {
             end: end.into(),
             allowed_uri: Default::default(),
             forbidden_uri: Default::default(),
+            bike_accessible: false,
+            wheelchair_accessible: false,
         }
     }
 }
@@ -174,7 +179,13 @@ where
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
-    let filters = Filters::new(model, &config.forbidden_uri, &config.allowed_uri);
+    let filters = Filters::new(
+        model,
+        &config.forbidden_uri,
+        &config.allowed_uri,
+        config.wheelchair_accessible,
+        config.bike_accessible,
+    );
 
     let request_input = make_request_from_config(config)?;
 

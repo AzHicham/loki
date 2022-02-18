@@ -49,10 +49,11 @@ pub use typed_index_collection::Idx;
 use crate::transit_data::{data_interface, data_interface::Data};
 
 pub struct TransitDataFiltered<'data, 'filter, Data> {
-    transit_data: &'data Data,
+    pub(super) transit_data: &'data Data,
     memory: &'filter FilterMemory,
 }
 
+#[derive(Debug)]
 pub struct FilterMemory {
     allowed_base_stop_points: Vec<bool>,
     allowed_new_stop_points: Vec<bool>,
@@ -402,32 +403,32 @@ where
     }
 }
 
-impl<'a, Data> data_interface::DataIters<'a> for TransitDataFiltered<'_, '_, Data>
+impl<'data, Data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_, Data>
 where
-    Data: data_interface::Data + data_interface::DataIters<'a>,
-    Data::Mission: 'a,
-    Data::Position: 'a,
+    Data: data_interface::Data + data_interface::DataIters<'data>,
+    Data::Mission: 'data,
+    Data::Position: 'data,
 {
     type MissionsAtStop = Data::MissionsAtStop;
 
-    fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
+    fn missions_at(&'data self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.transit_data.missions_at(stop)
     }
 
     type OutgoingTransfersAtStop = Data::OutgoingTransfersAtStop;
-    fn outgoing_transfers_at(&'a self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
+    fn outgoing_transfers_at(&'data self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
         self.transit_data.outgoing_transfers_at(from_stop)
     }
 
     type IncomingTransfersAtStop = Data::IncomingTransfersAtStop;
-    fn incoming_transfers_at(&'a self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
+    fn incoming_transfers_at(&'data self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
         self.transit_data.incoming_transfers_at(stop)
     }
 
     type TripsOfMission = Data::TripsOfMission;
 
     fn trips_of(
-        &'a self,
+        &'data self,
         mission: &Self::Mission,
         real_time_level: &RealTimeLevel,
     ) -> Self::TripsOfMission {
