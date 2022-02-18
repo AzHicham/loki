@@ -238,7 +238,7 @@ impl BaseModel {
         property_key: EquipmentPropertyKey,
     ) -> bool {
         if let Some(equipments) = self.equipment(stop_point_idx) {
-            self.equipment_property(equipments, property_key)
+            equipment_property(equipments, &property_key)
         } else {
             false
         }
@@ -654,8 +654,7 @@ impl BaseModel {
         if let Some(equipment_id) = &transfer.equipment_id {
             let equipments = &self.collections.equipments.get(equipment_id);
             if let Some(equipments) = equipments {
-                let val = self.equipment_property(equipments, property_key);
-                val
+                equipment_property(equipments, &property_key)
             } else {
                 false
             }
@@ -703,26 +702,22 @@ impl BaseModel {
     pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
         self.collections.physical_modes.get(id)
     }
+}
 
-    fn equipment_property(
-        &self,
-        equipments: &Equipment,
-        property_key: EquipmentPropertyKey,
-    ) -> bool {
-        let property = match property_key {
-            EquipmentPropertyKey::WheelChairBoarding => equipments.wheelchair_boarding,
-            EquipmentPropertyKey::Sheltered => equipments.sheltered,
-            EquipmentPropertyKey::Elevator => equipments.elevator,
-            EquipmentPropertyKey::Escalator => equipments.escalator,
-            EquipmentPropertyKey::BikeAccepted => equipments.bike_accepted,
-            EquipmentPropertyKey::BikeDepot => equipments.bike_depot,
-            EquipmentPropertyKey::VisualAnnouncement => equipments.visual_announcement,
-            EquipmentPropertyKey::AudibleAnnouncement => equipments.audible_announcement,
-            EquipmentPropertyKey::AppropriateEscort => equipments.appropriate_escort,
-            EquipmentPropertyKey::AppropriateSignage => equipments.appropriate_signage,
-        };
-        property == Availability::Available
-    }
+fn equipment_property(equipments: &Equipment, property_key: &EquipmentPropertyKey) -> bool {
+    let property = match property_key {
+        EquipmentPropertyKey::WheelChairBoarding => equipments.wheelchair_boarding,
+        EquipmentPropertyKey::Sheltered => equipments.sheltered,
+        EquipmentPropertyKey::Elevator => equipments.elevator,
+        EquipmentPropertyKey::Escalator => equipments.escalator,
+        EquipmentPropertyKey::BikeAccepted => equipments.bike_accepted,
+        EquipmentPropertyKey::BikeDepot => equipments.bike_depot,
+        EquipmentPropertyKey::VisualAnnouncement => equipments.visual_announcement,
+        EquipmentPropertyKey::AudibleAnnouncement => equipments.audible_announcement,
+        EquipmentPropertyKey::AppropriateEscort => equipments.appropriate_escort,
+        EquipmentPropertyKey::AppropriateSignage => equipments.appropriate_signage,
+    };
+    property == Availability::Available
 }
 
 #[derive(Debug, Clone)]
