@@ -40,15 +40,12 @@ mod timetable_iters;
 
 pub mod utc_timetables;
 
-pub use utc_timetables::UTCTimetables;
-
 use std::hash::Hash;
 
-pub use crate::transit_data::Stop;
-
 use crate::{
-    models::VehicleJourneyIdx, time::days_patterns::DaysPatterns,
-    transit_data::data_interface::RealTimeLevel,
+    models::VehicleJourneyIdx,
+    time::days_patterns::DaysPatterns,
+    transit_data::{data_interface::RealTimeLevel, Stop},
 };
 
 use chrono::NaiveDate;

@@ -37,28 +37,27 @@
 use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
-    request::generic_request::Mission,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
     timetables::generic_timetables,
+    transit_data::Stop,
     RealTimeLevel,
 };
 
 use super::{
-    generic_timetables::{GenericTimetables, Trip, Vehicle, VehicleTimesError},
+    generic_timetables::{GenericTimetables, Vehicle, VehicleTimesError},
     timetable_iters::{PositionsIter, TimetableIter},
 };
-use crate::{
-    time::{
-        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
-        SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart, TimezonesPatterns,
-    },
-    timetables::generic_timetables::{Position, Timetable},
+use crate::time::{
+    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
 use tracing::log::error;
 
-use crate::timetables::{FlowDirection, Stop};
+use crate::timetables::FlowDirection;
+
+pub use super::generic_timetables::{Position, Timetable as Mission, Trip};
 
 pub struct UTCTimetables {
     timetables: GenericTimetables<SecondsSinceUTCDayStart, Load, VehicleData>,
@@ -107,7 +106,7 @@ impl UTCTimetables {
         self.timetables.timetable_of(&trip.vehicle)
     }
 
-    pub fn stop_at(&self, position: &Position, mission: &Mission) -> super::Stop {
+    pub fn stop_at(&self, position: &Position, mission: &Mission) -> Stop {
         *self.timetables.stop_at(position, mission)
     }
 
@@ -362,7 +361,7 @@ impl UTCTimetables {
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
         real_time_level: &RealTimeLevel,
-    ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
+    ) -> Result<HashMap<Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -483,7 +482,7 @@ impl UTCTimetables {
 
     pub fn remove(
         &mut self,
-        timetable: &Timetable,
+        timetable: &Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
         real_time_level: &RealTimeLevel,

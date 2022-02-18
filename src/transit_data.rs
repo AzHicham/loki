@@ -45,13 +45,12 @@ use crate::{
     models::{
         base_model::BaseModel, ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx,
     },
-    request::generic_request::{Mission, Trip},
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
-        generic_timetables::{Position, PositionPair, VehicleTimesError},
-        utc_timetables::TripsIter,
-        InsertionError, ModifyError, UTCTimetables,
+        generic_timetables::{PositionPair, VehicleTimesError},
+        utc_timetables::{self, TripsIter},
+        InsertionError, ModifyError,
     },
     RealTimeLevel,
 };
@@ -64,7 +63,9 @@ use crate::tracing::error;
 
 use self::data_iters::MissionsOfStop;
 
-pub type Timetables = UTCTimetables;
+pub type Timetables = utc_timetables::UTCTimetables;
+
+pub use utc_timetables::{Mission, Position, Trip};
 
 pub struct TransitData {
     pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,

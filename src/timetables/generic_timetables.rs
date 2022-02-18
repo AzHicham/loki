@@ -41,7 +41,8 @@ use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 use crate::{
     models::StopTimeIdx,
     time::DaysSinceDatasetStart,
-    timetables::{FlowDirection, Stop, StopFlows},
+    timetables::{FlowDirection, StopFlows},
+    transit_data::Stop,
 };
 use std::cmp::Ordering::{Greater, Less};
 
