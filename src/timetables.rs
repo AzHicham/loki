@@ -38,26 +38,16 @@ pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
 mod iters;
 
-mod daily;
-mod periodic;
-mod periodic_split_vj_by_tz;
+pub mod periodic_split_vj_by_tz;
 
-pub use daily::DailyTimetables;
-pub use periodic::PeriodicTimetables;
 pub use periodic_split_vj_by_tz::PeriodicSplitVjByTzTimetables;
 
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 pub use crate::transit_data::Stop;
 
 use crate::{
-    loads_data::{Load, LoadsData},
-    models::VehicleJourneyIdx,
-    time::{
-        days_patterns::{DaysPattern, DaysPatterns},
-        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
-        SecondsSinceTimezonedDayStart,
-    },
+    models::VehicleJourneyIdx, time::days_patterns::DaysPatterns,
     transit_data::data_interface::RealTimeLevel,
 };
 
@@ -79,145 +69,6 @@ pub trait Types {
     type Mission: Debug + Clone + Hash + Eq;
     type Position: Debug + Clone + PartialEq + Eq;
     type Trip: Debug + Clone;
-}
-
-pub trait Timetables: Types {
-    fn new() -> Self;
-
-    fn nb_of_missions(&self) -> usize;
-    fn mission_id(&self, mission: &Self::Mission) -> usize;
-
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
-    fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> usize;
-    fn day_of(&self, trip: &Self::Trip) -> DaysSinceDatasetStart;
-
-    fn mission_of(&self, trip: &Self::Trip) -> Self::Mission;
-    fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> Stop;
-
-    fn nb_of_trips(&self) -> usize;
-
-    fn is_upstream_in_mission(
-        &self,
-        upstream: &Self::Position,
-        downstream: &Self::Position,
-        mission: &Self::Mission,
-    ) -> bool;
-
-    fn next_position(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position>;
-
-    fn previous_position(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position>;
-
-    fn arrival_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-        calendar: &Calendar,
-    ) -> (SecondsSinceDatasetUTCStart, Load);
-
-    fn departure_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-        calendar: &Calendar,
-    ) -> (SecondsSinceDatasetUTCStart, Load);
-
-    fn debark_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-        calendar: &Calendar,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
-
-    fn board_time_of(
-        &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
-        calendar: &Calendar,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)>;
-
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
-
-    fn earliest_filtered_trip_to_board_at<Filter>(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool;
-
-    fn latest_trip_that_debark_at(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
-
-    fn latest_filtered_trip_that_debark_at<Filter>(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool;
-
-    fn remove(
-        &mut self,
-        mission: &Self::Mission,
-        day: &DaysSinceDatasetStart,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_level: &RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &mut DaysPatterns,
-    );
-
-    fn insert<Stops, Flows, BoardTimes, DebarkTimes>(
-        &mut self,
-        stops: Stops,
-        flows: Flows,
-        board_times: BoardTimes,
-        debark_times: DebarkTimes,
-        loads_data: &LoadsData,
-        days: &DaysPattern,
-        calendar: &Calendar,
-        days_patterns: &mut DaysPatterns,
-        timezone: &chrono_tz::Tz,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_level: &RealTimeLevel,
-    ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
-    where
-        Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
-        Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
-        BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
-        DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone;
 }
 
 #[derive(Clone, Debug)]

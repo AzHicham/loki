@@ -39,7 +39,7 @@ use crate::{
     handle_chaos_message::make_datetime,
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
-    master_worker::{DataAndModels, Timetable},
+    master_worker::DataAndModels,
     server_config::ServerConfig,
     status_worker::{BaseDataInfo, StatusUpdate},
 };
@@ -276,7 +276,7 @@ impl DataWorker {
 
             info!("Model loaded");
             info!("Starting to build data");
-            let new_data = launch::read::build_transit_data::<Timetable>(&new_base_model);
+            let new_data = launch::read::build_transit_data(&new_base_model);
             info!("Data loaded");
             let new_real_time_model = RealTimeModel::new();
             data_and_models.0 = new_data;

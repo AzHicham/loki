@@ -54,7 +54,6 @@ use super::config;
 use crate::loki::{DataTrait, TransitData};
 use loki::{
     request::{self, generic_request::RequestTypes},
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::TransitDataFiltered,
 };
 
@@ -77,9 +76,9 @@ impl Solver {
             .fill_allowed_stops_and_vehicles(filters, model);
     }
 
-    pub fn solve_request<Timetables>(
+    pub fn solve_request(
         &mut self,
-        data: &TransitData<Timetables>,
+        data: &TransitData,
         model: &ModelRefs<'_>,
         request_input: &RequestInput,
         has_filters: Option<Filters>,
@@ -88,14 +87,6 @@ impl Solver {
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Timetables: TimetablesTrait<
-            Mission = generic_request::Mission,
-            Position = generic_request::Position,
-            Trip = generic_request::Trip,
-        >,
-        Timetables: for<'a> TimetablesIter<'a>,
-        Timetables::Mission: 'static,
-        Timetables::Position: 'static,
     {
         use crate::datetime::DateTimeRepresent::{Arrival, Departure};
         use config::ComparatorType::{Basic, Loads};

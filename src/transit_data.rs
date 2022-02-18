@@ -39,45 +39,50 @@ pub mod init;
 pub mod iters;
 
 use chrono::NaiveDate;
-use iters::MissionsOfStop;
 
 use crate::{
     loads_data::Load,
     models::{
         base_model::BaseModel, ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx,
     },
+    request::generic_request::{Mission, Trip},
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
-        generic_timetables::{PositionPair, VehicleTimesError},
-        InsertionError, ModifyError,
+        generic_timetables::{Position, PositionPair, VehicleTimesError},
+        periodic_split_vj_by_tz::TripsIter,
+        InsertionError, ModifyError, PeriodicSplitVjByTzTimetables,
     },
     RealTimeLevel,
 };
 
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesIter};
+use crate::timetables::RemovalError;
 
 use crate::tracing::error;
 
-pub struct TransitData<Timetables: TimetablesTrait> {
+use self::iters::MissionsOfStop;
+
+pub type Timetables = PeriodicSplitVjByTzTimetables;
+
+pub struct TransitData {
     pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,
 
-    pub(super) stops_data: Vec<StopData<Timetables>>,
+    pub(super) stops_data: Vec<StopData>,
     pub(super) timetables: Timetables,
 
     pub(super) transfers_data: Vec<TransferData>,
 
-    pub(super) vehicle_journey_to_timetable: VehicleJourneyToTimetable<Timetables::Mission>,
+    pub(super) vehicle_journey_to_timetable: VehicleJourneyToTimetable<Mission>,
 
     pub(super) calendar: Calendar,
     pub(super) days_patterns: DaysPatterns,
 }
 
-pub struct StopData<Timetables: TimetablesTrait> {
+pub struct StopData {
     pub(super) stop_point_idx: StopPointIdx,
-    pub(super) position_in_timetables: Vec<(Timetables::Mission, Timetables::Position)>,
+    pub(super) position_in_timetables: Vec<(Mission, Position)>,
     pub(super) outgoing_transfers: Vec<(Stop, TransferDurations, Transfer)>,
     pub(super) incoming_transfers: Vec<(Stop, TransferDurations, Transfer)>,
 }
@@ -105,8 +110,8 @@ pub struct Transfer {
     pub(super) idx: usize,
 }
 
-impl<Timetables: TimetablesTrait> TransitData<Timetables> {
-    pub fn stop_data(&self, stop: &Stop) -> &StopData<Timetables> {
+impl TransitData {
+    pub fn stop_data(&self, stop: &Stop) -> &StopData {
         &self.stops_data[stop.idx]
     }
 
@@ -115,18 +120,15 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::TransitTypes for TransitData<Timetables> {
+impl data_interface::TransitTypes for TransitData {
     type Stop = Stop;
-    type Mission = Timetables::Mission;
-    type Position = Timetables::Position;
-    type Trip = Timetables::Trip;
+    type Mission = Mission;
+    type Position = Position;
+    type Trip = Trip;
     type Transfer = Transfer;
 }
 
-impl<Timetables: TimetablesTrait> data_interface::Data for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+impl data_interface::Data for TransitData {
     fn is_upstream(
         &self,
         upstream: &Self::Position,
@@ -348,22 +350,14 @@ where
     }
 }
 
-impl<Timetables: TimetablesTrait> data_interface::DataIO for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+impl data_interface::DataIO for TransitData {
     fn new(base_model: &BaseModel) -> Self {
         Self::_new(base_model)
     }
 }
 
-impl<'a, Timetables> data_interface::DataIters<'a> for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + TimetablesIter<'a>,
-    Timetables::Mission: 'a,
-    Timetables::Position: 'a,
-{
-    type MissionsAtStop = MissionsOfStop<'a, Timetables>;
+impl<'a> data_interface::DataIters<'a> for TransitData {
+    type MissionsAtStop = MissionsOfStop<'a>;
 
     fn missions_at(&'a self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.missions_of(stop)
@@ -379,7 +373,7 @@ where
         self.incoming_transfers_at(stop)
     }
 
-    type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
+    type TripsOfMission = TripsIter<'a>;
     fn trips_of(
         &'a self,
         mission: &Self::Mission,
@@ -390,13 +384,7 @@ where
     }
 }
 
-impl<Timetables> data_interface::DataWithIters for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
-}
+impl data_interface::DataWithIters for TransitData {}
 
 pub fn handle_insertion_error(
     model: &ModelRefs,

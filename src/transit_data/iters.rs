@@ -34,17 +34,17 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::{Stop, Transfer, TransferDurations, TransitData};
+use crate::{request::generic_request::Mission, timetables::generic_timetables::Position};
 
-use crate::timetables::Timetables as TimetablesTrait;
+use super::{Stop, Transfer, TransferDurations, TransitData};
 
 pub type OutgoingTransfersAtStop<'data> =
     std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
 pub type IncomingTransfersAtStop<'data> =
     std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
 
-impl<Timetables: TimetablesTrait> TransitData<Timetables> {
-    pub fn missions_of(&self, stop: &Stop) -> MissionsOfStop<Timetables> {
+impl TransitData {
+    pub fn missions_of(&self, stop: &Stop) -> MissionsOfStop {
         let stop_data = self.stop_data(stop);
         MissionsOfStop {
             inner: stop_data.position_in_timetables.iter(),
@@ -62,19 +62,19 @@ impl<Timetables: TimetablesTrait> TransitData<Timetables> {
     }
 }
 
-pub struct MissionsOfStop<'a, Timetables: TimetablesTrait> {
-    inner: std::slice::Iter<'a, (Timetables::Mission, Timetables::Position)>,
+pub struct MissionsOfStop<'a> {
+    inner: std::slice::Iter<'a, (Mission, Position)>,
 }
 
-impl<'a, Timetables: TimetablesTrait> Iterator for MissionsOfStop<'a, Timetables> {
-    type Item = (Timetables::Mission, Timetables::Position);
+impl<'a> Iterator for MissionsOfStop<'a> {
+    type Item = (Mission, Position);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().cloned()
     }
 }
 
-impl<'a, Timetables: TimetablesTrait> ExactSizeIterator for MissionsOfStop<'a, Timetables> {
+impl<'a> ExactSizeIterator for MissionsOfStop<'a> {
     fn len(&self) -> usize {
         self.inner.len()
     }

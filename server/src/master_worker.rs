@@ -51,7 +51,7 @@ use crate::{
 
 pub type Timetable = PeriodicSplitVjByTzTimetables;
 
-pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
+pub type DataAndModels = (TransitData, BaseModel, RealTimeModel);
 
 pub struct MasterWorker {
     shutdown_receiver: mpsc::Receiver<()>,

@@ -42,23 +42,14 @@ use launch::{
     config,
     config::launch_params::default_transfer_duration,
     datetime::DateTimeRepresent,
-    loki::{
-        response,
-        response::VehicleSection,
-        timetables::{Timetables as TimetablesTrait, TimetablesIter},
-        RequestInput,
-    },
+    loki::{response, response::VehicleSection, RequestInput},
     solver::Solver,
 };
-use loki::{
-    chrono::TimeZone, filters::Filters, models::ModelRefs, request::generic_request, RealTimeLevel,
-};
+use loki::{chrono::TimeZone, filters::Filters, models::ModelRefs, RealTimeLevel};
 
 use loki::{chrono_tz, tracing::debug};
 
-use loki::{
-    DailyData, NaiveDateTime, PeriodicData, PeriodicSplitVjData, PositiveDuration, TransitData,
-};
+use loki::{NaiveDateTime, PositiveDuration, TransitData};
 use model_builder::AsDateTime;
 
 pub struct Config<'a> {
@@ -151,31 +142,8 @@ pub fn build_and_solve(
     model: &ModelRefs<'_>,
     config: &Config,
 ) -> Result<Vec<response::Response>, Error> {
-    match config.data_implem {
-        config::DataImplem::Periodic => build_and_solve_inner::<PeriodicData>(model, config),
-        config::DataImplem::Daily => build_and_solve_inner::<DailyData>(model, config),
-        config::DataImplem::PeriodicSplitVj => {
-            build_and_solve_inner::<PeriodicSplitVjData>(model, config)
-        }
-    }
-}
-
-fn build_and_solve_inner<Timetables>(
-    model: &ModelRefs<'_>,
-    config: &Config,
-) -> Result<Vec<response::Response>, Error>
-where
-    Timetables: TimetablesTrait<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    Timetables: for<'a> TimetablesIter<'a>,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
     use loki::DataTrait;
-    let data: TransitData<Timetables> = launch::read::build_transit_data(model.base);
+    let data: TransitData = launch::read::build_transit_data(model.base);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
