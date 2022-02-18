@@ -30,6 +30,11 @@ futures = { version = "0.3", default-features = false, features = ["alloc"] }
 lapin = "2.0"
 tokio-amqp = "2"
 
+# p12 is a subdependecy of lapin
+# To remove when p12 has updated past 0.6.2
+# see https://stackoverflow.com/questions/71151465/crate-p12-rust-error-e0599-no-method-name-decrypt-padded-vecfound-for-str
+p12 = "=0.6.0"
+
 
 launch = { path = "../launch"}
 structopt = "0.3"

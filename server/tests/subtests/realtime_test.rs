@@ -95,6 +95,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(9, 0, 0)),
                 ("paris", date.and_hms(10, 0, 0)),
+                ("cdg", date.and_hms(10, 30, 0)),
             ],
             kirin_proto::Alert_Effect::MODIFIED_SERVICE,
         );
@@ -175,6 +176,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
@@ -201,6 +203,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(8, 0, 0)),
                 ("paris", date.and_hms(9, 0, 0)),
+                ("cdg", date.and_hms(10, 30, 0)),
             ],
             kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
         );
@@ -314,6 +317,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
@@ -353,6 +357,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(13, 0, 0)),
                 ("paris", date.and_hms(14, 0, 0)),
+                ("cdg", date.and_hms(14, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
@@ -378,6 +383,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(13, 0, 0)),
                 ("paris", date.and_hms(15, 0, 0)),
+                ("cdg", date.and_hms(15, 30, 0)),
             ],
             kirin_proto::Alert_Effect::MODIFIED_SERVICE,
         );
@@ -429,6 +435,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
         );
@@ -453,13 +460,12 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             vec![
                 ("massy", date.and_hms(9, 0, 0)),
                 ("paris", date.and_hms(10, 0, 0)),
+                ("cdg", date.and_hms(11, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
-        // since nothing should be added, we should get
-        // no journey for the request on the realtime level
         let journeys_response = crate::send_request_and_wait_for_response(
             &config.requests_socket,
             realtime_request.clone(),
@@ -530,6 +536,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::MODIFIED_SERVICE,
         );
@@ -554,6 +561,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
@@ -590,6 +598,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(13, 0, 0)),
                 ("paris", date.and_hms(14, 0, 0)),
+                ("cdg", date.and_hms(14, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );
@@ -615,6 +624,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(13, 0, 0)),
                 ("paris", date.and_hms(15, 0, 0)),
+                ("cdg", date.and_hms(15, 30, 0)),
             ],
             kirin_proto::Alert_Effect::MODIFIED_SERVICE,
         );
@@ -663,6 +673,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(12, 0, 0)),
                 ("paris", date.and_hms(13, 0, 0)),
+                ("cdg", date.and_hms(13, 30, 0)),
             ],
             kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
         );
@@ -687,6 +698,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             vec![
                 ("massy", date.and_hms(9, 0, 0)),
                 ("paris", date.and_hms(10, 0, 0)),
+                ("cdg", date.and_hms(10, 30, 0)),
             ],
             kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
         );

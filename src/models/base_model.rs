@@ -50,7 +50,8 @@ use crate::{
 };
 
 use super::{
-    real_time_disruption::TimePeriod, Contributor, Coord, Rgb, StopPointIdx, StopTime, StopTimeIdx,
+    real_time_disruption::time_periods::TimePeriod, Contributor, Coord, Rgb, StopPointIdx,
+    StopTime, StopTimeIdx,
 };
 
 pub const PREFIX_ID_NETWORK: &str = "network:";
