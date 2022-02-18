@@ -305,13 +305,32 @@ impl ComputeWorker {
                     next_departures(&request_input, &model_refs, data)
                 };
 
-                make_next_departure_response(
-                    &request_input,
-                    response,
-                    &model_refs,
-                    request_input.start_page,
-                    request_input.count,
-                )
+                let response_proto = match response {
+                    Result::Err(err) => {
+                        error!("Error while solving request : {:?}", err);
+                        make_error_response(&format_err!("{}", err))
+                    }
+                    Ok(response) => {
+                        let response_result = make_next_departure_proto_response(
+                            &request_input,
+                            response,
+                            &model_refs,
+                            request_input.start_page,
+                            request_input.count,
+                        );
+                        match response_result {
+                            Result::Err(err) => {
+                                error!(
+                                    "Error while encoding protobuf response for request : {:?}",
+                                    err
+                                );
+                                make_error_response(&err)
+                            }
+                            Ok(resp) => resp,
+                        }
+                    }
+                };
+                Ok(response_proto)
             }
         }
     }
@@ -338,7 +357,7 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
-use crate::{navitia_proto::Pagination, response::make_next_departure_response};
+use crate::{navitia_proto::Pagination, response::make_next_departure_proto_response};
 use launch::loki::{
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::{FilterMemory, TransitDataFiltered},

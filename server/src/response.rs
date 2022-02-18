@@ -1499,7 +1499,7 @@ fn make_passage<'a>(
     })
 }
 
-pub fn make_next_departure_response<'a>(
+pub fn make_next_departure_proto_response<'a>(
     request_input: &NextStopTimeRequestInput<'a>,
     responses: Vec<NextStopTimeResponse>,
     model: &ModelRefs<'_>,

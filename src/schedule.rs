@@ -42,9 +42,24 @@ use crate::{
     PositiveDuration, RealTimeLevel,
 };
 use chrono::NaiveDateTime;
+use std::fmt;
+use tracing::warn;
 
+#[derive(Debug)]
 pub enum NextStopTimeError {
-    BadDateTime,
+    BadDateTimeError,
+}
+impl std::error::Error for NextStopTimeError {}
+
+impl fmt::Display for NextStopTimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NextStopTimeError::BadDateTimeError => write!(
+                f,
+                "The requested datetime is out of the validity period of the data."
+            ),
+        }
+    }
 }
 
 pub struct NextStopTimeRequestInput<'a> {
@@ -88,20 +103,38 @@ pub fn next_departures<'data, 'filter, Data>(
     request: &'data NextStopTimeRequestInput<'filter>,
     model: &'data ModelRefs<'data>,
     data: &'data Data,
-) -> Vec<NextStopTimeResponse>
+) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
 where
     Data: data_interface::Data + data_interface::DataIters<'data>,
 {
     let mut response = Vec::new();
 
-    let from_datetime = data
-        .calendar()
+    let calendar = data.calendar();
+    let from_datetime = calendar
         .from_naive_datetime(&request.from_datetime)
-        .unwrap();
+        .ok_or_else(|| {
+            warn!(
+                "The requested from_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            NextStopTimeError::BadDateTimeError
+        })?;
     let until_datetime = data
         .calendar()
         .from_naive_datetime(&request.until_datetime)
-        .unwrap();
+        .ok_or_else(|| {
+            warn!(
+                "The requested until_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            NextStopTimeError::BadDateTimeError
+        })?;
     let stop_points_idx = generate_stop_for_next_stoptimes(&request.input, model);
 
     if let Some(stop_points_idx) = stop_points_idx {
@@ -141,8 +174,8 @@ where
     response.sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| {
         lhs.datetime.cmp(&rhs.datetime)
     });
-    response
+    Ok(response
         .into_iter()
         .take(request.nb_stoptimes as usize)
-        .collect()
+        .collect())
 }
