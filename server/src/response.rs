@@ -34,41 +34,47 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::navitia_proto;
+use crate::navitia_proto::{self};
 
 use launch::loki::{
     self,
-    models::{Coord, ModelRefs, StopPointIdx, StopTimes, Timezone, VehicleJourneyIdx},
+    models::{
+        real_time_disruption::{
+            chaos_disruption::{
+                ApplicationPattern, ChannelType, DisruptionProperty, Impacted, Informed,
+                LineSection, Message, RailSection, Severity, TimeSlot,
+            },
+            time_periods::TimePeriod,
+            Effect,
+        },
+        real_time_model::{ChaosImpactIdx, KirinDisruptionIdx},
+        Coord, ModelRefs, StopPointIdx, StopTimes, Timezone, VehicleJourneyIdx,
+    },
     RealTimeLevel, RequestInput,
 };
 
-use loki::response::{TransferSection, VehicleSection, WaitingSection};
+use loki::{
+    response::{TransferSection, VehicleSection, WaitingSection},
+    tracing::error,
+};
 
 use loki::{
     chrono::{self, NaiveDate, NaiveDateTime},
     geometry::distance_coord_to_coord,
 };
 
-use anyhow::{format_err, Context, Error};
+use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::Timelike,
-    models::{
-        base_model::{
-            PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
-            PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
-        },
-        real_time_disruption::{
-            ApplicationPattern, ChannelType, Disruption, DisruptionProperty, Effect, Impact,
-            Impacted, Informed, LineSectionDisruption, Message, RailSectionDisruption, Severity,
-            TimePeriod, TimeSlot,
-        },
-        real_time_model::LinkedDisruptions,
+    models::base_model::{
+        PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
+        PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
     transit_model::objects::{
         Availability, Line, Network, Properties, PropertiesMap, Route, StopArea,
     },
 };
-use std::convert::TryFrom;
+use std::{collections::HashSet, convert::TryFrom};
 
 pub fn make_response(
     request_input: &RequestInput,
@@ -92,95 +98,138 @@ pub fn make_response(
 }
 
 fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navitia_proto::Impact> {
-    let linked_disruptions = make_linked_disruptions(journeys, model);
-    linked_disruptions
-        .iter()
-        .map(|(disruption_idx, impact_idx)| {
-            let (disruption, impact) = model
-                .real_time
-                .get_disruption_and_impact(disruption_idx, impact_idx);
-            make_impact(impact, disruption, model)
-        })
-        .collect()
-}
-
-fn make_linked_disruptions(
-    journeys: &[loki::Response],
-    model: &ModelRefs<'_>,
-) -> LinkedDisruptions {
-    let mut linked_disruptions = LinkedDisruptions::new();
+    let mut chaos_impacts = HashSet::new();
+    let mut kirin_disruptions = HashSet::new();
     for journey in journeys {
-        let disruptions = make_linked_disruptions_for_journey(journey, model);
-        linked_disruptions.extend(disruptions);
+        fill_linked_chaos_impacts_and_kirin_disruptions(
+            &journey.first_vehicle,
+            model,
+            &mut chaos_impacts,
+            &mut kirin_disruptions,
+        );
+
+        for (_, _, vehicle) in &journey.connections {
+            fill_linked_chaos_impacts_and_kirin_disruptions(
+                vehicle,
+                model,
+                &mut chaos_impacts,
+                &mut kirin_disruptions,
+            );
+        }
     }
-    // remove duplicated pair of (disruption, impact)
-    linked_disruptions.sort_unstable();
-    linked_disruptions.dedup();
-    linked_disruptions
+
+    let mut result = Vec::with_capacity(chaos_impacts.len() + kirin_disruptions.len());
+    for chaos_impact_idx in chaos_impacts.iter() {
+        let impact_result = make_chaos_impact(chaos_impact_idx, model);
+        match impact_result {
+            Ok(impact) => {
+                result.push(impact);
+            }
+            Err(err) => {
+                error!(
+                    "Could not make protobuf for chaos impact idx {:?}. {:?}",
+                    chaos_impact_idx, err
+                );
+            }
+        }
+    }
+
+    for kirin_disruption_idx in kirin_disruptions.iter() {
+        let impact_result = make_kirin_impact(kirin_disruption_idx, model);
+        match impact_result {
+            Ok(impact) => {
+                result.push(impact);
+            }
+            Err(err) => {
+                error!(
+                    "Could not make protobuf for kirin disruption idx {:?}. {:?}",
+                    kirin_disruption_idx, err
+                );
+            }
+        }
+    }
+
+    result
 }
 
-fn make_linked_disruptions_for_journey(
-    journey: &loki::Response,
-    model: &ModelRefs<'_>,
-) -> LinkedDisruptions {
-    let mut linked_disruptions = LinkedDisruptions::new();
+fn fill_linked_chaos_impacts_and_kirin_disruptions(
+    vehicle: &VehicleSection,
+    models: &ModelRefs<'_>,
+    chaos_impacts: &mut HashSet<ChaosImpactIdx>,
+    kirin_disruptions: &mut HashSet<KirinDisruptionIdx>,
+) {
+    if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle.vehicle_journey {
+        let has_impacts = models
+            .real_time
+            .get_linked_chaos_impacts(base_vj_idx, vehicle.day_for_vehicle_journey);
+        if let Some(impacts) = has_impacts {
+            for impact_idx in impacts {
+                chaos_impacts.insert(impact_idx.0.clone());
+            }
+        }
+    }
+
+    if let Some(kirin_disruption_idx) = models
+        .real_time
+        .get_linked_kirin_disruption(&vehicle.vehicle_journey, vehicle.day_for_vehicle_journey)
     {
-        let vehicle = &journey.first_vehicle;
-        let disruptions = model
-            .real_time
-            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        if let Some(disruptions) = disruptions {
-            linked_disruptions.extend(disruptions)
-        }
+        kirin_disruptions.insert(kirin_disruption_idx.clone());
     }
-    for (_, _, vehicle) in &journey.connections {
-        let disruptions = model
-            .real_time
-            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        if let Some(disruptions) = disruptions {
-            linked_disruptions.extend(disruptions)
-        }
-    }
-
-    // remove duplicated pair of (disruption, impact)
-    linked_disruptions.sort_unstable();
-    linked_disruptions.dedup();
-    linked_disruptions
 }
 
-fn worst_effect_on_journey(journey: &loki::Response, model: &ModelRefs<'_>) -> Option<Effect> {
-    let mut worst_effect: Option<Effect> = {
-        let vehicle = &journey.first_vehicle;
-        let has_disruptions = model
-            .real_time
-            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        has_disruptions.and_then(|disruptions| compute_worst_effect(disruptions, model))
-    };
-    for (_, _, vehicle) in &journey.connections {
-        let has_disruptions = model
-            .real_time
-            .get_linked_disruptions(&vehicle.vehicle_journey, &vehicle.day_for_vehicle_journey);
-        let has_effect =
-            has_disruptions.and_then(|disruptions| compute_worst_effect(disruptions, model));
-
-        worst_effect = has_effect.into_iter().chain(worst_effect.into_iter()).max();
-    }
-    worst_effect
-}
-
-fn compute_worst_effect(
-    linked_disruptions: &LinkedDisruptions,
-    model: &ModelRefs<'_>,
-) -> Option<Effect> {
-    linked_disruptions
+fn worst_effect_on_journey(journey: &loki::Response, models: &ModelRefs<'_>) -> Option<Effect> {
+    let first_section_effect = worst_effect_on_vehicle(&journey.first_vehicle, models);
+    let other_sections_worst_effect = journey
+        .connections
         .iter()
-        .map(|(disruption_idx, impact_idx)| {
-            let (_, impact) = model
-                .real_time
-                .get_disruption_and_impact(disruption_idx, impact_idx);
-            impact.severity.effect
-        })
+        .filter_map(|(_, _, vehicle_section)| worst_effect_on_vehicle(vehicle_section, models))
+        .max();
+
+    first_section_effect
+        .iter()
+        .chain(other_sections_worst_effect.iter())
         .max()
+        .cloned()
+}
+
+fn worst_effect_on_vehicle(
+    vehicle_section: &VehicleSection,
+    models: &ModelRefs<'_>,
+) -> Option<Effect> {
+    let vehicle_journey_idx = &vehicle_section.vehicle_journey;
+    let date = &vehicle_section.day_for_vehicle_journey;
+    let has_chaos_worst_effect = if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle_journey_idx {
+        let has_impacts = models
+            .real_time
+            .get_linked_chaos_impacts(*base_vj_idx, *date);
+        has_impacts.and_then(|impacts| {
+            impacts
+                .iter()
+                .map(|chaos_impact_idx| {
+                    let (_, chaos_impact) = models
+                        .real_time
+                        .get_chaos_disruption_and_impact(&chaos_impact_idx.0);
+                    chaos_impact.severity.effect
+                })
+                .max()
+        })
+    } else {
+        None
+    };
+
+    let has_kirin_worst_effect = models
+        .real_time
+        .get_linked_kirin_disruption(vehicle_journey_idx, *date)
+        .map(|kirin_disruption_idx| {
+            let kirin_disruption = models.real_time.get_kirin_disruption(kirin_disruption_idx);
+            kirin_disruption.effect
+        });
+
+    has_chaos_worst_effect
+        .iter()
+        .chain(has_kirin_worst_effect.iter())
+        .max()
+        .cloned()
 }
 
 fn effect_to_string(effect: &Effect) -> String {
@@ -796,11 +845,20 @@ fn make_shape_from_stop_points(
     }
 }
 
-fn make_impact(
-    impact: &Impact,
-    disruption: &Disruption,
+fn make_chaos_impact(
+    chaos_impact_idx: &ChaosImpactIdx,
     model: &ModelRefs<'_>,
-) -> navitia_proto::Impact {
+) -> Result<navitia_proto::Impact, Error> {
+    let (disruption, impact) = model
+        .real_time
+        .get_chaos_disruption(chaos_impact_idx)
+        .ok_or_else(|| {
+            format_err!(
+                "No chaos (disruption, impact) at idx {:?}",
+                chaos_impact_idx
+            )
+        })?;
+
     let mut impacted_objects =
         Vec::with_capacity(impact.impacted_pt_objects.len() + impact.informed_pt_objects.len());
     for impacted in &impact.impacted_pt_objects {
@@ -836,7 +894,7 @@ fn make_impact(
     };
     proto.set_status(navitia_proto::ActiveStatus::Active);
 
-    proto
+    Ok(proto)
 }
 
 fn make_impacted_object_from_impacted(
@@ -844,14 +902,9 @@ fn make_impacted_object_from_impacted(
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::ImpactedObject, Error> {
     let pt_object = match object {
-        Impacted::TripDeleted(vehicle_journey_id, _) => {
-            make_vehicle_journey_pt_object(&vehicle_journey_id.id, model)
-        }
         Impacted::BaseTripDeleted(vehicle_journey_id) => {
             make_vehicle_journey_pt_object(&vehicle_journey_id.id, model)
         }
-        Impacted::NewTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
-        Impacted::BaseTripUpdated(trip) => make_vehicle_journey_pt_object(&trip.trip_id.id, model),
         Impacted::RouteDeleted(route) => make_route_pt_object(&route.id, model),
         Impacted::LineDeleted(line) => make_line_pt_object(&line.id, model),
         Impacted::NetworkDeleted(network) => make_network_pt_object(&network.id, model),
@@ -899,16 +952,8 @@ fn make_impacted_object_from_informed(
             if let Some(stop_point_id) = model.stop_point_idx(&stop_point.id) {
                 make_stop_point_pt_object(&stop_point_id, model)
             } else {
-                return Err(format_err!(
-                    "StopPoint.id: {} not found in BaseModel",
-                    stop_point.id
-                ));
+                bail!("StopPoint.id: {} not found in BaseModel", stop_point.id);
             }
-        }
-        Informed::Unknown => {
-            return Err(format_err!(
-                "Cannot create ImpactedObject from Informed::Unknown"
-            ))
         }
     };
 
@@ -918,6 +963,78 @@ fn make_impacted_object_from_informed(
         impacted_section: None,
         impacted_rail_section: None,
     })
+}
+
+fn make_kirin_impact(
+    kirin_disruption_idx: &KirinDisruptionIdx,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::Impact, Error> {
+    let disruption = model.real_time.get_kirin_disruption(kirin_disruption_idx);
+
+    let impacted_pt_object = {
+        let pt_object = make_vehicle_journey_pt_object(&disruption.trip_id.id, model)?;
+        navitia_proto::ImpactedObject {
+            pt_object: Some(pt_object),
+            impacted_stops: vec![],
+            impacted_section: None,
+            impacted_rail_section: None,
+        }
+    };
+
+    let messages: Vec<_> = disruption
+        .message
+        .iter()
+        .map(|text| {
+            let loki_message = Message {
+                text: text.to_string(),
+                channel_id: Some("rt".to_string()),
+                channel_name: "rt".to_string(),
+                channel_content_type: None,
+                channel_types: vec![ChannelType::Web, ChannelType::Mobile],
+            };
+            make_message(&loki_message)
+        })
+        .collect();
+
+    let severity_name = match disruption.effect {
+        Effect::NoService => "trip canceled",
+        Effect::SignificantDelays => "trip delayed",
+        Effect::Detour => "detour",
+        Effect::ModifiedService => "trip modified",
+        Effect::ReducedService => "reduced service",
+        Effect::AdditionalService => "additional service",
+        Effect::OtherEffect => "other effect",
+        Effect::StopMoved => "stop moved",
+        Effect::UnknownEffect => "unknown effect",
+    };
+
+    let mut severity = navitia_proto::Severity {
+        name: Some(severity_name.to_string()),
+        color: Some("#000000".to_string()),
+        effect: None,
+        priority: Some(42),
+    };
+    severity.set_effect(make_effect(disruption.effect));
+
+    let mut proto = navitia_proto::Impact {
+        uri: Some(disruption.id.clone()),
+        disruption_uri: Some(disruption.id.clone()),
+        application_periods: vec![make_period(&disruption.application_period)],
+        updated_at: u64::try_from(disruption.updated_at.timestamp()).ok(),
+        tags: Vec::new(),
+        cause: None,
+        messages,
+        severity: Some(severity),
+        contributor: disruption.contributor.clone(),
+        impacted_objects: vec![impacted_pt_object],
+        category: None,
+        application_patterns: Vec::new(),
+        properties: Vec::new(),
+        ..Default::default()
+    };
+    proto.set_status(navitia_proto::ActiveStatus::Active);
+
+    Ok(proto)
 }
 
 fn make_property(property: &DisruptionProperty) -> navitia_proto::DisruptionProperty {
@@ -1174,7 +1291,7 @@ pub fn make_stop_area_(stop_area: &StopArea, _model: &ModelRefs) -> navitia_prot
 }
 
 pub fn make_line_section_impact(
-    line_section: &LineSectionDisruption,
+    line_section: &LineSection,
     model: &ModelRefs,
 ) -> Result<navitia_proto::LineSectionImpact, Error> {
     Ok(navitia_proto::LineSectionImpact {
@@ -1185,7 +1302,7 @@ pub fn make_line_section_impact(
 }
 
 pub fn make_rail_section_impact(
-    rail_section: &RailSectionDisruption,
+    rail_section: &RailSection,
     model: &ModelRefs,
 ) -> Result<navitia_proto::RailSectionImpact, Error> {
     Ok(navitia_proto::RailSectionImpact {

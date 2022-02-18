@@ -526,7 +526,12 @@ where
         // we should not be able to board at the last position
         assert!(next_position_idx < self.nb_of_positions());
 
-        let last_vehicle_idx = self.board_times_by_position[position_idx].len() - 1;
+        let nb_of_vehicles = self.board_times_by_position[position_idx].len();
+        if nb_of_vehicles == 0 {
+            return None;
+        }
+
+        let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
         if waiting_time > &self.board_times_by_position[position_idx][last_vehicle_idx] {
             return None;
         }
@@ -584,11 +589,17 @@ where
         // we should not be able to debark at the first position
         assert!(position_idx > 0);
 
+        let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
+        if nb_of_vehicles == 0 {
+            return None;
+        }
+
+        let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
+
         if waiting_time < &self.debark_times_by_position[position_idx][0] {
             return None;
         }
 
-        let last_vehicle_idx = self.debark_times_by_position[position_idx].len() - 1;
         let after_last_debarkable_vehicle =
             if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
                 last_vehicle_idx + 1

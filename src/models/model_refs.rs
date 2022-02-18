@@ -41,7 +41,7 @@ use transit_model::objects::{
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
-    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes, TripData},
+    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes, TripVersion},
     Contributor, Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx,
 };
 
@@ -169,8 +169,8 @@ impl<'model> ModelRefs<'model> {
                     let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
-                            TripData::Deleted() => None,
-                            TripData::Present(stop_times) => stop_times
+                            TripVersion::Deleted() => None,
+                            TripVersion::Present(stop_times) => stop_times
                                 .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
@@ -184,8 +184,8 @@ impl<'model> ModelRefs<'model> {
                     let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
-                            TripData::Deleted() => None,
-                            TripData::Present(stop_times) => stop_times
+                            TripVersion::Deleted() => None,
+                            TripVersion::Present(stop_times) => stop_times
                                 .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
@@ -460,13 +460,13 @@ impl<'model> ModelRefs<'model> {
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
         match self.real_time.last_version(vehicle_journey_idx, date) {
-            Some(TripData::Present(stop_times)) => {
+            Some(TripVersion::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
                 let iter = StopTimes::New(RealTimeStopTimes { inner });
                 Some(iter)
             }
-            Some(TripData::Deleted()) => None,
+            Some(TripVersion::Deleted()) => None,
             None => {
                 // there is no realtime data for this trip
                 // so its base schedule IS the real time schedule
