@@ -65,7 +65,6 @@ use loki::{
 };
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::schedule::{NextStopTimeRequestInput, NextStopTimeResponse};
 use launch::loki::{
     chrono::Timelike,
     models::base_model::{
@@ -76,6 +75,7 @@ use launch::loki::{
         PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
+    schedule::{NextStopTimeRequestInput, NextStopTimeResponse},
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
 use std::convert::TryFrom;

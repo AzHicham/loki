@@ -34,10 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::filters::{Filter, Filters, StopFilter};
-use crate::models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx};
-use crate::transit_data::data_interface;
-use crate::{PositiveDuration, RealTimeLevel};
+use crate::{
+    filters::{Filter, Filters, StopFilter},
+    models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx},
+    transit_data::data_interface,
+    PositiveDuration, RealTimeLevel,
+};
 use chrono::NaiveDateTime;
 
 pub enum NextStopTimeError {

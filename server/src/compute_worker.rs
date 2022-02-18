@@ -41,15 +41,13 @@ use crate::{
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::chrono::Duration;
-use launch::loki::filters::parse_filter;
 use launch::{
     config,
     datetime::DateTimeRepresent,
     loki::{
         self,
-        chrono::Utc,
-        filters::Filters,
+        chrono::{Duration, Utc},
+        filters::{parse_filter, Filters},
         models::{
             base_model::{BaseModel, PREFIX_ID_STOP_POINT},
             real_time_model::RealTimeModel,
@@ -334,10 +332,11 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
-use crate::navitia_proto::Pagination;
-use crate::response::make_departure_response;
-use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
-use launch::loki::transit_data_filtered::{FilterMemory, TransitDataFiltered};
+use crate::{navitia_proto::Pagination, response::make_departure_response};
+use launch::loki::{
+    timetables::{Timetables as TimetablesTrait, TimetablesIter},
+    transit_data_filtered::{FilterMemory, TransitDataFiltered},
+};
 
 fn solve<Timetables>(
     journey_request: &navitia_proto::JourneysRequest,
