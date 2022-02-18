@@ -61,8 +61,6 @@ pub struct Config<'a> {
 
     pub comparator_type: config::ComparatorType,
 
-    pub data_implem: config::DataImplem,
-
     pub default_transfer_duration: PositiveDuration,
 
     /// name of the start stop_area
@@ -100,7 +98,6 @@ impl<'a> Config<'a> {
             datetime: utc_datetime,
             datetime_represent: Default::default(),
             comparator_type: Default::default(),
-            data_implem: Default::default(),
             default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
