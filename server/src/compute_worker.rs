@@ -287,7 +287,6 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
 
 use crate::navitia_proto::Pagination;
 
-
 fn solve(
     journey_request: &navitia_proto::JourneysRequest,
     data: &TransitData,
@@ -296,8 +295,7 @@ fn solve(
     request_default_params: &config::RequestParams,
     comparator_type: &config::ComparatorType,
     real_time_level: RealTimeLevel,
-) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
-{
+) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
     // println!("{:#?}", journey_request);
     let departures_stop_point_and_fallback_duration = journey_request
         .origin
