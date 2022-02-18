@@ -259,8 +259,8 @@ impl ComputeWorker {
 
                 let radius = places_nearby_request.distance;
                 let uri = places_nearby_request.uri;
-                let start_page = places_nearby_request.start_page as usize;
-                let count = places_nearby_request.count as usize;
+                let start_page = usize::try_from(places_nearby_request.start_page).unwrap_or(0);
+                let count = usize::try_from(places_nearby_request.count).unwrap_or(0);
 
                 match places_nearby_impl(&model_refs, &uri, radius) {
                     Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
@@ -466,10 +466,15 @@ where
         request_default_params.max_nb_of_legs
     });
 
+    let must_be_wheelchair_accessible = journey_request.wheelchair.unwrap_or(false);
+    let must_be_bike_accessible = journey_request.bike_in_pt.unwrap_or(false);
+
     let data_filters = Filters::new(
         model,
         &journey_request.forbidden_uris,
         &journey_request.allowed_id,
+        must_be_wheelchair_accessible,
+        must_be_bike_accessible,
     );
 
     let request_input = RequestInput {
@@ -572,10 +577,10 @@ fn make_places_nearby_proto_response(
     navitia_proto::Response {
         places_nearby: pt_objects[range.clone()].to_owned(),
         pagination: Some(Pagination {
-            start_page: start_page as i32,
-            total_result: size as i32,
-            items_per_page: count as i32,
-            items_on_page: range.len() as i32,
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(range.len()).unwrap_or_default(),
             ..Default::default()
         }),
         ..Default::default()
@@ -593,7 +598,7 @@ fn make_next_stop_times_request<'a>(
         return Err(format_err!("Cannot parse departure_filter"));
     };
 
-    let filters = Filters::new(model, &proto.forbidden_uri, &[]);
+    let filters = Filters::new(model, &proto.forbidden_uri, &[], false, false);
     let from_datetime = if let Some(proto_datetime) = proto.from_datetime {
         let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(

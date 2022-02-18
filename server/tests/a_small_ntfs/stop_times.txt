@@ -1,5 +1,6 @@
 stop_time_id,trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,local_zone_id,date_time_estimated
 matin_massy,matin,08:00:00,08:00:00,massy,0,"",0,0,,0
 matin_paris,matin,09:00:00,09:00:00,paris,1,"",0,0,,0
+matin_cdg,matin,09:30:00,09:30:00,cdg,2,"",0,0,,0
 soir_pontoise,rer_c_soir,18:00:00,18:00:00,pontoise,0,"",0,0,,0
 soir_dourdan,rer_c_soir,19:00:00,19:00:00,dourdan,1,"",0,0,,0

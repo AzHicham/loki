@@ -231,7 +231,7 @@ impl LoadsData {
     ) -> Option<&[Load]> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let vehicle_journey_load = self.per_vehicle_journey.get(&idx)?;
+                let vehicle_journey_load = self.per_vehicle_journey.get(idx)?;
                 let trip_load = vehicle_journey_load.per_date.get(date)?;
                 let nb_of_stops = trip_load.per_stop.len();
                 Some(&trip_load.per_stop[..(nb_of_stops - 1)])

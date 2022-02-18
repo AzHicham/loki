@@ -47,7 +47,7 @@ use diesel::{
 };
 use launch::loki::{
     chrono::{NaiveDate, NaiveTime, Timelike},
-    models::real_time_disruption::BlockedStopArea,
+    models::real_time_disruption::chaos_disruption::BlockedStopArea,
     tracing::error,
     NaiveDateTime,
 };
@@ -135,7 +135,7 @@ impl DisruptionMaker {
         // after previous insert unwrap is safe here!
         let disruption = self.disruptions.get_mut(&row.disruption_id).unwrap();
 
-        DisruptionMaker::update_tags(&mut self.tags_set, row, disruption)?;
+        DisruptionMaker::update_tags(&mut self.tags_set, row, disruption);
         DisruptionMaker::update_properties(&mut self.properties_set, row, disruption)?;
         DisruptionMaker::update_impacts(
             &mut self.impact_object_set,
@@ -175,7 +175,7 @@ impl DisruptionMaker {
         tags_set: &mut HashSet<Uid>,
         row: &ChaosRow,
         disruption: &mut chaos_proto::chaos::Disruption,
-    ) -> Result<(), Error> {
+    ) {
         if let Some(tag_id) = row.tag_id {
             if tags_set.insert(tag_id) {
                 let mut tag = chaos_proto::chaos::Tag::new();
@@ -186,7 +186,6 @@ impl DisruptionMaker {
                 disruption.tags.push(tag);
             }
         }
-        Ok(())
     }
 
     fn update_properties(
@@ -243,7 +242,7 @@ impl DisruptionMaker {
             row,
             impact,
         )?;
-        ImpactMaker::update_messages(&mut impact_object_set.messages_set, row, impact)?;
+        ImpactMaker::update_messages(&mut impact_object_set.messages_set, row, impact);
         ImpactMaker::update_application_pattern(
             &mut impact_object_set.application_pattern_set,
             row,
@@ -299,7 +298,7 @@ impl ImpactMaker {
         severity.set_wording(row.severity_wording.clone());
         severity.set_priority(row.severity_priority);
         if let Some(color) = &row.severity_color {
-            severity.set_color(color.clone())
+            severity.set_color(color.clone());
         }
         let effect = row
             .severity_effect
@@ -331,7 +330,7 @@ impl ImpactMaker {
         messages_set: &mut HashSet<Uid>,
         row: &ChaosRow,
         impact: &mut chaos_proto::chaos::Impact,
-    ) -> Result<(), Error> {
+    ) {
         if let Some(message_id) = row.message_id {
             if messages_set.insert(message_id) {
                 let mut message = chaos_proto::chaos::Message::new();
@@ -340,23 +339,22 @@ impl ImpactMaker {
                 }
                 let channel = message.mut_channel();
                 if let Some(name) = &row.channel_name {
-                    channel.set_name(name.clone())
+                    channel.set_name(name.clone());
                 }
                 if let Some(channel_id) = &row.channel_id {
                     channel.set_id(channel_id.to_string());
                 }
                 if let Some(content_type) = &row.channel_content_type {
-                    channel.set_content_type(content_type.clone())
+                    channel.set_content_type(content_type.clone());
                 }
                 for channel_type in row.channel_type.iter().flatten() {
                     channel
                         .types
-                        .push(ImpactMaker::make_channel_type(channel_type))
+                        .push(ImpactMaker::make_channel_type(channel_type));
                 }
                 impact.messages.push(message);
             }
         }
-        Ok(())
     }
 
     fn make_channel_type(channel_type: &ChannelTypeSQL) -> chaos_proto::chaos::Channel_Type {
@@ -383,10 +381,10 @@ impl ImpactMaker {
             if application_pattern_set.insert(pattern_id) {
                 let mut pattern = chaos_proto::chaos::Pattern::new();
                 if let Some(start_date) = row.pattern_start_date {
-                    pattern.set_start_date(u32::try_from(start_date.and_hms(0, 0, 0).timestamp())?)
+                    pattern.set_start_date(u32::try_from(start_date.and_hms(0, 0, 0).timestamp())?);
                 }
                 if let Some(end_date) = row.pattern_end_date {
-                    pattern.set_end_date(u32::try_from(end_date.and_hms(0, 0, 0).timestamp())?)
+                    pattern.set_end_date(u32::try_from(end_date.and_hms(0, 0, 0).timestamp())?);
                 }
                 // time_slot_begin && time_slot_end have always the same size
                 // even after filter_map

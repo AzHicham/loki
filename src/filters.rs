@@ -37,8 +37,9 @@
 use crate::{
     models::{
         base_model::{
-            PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
-            PREFIX_ID_ROUTE, PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT,
+            EquipmentPropertyKey, VehicleJourneyPropertyKey, PREFIX_ID_COMMERCIAL_MODE,
+            PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE, PREFIX_ID_ROUTE,
+            PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT,
         },
         ModelRefs, StopPointIdx, VehicleJourneyIdx,
     },
@@ -104,6 +105,8 @@ pub struct Filters<'a> {
     forbidden_vehicles: Vec<VehicleFilter<'a>>,
     allowed_stops: Vec<StopFilter<'a>>,
     forbidden_stops: Vec<StopFilter<'a>>,
+    must_be_wheelchair_accessible: bool,
+    must_be_bike_accessible: bool,
 }
 
 impl<'a> Filters<'a> {
@@ -114,6 +117,21 @@ impl<'a> Filters<'a> {
                 return false;
             }
         }
+        // if filter has must_have_wheelchair constraint
+        // and vehicle journey is not wheelchair accessible, return false
+        if self.must_be_wheelchair_accessible
+            && !model.vehicle_journey_property(idx, VehicleJourneyPropertyKey::WheelChairAccessible)
+        {
+            return false;
+        }
+        // if filter has must_have_bike constraint
+        // and vehicle journey is not bike accessible, return false
+        if self.must_be_bike_accessible
+            && !model.vehicle_journey_property(idx, VehicleJourneyPropertyKey::BikeAccepted)
+        {
+            return false;
+        }
+
         // if there is no allowed_filter, then the vehicle_journey is valid
         if self.allowed_vehicles.is_empty() {
             return true;
@@ -129,12 +147,27 @@ impl<'a> Filters<'a> {
         // there is some allowed filters, but none of them applies, so the vehicle_journey is invalid
         false
     }
+
     pub fn is_stop_point_valid(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         // if *one* forbidden filter applies, then the idx is invalid
         for forbid_filter in self.forbidden_stops.iter() {
             if forbid_filter.applies_on(idx, model) {
                 return false;
             }
+        }
+        // if filter has must_have_wheelchair constraint
+        // and stop_point is not wheelchair boardable, return false
+        if self.must_be_wheelchair_accessible
+            && !model.stop_point_property(idx, EquipmentPropertyKey::WheelChairBoarding)
+        {
+            return false;
+        }
+        // if filter has must_have_bike constraint
+        // and stop_point is not bike boardable, return false
+        if self.must_be_bike_accessible
+            && !model.stop_point_property(idx, EquipmentPropertyKey::BikeAccepted)
+        {
+            return false;
         }
         // if there is no allowed_filter, then the idx is valid
         if self.allowed_stops.is_empty() {
@@ -156,6 +189,8 @@ impl<'a> Filters<'a> {
         model: &ModelRefs<'_>,
         forbidden_uri: &'a [T],
         allowed_uri: &'a [T],
+        must_be_wheelchair_accessible: bool,
+        must_be_bike_accessible: bool,
     ) -> Option<Filters<'a>>
     where
         T: AsRef<str>,
@@ -197,7 +232,9 @@ impl<'a> Filters<'a> {
         let has_no_filter = allowed_stop_filters.is_empty()
             && allowed_vehicle_filters.is_empty()
             && forbidden_stop_filters.is_empty()
-            && forbiddden_vehicle_filters.is_empty();
+            && forbiddden_vehicle_filters.is_empty()
+            && !must_be_wheelchair_accessible
+            && !must_be_bike_accessible;
 
         if has_no_filter {
             None
@@ -207,6 +244,8 @@ impl<'a> Filters<'a> {
                 forbidden_stops: forbidden_stop_filters,
                 allowed_vehicles: allowed_vehicle_filters,
                 forbidden_vehicles: forbiddden_vehicle_filters,
+                must_be_wheelchair_accessible,
+                must_be_bike_accessible,
             };
             Some(result)
         }
