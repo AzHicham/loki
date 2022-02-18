@@ -35,13 +35,13 @@
 // www.navitia.io
 
 use crate::{
-    compute_worker::loki::schedule::NextStopTimeRequestInput,
+    compute_worker::loki::schedule::{next_departures, NextStopTimeRequestInput},
     load_balancer::WorkerId,
     master_worker::Timetable,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{bail, format_err, Context, Error};
-use core::slice;
+use launch::loki::chrono::Duration;
 use launch::loki::filters::parse_filter;
 use launch::{
     config,
@@ -294,12 +294,20 @@ impl ComputeWorker {
                     )
                 })?;
 
-                let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let request_input = make_next_stop_times_request(&request, &model_refs);
+                let request_input = make_next_stop_times_request(&request, &model_refs).unwrap();
+                let mut filter_memory = FilterMemory::new();
+                let response = if let Some(filters) = &request_input.filters {
+                    filter_memory.fill_allowed_stops_and_vehicles(&filters, &model_refs);
+                    let data = TransitDataFiltered::new(data, &filter_memory);
+                    next_departures(&request_input, &model_refs, &data)
+                } else {
+                    next_departures(&request_input, &model_refs, data)
+                };
 
-                Ok(make_error_response(&format_err!("{}", "err")))
+                make_departure_response(&request_input, response, &model_refs)
             }
         }
     }
@@ -327,7 +335,9 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
 }
 
 use crate::navitia_proto::Pagination;
+use crate::response::make_departure_response;
 use launch::loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
+use launch::loki::transit_data_filtered::{FilterMemory, TransitDataFiltered};
 
 fn solve<Timetables>(
     journey_request: &navitia_proto::JourneysRequest,
@@ -576,24 +586,29 @@ fn make_next_stop_times_request<'a>(
     proto: &'a navitia_proto::NextStopTimeRequest,
     model: &ModelRefs,
 ) -> Result<NextStopTimeRequestInput<'a>, Error> {
-    let filters = Filters::new(
-        model,
-        &proto.forbidden_uri,
-        slice::from_ref(&proto.departure_filter),
-    );
-    let datetime = if let Some(proto_datetime) = proto.from_datetime {
-        let proto_datetime = i64::try_from(proto_datetime).with_context(|| {
+    let input = if let Some(input) = parse_filter(model, &proto.departure_filter, "departure_input")
+    {
+        input
+    } else {
+        return Err(format_err!("Cannot parse departure_filter"));
+    };
+
+    let filters = Filters::new(model, &proto.forbidden_uri, &[]);
+    let from_datetime = if let Some(proto_datetime) = proto.from_datetime {
+        let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(
                 "Datetime {} cannot be converted to a valid i64 timestamp.",
                 proto_datetime
             )
         })?;
-        loki::NaiveDateTime::from_timestamp(proto_datetime, 0)
+        loki::NaiveDateTime::from_timestamp(timestamp, 0)
     } else {
         return Err(format_err!("No from_datetime provided."));
     };
     let duration = u32::try_from(proto.duration)
-        .with_context(|| format!("duration {} cannot be converted to u32.", proto.count))?;
+        .with_context(|| format!("duration {} cannot be converted to u32.", proto.duration))?;
+
+    let until_datetime = from_datetime + Duration::seconds(duration.into());
 
     let nb_stoptimes = u32::try_from(proto.nb_stoptimes)
         .with_context(|| format!("nb_stoptimes {} cannot be converted to u32.", proto.count))?;
@@ -615,9 +630,10 @@ fn make_next_stop_times_request<'a>(
         .with_context(|| format!("count {} cannot be converted to usize.", proto.count))?;
 
     Ok(NextStopTimeRequestInput {
+        input,
         filters,
-        datetime,
-        duration,
+        from_datetime,
+        until_datetime,
         nb_stoptimes,
         real_time_level,
         start_page,

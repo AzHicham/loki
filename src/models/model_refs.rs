@@ -298,6 +298,14 @@ impl<'model> ModelRefs<'model> {
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.base.contains_stop_area_id(id)
     }
+
+    pub fn stop_points_of_stop_area(&self, stop_area_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_stop_area(stop_area_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
 }
 
 impl<'model> ModelRefs<'model> {

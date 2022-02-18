@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use crate::navitia_proto;
+use std::collections::HashSet;
 
 use launch::loki::{
     self,
@@ -50,6 +51,7 @@ use loki::{
 };
 
 use anyhow::{format_err, Context, Error};
+use launch::loki::schedule::{NextStopTimeRequestInput, NextStopTimeResponse};
 use launch::loki::{
     chrono::Timelike,
     models::{
@@ -69,7 +71,6 @@ use launch::loki::{
     },
 };
 use std::convert::TryFrom;
-
 pub fn make_response(
     request_input: &RequestInput,
     journeys: Vec<loki::Response>,
@@ -605,18 +606,25 @@ fn make_stop_datetimes(
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
     let mut result = Vec::new();
+    let realtime_level = match stop_times {
+        StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
+        StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
+    };
     for stop_time in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
         let departure_seconds = i64::from(stop_time.board_time.total_seconds());
         let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
         let stop_point_idx = stop_time.stop;
-        let proto = navitia_proto::StopDateTime {
+        let mut proto = navitia_proto::StopDateTime {
+            base_arrival_date_time: Some(arrival),
             arrival_date_time: Some(arrival),
+            base_departure_date_time: Some(departure),
             departure_date_time: Some(departure),
             stop_point: Some(make_stop_point(&stop_point_idx, model)),
             ..Default::default()
         };
+        proto.set_data_freshness(realtime_level);
         result.push(proto);
     }
     Ok(result)
@@ -1094,12 +1102,23 @@ pub fn make_route(route: &Route, model: &ModelRefs) -> navitia_proto::Route {
     } else {
         None
     };
+    let mut physical_mode_ids = HashSet::new();
+    for vehicle_idx in model.base_vehicle_journeys() {
+        let vehicle = model.vehicle_journey(&vehicle_idx);
+        if vehicle.route_id == route.id {
+            physical_mode_ids.insert(&vehicle.physical_mode_id);
+        }
+    }
 
     navitia_proto::Route {
         name: Some(route.name.clone()),
         uri: Some(route.id.clone()),
         codes: route.codes.iter().map(make_pt_object_code).collect(),
         direction_type: route.direction_type.clone(),
+        physical_modes: physical_mode_ids
+            .iter()
+            .filter_map(|p| make_physical_mode(p, model))
+            .collect(),
         direction,
         ..Default::default()
     }
@@ -1228,7 +1247,7 @@ pub fn make_physical_mode(
     model
         .physical_mode(physical_mode_id)
         .map(|p| navitia_proto::PhysicalMode {
-            uri: Some(p.id.clone()),
+            uri: Some(format!("{}{}", PREFIX_ID_PHYSICAL_MODE, p.id)),
             name: Some(p.name.clone()),
         })
 }
@@ -1357,4 +1376,47 @@ pub fn make_equipments(
     }
 
     Some(equipments)
+}
+
+pub fn make_departure_response<'a>(
+    request_input: &NextStopTimeRequestInput<'a>,
+    responses: Vec<NextStopTimeResponse>,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::Response, Error> {
+    let proto = navitia_proto::Response {
+        feed_publishers: make_feed_publishers(model),
+        next_departures: responses
+            .iter()
+            .map(|response| {
+                let timezone = model.timezone(&response.vehicle_journey, &response.date.date());
+                let stop_times = model
+                    .stop_times(
+                        &response.vehicle_journey,
+                        &response.date.date(),
+                        response.stop_time_idx,
+                        response.stop_time_idx,
+                        &request_input.real_time_level,
+                    )
+                    .unwrap();
+                let stop_date_time =
+                    make_stop_datetimes(stop_times, timezone, response.date.date(), model).unwrap();
+                let route_id = model.route_name(&response.vehicle_journey);
+                let proto_route = model.route(route_id).map(|route| make_route(route, model));
+                navitia_proto::Passage {
+                    stop_point: make_stop_point(&response.stop_point, model),
+                    stop_date_time: stop_date_time[0].clone(),
+                    route: proto_route,
+                    pt_display_informations: Some(make_pt_display_info(
+                        &response.vehicle_journey,
+                        response.date.date(),
+                        &request_input.real_time_level,
+                        model,
+                    )),
+                }
+            })
+            .collect(),
+        ..Default::default()
+    };
+
+    Ok(proto)
 }
