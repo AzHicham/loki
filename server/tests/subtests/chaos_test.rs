@@ -528,7 +528,7 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
     let disruption_id = "no_service_on_route_rer_b_nord";
     let realtime_message =
-        create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period, &disruption_id);
+        create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period, disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message.clone()).await;
 
     // let's make the  request, but the realtime level
@@ -556,7 +556,7 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     }
 
     // then revert previously sent disruption
-    let cancel_realtime_message = create_cancel_disruption(&disruption_id);
+    let cancel_realtime_message = create_cancel_disruption(disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
 
     // let's make a request on the realtime level
@@ -784,7 +784,7 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     let realtime_message = create_no_service_disruption(
         &PtObject::StopPoint("stop_point:paris"),
         &dt_period,
-        &delete_massy_disruption_id,
+        delete_massy_disruption_id,
     );
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -842,7 +842,7 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     let realtime_message = create_no_service_disruption(
         &PtObject::StopPoint("stop_point:cdg"),
         &dt_period,
-        &delete_cdg_disruption_id,
+        delete_cdg_disruption_id,
     );
     crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -880,7 +880,7 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     }
 
     // let's cancel the disruption on stop_point cdg
-    let cancel_realtime_message = create_cancel_disruption(&delete_cdg_disruption_id);
+    let cancel_realtime_message = create_cancel_disruption(delete_cdg_disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
 
     // let's make the realtime level request
@@ -902,7 +902,7 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     }
 
     // let's cancel the disruption on stop_point massy
-    let cancel_realtime_message = create_cancel_disruption(&delete_massy_disruption_id);
+    let cancel_realtime_message = create_cancel_disruption(delete_massy_disruption_id);
     crate::send_realtime_message_and_wait_until_reception(config, cancel_realtime_message).await;
 
     // let's make the realtime level request
