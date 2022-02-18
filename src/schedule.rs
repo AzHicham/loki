@@ -131,6 +131,8 @@ where
 
     response
         .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.date.cmp(&rhs.date));
-
     response
+        .into_iter()
+        .take(request.nb_stoptimes as usize)
+        .collect()
 }

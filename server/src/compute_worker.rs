@@ -296,8 +296,8 @@ impl ComputeWorker {
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
                 let request_input = make_next_stop_times_request(&request, &model_refs).unwrap();
-                let mut filter_memory = FilterMemory::new();
                 let response = if let Some(filters) = &request_input.filters {
+                    let mut filter_memory = FilterMemory::new();
                     filter_memory.fill_allowed_stops_and_vehicles(&filters, &model_refs);
                     let data = TransitDataFiltered::new(data, &filter_memory);
                     next_departures(&request_input, &model_refs, &data)
@@ -305,7 +305,13 @@ impl ComputeWorker {
                     next_departures(&request_input, &model_refs, data)
                 };
 
-                make_departure_response(&request_input, response, &model_refs)
+                make_next_departure_response(
+                    &request_input,
+                    response,
+                    &model_refs,
+                    request_input.start_page,
+                    request_input.count,
+                )
             }
         }
     }
@@ -332,7 +338,7 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
-use crate::{navitia_proto::Pagination, response::make_departure_response};
+use crate::{navitia_proto::Pagination, response::make_next_departure_response};
 use launch::loki::{
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::{FilterMemory, TransitDataFiltered},
@@ -573,13 +579,15 @@ fn make_places_nearby_proto_response(
         (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
         _ => 0..0,
     };
+    let len = range.len();
+
     navitia_proto::Response {
-        places_nearby: pt_objects[range.clone()].to_owned(),
+        places_nearby: pt_objects[range].to_owned(),
         pagination: Some(Pagination {
             start_page: i32::try_from(start_page).unwrap_or_default(),
             total_result: i32::try_from(size).unwrap_or_default(),
             items_per_page: i32::try_from(count).unwrap_or_default(),
-            items_on_page: i32::try_from(range.len()).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
             ..Default::default()
         }),
         ..Default::default()

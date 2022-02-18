@@ -304,6 +304,17 @@ impl BaseModel {
             None => BTreeSet::new(),
         }
     }
+
+    pub fn physical_mode_id(&self, physical_mode_idx: Idx<PhysicalMode>) -> &str {
+        &self.model.physical_modes[physical_mode_idx].id
+    }
+
+    pub fn physical_modes_of_route(&self, route_id: &str) -> BTreeSet<Idx<PhysicalMode>> {
+        match self.model.routes.get_idx(route_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
 }
 
 // vehicle journey

@@ -1222,22 +1222,20 @@ pub fn make_route(route: &Route, model: &ModelRefs) -> navitia_proto::Route {
     } else {
         None
     };
-    let mut physical_mode_ids = HashSet::new();
-    for vehicle_idx in model.base_vehicle_journeys() {
-        let vehicle = model.vehicle_journey(&vehicle_idx);
-        if vehicle.route_id == route.id {
-            physical_mode_ids.insert(&vehicle.physical_mode_id);
-        }
-    }
+
+    let physical_modes_idx = model.physical_modes_of_route(&route.id);
 
     navitia_proto::Route {
         name: Some(route.name.clone()),
         uri: Some(route.id.clone()),
         codes: route.codes.iter().map(make_pt_object_code).collect(),
         direction_type: route.direction_type.clone(),
-        physical_modes: physical_mode_ids
+        physical_modes: physical_modes_idx
             .iter()
-            .filter_map(|p| make_physical_mode(p, model))
+            .filter_map(|idx| {
+                let id = model.physical_mode_id(*idx);
+                make_physical_mode(id, model)
+            })
             .collect(),
         direction,
         ..Default::default()
@@ -1459,43 +1457,79 @@ pub fn make_equipments(
     Some(equipments)
 }
 
-pub fn make_departure_response<'a>(
+fn make_passage<'a>(
+    request_input: &NextStopTimeRequestInput<'a>,
+    response: &NextStopTimeResponse,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::Passage, Error> {
+    let timezone = model.timezone(&response.vehicle_journey, &response.date.date());
+    let stop_times = model.stop_times(
+        &response.vehicle_journey,
+        &response.date.date(),
+        response.stop_time_idx,
+        response.stop_time_idx,
+        &request_input.real_time_level,
+    );
+    let stop_times = if let Some(stop_times) = stop_times {
+        stop_times
+    } else {
+        return Err(format_err!(""));
+    };
+    let mut stop_date_times =
+        make_stop_datetimes(stop_times, timezone, response.date.date(), model)?;
+    let stop_date_time = if stop_date_times.len() == 1 {
+        stop_date_times.pop().unwrap()
+    } else {
+        return Err(format_err!(""));
+    };
+
+    let route_id = model.route_name(&response.vehicle_journey);
+    let proto_route = model.route(route_id).map(|route| make_route(route, model));
+
+    Ok(navitia_proto::Passage {
+        stop_point: make_stop_point(&response.stop_point, model),
+        stop_date_time,
+        route: proto_route,
+        pt_display_informations: Some(make_pt_display_info(
+            &response.vehicle_journey,
+            response.date.date(),
+            &request_input.real_time_level,
+            model,
+        )),
+    })
+}
+
+pub fn make_next_departure_response<'a>(
     request_input: &NextStopTimeRequestInput<'a>,
     responses: Vec<NextStopTimeResponse>,
     model: &ModelRefs<'_>,
+    start_page: usize,
+    count: usize,
 ) -> Result<navitia_proto::Response, Error> {
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = responses.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    let len = range.len();
+
     let proto = navitia_proto::Response {
         feed_publishers: make_feed_publishers(model),
-        next_departures: responses
+        next_departures: responses[range]
             .iter()
-            .map(|response| {
-                let timezone = model.timezone(&response.vehicle_journey, &response.date.date());
-                let stop_times = model
-                    .stop_times(
-                        &response.vehicle_journey,
-                        &response.date.date(),
-                        response.stop_time_idx,
-                        response.stop_time_idx,
-                        &request_input.real_time_level,
-                    )
-                    .unwrap();
-                let stop_date_time =
-                    make_stop_datetimes(stop_times, timezone, response.date.date(), model).unwrap();
-                let route_id = model.route_name(&response.vehicle_journey);
-                let proto_route = model.route(route_id).map(|route| make_route(route, model));
-                navitia_proto::Passage {
-                    stop_point: make_stop_point(&response.stop_point, model),
-                    stop_date_time: stop_date_time[0].clone(),
-                    route: proto_route,
-                    pt_display_informations: Some(make_pt_display_info(
-                        &response.vehicle_journey,
-                        response.date.date(),
-                        &request_input.real_time_level,
-                        model,
-                    )),
-                }
-            })
+            .filter_map(|response| make_passage(request_input, response, model).ok())
             .collect(),
+        pagination: Some(navitia_proto::Pagination {
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
+            ..Default::default()
+        }),
         ..Default::default()
     };
 

@@ -47,6 +47,7 @@ use crate::{
 use transit_model::objects::{
     CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
+use typed_index_collection::Idx;
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
@@ -349,11 +350,22 @@ impl<'model> ModelRefs<'model> {
         self.base.contains_stop_area_id(id)
     }
 
+    pub fn physical_mode_id(&self, physical_mode_idx: Idx<PhysicalMode>) -> &str {
+        self.base.physical_mode_id(physical_mode_idx)
+    }
+
     pub fn stop_points_of_stop_area(&self, stop_area_id: &str) -> Vec<StopPointIdx> {
         self.base
             .stop_points_of_stop_area(stop_area_id)
             .into_iter()
             .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn physical_modes_of_route(&self, route_id: &str) -> Vec<Idx<PhysicalMode>> {
+        self.base
+            .physical_modes_of_route(route_id)
+            .into_iter()
             .collect()
     }
 }
