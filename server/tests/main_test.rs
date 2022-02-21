@@ -259,7 +259,7 @@ async fn start_postgres_docker() -> String {
     let id = docker.containers().create(&options).await.unwrap().id;
 
     docker.containers().get(&id).start().await.unwrap();
-    println!("{id}");
+    //  println!("{id}");
     id
 }
 

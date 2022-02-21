@@ -41,6 +41,7 @@ use super::{
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, Stop, TimetablesIter,
 };
+use crate::timetables::day_to_timetable::LocalZone;
 use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
@@ -52,7 +53,7 @@ use crate::{
     timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
     RealTimeLevel,
 };
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use tracing::log::error;
 
 pub type Time = SecondsSinceDatasetUTCStart;
@@ -301,6 +302,7 @@ impl TimetablesTrait for DailyTimetables {
         days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
     ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
@@ -396,6 +398,7 @@ impl TimetablesTrait for DailyTimetables {
         mission: &Self::Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
         _calendar: &Calendar,
         _days_patterns: &mut DaysPatterns,

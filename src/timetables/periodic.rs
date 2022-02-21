@@ -58,6 +58,7 @@ use chrono_tz::Tz as TimeZone;
 use tracing::log::error;
 
 use crate::loads_data::Load;
+use crate::timetables::day_to_timetable::LocalZone;
 
 pub type Time = SecondsSinceTimezonedDayStart;
 #[derive(Debug)]
@@ -418,6 +419,7 @@ impl TimetablesTrait for PeriodicTimetables {
         days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
     ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
@@ -515,6 +517,7 @@ impl TimetablesTrait for PeriodicTimetables {
         mission: &Self::Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
         _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,

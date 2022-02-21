@@ -36,6 +36,7 @@
 
 use chrono::Local;
 use std::collections::HashMap;
+use std::iter;
 
 use crate::{
     models::VehicleJourneyIdx,
@@ -50,7 +51,7 @@ use crate::{
 pub type LocalZone = Option<u16>;
 
 pub struct VehicleJourneyToTimetable<Timetable> {
-    data: HashMap<(VehicleJourneyIdx, LocalZone), DayToTimetable<Timetable>>,
+    data: HashMap<VehicleJourneyIdx, HashMap<LocalZone, DayToTimetable<Timetable>>>,
 }
 
 struct DayToTimetable<Timetable> {
@@ -87,8 +88,10 @@ where
     ) -> Result<(), InsertionError> {
         let day_to_timetable = self
             .data
-            .entry((vehicle_journey_idx.clone(), *local_zone))
-            .or_insert_with(DayToTimetable::new);
+            .entry(vehicle_journey_idx.clone())
+            .or_insert(HashMap::new())
+            .entry(local_zone.clone())
+            .or_insert(DayToTimetable::new());
 
         let base_insert_result = day_to_timetable.base.insert(
             days_pattern_to_insert,
@@ -130,8 +133,10 @@ where
     ) -> Result<(), InsertionError> {
         let day_to_timetable = self
             .data
-            .entry((vehicle_journey_idx.clone(), *local_zone))
-            .or_insert_with(DayToTimetable::new);
+            .entry(vehicle_journey_idx.clone())
+            .or_insert(HashMap::new())
+            .entry(local_zone.clone())
+            .or_insert(DayToTimetable::new());
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
             days_pattern_to_insert,
@@ -150,6 +155,24 @@ where
         Ok(())
     }
 
+    fn get_mut_day_to_timetable(
+        &mut self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
+    ) -> Option<&mut DayToTimetable<Timetable>> {
+        let has_day_to_timetable = self.data.get_mut(vehicle_journey_idx)?;
+        has_day_to_timetable.get_mut(local_zone)
+    }
+
+    fn get_day_to_timetable(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
+    ) -> Option<&DayToTimetable<Timetable>> {
+        let has_day_to_timetable = self.data.get(vehicle_journey_idx)?;
+        has_day_to_timetable.get(local_zone)
+    }
+
     pub fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
@@ -158,8 +181,7 @@ where
         days_patterns: &mut DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let day_to_timetable = self
-            .data
-            .get_mut(&(vehicle_journey_idx.clone(), *local_zone))
+            .get_mut_day_to_timetable(vehicle_journey_idx, local_zone)
             .ok_or(Unknown::VehicleJourneyIdx)?;
         day_to_timetable
             .real_time
@@ -172,11 +194,10 @@ where
         vehicle_journey_idx: &VehicleJourneyIdx,
         local_zone: &LocalZone,
     ) -> bool {
-        let has_day_to_timetable = self.data.get(&(vehicle_journey_idx.clone(), *local_zone));
-        if let Some(day_to_timetable) = has_day_to_timetable {
-            !day_to_timetable.base.is_empty()
-        } else {
-            false
+        let day_to_timetable = self.get_day_to_timetable(vehicle_journey_idx, local_zone);
+        match day_to_timetable {
+            Some(day_to_timetable) => !day_to_timetable.base.is_empty(),
+            None => false,
         }
     }
 
@@ -187,11 +208,20 @@ where
         day: &DaysSinceDatasetStart,
         days_patterns: &DaysPatterns,
     ) -> bool {
-        let has_day_to_timetable = self.data.get(&(vehicle_journey_idx.clone(), *local_zone));
-        if let Some(day_to_timetable) = has_day_to_timetable {
-            day_to_timetable.real_time.get(day, days_patterns).is_some()
-        } else {
-            false
+        let day_to_timetable = self.get_day_to_timetable(vehicle_journey_idx, local_zone);
+        match day_to_timetable {
+            Some(day_to_timetable) => day_to_timetable.real_time.get(day, days_patterns).is_some(),
+            None => false,
+        }
+    }
+
+    pub fn get_vehicle_local_zones(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+    ) -> Vec<LocalZone> {
+        match self.data.get(vehicle_journey_idx) {
+            Some(map) => map.keys().map(|k| k.clone()).collect(),
+            None => Vec::new(),
         }
     }
 }

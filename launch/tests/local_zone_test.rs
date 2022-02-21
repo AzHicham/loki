@@ -93,6 +93,10 @@ fn test_local_zone_routing(
     assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
 
     let responses = build_and_solve(&model_refs, &config)?;
+
+    // The stops "A" and "B" are in the same local zone
+    // so we cannot go from "A" to "B" with the vehicle_journey "LocalZone"
+    // thus we should find no journey for this request
     assert_eq!(responses.len(), 0);
 
     let config = Config::new("2022-01-01T09:59:00", "A", "C");
@@ -104,6 +108,8 @@ fn test_local_zone_routing(
 
     let responses = build_and_solve(&model_refs, &config)?;
 
+    // The stops "A" and "C" are not in the same zone
+    // so we should get a journey in the response
     assert_eq!(responses.len(), 1);
 
     let journey = &responses[0];
@@ -113,10 +119,6 @@ fn test_local_zone_routing(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_local_zone_timetable(
     #[case] comparator_type: ComparatorType,
