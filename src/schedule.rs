@@ -69,8 +69,6 @@ pub struct NextStopTimeRequestInput<'a> {
     pub until_datetime: NaiveDateTime,
     pub max_response: u32,
     pub real_time_level: RealTimeLevel,
-    pub start_page: usize,
-    pub count: usize,
 }
 
 pub struct NextStopTimeResponse {
@@ -197,10 +195,9 @@ where
     response.sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| {
         lhs.boarding_time.cmp(&rhs.boarding_time)
     });
-    let start_index = request.start_page * request.count;
+
     Ok(response
         .into_iter()
-        .skip(start_index)
-        .take(request.count)
+        .take(request.max_response as usize)
         .collect())
 }

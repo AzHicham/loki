@@ -305,6 +305,8 @@ impl ComputeWorker {
                 } else {
                     next_departures(&request_input, data)
                 };
+                let start_page = usize::try_from(request.start_page).unwrap_or(0);
+                let count = usize::try_from(request.count).unwrap_or(0);
 
                 let response_proto = match response {
                     Result::Err(err) => {
@@ -316,8 +318,8 @@ impl ComputeWorker {
                             &request_input,
                             response,
                             &model_refs,
-                            request_input.start_page,
-                            request_input.count,
+                            start_page,
+                            count,
                         );
                         match response_result {
                             Result::Err(err) => {
@@ -653,15 +655,6 @@ fn make_next_stop_times_request<'a>(
         }
     };
 
-    let start_page = usize::try_from(proto.start_page).with_context(|| {
-        format!(
-            "start_page {} cannot be converted to usize.",
-            proto.start_page
-        )
-    })?;
-    let count = usize::try_from(proto.count)
-        .with_context(|| format!("count {} cannot be converted to usize.", proto.count))?;
-
     Ok(NextStopTimeRequestInput {
         input_stop_points,
         forbidden_vehicle,
@@ -669,7 +662,5 @@ fn make_next_stop_times_request<'a>(
         until_datetime,
         max_response,
         real_time_level,
-        start_page,
-        count,
     })
 }

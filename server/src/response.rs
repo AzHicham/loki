@@ -1473,14 +1473,17 @@ fn make_passage<'a>(
     let stop_times = if let Some(stop_times) = stop_times {
         stop_times
     } else {
-        return Err(format_err!(""));
+        return Err(format_err!(
+            "make_passage failed to compute stop_times for vehicle {:?} at date {:?} and stop_time_idx : {:?}",
+            response.vehicle_journey, response.vehicle_date, response.stop_time_idx
+        ));
     };
     let mut stop_date_times =
         make_stop_datetimes(stop_times, timezone, response.vehicle_date, model)?;
     let stop_date_time = if stop_date_times.len() == 1 {
         stop_date_times.pop().unwrap()
     } else {
-        return Err(format_err!(""));
+        return Err(format_err!("make_passage expects a stop_times of length 1"));
     };
 
     let route_id = model.route_name(&response.vehicle_journey);
@@ -1519,7 +1522,7 @@ pub fn make_next_departure_proto_response<'a>(
 
     let proto = navitia_proto::Response {
         feed_publishers: make_feed_publishers(model),
-        next_departures: responses
+        next_departures: responses[range]
             .iter()
             .filter_map(|response| make_passage(request_input, response, model).ok())
             .collect(),
