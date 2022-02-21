@@ -162,7 +162,7 @@ impl DataWorker {
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
         if let Err(err) = self.reload_chaos().await {
-            error!("Error while reloading kirin. {:?}", err);
+            error!("Error while reloading chaos. {:?}", err);
         }
 
         let rabbitmq_connect_retry_interval = Duration::from_secs(
