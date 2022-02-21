@@ -47,7 +47,7 @@ use launch::{
     loki::{
         self,
         chrono::{Duration, Utc},
-        filters::{parse_filter, Filters},
+        filters::Filters,
         models::{
             base_model::{BaseModel, PREFIX_ID_STOP_POINT},
             real_time_model::RealTimeModel,
@@ -296,13 +296,14 @@ impl ComputeWorker {
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
                 let request_input = make_next_stop_times_request(&request, &model_refs).unwrap();
-                let response = if let Some(filters) = &request_input.filters {
+
+                let response = if let Some(filters) = &request_input.forbidden_vehicle {
                     let mut filter_memory = FilterMemory::new();
                     filter_memory.fill_allowed_stops_and_vehicles(&filters, &model_refs);
                     let data = TransitDataFiltered::new(data, &filter_memory);
-                    next_departures(&request_input, &model_refs, &data)
+                    next_departures(&request_input, &data)
                 } else {
-                    next_departures(&request_input, &model_refs, data)
+                    next_departures(&request_input, data)
                 };
 
                 let response_proto = match response {
@@ -358,6 +359,7 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
 }
 
 use crate::{navitia_proto::Pagination, response::make_next_departure_proto_response};
+use launch::loki::schedule::generate_stops_for_next_stoptimes_request;
 use launch::loki::{
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::{FilterMemory, TransitDataFiltered},
@@ -617,17 +619,14 @@ fn make_next_stop_times_request<'a>(
     proto: &'a navitia_proto::NextStopTimeRequest,
     model: &ModelRefs,
 ) -> Result<NextStopTimeRequestInput<'a>, Error> {
-    let input = if let Some(input) = parse_filter(model, &proto.departure_filter, "departure_input")
-    {
-        input
-    } else {
-        return Err(format_err!(
-            "Cannot parse departure_filter {}",
-            proto.departure_filter
-        ));
-    };
+    let input_stop_points = generate_stops_for_next_stoptimes_request(
+        &proto.departure_filter,
+        &proto.forbidden_uri,
+        model,
+    );
 
-    let filters = Filters::new(model, &proto.forbidden_uri, &[], false, false);
+    let forbidden_vehicle = Filters::new(model, &proto.forbidden_uri, &[], false, false);
+
     let from_datetime = if let Some(proto_datetime) = proto.from_datetime {
         let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(
@@ -644,7 +643,7 @@ fn make_next_stop_times_request<'a>(
 
     let until_datetime = from_datetime + Duration::seconds(duration.into());
 
-    let nb_stoptimes = u32::try_from(proto.nb_stoptimes)
+    let max_response = u32::try_from(proto.nb_stoptimes)
         .with_context(|| format!("nb_stoptimes {} cannot be converted to u32.", proto.count))?;
 
     let real_time_level = match proto.realtime_level() {
@@ -664,11 +663,11 @@ fn make_next_stop_times_request<'a>(
         .with_context(|| format!("count {} cannot be converted to usize.", proto.count))?;
 
     Ok(NextStopTimeRequestInput {
-        input,
-        filters,
+        input_stop_points,
+        forbidden_vehicle,
         from_datetime,
         until_datetime,
-        nb_stoptimes,
+        max_response,
         real_time_level,
         start_page,
         count,

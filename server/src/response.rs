@@ -1462,10 +1462,10 @@ fn make_passage<'a>(
     response: &NextStopTimeResponse,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Passage, Error> {
-    let timezone = model.timezone(&response.vehicle_journey, &response.datetime.date());
+    let timezone = model.timezone(&response.vehicle_journey, &response.vehicle_date);
     let stop_times = model.stop_times(
         &response.vehicle_journey,
-        &response.datetime.date(),
+        &response.vehicle_date,
         response.stop_time_idx,
         response.stop_time_idx,
         &request_input.real_time_level,
@@ -1476,7 +1476,7 @@ fn make_passage<'a>(
         return Err(format_err!(""));
     };
     let mut stop_date_times =
-        make_stop_datetimes(stop_times, timezone, response.datetime.date(), model)?;
+        make_stop_datetimes(stop_times, timezone, response.vehicle_date, model)?;
     let stop_date_time = if stop_date_times.len() == 1 {
         stop_date_times.pop().unwrap()
     } else {
@@ -1492,7 +1492,7 @@ fn make_passage<'a>(
         route: proto_route,
         pt_display_informations: Some(make_pt_display_info(
             &response.vehicle_journey,
-            response.datetime.date(),
+            response.vehicle_date,
             &request_input.real_time_level,
             model,
         )),
@@ -1519,7 +1519,7 @@ pub fn make_next_departure_proto_response<'a>(
 
     let proto = navitia_proto::Response {
         feed_publishers: make_feed_publishers(model),
-        next_departures: responses[range]
+        next_departures: responses
             .iter()
             .filter_map(|response| make_passage(request_input, response, model).ok())
             .collect(),

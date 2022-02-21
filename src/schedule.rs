@@ -34,14 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::filters::VehicleFilter;
+use crate::filters::parse_filter;
 use crate::{
-    filters::{Filter, Filters, StopFilter},
+    filters::{Filter, Filters, StopFilter, VehicleFilter},
     models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx},
     transit_data::data_interface,
     PositiveDuration, RealTimeLevel,
 };
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use std::fmt;
 use tracing::warn;
 
@@ -63,11 +63,11 @@ impl fmt::Display for NextStopTimeError {
 }
 
 pub struct NextStopTimeRequestInput<'a> {
-    pub input: Filter<'a>,
-    pub filters: Option<Filters<'a>>,
+    pub input_stop_points: Vec<StopPointIdx>,
+    pub forbidden_vehicle: Option<Filters<'a>>,
     pub from_datetime: NaiveDateTime,
     pub until_datetime: NaiveDateTime,
-    pub nb_stoptimes: u32,
+    pub max_response: u32,
     pub real_time_level: RealTimeLevel,
     pub start_page: usize,
     pub count: usize,
@@ -76,32 +76,57 @@ pub struct NextStopTimeRequestInput<'a> {
 pub struct NextStopTimeResponse {
     pub stop_point: StopPointIdx,
     pub vehicle_journey: VehicleJourneyIdx,
-    pub datetime: NaiveDateTime,
+    pub boarding_time: NaiveDateTime,
+    pub vehicle_date: NaiveDate,
     pub stop_time_idx: StopTimeIdx,
 }
 
-pub fn generate_stop_for_next_stoptimes<'a, 'data>(
-    input: &Filter<'a>,
+pub fn generate_stops_for_next_stoptimes_request<'a, 'data, T>(
+    input_str: &'a T,
+    forbidden_uri: &'a [T],
     model: &'data ModelRefs<'data>,
-) -> Option<Vec<StopPointIdx>> {
-    match input {
-        Filter::Stop(StopFilter::StopPoint(id)) => model.stop_point_idx(id).map(|idx| vec![idx]),
-        Filter::Stop(StopFilter::StopArea(id)) => Some(model.stop_points_of_stop_area(id)),
-        Filter::Vehicle(VehicleFilter::Line(id)) => Some(model.stop_points_of_line(id)),
-        Filter::Vehicle(VehicleFilter::Route(id)) => Some(model.stop_points_of_route(id)),
-        Filter::Vehicle(VehicleFilter::Network(id)) => Some(model.stop_points_of_network(id)),
-        Filter::Vehicle(VehicleFilter::PhysicalMode(id)) => {
-            Some(model.stop_points_of_physical_mode(id))
+) -> Vec<StopPointIdx>
+where
+    T: AsRef<str>,
+{
+    if let Some(input_filter) =
+        parse_filter(model, input_str.as_ref(), "next_stoptimes_request_input")
+    {
+        let mut stop_points = match input_filter {
+            Filter::Stop(StopFilter::StopPoint(id)) => model
+                .stop_point_idx(id)
+                .map_or_else(Vec::new, |idx| vec![idx]),
+            Filter::Stop(StopFilter::StopArea(id)) => model.stop_points_of_stop_area(id),
+            Filter::Vehicle(VehicleFilter::Line(id)) => model.stop_points_of_line(id),
+            Filter::Vehicle(VehicleFilter::Route(id)) => model.stop_points_of_route(id),
+            Filter::Vehicle(VehicleFilter::Network(id)) => model.stop_points_of_network(id),
+            Filter::Vehicle(VehicleFilter::PhysicalMode(id)) => {
+                model.stop_points_of_physical_mode(id)
+            }
+            Filter::Vehicle(VehicleFilter::CommercialMode(id)) => {
+                model.stop_points_of_commercial_mode(id)
+            }
+        };
+
+        for uri in forbidden_uri {
+            let filter = parse_filter(model, uri.as_ref(), "next_stoptimes_forbidden_uri");
+            let forbidden_stops = match filter {
+                Some(Filter::Stop(StopFilter::StopPoint(id))) => model
+                    .stop_point_idx(id)
+                    .map_or_else(Vec::new, |idx| vec![idx]),
+                Some(Filter::Stop(StopFilter::StopArea(id))) => model.stop_points_of_stop_area(id),
+                _ => vec![],
+            };
+            stop_points.retain(|idx| !forbidden_stops.contains(idx))
         }
-        Filter::Vehicle(VehicleFilter::CommercialMode(id)) => {
-            Some(model.stop_points_of_commercial_mode(id))
-        }
+        stop_points
+    } else {
+        vec![]
     }
 }
 
 pub fn next_departures<'data, 'filter, Data>(
     request: &'data NextStopTimeRequestInput<'filter>,
-    model: &'data ModelRefs<'data>,
     data: &'data Data,
 ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
 where
@@ -135,35 +160,33 @@ where
             );
             NextStopTimeError::BadDateTimeError
         })?;
-    let stop_points_idx = generate_stop_for_next_stoptimes(&request.input, model);
 
-    if let Some(stop_points_idx) = stop_points_idx {
-        for stop_idx in stop_points_idx {
-            if let Some(stop) = data.stop_point_idx_to_stop(&stop_idx) {
-                for (mission, position) in data.missions_at(&stop) {
-                    let mut count = 0;
-                    let mut next_time = from_datetime;
-                    'outer: while count < request.nb_stoptimes {
-                        let earliest_trip_time = data.earliest_trip_to_board_at(
-                            &next_time,
-                            &mission,
-                            &position,
-                            &request.real_time_level,
-                        );
-                        match earliest_trip_time {
-                            Some((trip, boarding_time, _)) if boarding_time < until_datetime => {
-                                response.push(NextStopTimeResponse {
-                                    stop_point: stop_idx.clone(),
-                                    vehicle_journey: data.vehicle_journey_idx(&trip),
-                                    datetime: data.to_naive_datetime(&boarding_time),
-                                    stop_time_idx: data.stoptime_idx(&position, &trip),
-                                });
-                                count += 1;
-                                next_time = boarding_time + PositiveDuration { seconds: 1 };
-                            }
-                            _ => {
-                                break 'outer;
-                            }
+    for stop_idx in &request.input_stop_points {
+        if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
+            for (mission, position) in data.missions_at(&stop) {
+                let mut count = 0;
+                let mut next_time = from_datetime;
+                'inner: while count < request.max_response {
+                    let earliest_trip_time = data.earliest_trip_to_board_at(
+                        &next_time,
+                        &mission,
+                        &position,
+                        &request.real_time_level,
+                    );
+                    match earliest_trip_time {
+                        Some((trip, boarding_time, _)) if boarding_time < until_datetime => {
+                            response.push(NextStopTimeResponse {
+                                stop_point: stop_idx.clone(),
+                                vehicle_journey: data.vehicle_journey_idx(&trip),
+                                boarding_time: data.to_naive_datetime(&boarding_time),
+                                vehicle_date: data.day_of(&trip),
+                                stop_time_idx: data.stoptime_idx(&position, &trip),
+                            });
+                            count += 1;
+                            next_time = boarding_time + PositiveDuration { seconds: 1 };
+                        }
+                        _ => {
+                            break 'inner;
                         }
                     }
                 }
@@ -172,10 +195,12 @@ where
     }
 
     response.sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| {
-        lhs.datetime.cmp(&rhs.datetime)
+        lhs.boarding_time.cmp(&rhs.boarding_time)
     });
+    let start_index = request.start_page * request.count;
     Ok(response
         .into_iter()
-        .take(request.nb_stoptimes as usize)
+        .skip(start_index)
+        .take(request.count)
         .collect())
 }
