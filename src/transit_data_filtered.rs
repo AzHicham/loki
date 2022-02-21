@@ -294,6 +294,58 @@ where
         }
     }
 
+    fn earliest_trip_that_debark_at(
+        &self,
+        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.earliest_filtered_trip_that_debark_at(
+                waiting_time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    fn earliest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let stop = self.stop_of(position, mission);
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.earliest_filtered_trip_that_debark_at(
+                waiting_time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx: &VehicleJourneyIdx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                        && filter(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
+
     fn latest_trip_that_debark_at(
         &self,
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,

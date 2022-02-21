@@ -166,6 +166,29 @@ pub trait Timetables: Types {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
+    fn earliest_trip_that_debark_at(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
+
+    fn earliest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool;
+
     fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,

@@ -34,9 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::filters::parse_filter;
 use crate::{
-    filters::{Filter, Filters, StopFilter, VehicleFilter},
+    filters::{parse_filter, Filter, Filters, StopFilter, VehicleFilter},
     models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx},
     transit_data::data_interface,
     PositiveDuration, RealTimeLevel,
@@ -74,7 +73,7 @@ pub struct NextStopTimeRequestInput<'a> {
 pub struct NextStopTimeResponse {
     pub stop_point: StopPointIdx,
     pub vehicle_journey: VehicleJourneyIdx,
-    pub boarding_time: NaiveDateTime,
+    pub time: NaiveDateTime,
     pub vehicle_date: NaiveDate,
     pub stop_time_idx: StopTimeIdx,
 }
@@ -176,7 +175,7 @@ where
                             response.push(NextStopTimeResponse {
                                 stop_point: stop_idx.clone(),
                                 vehicle_journey: data.vehicle_journey_idx(&trip),
-                                boarding_time: data.to_naive_datetime(&boarding_time),
+                                time: data.to_naive_datetime(&boarding_time),
                                 vehicle_date: data.day_of(&trip),
                                 stop_time_idx: data.stoptime_idx(&position, &trip),
                             });
@@ -192,9 +191,86 @@ where
         }
     }
 
-    response.sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| {
-        lhs.boarding_time.cmp(&rhs.boarding_time)
-    });
+    response
+        .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
+
+    Ok(response
+        .into_iter()
+        .take(request.max_response as usize)
+        .collect())
+}
+
+pub fn next_arrivals<'data, 'filter, Data>(
+    request: &'data NextStopTimeRequestInput<'filter>,
+    data: &'data Data,
+) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
+where
+    Data: data_interface::Data + data_interface::DataIters<'data>,
+{
+    let mut response = Vec::new();
+
+    let calendar = data.calendar();
+    let from_datetime = calendar
+        .from_naive_datetime(&request.from_datetime)
+        .ok_or_else(|| {
+            warn!(
+                "The requested from_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            NextStopTimeError::BadDateTimeError
+        })?;
+    let until_datetime = data
+        .calendar()
+        .from_naive_datetime(&request.until_datetime)
+        .ok_or_else(|| {
+            warn!(
+                "The requested until_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            NextStopTimeError::BadDateTimeError
+        })?;
+
+    for stop_idx in &request.input_stop_points {
+        if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
+            for (mission, position) in data.missions_at(&stop) {
+                let mut count = 0;
+                let mut next_time = from_datetime;
+                'inner: while count < request.max_response {
+                    let earliest_trip_time = data.earliest_trip_that_debark_at(
+                        &next_time,
+                        &mission,
+                        &position,
+                        &request.real_time_level,
+                    );
+                    match earliest_trip_time {
+                        Some((trip, debark_time, _)) if debark_time < until_datetime => {
+                            response.push(NextStopTimeResponse {
+                                stop_point: stop_idx.clone(),
+                                vehicle_journey: data.vehicle_journey_idx(&trip),
+                                time: data.to_naive_datetime(&debark_time),
+                                vehicle_date: data.day_of(&trip),
+                                stop_time_idx: data.stoptime_idx(&position, &trip),
+                            });
+                            count += 1;
+                            next_time = debark_time + PositiveDuration { seconds: 1 };
+                        }
+                        _ => {
+                            break 'inner;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    response
+        .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
 
     Ok(response
         .into_iter()

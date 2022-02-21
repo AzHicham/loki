@@ -48,12 +48,18 @@ use loki::{
     RequestIO, RequestInput, RequestTypes as RequestTypesTrait, RequestWithIters,
 };
 
-use crate::datetime::DateTimeRepresent;
-
 use super::config;
-use crate::loki::{DataTrait, TransitData};
+use crate::{
+    datetime::DateTimeRepresent,
+    loki::{DataTrait, TransitData},
+};
+use loki::places_nearby::{places_nearby_impl, BadPlacesNearby, PlacesNearbyIter};
 use loki::{
     request::{self, generic_request::RequestTypes},
+    schedule::{
+        next_arrivals, next_departures, NextStopTimeError, NextStopTimeRequestInput,
+        NextStopTimeResponse,
+    },
     timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::TransitDataFiltered,
 };
@@ -77,7 +83,7 @@ impl Solver {
             .fill_allowed_stops_and_vehicles(filters, model);
     }
 
-    pub fn solve_request<Timetables>(
+    pub fn solve_journey_request<Timetables>(
         &mut self,
         data: &TransitData<Timetables>,
         model: &ModelRefs<'_>,
@@ -177,6 +183,67 @@ impl Solver {
             };
             Ok(responses)
         }
+    }
+
+    pub fn solve_next_departure<'r, Timetables>(
+        &mut self,
+        data: &TransitData<Timetables>,
+        model: &ModelRefs<'_>,
+        request_input: &NextStopTimeRequestInput<'r>,
+    ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
+    where
+        Self: Sized,
+        Timetables: TimetablesTrait<
+            Mission = generic_request::Mission,
+            Position = generic_request::Position,
+            Trip = generic_request::Trip,
+        >,
+        Timetables: for<'a> TimetablesIter<'a>,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        if let Some(filters) = &request_input.forbidden_vehicle {
+            self.fill_allowed_stops_and_vehicles(model, filters);
+            let data = TransitDataFiltered::new(data, &self.filter_memory);
+            next_departures(request_input, &data)
+        } else {
+            next_departures(request_input, data)
+        }
+    }
+
+    pub fn solve_next_arrivals<'r, Timetables>(
+        &mut self,
+        data: &TransitData<Timetables>,
+        model: &ModelRefs<'_>,
+        request_input: &NextStopTimeRequestInput<'r>,
+    ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
+    where
+        Self: Sized,
+        Timetables: TimetablesTrait<
+            Mission = generic_request::Mission,
+            Position = generic_request::Position,
+            Trip = generic_request::Trip,
+        >,
+        Timetables: for<'a> TimetablesIter<'a>,
+        Timetables::Mission: 'static,
+        Timetables::Position: 'static,
+    {
+        if let Some(filters) = &request_input.forbidden_vehicle {
+            self.fill_allowed_stops_and_vehicles(model, filters);
+            let data = TransitDataFiltered::new(data, &self.filter_memory);
+            next_arrivals(request_input, &data)
+        } else {
+            next_arrivals(request_input, data)
+        }
+    }
+
+    pub fn solve_places_nearby<'model>(
+        &self,
+        models: &ModelRefs<'model>,
+        uri: &str,
+        radius: f64,
+    ) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
+        places_nearby_impl(models, uri, radius)
     }
 }
 

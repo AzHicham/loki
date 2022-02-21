@@ -304,6 +304,105 @@ impl TimetablesTrait for PeriodicTimetables {
         )
     }
 
+    fn earliest_trip_that_debark_at(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.earliest_filtered_trip_that_debark_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            |_| true,
+            calendar,
+            days_patterns,
+        )
+    }
+
+    fn earliest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let has_earliest_and_latest_board_time =
+            self.timetables.earliest_and_latest_board_time(position);
+
+        // if there is no earliest/latest board time, it means that this position cannot be boarded
+        // and we return None
+        let (_earliest_board_time_in_day, _latest_board_time_in_day) =
+            has_earliest_and_latest_board_time.map(|(earliest, latest)| (earliest, latest))?;
+
+        let timezone = self.timetables.timezone_data(mission);
+
+        let decompositions = calendar.decompositions(
+            waiting_time,
+            timezone,
+            SecondsSinceTimezonedDayStart::max(),
+            SecondsSinceTimezonedDayStart::min(),
+            // *latest_board_time_in_day,
+            // *earliest_board_time_in_day,
+        );
+        let mut best_vehicle_day_and_its_arrival_timeload_at_next_position: Option<(
+            Vehicle,
+            DaysSinceDatasetStart,
+            SecondsSinceDatasetUTCStart,
+            Load,
+        )> = None;
+        for (waiting_day, waiting_time_in_day) in decompositions {
+            let has_vehicle = self.timetables.earliest_filtered_vehicle_that_debark(
+                &waiting_time_in_day,
+                mission,
+                position,
+                |vehicle_data| {
+                    let days_pattern = match real_time_level {
+                        RealTimeLevel::Base => vehicle_data.base_days_pattern,
+                        RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+                    };
+                    days_patterns.is_allowed(&days_pattern, &waiting_day)
+                        && filter(&vehicle_data.vehicle_journey_idx)
+                },
+            );
+            if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
+                let arrival_time_at_next_stop =
+                    calendar.compose(&waiting_day, arrival_time_in_day_at_next_stop, timezone);
+
+                if let Some((_, _, best_arrival_time, best_load)) =
+                    &best_vehicle_day_and_its_arrival_timeload_at_next_position
+                {
+                    if arrival_time_at_next_stop < *best_arrival_time
+                        || (arrival_time_at_next_stop == *best_arrival_time && load < best_load)
+                    {
+                        best_vehicle_day_and_its_arrival_timeload_at_next_position =
+                            Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
+                    }
+                } else {
+                    best_vehicle_day_and_its_arrival_timeload_at_next_position =
+                        Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
+                }
+            }
+        }
+
+        best_vehicle_day_and_its_arrival_timeload_at_next_position.map(
+            |(vehicle, day, arrival_time_at_next_stop, load)| {
+                let trip = Trip { vehicle, day };
+                (trip, arrival_time_at_next_stop, load)
+            },
+        )
+    }
+
     fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,

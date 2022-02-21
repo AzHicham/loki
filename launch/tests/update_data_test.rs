@@ -116,7 +116,7 @@ where
 
     {
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -148,7 +148,7 @@ where
     {
         let mut request_input = utils::make_request_from_config(&config)?;
         request_input.real_time_level = RealTimeLevel::RealTime;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -163,7 +163,7 @@ where
     {
         let config = Config::new("2020-01-02T08:00:00", "A", "G");
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -253,7 +253,7 @@ where
 
     {
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -280,7 +280,7 @@ where
     {
         let mut request_input = utils::make_request_from_config(&config)?;
         request_input.real_time_level = RealTimeLevel::RealTime;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -307,7 +307,7 @@ where
     {
         let mut request_input = utils::make_request_from_config(&config)?;
         request_input.real_time_level = RealTimeLevel::RealTime;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -334,7 +334,7 @@ where
     {
         let mut request_input = utils::make_request_from_config(&config)?;
         request_input.real_time_level = RealTimeLevel::RealTime;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -412,7 +412,7 @@ where
 
     {
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -438,7 +438,7 @@ where
 
     {
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -464,7 +464,7 @@ where
 
     {
         let request_input = utils::make_request_from_config(&config)?;
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -537,7 +537,7 @@ where
 
     {
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -591,7 +591,7 @@ where
 
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,
@@ -610,7 +610,7 @@ where
         request_input.real_time_level = RealTimeLevel::Base;
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-        let responses = solver.solve_request(
+        let responses = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,

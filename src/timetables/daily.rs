@@ -239,6 +239,61 @@ impl TimetablesTrait for DailyTimetables {
             })
     }
 
+    fn earliest_trip_that_debark_at(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        calendar: &Calendar,
+        days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+        self.earliest_filtered_trip_that_debark_at(
+            waiting_time,
+            mission,
+            position,
+            real_time_level,
+            |_| true,
+            calendar,
+            days_patterns,
+        )
+    }
+
+    fn earliest_filtered_trip_that_debark_at<Filter>(
+        &self,
+        waiting_time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+        _calendar: &Calendar,
+        _days_patterns: &DaysPatterns,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let vehicle_data_filter = |vehicle_data: &VehicleData| {
+            let is_valid = match real_time_level {
+                RealTimeLevel::Base => vehicle_data.is_base,
+                RealTimeLevel::RealTime => vehicle_data.is_real_time,
+            };
+            is_valid && filter(&vehicle_data.vehicle_journey_idx)
+        };
+
+        self.timetables
+            .earliest_filtered_vehicle_that_debark(
+                waiting_time,
+                mission,
+                position,
+                vehicle_data_filter,
+            )
+            .map(|(vehicle, time, load)| {
+                let day = self.timetables.vehicle_data(&vehicle).day;
+                let trip = Trip { vehicle, day };
+                (trip, *time, *load)
+            })
+    }
+
     fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
@@ -287,6 +342,47 @@ impl TimetablesTrait for DailyTimetables {
                 let trip = Trip { vehicle, day };
                 (trip, *time, *load)
             })
+    }
+
+    fn remove(
+        &mut self,
+        mission: &Self::Mission,
+        day: &DaysSinceDatasetStart,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        real_time_level: &RealTimeLevel,
+        _calendar: &Calendar,
+        _days_patterns: &mut DaysPatterns,
+    ) {
+        let timetable_data = self.timetables.timetable_data_mut(mission);
+
+        let nb_vehicle_updated = timetable_data.update_vehicles_data(|vehicle_data| {
+            let is_valid = match real_time_level {
+                RealTimeLevel::Base => vehicle_data.is_base,
+                RealTimeLevel::RealTime => vehicle_data.is_real_time,
+            };
+
+            if is_valid
+                && vehicle_data.day == *day
+                && vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
+            {
+                match real_time_level {
+                    RealTimeLevel::Base => vehicle_data.is_base = false,
+                    RealTimeLevel::RealTime => vehicle_data.is_real_time = false,
+                };
+                true
+            } else {
+                false
+            }
+        });
+        if nb_vehicle_updated != 1 {
+            error!("Updated {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_updated);
+        }
+
+        let nb_vehicle_removed = timetable_data
+            .remove_vehicles(|vehicle_data| !vehicle_data.is_base && !vehicle_data.is_real_time);
+        if nb_vehicle_removed > 1 {
+            error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_removed);
+        }
     }
 
     fn insert<Stops, Flows, BoardTimes, DebarkTimes>(
@@ -389,47 +485,6 @@ impl TimetablesTrait for DailyTimetables {
             }
         }
         Ok(result)
-    }
-
-    fn remove(
-        &mut self,
-        mission: &Self::Mission,
-        day: &DaysSinceDatasetStart,
-        vehicle_journey_idx: &VehicleJourneyIdx,
-        real_time_level: &RealTimeLevel,
-        _calendar: &Calendar,
-        _days_patterns: &mut DaysPatterns,
-    ) {
-        let timetable_data = self.timetables.timetable_data_mut(mission);
-
-        let nb_vehicle_updated = timetable_data.update_vehicles_data(|vehicle_data| {
-            let is_valid = match real_time_level {
-                RealTimeLevel::Base => vehicle_data.is_base,
-                RealTimeLevel::RealTime => vehicle_data.is_real_time,
-            };
-
-            if is_valid
-                && vehicle_data.day == *day
-                && vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
-            {
-                match real_time_level {
-                    RealTimeLevel::Base => vehicle_data.is_base = false,
-                    RealTimeLevel::RealTime => vehicle_data.is_real_time = false,
-                };
-                true
-            } else {
-                false
-            }
-        });
-        if nb_vehicle_updated != 1 {
-            error!("Updated {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_updated);
-        }
-
-        let nb_vehicle_removed = timetable_data
-            .remove_vehicles(|vehicle_data| !vehicle_data.is_base && !vehicle_data.is_real_time);
-        if nb_vehicle_removed > 1 {
-            error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_removed);
-        }
     }
 }
 

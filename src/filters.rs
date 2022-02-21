@@ -187,13 +187,13 @@ impl<'a> Filters<'a> {
 
     pub fn new<T>(
         model: &ModelRefs<'_>,
-        forbidden_uri: &'a [T],
-        allowed_uri: &'a [T],
+        forbidden_uri: impl Iterator<Item = &'a T>,
+        allowed_uri: impl Iterator<Item = &'a T>,
         must_be_wheelchair_accessible: bool,
         must_be_bike_accessible: bool,
     ) -> Option<Filters<'a>>
     where
-        T: AsRef<str>,
+        T: AsRef<str> + 'a,
     {
         let (allowed_vehicle_filters, allowed_stop_filters) = {
             let mut allowed_vehicle_filters = Vec::new();

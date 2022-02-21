@@ -75,6 +75,7 @@ use launch::loki::{
         PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
+    places_nearby::PlacesNearbyIter,
     schedule::{NextStopTimeRequestInput, NextStopTimeResponse},
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
@@ -1502,7 +1503,7 @@ fn make_passage<'a>(
     })
 }
 
-pub fn make_next_departure_proto_response<'a>(
+pub fn make_next_departures_proto_response<'a>(
     request_input: &NextStopTimeRequestInput<'a>,
     responses: Vec<NextStopTimeResponse>,
     model: &ModelRefs<'_>,
@@ -1537,4 +1538,87 @@ pub fn make_next_departure_proto_response<'a>(
     };
 
     Ok(proto)
+}
+
+pub fn make_next_arrivals_proto_response<'a>(
+    request_input: &NextStopTimeRequestInput<'a>,
+    responses: Vec<NextStopTimeResponse>,
+    model: &ModelRefs<'_>,
+    start_page: usize,
+    count: usize,
+) -> Result<navitia_proto::Response, Error> {
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = responses.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    let len = range.len();
+
+    let proto = navitia_proto::Response {
+        feed_publishers: make_feed_publishers(model),
+        next_departures: responses[range.clone()]
+            .iter()
+            .filter_map(|response| make_passage(request_input, response, model).ok())
+            .collect(),
+        next_arrivals: responses[range]
+            .iter()
+            .filter_map(|response| make_passage(request_input, response, model).ok())
+            .collect(),
+        pagination: Some(navitia_proto::Pagination {
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    Ok(proto)
+}
+
+pub fn make_places_nearby_proto_response(
+    model: &ModelRefs,
+    places: &mut PlacesNearbyIter,
+    start_page: usize,
+    count: usize,
+) -> navitia_proto::Response {
+    let pt_objects: Vec<navitia_proto::PtObject> = places
+        .into_iter()
+        .map(|(idx, distance)| navitia_proto::PtObject {
+            name: model.stop_point_name(&idx).to_string(),
+            uri: model.stop_point_uri(&idx),
+            distance: Some(distance as i32),
+            embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
+            stop_point: Some(make_stop_point(&idx, model)),
+            ..Default::default()
+        })
+        .collect();
+
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = pt_objects.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    let len = range.len();
+
+    navitia_proto::Response {
+        places_nearby: pt_objects[range].to_owned(),
+        pagination: Some(navitia_proto::Pagination {
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }

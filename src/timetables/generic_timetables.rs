@@ -293,6 +293,29 @@ where
             })
     }
 
+    pub(super) fn earliest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        waiting_time: &Time,
+        timetable: &Timetable,
+        position: &Position,
+        filter: Filter,
+    ) -> Option<(Vehicle, &Time, &Load)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        assert!(position.timetable == *timetable);
+        self.timetable_data(timetable)
+            .earliest_filtered_vehicle_that_debark(waiting_time, position.idx, filter)
+            .map(|(idx, time)| {
+                let vehicle = Vehicle {
+                    timetable: timetable.clone(),
+                    idx,
+                };
+                let load = self.timetable_data(timetable).load_after(idx, position.idx);
+                (vehicle, time, load)
+            })
+    }
+
     pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
         &self,
         time: &Time,
@@ -562,6 +585,70 @@ where
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             let board_time = &self.board_times_by_position[position_idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= board_time {
+                let arrival_time_at_next_position =
+                    self.arrival_time(vehicle_idx, next_position_idx);
+                return Some((vehicle_idx, arrival_time_at_next_position));
+            }
+        }
+        None
+    }
+
+    // If we are waiting to board a trip at `position` at time `waiting_time`
+    // return `Some(best_trip_idx)`
+    // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
+    //  to board that allows to debark at the subsequent positions at the earliest time,
+    fn earliest_filtered_vehicle_that_debark<Filter>(
+        &self,
+        waiting_time: &Time,
+        position_idx: usize,
+        filter: Filter,
+    ) -> Option<(usize, &Time)>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
+        if !self.can_debark(position_idx) {
+            return None;
+        }
+        let next_position_idx = position_idx;
+        // we should not be able to board at the last position
+        assert!(next_position_idx < self.nb_of_positions());
+
+        let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
+        if nb_of_vehicles == 0 {
+            return None;
+        }
+
+        let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
+        if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+            return None;
+        }
+
+        let first_debarkable_vehicle =
+            if waiting_time <= &self.debark_times_by_position[position_idx][0] {
+                0
+            } else {
+                // We are looking for the smallest index in slice (debark_times_by_position here)
+                // such that slice(idx) >= waiting_time.
+                // In order to do so we use binary_search_by with the comparator
+                // function F : |time| if time < waiting_time { Less } else { Greater }
+                // binary_search_by on slice with a comparator function F will return :
+                // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
+                // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
+                // and F(slice(idx-1)) == Less if idx >= 1
+                // Since our comparator will never return Equal,
+                // binary_search_by will always return Err(idx).
+                // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
+                // And slice(idx-1) < waiting_time
+                // So idx is the smallest index such that slice(idx) >= waiting_time
+                self.debark_times_by_position[position_idx]
+                    .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
+                    .unwrap_err()
+            };
+
+        for vehicle_idx in first_debarkable_vehicle..self.nb_of_vehicle() {
+            let vehicle_data = &self.vehicle_datas[vehicle_idx];
+            let debark_time = &self.debark_times_by_position[position_idx][vehicle_idx];
+            if filter(vehicle_data) && waiting_time <= debark_time {
                 let arrival_time_at_next_position =
                     self.arrival_time(vehicle_idx, next_position_idx);
                 return Some((vehicle_idx, arrival_time_at_next_position));

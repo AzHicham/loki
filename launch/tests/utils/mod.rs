@@ -181,15 +181,15 @@ where
 
     let filters = Filters::new(
         model,
-        &config.forbidden_uri,
-        &config.allowed_uri,
+        config.forbidden_uri.iter(),
+        config.allowed_uri.iter(),
         config.wheelchair_accessible,
         config.bike_accessible,
     );
 
     let request_input = make_request_from_config(config)?;
 
-    let responses = solver.solve_request(
+    let responses = solver.solve_journey_request(
         &data,
         model,
         &request_input,

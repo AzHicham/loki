@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use crate::{
-    compute_worker::loki::schedule::{next_departures, NextStopTimeRequestInput},
+    compute_worker::loki::schedule::NextStopTimeRequestInput,
     load_balancer::WorkerId,
     master_worker::Timetable,
     zmq_worker::{RequestMessage, ResponseMessage},
@@ -47,21 +47,23 @@ use launch::{
     loki::{
         self,
         chrono::{Duration, Utc},
-        filters::Filters,
+        filters::{parse_filter, Filter, Filters, StopFilter},
         models::{
             base_model::{BaseModel, PREFIX_ID_STOP_POINT},
             real_time_model::RealTimeModel,
             ModelRefs,
         },
         request::generic_request,
+        schedule::generate_stops_for_next_stoptimes_request,
+        timetables::{Timetables as TimetablesTrait, TimetablesIter},
         tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
 };
-use loki::places_nearby::{places_nearby_impl, PlacesNearbyIter};
 use std::{
     convert::TryFrom,
+    iter,
     ops::Deref,
     sync::{Arc, RwLock},
 };
@@ -172,12 +174,18 @@ impl ComputeWorker {
                 self.handle_places_nearby(places_nearby_request)
             }
             navitia_proto::Api::NextDepartures => {
-                let places_nearby_request = proto_request.next_stop_times.ok_or_else(|| {
+                let request = proto_request.next_stop_times.ok_or_else(|| {
                     format_err!(
                         "request.next_stop_times should not be empty for api NextDepartures."
                     )
                 });
-                self.handle_next_stop_times(places_nearby_request)
+                self.handle_next_departures(request)
+            }
+            navitia_proto::Api::NextArrivals => {
+                let request = proto_request.next_stop_times.ok_or_else(|| {
+                    format_err!("request.next_stop_times should not be empty for api NextArrivals.")
+                });
+                self.handle_next_arrivals(request)
             }
             _ => {
                 bail!(
@@ -260,8 +268,8 @@ impl ComputeWorker {
                 let start_page = usize::try_from(places_nearby_request.start_page).unwrap_or(0);
                 let count = usize::try_from(places_nearby_request.count).unwrap_or(0);
 
-                match places_nearby_impl(&model_refs, &uri, radius) {
-                    Ok(mut places_nearby_iter) => Ok(make_places_nearby_proto_response(
+                match self.solver.solve_places_nearby(&model_refs, &uri, radius) {
+                    Ok(mut places_nearby_iter) => Ok(response::make_places_nearby_proto_response(
                         &model_refs,
                         &mut places_nearby_iter,
                         start_page,
@@ -273,7 +281,7 @@ impl ComputeWorker {
         }
     }
 
-    fn handle_next_stop_times(
+    fn handle_next_departures(
         &mut self,
         proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
     ) -> Result<navitia_proto::Response, Error> {
@@ -295,44 +303,127 @@ impl ComputeWorker {
                 let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let request_input = make_next_stop_times_request(&request, &model_refs).unwrap();
-
-                let response = if let Some(filters) = &request_input.forbidden_vehicle {
-                    let mut filter_memory = FilterMemory::new();
-                    filter_memory.fill_allowed_stops_and_vehicles(&filters, &model_refs);
-                    let data = TransitDataFiltered::new(data, &filter_memory);
-                    next_departures(&request_input, &data)
-                } else {
-                    next_departures(&request_input, data)
-                };
-                let start_page = usize::try_from(request.start_page).unwrap_or(0);
-                let count = usize::try_from(request.count).unwrap_or(0);
-
-                let response_proto = match response {
-                    Result::Err(err) => {
-                        error!("Error while solving request : {:?}", err);
-                        make_error_response(&format_err!("{}", err))
-                    }
-                    Ok(response) => {
-                        let response_result = make_next_departure_proto_response(
-                            &request_input,
-                            response,
-                            &model_refs,
-                            start_page,
-                            count,
-                        );
-                        match response_result {
+                let response_proto = match make_next_stop_times_request(
+                    &request,
+                    &request.departure_filter,
+                    &model_refs,
+                ) {
+                    Ok(request_input) => {
+                        let response =
+                            self.solver
+                                .solve_next_departure(data, &model_refs, &request_input);
+                        match response {
                             Result::Err(err) => {
-                                error!(
-                                    "Error while encoding protobuf response for request : {:?}",
-                                    err
-                                );
-                                make_error_response(&err)
+                                error!("Error while solving request : {:?}", err);
+                                make_error_response(&format_err!("{}", err))
                             }
-                            Ok(resp) => resp,
+                            Ok(response) => {
+                                let start_page = usize::try_from(request.start_page).unwrap_or(0);
+                                let count = usize::try_from(request.count).unwrap_or(0);
+
+                                let response_result = response::make_next_departures_proto_response(
+                                    &request_input,
+                                    response,
+                                    &model_refs,
+                                    start_page,
+                                    count,
+                                );
+                                match response_result {
+                                    Result::Err(err) => {
+                                        error!(
+                                            "Error while encoding protobuf response for request : {:?}",
+                                            err
+                                        );
+                                        make_error_response(&err)
+                                    }
+                                    Ok(resp) => resp,
+                                }
+                            }
                         }
                     }
+                    Err(err) => {
+                        error!(
+                            "Error while creating request input for next_departure : {:?}",
+                            err
+                        );
+                        make_error_response(&format_err!("{}", err))
+                    }
                 };
+
+                Ok(response_proto)
+            }
+        }
+    }
+
+    fn handle_next_arrivals(
+        &mut self,
+        proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
+    ) -> Result<navitia_proto::Response, Error> {
+        match proto_request {
+            Err(err) => {
+                // send a response saying that the journey request could not be handled
+                warn!("Could not handle next stop times request : {}", err);
+                Ok(make_error_response(&err))
+            }
+            Ok(request) => {
+                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+                    format_err!(
+                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
+                        self.worker_id.id,
+                        err
+                    )
+                })?;
+
+                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
+                let model_refs = ModelRefs::new(base_model, real_time_model);
+
+                let response_proto = match make_next_stop_times_request(
+                    &request,
+                    &request.arrival_filter,
+                    &model_refs,
+                ) {
+                    Ok(request_input) => {
+                        let response =
+                            self.solver
+                                .solve_next_arrivals(data, &model_refs, &request_input);
+                        match response {
+                            Result::Err(err) => {
+                                error!("Error while solving request : {:?}", err);
+                                make_error_response(&format_err!("{}", err))
+                            }
+                            Ok(response) => {
+                                let start_page = usize::try_from(request.start_page).unwrap_or(0);
+                                let count = usize::try_from(request.count).unwrap_or(0);
+
+                                let response_result = response::make_next_arrivals_proto_response(
+                                    &request_input,
+                                    response,
+                                    &model_refs,
+                                    start_page,
+                                    count,
+                                );
+                                match response_result {
+                                    Result::Err(err) => {
+                                        error!(
+                                            "Error while encoding protobuf response for request : {:?}",
+                                            err
+                                        );
+                                        make_error_response(&err)
+                                    }
+                                    Ok(resp) => resp,
+                                }
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!(
+                            "Error while creating request input for next_arrivals : {:?}",
+                            err
+                        );
+                        make_error_response(&format_err!("{}", err))
+                    }
+                };
+
                 Ok(response_proto)
             }
         }
@@ -359,13 +450,6 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     }
     Ok(())
 }
-
-use crate::{navitia_proto::Pagination, response::make_next_departure_proto_response};
-use launch::loki::schedule::generate_stops_for_next_stoptimes_request;
-use launch::loki::{
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
-    transit_data_filtered::{FilterMemory, TransitDataFiltered},
-};
 
 fn solve<Timetables>(
     journey_request: &navitia_proto::JourneysRequest,
@@ -499,8 +583,8 @@ where
 
     let data_filters = Filters::new(
         model,
-        &journey_request.forbidden_uris,
-        &journey_request.allowed_id,
+        journey_request.forbidden_uris.iter(),
+        journey_request.allowed_id.iter(),
         must_be_wheelchair_accessible,
         must_be_bike_accessible,
     );
@@ -523,7 +607,7 @@ where
     };
     trace!("{:#?}", request_input);
 
-    let responses = solver.solve_request(
+    let responses = solver.solve_journey_request(
         data,
         model,
         &request_input,
@@ -575,60 +659,37 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
     proto_response
 }
 
-fn make_places_nearby_proto_response(
-    model: &ModelRefs,
-    places: &mut PlacesNearbyIter,
-    start_page: usize,
-    count: usize,
-) -> navitia_proto::Response {
-    let pt_objects: Vec<navitia_proto::PtObject> = places
-        .into_iter()
-        .map(|(idx, distance)| navitia_proto::PtObject {
-            name: model.stop_point_name(&idx).to_string(),
-            uri: model.stop_point_uri(&idx),
-            distance: Some(distance as i32),
-            embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
-            stop_point: Some(response::make_stop_point(&idx, model)),
-            ..Default::default()
-        })
-        .collect();
-
-    let start_index = start_page * count;
-    let end_index = (start_page + 1) * count;
-    let size = pt_objects.len();
-
-    let range = match (start_index, end_index) {
-        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
-        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
-        _ => 0..0,
-    };
-    let len = range.len();
-
-    navitia_proto::Response {
-        places_nearby: pt_objects[range].to_owned(),
-        pagination: Some(Pagination {
-            start_page: i32::try_from(start_page).unwrap_or_default(),
-            total_result: i32::try_from(size).unwrap_or_default(),
-            items_per_page: i32::try_from(count).unwrap_or_default(),
-            items_on_page: i32::try_from(len).unwrap_or_default(),
-            ..Default::default()
-        }),
-        ..Default::default()
-    }
-}
-
 fn make_next_stop_times_request<'a>(
     proto: &'a navitia_proto::NextStopTimeRequest,
+    input_filter: &String,
     model: &ModelRefs,
 ) -> Result<NextStopTimeRequestInput<'a>, Error> {
-    let input_stop_points = generate_stops_for_next_stoptimes_request(
-        &proto.departure_filter,
-        &proto.forbidden_uri,
+    let input_stop_points =
+        generate_stops_for_next_stoptimes_request(input_filter, &proto.forbidden_uri, model);
+
+    let forbidden_vehicle_filter = |uri: &str| {
+        let is_stop_filter = matches!(
+            parse_filter(model, uri, "next_stoptimes_forbidden_uri"),
+            Some(Filter::Stop(StopFilter::StopPoint(_)))
+                | Some(Filter::Stop(StopFilter::StopArea(_)))
+        );
+        !is_stop_filter
+    };
+
+    info!("--------- {:?}", input_stop_points);
+
+    let forbidden_vehicle = Filters::new(
         model,
+        proto
+            .forbidden_uri
+            .iter()
+            .filter(|uri| forbidden_vehicle_filter(uri)),
+        iter::empty(),
+        false,
+        false,
     );
 
-    let forbidden_vehicle = Filters::new(model, &proto.forbidden_uri, &[], false, false);
-
+    info!("--------- {:?}", proto.duration);
     let from_datetime = if let Some(proto_datetime) = proto.from_datetime {
         let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(
@@ -642,6 +703,8 @@ fn make_next_stop_times_request<'a>(
     };
     let duration = u32::try_from(proto.duration)
         .with_context(|| format!("duration {} cannot be converted to u32.", proto.duration))?;
+
+    info!("--------- {:?}", duration);
 
     let until_datetime = from_datetime + Duration::seconds(duration.into());
 
