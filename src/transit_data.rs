@@ -119,6 +119,48 @@ impl TransitData {
     pub fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<&Stop> {
         self.stop_point_idx_to_stop.get(stop_point_idx)
     }
+
+    pub fn earliest_filtered_trip_that_debark_at<'a, Filter: 'a>(
+        &'a self,
+        from_time: &SecondsSinceDatasetUTCStart,
+        until_time: &SecondsSinceDatasetUTCStart,
+        mission: &'a Mission,
+        position: &'a Position,
+        real_time_level: &'a RealTimeLevel,
+        filter: Filter,
+    ) -> impl Iterator<Item = (Trip, SecondsSinceDatasetUTCStart)> + 'a
+    where
+        Filter: Clone + Fn(&VehicleJourneyIdx) -> bool,
+    {
+        self.timetables.earliest_filtered_trip_that_debark_at(
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            filter,
+            &self.calendar,
+            &self.days_patterns,
+        )
+    }
+
+    pub fn earliest_trip_that_debark_at<'a>(
+        &'a self,
+        from_time: &SecondsSinceDatasetUTCStart,
+        until_time: &SecondsSinceDatasetUTCStart,
+        mission: &'a Mission,
+        position: &'a Position,
+        real_time_level: &'a RealTimeLevel,
+    ) -> impl Iterator<Item = (Trip, SecondsSinceDatasetUTCStart)> + 'a {
+        self.earliest_filtered_trip_that_debark_at(
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            |_| true,
+        )
+    }
 }
 
 impl data_interface::TransitTypes for TransitData {
@@ -231,45 +273,6 @@ impl data_interface::Data for TransitData {
             &self.days_patterns,
         )
     }
-
-    // fn earliest_filtered_trip_that_debark_at<Filter>(
-    //     &self,
-    //     waiting_time: &SecondsSinceDatasetUTCStart,
-    //     mission: &Self::Mission,
-    //     position: &Self::Position,
-    //     real_time_level: &RealTimeLevel,
-    //     filter: Filter,
-    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
-    // where
-    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
-    // {
-    //     self.timetables.earliest_filtered_trip_that_debark_at(
-    //         waiting_time,
-    //         mission,
-    //         position,
-    //         real_time_level,
-    //         filter,
-    //         &self.calendar,
-    //         &self.days_patterns,
-    //     )
-    // }
-    //
-    // fn earliest_trip_that_debark_at(
-    //     &self,
-    //     waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
-    //     mission: &Self::Mission,
-    //     position: &Self::Position,
-    //     real_time_level: &RealTimeLevel,
-    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-    //     self.timetables.earliest_trip_that_debark_at(
-    //         waiting_time,
-    //         mission,
-    //         position,
-    //         real_time_level,
-    //         &self.calendar,
-    //         &self.days_patterns,
-    //     )
-    // }
 
     fn earliest_filtered_trip_to_board_at<Filter>(
         &self,

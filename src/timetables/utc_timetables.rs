@@ -265,6 +265,59 @@ impl UTCTimetables {
         )
     }
 
+    pub fn earliest_filtered_trip_that_debark_at<'a, Filter: 'a>(
+        &'a self,
+        from_time: &SecondsSinceDatasetUTCStart,
+        until_time: &SecondsSinceDatasetUTCStart,
+        mission: &'a Mission,
+        position: &'a Position,
+        real_time_level: &'a RealTimeLevel,
+        filter: Filter,
+        calendar: &'a Calendar,
+        days_patterns: &'a DaysPatterns,
+    ) -> impl Iterator<Item = (Trip, SecondsSinceDatasetUTCStart)> + 'a
+    where
+        Filter: Clone + Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let decompositions = calendar.decompositions_utc(from_time);
+
+        assert!(until_time > from_time);
+        let duration = until_time.duration_since(from_time).unwrap(); // safe
+
+        decompositions
+            .into_iter()
+            .map(move |(waiting_day, waiting_time_in_day)| {
+                let filter = filter.clone();
+                self.timetables
+                    .earliest_filtered_vehicle_that_debark(
+                        &waiting_time_in_day,
+                        &waiting_time_in_day,
+                        mission,
+                        position,
+                        move |vehicle_data| {
+                            let days_pattern = match real_time_level {
+                                RealTimeLevel::Base => vehicle_data.base_days_pattern,
+                                RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+                            };
+                            days_patterns.is_allowed(&days_pattern, &waiting_day)
+                                && (filter)(&vehicle_data.vehicle_journey_idx)
+                        },
+                    )
+                    .map(move |(vehicle, arrival_time_in_day)| {
+                        (vehicle, arrival_time_in_day, waiting_day)
+                    })
+            })
+            .flatten()
+            .map(|(vehicle, arrival_time_in_day, waiting_day)| {
+                let arrival_time = calendar.compose_utc(&waiting_day, &arrival_time_in_day);
+                let trip = Trip {
+                    vehicle,
+                    day: waiting_day,
+                };
+                (trip, arrival_time)
+            })
+    }
+
     pub fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
