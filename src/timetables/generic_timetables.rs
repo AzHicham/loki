@@ -261,7 +261,7 @@ where
             })
     }
 
-    pub(super) fn earliest_filtered_vehicle_that_debark<'a, Filter: 'a>(
+    pub(super) fn earliest_filtered_boardable_vehicles<'a, Filter: 'a>(
         &'a self,
         from_time: &Time,
         until_time: &Time,
@@ -274,7 +274,7 @@ where
     {
         assert_eq!(position.timetable, *timetable);
         self.timetable_data(timetable)
-            .earliest_filtered_vehicle_that_debark(from_time, until_time, position.idx, filter)
+            .earliest_filtered_boardable_vehicles(from_time, until_time, position.idx, filter)
             .map(|(idx, time)| {
                 let vehicle = Vehicle {
                     timetable: timetable.clone(),
@@ -545,7 +545,7 @@ where
     // return `Some(best_trip_idx)`
     // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
     //  to board that allows to debark at the subsequent positions at the earliest time,
-    fn earliest_filtered_vehicle_that_debark<'timetable, Filter>(
+    fn earliest_filtered_boardable_vehicles<'timetable, Filter>(
         &'timetable self,
         from_time: &Time,
         until_time: &Time,
@@ -556,9 +556,7 @@ where
         Filter: Fn(&VehicleData) -> bool,
     {
         let nb_of_vehicles = self.board_times_by_position[position_idx].len();
-        let vehicle_idx = if !self.can_board(position_idx) {
-            nb_of_vehicles
-        } else if nb_of_vehicles == 0 {
+        let vehicle_idx = if !self.can_board(position_idx) || nb_of_vehicles == 0 {
             nb_of_vehicles
         } else {
             let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0

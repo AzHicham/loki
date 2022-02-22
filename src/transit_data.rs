@@ -120,7 +120,7 @@ impl TransitData {
         self.stop_point_idx_to_stop.get(stop_point_idx)
     }
 
-    pub fn earliest_filtered_trip_that_debark_at<'a, Filter: 'a>(
+    pub fn earliest_filtered_boardable_trips<'a, Filter: 'a>(
         &'a self,
         from_time: &SecondsSinceDatasetUTCStart,
         until_time: &SecondsSinceDatasetUTCStart,
@@ -144,7 +144,7 @@ impl TransitData {
         )
     }
 
-    pub fn earliest_trip_that_debark_at<'a>(
+    pub fn earliest_boardable_trips<'a>(
         &'a self,
         from_time: &SecondsSinceDatasetUTCStart,
         until_time: &SecondsSinceDatasetUTCStart,
@@ -152,7 +152,7 @@ impl TransitData {
         position: &'a Position,
         real_time_level: &'a RealTimeLevel,
     ) -> impl Iterator<Item = (Trip, SecondsSinceDatasetUTCStart)> + 'a {
-        self.earliest_filtered_trip_that_debark_at(
+        self.earliest_filtered_boardable_trips(
             from_time,
             until_time,
             mission,

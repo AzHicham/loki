@@ -178,7 +178,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
             &config.request_params,
         )?;
         let before_solve = SystemTime::now();
-        let solve_result = solver.solve_request(
+        let solve_result = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,

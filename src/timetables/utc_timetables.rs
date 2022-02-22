@@ -281,15 +281,12 @@ impl UTCTimetables {
     {
         let decompositions = calendar.decompositions_utc(from_time);
 
-        assert!(until_time > from_time);
-        let duration = until_time.duration_since(from_time).unwrap(); // safe
-
         decompositions
             .into_iter()
             .map(move |(waiting_day, waiting_time_in_day)| {
                 let filter = filter.clone();
                 self.timetables
-                    .earliest_filtered_vehicle_that_debark(
+                    .earliest_filtered_boardable_vehicles(
                         &waiting_time_in_day,
                         &waiting_time_in_day,
                         mission,
