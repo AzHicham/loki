@@ -287,15 +287,21 @@ impl UTCTimetables {
                 &time_in_day,
                 mission,
                 position,
-                |_| true,
+                move |vehicle_data| {
+                    let days_pattern = match real_time_level {
+                        RealTimeLevel::Base => vehicle_data.base_days_pattern,
+                        RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+                    };
+                    days_patterns.is_allowed(&days_pattern, &day)
+                    //  && filter(&vehicle_data.vehicle_journey_idx)
+                },
             )
         });
 
         NextBoardableTripIter::new(
             self,
             decomposition_iter,
-            from_time,
-            until_time,
+            vehicle_iter,
             mission,
             position,
             real_time_level,
@@ -673,16 +679,16 @@ impl<'a> Iterator for TripsIter<'a> {
     }
 }
 
-pub struct NextBoardableTripIter<'a, Filter, DecomposeIter>
+pub struct NextBoardableTripIter<'a, Filter, DecomposeIter, VehicleIter>
 where
     Filter: Fn(&VehicleJourneyIdx) -> bool,
     DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+    VehicleIter: Iterator<Item = (Vehicle, SecondsSinceUTCDayStart)>,
 {
     utc_timetables: &'a UTCTimetables,
     decomposition_iter: DecomposeIter,
     current_decomposition: Option<(DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
-    from_time: &'a SecondsSinceDatasetUTCStart,
-    until_time: &'a SecondsSinceDatasetUTCStart,
+    vehicle_iter: Option<VehicleIter>,
     mission: &'a Mission,
     position: &'a Position,
     real_time_level: &'a RealTimeLevel,
@@ -691,16 +697,17 @@ where
     calendar: &'a Calendar,
 }
 
-impl<'a, Filter, DecomposeIter> NextBoardableTripIter<'a, Filter, DecomposeIter>
+impl<'a, Filter, DecomposeIter, VehicleIter>
+    NextBoardableTripIter<'a, Filter, DecomposeIter, VehicleIter>
 where
     Filter: Fn(&VehicleJourneyIdx) -> bool,
     DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+    VehicleIter: Iterator<Item = (Vehicle, SecondsSinceUTCDayStart)>,
 {
     fn new(
         utc_timetables: &'a UTCTimetables,
         mut decomposition_iter: DecomposeIter,
-        from_time: &'a SecondsSinceDatasetUTCStart,
-        until_time: &'a SecondsSinceDatasetUTCStart,
+        _vehicle_iter: Option<VehicleIter>,
         mission: &'a Mission,
         position: &'a Position,
         real_time_level: &'a RealTimeLevel,
@@ -714,8 +721,7 @@ where
             utc_timetables,
             decomposition_iter,
             current_decomposition,
-            from_time,
-            until_time,
+            vehicle_iter: None,
             mission,
             position,
             real_time_level,
@@ -726,10 +732,12 @@ where
     }
 }
 
-impl<'a, Filter, DecomposeIter> Iterator for NextBoardableTripIter<'a, Filter, DecomposeIter>
+impl<'a, Filter, DecomposeIter, VehicleIter> Iterator
+    for NextBoardableTripIter<'a, Filter, DecomposeIter, VehicleIter>
 where
     Filter: Fn(&VehicleJourneyIdx) -> bool,
     DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+    VehicleIter: Iterator<Item = (Vehicle, SecondsSinceUTCDayStart)>,
 {
     type Item = (Trip, SecondsSinceDatasetUTCStart);
 
