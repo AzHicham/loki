@@ -2,15 +2,12 @@ use launch::{
     config,
     loki::{
         self,
-        models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-        request::generic_request,
-        DailyData, PeriodicData, PeriodicSplitVjData, TransitData,
+        models::{real_time_model::RealTimeModel, ModelRefs},
     },
     solver::Solver,
 };
 use loki::{tracing::debug, DataTrait};
 
-use loki::timetables::{Timetables as TimetablesTrait, TimetablesIter};
 use std::{convert::TryFrom, fs::File, io::BufReader, time::SystemTime};
 
 use hdrhistogram::Histogram;
@@ -143,45 +140,10 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 }
 
 pub fn launch(config: &Config) -> Result<(), Error> {
-    match config.launch_params.data_implem {
-        config::DataImplem::Periodic => config_launch::<PeriodicData>(config),
-        config::DataImplem::PeriodicSplitVj => config_launch::<PeriodicSplitVjData>(config),
-        config::DataImplem::Daily => config_launch::<DailyData>(config),
-    }
-}
+    let (data, base_model) = launch::read(&config.launch_params)?;
 
-fn config_launch<Timetables>(config: &Config) -> Result<(), Error>
-where
-    Timetables: TimetablesTrait<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    Timetables: for<'a> TimetablesIter<'a>,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
-    let (data, model) = launch::read::<Timetables>(&config.launch_params)?;
-    build_engine_and_solve(&model, &data, config)
-}
-
-fn build_engine_and_solve<Timetables>(
-    base_model: &BaseModel,
-    data: &TransitData<Timetables>,
-    config: &Config,
-) -> Result<(), Error>
-where
-    Timetables: TimetablesTrait<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    Timetables: for<'a> TimetablesIter<'a>,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
     let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(base_model, &real_time_model);
+    let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -209,7 +171,7 @@ where
         let end_stop_area_uri = base_model.stop_area_name(end_stop_idx);
 
         let request_input = launch::stop_areas::make_query_stop_areas(
-            base_model,
+            &base_model,
             &departure_datetime,
             start_stop_area_uri,
             end_stop_area_uri,
@@ -217,7 +179,7 @@ where
         )?;
         let before_solve = SystemTime::now();
         let solve_result = solver.solve_request(
-            data,
+            &data,
             &model_refs,
             &request_input,
             None,

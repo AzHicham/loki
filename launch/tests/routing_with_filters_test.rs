@@ -36,7 +36,7 @@
 
 mod utils;
 use anyhow::Error;
-use launch::config::{ComparatorType, DataImplem};
+use launch::config::ComparatorType;
 
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
@@ -133,14 +133,10 @@ pub fn fixture_model() -> BaseModel {
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_no_filter(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -148,7 +144,6 @@ fn test_no_filter(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         ..config
     };
     let real_time_model = RealTimeModel::new();
@@ -174,14 +169,10 @@ fn test_no_filter(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_forbidden_stop_point(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -190,7 +181,6 @@ fn test_filter_forbidden_stop_point(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         forbidden_uri: vec!["stop_point:C"],
         ..config
     };
@@ -218,14 +208,10 @@ fn test_filter_forbidden_stop_point(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_allowed_stop_point(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -234,7 +220,6 @@ fn test_filter_allowed_stop_point(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         allowed_uri: vec![
             "stop_point:A",
             "stop_point:B",
@@ -269,14 +254,10 @@ fn test_filter_allowed_stop_point(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_forbidden_route(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -285,7 +266,6 @@ fn test_filter_forbidden_route(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         forbidden_uri: vec!["route:R2", "route:R3"],
         ..config
     };
@@ -312,14 +292,10 @@ fn test_filter_forbidden_route(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_allowed_route(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -328,7 +304,6 @@ fn test_filter_allowed_route(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         allowed_uri: vec!["route:R1", "route:R4"],
         ..config
     };
@@ -355,14 +330,10 @@ fn test_filter_allowed_route(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_wheelchair_no_solution(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -371,7 +342,6 @@ fn test_filter_wheelchair_no_solution(
     let config = Config::new("2020-01-01T09:59:00", "E", "G");
     let config = Config {
         comparator_type,
-        data_implem,
         wheelchair_accessible: true,
         ..config
     };
@@ -398,14 +368,10 @@ fn test_filter_wheelchair_no_solution(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_bike(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -414,7 +380,6 @@ fn test_filter_bike(
     let config = Config::new("2020-01-01T09:59:00", "A", "C");
     let config = Config {
         comparator_type,
-        data_implem,
         bike_accessible: true,
         ..config
     };
@@ -446,14 +411,10 @@ fn test_filter_bike(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
 fn test_filter_accessibility_with_transfer(
     #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -462,7 +423,6 @@ fn test_filter_accessibility_with_transfer(
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
     let config = Config {
         comparator_type,
-        data_implem,
         wheelchair_accessible: true,
         bike_accessible: false,
         ..config

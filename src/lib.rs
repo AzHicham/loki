@@ -60,10 +60,6 @@ pub use transit_data::data_interface::{
     Data as DataTrait, DataIO, DataUpdate, DataWithIters, RealTimeLevel, TransitTypes,
 };
 
-pub type DailyData = timetables::DailyTimetables;
-pub type PeriodicData = timetables::PeriodicTimetables;
-pub type PeriodicSplitVjData = timetables::PeriodicSplitVjByTzTimetables;
-
 pub use loads_data::LoadsData;
 
 pub use transit_data::TransitData;

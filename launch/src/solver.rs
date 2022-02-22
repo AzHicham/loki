@@ -60,7 +60,6 @@ use loki::{
         next_arrivals, next_departures, NextStopTimeError, NextStopTimeRequestInput,
         NextStopTimeResponse,
     },
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
     transit_data_filtered::TransitDataFiltered,
 };
 
@@ -83,9 +82,9 @@ impl Solver {
             .fill_allowed_stops_and_vehicles(filters, model);
     }
 
-    pub fn solve_journey_request<Timetables>(
+    pub fn solve_journey_request(
         &mut self,
-        data: &TransitData<Timetables>,
+        data: &TransitData,
         model: &ModelRefs<'_>,
         request_input: &RequestInput,
         has_filters: Option<Filters>,
@@ -94,14 +93,6 @@ impl Solver {
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
-        Timetables: TimetablesTrait<
-            Mission = generic_request::Mission,
-            Position = generic_request::Position,
-            Trip = generic_request::Trip,
-        >,
-        Timetables: for<'a> TimetablesIter<'a>,
-        Timetables::Mission: 'static,
-        Timetables::Position: 'static,
     {
         use crate::datetime::DateTimeRepresent::{Arrival, Departure};
         use config::ComparatorType::{Basic, Loads};
@@ -185,22 +176,14 @@ impl Solver {
         }
     }
 
-    pub fn solve_next_departure<'r, Timetables>(
+    pub fn solve_next_departure<'r>(
         &mut self,
-        data: &TransitData<Timetables>,
+        data: &TransitData,
         model: &ModelRefs<'_>,
         request_input: &NextStopTimeRequestInput<'r>,
     ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
     where
         Self: Sized,
-        Timetables: TimetablesTrait<
-            Mission = generic_request::Mission,
-            Position = generic_request::Position,
-            Trip = generic_request::Trip,
-        >,
-        Timetables: for<'a> TimetablesIter<'a>,
-        Timetables::Mission: 'static,
-        Timetables::Position: 'static,
     {
         if let Some(filters) = &request_input.forbidden_vehicle {
             self.fill_allowed_stops_and_vehicles(model, filters);
@@ -211,22 +194,14 @@ impl Solver {
         }
     }
 
-    pub fn solve_next_arrivals<'r, Timetables>(
+    pub fn solve_next_arrivals<'r>(
         &mut self,
-        data: &TransitData<Timetables>,
+        data: &TransitData,
         model: &ModelRefs<'_>,
         request_input: &NextStopTimeRequestInput<'r>,
     ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
     where
         Self: Sized,
-        Timetables: TimetablesTrait<
-            Mission = generic_request::Mission,
-            Position = generic_request::Position,
-            Trip = generic_request::Trip,
-        >,
-        Timetables: for<'a> TimetablesIter<'a>,
-        Timetables::Mission: 'static,
-        Timetables::Position: 'static,
     {
         if let Some(filters) = &request_input.forbidden_vehicle {
             self.fill_allowed_stops_and_vehicles(model, filters);

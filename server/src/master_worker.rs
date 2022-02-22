@@ -37,7 +37,6 @@
 use anyhow::{bail, Context, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
-    timetables::PeriodicSplitVjByTzTimetables,
     tracing::{error, info},
     DataIO, TransitData,
 };
@@ -49,9 +48,7 @@ use crate::{
     zmq_worker::ZmqWorker, ServerConfig,
 };
 
-pub type Timetable = PeriodicSplitVjByTzTimetables;
-
-pub type DataAndModels = (TransitData<Timetable>, BaseModel, RealTimeModel);
+pub type DataAndModels = (TransitData, BaseModel, RealTimeModel);
 
 pub struct MasterWorker {
     shutdown_receiver: mpsc::Receiver<()>,

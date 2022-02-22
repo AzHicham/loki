@@ -35,25 +35,16 @@
 // www.navitia.io
 
 use super::config;
-use crate::{
-    config::LaunchParams,
-    loki::{timetables::TimetablesIter, TransitData},
-};
+use crate::{config::LaunchParams, loki::TransitData};
 use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
-    timetables::Timetables as TimetablesTrait,
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData,
 };
 use std::{collections::BTreeMap, time::SystemTime};
 
-pub fn read<Timetables>(
-    launch_params: &config::LaunchParams,
-) -> Result<(TransitData<Timetables>, BaseModel), Error>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseModel), Error> {
     let base_model = read_model(launch_params)?;
 
     let data = build_transit_data(&base_model);
@@ -116,10 +107,7 @@ fn read_loads_data(launch_params: &LaunchParams, model: &base_model::Model) -> L
         .unwrap_or_else(LoadsData::empty)
 }
 
-pub fn build_transit_data<Timetables>(base_model: &BaseModel) -> TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+pub fn build_transit_data(base_model: &BaseModel) -> TransitData {
     info!(
         "Number of vehicle journeys : {}",
         base_model.nb_of_vehicle_journeys()

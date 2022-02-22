@@ -34,10 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use super::{navitia_proto, response};
 use crate::{
     compute_worker::loki::schedule::NextStopTimeRequestInput,
     load_balancer::WorkerId,
-    master_worker::Timetable,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{bail, format_err, Context, Error};
@@ -53,9 +53,7 @@ use launch::{
             real_time_model::RealTimeModel,
             ModelRefs,
         },
-        request::generic_request,
         schedule::generate_stops_for_next_stoptimes_request,
-        timetables::{Timetables as TimetablesTrait, TimetablesIter},
         tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
@@ -69,9 +67,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use super::{navitia_proto, response};
-
-type Data = TransitData<Timetable>;
+type Data = TransitData;
 pub struct ComputeWorker {
     data_and_models: Arc<RwLock<(Data, BaseModel, RealTimeModel)>>,
     solver: Solver,
@@ -84,7 +80,7 @@ pub struct ComputeWorker {
 impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
-        data_and_models: Arc<RwLock<(TransitData<Timetable>, BaseModel, RealTimeModel)>>,
+        data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
         request_default_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
@@ -451,25 +447,15 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
-fn solve<Timetables>(
+fn solve(
     journey_request: &navitia_proto::JourneysRequest,
-    data: &TransitData<Timetables>,
+    data: &TransitData,
     model: &ModelRefs<'_>,
     solver: &mut Solver,
     request_default_params: &config::RequestParams,
     comparator_type: &config::ComparatorType,
     real_time_level: RealTimeLevel,
-) -> Result<(RequestInput, Vec<loki::response::Response>), Error>
-where
-    Timetables: TimetablesTrait<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    Timetables: for<'a> TimetablesIter<'a>,
-    Timetables::Mission: 'static,
-    Timetables::Position: 'static,
-{
+) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
     // println!("{:#?}", journey_request);
     let departures_stop_point_and_fallback_duration = journey_request
         .origin

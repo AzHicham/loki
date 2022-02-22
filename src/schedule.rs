@@ -236,38 +236,38 @@ where
             NextStopTimeError::BadDateTimeError
         })?;
 
-    for stop_idx in &request.input_stop_points {
-        if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
-            for (mission, position) in data.missions_at(&stop) {
-                let mut count = 0;
-                let mut next_time = from_datetime;
-                'inner: while count < request.max_response {
-                    let earliest_trip_time = data.earliest_trip_that_debark_at(
-                        &next_time,
-                        &mission,
-                        &position,
-                        &request.real_time_level,
-                    );
-                    match earliest_trip_time {
-                        Some((trip, debark_time, _)) if debark_time < until_datetime => {
-                            response.push(NextStopTimeResponse {
-                                stop_point: stop_idx.clone(),
-                                vehicle_journey: data.vehicle_journey_idx(&trip),
-                                time: data.to_naive_datetime(&debark_time),
-                                vehicle_date: data.day_of(&trip),
-                                stop_time_idx: data.stoptime_idx(&position, &trip),
-                            });
-                            count += 1;
-                            next_time = debark_time + PositiveDuration { seconds: 1 };
-                        }
-                        _ => {
-                            break 'inner;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // for stop_idx in &request.input_stop_points {
+    //     if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
+    //         for (mission, position) in data.missions_at(&stop) {
+    //             let mut count = 0;
+    //             let mut next_time = from_datetime;
+    //             'inner: while count < request.max_response {
+    //                 let earliest_trip_time = data.earliest_trip_that_debark_at(
+    //                     &next_time,
+    //                     &mission,
+    //                     &position,
+    //                     &request.real_time_level,
+    //                 );
+    //                 match earliest_trip_time {
+    //                     Some((trip, debark_time, _)) if debark_time < until_datetime => {
+    //                         response.push(NextStopTimeResponse {
+    //                             stop_point: stop_idx.clone(),
+    //                             vehicle_journey: data.vehicle_journey_idx(&trip),
+    //                             time: data.to_naive_datetime(&debark_time),
+    //                             vehicle_date: data.day_of(&trip),
+    //                             stop_time_idx: data.stoptime_idx(&position, &trip),
+    //                         });
+    //                         count += 1;
+    //                         next_time = debark_time + PositiveDuration { seconds: 1 };
+    //                     }
+    //                     _ => {
+    //                         break 'inner;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     response
         .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));

@@ -39,17 +39,17 @@ use crate::{
     loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
-    DataWithIters, RealTimeLevel,
+    timetables::utc_timetables,
+    transit_data::{self, data_interface, data_iters},
+    RealTimeLevel, TransitData,
 };
 pub use transit_model::objects::{
     StopPoint, Time as TransitModelTime, Transfer as TransitModelTransfer, VehicleJourney,
 };
 pub use typed_index_collection::Idx;
 
-use crate::transit_data::{data_interface, data_interface::Data};
-
-pub struct TransitDataFiltered<'data, 'filter, Data> {
-    pub(super) transit_data: &'data Data,
+pub struct TransitDataFiltered<'data, 'filter> {
+    pub(super) transit_data: &'data TransitData,
     memory: &'filter FilterMemory,
 }
 
@@ -110,11 +110,9 @@ impl FilterMemory {
     }
 }
 
-impl<'data, 'filter, Data> TransitDataFiltered<'data, 'filter, Data>
-where
-    Data: data_interface::Data,
-{
-    pub fn is_stop_allowed(&self, stop: &Data::Stop) -> bool {
+impl<'data, 'filter> TransitDataFiltered<'data, 'filter> {
+    pub fn is_stop_allowed(&self, stop: &transit_data::Stop) -> bool {
+        use data_interface::Data;
         let stop_idx = self.stop_point_idx(stop);
         match stop_idx {
             StopPointIdx::Base(idx) => self.memory.allowed_base_stop_points[idx.get()],
@@ -129,7 +127,7 @@ where
         }
     }
 
-    pub fn new(data: &'data Data, memory: &'filter FilterMemory) -> Self {
+    pub fn new(data: &'data TransitData, memory: &'filter FilterMemory) -> Self {
         Self {
             transit_data: data,
             memory,
@@ -137,20 +135,15 @@ where
     }
 }
 
-impl<Data: data_interface::Data> data_interface::TransitTypes
-    for TransitDataFiltered<'_, '_, Data>
-{
-    type Stop = Data::Stop;
-    type Mission = Data::Mission;
-    type Position = Data::Position;
-    type Trip = Data::Trip;
-    type Transfer = Data::Transfer;
+impl data_interface::TransitTypes for TransitDataFiltered<'_, '_> {
+    type Stop = transit_data::Stop;
+    type Mission = transit_data::Mission;
+    type Position = transit_data::Position;
+    type Trip = transit_data::Trip;
+    type Transfer = transit_data::Transfer;
 }
 
-impl<Data> data_interface::Data for TransitDataFiltered<'_, '_, Data>
-where
-    Data: data_interface::Data,
-{
+impl data_interface::Data for TransitDataFiltered<'_, '_> {
     fn is_upstream(
         &self,
         upstream: &Self::Position,
@@ -294,58 +287,6 @@ where
         }
     }
 
-    fn earliest_trip_that_debark_at(
-        &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        let stop = self.stop_of(position, mission);
-
-        if self.is_stop_allowed(&stop) {
-            self.transit_data.earliest_filtered_trip_that_debark_at(
-                waiting_time,
-                mission,
-                position,
-                real_time_level,
-                |vehicle_journey_idx: &VehicleJourneyIdx| {
-                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                },
-            )
-        } else {
-            None
-        }
-    }
-
-    fn earliest_filtered_trip_that_debark_at<Filter>(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool,
-    {
-        let stop = self.stop_of(position, mission);
-        if self.is_stop_allowed(&stop) {
-            self.transit_data.earliest_filtered_trip_that_debark_at(
-                waiting_time,
-                mission,
-                position,
-                real_time_level,
-                |vehicle_journey_idx: &VehicleJourneyIdx| {
-                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                        && filter(vehicle_journey_idx)
-                },
-            )
-        } else {
-            None
-        }
-    }
-
     fn latest_trip_that_debark_at(
         &self,
         waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
@@ -431,7 +372,9 @@ where
     }
 
     fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
-        self.transit_data.stop_point_idx_to_stop(stop_point_idx)
+        self.transit_data
+            .stop_point_idx_to_stop(stop_point_idx)
+            .cloned()
     }
 
     fn nb_of_trips(&self) -> usize {
@@ -455,29 +398,24 @@ where
     }
 }
 
-impl<'data, Data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_, Data>
-where
-    Data: data_interface::Data + data_interface::DataIters<'data>,
-    Data::Mission: 'data,
-    Data::Position: 'data,
-{
-    type MissionsAtStop = Data::MissionsAtStop;
+impl<'data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_> {
+    type MissionsAtStop = data_iters::MissionsOfStop<'data>;
 
     fn missions_at(&'data self, stop: &Self::Stop) -> Self::MissionsAtStop {
         self.transit_data.missions_at(stop)
     }
 
-    type OutgoingTransfersAtStop = Data::OutgoingTransfersAtStop;
+    type OutgoingTransfersAtStop = data_iters::OutgoingTransfersAtStop<'data>;
     fn outgoing_transfers_at(&'data self, from_stop: &Self::Stop) -> Self::OutgoingTransfersAtStop {
         self.transit_data.outgoing_transfers_at(from_stop)
     }
 
-    type IncomingTransfersAtStop = Data::IncomingTransfersAtStop;
+    type IncomingTransfersAtStop = data_iters::IncomingTransfersAtStop<'data>;
     fn incoming_transfers_at(&'data self, stop: &Self::Stop) -> Self::IncomingTransfersAtStop {
         self.transit_data.incoming_transfers_at(stop)
     }
 
-    type TripsOfMission = Data::TripsOfMission;
+    type TripsOfMission = utc_timetables::TripsIter<'data>;
 
     fn trips_of(
         &'data self,
@@ -488,10 +426,4 @@ where
     }
 }
 
-impl<Data> data_interface::DataWithIters for TransitDataFiltered<'_, '_, Data>
-where
-    Data: DataWithIters,
-    Data::Mission: 'static,
-    Data::Position: 'static,
-{
-}
+impl data_interface::DataWithIters for TransitDataFiltered<'_, '_> {}
