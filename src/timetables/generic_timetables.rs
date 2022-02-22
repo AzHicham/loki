@@ -587,6 +587,7 @@ where
         NextBoardableVehicleIterator {
             timetable_data: self,
             vehicle_idx,
+            position_idx,
             until_time: until_time.clone(),
             filter,
         }
@@ -1011,9 +1012,10 @@ where
     Filter: Fn(&VehicleData) -> bool,
 {
     timetable_data: &'timetable TimetableData<Time, Load, VehicleData>,
-    pub vehicle_idx: usize,
-    pub until_time: Time,
-    pub filter: Filter,
+    vehicle_idx: usize,
+    position_idx: usize,
+    until_time: Time,
+    filter: Filter,
 }
 
 impl<'timetable, Time, Load, VehicleData, Filter> Iterator
@@ -1030,13 +1032,10 @@ where
             self.vehicle_idx += 1;
             let vehicle_data = &self.timetable_data.vehicle_datas[self.vehicle_idx];
             let board_time =
-                &self.timetable_data.board_times_by_position[self.vehicle_idx][self.vehicle_idx];
+                &self.timetable_data.board_times_by_position[self.position_idx][self.vehicle_idx];
             if board_time < &self.until_time {
                 if (self.filter)(vehicle_data) {
-                    let arrival_time = self
-                        .timetable_data
-                        .arrival_time(self.vehicle_idx, self.vehicle_idx);
-                    return Some((self.vehicle_idx, arrival_time.clone()));
+                    return Some((self.vehicle_idx, board_time.clone()));
                 }
             } else {
                 self.vehicle_idx = self.timetable_data.nb_of_vehicle();
