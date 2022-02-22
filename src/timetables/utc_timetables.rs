@@ -267,8 +267,8 @@ impl UTCTimetables {
 
     pub fn earliest_filtered_trip_that_debark_at<'a, Filter: 'a>(
         &'a self,
-        from_time: &SecondsSinceDatasetUTCStart,
-        until_time: &SecondsSinceDatasetUTCStart,
+        from_time: &'a SecondsSinceDatasetUTCStart,
+        until_time: &'a SecondsSinceDatasetUTCStart,
         mission: &'a Mission,
         position: &'a Position,
         real_time_level: &'a RealTimeLevel,
@@ -279,40 +279,30 @@ impl UTCTimetables {
     where
         Filter: Clone + Fn(&VehicleJourneyIdx) -> bool,
     {
-        let decompositions = calendar.decompositions_utc(from_time);
+        let mut decomposition_iter = calendar.decompositions_utc(from_time);
+        let current_decomposition = decomposition_iter.next();
+        let vehicle_iter = current_decomposition.map(|(day, time_in_day)| {
+            self.timetables.earliest_filtered_boardable_vehicles(
+                &time_in_day,
+                &time_in_day,
+                mission,
+                position,
+                |_| true,
+            )
+        });
 
-        decompositions
-            .into_iter()
-            .map(move |(waiting_day, waiting_time_in_day)| {
-                let filter = filter.clone();
-                self.timetables
-                    .earliest_filtered_boardable_vehicles(
-                        &waiting_time_in_day,
-                        &waiting_time_in_day,
-                        mission,
-                        position,
-                        move |vehicle_data| {
-                            let days_pattern = match real_time_level {
-                                RealTimeLevel::Base => vehicle_data.base_days_pattern,
-                                RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
-                            };
-                            days_patterns.is_allowed(&days_pattern, &waiting_day)
-                                && (filter)(&vehicle_data.vehicle_journey_idx)
-                        },
-                    )
-                    .map(move |(vehicle, arrival_time_in_day)| {
-                        (vehicle, arrival_time_in_day, waiting_day)
-                    })
-            })
-            .flatten()
-            .map(|(vehicle, arrival_time_in_day, waiting_day)| {
-                let arrival_time = calendar.compose_utc(&waiting_day, &arrival_time_in_day);
-                let trip = Trip {
-                    vehicle,
-                    day: waiting_day,
-                };
-                (trip, arrival_time)
-            })
+        NextBoardableTripIter::new(
+            self,
+            decomposition_iter,
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            filter,
+            days_patterns,
+            calendar,
+        )
     }
 
     pub fn latest_trip_that_debark_at(
@@ -576,7 +566,7 @@ impl UTCTimetables {
         }
     }
 
-    pub fn positions<'a>(&'a self, mission: &Mission) -> PositionsIter {
+    pub fn positions(&self, mission: &Mission) -> PositionsIter {
         self.timetables.positions(mission)
     }
 
@@ -589,7 +579,7 @@ impl UTCTimetables {
         TripsIter::new(self, mission, real_time_level, days_patterns)
     }
 
-    pub fn missions<'a>(&'a self) -> TimetableIter {
+    pub fn missions(&self) -> TimetableIter {
         self.timetables.timetables()
     }
 }
@@ -674,6 +664,108 @@ impl<'a> Iterator for TripsIter<'a> {
                             let days_iter = self.days_patterns.days_in_pattern(&days_pattern);
                             (vehicle, days_iter)
                         });
+                    }
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+pub struct NextBoardableTripIter<'a, Filter, DecomposeIter>
+where
+    Filter: Fn(&VehicleJourneyIdx) -> bool,
+    DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+{
+    utc_timetables: &'a UTCTimetables,
+    decomposition_iter: DecomposeIter,
+    current_decomposition: Option<(DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+    from_time: &'a SecondsSinceDatasetUTCStart,
+    until_time: &'a SecondsSinceDatasetUTCStart,
+    mission: &'a Mission,
+    position: &'a Position,
+    real_time_level: &'a RealTimeLevel,
+    filter: Filter,
+    days_patterns: &'a DaysPatterns,
+    calendar: &'a Calendar,
+}
+
+impl<'a, Filter, DecomposeIter> NextBoardableTripIter<'a, Filter, DecomposeIter>
+where
+    Filter: Fn(&VehicleJourneyIdx) -> bool,
+    DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+{
+    fn new(
+        utc_timetables: &'a UTCTimetables,
+        mut decomposition_iter: DecomposeIter,
+        from_time: &'a SecondsSinceDatasetUTCStart,
+        until_time: &'a SecondsSinceDatasetUTCStart,
+        mission: &'a Mission,
+        position: &'a Position,
+        real_time_level: &'a RealTimeLevel,
+        filter: Filter,
+        days_patterns: &'a DaysPatterns,
+        calendar: &'a Calendar,
+    ) -> Self {
+        let current_decomposition = decomposition_iter.next();
+
+        Self {
+            utc_timetables,
+            decomposition_iter,
+            current_decomposition,
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            filter,
+            days_patterns,
+            calendar,
+        }
+    }
+}
+
+impl<'a, Filter, DecomposeIter> Iterator for NextBoardableTripIter<'a, Filter, DecomposeIter>
+where
+    Filter: Fn(&VehicleJourneyIdx) -> bool,
+    DecomposeIter: Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)>,
+{
+    type Item = (Trip, SecondsSinceDatasetUTCStart);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some((day, time_in_day)) = self.current_decomposition {
+                let vehicle_time = self
+                    .utc_timetables
+                    .timetables
+                    .earliest_filtered_boardable_vehicles(
+                        &time_in_day,
+                        &time_in_day,
+                        self.mission,
+                        self.position,
+                        |vehicle_data| {
+                            let days_pattern = match self.real_time_level {
+                                RealTimeLevel::Base => vehicle_data.base_days_pattern,
+                                RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+                            };
+                            self.days_patterns.is_allowed(&days_pattern, &day)
+                                && (self.filter)(&vehicle_data.vehicle_journey_idx)
+                        },
+                    )
+                    .next();
+
+                match vehicle_time {
+                    Some((vehicle, arrival_time)) => {
+                        let arrival_time = self.calendar.compose_utc(&day, &arrival_time);
+                        let trip = Trip { vehicle, day };
+                        return Some((trip, arrival_time));
+                    }
+                    None => {
+                        self.current_decomposition = self
+                            .decomposition_iter
+                            .next()
+                            .map(|(day, time_in_day)| (day, time_in_day));
                     }
                 }
             } else {

@@ -122,8 +122,8 @@ impl TransitData {
 
     pub fn earliest_filtered_boardable_trips<'a, Filter: 'a>(
         &'a self,
-        from_time: &SecondsSinceDatasetUTCStart,
-        until_time: &SecondsSinceDatasetUTCStart,
+        from_time: &'a SecondsSinceDatasetUTCStart,
+        until_time: &'a SecondsSinceDatasetUTCStart,
         mission: &'a Mission,
         position: &'a Position,
         real_time_level: &'a RealTimeLevel,
@@ -146,8 +146,8 @@ impl TransitData {
 
     pub fn earliest_boardable_trips<'a>(
         &'a self,
-        from_time: &SecondsSinceDatasetUTCStart,
-        until_time: &SecondsSinceDatasetUTCStart,
+        from_time: &'a SecondsSinceDatasetUTCStart,
+        until_time: &'a SecondsSinceDatasetUTCStart,
         mission: &'a Mission,
         position: &'a Position,
         real_time_level: &'a RealTimeLevel,

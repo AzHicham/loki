@@ -53,8 +53,8 @@ use crate::{
     datetime::DateTimeRepresent,
     loki::{DataTrait, TransitData},
 };
-use loki::places_nearby::{places_nearby_impl, BadPlacesNearby, PlacesNearbyIter};
 use loki::{
+    places_nearby::{places_nearby_impl, BadPlacesNearby, PlacesNearbyIter},
     request::{self, generic_request::RequestTypes},
     schedule::{
         next_arrivals, next_departures, NextStopTimeError, NextStopTimeRequestInput,

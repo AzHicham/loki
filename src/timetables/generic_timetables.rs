@@ -551,7 +551,7 @@ where
         until_time: &Time,
         position_idx: usize,
         filter: Filter,
-    ) -> NextBoardableTripIterator<'timetable, Time, Load, VehicleData, Filter>
+    ) -> NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -584,7 +584,7 @@ where
             }
         };
 
-        NextBoardableTripIterator {
+        NextBoardableVehicleIterator {
             timetable_data: self,
             vehicle_idx,
             until_time: until_time.clone(),
@@ -1004,7 +1004,7 @@ where
     }
 }
 
-pub struct NextBoardableTripIterator<'timetable, Time, Load, VehicleData, Filter>
+pub struct NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
 where
     Time: Ord + Clone + Debug,
     Load: Ord + Debug,
@@ -1017,7 +1017,7 @@ where
 }
 
 impl<'timetable, Time, Load, VehicleData, Filter> Iterator
-    for NextBoardableTripIterator<'timetable, Time, Load, VehicleData, Filter>
+    for NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
 where
     Time: Ord + Clone + Debug,
     Load: Ord + Debug,
@@ -1031,11 +1031,16 @@ where
             let vehicle_data = &self.timetable_data.vehicle_datas[self.vehicle_idx];
             let board_time =
                 &self.timetable_data.board_times_by_position[self.vehicle_idx][self.vehicle_idx];
-            if (self.filter)(vehicle_data) && board_time > &self.until_time {
-                let arrival_time_at_next_position = self
-                    .timetable_data
-                    .arrival_time(self.vehicle_idx, self.vehicle_idx);
-                return Some((self.vehicle_idx, arrival_time_at_next_position.clone()));
+            if board_time < &self.until_time {
+                if (self.filter)(vehicle_data) {
+                    let arrival_time = self
+                        .timetable_data
+                        .arrival_time(self.vehicle_idx, self.vehicle_idx);
+                    return Some((self.vehicle_idx, arrival_time.clone()));
+                }
+            } else {
+                self.vehicle_idx = self.timetable_data.nb_of_vehicle();
+                break;
             }
         }
         None
