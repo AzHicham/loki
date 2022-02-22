@@ -119,6 +119,10 @@ fn test_local_zone_routing(
 }
 
 #[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
 #[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
 fn test_local_zone_timetable(
     #[case] comparator_type: ComparatorType,

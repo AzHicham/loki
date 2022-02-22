@@ -89,7 +89,15 @@ where
                         *date,
                         vehicle_journey_idx.clone(),
                     ),
-                })?;
+                });
+            //
+            let timetable = match timetable {
+                Err(err) => {
+                    error!("Error while removing a real time vehicle. {:?}", err);
+                    continue;
+                }
+                Ok(timetable) => timetable,
+            };
 
             self.timetables.remove(
                 &timetable,
@@ -158,24 +166,11 @@ where
         // - Get the real_time_vehicles that already exists on `valid_dates`,
         // - remove `valid_dates` from its real_time days_pattern
         // - insert a new vehicle, valid on `valid_dates` on the real_time level
-
         for date in valid_dates.clone() {
             let day = self
                 .calendar
                 .date_to_days_since_start(&date)
                 .ok_or_else(|| ModifyError::UnknownDate(date, vehicle_journey_idx.clone()))?;
-
-            if !self.vehicle_journey_to_timetable.real_time_vehicle_exists(
-                vehicle_journey_idx,
-                &None,
-                &day,
-                &self.days_patterns,
-            ) {
-                return Err(ModifyError::DateInvalidForVehicleJourney(
-                    date,
-                    vehicle_journey_idx.clone(),
-                ));
-            }
         }
 
         let local_zones = self
@@ -191,7 +186,7 @@ where
                     .vehicle_journey_to_timetable
                     .remove_real_time_vehicle(
                         vehicle_journey_idx,
-                        &None,
+                        &local_zone,
                         &day,
                         &mut self.days_patterns,
                     )
@@ -215,32 +210,33 @@ where
                 .days_patterns
                 .get_from_dates(valid_dates.clone(), &self.calendar);
 
-            let timetables = self
-                .timetables
-                .insert(
-                    stops,
-                    flows.clone(),
-                    board_times.clone(),
-                    debark_times.clone(),
-                    loads_data,
-                    &days,
-                    &self.calendar,
-                    &mut self.days_patterns,
-                    timezone,
-                    vehicle_journey_idx,
-                    &local_zone,
-                    &RealTimeLevel::RealTime,
-                )
-                .map_err(|(err, dates)| {
-                    ModifyError::Times(vehicle_journey_idx.clone(), err, dates)
-                })?;
-
+            let timetables = self.timetables.insert(
+                stops,
+                flows.clone(),
+                board_times.clone(),
+                debark_times.clone(),
+                loads_data,
+                &days,
+                &self.calendar,
+                &mut self.days_patterns,
+                timezone,
+                vehicle_journey_idx,
+                &local_zone,
+                &RealTimeLevel::RealTime,
+            );
+            let timetables = match timetables {
+                Err(err) => {
+                    error!("Error while inserting a real time vehicle. {:?}", err);
+                    continue;
+                }
+                Ok(timetables) => timetables,
+            };
             for (timetable, days_pattern) in timetables.iter() {
                 let result = self
                     .vehicle_journey_to_timetable
                     .insert_real_time_only_vehicle(
                         vehicle_journey_idx,
-                        &None,
+                        &local_zone,
                         days_pattern,
                         timetable,
                         &mut self.days_patterns,
@@ -253,9 +249,7 @@ where
                     error!("Error while modifying a real time vehicle. {:?}", err);
                 }
             }
-
             let missions = timetables.keys();
-
             for mission in missions {
                 self.add_mission_to_stops(mission);
             }

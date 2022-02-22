@@ -39,6 +39,7 @@ mod utils;
 use anyhow::Error;
 use launch::{config::DataImplem, solver::Solver};
 
+use loki::chrono::{NaiveDate, NaiveTime};
 use loki::{
     chrono_tz::UTC,
     models::{
@@ -48,7 +49,8 @@ use loki::{
     },
     request::generic_request,
     timetables::{InsertionError, Timetables, TimetablesIter},
-    DailyData, DataTrait, DataUpdate, PeriodicData, PeriodicSplitVjData, RealTimeLevel,
+    DailyData, DataTrait, DataUpdate, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
+    RealTimeLevel,
 };
 use utils::{
     disruption_builder::StopTimesBuilder,
@@ -630,6 +632,172 @@ where
 #[case(DataImplem::Periodic)]
 #[case(DataImplem::Daily)]
 #[case(DataImplem::PeriodicSplitVj)]
+fn modify_vj_with_local_zone(#[case] data_implem: DataImplem) -> Result<(), Error> {
+    match data_implem {
+        DataImplem::Periodic => modify_vj_with_local_zone_inner::<PeriodicData>(),
+        DataImplem::PeriodicSplitVj => modify_vj_with_local_zone_inner::<PeriodicSplitVjData>(),
+        DataImplem::Daily => modify_vj_with_local_zone_inner::<DailyData>(),
+    }
+}
+
+fn modify_vj_with_local_zone_inner<T>() -> Result<(), Error>
+where
+    T: Timetables<
+        Mission = generic_request::Mission,
+        Position = generic_request::Position,
+        Trip = generic_request::Trip,
+    >,
+    T: for<'a> TimetablesIter<'a>,
+    T::Mission: 'static,
+    T::Position: 'static,
+{
+    let _log_guard = launch::logger::init_test_logger();
+
+    let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .st_detailed("A", "10:00:00", "10:00:00", 0u8, 0u8, None)
+                .st_detailed("B", "10:05:00", "10:05:00", 0u8, 0u8, None)
+                .st_detailed("C", "10:10:00", "10:10:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("D", "10:15:00", "10:15:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("E", "10:20:00", "10:20:00", 0u8, 0u8, Some(2u16))
+                .st_detailed("F", "10:25:00", "10:25:00", 0u8, 0u8, Some(2u16))
+                .st_detailed("G", "10:30:00", "10:30:00", 0u8, 0u8, Some(3u16));
+        })
+        .build();
+
+    let config = Config::new("2020-01-01T09:50:00", "A", "G");
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::LoadsData::empty(),
+        config.default_transfer_duration.clone(),
+    )
+    .unwrap();
+
+    let mut real_time_model = RealTimeModel::new();
+
+    let request_input = utils::make_request_from_config(&config)?;
+
+    let mut data = launch::read::build_transit_data::<T>(&base_model);
+
+    let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
+
+    {
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
+            "first"
+        );
+    }
+
+    {
+        let stop_times = StopTimesBuilder::new()
+            .st("A", "10:00:00")
+            .st("B", "10:05:00")
+            .st("C", "10:10:00")
+            .st("D", "10:15:00")
+            .st("E", "10:20:00")
+            .st("F", "10:25:00")
+            // the stop_time of the last stop is changed
+            .st("G", "10:45:00")
+            .finalize(&mut real_time_model, &base_model);
+
+        let date = "2020-01-01".as_date();
+        let disruption_idx = DisruptionIdx::new(0);
+        let impact_idx = ImpactIdx::new(0);
+        let result = real_time_model.modify_trip(
+            &base_model,
+            &mut data,
+            "first",
+            &date,
+            stop_times,
+            disruption_idx,
+            impact_idx,
+        );
+        assert!(result.is_ok());
+    }
+
+    {
+        let mut request_input = request_input.clone();
+        request_input.real_time_level = RealTimeLevel::RealTime;
+
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        // All base vehicle journeys are deactivated
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
+            "first"
+        );
+        // the arrival time now is 10:45:00 instead of 10:30:00
+        assert_eq!(
+            journey.arrival.to_datetime,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd(2020, 1, 1),
+                NaiveTime::from_hms(10, 45, 0)
+            )
+        );
+    }
+
+    // we run the request again on Base level
+    {
+        let mut request_input = request_input.clone();
+        request_input.real_time_level = RealTimeLevel::Base;
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        assert_eq!(responses.len(), 1);
+        let journey = &responses[0];
+        assert_eq!(
+            model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
+            "first"
+        );
+        // the arrival time is still 10:30:00 on Base level
+        assert_eq!(
+            journey.arrival.to_datetime,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd(2020, 1, 1),
+                NaiveTime::from_hms(10, 30, 0)
+            )
+        );
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(DataImplem::Periodic)]
+#[case(DataImplem::Daily)]
+#[case(DataImplem::PeriodicSplitVj)]
 fn remove_vj_with_local_zone(#[case] data_implem: DataImplem) -> Result<(), Error> {
     match data_implem {
         DataImplem::Periodic => remove_vj_with_local_zone_inner::<PeriodicData>(),
@@ -724,6 +892,14 @@ where
             model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
             "first"
         );
+        // the arrival time is still 10:30:00 on Base level
+        assert_eq!(
+            journey.arrival.to_datetime,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd(2020, 1, 2),
+                NaiveTime::from_hms(10, 30, 0)
+            )
+        );
     }
 
     // Now we are going to remove the vj on 2020-01-02T09:50:00
@@ -731,6 +907,7 @@ where
         let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
+        // remove the vj
         data.remove_real_time_vehicle(&vj_idx, &"2020-01-02".as_date())
             .unwrap();
 
@@ -755,6 +932,14 @@ where
         assert_eq!(
             model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
             "second"
+        );
+        // the arrival time is still 10:30:00 on Base level
+        assert_eq!(
+            journey.arrival.to_datetime,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd(2020, 1, 2),
+                NaiveTime::from_hms(10, 35, 0)
+            )
         );
     }
 
@@ -782,6 +967,14 @@ where
         assert_eq!(
             model_refs.vehicle_journey_name(&journey.first_vehicle.vehicle_journey),
             "first"
+        );
+        // the arrival time is still 10:30:00 on Base level
+        assert_eq!(
+            journey.arrival.to_datetime,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd(2020, 1, 2),
+                NaiveTime::from_hms(10, 30, 0)
+            )
         );
     }
     Ok(())
