@@ -36,27 +36,13 @@
 
 mod utils;
 use anyhow::Error;
-use launch::{
-    config::{ComparatorType, DataImplem},
-    loki::models::{real_time_model::RealTimeModel, ModelRefs},
-};
-use loki::{
-    models::base_model::BaseModel, DailyData, DataTrait, PeriodicData, PeriodicSplitVjData,
-    PositiveDuration, TransitData,
-};
-use rstest::rstest;
-use utils::{build_and_solve, build_data_and_test, model_builder::ModelBuilder, Config};
+use launch::loki::models::{real_time_model::RealTimeModel, ModelRefs};
+use loki::{models::base_model::BaseModel, DataTrait, PositiveDuration};
 
-#[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_local_zone_routing(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+use utils::{build_and_solve, model_builder::ModelBuilder, Config};
+
+#[test]
+fn test_local_zone_routing() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
@@ -79,11 +65,6 @@ fn test_local_zone_routing(
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let config = Config::new("2022-01-01T09:59:00", "A", "B");
-    let config = Config {
-        comparator_type: comparator_type.clone(),
-        data_implem,
-        ..config
-    };
 
     assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
 
@@ -95,11 +76,6 @@ fn test_local_zone_routing(
     assert_eq!(responses.len(), 0);
 
     let config = Config::new("2022-01-01T09:59:00", "A", "C");
-    let config = Config {
-        comparator_type: comparator_type.clone(),
-        data_implem,
-        ..config
-    };
 
     let responses = build_and_solve(&model_refs, &config)?;
 
@@ -113,11 +89,8 @@ fn test_local_zone_routing(
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn test_local_zone_timetable(#[case] data_implem: DataImplem) -> Result<(), Error> {
+#[test]
+fn test_local_zone_timetable() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
@@ -136,32 +109,12 @@ fn test_local_zone_timetable(#[case] data_implem: DataImplem) -> Result<(), Erro
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
             .unwrap();
 
-    let real_time_model = RealTimeModel::new();
-    let model_refs = ModelRefs::new(&base_model, &real_time_model);
-
     assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
 
     // Since there are 3 different local zone, 3 missions must be created
     let expected_mission_nb = 3;
-    match data_implem {
-        DataImplem::Periodic => build_data_and_test::<PeriodicData, _>(
-            &model_refs,
-            |data: TransitData<PeriodicData>| {
-                assert_eq!(data.nb_of_missions(), expected_mission_nb);
-            },
-        ),
-        DataImplem::Daily => {
-            build_data_and_test::<DailyData, _>(&model_refs, |data: TransitData<DailyData>| {
-                assert_eq!(data.nb_of_missions(), expected_mission_nb);
-            })
-        }
-        DataImplem::PeriodicSplitVj => build_data_and_test::<PeriodicSplitVjData, _>(
-            &model_refs,
-            |data: TransitData<PeriodicSplitVjData>| {
-                assert_eq!(data.nb_of_missions(), expected_mission_nb);
-            },
-        ),
-    }
+    let data = launch::read::build_transit_data(&base_model);
+    assert_eq!(data.nb_of_missions(), expected_mission_nb);
 
     Ok(())
 }
@@ -228,16 +181,8 @@ fn test_local_zone_routing_multiple_vj() -> Result<(), Error> {
     Ok(())
 }
 
-#[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_local_zone_routing_one_local_zone(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[test]
+fn test_local_zone_routing_one_local_zone() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
@@ -262,11 +207,6 @@ fn test_local_zone_routing_one_local_zone(
     assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
 
     let config = Config::new("2022-01-01T09:59:00", "A", "E");
-    let config = Config {
-        comparator_type,
-        data_implem,
-        ..config
-    };
 
     let responses = build_and_solve(&model_refs, &config)?;
     assert_eq!(responses.len(), 1);

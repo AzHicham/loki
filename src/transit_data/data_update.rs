@@ -43,17 +43,14 @@ use crate::{
     transit_data::TransitData,
 };
 
-use crate::{
-    time::SecondsSinceTimezonedDayStart,
-    timetables::{FlowDirection, Timetables as TimetablesTrait, TimetablesIter},
+use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
+
+use super::{
+    data_interface::{self, RealTimeLevel},
+    Mission,
 };
 
-use super::data_interface::{self, RealTimeLevel};
-
-impl<Timetables> data_interface::DataUpdate for TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+impl data_interface::DataUpdate for TransitData {
     fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
@@ -249,10 +246,7 @@ where
     }
 }
 
-impl<Timetables> TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+impl TransitData {
     pub(super) fn insert_inner<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
@@ -379,7 +373,7 @@ where
         Ok(())
     }
 
-    pub(super) fn add_mission_to_stops(&mut self, mission: &Timetables::Mission) {
+    pub(super) fn add_mission_to_stops(&mut self, mission: &Mission) {
         for position in self.timetables.positions(mission) {
             let stop = self.timetables.stop_at(&position, mission);
             let stop_data = &mut self.stops_data[stop.idx];

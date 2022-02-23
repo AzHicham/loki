@@ -47,21 +47,15 @@ use crate::{
     RealTimeLevel,
 };
 
-use crate::{
-    time::PositiveDuration,
-    timetables::{Timetables as TimetablesTrait, TimetablesIter},
-};
+use crate::time::PositiveDuration;
 use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
 use tracing::{info, warn};
 
-use super::{handle_insertion_error, Transfer, TransferData, TransferDurations};
+use super::{handle_insertion_error, Timetables, Transfer, TransferData, TransferDurations};
 
-impl<Timetables> TransitData<Timetables>
-where
-    Timetables: TimetablesTrait + for<'a> TimetablesIter<'a>,
-{
+impl TransitData {
     pub fn _new(base_model: &BaseModel) -> Self {
         let nb_of_stop_points = base_model.nb_of_stop_points();
         let nb_transfers = base_model.nb_of_transfers();
@@ -302,7 +296,7 @@ where
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
 
         use super::StopData;
-        let stop_data = StopData::<Timetables> {
+        let stop_data = StopData {
             stop_point_idx: stop_point_idx.clone(),
             position_in_timetables: Vec::new(),
             incoming_transfers: Vec::new(),

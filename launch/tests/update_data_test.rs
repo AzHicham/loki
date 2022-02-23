@@ -37,19 +37,17 @@
 mod utils;
 
 use anyhow::Error;
-use launch::{config::DataImplem, solver::Solver};
+use launch::solver::Solver;
 
 use loki::{
-    chrono::{NaiveDate, NaiveTime},
+    chrono::NaiveDate,
     chrono_tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
         VehicleJourneyIdx,
     },
-    request::generic_request,
-    timetables::{InsertionError, Timetables, TimetablesIter},
-    DailyData, DataTrait, DataUpdate, NaiveDateTime, PeriodicData, PeriodicSplitVjData,
-    RealTimeLevel,
+    timetables::InsertionError,
+    DataTrait, DataUpdate, RealTimeLevel,
 };
 use utils::{
     disruption_builder::StopTimesBuilder,
@@ -57,31 +55,8 @@ use utils::{
     Config,
 };
 
-use rstest::rstest;
-
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn remove_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => remove_vj_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => remove_vj_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => remove_vj_inner::<DailyData>(),
-    }
-}
-
-fn remove_vj_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn remove_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -112,7 +87,7 @@ where
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -191,29 +166,8 @@ where
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn remove_successive_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => remove_successive_vj_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => remove_successive_vj_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => remove_successive_vj_inner::<DailyData>(),
-    }
-}
-
-fn remove_successive_vj_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn remove_successive_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -249,7 +203,7 @@ where
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -351,29 +305,8 @@ where
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn remove_middle_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => remove_middle_vj_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => remove_middle_vj_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => remove_middle_vj_inner::<DailyData>(),
-    }
-}
-
-fn remove_middle_vj_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn remove_middle_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -408,7 +341,7 @@ where
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -486,29 +419,8 @@ where
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn modify_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => modify_vj_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => modify_vj_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => modify_vj_inner::<DailyData>(),
-    }
-}
-
-fn modify_vj_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn modify_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -533,7 +445,7 @@ where
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -635,29 +547,8 @@ where
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn modify_vj_with_local_zone(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => modify_vj_with_local_zone_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => modify_vj_with_local_zone_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => modify_vj_with_local_zone_inner::<DailyData>(),
-    }
-}
-
-fn modify_vj_with_local_zone_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn modify_vj_with_local_zone() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -685,7 +576,7 @@ where
 
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -770,10 +661,7 @@ where
         // the arrival time now is 10:45:00 instead of 10:30:00
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms(10, 45, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 45, 0)
         );
     }
 
@@ -801,10 +689,7 @@ where
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 30, 0)
         );
     }
 
@@ -851,29 +736,8 @@ where
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn remove_vj_with_local_zone(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => remove_vj_with_local_zone_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => remove_vj_with_local_zone_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => remove_vj_with_local_zone_inner::<DailyData>(),
-    }
-}
-
-fn remove_vj_with_local_zone_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn remove_vj_with_local_zone() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-03")
@@ -906,7 +770,7 @@ where
 
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -952,10 +816,7 @@ where
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
         );
     }
 
@@ -993,10 +854,7 @@ where
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 35, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 35, 0)
         );
     }
 
@@ -1028,38 +886,14 @@ where
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
         );
     }
     Ok(())
 }
 
-#[rstest]
-#[case(DataImplem::Periodic)]
-#[case(DataImplem::Daily)]
-#[case(DataImplem::PeriodicSplitVj)]
-fn insert_invalid_vj(#[case] data_implem: DataImplem) -> Result<(), Error> {
-    match data_implem {
-        DataImplem::Periodic => insert_invalid_vj_inner::<PeriodicData>(),
-        DataImplem::PeriodicSplitVj => insert_invalid_vj_inner::<PeriodicSplitVjData>(),
-        DataImplem::Daily => insert_invalid_vj_inner::<DailyData>(),
-    }
-}
-
-fn insert_invalid_vj_inner<T>() -> Result<(), Error>
-where
-    T: Timetables<
-        Mission = generic_request::Mission,
-        Position = generic_request::Position,
-        Trip = generic_request::Trip,
-    >,
-    T: for<'a> TimetablesIter<'a>,
-    T::Mission: 'static,
-    T::Position: 'static,
-{
+#[test]
+fn insert_invalid_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -1083,7 +917,7 @@ where
     let mut real_time_model = RealTimeModel::new();
     let _model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     // insert a vehicle with a date outside of the calendar of the data
     {

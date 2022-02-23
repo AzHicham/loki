@@ -39,31 +39,29 @@ use crate::{
     models::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
     timetables::generic_timetables,
+    transit_data::Stop,
     RealTimeLevel,
 };
 
 use super::{
-    generic_timetables::{Timetables, Trip, Vehicle, VehicleTimesError},
-    TimetablesIter,
+    day_to_timetable::LocalZone,
+    generic_timetables::{GenericTimetables, Vehicle, VehicleTimesError},
+    timetable_iters::{PositionsIter, TimetableIter},
 };
-use crate::{
-    time::{
-        Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
-        SecondsSinceTimezonedDayStart, SecondsSinceUTCDayStart, TimezonesPatterns,
-    },
-    timetables::generic_timetables::{Position, Timetable},
+use crate::time::{
+    Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
+    SecondsSinceUTCDayStart, TimezonesPatterns,
 };
 use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
 use tracing::log::error;
 
-use crate::timetables::{
-    day_to_timetable::LocalZone, FlowDirection, Stop, Timetables as TimetablesTrait,
-    Types as TimetablesTypes,
-};
+use crate::timetables::FlowDirection;
 
-pub struct PeriodicSplitVjByTzTimetables {
-    timetables: Timetables<SecondsSinceUTCDayStart, Load, (), VehicleData>,
+pub use super::generic_timetables::{Position, Timetable as Mission, Trip};
+
+pub struct UTCTimetables {
+    timetables: GenericTimetables<SecondsSinceUTCDayStart, Load, VehicleData>,
     timezones_patterns: TimezonesPatterns,
 }
 
@@ -75,84 +73,70 @@ pub struct VehicleData {
     local_zone: LocalZone,
 }
 
-impl TimetablesTypes for PeriodicSplitVjByTzTimetables {
-    type Mission = Timetable;
-    type Position = Position;
-    type Trip = Trip;
-}
-
-impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
-    fn new() -> Self {
+impl UTCTimetables {
+    pub fn new() -> Self {
         Self {
-            timetables: Timetables::new(),
+            timetables: GenericTimetables::new(),
             timezones_patterns: TimezonesPatterns::new(),
         }
     }
 
-    fn nb_of_missions(&self) -> usize {
+    pub fn nb_of_missions(&self) -> usize {
         self.timetables.nb_of_timetables()
     }
 
-    fn mission_id(&self, mission: &Self::Mission) -> usize {
+    pub fn mission_id(&self, mission: &Mission) -> usize {
         mission.idx
     }
 
-    fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx {
+    pub fn vehicle_journey_idx(&self, trip: &Trip) -> VehicleJourneyIdx {
         self.timetables
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
             .clone()
     }
 
-    fn stoptime_idx(&self, position: &Self::Position, _trip: &Self::Trip) -> usize {
+    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> usize {
         self.timetables.stoptime_idx(position)
     }
 
-    fn day_of(&self, trip: &Self::Trip) -> DaysSinceDatasetStart {
+    pub fn day_of(&self, trip: &Trip) -> DaysSinceDatasetStart {
         trip.day
     }
 
-    fn mission_of(&self, trip: &Self::Trip) -> Self::Mission {
+    pub fn mission_of(&self, trip: &Trip) -> Mission {
         self.timetables.timetable_of(&trip.vehicle)
     }
 
-    fn stop_at(&self, position: &Self::Position, mission: &Self::Mission) -> super::Stop {
+    pub fn stop_at(&self, position: &Position, mission: &Mission) -> Stop {
         *self.timetables.stop_at(position, mission)
     }
 
-    fn nb_of_trips(&self) -> usize {
+    pub fn nb_of_trips(&self) -> usize {
         self.timetables.nb_of_trips()
     }
 
-    fn is_upstream_in_mission(
+    pub fn is_upstream_in_mission(
         &self,
-        upstream: &Self::Position,
-        downstream: &Self::Position,
-        mission: &Self::Mission,
+        upstream: &Position,
+        downstream: &Position,
+        mission: &Mission,
     ) -> bool {
         self.timetables.is_upstream(upstream, downstream, mission)
     }
 
-    fn next_position(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position> {
+    pub fn next_position(&self, position: &Position, mission: &Mission) -> Option<Position> {
         self.timetables.next_position(position, mission)
     }
 
-    fn previous_position(
-        &self,
-        position: &Self::Position,
-        mission: &Self::Mission,
-    ) -> Option<Self::Position> {
+    pub fn previous_position(&self, position: &Position, mission: &Mission) -> Option<Position> {
         self.timetables.previous_position(position, mission)
     }
 
-    fn arrival_time_of(
+    pub fn arrival_time_of(
         &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
+        trip: &Trip,
+        position: &Position,
         calendar: &Calendar,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
         let (time_in_day, load) = self.timetables.arrival_time(&trip.vehicle, position);
@@ -160,10 +144,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         (time_utc, *load)
     }
 
-    fn departure_time_of(
+    pub fn departure_time_of(
         &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
+        trip: &Trip,
+        position: &Position,
         calendar: &Calendar,
     ) -> (SecondsSinceDatasetUTCStart, Load) {
         let (time_in_day, load) = self.timetables.departure_time(&trip.vehicle, position);
@@ -171,10 +155,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         (time_utc, *load)
     }
 
-    fn debark_time_of(
+    pub fn debark_time_of(
         &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
+        trip: &Trip,
+        position: &Position,
         calendar: &Calendar,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         let has_timeload_in_day = self.timetables.debark_time(&trip.vehicle, position);
@@ -185,10 +169,10 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         })
     }
 
-    fn board_time_of(
+    pub fn board_time_of(
         &self,
-        trip: &Self::Trip,
-        position: &Self::Position,
+        trip: &Trip,
+        position: &Position,
         calendar: &Calendar,
     ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
         let has_timeload_in_day = self.timetables.board_time(&trip.vehicle, position);
@@ -199,15 +183,15 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         })
     }
 
-    fn earliest_trip_to_board_at(
+    pub fn earliest_trip_to_board_at(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
+        mission: &Mission,
+        position: &Position,
         real_time_level: &RealTimeLevel,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.earliest_filtered_trip_to_board_at(
             waiting_time,
             mission,
@@ -219,27 +203,19 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn earliest_filtered_trip_to_board_at<Filter>(
+    pub fn earliest_filtered_trip_to_board_at<Filter>(
         &self,
         waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
+        mission: &Mission,
+        position: &Position,
         real_time_level: &RealTimeLevel,
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        let has_earliest_and_latest_board_time =
-            self.timetables.earliest_and_latest_board_time(position);
-
-        // if there is no earliest/latest board time, it means that this position cannot be boarded
-        // and we return None
-        let (_earliest_board_time_in_day, _latest_board_time_in_day) =
-            has_earliest_and_latest_board_time?;
-
         let decompositions = calendar.decompositions_utc(waiting_time);
 
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
@@ -291,15 +267,15 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn latest_trip_that_debark_at(
+    pub fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
+        mission: &Mission,
+        position: &Position,
         real_time_level: &RealTimeLevel,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.latest_filtered_trip_that_debark_at(
             time,
             mission,
@@ -311,27 +287,19 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn latest_filtered_trip_that_debark_at<Filter>(
+    pub fn latest_filtered_trip_that_debark_at<Filter>(
         &self,
         time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
+        mission: &Mission,
+        position: &Position,
         real_time_level: &RealTimeLevel,
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        let has_earliest_and_latest_debark_time =
-            self.timetables.earliest_and_latest_debark_time(position);
-
-        // if there is no earliest/latest debark time, it means that this position cannot be debarked
-        // and we return None
-        let (_earliest_debark_time_in_day, _latest_debark_time_in_day) =
-            has_earliest_and_latest_debark_time?;
-
         let decompositions = calendar.decompositions_utc(time);
         let mut best_vehicle_day_and_its_departure_time_at_previous_position: Option<(
             Vehicle,
@@ -382,7 +350,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         )
     }
 
-    fn insert<Stops, Flows, BoardTimes, DebarkTimes>(
+    pub fn insert<Stops, Flows, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
@@ -396,7 +364,7 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         vehicle_journey_idx: &VehicleJourneyIdx,
         local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
-    ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
+    ) -> Result<HashMap<Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
@@ -492,7 +460,6 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
                     board_times.clone().map(apply_offset),
                     debark_times.clone().map(apply_offset),
                     loads.iter().cloned(),
-                    (),
                     vehicle_data,
                 );
                 match insert_result {
@@ -517,9 +484,9 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
         Ok(result)
     }
 
-    fn remove(
+    pub fn remove(
         &mut self,
-        timetable: &Timetable,
+        timetable: &Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
         local_zone: &LocalZone,
@@ -564,55 +531,52 @@ impl TimetablesTrait for PeriodicSplitVjByTzTimetables {
             error!("Removed {} vehicle during removal of one (vehicle_journey_idx, real_time_level, day).", nb_vehicle_removed);
         }
     }
-}
 
-impl<'a> TimetablesIter<'a> for PeriodicSplitVjByTzTimetables {
-    type Positions = super::iters::PositionsIter;
-
-    fn positions(&'a self, mission: &Self::Mission) -> Self::Positions {
+    pub fn positions<'a>(&'a self, mission: &Mission) -> PositionsIter {
         self.timetables.positions(mission)
     }
 
-    type Trips = TripsIter<'a>;
-
-    fn trips_of(
+    pub fn trips_of<'a>(
         &'a self,
-        mission: &Self::Mission,
+        mission: &Mission,
         real_time_level: &RealTimeLevel,
         days_patterns: &'a DaysPatterns,
-    ) -> Self::Trips {
+    ) -> TripsIter<'a> {
         TripsIter::new(self, mission, real_time_level, days_patterns)
     }
 
-    type Missions = super::iters::TimetableIter;
-
-    fn missions(&'a self) -> Self::Missions {
+    pub fn missions<'a>(&'a self) -> TimetableIter {
         self.timetables.timetables()
     }
 }
 
 pub struct TripsIter<'a> {
-    periodic: &'a PeriodicSplitVjByTzTimetables,
+    utc_timetables: &'a UTCTimetables,
     current_vehicle_days: Option<(Vehicle, DaysInPatternIter<'a>)>,
-    vehicles_iter: super::iters::VehicleIter,
+    vehicles_iter: super::timetable_iters::VehicleIter,
     real_time_level: RealTimeLevel,
     days_patterns: &'a DaysPatterns,
 }
 
 impl<'a> TripsIter<'a> {
     fn new(
-        periodic: &'a PeriodicSplitVjByTzTimetables,
+        utc_timetables: &'a UTCTimetables,
         timetable: &super::generic_timetables::Timetable,
         real_time_level: &RealTimeLevel,
         days_patterns: &'a DaysPatterns,
     ) -> Self {
-        let mut vehicles_iter = periodic.timetables.vehicles(timetable);
+        let mut vehicles_iter = utc_timetables.timetables.vehicles(timetable);
         let has_current_vehicle = vehicles_iter.next();
         let current_vehicle_days = has_current_vehicle.map(|vehicle| {
             let days_pattern = match real_time_level {
-                RealTimeLevel::Base => periodic.timetables.vehicle_data(&vehicle).base_days_pattern,
+                RealTimeLevel::Base => {
+                    utc_timetables
+                        .timetables
+                        .vehicle_data(&vehicle)
+                        .base_days_pattern
+                }
                 RealTimeLevel::RealTime => {
-                    periodic
+                    utc_timetables
                         .timetables
                         .vehicle_data(&vehicle)
                         .real_time_days_pattern
@@ -623,7 +587,7 @@ impl<'a> TripsIter<'a> {
         });
 
         Self {
-            periodic,
+            utc_timetables,
             current_vehicle_days,
             vehicles_iter,
             real_time_level: real_time_level.clone(),
@@ -651,13 +615,13 @@ impl<'a> Iterator for TripsIter<'a> {
                         self.current_vehicle_days = has_current_vehicle.map(|vehicle| {
                             let days_pattern = match self.real_time_level {
                                 RealTimeLevel::Base => {
-                                    self.periodic
+                                    self.utc_timetables
                                         .timetables
                                         .vehicle_data(&vehicle)
                                         .base_days_pattern
                                 }
                                 RealTimeLevel::RealTime => {
-                                    self.periodic
+                                    self.utc_timetables
                                         .timetables
                                         .vehicle_data(&vehicle)
                                         .real_time_days_pattern

@@ -34,58 +34,48 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use serde::{Deserialize, Serialize};
+use crate::{request::generic_request::Mission, timetables::generic_timetables::Position};
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum DataImplem {
-    Periodic,
-    PeriodicSplitVj,
-    Daily,
-}
+use super::{Stop, Transfer, TransferDurations, TransitData};
 
-impl Default for DataImplem {
-    fn default() -> Self {
-        Self::Periodic
-    }
-}
+pub type OutgoingTransfersAtStop<'data> =
+    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
+pub type IncomingTransfersAtStop<'data> =
+    std::slice::Iter<'data, (Stop, TransferDurations, Transfer)>;
 
-impl std::str::FromStr for DataImplem {
-    type Err = DataImplemConfigError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use DataImplem::*;
-        let implem = match s {
-            "periodic" => Periodic,
-            "periodic_split_vj" => PeriodicSplitVj,
-            "daily" => Daily,
-            _ => {
-                return Err(DataImplemConfigError {
-                    implem_name: s.to_string(),
-                })
-            }
-        };
-        Ok(implem)
-    }
-}
-
-#[derive(Debug)]
-pub struct DataImplemConfigError {
-    implem_name: String,
-}
-
-impl std::fmt::Display for DataImplem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use DataImplem::*;
-        match self {
-            Periodic => write!(f, "periodic"),
-            PeriodicSplitVj => write!(f, "periodic_split_vj"),
-            Daily => write!(f, "daily"),
+impl TransitData {
+    pub fn missions_of(&self, stop: &Stop) -> MissionsOfStop {
+        let stop_data = self.stop_data(stop);
+        MissionsOfStop {
+            inner: stop_data.position_in_timetables.iter(),
         }
     }
+
+    pub fn outgoing_transfers_at(&self, stop: &Stop) -> OutgoingTransfersAtStop {
+        let stop_data = self.stop_data(stop);
+        stop_data.outgoing_transfers.iter()
+    }
+
+    pub fn incoming_transfers_at(&self, stop: &Stop) -> IncomingTransfersAtStop {
+        let stop_data = self.stop_data(stop);
+        stop_data.incoming_transfers.iter()
+    }
 }
 
-impl std::fmt::Display for DataImplemConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad implem configuration : `{}`", self.implem_name)
+pub struct MissionsOfStop<'a> {
+    inner: std::slice::Iter<'a, (Mission, Position)>,
+}
+
+impl<'a> Iterator for MissionsOfStop<'a> {
+    type Item = (Mission, Position);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().cloned()
+    }
+}
+
+impl<'a> ExactSizeIterator for MissionsOfStop<'a> {
+    fn len(&self) -> usize {
+        self.inner.len()
     }
 }

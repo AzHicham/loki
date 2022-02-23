@@ -60,18 +60,6 @@ pub struct LaunchParams {
     #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
-
-    /// Type used for storage of criteria
-    /// "classic" or "loads"
-    #[structopt(long, default_value)]
-    #[serde(default)]
-    pub criteria_implem: super::CriteriaImplem,
-
-    /// Timetable implementation to use :
-    /// "periodic" (default), "periodic_split_vj" or "daily"
-    #[structopt(long, default_value)]
-    #[serde(default)]
-    pub data_implem: super::DataImplem,
 }
 
 pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
@@ -88,8 +76,6 @@ impl LaunchParams {
             input_data_type: InputDataType::Ntfs,
             default_transfer_duration: default_transfer_duration(),
             loads_data_path: None,
-            criteria_implem: Default::default(),
-            data_implem: Default::default(),
         }
     }
 }

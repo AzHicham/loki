@@ -37,7 +37,7 @@
 mod utils;
 use anyhow::Error;
 use launch::{
-    config::{ComparatorType, DataImplem},
+    config::ComparatorType,
     datetime::DateTimeRepresent,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
@@ -50,15 +50,9 @@ use utils::{
 };
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_simple_routing(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
+fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -81,7 +75,6 @@ fn test_simple_routing(
     let config = Config::new("2020-01-01T09:59:00", "A", "B");
     let config = Config {
         comparator_type,
-        data_implem,
         ..config
     };
 
@@ -114,15 +107,9 @@ fn test_simple_routing(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_routing_with_transfers(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
+fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -144,7 +131,6 @@ fn test_routing_with_transfers(
     let config = Config::new("2020-01-01T09:59:00", "A", "G");
     let config = Config {
         comparator_type,
-        data_implem,
         ..config
     };
 
@@ -221,15 +207,9 @@ fn test_routing_with_transfers(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_routing_backward(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
+fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -251,7 +231,6 @@ fn test_routing_backward(
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {
         comparator_type,
-        data_implem,
         datetime_represent: DateTimeRepresent::Arrival,
         ..config
     };
@@ -333,15 +312,9 @@ fn test_routing_backward(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_second_pass_forward(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
+fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -376,7 +349,6 @@ fn test_second_pass_forward(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        data_implem,
         ..config
     };
 
@@ -415,15 +387,9 @@ fn test_second_pass_forward(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_second_pass_backward(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Basic)]
+fn test_second_pass_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -450,7 +416,6 @@ fn test_second_pass_backward(
     let config = Config::new("2020-01-01T10:40:00", "A", "G");
     let config = Config {
         comparator_type,
-        data_implem,
         datetime_represent: DateTimeRepresent::Arrival,
         ..config
     };
