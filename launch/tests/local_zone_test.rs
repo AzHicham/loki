@@ -166,16 +166,8 @@ fn test_local_zone_timetable(#[case] data_implem: DataImplem) -> Result<(), Erro
     Ok(())
 }
 
-#[rstest]
-#[case(ComparatorType::Loads, DataImplem::Periodic)]
-#[case(ComparatorType::Basic, DataImplem::Periodic)]
-#[case(ComparatorType::Loads, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::Daily)]
-#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
-fn test_local_zone_routing_multiple_vj(
-    #[case] comparator_type: ComparatorType,
-    #[case] data_implem: DataImplem,
-) -> Result<(), Error> {
+#[test]
+fn test_local_zone_routing_multiple_vj() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
@@ -183,9 +175,9 @@ fn test_local_zone_routing_multiple_vj(
             vj_builder
                 .route("1")
                 .st_detailed("A", "10:00:00", "10:00:00", 0u8, 0u8, None)
-                .st_detailed("B", "10:05:00", "10:05:00", 0u8, 0u8, None)
-                .st_detailed("C", "10:10:00", "10:10:00", 0u8, 0u8, Some(1u16))
-                .st_detailed("D", "10:15:00", "10:15:00", 0u8, 0u8, Some(1u16));
+                .st_detailed("B", "10:04:00", "10:04:00", 0u8, 0u8, None)
+                .st_detailed("C", "10:09:00", "10:09:00", 0u8, 0u8, Some(1u16))
+                .st_detailed("D", "10:14:00", "10:14:00", 0u8, 0u8, Some(1u16));
         })
         .vj("NoLocalZone", |vj_builder| {
             vj_builder
@@ -204,31 +196,34 @@ fn test_local_zone_routing_multiple_vj(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let config = Config::new("2022-01-01T09:59:00", "A", "B");
-    let config = Config {
-        comparator_type: comparator_type.clone(),
-        data_implem,
-        ..config
-    };
+    // We should be able to go from A to B with the vehicle NoLocalZone
+    {
+        let config = Config::new("2022-01-01T09:59:00", "A", "B");
 
-    assert_eq!(base_model.nb_of_vehicle_journeys(), 2);
+        assert_eq!(base_model.nb_of_vehicle_journeys(), 2);
 
-    let responses = build_and_solve(&model_refs, &config)?;
-    assert_eq!(responses.len(), 1);
+        let responses = build_and_solve(&model_refs, &config)?;
 
-    let config = Config::new("2022-01-01T09:59:00", "A", "C");
-    let config = Config {
-        comparator_type: comparator_type.clone(),
-        data_implem,
-        ..config
-    };
+        let journey = &responses[0];
+        assert_eq!(responses.len(), 1);
+        assert_eq!(journey.first_vj_uri(&model_refs), "NoLocalZone");
+    }
 
-    let responses = build_and_solve(&model_refs, &config)?;
+    // Between A and C we can use both LocalZone and NoLocalZone
+    // but LocalZone arrives earlier, so we should use it
+    {
+        let config = Config::new("2022-01-01T09:59:00", "A", "C");
 
-    assert_eq!(responses.len(), 1);
+        let responses = build_and_solve(&model_refs, &config)?;
 
-    let journey = &responses[0];
-    assert_eq!(journey.nb_of_sections(), 1);
+        assert_eq!(responses.len(), 1);
+
+        let journey = &responses[0];
+        assert_eq!(journey.nb_of_sections(), 1);
+        let journey = &responses[0];
+        assert_eq!(responses.len(), 1);
+        assert_eq!(journey.first_vj_uri(&model_refs), "LocalZone");
+    }
 
     Ok(())
 }

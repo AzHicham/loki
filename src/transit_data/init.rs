@@ -217,7 +217,7 @@ where
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
-        local_zones.sort();
+        local_zones.sort_unstable();
         local_zones.dedup();
 
         if local_zones.len() == 1 {
@@ -252,14 +252,14 @@ where
                 // we change the flows regarding the `local_zone` so that:
                 // - we can only board on stops that belong to `local_zone`
                 // - we can only debark on stops that don't belong to `local_zone`
-                let local_flows = stop_times.clone().map(|s| {
-                    if s.local_zone_id == local_zone {
-                        match s.flow_direction {
+                let local_flows = stop_times.clone().map(|stop_time| {
+                    if stop_time.local_zone_id == local_zone {
+                        match stop_time.flow_direction {
                             BoardOnly | BoardAndDebark => BoardOnly,
                             DebarkOnly | NoBoardDebark => NoBoardDebark,
                         }
                     } else {
-                        match s.flow_direction {
+                        match stop_time.flow_direction {
                             BoardOnly | NoBoardDebark => NoBoardDebark,
                             DebarkOnly | BoardAndDebark => DebarkOnly,
                         }
