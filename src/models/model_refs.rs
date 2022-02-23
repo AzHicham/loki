@@ -86,9 +86,16 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn stop_area_name(&self, stop_idx: &StopPointIdx) -> &str {
+    pub fn stop_point_id(&self, stop_idx: &StopPointIdx) -> &str {
         match stop_idx {
-            StopPointIdx::Base(idx) => self.base.stop_area_name(*idx),
+            StopPointIdx::Base(idx) => self.base.stop_point_id(*idx),
+            StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
+        }
+    }
+
+    pub fn stop_area_id(&self, stop_idx: &StopPointIdx) -> &str {
+        match stop_idx {
+            StopPointIdx::Base(idx) => self.base.stop_area_id(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }

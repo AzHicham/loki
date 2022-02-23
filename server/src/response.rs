@@ -554,7 +554,7 @@ fn make_stop_area(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
 ) -> Option<navitia_proto::StopArea> {
-    let stop_area_name = model.stop_area_name(stop_point_idx);
+    let stop_area_name = model.stop_area_id(stop_point_idx);
     let coord =
         model
             .stop_area_coord(stop_area_name)

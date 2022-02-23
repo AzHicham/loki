@@ -80,7 +80,7 @@ pub struct NextStopTimeResponse {
 
 pub fn generate_stops_for_next_stoptimes_request<'a, 'data, T>(
     input_str: &'a T,
-    forbidden_uri: &'a [T],
+    forbidden_uris: &'a [T],
     model: &'data ModelRefs<'data>,
 ) -> Vec<StopPointIdx>
 where
@@ -105,16 +105,27 @@ where
             }
         };
 
-        for uri in forbidden_uri {
-            let filter = parse_filter(model, uri.as_ref(), "next_stoptimes_forbidden_uri");
-            let forbidden_stops = match filter {
-                Some(Filter::Stop(StopFilter::StopPoint(id))) => model
-                    .stop_point_idx(id)
-                    .map_or_else(Vec::new, |idx| vec![idx]),
-                Some(Filter::Stop(StopFilter::StopArea(id))) => model.stop_points_of_stop_area(id),
-                _ => vec![],
+        for forbidden_uri in forbidden_uris {
+            let filter = parse_filter(
+                model,
+                forbidden_uri.as_ref(),
+                "next_stoptimes_forbidden_uri",
+            );
+            match filter {
+                Some(Filter::Stop(StopFilter::StopPoint(stop_id))) => {
+                    stop_points.retain(|stop_idx| model.stop_point_id(stop_idx) != stop_id);
+                }
+
+                Some(Filter::Stop(StopFilter::StopArea(stop_area_id))) => {
+                    stop_points.retain(|stop_idx| model.stop_area_id(stop_idx) != stop_area_id);
+                }
+                Some(_) => {
+                    warn!("Unexpected forbidden_uri {} provided in a next_stop_time request. I'm gonna ignore it.", forbidden_uri.as_ref());
+                }
+                _ => {
+                    warn!("Bad forbidden_uri {} provided in a next_stop_time request. I'm gonna ignore it.", forbidden_uri.as_ref());
+                }
             };
-            stop_points.retain(|idx| !forbidden_stops.contains(idx))
         }
         stop_points
     } else {

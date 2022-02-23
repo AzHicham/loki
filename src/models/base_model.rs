@@ -268,7 +268,7 @@ impl BaseModel {
         Some(stop_point.codes.iter())
     }
 
-    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
+    pub fn stop_area_id(&self, stop_idx: BaseStopPointIdx) -> &str {
         &self.model.stop_points[stop_idx].stop_area_id
     }
 

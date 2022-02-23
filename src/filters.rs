@@ -89,8 +89,8 @@ impl<'a> VehicleFilter<'a> {
 impl<'a> StopFilter<'a> {
     pub fn applies_on(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         match self {
-            StopFilter::StopPoint(stop_point_id) => *stop_point_id == model.stop_point_name(idx),
-            StopFilter::StopArea(stop_area_id) => *stop_area_id == model.stop_area_name(idx),
+            StopFilter::StopPoint(stop_point_id) => *stop_point_id == model.stop_point_id(idx),
+            StopFilter::StopArea(stop_area_id) => *stop_area_id == model.stop_area_id(idx),
         }
     }
 }
