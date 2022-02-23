@@ -41,7 +41,7 @@ use launch::{config::DataImplem, solver::Solver};
 
 use loki::{
     chrono::{NaiveDate, NaiveTime},
-    chrono_tz::Tz::UTC,
+    chrono_tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
         VehicleJourneyIdx,
@@ -708,6 +708,7 @@ where
         );
     }
 
+    // let's modify the vehicle
     {
         let stop_times = StopTimesBuilder::new()
             .st("A", "10:00:00")
@@ -805,6 +806,46 @@ where
                 NaiveTime::from_hms(10, 30, 0)
             )
         );
+    }
+
+    // let's now try another request, from C to D
+    let config = Config::new("2020-01-01T09:50:00", "C", "D");
+    let request_input = utils::make_request_from_config(&config)?;
+    // we run the request on Base level
+    {
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        // we should not get any response, since A and C are in the same local zone
+        // on the base level
+        assert_eq!(responses.len(), 0);
+    }
+    // we run the request on real time level
+    {
+        let mut request_input = request_input.clone();
+        request_input.real_time_level = RealTimeLevel::RealTime;
+        let model_refs = ModelRefs::new(&base_model, &real_time_model);
+
+        let responses = solver.solve_request(
+            &data,
+            &model_refs,
+            &request_input,
+            None,
+            &config.comparator_type,
+            &config.datetime_represent,
+        )?;
+
+        // we should not get a response, since there is no local zone on
+        // the real time vehicle
+        assert_eq!(responses.len(), 1);
     }
 
     Ok(())
