@@ -44,6 +44,7 @@ use crate::{
 };
 
 use super::{
+    day_to_timetable::LocalZone,
     generic_timetables::{GenericTimetables, Vehicle, VehicleTimesError},
     timetable_iters::{PositionsIter, TimetableIter},
 };
@@ -69,6 +70,7 @@ pub struct VehicleData {
     vehicle_journey_idx: VehicleJourneyIdx,
     base_days_pattern: DaysPattern,
     real_time_days_pattern: DaysPattern,
+    local_zone: LocalZone,
 }
 
 impl UTCTimetables {
@@ -481,6 +483,7 @@ impl UTCTimetables {
         days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
     ) -> Result<HashMap<Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
@@ -565,6 +568,7 @@ impl UTCTimetables {
                     vehicle_journey_idx: vehicle_journey_idx.clone(),
                     base_days_pattern,
                     real_time_days_pattern,
+                    local_zone: local_zone.clone(),
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
@@ -606,6 +610,7 @@ impl UTCTimetables {
         timetable: &Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
         _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
@@ -619,6 +624,7 @@ impl UTCTimetables {
                     RealTimeLevel::RealTime => &mut vehicle_data.real_time_days_pattern,
                 };
                 if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
+                    && vehicle_data.local_zone == *local_zone
                     && days_patterns.is_allowed(days_pattern, day)
                 {
                     *days_pattern = days_patterns
