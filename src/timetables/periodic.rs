@@ -57,8 +57,7 @@ use chrono::NaiveDate;
 use chrono_tz::Tz as TimeZone;
 use tracing::log::error;
 
-use crate::loads_data::Load;
-use crate::timetables::day_to_timetable::LocalZone;
+use crate::{loads_data::Load, timetables::day_to_timetable::LocalZone};
 
 pub type Time = SecondsSinceTimezonedDayStart;
 #[derive(Debug)]

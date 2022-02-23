@@ -57,9 +57,9 @@ use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
 use tracing::log::error;
 
-use crate::timetables::day_to_timetable::LocalZone;
 use crate::timetables::{
-    FlowDirection, Stop, Timetables as TimetablesTrait, Types as TimetablesTypes,
+    day_to_timetable::LocalZone, FlowDirection, Stop, Timetables as TimetablesTrait,
+    Types as TimetablesTypes,
 };
 
 pub struct PeriodicSplitVjByTzTimetables {

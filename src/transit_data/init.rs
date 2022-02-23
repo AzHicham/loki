@@ -42,8 +42,7 @@ use crate::{
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
     time::{days_patterns::DaysPatterns, Calendar},
-    timetables::day_to_timetable::VehicleJourneyToTimetable,
-    timetables::FlowDirection::*,
+    timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
     transit_data::{Stop, TransitData},
     RealTimeLevel,
 };

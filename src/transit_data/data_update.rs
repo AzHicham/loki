@@ -39,10 +39,7 @@ use tracing::log::error;
 use crate::{
     loads_data::LoadsData,
     models::{StopPointIdx, VehicleJourneyIdx},
-    timetables::{
-        day_to_timetable::LocalZone, InsertionError, ModifyError,
-        RemovalError,
-    },
+    timetables::{day_to_timetable::LocalZone, InsertionError, ModifyError, RemovalError},
     transit_data::TransitData,
 };
 
@@ -72,14 +69,12 @@ where
             .get_vehicle_local_zones(vehicle_journey_idx);
 
         for local_zone in local_zones {
-            let has_timetable = self
-                .vehicle_journey_to_timetable
-                .remove_real_time_vehicle(
-                    vehicle_journey_idx,
-                    &local_zone.clone(),
-                    &day,
-                    &mut self.days_patterns,
-                );
+            let has_timetable = self.vehicle_journey_to_timetable.remove_real_time_vehicle(
+                vehicle_journey_idx,
+                &local_zone.clone(),
+                &day,
+                &mut self.days_patterns,
+            );
             let timetable = match has_timetable {
                 Err(err) => {
                     error!("Error while removing  real time vehicle {vehicle_journey_idx:?} on {date} on local zone {local_zone:?}. {err:?}");
@@ -158,8 +153,7 @@ where
 
         // check validity of dates
         for date in valid_dates.clone() {
-            self
-                .calendar
+            self.calendar
                 .date_to_days_since_start(&date)
                 .ok_or_else(|| ModifyError::UnknownDate(date, vehicle_journey_idx.clone()))?;
         }
@@ -173,14 +167,12 @@ where
             let day = self.calendar.date_to_days_since_start(&date).unwrap();
 
             for local_zone in local_zones.clone() {
-                let has_timetable = self
-                    .vehicle_journey_to_timetable
-                    .remove_real_time_vehicle(
-                        vehicle_journey_idx,
-                        &local_zone,
-                        &day,
-                        &mut self.days_patterns,
-                    );
+                let has_timetable = self.vehicle_journey_to_timetable.remove_real_time_vehicle(
+                    vehicle_journey_idx,
+                    &local_zone,
+                    &day,
+                    &mut self.days_patterns,
+                );
 
                 let timetable = match has_timetable {
                     Ok(timetable) => timetable,

@@ -39,8 +39,8 @@ mod utils;
 use anyhow::Error;
 use launch::{config::DataImplem, solver::Solver};
 
-use loki::chrono::{NaiveDate, NaiveTime};
 use loki::{
+    chrono::{NaiveDate, NaiveTime},
     chrono_tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,

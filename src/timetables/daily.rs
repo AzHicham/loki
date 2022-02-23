@@ -41,7 +41,6 @@ use super::{
     iters::{PositionsIter, TimetableIter, VehicleIter},
     FlowDirection, Stop, TimetablesIter,
 };
-use crate::timetables::day_to_timetable::LocalZone;
 use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
@@ -50,7 +49,9 @@ use crate::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
-    timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
+    timetables::{
+        day_to_timetable::LocalZone, Timetables as TimetablesTrait, Types as TimetablesTypes,
+    },
     RealTimeLevel,
 };
 use chrono::{Local, NaiveDate};
