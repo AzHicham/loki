@@ -180,6 +180,7 @@ where
                         &mission,
                         &position,
                         &request.real_time_level,
+                        |_| true,
                     );
                     match earliest_trip_time {
                         Some((trip, boarding_time)) if boarding_time < until_datetime => {
@@ -258,6 +259,7 @@ where
                         &mission,
                         &position,
                         &request.real_time_level,
+                        |_| true,
                     );
                     match earliest_trip_time {
                         Some((trip, debark_time)) if debark_time < until_datetime => {

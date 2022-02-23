@@ -350,25 +350,7 @@ impl data_interface::Data for TransitData {
         self.timetables.mission_id(mission)
     }
 
-    fn next_boardable_trip(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: &RealTimeLevel,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart)> {
-        self.timetables.next_filtered_boardable_trip(
-            time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            &self.calendar,
-            &self.days_patterns,
-        )
-    }
-
-    fn next_filtered_boardable_trip<Filter>(
+    fn next_boardable_trip<Filter>(
         &self,
         time: &SecondsSinceDatasetUTCStart,
         mission: &Mission,
@@ -390,25 +372,7 @@ impl data_interface::Data for TransitData {
         )
     }
 
-    fn next_debarkable_trip(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: &RealTimeLevel,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart)> {
-        self.timetables.next_filtered_debarkable_trip(
-            time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            &self.calendar,
-            &self.days_patterns,
-        )
-    }
-
-    fn next_filtered_debarkable_trip<Filter>(
+    fn next_debarkable_trip<Filter>(
         &self,
         time: &SecondsSinceDatasetUTCStart,
         mission: &Mission,

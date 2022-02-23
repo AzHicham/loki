@@ -171,15 +171,7 @@ pub trait Data: TransitTypes {
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 
-    fn next_boardable_trip(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>;
-
-    fn next_filtered_boardable_trip<Filter>(
+    fn next_boardable_trip<Filter>(
         &self,
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -190,15 +182,7 @@ pub trait Data: TransitTypes {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn next_debarkable_trip(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>;
-
-    fn next_filtered_debarkable_trip<Filter>(
+    fn next_debarkable_trip<Filter>(
         &self,
         time: &SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
