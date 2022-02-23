@@ -61,6 +61,7 @@ use crate::{
     transit_data::data_interface::RealTimeLevel,
 };
 
+use crate::timetables::day_to_timetable::LocalZone;
 use chrono::NaiveDate;
 use std::fmt::Debug;
 
@@ -194,6 +195,7 @@ pub trait Timetables: Types {
         mission: &Self::Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
         calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
@@ -211,6 +213,7 @@ pub trait Timetables: Types {
         days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
     ) -> Result<HashMap<Self::Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where

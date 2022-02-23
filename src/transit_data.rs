@@ -61,6 +61,7 @@ use crate::timetables::{RemovalError, Timetables as TimetablesTrait, TimetablesI
 
 use crate::tracing::error;
 
+///
 pub struct TransitData<Timetables: TimetablesTrait> {
     pub(super) stop_point_idx_to_stop: HashMap<StopPointIdx, Stop>,
 

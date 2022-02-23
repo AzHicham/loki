@@ -42,7 +42,7 @@ use crate::{
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
     time::{days_patterns::DaysPatterns, Calendar},
-    timetables::day_to_timetable::VehicleJourneyToTimetable,
+    timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
     transit_data::{Stop, TransitData},
     RealTimeLevel,
 };
@@ -216,32 +216,83 @@ where
 
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let insert_result = self.insert_inner(
-            stops,
-            flows,
-            board_times,
-            debark_times,
-            loads_data,
-            dates,
-            &timezone,
-            vehicle_journey_idx,
-            RealTimeLevel::Base,
-        );
+        let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
+        local_zones.sort_unstable();
+        local_zones.dedup();
 
-        let real_time_model = RealTimeModel::new();
-        let model = ModelRefs {
-            base: base_model,
-            real_time: &real_time_model,
-        };
-
-        use crate::transit_data::data_interface::Data;
-        if let Err(err) = insert_result {
-            handle_insertion_error(
-                &model,
-                self.calendar().first_date(),
-                self.calendar().last_date(),
-                &err,
+        if local_zones.len() == 1 {
+            let insert_result = self.insert_inner(
+                stops,
+                flows,
+                board_times,
+                debark_times,
+                loads_data,
+                dates,
+                &timezone,
+                vehicle_journey_idx,
+                &local_zones[0],
+                RealTimeLevel::Base,
             );
+            let real_time_model = RealTimeModel::new();
+            let model = ModelRefs {
+                base: base_model,
+                real_time: &real_time_model,
+            };
+            use crate::transit_data::data_interface::Data;
+            if let Err(err) = insert_result {
+                handle_insertion_error(
+                    &model,
+                    self.calendar().first_date(),
+                    self.calendar().last_date(),
+                    &err,
+                );
+            }
+        } else {
+            for local_zone in local_zones {
+                // we change the flows regarding the `local_zone` so that:
+                // - we can only board on stops that belong to `local_zone`
+                // - we can only debark on stops that don't belong to `local_zone`
+                let local_flows = stop_times.clone().map(|stop_time| {
+                    if stop_time.local_zone_id == local_zone {
+                        match stop_time.flow_direction {
+                            BoardOnly | BoardAndDebark => BoardOnly,
+                            DebarkOnly | NoBoardDebark => NoBoardDebark,
+                        }
+                    } else {
+                        match stop_time.flow_direction {
+                            BoardOnly | NoBoardDebark => NoBoardDebark,
+                            DebarkOnly | BoardAndDebark => DebarkOnly,
+                        }
+                    }
+                });
+                let insert_result = self.insert_inner(
+                    stops.clone(),
+                    local_flows,
+                    board_times.clone(),
+                    debark_times.clone(),
+                    loads_data,
+                    dates.clone(),
+                    &timezone,
+                    vehicle_journey_idx.clone(),
+                    &local_zone,
+                    RealTimeLevel::Base,
+                );
+
+                let real_time_model = RealTimeModel::new();
+                let model = ModelRefs {
+                    base: base_model,
+                    real_time: &real_time_model,
+                };
+                use crate::transit_data::data_interface::Data;
+                if let Err(err) = insert_result {
+                    handle_insertion_error(
+                        &model,
+                        self.calendar().first_date(),
+                        self.calendar().last_date(),
+                        &err,
+                    );
+                }
+            }
         }
 
         Ok(())

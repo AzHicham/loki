@@ -514,7 +514,35 @@ impl<'a> VehicleJourneyBuilder<'a> {
     /// # }
     /// ```
     pub fn st(self, name: &str, arrival: impl IntoTime) -> Self {
-        self.st_mut(name, arrival.into_time(), arrival.into_time(), |_st| {})
+        self.st_mut(
+            name,
+            arrival.into_time(),
+            arrival.into_time(),
+            0u8,
+            0u8,
+            None,
+            |_st| {},
+        )
+    }
+
+    pub fn st_detailed(
+        self,
+        name: &str,
+        arrival: impl IntoTime,
+        depart: impl IntoTime,
+        pickup_type: u8,
+        drop_off_type: u8,
+        local_zone_id: Option<u16>,
+    ) -> Self {
+        self.st_mut(
+            name,
+            arrival.into_time(),
+            depart.into_time(),
+            pickup_type,
+            drop_off_type,
+            local_zone_id,
+            |_st| {},
+        )
     }
 
     pub fn st_mut<F>(
@@ -522,6 +550,9 @@ impl<'a> VehicleJourneyBuilder<'a> {
         name: &str,
         arrival: impl IntoTime,
         departure: impl IntoTime,
+        pickup_type: u8,
+        drop_off_type: u8,
+        local_zone_id: Option<u16>,
         st_muter: F,
     ) -> Self
     where
@@ -542,9 +573,9 @@ impl<'a> VehicleJourneyBuilder<'a> {
                 departure_time: departure.into_time(),
                 boarding_duration: 0u16,
                 alighting_duration: 0u16,
-                pickup_type: 0u8,
-                drop_off_type: 0u8,
-                local_zone_id: None,
+                pickup_type,
+                drop_off_type,
+                local_zone_id,
                 precision: None,
             };
             st_muter(&mut stop_time);

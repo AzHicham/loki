@@ -49,7 +49,9 @@ use crate::{
         Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart,
         SecondsSinceTimezonedDayStart,
     },
-    timetables::{Timetables as TimetablesTrait, Types as TimetablesTypes},
+    timetables::{
+        day_to_timetable::LocalZone, Timetables as TimetablesTrait, Types as TimetablesTypes,
+    },
     RealTimeLevel,
 };
 use chrono::NaiveDate;
@@ -301,6 +303,7 @@ impl TimetablesTrait for DailyTimetables {
         days_patterns: &mut DaysPatterns,
         timezone: &chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
     ) -> Result<HashMap<Timetable, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
@@ -396,6 +399,7 @@ impl TimetablesTrait for DailyTimetables {
         mission: &Self::Mission,
         day: &DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        _local_zone: &LocalZone,
         real_time_level: &RealTimeLevel,
         _calendar: &Calendar,
         _days_patterns: &mut DaysPatterns,
