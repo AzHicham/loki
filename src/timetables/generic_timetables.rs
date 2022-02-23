@@ -261,20 +261,45 @@ where
             })
     }
 
-    pub(super) fn earliest_filtered_boardable_vehicles<'a, Filter: 'a>(
-        &'a self,
+    pub(super) fn next_boardable_vehicles<'timetable, 'filter, Filter>(
+        &'timetable self,
         from_time: &Time,
         until_time: &Time,
-        timetable: &'a Timetable,
+        timetable: &'timetable Timetable,
         position: &Position,
         filter: Filter,
-    ) -> impl Iterator<Item = (Vehicle, Time)> + '_
+    ) -> impl Iterator<Item = (Vehicle, &Time)> + '_
     where
-        Filter: Fn(&VehicleData) -> bool,
+        Filter: Fn(&VehicleData) -> bool + 'filter,
+        'filter: 'timetable,
     {
         assert_eq!(position.timetable, *timetable);
         self.timetable_data(timetable)
-            .earliest_filtered_boardable_vehicles(from_time, until_time, position.idx, filter)
+            .next_boardable_vehicles(from_time, until_time, position.idx, filter)
+            .map(|(idx, time)| {
+                let vehicle = Vehicle {
+                    timetable: timetable.clone(),
+                    idx,
+                };
+                (vehicle, time)
+            })
+    }
+
+    pub(super) fn next_debarkable_vehicles<'timetable, 'filter, Filter>(
+        &'timetable self,
+        from_time: &Time,
+        until_time: &Time,
+        timetable: &'timetable Timetable,
+        position: &Position,
+        filter: Filter,
+    ) -> impl Iterator<Item = (Vehicle, &Time)> + '_
+    where
+        Filter: Fn(&VehicleData) -> bool + 'filter,
+        'filter: 'timetable,
+    {
+        assert_eq!(position.timetable, *timetable);
+        self.timetable_data(timetable)
+            .next_debarkable_vehicles(from_time, until_time, position.idx, filter)
             .map(|(idx, time)| {
                 let vehicle = Vehicle {
                     timetable: timetable.clone(),
@@ -541,11 +566,11 @@ where
         None
     }
 
-    // If we are waiting to board a trip at `position` at time `waiting_time`
-    // return `Some(best_trip_idx)`
-    // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
-    //  to board that allows to debark at the subsequent positions at the earliest time,
-    fn earliest_filtered_boardable_vehicles<'timetable, Filter>(
+    // Given a `position` and a range time : 'from_time' and 'until_time'
+    // return `NextBoardableVehicleIterator`
+    // where NextBoardableVehicleIterator is an iterator over all boardable vehicles at 'position'
+    // and with from_time <= vehicle_board_time <= until_time
+    fn next_boardable_vehicles<'timetable, 'filter, Filter: 'filter>(
         &'timetable self,
         from_time: &Time,
         until_time: &Time,
@@ -553,7 +578,7 @@ where
         filter: Filter,
     ) -> NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
     where
-        Filter: Fn(&VehicleData) -> bool,
+        Filter: Fn(&VehicleData) -> bool + 'filter,
     {
         let nb_of_vehicles = self.board_times_by_position[position_idx].len();
         let vehicle_idx = if !self.can_board(position_idx) || nb_of_vehicles == 0 {
@@ -585,6 +610,58 @@ where
         };
 
         NextBoardableVehicleIterator {
+            timetable_data: self,
+            vehicle_idx,
+            position_idx,
+            until_time: until_time.clone(),
+            filter,
+        }
+    }
+
+    // Given a `position` and a range time : 'from_time' and 'until_time'
+    // return `NextDebarkableVehicleIterator`
+    // where NextDebarkableVehicleIterator is an iterator over all debarkable vehicles at 'position'
+    // and with from_time <= vehicle_debark_time <= until_time
+    fn next_debarkable_vehicles<'timetable, 'filter, Filter: 'filter>(
+        &'timetable self,
+        from_time: &Time,
+        until_time: &Time,
+        position_idx: usize,
+        filter: Filter,
+    ) -> NextDebarkableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
+    where
+        Filter: Fn(&VehicleData) -> bool + 'filter,
+    {
+        let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
+        let vehicle_idx = if !self.can_debark(position_idx) || nb_of_vehicles == 0 {
+            nb_of_vehicles
+        } else {
+            let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
+            if from_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+                nb_of_vehicles
+            } else if from_time <= &self.debark_times_by_position[position_idx][0] {
+                0
+            } else {
+                // We are looking for the smallest index in slice (board_times_by_position here)
+                // such that slice(idx) >= waiting_time.
+                // In order to do so we use binary_search_by with the comparator
+                // function F : |time| if time < waiting_time { Less } else { Greater }
+                // binary_search_by on slice with a comparator function F will return :
+                // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
+                // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
+                // and F(slice(idx-1)) == Less if idx >= 1
+                // Since our comparator will never return Equal,
+                // binary_search_by will always return Err(idx).
+                // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
+                // And slice(idx-1) < waiting_time
+                // So idx is the smallest index such that slice(idx) >= waiting_time
+                self.debark_times_by_position[position_idx]
+                    .binary_search_by(|time| if time < from_time { Less } else { Greater })
+                    .unwrap_err()
+            }
+        };
+
+        NextDebarkableVehicleIterator {
             timetable_data: self,
             vehicle_idx,
             position_idx,
@@ -1025,7 +1102,7 @@ where
     Load: Ord + Debug,
     Filter: Fn(&VehicleData) -> bool,
 {
-    type Item = (usize, Time);
+    type Item = (usize, &'timetable Time);
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.vehicle_idx < self.timetable_data.nb_of_vehicle() {
@@ -1035,7 +1112,48 @@ where
                 &self.timetable_data.board_times_by_position[self.position_idx][self.vehicle_idx];
             if board_time < &self.until_time {
                 if (self.filter)(vehicle_data) {
-                    return Some((self.vehicle_idx, board_time.clone()));
+                    return Some((self.vehicle_idx, board_time));
+                }
+            } else {
+                self.vehicle_idx = self.timetable_data.nb_of_vehicle();
+                break;
+            }
+        }
+        None
+    }
+}
+
+pub struct NextDebarkableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
+where
+    Time: Ord + Clone + Debug,
+    Load: Ord + Debug,
+    Filter: Fn(&VehicleData) -> bool,
+{
+    timetable_data: &'timetable TimetableData<Time, Load, VehicleData>,
+    vehicle_idx: usize,
+    position_idx: usize,
+    until_time: Time,
+    filter: Filter,
+}
+
+impl<'timetable, Time, Load, VehicleData, Filter> Iterator
+    for NextDebarkableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
+where
+    Time: Ord + Clone + Debug,
+    Load: Ord + Debug,
+    Filter: Fn(&VehicleData) -> bool,
+{
+    type Item = (usize, &'timetable Time);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.vehicle_idx < self.timetable_data.nb_of_vehicle() {
+            self.vehicle_idx += 1;
+            let vehicle_data = &self.timetable_data.vehicle_datas[self.vehicle_idx];
+            let debark_time =
+                &self.timetable_data.debark_times_by_position[self.position_idx][self.vehicle_idx];
+            if debark_time < &self.until_time {
+                if (self.filter)(vehicle_data) {
+                    return Some((self.vehicle_idx, debark_time));
                 }
             } else {
                 self.vehicle_idx = self.timetable_data.nb_of_vehicle();

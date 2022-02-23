@@ -396,6 +396,108 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.transit_data.mission_id(mission)
     }
+
+    fn next_boardable_trip(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)> {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.next_filtered_boardable_trip(
+                time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx| self.is_vehicle_journey_allowed(vehicle_journey_idx),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn next_filtered_boardable_trip<Filter>(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.next_filtered_boardable_trip(
+                time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                        && filter(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    fn next_debarkable_trip(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)> {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.next_filtered_debarkable_trip(
+                time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx| self.is_vehicle_journey_allowed(vehicle_journey_idx),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn next_filtered_debarkable_trip<Filter>(
+        &self,
+        time: &SecondsSinceDatasetUTCStart,
+        mission: &Self::Mission,
+        position: &Self::Position,
+        real_time_level: &RealTimeLevel,
+        filter: Filter,
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
+    where
+        Filter: Fn(&VehicleJourneyIdx) -> bool,
+    {
+        let stop = self.stop_of(position, mission);
+
+        if self.is_stop_allowed(&stop) {
+            self.transit_data.next_filtered_debarkable_trip(
+                time,
+                mission,
+                position,
+                real_time_level,
+                |vehicle_journey_idx| {
+                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
+                        && filter(vehicle_journey_idx)
+                },
+            )
+        } else {
+            None
+        }
+    }
 }
 
 impl<'data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_> {
