@@ -1106,13 +1106,14 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.vehicle_idx < self.timetable_data.nb_of_vehicle() {
+            let vehicle_idx = self.vehicle_idx;
             self.vehicle_idx += 1;
-            let vehicle_data = &self.timetable_data.vehicle_datas[self.vehicle_idx];
+            let vehicle_data = &self.timetable_data.vehicle_datas[vehicle_idx];
             let board_time =
-                &self.timetable_data.board_times_by_position[self.position_idx][self.vehicle_idx];
+                &self.timetable_data.board_times_by_position[self.position_idx][vehicle_idx];
             if board_time < &self.until_time {
                 if (self.filter)(vehicle_data) {
-                    return Some((self.vehicle_idx, board_time));
+                    return Some((vehicle_idx, board_time));
                 }
             } else {
                 self.vehicle_idx = self.timetable_data.nb_of_vehicle();
@@ -1147,13 +1148,14 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.vehicle_idx < self.timetable_data.nb_of_vehicle() {
+            let vehicle_idx = self.vehicle_idx;
             self.vehicle_idx += 1;
-            let vehicle_data = &self.timetable_data.vehicle_datas[self.vehicle_idx];
+            let vehicle_data = &self.timetable_data.vehicle_datas[vehicle_idx];
             let debark_time =
-                &self.timetable_data.debark_times_by_position[self.position_idx][self.vehicle_idx];
+                &self.timetable_data.debark_times_by_position[self.position_idx][vehicle_idx];
             if debark_time < &self.until_time {
                 if (self.filter)(vehicle_data) {
-                    return Some((self.vehicle_idx, debark_time));
+                    return Some((vehicle_idx, debark_time));
                 }
             } else {
                 self.vehicle_idx = self.timetable_data.nb_of_vehicle();

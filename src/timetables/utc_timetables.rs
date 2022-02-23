@@ -50,7 +50,7 @@ use super::{
 };
 use crate::time::{
     Calendar, DaysSinceDatasetStart, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart,
-    SecondsSinceUTCDayStart, TimezonesPatterns,
+    SecondsSinceUTCDayStart, TimezonesPatterns, MAX_SECONDS_IN_UTC_DAY,
 };
 use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
@@ -293,7 +293,8 @@ impl UTCTimetables {
                 .timetables
                 .next_boardable_vehicles(
                     &waiting_time_in_day,
-                    &waiting_time_in_day,
+                    &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
+                        .unwrap(),
                     mission,
                     position,
                     |vehicle_data| {
@@ -323,8 +324,7 @@ impl UTCTimetables {
         best_vehicle_day_and_its_board_time.map(|(vehicle, day, board_time)| {
             let trip = Trip { vehicle, day };
             (trip, board_time)
-        });
-        None
+        })
     }
 
     pub fn next_filtered_debarkable_trip<Filter>(
@@ -353,7 +353,8 @@ impl UTCTimetables {
                 .timetables
                 .next_debarkable_vehicles(
                     &waiting_time_in_day,
-                    &waiting_time_in_day,
+                    &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
+                        .unwrap(),
                     mission,
                     position,
                     |vehicle_data| {
@@ -384,8 +385,7 @@ impl UTCTimetables {
         best_vehicle_day_and_its_debark_time.map(|(vehicle, day, debark_time)| {
             let trip = Trip { vehicle, day };
             (trip, debark_time)
-        });
-        None
+        })
     }
 
     pub fn latest_trip_that_debark_at(
