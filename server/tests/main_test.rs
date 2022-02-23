@@ -118,6 +118,10 @@ async fn run() {
     subtests::chaos_test::delete_stop_area_test(&config).await;
     subtests::chaos_test::delete_stop_point_on_invalid_period_test(&config).await;
 
+    subtests::chaos_test::delete_several_stop_point_and_then_cancel_disruption_test(&config).await;
+
+    subtests::chaos_test::cancel_disruption_on_route_test(&config).await;
+
     subtests::places_nearby_test::places_nearby_test(&config).await;
 
     info!("Everything went Ok ! Now stopping.");
@@ -259,7 +263,6 @@ async fn start_postgres_docker() -> String {
     let id = docker.containers().create(&options).await.unwrap().id;
 
     docker.containers().get(&id).start().await.unwrap();
-    //  println!("{id}");
     id
 }
 
@@ -392,7 +395,7 @@ async fn send_realtime_message_and_wait_until_reception(
             &config.rabbitmq_params.rabbitmq_exchange,
             routing_key,
             lapin::options::BasicPublishOptions::default(),
-            payload,
+            &payload,
             lapin::BasicProperties::default(),
         )
         .await
@@ -501,7 +504,7 @@ async fn send_reload_order(config: &ServerConfig) {
             &config.rabbitmq_params.rabbitmq_exchange,
             &routing_key,
             BasicPublishOptions::default(),
-            payload,
+            &payload,
             BasicProperties::default(),
         )
         .await

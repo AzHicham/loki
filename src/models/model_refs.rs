@@ -34,14 +34,23 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{chrono::NaiveDate, models::base_model::PREFIX_ID_STOP_POINT, RealTimeLevel};
+use crate::{
+    chrono::NaiveDate,
+    models::{
+        base_model::{
+            BaseTransferIdx, EquipmentPropertyKey, VehicleJourneyPropertyKey, PREFIX_ID_STOP_POINT,
+        },
+        TransferIdx,
+    },
+    RealTimeLevel,
+};
 use transit_model::objects::{
     CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
-    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes, TripData},
+    real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes, TripVersion},
     Contributor, Coord, Rgb, StopPointIdx, StopTimeIdx, StopTimes, VehicleJourneyIdx,
 };
 
@@ -126,6 +135,39 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
+    pub fn vehicle_journey_property(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        property_key: VehicleJourneyPropertyKey,
+    ) -> bool {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => self.base.vehicle_journey_property(*idx, property_key),
+            VehicleJourneyIdx::New(_idx) => false,
+        }
+    }
+
+    pub fn stop_point_property(
+        &self,
+        stop_point_idx: &StopPointIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        match stop_point_idx {
+            StopPointIdx::Base(idx) => self.base.stop_point_property(*idx, property_key),
+            StopPointIdx::New(_idx) => false,
+        }
+    }
+
+    pub fn transfer_property(
+        &self,
+        transfer_idx: &TransferIdx,
+        property_key: EquipmentPropertyKey,
+    ) -> bool {
+        match transfer_idx {
+            TransferIdx::Base(idx) => self.base.transfer_property(*idx, property_key),
+            TransferIdx::New(_idx) => false,
+        }
+    }
+
     pub fn commercial_mode_name(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> &str {
         let unknown_commercial_mode = "unknown_commercial_mode";
         match vehicle_journey_idx {
@@ -169,8 +211,8 @@ impl<'model> ModelRefs<'model> {
                     let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
-                            TripData::Deleted() => None,
-                            TripData::Present(stop_times) => stop_times
+                            TripVersion::Deleted() => None,
+                            TripVersion::Present(stop_times) => stop_times
                                 .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
@@ -184,8 +226,8 @@ impl<'model> ModelRefs<'model> {
                     let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
-                            TripData::Deleted() => None,
-                            TripData::Present(stop_times) => stop_times
+                            TripVersion::Deleted() => None,
+                            TripVersion::Present(stop_times) => stop_times
                                 .get(stop_time_idx.idx)
                                 .map(|stop_time| stop_time.stop.clone()),
                         }
@@ -212,6 +254,14 @@ impl<'model> ModelRefs<'model> {
 
     pub fn base_stop_points(&self) -> impl Iterator<Item = BaseStopPointIdx> + 'model {
         self.base.stop_points()
+    }
+
+    pub fn nb_of_transfers(&self) -> usize {
+        self.base.nb_of_transfers()
+    }
+
+    pub fn base_transfers(&self) -> impl Iterator<Item = BaseTransferIdx> + 'model {
+        self.base.transfers()
     }
 
     pub fn nb_of_new_vehicle_journeys(&self) -> usize {
@@ -460,13 +510,13 @@ impl<'model> ModelRefs<'model> {
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
         match self.real_time.last_version(vehicle_journey_idx, date) {
-            Some(TripData::Present(stop_times)) => {
+            Some(TripVersion::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
                 let iter = StopTimes::New(RealTimeStopTimes { inner });
                 Some(iter)
             }
-            Some(TripData::Deleted()) => None,
+            Some(TripVersion::Deleted()) => None,
             None => {
                 // there is no realtime data for this trip
                 // so its base schedule IS the real time schedule

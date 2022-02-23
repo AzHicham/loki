@@ -43,9 +43,8 @@ use loki::chrono::{NaiveDate, NaiveTime};
 use loki::{
     chrono_tz::UTC,
     models::{
-        base_model::BaseModel,
-        real_time_model::{DisruptionIdx, RealTimeModel},
-        ModelRefs, StopTime, VehicleJourneyIdx,
+        self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
+        VehicleJourneyIdx,
     },
     request::generic_request,
     timetables::{InsertionError, Timetables, TimetablesIter},
@@ -58,7 +57,6 @@ use utils::{
     Config,
 };
 
-use loki::models::real_time_model::ImpactIdx;
 use rstest::rstest;
 
 #[rstest]
@@ -566,16 +564,25 @@ where
             .finalize(&mut real_time_model, &base_model);
 
         let date = "2020-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
-        let result = real_time_model.modify_trip(
-            &base_model,
-            &mut data,
-            "first",
-            &date,
-            stop_times,
-            disruption_idx,
-            impact_idx,
+
+        let dates = std::iter::once(date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+
+        let base_vj_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx = VehicleJourneyIdx::Base(base_vj_idx);
+
+        let result = data.modify_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            &vj_idx,
         );
         assert!(result.is_ok());
     }
@@ -1032,18 +1039,9 @@ where
     {
         let vehicle_journey_id = "invalid_date_vj".to_string();
         let date = "1999-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
-        let (vj_idx, stop_times) = real_time_model
-            .add(
-                disruption_idx,
-                impact_idx,
-                &vehicle_journey_id,
-                &date,
-                Vec::new(),
-                &base_model,
-            )
-            .unwrap();
+        let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
+        let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
+        let stop_times: Vec<models::StopTime> = Vec::new();
         let dates = std::iter::once(date);
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -1076,20 +1074,10 @@ where
     // insert a vehicle without date
     {
         let vehicle_journey_id = "no_dates_vj".to_string();
-        let date = "1999-01-01".as_date();
 
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
-        let (vj_idx, stop_times) = real_time_model
-            .add(
-                disruption_idx,
-                impact_idx,
-                &vehicle_journey_id,
-                &date,
-                Vec::new(),
-                &base_model,
-            )
-            .unwrap();
+        let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
+        let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
+        let stop_times: Vec<models::StopTime> = Vec::new();
         let dates = std::iter::empty();
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -1123,24 +1111,15 @@ where
     {
         let vehicle_journey_id = "time_travel_vj".to_string();
         let date = "2020-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
         let stop_times = StopTimesBuilder::new()
             .st("A", "09:45:00")
             .st("B", "08:05:00")
             .st("C", "10:10:00")
             .finalize(&mut real_time_model, &base_model);
 
-        let (vj_idx, stop_times) = real_time_model
-            .add(
-                disruption_idx,
-                impact_idx,
-                &vehicle_journey_id,
-                &date,
-                stop_times,
-                &base_model,
-            )
-            .unwrap();
+        let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
+        let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
+
         let dates = std::iter::once(date);
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -1203,24 +1182,15 @@ where
     {
         let vehicle_journey_id = "inserted_twice_vj".to_string();
         let date = "2020-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
         let stop_times = StopTimesBuilder::new()
             .st("A", "09:45:00")
             .st("B", "10:05:00")
             .st("C", "10:10:00")
             .finalize(&mut real_time_model, &base_model);
 
-        let (vj_idx, stop_times) = real_time_model
-            .add(
-                disruption_idx,
-                impact_idx,
-                &vehicle_journey_id,
-                &date,
-                stop_times,
-                &base_model,
-            )
-            .unwrap();
+        let new_vj_idx = real_time_model.insert_new_vehicle_journey(&vehicle_journey_id);
+        let vj_idx = VehicleJourneyIdx::New(new_vj_idx);
+
         let dates = std::iter::once(date);
         let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
         let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);

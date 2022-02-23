@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod apply_disruption;
 pub mod base_model;
 pub mod model_refs;
 pub mod real_time_disruption;

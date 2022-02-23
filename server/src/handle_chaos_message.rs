@@ -44,16 +44,21 @@ use launch::loki::{
             PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY,
         },
         real_time_disruption::{
-            ApplicationPattern, BlockedStopArea, Cause, ChannelType, Disruption,
-            DisruptionProperty, Effect, Impact, Impacted, Informed, LineId, LineSectionDisruption,
-            Message, NetworkId, RailSectionDisruption, RouteId, Severity, StopAreaId, StopPointId,
-            Tag, TimePeriod, TimeSlot, VehicleJourneyId,
+            chaos_disruption::{
+                ApplicationPattern, BlockedStopArea, Cause, ChannelType, ChaosDisruption,
+                ChaosImpact, DisruptionProperty, Impacted, Informed, LineId, LineSection, Message,
+                NetworkId, RailSection, RouteId, Severity, StopAreaId, StopPointId, Tag, TimeSlot,
+            },
+            time_periods::TimePeriod,
+            Effect, VehicleJourneyId,
         },
     },
     NaiveDateTime,
 };
 
-pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<Disruption, Error> {
+pub fn handle_chaos_protobuf(
+    proto: &chaos_proto::chaos::Disruption,
+) -> Result<ChaosDisruption, Error> {
     let id = if proto.has_id() {
         proto.get_id().to_string()
     } else {
@@ -100,7 +105,7 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
 
     let properties = make_properties(proto.get_properties())?;
 
-    Ok(Disruption {
+    Ok(ChaosDisruption {
         id,
         reference,
         publication_period,
@@ -112,7 +117,7 @@ pub fn handle_chaos_protobuf(proto: &chaos_proto::chaos::Disruption) -> Result<D
     })
 }
 
-fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
+fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error> {
     let id = if proto.has_id() {
         proto.get_id().to_string()
     } else {
@@ -163,7 +168,7 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<Impact, Error> {
         .context("Failed to handle an informed entity")?;
     }
 
-    Ok(Impact {
+    Ok(ChaosImpact {
         id,
         updated_at,
         severity,
@@ -269,7 +274,7 @@ fn dispatch_pt_object(
             let start_stop_area = proto_line_section.get_start_point();
             let end_stop_area = proto_line_section.get_end_point();
             let routes = proto_line_section.get_routes();
-            let line_section = LineSectionDisruption {
+            let line_section = LineSection {
                 line: LineId {
                     id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
                 },
@@ -299,7 +304,7 @@ fn dispatch_pt_object(
             let end_stop_area = proto_rail_section.get_end_point();
             let routes = proto_rail_section.get_routes();
             let blocked_stop_areas = proto_rail_section.get_blocked_stop_areas();
-            let rail_section = RailSectionDisruption {
+            let rail_section = RailSection {
                 line: LineId {
                     id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
                 },

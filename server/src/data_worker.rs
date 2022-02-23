@@ -66,7 +66,14 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
-    models::{base_model::BaseModel, RealTimeModel},
+    models::{
+        base_model::BaseModel,
+        real_time_disruption::{
+            chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
+            kirin_disruption::store_and_apply_kirin_disruption,
+        },
+        RealTimeModel,
+    },
     tracing::{debug, error, info, log::trace},
     DataTrait, NaiveDateTime,
 };
@@ -263,7 +270,7 @@ impl DataWorker {
                         "Could not read data from disk at {:?}. {:?}. \
                             I'll keep running with an empty model.",
                         launch_params.input_data_path, err
-                    )
+                    );
                 })
                 .unwrap_or_else(|()| BaseModel::empty());
 
@@ -315,10 +322,19 @@ impl DataWorker {
                     let real_time_model = &mut data_and_models.2;
                     for chaos_disruption in disruptions {
                         match handle_chaos_protobuf(&chaos_disruption) {
-                            Ok(disruption) => real_time_model
-                                .store_and_apply_disruption(disruption, base_model, data),
+                            Ok(disruption) => {
+                                store_and_apply_chaos_disruption(
+                                    real_time_model,
+                                    disruption,
+                                    base_model,
+                                    data,
+                                );
+                            }
                             Err(err) => {
-                                error!("Error while applying chaos disruption : {:?}", err)
+                                error!(
+                                    "Error while decoding chaos disruption protobuf : {:?}",
+                                    err
+                                );
                             }
                         }
                     }
@@ -394,19 +410,17 @@ impl DataWorker {
 
     async fn handle_incoming_kirin_message(
         &mut self,
-        has_real_time_message: Option<
-            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
-        >,
+        has_real_time_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
     ) -> Result<(), Error> {
         match has_real_time_message {
-            Some(Ok((channel, delivery))) => {
+            Some(Ok(delivery)) => {
                 // acknowledge reception of the message
-                let _ = channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                let _ = delivery
+                    .ack(BasicAckOptions::default())
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of kirin message : {:?}",
+                            "Error while acknowledging reception of kirin message : {:?}",
                             err
                         );
                     });
@@ -436,20 +450,18 @@ impl DataWorker {
 
     async fn handle_reload_message(
         &mut self,
-        has_reload_message: Option<
-            Result<(lapin::Channel, lapin::message::Delivery), lapin::Error>,
-        >,
+        has_reload_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
         channel: &lapin::Channel,
     ) -> Result<(), Error> {
         match has_reload_message {
-            Some(Ok((reload_channel, delivery))) => {
+            Some(Ok(delivery)) => {
                 // acknowledge reception of the message
-                let _ = reload_channel
-                    .basic_ack(delivery.delivery_tag, BasicAckOptions::default())
+                let _ = delivery
+                    .ack(BasicAckOptions::default())
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowleding reception of reload message. {:?}",
+                            "Error while acknowledging reception of reload message. {:?}",
                             err
                         );
                     });
@@ -705,7 +717,7 @@ impl DataWorker {
                 &self.config.rabbitmq_params.rabbitmq_exchange,
                 routing_key,
                 BasicPublishOptions::default(),
-                payload,
+                &payload,
                 BasicProperties::default().with_expiration(time_to_live_in_milliseconds),
             )
             .await?
@@ -739,7 +751,7 @@ impl DataWorker {
 
                 // Update last kirin reload datetime in case of success only
                 let now = Utc::now().naive_utc();
-                self.send_status_update(StatusUpdate::KirinReload(now))?
+                self.send_status_update(StatusUpdate::KirinReload(now))?;
             }
         }
 
@@ -813,7 +825,7 @@ fn handle_realtime_message(
             error!(
                 "An error occured while handling FeedMessage with timestamp {}. {:?}",
                 header_datetime, err
-            )
+            );
         }
     }
     Ok(())
@@ -828,19 +840,23 @@ fn handle_feed_entity(
         bail!("FeedEntity has no id");
     }
     let id = feed_entity.get_id();
-    if feed_entity.get_is_deleted() {
-        bail!(
-            "FeedEntity {} has is_deleted == true. This is not supported",
-            id
-        );
-    }
 
-    let disruption = if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
-        handle_chaos_protobuf(&chaos_disruption)
-            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?
+    let data = &mut data_and_models.0;
+    let base_model = &data_and_models.1;
+    let real_time_model = &mut data_and_models.2;
+
+    if feed_entity.get_is_deleted() {
+        cancel_chaos_disruption(real_time_model, id, base_model, data);
+    } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
+        let chaos_disruption = handle_chaos_protobuf(&chaos_disruption)
+            .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?;
+        store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
     } else if feed_entity.has_trip_update() {
-        handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1)
-            .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?
+        let kirin_disruption =
+            handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1).with_context(
+                || format!("Could not handle kirin disruption in FeedEntity {}", id),
+            )?;
+        store_and_apply_kirin_disruption(real_time_model, kirin_disruption, base_model, data);
     } else {
         bail!(
             "FeedEntity {} is a Kirin message but has no trip_update",
@@ -848,11 +864,6 @@ fn handle_feed_entity(
         );
     };
 
-    let data = &mut data_and_models.0;
-    let base_model = &data_and_models.1;
-    let real_time_model = &mut data_and_models.2;
-
-    real_time_model.store_and_apply_disruption(disruption, base_model, data);
     Ok(())
 }
 

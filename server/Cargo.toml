@@ -27,8 +27,9 @@ futures = { version = "0.3", default-features = false, features = ["alloc"] }
 # RabbitMq lib
 # !! We use the integration with tokio through tokio-amqp
 # We should use version of lapin that tokio-amqp uses
-lapin = "1.6"
-tokio-amqp = "1"
+lapin = "2.0"
+tokio-amqp = "2"
+
 
 
 launch = { path = "../launch"}

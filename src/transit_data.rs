@@ -381,7 +381,6 @@ where
     }
 
     type TripsOfMission = <Timetables as TimetablesIter<'a>>::Trips;
-
     fn trips_of(
         &'a self,
         mission: &Self::Mission,

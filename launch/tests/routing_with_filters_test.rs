@@ -37,8 +37,10 @@
 mod utils;
 use anyhow::Error;
 use launch::config::{ComparatorType, DataImplem};
+
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
+    transit_model::objects::Availability::Available,
     PositiveDuration, RealTimeLevel,
 };
 use rstest::{fixture, rstest};
@@ -47,24 +49,65 @@ use utils::{build_and_solve, from_to_stop_point_names, model_builder::ModelBuild
 #[fixture]
 pub fn fixture_model() -> BaseModel {
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
+        .equipment("EQW", |e| e.wheelchair_boarding = Available)
+        .equipment("EQWB", |e| {
+            e.wheelchair_boarding = Available;
+            e.bike_accepted = Available
+        })
         .network("N1", |n| n.name = "N1".into())
         .route("R1", |r| r.name = "R1".into())
         .route("R2", |r| r.name = "R2".into())
         .route("R3", |r| r.name = "R3".into())
         .route("R4", |r| r.name = "R3".into())
+        .stop_area("sa:A", |_| {})
+        .stop_area("sa:B", |_| {})
+        .stop_area("sa:C", |_| {})
+        .stop_area("sa:F", |_| {})
+        .stop_area("sa:G", |_| {})
+        .stop_point("A", |sp| {
+            sp.equipment_id = Some("EQWB".to_string());
+            sp.stop_area_id = "sa:A".to_string()
+        })
+        .stop_point("B", |sp| {
+            sp.equipment_id = Some("EQW".to_string());
+            sp.stop_area_id = "sa:B".to_string()
+        })
+        .stop_point("C", |sp| {
+            sp.equipment_id = Some("EQWB".to_string());
+            sp.stop_area_id = "sa:C".to_string()
+        })
+        .stop_point("F", |sp| {
+            sp.equipment_id = Some("EQWB".to_string());
+            sp.stop_area_id = "sa:F".to_string()
+        })
+        .stop_point("G", |sp| {
+            sp.equipment_id = Some("EQW".to_string());
+            sp.stop_area_id = "sa:G".to_string()
+        })
         .vj("toto", |vj_builder| {
             vj_builder
                 .route("R1")
                 .st("A", "10:00:00")
                 .st("B", "10:05:00")
-                .st("C", "10:10:00");
+                .st("C", "10:10:00")
+                .add_property("wheelchair_accessible", "1");
+        })
+        .vj("toto_bike", |vj_builder| {
+            vj_builder
+                .route("R1")
+                .st("A", "11:00:00")
+                .st("B", "11:05:00")
+                .st("C", "11:10:00")
+                .add_property("bike_accepted", "1");
         })
         .vj("tata", |vj_builder| {
             vj_builder
                 .route("R2")
                 .st("E", "10:05:00")
                 .st("F", "10:20:00")
-                .st("G", "10:30:00");
+                .st("G", "10:30:00")
+                .add_property("wheelchair_accessible", "1")
+                .add_property("bike_accepted", "1");
         })
         .vj("titi", |vj_builder| {
             vj_builder
@@ -307,6 +350,154 @@ fn test_filter_allowed_route(
         from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "C");
+
+    Ok(())
+}
+
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_filter_wheelchair_no_solution(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+    fixture_model: BaseModel,
+) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // With Filter : wheelchair_accessible = true,
+    let config = Config::new("2020-01-01T09:59:00", "E", "G");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        wheelchair_accessible: true,
+        ..config
+    };
+
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
+
+    let responses = build_and_solve(&model_refs, &config)?;
+
+    // As E & G stop_point are not marked as wheelchair_accessible
+    // we should not have a response
+    assert_eq!(responses.len(), 0);
+
+    // Solve with the same config but wheelchair_accssible = false
+    // We should have a response
+    let config = Config {
+        wheelchair_accessible: false,
+        ..config
+    };
+    let responses = build_and_solve(&model_refs, &config)?;
+    assert_eq!(responses.len(), 1);
+
+    Ok(())
+}
+
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_filter_bike(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+    fixture_model: BaseModel,
+) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // With Filter : wheelchair_accessible = true,
+    let config = Config::new("2020-01-01T09:59:00", "A", "C");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        bike_accessible: true,
+        ..config
+    };
+
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
+
+    let responses = build_and_solve(&model_refs, &config)?;
+
+    // A & C stop_points are marked are bike_accessible
+    // but only vj "toto_bike" is bike accessible
+    // So even if "toto_bike" arrive later (1h later) than vj "toto", we should take "toto_bike"
+    assert_eq!(responses.len(), 1);
+    let journey = &responses[0];
+    assert_eq!(journey.first_vj_uri(&model_refs), "toto_bike");
+
+    // In the case we don't require bike_accessible
+    // we use "toto" vj
+    let config = Config {
+        bike_accessible: false,
+        ..config
+    };
+    let responses = build_and_solve(&model_refs, &config)?;
+    assert_eq!(responses.len(), 1);
+    let journey = &responses[0];
+    assert_eq!(journey.first_vj_uri(&model_refs), "toto");
+
+    Ok(())
+}
+
+#[rstest]
+#[case(ComparatorType::Loads, DataImplem::Periodic)]
+#[case(ComparatorType::Basic, DataImplem::Periodic)]
+#[case(ComparatorType::Loads, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::Daily)]
+#[case(ComparatorType::Basic, DataImplem::PeriodicSplitVj)]
+fn test_filter_accessibility_with_transfer(
+    #[case] comparator_type: ComparatorType,
+    #[case] data_implem: DataImplem,
+    fixture_model: BaseModel,
+) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // With Filter : wheelchair_accessible = true,
+    let config = Config::new("2020-01-01T09:59:00", "A", "G");
+    let config = Config {
+        comparator_type,
+        data_implem,
+        wheelchair_accessible: true,
+        bike_accessible: false,
+        ..config
+    };
+
+    let real_time_model = RealTimeModel::new();
+    let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
+
+    let responses = build_and_solve(&model_refs, &config)?;
+
+    // A & B & F stop_points are marked as bike_accessible & wheelchair_accessible
+    // "toto_bike" is bike accessible & "toto" is wheelchair_accessible
+    // "tata" is bike accessible &  wheelchair_accessible
+    // But stop_point "G" is marked as wheelchair_accessible only
+    // We should find a response when we query with wheelchair_accessible = true
+    // but not with bike_accessible = true
+    assert_eq!(responses.len(), 1);
+    let journey = &responses[0];
+    assert_eq!(journey.first_vj_uri(&model_refs), "toto");
+
+    let config = Config {
+        wheelchair_accessible: false,
+        bike_accessible: true,
+        ..config
+    };
+    let responses = build_and_solve(&model_refs, &config)?;
+    assert_eq!(responses.len(), 0);
+
+    let config = Config {
+        wheelchair_accessible: true,
+        bike_accessible: true,
+        ..config
+    };
+    let responses = build_and_solve(&model_refs, &config)?;
+    assert_eq!(responses.len(), 0);
 
     Ok(())
 }
