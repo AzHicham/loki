@@ -48,6 +48,7 @@ use crate::{
     transit_data::{data_interface::RealTimeLevel, Stop},
 };
 
+use crate::timetables::day_to_timetable::LocalZone;
 use chrono::NaiveDate;
 use std::fmt::Debug;
 
