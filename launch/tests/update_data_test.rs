@@ -40,7 +40,7 @@ use anyhow::Error;
 use launch::solver::Solver;
 
 use loki::{
-    chrono::{NaiveDate, NaiveTime},
+    chrono::NaiveDate,
     chrono_tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
@@ -576,7 +576,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
 
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -661,10 +661,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time now is 10:45:00 instead of 10:30:00
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms(10, 45, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 45, 0)
         );
     }
 
@@ -692,10 +689,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 30, 0)
         );
     }
 
@@ -776,7 +770,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
 
     let request_input = utils::make_request_from_config(&config)?;
 
-    let mut data = launch::read::build_transit_data::<T>(&base_model);
+    let mut data = launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -822,10 +816,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
         );
     }
 
@@ -863,10 +854,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 35, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 35, 0)
         );
     }
 
@@ -898,10 +886,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 2),
-                NaiveTime::from_hms(10, 30, 0)
-            )
+            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
         );
     }
     Ok(())

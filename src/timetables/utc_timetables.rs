@@ -44,6 +44,7 @@ use crate::{
 };
 
 use super::{
+    day_to_timetable::LocalZone,
     generic_timetables::{GenericTimetables, Vehicle, VehicleTimesError},
     timetable_iters::{PositionsIter, TimetableIter},
 };
