@@ -208,7 +208,6 @@ where
     Timetables: for<'a> TimetablesIter<'a> + loki::timetables::Timetables,
     F: FnOnce(TransitData<Timetables>) -> (),
 {
-    use loki::DataTrait;
     let data: TransitData<Timetables> = launch::read::build_transit_data(model.base);
     f(data);
 }

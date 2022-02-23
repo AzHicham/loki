@@ -41,7 +41,7 @@ use launch::{config::DataImplem, solver::Solver};
 
 use loki::{
     chrono::{NaiveDate, NaiveTime},
-    chrono_tz::UTC,
+    chrono_tz::Tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
         VehicleJourneyIdx,
@@ -721,16 +721,25 @@ where
             .finalize(&mut real_time_model, &base_model);
 
         let date = "2020-01-01".as_date();
-        let disruption_idx = DisruptionIdx::new(0);
-        let impact_idx = ImpactIdx::new(0);
-        let result = real_time_model.modify_trip(
-            &base_model,
-            &mut data,
-            "first",
-            &date,
-            stop_times,
-            disruption_idx,
-            impact_idx,
+
+        let dates = std::iter::once(date);
+        let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
+        let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
+        let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
+        let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+
+        let base_vj_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx = VehicleJourneyIdx::Base(base_vj_idx);
+
+        let result = data.modify_real_time_vehicle(
+            stops,
+            flows,
+            board_times,
+            debark_times,
+            base_model.loads_data(),
+            dates,
+            &UTC,
+            &vj_idx,
         );
         assert!(result.is_ok());
     }

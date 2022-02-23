@@ -46,8 +46,6 @@ use crate::{
     transit_data::{Stop, TransitData},
     RealTimeLevel,
 };
-use serde::de::Unexpected::Option;
-use std::collections::HashSet;
 
 use crate::{
     time::PositiveDuration,

@@ -565,7 +565,7 @@ where
                     }
                     let wait_front = &mut self.wait_fronts[arrival_id];
                     let new_wait_front = &mut self.new_wait_fronts[arrival_id];
-                    ///
+
                     if !pt.is_valid(&arrival_criteria) {
                         continue;
                     }

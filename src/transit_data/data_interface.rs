@@ -4,7 +4,7 @@ use crate::{
     time::{PositiveDuration, SecondsSinceDatasetUTCStart, SecondsSinceTimezonedDayStart},
     timetables::{FlowDirection, InsertionError, ModifyError, RemovalError},
 };
-use chrono::{Local, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 pub use typed_index_collection::Idx;
 
 use std::fmt::Debug;

@@ -54,7 +54,7 @@ use crate::{
     },
     RealTimeLevel,
 };
-use chrono::{Local, NaiveDate};
+use chrono::NaiveDate;
 use tracing::log::error;
 
 pub type Time = SecondsSinceDatasetUTCStart;

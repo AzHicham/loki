@@ -34,8 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use chrono::Local;
-use std::{collections::HashMap, iter};
+use std::collections::HashMap;
 
 use crate::{
     models::VehicleJourneyIdx,
