@@ -88,7 +88,7 @@ where
             .data
             .entry(vehicle_journey_idx.clone())
             .or_insert(HashMap::new())
-            .entry(local_zone.clone())
+            .entry(*local_zone)
             .or_insert(DayToTimetable::new());
 
         let base_insert_result = day_to_timetable.base.insert(
@@ -133,7 +133,7 @@ where
             .data
             .entry(vehicle_journey_idx.clone())
             .or_insert(HashMap::new())
-            .entry(local_zone.clone())
+            .entry(*local_zone)
             .or_insert(DayToTimetable::new());
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
@@ -218,7 +218,7 @@ where
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Vec<LocalZone> {
         match self.data.get(vehicle_journey_idx) {
-            Some(map) => map.keys().map(|k| k.clone()).collect(),
+            Some(map) => map.keys().copied().collect(),
             None => Vec::new(),
         }
     }
