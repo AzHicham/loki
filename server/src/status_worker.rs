@@ -59,9 +59,9 @@ const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
     config_info: ConfigInfo,
+    last_load_succeeded: bool, // last reload was successful
+    is_realtime_loaded: bool,  // is_realtime_loaded for the last reload
     is_connected_to_rabbitmq: bool,
-    // is_realtime_loaded for the last reload
-    is_realtime_loaded: bool,
     last_kirin_reload: Option<NaiveDateTime>,
     last_chaos_reload: Option<NaiveDateTime>,
     last_real_time_update: Option<NaiveDateTime>,
@@ -88,6 +88,7 @@ pub struct ConfigInfo {
 }
 
 pub enum StatusUpdate {
+    BaseDataLoadFailed,
     BaseDataLoad(BaseDataInfo),
     RabbitMqConnected,
     RabbitMqDisconnected,
@@ -113,6 +114,7 @@ impl StatusWorker {
                     .clone(),
                 nb_workers: server_config.nb_workers,
             },
+            last_load_succeeded: false,
             is_realtime_loaded: false,
             is_connected_to_rabbitmq: false,
             last_chaos_reload: None,
@@ -220,6 +222,7 @@ impl StatusWorker {
             status.loaded = Some(false);
             status.status = Some("no_data".to_string());
         }
+        status.last_load_status = Some(self.last_load_succeeded);
 
         status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
 
@@ -256,8 +259,12 @@ impl StatusWorker {
 
     fn handle_status_update(&mut self, status_update: StatusUpdate) {
         match status_update {
+            StatusUpdate::BaseDataLoadFailed => {
+                self.last_load_succeeded = false;
+            }
             StatusUpdate::BaseDataLoad(base_data_info) => {
                 self.base_data_info = Some(base_data_info);
+                self.last_load_succeeded = true;
             }
             StatusUpdate::RabbitMqConnected => {
                 if self.is_connected_to_rabbitmq {

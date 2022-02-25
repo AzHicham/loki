@@ -294,18 +294,24 @@ impl DataWorker {
             ))
         };
 
-        let (start_date, end_date, timezone, contributors) =
-            self.update_data_and_models(updater).await?;
-
-        let now = Utc::now().naive_utc();
-        let base_data_info = BaseDataInfo {
-            start_date,
-            end_date,
-            last_load_at: now,
-            timezone: timezone.unwrap_or(chrono_tz::UTC),
-            contributors,
-        };
-        self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+        let load_result = self.update_data_and_models(updater).await;
+        match load_result {
+            Ok((start_date, end_date, timezone, contributors)) => {
+                let now = Utc::now().naive_utc();
+                let base_data_info = BaseDataInfo {
+                    start_date,
+                    end_date,
+                    last_load_at: now,
+                    timezone: timezone.unwrap_or(chrono_tz::UTC),
+                    contributors,
+                };
+                self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+            }
+            Err(err) => {
+                self.send_status_update(StatusUpdate::BaseDataLoadFailed)?;
+                Err(err)
+            }
+        }
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {
