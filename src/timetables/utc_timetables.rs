@@ -447,7 +447,7 @@ impl UTCTimetables {
                     vehicle_journey_idx: vehicle_journey_idx.clone(),
                     base_days_pattern,
                     real_time_days_pattern,
-                    local_zone: local_zone.clone(),
+                    local_zone: *local_zone,
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
