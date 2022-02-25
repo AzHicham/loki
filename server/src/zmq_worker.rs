@@ -40,7 +40,7 @@ use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::Utc,
-    tracing::{debug, error, info, log::trace, warn},
+    tracing::{error, info, log::trace, warn},
     NaiveDateTime,
 };
 use prost::Message;
@@ -304,7 +304,7 @@ async fn handle_incoming_request(
                     .context("ZmqWorker error while forwarding request to load balancer."),
                 _ => {
                     error!("ZmqWorker received a request with api {:?} while I can only handle Status/Metadatas/PtPlanner/PlacesNearby api.", requested_api);
-                    return Ok(());
+                    Ok(())
                 }
             }
         }

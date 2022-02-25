@@ -42,20 +42,26 @@ use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::NaiveDate,
+    chrono_tz,
     tracing::{error, log::warn},
     NaiveDateTime,
 };
 
 use std::thread;
 
+use crate::ServerConfig;
 use tokio::{runtime::Builder, sync::mpsc};
 
 pub const DATE_FORMAT: &str = "%Y%m%d";
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
+    config_info: ConfigInfo,
     is_connected_to_rabbitmq: bool,
+    // is_realtime_loaded for the last reload
+    is_realtime_loaded: bool,
     last_kirin_reload: Option<NaiveDateTime>,
     last_chaos_reload: Option<NaiveDateTime>,
     last_real_time_update: Option<NaiveDateTime>,
@@ -71,6 +77,13 @@ pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub last_load_at: NaiveDateTime,
+    pub timezone: chrono_tz::Tz,
+}
+
+pub struct ConfigInfo {
+    pub pkg_version: String,
+    pub real_time_contributors: Vec<String>,
+    pub nb_workers: usize,
 }
 
 pub enum StatusUpdate {
@@ -86,10 +99,20 @@ impl StatusWorker {
     pub fn new(
         zmq_channels: StatusWorkerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
+        server_config: &ServerConfig,
     ) -> (Self, mpsc::UnboundedSender<StatusUpdate>) {
         let (status_update_sender, status_update_receiver) = mpsc::unbounded_channel();
         let worker = Self {
             base_data_info: None,
+            config_info: ConfigInfo {
+                pkg_version: PKG_VERSION.to_string(),
+                real_time_contributors: server_config
+                    .rabbitmq_params
+                    .rabbitmq_real_time_topics
+                    .clone(),
+                nb_workers: server_config.nb_workers,
+            },
+            is_realtime_loaded: false,
             is_connected_to_rabbitmq: false,
             last_chaos_reload: None,
             last_kirin_reload: None,
@@ -150,8 +173,15 @@ impl StatusWorker {
     fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
         let requested_api = request_message.payload.requested_api();
         let response_payload = match requested_api {
-            navitia_proto::Api::Status => self.status_response(),
-            navitia_proto::Api::Metadatas => self.metadatas_response(),
+            navitia_proto::Api::Status => navitia_proto::Response {
+                status: Some(self.status_response()),
+                metadatas: Some(self.metadatas_response()),
+                ..Default::default()
+            },
+            navitia_proto::Api::Metadatas => navitia_proto::Response {
+                metadatas: Some(self.metadatas_response()),
+                ..Default::default()
+            },
             _ => {
                 error!("StatusWorker : received a request with api {:?} while I can only handle Status or Metadatas api.", requested_api);
                 return Ok(());
@@ -174,7 +204,7 @@ impl StatusWorker {
             })
     }
 
-    fn status_response(&self) -> navitia_proto::Response {
+    fn status_response(&self) -> navitia_proto::Status {
         let mut status = navitia_proto::Status::default();
         let date_format = DATE_FORMAT;
         let datetime_format = DATETIME_FORMAT;
@@ -182,22 +212,31 @@ impl StatusWorker {
             status.start_production_date = info.start_date.format(date_format).to_string();
             status.end_production_date = info.end_date.format(date_format).to_string();
             status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
+            status.is_realtime_loaded = Some(self.is_realtime_loaded);
+            status.loaded = Some(true);
+            status.status = Some("running".to_string());
+        } else {
+            status.loaded = Some(false);
+            status.status = Some("no_data".to_string());
         }
 
         status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
+
+        status.navitia_version = Some(self.config_info.pkg_version.clone());
+        status.nb_threads = Some(self.config_info.nb_workers as i32);
+        for contributors in &self.config_info.real_time_contributors {
+            status.rt_contributors.push(contributors.clone())
+        }
 
         if let Some(date) = &self.last_real_time_update {
             status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
         }
 
-        navitia_proto::Response {
-            status: Some(status),
-            ..Default::default()
-        }
+        status
     }
 
-    fn metadatas_response(&self) -> navitia_proto::Response {
-        let metadatas = match &self.base_data_info {
+    fn metadatas_response(&self) -> navitia_proto::Metadatas {
+        match &self.base_data_info {
             None => navitia_proto::Metadatas {
                 status: "no_data".to_string(),
                 ..Default::default()
@@ -206,13 +245,10 @@ impl StatusWorker {
                 start_production_date: base_data_info.start_date.format(DATE_FORMAT).to_string(),
                 end_production_date: base_data_info.end_date.format(DATE_FORMAT).to_string(),
                 last_load_at: u64::try_from(base_data_info.last_load_at.timestamp()).ok(),
+                timezone: Some(base_data_info.timezone.name().to_string()),
+                status: "running".to_string(),
                 ..Default::default()
             },
-        };
-
-        navitia_proto::Response {
-            metadatas: Some(metadatas),
-            ..Default::default()
         }
     }
 
@@ -240,6 +276,7 @@ impl StatusWorker {
             StatusUpdate::KirinReload(datetime) => {
                 self.last_kirin_reload = Some(datetime);
                 self.last_real_time_update = Some(datetime);
+                self.is_realtime_loaded = true;
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
                 self.last_real_time_update = Some(datetime);

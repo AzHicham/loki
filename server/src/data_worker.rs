@@ -66,6 +66,7 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
+    chrono_tz,
     models::{
         base_model::BaseModel,
         real_time_disruption::{
@@ -293,6 +294,7 @@ impl DataWorker {
             start_date,
             end_date,
             last_load_at: now,
+            timezone: chrono_tz::UTC,
         };
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }

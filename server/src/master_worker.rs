@@ -83,8 +83,11 @@ impl MasterWorker {
         let _load_balancer_handle = load_balancer.run_in_a_thread()?;
 
         // Status worker
-        let (status_worker, status_update_sender) =
-            StatusWorker::new(status_worker_to_zmq_channels, shutdown_sender.clone());
+        let (status_worker, status_update_sender) = StatusWorker::new(
+            status_worker_to_zmq_channels,
+            shutdown_sender.clone(),
+            &config,
+        );
         let _status_worker_handle = status_worker.run_in_a_thread()?;
 
         // Data worker
