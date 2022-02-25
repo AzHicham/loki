@@ -171,27 +171,27 @@ pub trait Data: TransitTypes {
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 
-    fn next_boardable_trip<Filter>(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool;
+    // fn next_boardable_trip<Filter>(
+    //     &self,
+    //     time: &SecondsSinceDatasetUTCStart,
+    //     mission: &Self::Mission,
+    //     position: &Self::Position,
+    //     real_time_level: &RealTimeLevel,
+    //     filter: Filter,
+    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
+    // where
+    //     Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn next_debarkable_trip<Filter>(
-        &self,
-        time: &SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool;
+    // fn next_debarkable_trip<Filter>(
+    //     &self,
+    //     time: &SecondsSinceDatasetUTCStart,
+    //     mission: &Self::Mission,
+    //     position: &Self::Position,
+    //     real_time_level: &RealTimeLevel,
+    //     filter: Filter,
+    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
+    // where
+    //     Filter: Fn(&VehicleJourneyIdx) -> bool;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

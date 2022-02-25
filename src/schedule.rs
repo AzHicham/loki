@@ -140,76 +140,77 @@ pub fn next_departures<'data, 'filter, Data>(
 where
     Data: data_interface::Data + data_interface::DataIters<'data>,
 {
-    let mut response = Vec::new();
+    Err(NextStopTimeError::BadDateTimeError)
+    // let mut response = Vec::new();
 
-    let calendar = data.calendar();
-    let from_datetime = calendar
-        .from_naive_datetime(&request.from_datetime)
-        .ok_or_else(|| {
-            warn!(
-                "The requested from_datetime {:?} is out of bound of the allowed dates. \
-                Allowed dates are between {:?} and {:?}.",
-                request.from_datetime,
-                calendar.first_datetime(),
-                calendar.last_datetime(),
-            );
-            NextStopTimeError::BadDateTimeError
-        })?;
-    let until_datetime = data
-        .calendar()
-        .from_naive_datetime(&request.until_datetime)
-        .ok_or_else(|| {
-            warn!(
-                "The requested until_datetime {:?} is out of bound of the allowed dates. \
-                Allowed dates are between {:?} and {:?}.",
-                request.from_datetime,
-                calendar.first_datetime(),
-                calendar.last_datetime(),
-            );
-            NextStopTimeError::BadDateTimeError
-        })?;
+    // let calendar = data.calendar();
+    // let from_datetime = calendar
+    //     .from_naive_datetime(&request.from_datetime)
+    //     .ok_or_else(|| {
+    //         warn!(
+    //             "The requested from_datetime {:?} is out of bound of the allowed dates. \
+    //             Allowed dates are between {:?} and {:?}.",
+    //             request.from_datetime,
+    //             calendar.first_datetime(),
+    //             calendar.last_datetime(),
+    //         );
+    //         NextStopTimeError::BadDateTimeError
+    //     })?;
+    // let until_datetime = data
+    //     .calendar()
+    //     .from_naive_datetime(&request.until_datetime)
+    //     .ok_or_else(|| {
+    //         warn!(
+    //             "The requested until_datetime {:?} is out of bound of the allowed dates. \
+    //             Allowed dates are between {:?} and {:?}.",
+    //             request.from_datetime,
+    //             calendar.first_datetime(),
+    //             calendar.last_datetime(),
+    //         );
+    //         NextStopTimeError::BadDateTimeError
+    //     })?;
 
-    for stop_idx in &request.input_stop_points {
-        if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
-            for (mission, position) in data.missions_at(&stop) {
-                let mut count = 0;
-                let mut next_time = from_datetime;
-                'inner: while count < request.max_response {
-                    let earliest_trip_time = data.next_boardable_trip(
-                        &next_time,
-                        &mission,
-                        &position,
-                        &request.real_time_level,
-                        |_| true,
-                    );
-                    match earliest_trip_time {
-                        Some((trip, boarding_time)) if boarding_time < until_datetime => {
-                            response.push(NextStopTimeResponse {
-                                stop_point: stop_idx.clone(),
-                                vehicle_journey: data.vehicle_journey_idx(&trip),
-                                time: data.to_naive_datetime(&boarding_time),
-                                vehicle_date: data.day_of(&trip),
-                                stop_time_idx: data.stoptime_idx(&position, &trip),
-                            });
-                            count += 1;
-                            next_time = boarding_time + PositiveDuration { seconds: 1 };
-                        }
-                        _ => {
-                            break 'inner;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // for stop_idx in &request.input_stop_points {
+    //     if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
+    //         for (mission, position) in data.missions_at(&stop) {
+    //             let mut count = 0;
+    //             let mut next_time = from_datetime;
+    //             'inner: while count < request.max_response {
+    //                 let earliest_trip_time = data.next_boardable_trip(
+    //                     &next_time,
+    //                     &mission,
+    //                     &position,
+    //                     &request.real_time_level,
+    //                     |_| true,
+    //                 );
+    //                 match earliest_trip_time {
+    //                     Some((trip, boarding_time)) if boarding_time < until_datetime => {
+    //                         response.push(NextStopTimeResponse {
+    //                             stop_point: stop_idx.clone(),
+    //                             vehicle_journey: data.vehicle_journey_idx(&trip),
+    //                             time: data.to_naive_datetime(&boarding_time),
+    //                             vehicle_date: data.day_of(&trip),
+    //                             stop_time_idx: data.stoptime_idx(&position, &trip),
+    //                         });
+    //                         count += 1;
+    //                         next_time = boarding_time + PositiveDuration { seconds: 1 };
+    //                     }
+    //                     _ => {
+    //                         break 'inner;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
-    response
-        .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
+    // response
+    //     .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
 
-    Ok(response
-        .into_iter()
-        .take(request.max_response as usize)
-        .collect())
+    // Ok(response
+    //     .into_iter()
+    //     .take(request.max_response as usize)
+    //     .collect())
 }
 
 pub fn next_arrivals<'data, 'filter, Data>(
@@ -219,74 +220,75 @@ pub fn next_arrivals<'data, 'filter, Data>(
 where
     Data: data_interface::Data + data_interface::DataIters<'data>,
 {
-    let mut response = Vec::new();
+    Err(NextStopTimeError::BadDateTimeError)
+    // let mut response = Vec::new();
 
-    let calendar = data.calendar();
-    let from_datetime = calendar
-        .from_naive_datetime(&request.from_datetime)
-        .ok_or_else(|| {
-            warn!(
-                "The requested from_datetime {:?} is out of bound of the allowed dates. \
-                Allowed dates are between {:?} and {:?}.",
-                request.from_datetime,
-                calendar.first_datetime(),
-                calendar.last_datetime(),
-            );
-            NextStopTimeError::BadDateTimeError
-        })?;
-    let until_datetime = data
-        .calendar()
-        .from_naive_datetime(&request.until_datetime)
-        .ok_or_else(|| {
-            warn!(
-                "The requested until_datetime {:?} is out of bound of the allowed dates. \
-                Allowed dates are between {:?} and {:?}.",
-                request.from_datetime,
-                calendar.first_datetime(),
-                calendar.last_datetime(),
-            );
-            NextStopTimeError::BadDateTimeError
-        })?;
+    // let calendar = data.calendar();
+    // let from_datetime = calendar
+    //     .from_naive_datetime(&request.from_datetime)
+    //     .ok_or_else(|| {
+    //         warn!(
+    //             "The requested from_datetime {:?} is out of bound of the allowed dates. \
+    //             Allowed dates are between {:?} and {:?}.",
+    //             request.from_datetime,
+    //             calendar.first_datetime(),
+    //             calendar.last_datetime(),
+    //         );
+    //         NextStopTimeError::BadDateTimeError
+    //     })?;
+    // let until_datetime = data
+    //     .calendar()
+    //     .from_naive_datetime(&request.until_datetime)
+    //     .ok_or_else(|| {
+    //         warn!(
+    //             "The requested until_datetime {:?} is out of bound of the allowed dates. \
+    //             Allowed dates are between {:?} and {:?}.",
+    //             request.from_datetime,
+    //             calendar.first_datetime(),
+    //             calendar.last_datetime(),
+    //         );
+    //         NextStopTimeError::BadDateTimeError
+    //     })?;
 
-    for stop_idx in &request.input_stop_points {
-        if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
-            for (mission, position) in data.missions_at(&stop) {
-                let mut count = 0;
-                let mut next_time = from_datetime;
-                'inner: while count < request.max_response {
-                    let earliest_trip_time = data.next_debarkable_trip(
-                        &next_time,
-                        &mission,
-                        &position,
-                        &request.real_time_level,
-                        |_| true,
-                    );
-                    match earliest_trip_time {
-                        Some((trip, debark_time)) if debark_time < until_datetime => {
-                            response.push(NextStopTimeResponse {
-                                stop_point: stop_idx.clone(),
-                                vehicle_journey: data.vehicle_journey_idx(&trip),
-                                time: data.to_naive_datetime(&debark_time),
-                                vehicle_date: data.day_of(&trip),
-                                stop_time_idx: data.stoptime_idx(&position, &trip),
-                            });
-                            count += 1;
-                            next_time = debark_time + PositiveDuration { seconds: 1 };
-                        }
-                        _ => {
-                            break 'inner;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // for stop_idx in &request.input_stop_points {
+    //     if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
+    //         for (mission, position) in data.missions_at(&stop) {
+    //             let mut count = 0;
+    //             let mut next_time = from_datetime;
+    //             'inner: while count < request.max_response {
+    //                 let earliest_trip_time = data.next_debarkable_trip(
+    //                     &next_time,
+    //                     &mission,
+    //                     &position,
+    //                     &request.real_time_level,
+    //                     |_| true,
+    //                 );
+    //                 match earliest_trip_time {
+    //                     Some((trip, debark_time)) if debark_time < until_datetime => {
+    //                         response.push(NextStopTimeResponse {
+    //                             stop_point: stop_idx.clone(),
+    //                             vehicle_journey: data.vehicle_journey_idx(&trip),
+    //                             time: data.to_naive_datetime(&debark_time),
+    //                             vehicle_date: data.day_of(&trip),
+    //                             stop_time_idx: data.stoptime_idx(&position, &trip),
+    //                         });
+    //                         count += 1;
+    //                         next_time = debark_time + PositiveDuration { seconds: 1 };
+    //                     }
+    //                     _ => {
+    //                         break 'inner;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
-    response
-        .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
+    // response
+    //     .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
 
-    Ok(response
-        .into_iter()
-        .take(request.max_response as usize)
-        .collect())
+    // Ok(response
+    //     .into_iter()
+    //     .take(request.max_response as usize)
+    //     .collect())
 }

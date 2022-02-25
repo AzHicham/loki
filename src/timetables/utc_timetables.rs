@@ -218,6 +218,9 @@ impl UTCTimetables {
     {
         let decompositions = calendar.decompositions_utc(waiting_time);
 
+        // if there is not next position, we cannot board this mission at this posision
+        let next_position = self.timetables.next_position(position, mission)?;
+
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
             Vehicle,
             DaysSinceDatasetStart,
@@ -239,10 +242,11 @@ impl UTCTimetables {
                         && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
-            if let Some((vehicle, arrival_time_in_day_at_next_stop, load)) = has_vehicle {
+            if let Some(vehicle) = has_vehicle {
+                let (arrival_time_in_day_at_next_stop, load) =
+                    self.timetables.arrival_time(&vehicle, &next_position);
                 let arrival_time_at_next_stop =
                     calendar.compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
-
                 if let Some((_, _, best_arrival_time, best_load)) =
                     &best_vehicle_day_and_its_arrival_time_at_next_position
                 {
@@ -267,126 +271,126 @@ impl UTCTimetables {
         )
     }
 
-    pub fn next_filtered_boardable_trip<Filter>(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool,
-    {
-        let decompositions = calendar.decompositions_utc(waiting_time);
+    // pub fn next_filtered_boardable_trip<Filter>(
+    //     &self,
+    //     waiting_time: &SecondsSinceDatasetUTCStart,
+    //     mission: &Mission,
+    //     position: &Position,
+    //     real_time_level: &RealTimeLevel,
+    //     filter: Filter,
+    //     calendar: &Calendar,
+    //     days_patterns: &DaysPatterns,
+    // ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
+    // where
+    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
+    // {
+    //     let decompositions = calendar.decompositions_utc(waiting_time);
 
-        let mut best_vehicle_day_and_its_board_time: Option<(
-            Vehicle,
-            DaysSinceDatasetStart,
-            SecondsSinceDatasetUTCStart,
-        )> = None;
+    //     let mut best_vehicle_day_and_its_board_time: Option<(
+    //         Vehicle,
+    //         DaysSinceDatasetStart,
+    //         SecondsSinceDatasetUTCStart,
+    //     )> = None;
 
-        for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self
-                .timetables
-                .next_boardable_vehicles(
-                    &waiting_time_in_day,
-                    &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
-                        .unwrap(),
-                    mission,
-                    position,
-                    |vehicle_data| {
-                        let days_pattern = match real_time_level {
-                            RealTimeLevel::Base => vehicle_data.base_days_pattern,
-                            RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
-                        };
-                        days_patterns.is_allowed(&days_pattern, &waiting_day)
-                            && filter(&vehicle_data.vehicle_journey_idx)
-                    },
-                )
-                .next();
-            if let Some((vehicle, board_time_in_day_at_stop)) = has_vehicle {
-                let board_time = calendar.compose_utc(&waiting_day, board_time_in_day_at_stop);
+    //     for (waiting_day, waiting_time_in_day) in decompositions {
+    //         let has_vehicle = self
+    //             .timetables
+    //             .next_boardable_vehicles(
+    //                 &waiting_time_in_day,
+    //                 &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
+    //                     .unwrap(),
+    //                 mission,
+    //                 position,
+    //                 |vehicle_data| {
+    //                     let days_pattern = match real_time_level {
+    //                         RealTimeLevel::Base => vehicle_data.base_days_pattern,
+    //                         RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+    //                     };
+    //                     days_patterns.is_allowed(&days_pattern, &waiting_day)
+    //                         && filter(&vehicle_data.vehicle_journey_idx)
+    //                 },
+    //             )
+    //             .next();
+    //         if let Some((vehicle, board_time_in_day_at_stop)) = has_vehicle {
+    //             let board_time = calendar.compose_utc(&waiting_day, board_time_in_day_at_stop);
 
-                if let Some((_, _, best_board_time)) = &best_vehicle_day_and_its_board_time {
-                    if board_time < *best_board_time {
-                        best_vehicle_day_and_its_board_time =
-                            Some((vehicle, waiting_day, board_time));
-                    }
-                } else {
-                    best_vehicle_day_and_its_board_time = Some((vehicle, waiting_day, board_time));
-                }
-            }
-        }
+    //             if let Some((_, _, best_board_time)) = &best_vehicle_day_and_its_board_time {
+    //                 if board_time < *best_board_time {
+    //                     best_vehicle_day_and_its_board_time =
+    //                         Some((vehicle, waiting_day, board_time));
+    //                 }
+    //             } else {
+    //                 best_vehicle_day_and_its_board_time = Some((vehicle, waiting_day, board_time));
+    //             }
+    //         }
+    //     }
 
-        best_vehicle_day_and_its_board_time.map(|(vehicle, day, board_time)| {
-            let trip = Trip { vehicle, day };
-            (trip, board_time)
-        })
-    }
+    //     best_vehicle_day_and_its_board_time.map(|(vehicle, day, board_time)| {
+    //         let trip = Trip { vehicle, day };
+    //         (trip, board_time)
+    //     })
+    // }
 
-    pub fn next_filtered_debarkable_trip<Filter>(
-        &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: &RealTimeLevel,
-        filter: Filter,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
-    where
-        Filter: Fn(&VehicleJourneyIdx) -> bool,
-    {
-        let decompositions = calendar.decompositions_utc(waiting_time);
+    // pub fn next_filtered_debarkable_trip<Filter>(
+    //     &self,
+    //     waiting_time: &SecondsSinceDatasetUTCStart,
+    //     mission: &Mission,
+    //     position: &Position,
+    //     real_time_level: &RealTimeLevel,
+    //     filter: Filter,
+    //     calendar: &Calendar,
+    //     days_patterns: &DaysPatterns,
+    // ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
+    // where
+    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
+    // {
+    //     let decompositions = calendar.decompositions_utc(waiting_time);
 
-        let mut best_vehicle_day_and_its_debark_time: Option<(
-            Vehicle,
-            DaysSinceDatasetStart,
-            SecondsSinceDatasetUTCStart,
-        )> = None;
+    //     let mut best_vehicle_day_and_its_debark_time: Option<(
+    //         Vehicle,
+    //         DaysSinceDatasetStart,
+    //         SecondsSinceDatasetUTCStart,
+    //     )> = None;
 
-        for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self
-                .timetables
-                .next_debarkable_vehicles(
-                    &waiting_time_in_day,
-                    &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
-                        .unwrap(),
-                    mission,
-                    position,
-                    |vehicle_data| {
-                        let days_pattern = match real_time_level {
-                            RealTimeLevel::Base => vehicle_data.base_days_pattern,
-                            RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
-                        };
-                        days_patterns.is_allowed(&days_pattern, &waiting_day)
-                            && filter(&vehicle_data.vehicle_journey_idx)
-                    },
-                )
-                .next();
-            if let Some((vehicle, debark_time_in_day_at_stop)) = has_vehicle {
-                let debark_time = calendar.compose_utc(&waiting_day, debark_time_in_day_at_stop);
+    //     for (waiting_day, waiting_time_in_day) in decompositions {
+    //         let has_vehicle = self
+    //             .timetables
+    //             .next_debarkable_vehicles(
+    //                 &waiting_time_in_day,
+    //                 &SecondsSinceUTCDayStart::from_seconds_i64(MAX_SECONDS_IN_UTC_DAY.into())
+    //                     .unwrap(),
+    //                 mission,
+    //                 position,
+    //                 |vehicle_data| {
+    //                     let days_pattern = match real_time_level {
+    //                         RealTimeLevel::Base => vehicle_data.base_days_pattern,
+    //                         RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
+    //                     };
+    //                     days_patterns.is_allowed(&days_pattern, &waiting_day)
+    //                         && filter(&vehicle_data.vehicle_journey_idx)
+    //                 },
+    //             )
+    //             .next();
+    //         if let Some((vehicle, debark_time_in_day_at_stop)) = has_vehicle {
+    //             let debark_time = calendar.compose_utc(&waiting_day, debark_time_in_day_at_stop);
 
-                if let Some((_, _, best_debark_time)) = &best_vehicle_day_and_its_debark_time {
-                    if debark_time < *best_debark_time {
-                        best_vehicle_day_and_its_debark_time =
-                            Some((vehicle, waiting_day, debark_time));
-                    }
-                } else {
-                    best_vehicle_day_and_its_debark_time =
-                        Some((vehicle, waiting_day, debark_time));
-                }
-            }
-        }
+    //             if let Some((_, _, best_debark_time)) = &best_vehicle_day_and_its_debark_time {
+    //                 if debark_time < *best_debark_time {
+    //                     best_vehicle_day_and_its_debark_time =
+    //                         Some((vehicle, waiting_day, debark_time));
+    //                 }
+    //             } else {
+    //                 best_vehicle_day_and_its_debark_time =
+    //                     Some((vehicle, waiting_day, debark_time));
+    //             }
+    //         }
+    //     }
 
-        best_vehicle_day_and_its_debark_time.map(|(vehicle, day, debark_time)| {
-            let trip = Trip { vehicle, day };
-            (trip, debark_time)
-        })
-    }
+    //     best_vehicle_day_and_its_debark_time.map(|(vehicle, day, debark_time)| {
+    //         let trip = Trip { vehicle, day };
+    //         (trip, debark_time)
+    //     })
+    // }
 
     pub fn latest_trip_that_debark_at(
         &self,
