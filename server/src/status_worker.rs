@@ -77,6 +77,7 @@ pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub last_load_at: NaiveDateTime,
+    pub dataset_created_at: Option<NaiveDateTime>,
     pub timezone: chrono_tz::Tz,
     pub contributors: Vec<String>,
 }
@@ -215,6 +216,9 @@ impl StatusWorker {
             status.start_production_date = info.start_date.format(date_format).to_string();
             status.end_production_date = info.end_date.format(date_format).to_string();
             status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
+            status.dataset_created_at = info
+                .dataset_created_at
+                .map(|dt| dt.format(datetime_format).to_string());
             status.is_realtime_loaded = Some(self.is_realtime_loaded);
             status.loaded = Some(true);
             status.status = Some("running".to_string());
@@ -240,14 +244,20 @@ impl StatusWorker {
     }
 
     fn metadatas_response(&self) -> navitia_proto::Metadatas {
+        let date_format = DATE_FORMAT;
+        let datetime_format = DATETIME_FORMAT;
+
         match &self.base_data_info {
             None => navitia_proto::Metadatas {
                 status: "no_data".to_string(),
                 ..Default::default()
             },
             Some(base_data_info) => navitia_proto::Metadatas {
-                start_production_date: base_data_info.start_date.format(DATE_FORMAT).to_string(),
-                end_production_date: base_data_info.end_date.format(DATE_FORMAT).to_string(),
+                start_production_date: base_data_info.start_date.format(date_format).to_string(),
+                end_production_date: base_data_info.end_date.format(date_format).to_string(),
+                dataset_created_at: base_data_info
+                    .dataset_created_at
+                    .map(|dt| dt.format(datetime_format).to_string()),
                 last_load_at: u64::try_from(base_data_info.last_load_at.timestamp()).ok(),
                 timezone: Some(base_data_info.timezone.name().to_string()),
                 contributors: base_data_info.contributors.clone(),
