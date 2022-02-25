@@ -284,17 +284,26 @@ impl DataWorker {
             data_and_models.1 = new_base_model;
             data_and_models.2 = new_real_time_model;
             let calendar = data_and_models.0.calendar();
-            Ok((*calendar.first_date(), *calendar.last_date()))
+            let timezone = data_and_models.1.timezone_model();
+            let contributors = data_and_models.1.contributors().map(|c| c.id).collect();
+            Ok((
+                *calendar.first_date(),
+                *calendar.last_date(),
+                timezone,
+                contributors,
+            ))
         };
 
-        let (start_date, end_date) = self.update_data_and_models(updater).await?;
+        let (start_date, end_date, timezone, contributors) =
+            self.update_data_and_models(updater).await?;
 
         let now = Utc::now().naive_utc();
         let base_data_info = BaseDataInfo {
             start_date,
             end_date,
             last_load_at: now,
-            timezone: chrono_tz::UTC,
+            timezone: timezone.unwrap_or(chrono_tz::UTC),
+            contributors,
         };
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
     }

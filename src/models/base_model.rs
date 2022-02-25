@@ -666,6 +666,15 @@ impl BaseModel {
 
 // various
 impl BaseModel {
+    pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {
+        for (_, network) in &self.collections.networks {
+            if network.timezone.is_some() {
+                return network.timezone;
+            }
+        }
+        None
+    }
+
     pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
         self.collections.contributors.values().map(|c| Contributor {
             id: c.id.clone(),

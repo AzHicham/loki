@@ -78,6 +78,7 @@ pub struct BaseDataInfo {
     pub end_date: NaiveDate,
     pub last_load_at: NaiveDateTime,
     pub timezone: chrono_tz::Tz,
+    pub contributors: Vec<String>,
 }
 
 pub struct ConfigInfo {
@@ -224,8 +225,8 @@ impl StatusWorker {
 
         status.navitia_version = Some(self.config_info.pkg_version.clone());
         status.nb_threads = Some(self.config_info.nb_workers as i32);
-        for contributors in &self.config_info.real_time_contributors {
-            status.rt_contributors.push(contributors.clone())
+        for rt_contributors in &self.config_info.real_time_contributors {
+            status.rt_contributors.push(rt_contributors.clone())
         }
 
         if let Some(date) = &self.last_real_time_update {
@@ -246,6 +247,7 @@ impl StatusWorker {
                 end_production_date: base_data_info.end_date.format(DATE_FORMAT).to_string(),
                 last_load_at: u64::try_from(base_data_info.last_load_at.timestamp()).ok(),
                 timezone: Some(base_data_info.timezone.name().to_string()),
+                contributors: base_data_info.contributors.clone(),
                 status: "running".to_string(),
                 ..Default::default()
             },
