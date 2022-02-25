@@ -293,6 +293,7 @@ impl DataWorker {
                 dataset_created_at: data_and_models.1.dataset_created_at(),
                 timezone: data_and_models.1.timezone_model().unwrap_or(chrono_tz::UTC),
                 contributors: data_and_models.1.contributors().map(|c| c.id).collect(),
+                publisher_name: data_and_models.1.pubisher_name().map(|n| n.to_string()),
             };
             Ok(base_data_info)
         };

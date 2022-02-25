@@ -31,3 +31,4 @@ pub mod chaos_test;
 pub mod places_nearby_test;
 pub mod realtime_test;
 pub mod reload_test;
+pub mod status_metadata_test;

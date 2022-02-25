@@ -54,7 +54,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 pub const DATE_FORMAT: &str = "%Y%m%d";
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
-const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
@@ -80,6 +80,7 @@ pub struct BaseDataInfo {
     pub dataset_created_at: Option<NaiveDateTime>,
     pub timezone: chrono_tz::Tz,
     pub contributors: Vec<String>,
+    pub publisher_name: Option<String>,
 }
 
 pub struct ConfigInfo {
@@ -262,6 +263,7 @@ impl StatusWorker {
                 timezone: Some(base_data_info.timezone.name().to_string()),
                 contributors: base_data_info.contributors.clone(),
                 status: "running".to_string(),
+                name: base_data_info.publisher_name.clone(),
                 ..Default::default()
             },
         }

@@ -681,6 +681,13 @@ impl BaseModel {
         }
     }
 
+    pub fn pubisher_name(&self) -> Option<&str> {
+        self.collections
+            .feed_infos
+            .get("feed_publisher_name")
+            .map(|pubisher_name| pubisher_name.as_str())
+    }
+
     pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {
         for (_, network) in &self.collections.networks {
             if network.timezone.is_some() {
