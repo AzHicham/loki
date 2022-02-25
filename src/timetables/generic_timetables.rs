@@ -250,7 +250,7 @@ where
     {
         assert!(position.timetable == *timetable);
         self.timetable_data(timetable)
-            .earliest_filtered_vehicle_to_board(waiting_time, position.idx, filter)
+            .earliest_filtered_vehicle_to_board(waiting_time, position.idx, &filter)
             .map(|(idx, time)| {
                 let vehicle = Vehicle {
                     timetable: timetable.clone(),
@@ -502,19 +502,34 @@ where
         &self.vehicle_datas[trip_idx]
     }
 
-    // If we are waiting to board a trip at `position` at time `waiting_time`
-    // return `Some(best_trip_idx)`
-    // where `best_trip_idx` is the idx of the trip, among those trip on which `filter` returns true,
-    //  to board that allows to debark at the subsequent positions at the earliest time,
     fn earliest_filtered_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
         position_idx: usize,
-        filter: Filter,
+        filter: &Filter,
     ) -> Option<(usize, &Time)>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
+        let first_boardable_vehicle = self.earliest_vehicle_to_board(waiting_time, position_idx)?;
+
+        for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicle() {
+            let vehicle_data = &self.vehicle_datas[vehicle_idx];
+            let board_time = &self.board_times_by_position[position_idx][vehicle_idx];
+            if filter(vehicle_data) && waiting_time <= board_time {
+                let arrival_time_at_next_position =
+                    self.arrival_time(vehicle_idx, next_position_idx);
+                return Some((vehicle_idx, arrival_time_at_next_position));
+            }
+        }
+        None
+    }
+
+    // If we are waiting to board a trip at `position` at time ``
+    // return `Some(best_vehicle_idx)`
+    // where `best_trip_idx` is the idx of the first Vehicle that can be boarded
+    //  after waiting_time
+    fn earliest_vehicle_to_board(&self, waiting_time: &Time, position_idx: usize) -> Option<usize> {
         if !self.can_board(position_idx) {
             return None;
         }
@@ -554,16 +569,7 @@ where
                     .unwrap_err()
             };
 
-        for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicle() {
-            let vehicle_data = &self.vehicle_datas[vehicle_idx];
-            let board_time = &self.board_times_by_position[position_idx][vehicle_idx];
-            if filter(vehicle_data) && waiting_time <= board_time {
-                let arrival_time_at_next_position =
-                    self.arrival_time(vehicle_idx, next_position_idx);
-                return Some((vehicle_idx, arrival_time_at_next_position));
-            }
-        }
-        None
+        Some(first_boardable_vehicle)
     }
 
     // Given a `position` and a range time : 'from_time' and 'until_time'
@@ -578,34 +584,17 @@ where
         filter: Filter,
     ) -> NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
     where
-        Filter: Fn(&VehicleData) -> bool + 'filter,
+        Filter: Fn(&VehicleData) -> bool,
     {
-        let nb_of_vehicles = self.board_times_by_position[position_idx].len();
-        let vehicle_idx = if !self.can_board(position_idx) || nb_of_vehicles == 0 {
-            nb_of_vehicles
-        } else {
-            let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
-            if from_time > &self.board_times_by_position[position_idx][last_vehicle_idx] {
-                nb_of_vehicles
-            } else if from_time <= &self.board_times_by_position[position_idx][0] {
-                0
-            } else {
-                // We are looking for the smallest index in slice (board_times_by_position here)
-                // such that slice(idx) >= waiting_time.
-                // In order to do so we use binary_search_by with the comparator
-                // function F : |time| if time < waiting_time { Less } else { Greater }
-                // binary_search_by on slice with a comparator function F will return :
-                // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
-                // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
-                // and F(slice(idx-1)) == Less if idx >= 1
-                // Since our comparator will never return Equal,
-                // binary_search_by will always return Err(idx).
-                // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
-                // And slice(idx-1) < waiting_time
-                // So idx is the smallest index such that slice(idx) >= waiting_time
-                self.board_times_by_position[position_idx]
-                    .binary_search_by(|time| if time < from_time { Less } else { Greater })
-                    .unwrap_err()
+        let has_vehicle = self.earliest_filtered_vehicle_to_board(from_time, position_idx, &filter);
+        let vehicle_idx = match has_vehicle {
+            Some((vehicle_idx, _)) => vehicle_idx,
+            None => {
+                // if there is no vehicle, we want to return an empty iterator
+                // from this function
+                // Initializing the iterator after the last vehicle will yield an
+                // empty iterator
+                self.nb_of_vehicle()
             }
         };
 
