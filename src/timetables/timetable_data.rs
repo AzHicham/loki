@@ -34,13 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{borrow::Borrow, cmp::Ordering, collections::BTreeMap, fmt::Debug, ops::Not};
-use tracing::debug;
+use std::{borrow::Borrow, cmp::Ordering, fmt::Debug, ops::Not};
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
 use crate::{
-    models::StopTimeIdx,
-    time::DaysSinceDatasetStart,
     timetables::{FlowDirection, StopFlows},
     transit_data::Stop,
 };
@@ -121,7 +118,11 @@ where
     // return `Some(best_vehicle_idx)`
     // where `best_trip_idx` is the idx of the first Vehicle that can be boarded
     //  after waiting_time
-    fn earliest_vehicle_to_board(&self, waiting_time: &Time, position_idx: usize) -> Option<usize> {
+    pub(super) fn earliest_vehicle_to_board(
+        &self,
+        waiting_time: &Time,
+        position_idx: usize,
+    ) -> Option<usize> {
         if !self.can_board(position_idx) {
             return None;
         }

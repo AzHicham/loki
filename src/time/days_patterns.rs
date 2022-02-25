@@ -299,6 +299,7 @@ impl<'pattern> Iterator for DaysInPatternIter<'pattern> {
                     let days: u16 = day_idx as u16;
                     return Some(DaysSinceDatasetStart { days });
                 }
+                // skip dates that are not allowed
                 Some(_) => (),
                 None => {
                     return None;

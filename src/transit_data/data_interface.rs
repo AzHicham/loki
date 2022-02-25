@@ -194,7 +194,7 @@ pub trait Data: TransitTypes {
     //     Filter: Fn(&VehicleJourneyIdx) -> bool;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RealTimeLevel {
     Base,
     RealTime,
