@@ -31,6 +31,7 @@ use std::{
     env,
     path::{Path, PathBuf},
     str::FromStr,
+    time::Duration,
 };
 
 use lapin::{options::BasicPublishOptions, BasicProperties};
@@ -269,7 +270,7 @@ async fn start_postgres_docker() -> String {
 async fn wait_until_connected_to_rabbitmq(zmq_endpoint: &str) {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
-    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
     loop {
         retry_interval.tick().await;
@@ -290,7 +291,7 @@ async fn wait_until_connected_to_postgresql(chaos_endpoint: &str) {
     use diesel::prelude::*;
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
-    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
     loop {
         retry_interval.tick().await;
@@ -310,9 +311,15 @@ async fn wait_until_connected_to_postgresql(chaos_endpoint: &str) {
 async fn stop_docker(container_id: &str) {
     let docker = shiplift::Docker::new();
     let container = docker.containers().get(container_id);
-    container.stop(None).await.unwrap();
+    info!("Stopping container {container_id}");
+    container.stop(Some(Duration::from_secs(2))).await.unwrap();
     container
-        .remove(RmContainerOptionsBuilder::default().volumes(true).build())
+        .remove(
+            RmContainerOptionsBuilder::default()
+                .volumes(true)
+                .force(true)
+                .build(),
+        )
         .await
         .unwrap();
 }

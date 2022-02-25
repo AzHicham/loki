@@ -34,15 +34,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::generic_timetables::{Position, Timetable, TimetableData, Timetables, Vehicle};
+use super::generic_timetables::{GenericTimetables, Position, Timetable, TimetableData, Vehicle};
 use std::{fmt::Debug, iter::Map, ops::Range};
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
-impl<Time, Load, TimezoneData, TripData> Timetables<Time, Load, TimezoneData, TripData>
+impl<Time, Load, TripData> GenericTimetables<Time, Load, TripData>
 where
     Time: Ord + Clone + Debug,
-    TimezoneData: PartialEq + Clone,
     Load: Ord + Clone + Debug,
 {
     pub fn timetables(&self) -> TimetableIter {
@@ -111,7 +110,7 @@ impl Iterator for VehicleIter {
     }
 }
 
-impl<Time, Load, TimezoneData, TripData> TimetableData<Time, Load, TimezoneData, TripData>
+impl<Time, Load, TripData> TimetableData<Time, Load, TripData>
 // where Time
 {
     pub(super) fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
