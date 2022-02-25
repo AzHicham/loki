@@ -45,7 +45,12 @@ use launch::{
     loki::{response, response::VehicleSection, RequestInput},
     solver::Solver,
 };
-use loki::{chrono::TimeZone, filters::Filters, models::ModelRefs, RealTimeLevel};
+use loki::{
+    chrono::TimeZone,
+    filters::{parse_filter, Filters},
+    models::ModelRefs,
+    RealTimeLevel,
+};
 
 use loki::{chrono_tz, tracing::debug};
 
@@ -69,11 +74,9 @@ pub struct Config<'a> {
     /// name of the end stop_area
     pub end: String,
 
-    // Allowed_uri
-    pub allowed_uri: Vec<&'a str>,
+    pub allowed_uris: Vec<&'a str>,
 
-    // Forbidden_uri
-    pub forbidden_uri: Vec<&'a str>,
+    pub forbidden_uris: Vec<&'a str>,
 
     pub wheelchair_accessible: bool,
     pub bike_accessible: bool,
@@ -101,8 +104,8 @@ impl<'a> Config<'a> {
             default_transfer_duration: default_transfer_duration(),
             start: start.into(),
             end: end.into(),
-            allowed_uri: Default::default(),
-            forbidden_uri: Default::default(),
+            allowed_uris: Default::default(),
+            forbidden_uris: Default::default(),
             bike_accessible: false,
             wheelchair_accessible: false,
         }
@@ -144,10 +147,19 @@ pub fn build_and_solve(
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
+    let forbidden_filters = config
+        .forbidden_uris
+        .iter()
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+
+    let allowed_filters = config
+        .allowed_uris
+        .iter()
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+
     let filters = Filters::new(
-        model,
-        config.forbidden_uri.iter(),
-        config.allowed_uri.iter(),
+        forbidden_filters,
+        allowed_filters,
         config.wheelchair_accessible,
         config.bike_accessible,
     );

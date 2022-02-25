@@ -36,7 +36,6 @@
 
 use super::{navitia_proto, response};
 use crate::{
-    compute_worker::loki::schedule::NextStopTimeRequestInput,
     load_balancer::WorkerId,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
@@ -47,13 +46,13 @@ use launch::{
     loki::{
         self,
         chrono::{Duration, Utc},
-        filters::{parse_filter, Filter, Filters, StopFilter},
+        filters::{parse_filter, Filters},
         models::{
             base_model::{BaseModel, PREFIX_ID_STOP_POINT},
             real_time_model::RealTimeModel,
             ModelRefs,
         },
-        schedule::generate_stops_for_next_stoptimes_request,
+        schedule::{self, ScheduleOn, ScheduleRequestInput},
         tracing::{debug, error, info, trace, warn},
         NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
@@ -61,7 +60,6 @@ use launch::{
 };
 use std::{
     convert::TryFrom,
-    iter,
     ops::Deref,
     sync::{Arc, RwLock},
 };
@@ -175,13 +173,13 @@ impl ComputeWorker {
                         "request.next_stop_times should not be empty for api NextDepartures."
                     )
                 });
-                self.handle_next_departures(request)
+                self.handle_schedule(request, ScheduleOn::BoardTimes)
             }
             navitia_proto::Api::NextArrivals => {
                 let request = proto_request.next_stop_times.ok_or_else(|| {
                     format_err!("request.next_stop_times should not be empty for api NextArrivals.")
                 });
-                self.handle_next_arrivals(request)
+                self.handle_schedule(request, ScheduleOn::DebarkTimes)
             }
             _ => {
                 bail!(
@@ -277,14 +275,15 @@ impl ComputeWorker {
         }
     }
 
-    fn handle_next_departures(
+    fn handle_schedule(
         &mut self,
         proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
+        schedule_on: ScheduleOn,
     ) -> Result<navitia_proto::Response, Error> {
         match proto_request {
             Err(err) => {
                 // send a response saying that the journey request could not be handled
-                warn!("Could not handle next stop times request : {}", err);
+                warn!("Could not handle schedule request : {}", err);
                 Ok(make_error_response(&err))
             }
             Ok(request) => {
@@ -299,25 +298,29 @@ impl ComputeWorker {
                 let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let response_proto = match make_next_stop_times_request(
-                    &request,
-                    &request.departure_filter,
-                    &model_refs,
-                ) {
+                let response_proto = match make_schedule_request(&request, schedule_on, &model_refs)
+                {
                     Ok(request_input) => {
-                        let response =
-                            self.solver
-                                .solve_next_departure(data, &model_refs, &request_input);
+                        let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
+                            &request.forbidden_uri,
+                            &model_refs,
+                        );
+                        let response = self.solver.solve_schedule(
+                            data,
+                            &model_refs,
+                            &request_input,
+                            has_filters,
+                        );
                         match response {
                             Result::Err(err) => {
-                                error!("Error while solving request : {:?}", err);
+                                error!("Error while solving schedule request : {:?}", err);
                                 make_error_response(&format_err!("{}", err))
                             }
                             Ok(response) => {
                                 let start_page = usize::try_from(request.start_page).unwrap_or(0);
                                 let count = usize::try_from(request.count).unwrap_or(0);
 
-                                let response_result = response::make_next_departures_proto_response(
+                                let response_result = response::make_schedule_proto_response(
                                     &request_input,
                                     response,
                                     &model_refs,
@@ -351,79 +354,79 @@ impl ComputeWorker {
         }
     }
 
-    fn handle_next_arrivals(
-        &mut self,
-        proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
-    ) -> Result<navitia_proto::Response, Error> {
-        match proto_request {
-            Err(err) => {
-                // send a response saying that the journey request could not be handled
-                warn!("Could not handle next stop times request : {}", err);
-                Ok(make_error_response(&err))
-            }
-            Ok(request) => {
-                let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
-                    format_err!(
-                        "Compute worker {} failed to acquire read lock on data_and_models. {}",
-                        self.worker_id.id,
-                        err
-                    )
-                })?;
+    // fn handle_next_arrivals(
+    //     &mut self,
+    //     proto_request: Result<navitia_proto::NextStopTimeRequest, Error>,
+    // ) -> Result<navitia_proto::Response, Error> {
+    //     match proto_request {
+    //         Err(err) => {
+    //             // send a response saying that the journey request could not be handled
+    //             warn!("Could not handle next stop times request : {}", err);
+    //             Ok(make_error_response(&err))
+    //         }
+    //         Ok(request) => {
+    //             let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
+    //                 format_err!(
+    //                     "Compute worker {} failed to acquire read lock on data_and_models. {}",
+    //                     self.worker_id.id,
+    //                     err
+    //                 )
+    //             })?;
 
-                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
-                let model_refs = ModelRefs::new(base_model, real_time_model);
+    //             let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
+    //             let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let response_proto = match make_next_stop_times_request(
-                    &request,
-                    &request.arrival_filter,
-                    &model_refs,
-                ) {
-                    Ok(request_input) => {
-                        let response =
-                            self.solver
-                                .solve_next_arrivals(data, &model_refs, &request_input);
-                        match response {
-                            Result::Err(err) => {
-                                error!("Error while solving request : {:?}", err);
-                                make_error_response(&format_err!("{}", err))
-                            }
-                            Ok(response) => {
-                                let start_page = usize::try_from(request.start_page).unwrap_or(0);
-                                let count = usize::try_from(request.count).unwrap_or(0);
+    //             let response_proto = match make_next_stop_times_request(
+    //                 &request,
+    //                 &request.arrival_filter,
+    //                 &model_refs,
+    //             ) {
+    //                 Ok(request_input) => {
+    //                     let response =
+    //                         self.solver
+    //                             .solve_next_arrivals(data, &model_refs, &request_input);
+    //                     match response {
+    //                         Result::Err(err) => {
+    //                             error!("Error while solving request : {:?}", err);
+    //                             make_error_response(&format_err!("{}", err))
+    //                         }
+    //                         Ok(response) => {
+    //                             let start_page = usize::try_from(request.start_page).unwrap_or(0);
+    //                             let count = usize::try_from(request.count).unwrap_or(0);
 
-                                let response_result = response::make_next_arrivals_proto_response(
-                                    &request_input,
-                                    response,
-                                    &model_refs,
-                                    start_page,
-                                    count,
-                                );
-                                match response_result {
-                                    Result::Err(err) => {
-                                        error!(
-                                            "Error while encoding protobuf response for request : {:?}",
-                                            err
-                                        );
-                                        make_error_response(&err)
-                                    }
-                                    Ok(resp) => resp,
-                                }
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        error!(
-                            "Error while creating request input for next_arrivals : {:?}",
-                            err
-                        );
-                        make_error_response(&format_err!("{}", err))
-                    }
-                };
+    //                             let response_result = response::make_next_arrivals_proto_response(
+    //                                 &request_input,
+    //                                 response,
+    //                                 &model_refs,
+    //                                 start_page,
+    //                                 count,
+    //                             );
+    //                             match response_result {
+    //                                 Result::Err(err) => {
+    //                                     error!(
+    //                                         "Error while encoding protobuf response for request : {:?}",
+    //                                         err
+    //                                     );
+    //                                     make_error_response(&err)
+    //                                 }
+    //                                 Ok(resp) => resp,
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //                 Err(err) => {
+    //                     error!(
+    //                         "Error while creating request input for next_arrivals : {:?}",
+    //                         err
+    //                     );
+    //                     make_error_response(&format_err!("{}", err))
+    //                 }
+    //             };
 
-                Ok(response_proto)
-            }
-        }
-    }
+    //             Ok(response_proto)
+    //         }
+    //     }
+    // }
 }
 
 fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
@@ -567,10 +570,19 @@ fn solve(
     let must_be_wheelchair_accessible = journey_request.wheelchair.unwrap_or(false);
     let must_be_bike_accessible = journey_request.bike_in_pt.unwrap_or(false);
 
+    let forbidden_filters = journey_request
+        .forbidden_uris
+        .iter()
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+
+    let allowed_filters = journey_request
+        .allowed_id
+        .iter()
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+
     let data_filters = Filters::new(
-        model,
-        journey_request.forbidden_uris.iter(),
-        journey_request.allowed_id.iter(),
+        forbidden_filters,
+        allowed_filters,
         must_be_wheelchair_accessible,
         must_be_bike_accessible,
     );
@@ -645,38 +657,21 @@ fn make_error_response(error: &Error) -> navitia_proto::Response {
     proto_response
 }
 
-fn make_next_stop_times_request<'a>(
+fn make_schedule_request<'a>(
     proto: &'a navitia_proto::NextStopTimeRequest,
-    input_filter: &String,
+    schedule_on: ScheduleOn,
     model: &ModelRefs,
-) -> Result<NextStopTimeRequestInput<'a>, Error> {
-    let input_stop_points =
-        generate_stops_for_next_stoptimes_request(input_filter, &proto.forbidden_uri, model);
-
-    let forbidden_vehicle_filter = |uri: &str| {
-        let is_stop_filter = matches!(
-            parse_filter(model, uri, "next_stoptimes_forbidden_uri"),
-            Some(Filter::Stop(StopFilter::StopPoint(_)))
-                | Some(Filter::Stop(StopFilter::StopArea(_)))
-        );
-        !is_stop_filter
+) -> Result<ScheduleRequestInput, Error> {
+    let input_filter = match schedule_on {
+        ScheduleOn::BoardTimes => &proto.departure_filter,
+        ScheduleOn::DebarkTimes => &proto.arrival_filter,
     };
 
-    info!("--------- {:?}", input_stop_points);
+    let from_datetime = {
+        let proto_datetime = proto
+            .from_datetime
+            .ok_or(format_err!("No from_datetime provided."))?;
 
-    let forbidden_vehicle = Filters::new(
-        model,
-        proto
-            .forbidden_uri
-            .iter()
-            .filter(|uri| forbidden_vehicle_filter(uri)),
-        iter::empty(),
-        false,
-        false,
-    );
-
-    info!("--------- {:?}", proto.duration);
-    let from_datetime = if let Some(proto_datetime) = proto.from_datetime {
         let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(
                 "Datetime {} cannot be converted to a valid i64 timestamp.",
@@ -684,18 +679,16 @@ fn make_next_stop_times_request<'a>(
             )
         })?;
         loki::NaiveDateTime::from_timestamp(timestamp, 0)
-    } else {
-        return Err(format_err!("No from_datetime provided."));
     };
-    let duration = u32::try_from(proto.duration)
-        .with_context(|| format!("duration {} cannot be converted to u32.", proto.duration))?;
 
-    info!("--------- {:?}", duration);
+    let until_datetime = from_datetime + Duration::seconds(i64::from(proto.duration));
 
-    let until_datetime = from_datetime + Duration::seconds(duration.into());
-
-    let max_response = u32::try_from(proto.nb_stoptimes)
-        .with_context(|| format!("nb_stoptimes {} cannot be converted to u32.", proto.count))?;
+    let nb_max_responses = usize::try_from(proto.nb_stoptimes).with_context(|| {
+        format!(
+            "nb_stoptimes {} cannot be converted to usize.",
+            proto.nb_stoptimes
+        )
+    })?;
 
     let real_time_level = match proto.realtime_level() {
         navitia_proto::RtLevel::BaseSchedule => RealTimeLevel::Base,
@@ -704,12 +697,18 @@ fn make_next_stop_times_request<'a>(
         }
     };
 
-    Ok(NextStopTimeRequestInput {
+    let input_stop_points = schedule::generate_stops_for_schedule_request(
+        &input_filter,
+        &proto.forbidden_uri.as_slice(),
+        model,
+    );
+
+    Ok(ScheduleRequestInput {
         input_stop_points,
-        forbidden_vehicle,
         from_datetime,
         until_datetime,
-        max_response,
+        nb_max_responses,
         real_time_level,
+        schedule_on,
     })
 }

@@ -65,7 +65,7 @@ const MAX_TIMEZONE_OFFSET: i32 = SECONDS_IN_A_DAY; // 24h
 
 pub const MAX_SECONDS_IN_UTC_DAY: i32 = MAX_SECONDS_IN_TIMEZONED_DAY + MAX_TIMEZONE_OFFSET; // 72h
 
-/// Duration since 00:00:00 UTC in the first allowed day of the data
+/// Duration since 00:00:00 UTC in the first allowed day of minus MAX_SECONDS_IN_UTC_DAY
 /// This is used in the engine to store a point in time in an unambiguous way
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceDatasetUTCStart {

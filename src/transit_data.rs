@@ -349,50 +349,6 @@ impl data_interface::Data for TransitData {
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
     }
-
-    // fn next_boardable_trip<Filter>(
-    //     &self,
-    //     time: &SecondsSinceDatasetUTCStart,
-    //     mission: &Mission,
-    //     position: &Position,
-    //     real_time_level: &RealTimeLevel,
-    //     filter: Filter,
-    // ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
-    // where
-    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
-    // {
-    //     self.timetables.next_filtered_boardable_trip(
-    //         time,
-    //         mission,
-    //         position,
-    //         real_time_level,
-    //         filter,
-    //         &self.calendar,
-    //         &self.days_patterns,
-    //     )
-    // }
-
-    // fn next_debarkable_trip<Filter>(
-    //     &self,
-    //     time: &SecondsSinceDatasetUTCStart,
-    //     mission: &Mission,
-    //     position: &Position,
-    //     real_time_level: &RealTimeLevel,
-    //     filter: Filter,
-    // ) -> Option<(Trip, SecondsSinceDatasetUTCStart)>
-    // where
-    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
-    // {
-    //     self.timetables.next_filtered_debarkable_trip(
-    //         time,
-    //         mission,
-    //         position,
-    //         real_time_level,
-    //         filter,
-    //         &self.calendar,
-    //         &self.days_patterns,
-    //     )
-    // }
 }
 
 impl data_interface::DataIO for TransitData {

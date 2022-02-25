@@ -108,23 +108,31 @@ impl FilterMemory {
             self.allowed_new_stop_points[idx.idx] = filters.is_stop_point_valid(&stop_idx, model);
         }
     }
+
+    pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => self.allowed_base_vehicle_journeys[idx.get()],
+            VehicleJourneyIdx::New(idx) => self.allowed_new_vehicle_journeys[idx.idx],
+        }
+    }
+
+    pub fn is_stop_allowed(&self, stop_point_idx: &StopPointIdx) -> bool {
+        match stop_point_idx {
+            StopPointIdx::Base(idx) => self.allowed_base_stop_points[idx.get()],
+            StopPointIdx::New(idx) => self.allowed_new_stop_points[idx.idx],
+        }
+    }
 }
 
 impl<'data, 'filter> TransitDataFiltered<'data, 'filter> {
     pub fn is_stop_allowed(&self, stop: &transit_data::Stop) -> bool {
         use data_interface::Data;
-        let stop_idx = self.stop_point_idx(stop);
-        match stop_idx {
-            StopPointIdx::Base(idx) => self.memory.allowed_base_stop_points[idx.get()],
-            StopPointIdx::New(idx) => self.memory.allowed_new_stop_points[idx.idx],
-        }
+        let stop_point_idx = self.stop_point_idx(stop);
+        self.memory.is_stop_allowed(&stop_point_idx)
     }
 
     pub fn is_vehicle_journey_allowed(&self, vehicle_journey_idx: &VehicleJourneyIdx) -> bool {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => self.memory.allowed_base_vehicle_journeys[idx.get()],
-            VehicleJourneyIdx::New(idx) => self.memory.allowed_new_vehicle_journeys[idx.idx],
-        }
+        self.memory.is_vehicle_journey_allowed(vehicle_journey_idx)
     }
 
     pub fn new(data: &'data TransitData, memory: &'filter FilterMemory) -> Self {
@@ -396,64 +404,6 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.transit_data.mission_id(mission)
     }
-
-    // fn next_boardable_trip<Filter>(
-    //     &self,
-    //     time: &SecondsSinceDatasetUTCStart,
-    //     mission: &Self::Mission,
-    //     position: &Self::Position,
-    //     real_time_level: &RealTimeLevel,
-    //     filter: Filter,
-    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
-    // where
-    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
-    // {
-    //     let stop = self.stop_of(position, mission);
-
-    //     if self.is_stop_allowed(&stop) {
-    //         self.transit_data.next_boardable_trip(
-    //             time,
-    //             mission,
-    //             position,
-    //             real_time_level,
-    //             |vehicle_journey_idx| {
-    //                 self.is_vehicle_journey_allowed(vehicle_journey_idx)
-    //                     && filter(vehicle_journey_idx)
-    //             },
-    //         )
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // fn next_debarkable_trip<Filter>(
-    //     &self,
-    //     time: &SecondsSinceDatasetUTCStart,
-    //     mission: &Self::Mission,
-    //     position: &Self::Position,
-    //     real_time_level: &RealTimeLevel,
-    //     filter: Filter,
-    // ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart)>
-    // where
-    //     Filter: Fn(&VehicleJourneyIdx) -> bool,
-    // {
-    //     let stop = self.stop_of(position, mission);
-
-    //     if self.is_stop_allowed(&stop) {
-    //         self.transit_data.next_debarkable_trip(
-    //             time,
-    //             mission,
-    //             position,
-    //             real_time_level,
-    //             |vehicle_journey_idx| {
-    //                 self.is_vehicle_journey_allowed(vehicle_journey_idx)
-    //                     && filter(vehicle_journey_idx)
-    //             },
-    //         )
-    //     } else {
-    //         None
-    //     }
-    // }
 }
 
 impl<'data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_> {

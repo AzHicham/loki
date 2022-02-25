@@ -181,7 +181,7 @@ fn test_filter_forbidden_stop_point(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        forbidden_uri: vec!["stop_point:C"],
+        forbidden_uris: vec!["stop_point:C"],
         ..config
     };
 
@@ -220,7 +220,7 @@ fn test_filter_allowed_stop_point(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        allowed_uri: vec![
+        allowed_uris: vec![
             "stop_point:A",
             "stop_point:B",
             "stop_point:F",
@@ -266,7 +266,7 @@ fn test_filter_forbidden_route(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        forbidden_uri: vec!["route:R2", "route:R3"],
+        forbidden_uris: vec!["route:R2", "route:R3"],
         ..config
     };
     let real_time_model = RealTimeModel::new();
@@ -304,7 +304,7 @@ fn test_filter_allowed_route(
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
         comparator_type,
-        allowed_uri: vec!["route:R1", "route:R4"],
+        allowed_uris: vec!["route:R1", "route:R4"],
         ..config
     };
     let real_time_model = RealTimeModel::new();

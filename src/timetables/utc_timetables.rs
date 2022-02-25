@@ -274,7 +274,6 @@ impl UTCTimetables {
         )
     }
 
-
     pub fn latest_trip_that_debark_at(
         &self,
         time: &SecondsSinceDatasetUTCStart,
@@ -556,50 +555,48 @@ impl UTCTimetables {
 
     pub fn trips_boardable_between<'a>(
         &'a self,
-        from_time : SecondsSinceDatasetUTCStart,
-        until_time : SecondsSinceDatasetUTCStart,
+        from_time: SecondsSinceDatasetUTCStart,
+        until_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
-        position : &Position,
+        position: &Position,
         real_time_level: RealTimeLevel,
         days_patterns: &'a DaysPatterns,
-        calendar : &'a Calendar,
+        calendar: &'a Calendar,
     ) -> TripsBoardableBetween<'a> {
-
         debug_assert!(position.timetable == *mission);
 
         TripsBoardableBetween::new(
-            &self, 
-            real_time_level, 
-            days_patterns, 
-            calendar, 
-            mission.clone(), 
-            position.idx, 
-            from_time, 
+            &self,
+            real_time_level,
+            days_patterns,
+            calendar,
+            mission.clone(),
+            position.idx,
+            from_time,
             until_time,
         )
     }
 
     pub fn trips_debarkable_between<'a>(
         &'a self,
-        from_time : SecondsSinceDatasetUTCStart,
-        until_time : SecondsSinceDatasetUTCStart,
+        from_time: SecondsSinceDatasetUTCStart,
+        until_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
-        position : &Position,
+        position: &Position,
         real_time_level: RealTimeLevel,
         days_patterns: &'a DaysPatterns,
-        calendar : &'a Calendar,
+        calendar: &'a Calendar,
     ) -> TripsDebarkableBetween<'a> {
-
         debug_assert!(position.timetable == *mission);
 
         TripsDebarkableBetween::new(
-            &self, 
-            real_time_level, 
-            days_patterns, 
-            calendar, 
-            mission.clone(), 
-            position.idx, 
-            from_time, 
+            &self,
+            real_time_level,
+            days_patterns,
+            calendar,
+            mission.clone(),
+            position.idx,
+            from_time,
             until_time,
         )
     }
@@ -696,7 +693,7 @@ impl<'a> Iterator for TripsIter<'a> {
 
 pub type TripsBoardableBetween<'a> = TripsBetween<'a, true>;
 pub type TripsDebarkableBetween<'a> = TripsBetween<'a, false>;
-pub struct TripsBetween<'a, const BOARD_TIMES : bool> {
+pub struct TripsBetween<'a, const BOARD_TIMES: bool> {
     // first iterate on days, and then iterate on NextBoardableVehicle on this day
     utc_timetables: &'a UTCTimetables,
     real_time_level: RealTimeLevel,
@@ -713,8 +710,7 @@ pub struct TripsBetween<'a, const BOARD_TIMES : bool> {
     current_until_time_in_day: SecondsSinceUTCDayStart,
 }
 
-impl<'a, const BOARD_TIMES : bool> TripsBetween<'a, BOARD_TIMES>
-{
+impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
     fn new(
         utc_timetables: &'a UTCTimetables,
         real_time_level: RealTimeLevel,
@@ -724,7 +720,6 @@ impl<'a, const BOARD_TIMES : bool> TripsBetween<'a, BOARD_TIMES>
         position_idx: usize,
         from_time: SecondsSinceDatasetUTCStart,
         until_time: SecondsSinceDatasetUTCStart,
-
     ) -> Self {
         let timetable_data = utc_timetables.timetables.timetable_data(&mission);
         let nb_of_vehicle = timetable_data.nb_of_vehicle();
@@ -734,7 +729,7 @@ impl<'a, const BOARD_TIMES : bool> TripsBetween<'a, BOARD_TIMES>
             real_time_level,
             days_patterns,
             calendar,
-            mission : mission.clone(),
+            mission: mission.clone(),
             position_idx,
             from_time,
             until_time,
@@ -757,8 +752,7 @@ impl<'a, const BOARD_TIMES : bool> TripsBetween<'a, BOARD_TIMES>
                 timetable_data
                     .earliest_vehicle_to_board(&from_time_in_day, position_idx)
                     .unwrap_or_else(|| timetable_data.nb_of_vehicle())
-            }
-            else {
+            } else {
                 timetable_data
                     .earliest_vehicle_to_debark(&from_time_in_day, position_idx)
                     .unwrap_or_else(|| timetable_data.nb_of_vehicle())
@@ -796,8 +790,7 @@ impl<'a, const BOARD_TIMES : bool> TripsBetween<'a, BOARD_TIMES>
     }
 }
 
-impl<'a, const BOARD_TIMES : bool> Iterator for TripsBetween<'a, BOARD_TIMES>
-{
+impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
     type Item = Trip;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -813,11 +806,10 @@ impl<'a, const BOARD_TIMES : bool> Iterator for TripsBetween<'a, BOARD_TIMES>
                 self.current_vehicle_idx += 1;
                 let time = if BOARD_TIMES {
                     &timetable_data.board_times_by_position[self.position_idx][vehicle_idx]
-                }
-                else {
+                } else {
                     &timetable_data.debark_times_by_position[self.position_idx][vehicle_idx]
                 };
-                    
+
                 if *time > self.current_until_time_in_day {
                     // since the vehicle are ordered by increasing board times
                     // it means that all subsequent vehicle will have a board_time > self.current_until_time_in_day
@@ -877,13 +869,11 @@ impl<'a, const BOARD_TIMES : bool> Iterator for TripsBetween<'a, BOARD_TIMES>
                         self.current_vehicle_idx = timetable_data
                             .earliest_vehicle_to_board(&from_time_in_day, self.position_idx)
                             .unwrap_or_else(|| timetable_data.nb_of_vehicle());
-                    }
-                    else {
+                    } else {
                         self.current_vehicle_idx = timetable_data
                             .earliest_vehicle_to_debark(&from_time_in_day, self.position_idx)
                             .unwrap_or_else(|| timetable_data.nb_of_vehicle());
                     }
-                    
 
                     self.current_until_time_in_day = until_time_in_day;
                 }

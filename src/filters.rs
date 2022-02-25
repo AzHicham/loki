@@ -185,28 +185,19 @@ impl<'a> Filters<'a> {
         false
     }
 
-    pub fn new<T>(
-        model: &ModelRefs<'_>,
-        forbidden_uri: impl Iterator<Item = &'a T>,
-        allowed_uri: impl Iterator<Item = &'a T>,
+    pub fn new(
+        forbidden_uri: impl Iterator<Item = Filter<'a>>,
+        allowed_uri: impl Iterator<Item = Filter<'a>>,
         must_be_wheelchair_accessible: bool,
         must_be_bike_accessible: bool,
-    ) -> Option<Filters<'a>>
-    where
-        T: AsRef<str> + 'a,
-    {
+    ) -> Option<Filters<'a>> {
         let (allowed_vehicle_filters, allowed_stop_filters) = {
             let mut allowed_vehicle_filters = Vec::new();
             let mut allowed_stop_filters = Vec::new();
-            for filter_str in allowed_uri {
-                let filter_result = parse_filter(model, filter_str.as_ref(), "allowed_id[]");
-                if let Some(filter) = filter_result {
-                    match filter {
-                        Filter::Stop(stop_filter) => allowed_stop_filters.push(stop_filter),
-                        Filter::Vehicle(vehicle_filter) => {
-                            allowed_vehicle_filters.push(vehicle_filter)
-                        }
-                    }
+            for filter in allowed_uri {
+                match filter {
+                    Filter::Stop(stop_filter) => allowed_stop_filters.push(stop_filter),
+                    Filter::Vehicle(vehicle_filter) => allowed_vehicle_filters.push(vehicle_filter),
                 }
             }
             (allowed_vehicle_filters, allowed_stop_filters)
@@ -215,14 +206,11 @@ impl<'a> Filters<'a> {
         let (forbiddden_vehicle_filters, forbidden_stop_filters) = {
             let mut forbiddden_vehicle_filters = Vec::new();
             let mut forbidden_stop_filters = Vec::new();
-            for filter_str in forbidden_uri {
-                let filter_result = parse_filter(model, filter_str.as_ref(), "forbidden_id[]");
-                if let Some(filter) = filter_result {
-                    match filter {
-                        Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
-                        Filter::Vehicle(vehicle_filter) => {
-                            forbiddden_vehicle_filters.push(vehicle_filter)
-                        }
+            for filter in forbidden_uri {
+                match filter {
+                    Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
+                    Filter::Vehicle(vehicle_filter) => {
+                        forbiddden_vehicle_filters.push(vehicle_filter)
                     }
                 }
             }

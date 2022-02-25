@@ -44,7 +44,7 @@ use crate::models::{
 use regex::Regex;
 use std::fmt::{Display, Formatter};
 
-pub fn places_nearby_impl<'model>(
+pub fn solve_places_nearby_request<'model>(
     models: &ModelRefs<'model>,
     uri: &str,
     radius: f64,

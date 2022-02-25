@@ -39,7 +39,9 @@ use std::{fmt::Debug, time::SystemTime};
 use loki::{
     filters::Filters,
     models::ModelRefs,
+    places_nearby,
     request::generic_request,
+    schedule::{self, ScheduleRequestError, ScheduleRequestInput, ScheduleResponse},
     tracing::{debug, info, trace},
 };
 
@@ -54,12 +56,8 @@ use crate::{
     loki::{DataTrait, TransitData},
 };
 use loki::{
-    places_nearby::{places_nearby_impl, BadPlacesNearby, PlacesNearbyIter},
+    places_nearby::{BadPlacesNearby, PlacesNearbyIter},
     request::{self, generic_request::RequestTypes},
-    schedule::{
-        next_arrivals, next_departures, NextStopTimeError, NextStopTimeRequestInput,
-        NextStopTimeResponse,
-    },
     transit_data_filtered::TransitDataFiltered,
 };
 
@@ -109,7 +107,7 @@ impl Solver {
                         &data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, &data)
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
@@ -117,7 +115,7 @@ impl Solver {
                         &data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, &data)
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
@@ -125,7 +123,7 @@ impl Solver {
                         &data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, &data)
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
@@ -133,7 +131,7 @@ impl Solver {
                         &data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, &data)
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
                 }
             };
             Ok(responses)
@@ -145,7 +143,7 @@ impl Solver {
                         data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, data)
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
                 }
                 (Departure, Loads) => {
                     let request = request::depart_after::loads_comparator::Request::new(
@@ -153,7 +151,7 @@ impl Solver {
                         data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, data)
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
                 }
                 (Arrival, Basic) => {
                     let request = request::arrive_before::basic_comparator::Request::new(
@@ -161,7 +159,7 @@ impl Solver {
                         data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, data)
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
@@ -169,47 +167,31 @@ impl Solver {
                         data,
                         request_input,
                     )?;
-                    solve_request_inner(&mut self.engine, &request, data)
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
                 }
             };
             Ok(responses)
         }
     }
 
-    pub fn solve_next_departure<'r>(
+    pub fn solve_schedule<'r>(
         &mut self,
         data: &TransitData,
         model: &ModelRefs<'_>,
-        request_input: &NextStopTimeRequestInput<'r>,
-    ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
+        request_input: &ScheduleRequestInput,
+        has_filters: Option<Filters<'_>>,
+    ) -> Result<Vec<ScheduleResponse>, ScheduleRequestError>
     where
         Self: Sized,
     {
-        if let Some(filters) = &request_input.forbidden_vehicle {
-            self.fill_allowed_stops_and_vehicles(model, filters);
-            let data = TransitDataFiltered::new(data, &self.filter_memory);
-            next_departures(request_input, &data)
+        let has_filter_memory = if let Some(filters) = has_filters {
+            self.fill_allowed_stops_and_vehicles(model, &filters);
+            Some(&self.filter_memory)
         } else {
-            next_departures(request_input, data)
-        }
-    }
+            None
+        };
 
-    pub fn solve_next_arrivals<'r>(
-        &mut self,
-        data: &TransitData,
-        model: &ModelRefs<'_>,
-        request_input: &NextStopTimeRequestInput<'r>,
-    ) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
-    where
-        Self: Sized,
-    {
-        if let Some(filters) = &request_input.forbidden_vehicle {
-            self.fill_allowed_stops_and_vehicles(model, filters);
-            let data = TransitDataFiltered::new(data, &self.filter_memory);
-            next_arrivals(request_input, &data)
-        } else {
-            next_arrivals(request_input, data)
-        }
+        schedule::solve_schedule_request(&request_input, data, model, has_filter_memory)
     }
 
     pub fn solve_places_nearby<'model>(
@@ -218,11 +200,11 @@ impl Solver {
         uri: &str,
         radius: f64,
     ) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
-        places_nearby_impl(models, uri, radius)
+        places_nearby::solve_places_nearby_request(models, uri, radius)
     }
 }
 
-fn solve_request_inner<'data, 'model, Data, Request>(
+fn solve_journeys_request_inner<'data, 'model, Data, Request>(
     engine: &mut MultiCriteriaRaptor<RequestTypes>,
     request: &Request,
     data: &'data Data,

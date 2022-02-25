@@ -34,54 +34,67 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use std::fmt;
+
 use crate::{
     filters::{parse_filter, Filter, Filters, StopFilter, VehicleFilter},
     models::{ModelRefs, StopPointIdx, StopTimeIdx, VehicleJourneyIdx},
     transit_data::data_interface,
-    PositiveDuration, RealTimeLevel,
+    transit_data_filtered::FilterMemory,
+    RealTimeLevel, TransitData,
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use std::fmt;
+
 use tracing::warn;
 
-#[derive(Debug)]
-pub enum NextStopTimeError {
-    BadDateTimeError,
+pub enum ScheduleOn {
+    BoardTimes,
+    DebarkTimes,
 }
-impl std::error::Error for NextStopTimeError {}
 
-impl fmt::Display for NextStopTimeError {
+pub struct ScheduleRequestInput {
+    pub input_stop_points: Vec<StopPointIdx>,
+    pub from_datetime: NaiveDateTime,
+    pub until_datetime: NaiveDateTime,
+    pub real_time_level: RealTimeLevel,
+    pub nb_max_responses: usize,
+    pub schedule_on: ScheduleOn,
+}
+
+#[derive(Debug)]
+pub enum ScheduleRequestError {
+    BadFromDatetime,
+    BadUntilDatetime,
+}
+
+impl std::error::Error for ScheduleRequestError {}
+
+impl fmt::Display for ScheduleRequestError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            NextStopTimeError::BadDateTimeError => write!(
-                f,
-                "The requested datetime is out of the validity period of the data."
-            ),
+            ScheduleRequestError::BadFromDatetime => {
+                write!(f, "The requested from datetime is invalid.")
+            }
+            ScheduleRequestError::BadUntilDatetime => {
+                write!(f, "The requested until datetime is invalid.")
+            }
         }
     }
 }
 
-pub struct NextStopTimeRequestInput<'a> {
-    pub input_stop_points: Vec<StopPointIdx>,
-    pub forbidden_vehicle: Option<Filters<'a>>,
-    pub from_datetime: NaiveDateTime,
-    pub until_datetime: NaiveDateTime,
-    pub max_response: u32,
-    pub real_time_level: RealTimeLevel,
-}
-
-pub struct NextStopTimeResponse {
-    pub stop_point: StopPointIdx,
-    pub vehicle_journey: VehicleJourneyIdx,
-    pub time: NaiveDateTime,
+#[derive(Debug, Clone)]
+pub struct ScheduleResponse {
+    pub stop_point_idx: StopPointIdx,
+    pub vehicle_journey_idx: VehicleJourneyIdx,
     pub vehicle_date: NaiveDate,
+    pub time: NaiveDateTime,
     pub stop_time_idx: StopTimeIdx,
 }
 
-pub fn generate_stops_for_next_stoptimes_request<'a, 'data, T>(
-    input_str: &'a T,
-    forbidden_uris: &'a [T],
-    model: &'data ModelRefs<'data>,
+pub fn generate_stops_for_schedule_request<T>(
+    input_str: &str,
+    forbidden_uris: &[T],
+    model: &ModelRefs<'_>,
 ) -> Vec<StopPointIdx>
 where
     T: AsRef<str>,
@@ -133,162 +146,163 @@ where
     }
 }
 
-pub fn next_departures<'data, 'filter, Data>(
-    request: &'data NextStopTimeRequestInput<'filter>,
-    data: &'data Data,
-) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
+pub fn generate_vehicle_filters_for_schedule_request<'a, T>(
+    forbidden_uris: &'a [T],
+    model: &ModelRefs<'_>,
+) -> Option<Filters<'a>>
 where
-    Data: data_interface::Data + data_interface::DataIters<'data>,
+    T: AsRef<str>,
 {
-    Err(NextStopTimeError::BadDateTimeError)
-    // let mut response = Vec::new();
-
-    // let calendar = data.calendar();
-    // let from_datetime = calendar
-    //     .from_naive_datetime(&request.from_datetime)
-    //     .ok_or_else(|| {
-    //         warn!(
-    //             "The requested from_datetime {:?} is out of bound of the allowed dates. \
-    //             Allowed dates are between {:?} and {:?}.",
-    //             request.from_datetime,
-    //             calendar.first_datetime(),
-    //             calendar.last_datetime(),
-    //         );
-    //         NextStopTimeError::BadDateTimeError
-    //     })?;
-    // let until_datetime = data
-    //     .calendar()
-    //     .from_naive_datetime(&request.until_datetime)
-    //     .ok_or_else(|| {
-    //         warn!(
-    //             "The requested until_datetime {:?} is out of bound of the allowed dates. \
-    //             Allowed dates are between {:?} and {:?}.",
-    //             request.from_datetime,
-    //             calendar.first_datetime(),
-    //             calendar.last_datetime(),
-    //         );
-    //         NextStopTimeError::BadDateTimeError
-    //     })?;
-
-    // for stop_idx in &request.input_stop_points {
-    //     if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
-    //         for (mission, position) in data.missions_at(&stop) {
-    //             let mut count = 0;
-    //             let mut next_time = from_datetime;
-    //             'inner: while count < request.max_response {
-    //                 let earliest_trip_time = data.next_boardable_trip(
-    //                     &next_time,
-    //                     &mission,
-    //                     &position,
-    //                     &request.real_time_level,
-    //                     |_| true,
-    //                 );
-    //                 match earliest_trip_time {
-    //                     Some((trip, boarding_time)) if boarding_time < until_datetime => {
-    //                         response.push(NextStopTimeResponse {
-    //                             stop_point: stop_idx.clone(),
-    //                             vehicle_journey: data.vehicle_journey_idx(&trip),
-    //                             time: data.to_naive_datetime(&boarding_time),
-    //                             vehicle_date: data.day_of(&trip),
-    //                             stop_time_idx: data.stoptime_idx(&position, &trip),
-    //                         });
-    //                         count += 1;
-    //                         next_time = boarding_time + PositiveDuration { seconds: 1 };
-    //                     }
-    //                     _ => {
-    //                         break 'inner;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // response
-    //     .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
-
-    // Ok(response
-    //     .into_iter()
-    //     .take(request.max_response as usize)
-    //     .collect())
+    let forbidden_vehicles = forbidden_uris.iter().filter_map(|forbidden_uri| {
+        match parse_filter(
+            model,
+            forbidden_uri.as_ref(),
+            "generate_vehicle_filters_for_schedule_request",
+        ) {
+            Some(Filter::Vehicle(filter)) => Some(Filter::Vehicle(filter)),
+            _ => None,
+        }
+    });
+    Filters::new(forbidden_vehicles, std::iter::empty(), false, false)
 }
 
-pub fn next_arrivals<'data, 'filter, Data>(
-    request: &'data NextStopTimeRequestInput<'filter>,
-    data: &'data Data,
-) -> Result<Vec<NextStopTimeResponse>, NextStopTimeError>
-where
-    Data: data_interface::Data + data_interface::DataIters<'data>,
-{
-    Err(NextStopTimeError::BadDateTimeError)
-    // let mut response = Vec::new();
+pub fn solve_schedule_request(
+    request: &ScheduleRequestInput,
+    data: &TransitData,
+    model: &ModelRefs<'_>,
+    has_filter_memory: Option<&FilterMemory>,
+) -> Result<Vec<ScheduleResponse>, ScheduleRequestError> {
+    use data_interface::Data;
 
-    // let calendar = data.calendar();
-    // let from_datetime = calendar
-    //     .from_naive_datetime(&request.from_datetime)
-    //     .ok_or_else(|| {
-    //         warn!(
-    //             "The requested from_datetime {:?} is out of bound of the allowed dates. \
-    //             Allowed dates are between {:?} and {:?}.",
-    //             request.from_datetime,
-    //             calendar.first_datetime(),
-    //             calendar.last_datetime(),
-    //         );
-    //         NextStopTimeError::BadDateTimeError
-    //     })?;
-    // let until_datetime = data
-    //     .calendar()
-    //     .from_naive_datetime(&request.until_datetime)
-    //     .ok_or_else(|| {
-    //         warn!(
-    //             "The requested until_datetime {:?} is out of bound of the allowed dates. \
-    //             Allowed dates are between {:?} and {:?}.",
-    //             request.from_datetime,
-    //             calendar.first_datetime(),
-    //             calendar.last_datetime(),
-    //         );
-    //         NextStopTimeError::BadDateTimeError
-    //     })?;
+    let calendar = data.calendar();
+    let from_datetime = calendar
+        .from_naive_datetime(&request.from_datetime)
+        .ok_or_else(|| {
+            warn!(
+                "The requested from_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            ScheduleRequestError::BadFromDatetime
+        })?;
+    let until_datetime = data
+        .calendar()
+        .from_naive_datetime(&request.until_datetime)
+        .ok_or_else(|| {
+            warn!(
+                "The requested until_datetime {:?} is out of bound of the allowed dates. \
+                Allowed dates are between {:?} and {:?}.",
+                request.from_datetime,
+                calendar.first_datetime(),
+                calendar.last_datetime(),
+            );
+            ScheduleRequestError::BadUntilDatetime
+        })?;
 
-    // for stop_idx in &request.input_stop_points {
-    //     if let Some(stop) = data.stop_point_idx_to_stop(stop_idx) {
-    //         for (mission, position) in data.missions_at(&stop) {
-    //             let mut count = 0;
-    //             let mut next_time = from_datetime;
-    //             'inner: while count < request.max_response {
-    //                 let earliest_trip_time = data.next_debarkable_trip(
-    //                     &next_time,
-    //                     &mission,
-    //                     &position,
-    //                     &request.real_time_level,
-    //                     |_| true,
-    //                 );
-    //                 match earliest_trip_time {
-    //                     Some((trip, debark_time)) if debark_time < until_datetime => {
-    //                         response.push(NextStopTimeResponse {
-    //                             stop_point: stop_idx.clone(),
-    //                             vehicle_journey: data.vehicle_journey_idx(&trip),
-    //                             time: data.to_naive_datetime(&debark_time),
-    //                             vehicle_date: data.day_of(&trip),
-    //                             stop_time_idx: data.stoptime_idx(&position, &trip),
-    //                         });
-    //                         count += 1;
-    //                         next_time = debark_time + PositiveDuration { seconds: 1 };
-    //                     }
-    //                     _ => {
-    //                         break 'inner;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    let mut all_responses = Vec::new();
+    let mut responses_at_current_stop = Vec::new();
+    for stop_point_idx in &request.input_stop_points {
+        let stop = if let Some(stop) = data.stop_point_idx_to_stop(&stop_point_idx) {
+            stop
+        } else {
+            let stop_point_name = model.stop_point_name(&stop_point_idx);
+            warn!("The stop point {stop_point_name} requested for schedule is not found in transit_data. I ignore it.");
+            continue;
+        };
+        responses_at_current_stop.clear();
+        for (mission, position) in data.missions_of(&stop) {
+            match request.schedule_on {
+                ScheduleOn::BoardTimes => {
+                    let trip_iter = data.trips_boardable_between(
+                        from_datetime,
+                        until_datetime,
+                        &mission,
+                        &position,
+                        request.real_time_level,
+                    );
+                    let response_iter = trip_iter.filter_map(|trip| {
+                        let vehicle_journey_idx = data.vehicle_journey_idx(&trip);
+                        if let Some(filter_memory) = has_filter_memory {
+                            if !filter_memory.is_vehicle_journey_allowed(&vehicle_journey_idx) {
+                                return None;
+                            }
+                        }
+                        let vehicle_date = data.day_of(&trip);
+                        let time = data.board_time_of(&trip, &position).map(
+                            |(second_since_dataset_start, _)| {
+                                data.calendar()
+                                    .to_naive_datetime(&second_since_dataset_start)
+                            },
+                        )?;
+                        let stop_time_idx = data.stoptime_idx(&position, &trip);
+                        Some(ScheduleResponse {
+                            stop_point_idx: stop_point_idx.clone(),
+                            vehicle_journey_idx,
+                            vehicle_date,
+                            time,
+                            stop_time_idx,
+                        })
+                    });
+                    let response_iter = response_iter.take(request.nb_max_responses);
+                    responses_at_current_stop.extend(response_iter);
+                }
+                ScheduleOn::DebarkTimes => {
+                    let trip_iter = data.trips_debarkable_between(
+                        from_datetime,
+                        until_datetime,
+                        &mission,
+                        &position,
+                        request.real_time_level,
+                    );
+                    let response_iter = trip_iter.filter_map(|trip| {
+                        let vehicle_journey_idx = data.vehicle_journey_idx(&trip);
+                        if let Some(filter_memory) = has_filter_memory {
+                            if !filter_memory.is_vehicle_journey_allowed(&vehicle_journey_idx) {
+                                return None;
+                            }
+                        }
+                        let vehicle_date = data.day_of(&trip);
+                        let time = data.debark_time_of(&trip, &position).map(
+                            |(second_since_dataset_start, _)| {
+                                data.calendar()
+                                    .to_naive_datetime(&second_since_dataset_start)
+                            },
+                        )?;
+                        let stop_time_idx = data.stoptime_idx(&position, &trip);
+                        Some(ScheduleResponse {
+                            stop_point_idx: stop_point_idx.clone(),
+                            vehicle_journey_idx,
+                            vehicle_date,
+                            time,
+                            stop_time_idx,
+                        })
+                    });
+                    let response_iter = response_iter.take(request.nb_max_responses);
+                    responses_at_current_stop.extend(response_iter);
+                }
+            }
+        }
 
-    // response
-    //     .sort_by(|lhs: &NextStopTimeResponse, rhs: &NextStopTimeResponse| lhs.time.cmp(&rhs.time));
+        responses_at_current_stop.sort_unstable_by_key(|response| response.time);
+        // we may obtain twice the same (vehicle_journey, day) because of local zones
+        // when that happens, it will be at the same stop_time_idx AND at the same response.time
+        // Since responses_at_current_stop is sorted by response.time, two copies of the same (vehicle_journey, day)
+        // will appears consecutively in the vector, and we may use dedup()
+        // to remove duplicate
+        responses_at_current_stop.dedup_by(|resp_a, resp_b| {
+            resp_a.vehicle_journey_idx == resp_b.vehicle_journey_idx
+                && resp_a.vehicle_date == resp_b.vehicle_date
+                && resp_a.stop_time_idx == resp_b.stop_time_idx
+        });
 
-    // Ok(response
-    //     .into_iter()
-    //     .take(request.max_response as usize)
-    //     .collect())
+        all_responses.extend_from_slice(&responses_at_current_stop);
+    }
+
+    all_responses.sort_unstable_by_key(|response| response.time);
+
+    all_responses.truncate(request.nb_max_responses);
+
+    Ok(all_responses)
 }

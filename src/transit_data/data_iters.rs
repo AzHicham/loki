@@ -34,7 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::{request::generic_request::Mission, timetables::generic_timetables::Position};
+use crate::{
+    request::generic_request::Mission,
+    time::SecondsSinceDatasetUTCStart,
+    timetables::{
+        generic_timetables::Position,
+        utc_timetables::{TripsBoardableBetween, TripsDebarkableBetween},
+    },
+    RealTimeLevel,
+};
 
 use super::{Stop, Transfer, TransferDurations, TransitData};
 
@@ -59,6 +67,44 @@ impl TransitData {
     pub fn incoming_transfers_at(&self, stop: &Stop) -> IncomingTransfersAtStop {
         let stop_data = self.stop_data(stop);
         stop_data.incoming_transfers.iter()
+    }
+
+    pub fn trips_boardable_between<'a>(
+        &'a self,
+        from_time: SecondsSinceDatasetUTCStart,
+        until_time: SecondsSinceDatasetUTCStart,
+        mission: &Mission,
+        position: &Position,
+        real_time_level: RealTimeLevel,
+    ) -> TripsBoardableBetween {
+        self.timetables.trips_boardable_between(
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            &self.days_patterns,
+            &self.calendar,
+        )
+    }
+
+    pub fn trips_debarkable_between<'a>(
+        &'a self,
+        from_time: SecondsSinceDatasetUTCStart,
+        until_time: SecondsSinceDatasetUTCStart,
+        mission: &Mission,
+        position: &Position,
+        real_time_level: RealTimeLevel,
+    ) -> TripsDebarkableBetween {
+        self.timetables.trips_debarkable_between(
+            from_time,
+            until_time,
+            mission,
+            position,
+            real_time_level,
+            &self.days_patterns,
+            &self.calendar,
+        )
     }
 }
 

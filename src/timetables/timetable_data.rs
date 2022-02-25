@@ -116,7 +116,7 @@ where
 
     // If we are waiting to board a trip at `position` at time ``
     // return `Some(best_vehicle_idx)`
-    // where `best_trip_idx` is the idx of the first Vehicle that can be boarded
+    // where `best_vehicle_idx` is the idx of the first Vehicle that can be boarded
     //  after waiting_time
     pub(super) fn earliest_vehicle_to_board(
         &self,
@@ -126,9 +126,6 @@ where
         if !self.can_board(position_idx) {
             return None;
         }
-        let next_position_idx = position_idx + 1;
-        // we should not be able to board at the last position
-        assert!(next_position_idx < self.nb_of_positions());
 
         let nb_of_vehicles = self.board_times_by_position[position_idx].len();
         if nb_of_vehicles == 0 {
@@ -186,92 +183,52 @@ where
         None
     }
 
-    // // Given a `position` and a range time : 'from_time' and 'until_time'
-    // // return `NextBoardableVehicleIterator`
-    // // where NextBoardableVehicleIterator is an iterator over all boardable vehicles at 'position'
-    // // and with from_time <= vehicle_board_time <= until_time
-    // fn next_boardable_vehicles<'timetable, 'filter, Filter: 'filter>(
-    //     &'timetable self,
-    //     from_time: &Time,
-    //     until_time: &Time,
-    //     position_idx: usize,
-    //     filter: Filter,
-    // ) -> NextBoardableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
-    // where
-    //     Filter: Fn(&VehicleData) -> bool,
-    // {
-    //     let has_vehicle = self.earliest_filtered_vehicle_to_board(from_time, position_idx, &filter);
-    //     let vehicle_idx = match has_vehicle {
-    //         Some((vehicle_idx, _)) => vehicle_idx,
-    //         None => {
-    //             // if there is no vehicle, we want to return an empty iterator
-    //             // from this function
-    //             // Initializing the iterator after the last vehicle will yield an
-    //             // empty iterator
-    //             self.nb_of_vehicle()
-    //         }
-    //     };
+    // If we are waiting to board a trip at `position` at time ``
+    // return `Some(best_vehicle_idx)`
+    // where `best_vehicle_idx` is the idx of the first Vehicle that can be debarked
+    //  after waiting_time
+    pub(super) fn earliest_vehicle_to_debark(
+        &self,
+        waiting_time: &Time,
+        position_idx: usize,
+    ) -> Option<usize> {
+        if !self.can_debark(position_idx) {
+            return None;
+        }
 
-    //     NextBoardableVehicleIterator {
-    //         timetable_data: self,
-    //         vehicle_idx,
-    //         position_idx,
-    //         until_time: until_time.clone(),
-    //         filter,
-    //     }
-    // }
+        let nb_of_vehicles = self.board_times_by_position[position_idx].len();
+        if nb_of_vehicles == 0 {
+            return None;
+        }
 
-    // // Given a `position` and a range time : 'from_time' and 'until_time'
-    // // return `NextDebarkableVehicleIterator`
-    // // where NextDebarkableVehicleIterator is an iterator over all debarkable vehicles at 'position'
-    // // and with from_time <= vehicle_debark_time <= until_time
-    // fn next_debarkable_vehicles<'timetable, 'filter, Filter: 'filter>(
-    //     &'timetable self,
-    //     from_time: &Time,
-    //     until_time: &Time,
-    //     position_idx: usize,
-    //     filter: Filter,
-    // ) -> NextDebarkableVehicleIterator<'timetable, Time, Load, VehicleData, Filter>
-    // where
-    //     Filter: Fn(&VehicleData) -> bool + 'filter,
-    // {
-    //     let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
-    //     let vehicle_idx = if !self.can_debark(position_idx) || nb_of_vehicles == 0 {
-    //         nb_of_vehicles
-    //     } else {
-    //         let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
-    //         if from_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
-    //             nb_of_vehicles
-    //         } else if from_time <= &self.debark_times_by_position[position_idx][0] {
-    //             0
-    //         } else {
-    //             // We are looking for the smallest index in slice (board_times_by_position here)
-    //             // such that slice(idx) >= waiting_time.
-    //             // In order to do so we use binary_search_by with the comparator
-    //             // function F : |time| if time < waiting_time { Less } else { Greater }
-    //             // binary_search_by on slice with a comparator function F will return :
-    //             // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
-    //             // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
-    //             // and F(slice(idx-1)) == Less if idx >= 1
-    //             // Since our comparator will never return Equal,
-    //             // binary_search_by will always return Err(idx).
-    //             // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
-    //             // And slice(idx-1) < waiting_time
-    //             // So idx is the smallest index such that slice(idx) >= waiting_time
-    //             self.debark_times_by_position[position_idx]
-    //                 .binary_search_by(|time| if time < from_time { Less } else { Greater })
-    //                 .unwrap_err()
-    //         }
-    //     };
+        let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
+        if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+            return None;
+        }
 
-    //     NextDebarkableVehicleIterator {
-    //         timetable_data: self,
-    //         vehicle_idx,
-    //         position_idx,
-    //         until_time: until_time.clone(),
-    //         filter,
-    //     }
-    // }
+        let first_vehicle = if waiting_time <= &self.debark_times_by_position[position_idx][0] {
+            0
+        } else {
+            // We are looking for the smallest index in slice (debark_times_by_position here)
+            // such that slice(idx) >= waiting_time.
+            // In order to do so we use binary_search_by with the comparator
+            // function F : |time| if time < waiting_time { Less } else { Greater }
+            // binary_search_by on slice with a comparator function F will return :
+            // - Ok(idx) if there a idx such that F(slice(idx)) == Equal
+            // - Err(idx) otherwise. In this case it means that F(slice(idx)) == Greater,
+            // and F(slice(idx-1)) == Less if idx >= 1
+            // Since our comparator will never return Equal,
+            // binary_search_by will always return Err(idx).
+            // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
+            // And slice(idx-1) < waiting_time
+            // So idx is the smallest index such that slice(idx) >= waiting_time
+            self.debark_times_by_position[position_idx]
+                .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
+                .unwrap_err()
+        };
+
+        Some(first_vehicle)
+    }
 
     // Given a `position` and a `time`
     // return `Some(best_trip_idx)`
