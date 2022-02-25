@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::{borrow::Borrow, cmp::Ordering, collections::BTreeMap, fmt::Debug, ops::Not};
+use std::{collections::BTreeMap, fmt::Debug};
 use tracing::debug;
 use FlowDirection::{BoardAndDebark, BoardOnly, DebarkOnly, NoBoardDebark};
 
@@ -44,7 +44,6 @@ use crate::{
     timetables::{FlowDirection, StopFlows},
     transit_data::Stop,
 };
-use std::cmp::Ordering::{Greater, Less};
 
 #[derive(Debug)]
 pub(super) struct GenericTimetables<Time, Load, VehicleData> {
@@ -427,63 +426,6 @@ where
         stop_flows_timetables.push(timetable.clone());
         Ok(timetable)
     }
-}
-
-fn combine(a: Ordering, b: Ordering) -> Option<Ordering> {
-    use Ordering::Equal;
-    match (a, b) {
-        (Less, Less) | (Less, Equal) | (Equal, Less) => Some(Less),
-        (Equal, Equal) => Some(Equal),
-        (Greater, Greater) | (Greater, Equal) | (Equal, Greater) => Some(Greater),
-        _ => None,
-    }
-}
-
-// Retuns
-//    - Some(Equal)   if lower[i] == upper[i] for all i
-//    - Some(Less)    if lower[i] <= upper[i] for all i
-//    - Some(Greater) if lower[i] >= upper[i] for all i
-//    - None otherwise (the two vector are not comparable)
-pub(super) fn partial_cmp<Lower, Upper, Value, UpperVal, LowerVal>(
-    lower: Lower,
-    upper: Upper,
-) -> Option<Ordering>
-where
-    Lower: Iterator<Item = UpperVal> + Clone,
-    Upper: Iterator<Item = LowerVal> + Clone,
-    Value: Ord,
-    UpperVal: Borrow<Value>,
-    LowerVal: Borrow<Value>,
-{
-    debug_assert!(lower.clone().count() == upper.clone().count());
-    let zip_iter = lower.zip(upper);
-    let mut first_not_equal_iter =
-        zip_iter.skip_while(|(lower_val, upper_val)| lower_val.borrow() == upper_val.borrow());
-    let has_first_not_equal = first_not_equal_iter.next();
-    if let Some(first_not_equal) = has_first_not_equal {
-        let ordering = {
-            let lower_val = first_not_equal.0;
-            let upper_val = first_not_equal.1;
-            lower_val.borrow().cmp(upper_val.borrow())
-        };
-        debug_assert!(ordering != Ordering::Equal);
-        // let's see if there is an index where the ordering is not the same
-        // as first_ordering
-        let found = first_not_equal_iter.find(|(lower_val, upper_val)| {
-            let cmp = lower_val.borrow().cmp(upper_val.borrow());
-            cmp != ordering && cmp != Ordering::Equal
-        });
-        if found.is_some() {
-            return None;
-        }
-        // if found.is_none(), it means that
-        // all elements are ordered the same, so the two vectors are comparable
-        return Some(ordering);
-    }
-    // if has_first_not_equal == None
-    // then values == item_values
-    // the two vector are equal
-    Some(Ordering::Equal)
 }
 
 fn is_increasing<EnumeratedValues, Value>(

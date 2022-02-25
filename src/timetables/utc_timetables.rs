@@ -38,14 +38,14 @@ use crate::{
     loads_data::{Load, LoadsData},
     models::VehicleJourneyIdx,
     time::days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
-    timetables::generic_timetables,
+    timetables::generic_timetables::{inspect, VehicleTimesError},
     transit_data::Stop,
     RealTimeLevel,
 };
 
 use super::{
     day_to_timetable::LocalZone,
-    generic_timetables::{GenericTimetables, Vehicle, VehicleTimesError},
+    generic_timetables::{GenericTimetables, Vehicle},
     timetable_iters::{PositionsIter, TimetableIter},
 };
 use crate::time::{
@@ -535,11 +535,8 @@ impl UTCTimetables {
                 let board_times = board_times.clone().map(apply_offset);
                 let debark_times = debark_times.clone().map(apply_offset);
 
-                let inspect_result = generic_timetables::inspect(
-                    flows.clone(),
-                    board_times.clone(),
-                    debark_times.clone(),
-                );
+                let inspect_result =
+                    inspect(flows.clone(), board_times.clone(), debark_times.clone());
                 if let Err(err) = inspect_result {
                     let dates = days_patterns.make_dates(&days_pattern, calendar);
                     return Err((err, dates));
