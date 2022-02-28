@@ -155,10 +155,11 @@ impl Calendar {
     }
 
     pub fn next_day(&self, day: DaysSinceDatasetStart) -> Option<DaysSinceDatasetStart> {
-        if day.days > self.last_day_offset {
+        let days = day.days + 1;
+        if days > self.last_day_offset {
             None
         } else {
-            Some(DaysSinceDatasetStart { days: day.days + 1 })
+            Some(DaysSinceDatasetStart { days })
         }
     }
 

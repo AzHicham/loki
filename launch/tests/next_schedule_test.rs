@@ -87,8 +87,8 @@ pub fn fixture_model() -> BaseModel {
         .vj("tyty", |vj_builder| {
             vj_builder
                 .route("R3")
-                .st_detailed("X", "10:00:00", "10:35:00", 1, 1, None)
-                .st_detailed("Y", "10:10:00", "10:35:00", 1, 1, None);
+                .st_detailed("X", "10:00:00", "10:00:00", 1, 1, None) // no_pickup & no drop_off
+                .st_detailed("Y", "10:10:00", "10:10:00", 0, 0, None);
         })
         .build();
 
@@ -102,13 +102,67 @@ fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
 
     let config = ScheduleConfig::new(
         ScheduleOn::BoardTimes,
-        "stop_area:sa:A",
-        "2020-01-01T09:00:00",
+        "stop_area:sa:X",
+        "2020-01-01T09:59:00",
     );
 
     let result = build_and_solve_schedule(&config, &fixture_model)?;
 
-    info!("--------- {:?}", result);
+    assert_eq!(result.len(), 0);
+
+    Ok(())
+}
+
+#[rstest]
+fn test_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    let mut config = ScheduleConfig::new(
+        ScheduleOn::BoardTimes,
+        "stop_area:sa:A",
+        "2020-01-01T10:00:00",
+    );
+    config.duration = 5 * 60; // 5 min
+
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 1);
+    let stop_time = &result[0];
+    assert_eq!(stop_time.time, "2020-01-01T10:00:00".as_datetime());
+
+    config.duration = 60 * 60; // 1h
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 2);
+    let stop_time = &result[1];
+    assert_eq!(stop_time.time, "2020-01-01T11:00:00".as_datetime());
+
+    Ok(())
+}
+
+#[rstest]
+fn test_range_datetime_calendar(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    let mut config = ScheduleConfig::new(
+        ScheduleOn::BoardTimes,
+        "stop_area:sa:A",
+        "2019-12-25T10:00:00",
+    );
+    config.duration = 60 * 60; // 1h
+
+    // from_datetime < calendar.start
+    // until_datetime < calendar.end
+    let result = build_and_solve_schedule(&config, &fixture_model);
+    let error = format!("{:?}", result.as_ref().err().unwrap());
+    assert_eq!(error, "BadFromDatetime");
+
+    // from_datetime > calendar.start
+    // until_datetime > calendar.end
+    config.from_datetime = "2020-01-01T10:00:00".as_datetime();
+    config.duration = 3600 * 24 * 30; // 1 month
+
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    // 2 vj per day and calendar is composed of 2 days 2020-01-01 & 2020-01-02
+    assert_eq!(result.len(), 4);
 
     Ok(())
 }
@@ -158,6 +212,7 @@ fn build_and_solve_schedule(
         config.real_time_level,
         &*config.forbidden_uris,
         &model_refs,
+        &data,
     )?;
 
     let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
@@ -179,8 +234,11 @@ fn make_schedule_request(
     real_time_level: RealTimeLevel,
     forbidden_uri: &[&str],
     model: &ModelRefs,
+    data: &TransitData,
 ) -> Result<ScheduleRequestInput, Error> {
+    use loki::DataTrait;
     let until_datetime = from_datetime + Duration::seconds(duration);
+    let until_datetime = std::cmp::min(until_datetime, data.calendar().last_datetime());
 
     let input_stop_points =
         schedule::generate_stops_for_schedule_request(input_filter, forbidden_uri, model);

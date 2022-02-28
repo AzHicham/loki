@@ -40,6 +40,7 @@ use crate::{
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{bail, format_err, Context, Error};
+use launch::loki::DataTrait;
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -298,8 +299,12 @@ impl ComputeWorker {
                 let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
                 let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let response_proto = match make_schedule_request(&request, schedule_on, &model_refs)
-                {
+                let response_proto = match make_schedule_request(
+                    &request,
+                    schedule_on,
+                    &model_refs,
+                    &data,
+                ) {
                     Ok(request_input) => {
                         let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
                             &request.forbidden_uri,
@@ -587,6 +592,7 @@ fn make_schedule_request<'a>(
     proto: &'a navitia_proto::NextStopTimeRequest,
     schedule_on: ScheduleOn,
     model: &ModelRefs,
+    data: &TransitData,
 ) -> Result<ScheduleRequestInput, Error> {
     let input_filter = match schedule_on {
         ScheduleOn::BoardTimes => &proto.departure_filter,
@@ -608,6 +614,7 @@ fn make_schedule_request<'a>(
     };
 
     let until_datetime = from_datetime + Duration::seconds(i64::from(proto.duration));
+    let until_datetime = std::cmp::min(until_datetime, data.calendar().last_datetime());
 
     let nb_max_responses = usize::try_from(proto.nb_stoptimes).with_context(|| {
         format!(
