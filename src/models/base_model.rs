@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use chrono::{Duration, NaiveDate};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use tracing::warn;
 use transit_model::objects::{
     Availability, CommercialMode, Equipment, Line, Network, PhysicalMode, Properties, Route,
@@ -666,6 +666,37 @@ impl BaseModel {
 
 // various
 impl BaseModel {
+    pub fn dataset_created_at(&self) -> Option<NaiveDateTime> {
+        let feed_info = &self.collections.feed_infos;
+        let date = feed_info
+            .get("feed_creation_date")
+            .and_then(|date_str| NaiveDate::parse_from_str(date_str, "%Y%m%d").ok());
+        if let Some(date) = date {
+            let time = feed_info
+                .get("feed_creation_time")
+                .and_then(|time_str| NaiveTime::parse_from_str(time_str, "%H:%M:%S").ok());
+            time.map(|time| NaiveDateTime::new(date, time))
+        } else {
+            None
+        }
+    }
+
+    pub fn pubisher_name(&self) -> Option<&str> {
+        self.collections
+            .feed_infos
+            .get("feed_publisher_name")
+            .map(|pubisher_name| pubisher_name.as_str())
+    }
+
+    pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {
+        for (_, network) in &self.collections.networks {
+            if network.timezone.is_some() {
+                return network.timezone;
+            }
+        }
+        None
+    }
+
     pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
         self.collections.contributors.values().map(|c| Contributor {
             id: c.id.clone(),

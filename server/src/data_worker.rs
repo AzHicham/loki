@@ -66,6 +66,7 @@ use std::ops::Deref;
 use futures::StreamExt;
 use launch::loki::{
     chrono::Utc,
+    chrono_tz,
     models::{
         base_model::BaseModel,
         real_time_disruption::{
@@ -282,19 +283,31 @@ impl DataWorker {
             data_and_models.0 = new_data;
             data_and_models.1 = new_base_model;
             data_and_models.2 = new_real_time_model;
+
             let calendar = data_and_models.0.calendar();
-            Ok((*calendar.first_date(), *calendar.last_date()))
+            let now = Utc::now().naive_utc();
+            let base_data_info = BaseDataInfo {
+                start_date: *calendar.first_date(),
+                end_date: *calendar.last_date(),
+                last_load_at: now,
+                dataset_created_at: data_and_models.1.dataset_created_at(),
+                timezone: data_and_models.1.timezone_model().unwrap_or(chrono_tz::UTC),
+                contributors: data_and_models.1.contributors().map(|c| c.id).collect(),
+                publisher_name: data_and_models.1.pubisher_name().map(|n| n.to_string()),
+            };
+            Ok(base_data_info)
         };
 
-        let (start_date, end_date) = self.update_data_and_models(updater).await?;
-
-        let now = Utc::now().naive_utc();
-        let base_data_info = BaseDataInfo {
-            start_date,
-            end_date,
-            last_load_at: now,
-        };
-        self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+        let load_result = self.update_data_and_models(updater).await;
+        match load_result {
+            Ok(base_data_info) => {
+                self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+            }
+            Err(err) => {
+                self.send_status_update(StatusUpdate::BaseDataLoadFailed)?;
+                Err(err)
+            }
+        }
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {

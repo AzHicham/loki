@@ -60,7 +60,7 @@ pub struct ServerConfig {
 
     /// number of workers that solve requests in parallel
     #[serde(default = "default_nb_workers")]
-    pub nb_workers: usize,
+    pub nb_workers: u16,
 }
 
 impl ServerConfig {
@@ -104,7 +104,7 @@ pub struct RabbitMqParams {
     pub reload_kirin_timeout: PositiveDuration,
 }
 
-pub fn default_nb_workers() -> usize {
+pub fn default_nb_workers() -> u16 {
     1
 }
 
