@@ -47,6 +47,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 
 use tracing::warn;
 
+#[derive(Clone)]
 pub enum ScheduleOn {
     BoardTimes,
     DebarkTimes,

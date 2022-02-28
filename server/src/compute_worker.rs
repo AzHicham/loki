@@ -624,8 +624,8 @@ fn make_schedule_request<'a>(
     };
 
     let input_stop_points = schedule::generate_stops_for_schedule_request(
-        &input_filter,
-        &proto.forbidden_uri.as_slice(),
+        input_filter,
+        proto.forbidden_uri.as_slice(),
         model,
     );
 

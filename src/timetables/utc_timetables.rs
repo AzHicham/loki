@@ -785,7 +785,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             }
         } else {
             // empty_iterator
-            return empty_iterator;
+            empty_iterator
         }
     }
 }

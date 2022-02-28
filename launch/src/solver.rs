@@ -191,7 +191,7 @@ impl Solver {
             None
         };
 
-        schedule::solve_schedule_request(&request_input, data, model, has_filter_memory)
+        schedule::solve_schedule_request(request_input, data, model, has_filter_memory)
     }
 
     pub fn solve_places_nearby<'model>(
