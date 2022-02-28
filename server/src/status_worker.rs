@@ -86,7 +86,7 @@ pub struct BaseDataInfo {
 pub struct ConfigInfo {
     pub pkg_version: String,
     pub real_time_contributors: Vec<String>,
-    pub nb_workers: usize,
+    pub nb_workers: u16,
 }
 
 pub enum StatusUpdate {
@@ -232,7 +232,7 @@ impl StatusWorker {
         status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
 
         status.navitia_version = Some(self.config_info.pkg_version.clone());
-        status.nb_threads = Some(self.config_info.nb_workers as i32);
+        status.nb_threads = Some(i32::from(self.config_info.nb_workers));
         for rt_contributors in &self.config_info.real_time_contributors {
             status.rt_contributors.push(rt_contributors.clone())
         }

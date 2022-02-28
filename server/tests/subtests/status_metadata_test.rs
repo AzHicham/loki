@@ -30,16 +30,13 @@
 pub use loki_server;
 use loki_server::{navitia_proto, server_config::ServerConfig};
 
-use crate::info;
-use launch::loki::chrono::Utc;
-use launch::loki::{chrono::NaiveDate, NaiveDateTime};
+use launch::loki::{chrono::Utc, NaiveDateTime};
 use loki_server::status_worker::{DATETIME_FORMAT, PKG_VERSION};
 
 pub async fn status_test(config: &ServerConfig) {
     let status_request = make_status_request();
     let response =
         crate::send_request_and_wait_for_response(&config.requests_socket, status_request).await;
-    info!("{:#?}", response);
     let now_datetime = Utc::now().naive_utc();
 
     // We expect a Status response and also a Metadata Response
