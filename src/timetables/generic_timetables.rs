@@ -256,54 +256,6 @@ where
             })
     }
 
-    // pub(super) fn next_boardable_vehicles<'timetable, 'filter, Filter>(
-    //     &'timetable self,
-    //     from_time: &Time,
-    //     until_time: &Time,
-    //     timetable: &'timetable Timetable,
-    //     position: &Position,
-    //     filter: Filter,
-    // ) -> impl Iterator<Item = (Vehicle, &Time)> + '_
-    // where
-    //     Filter: Fn(&VehicleData) -> bool + 'filter,
-    //     'filter: 'timetable,
-    // {
-    //     assert_eq!(position.timetable, *timetable);
-    //     self.timetable_data(timetable)
-    //         .next_boardable_vehicles(from_time, until_time, position.idx, filter)
-    //         .map(|(idx, time)| {
-    //             let vehicle = Vehicle {
-    //                 timetable: timetable.clone(),
-    //                 idx,
-    //             };
-    //             (vehicle, time)
-    //         })
-    // }
-
-    // pub(super) fn next_debarkable_vehicles<'timetable, 'filter, Filter>(
-    //     &'timetable self,
-    //     from_time: &Time,
-    //     until_time: &Time,
-    //     timetable: &'timetable Timetable,
-    //     position: &Position,
-    //     filter: Filter,
-    // ) -> impl Iterator<Item = (Vehicle, &Time)> + '_
-    // where
-    //     Filter: Fn(&VehicleData) -> bool + 'filter,
-    //     'filter: 'timetable,
-    // {
-    //     assert_eq!(position.timetable, *timetable);
-    //     self.timetable_data(timetable)
-    //         .next_debarkable_vehicles(from_time, until_time, position.idx, filter)
-    //         .map(|(idx, time)| {
-    //             let vehicle = Vehicle {
-    //                 timetable: timetable.clone(),
-    //                 idx,
-    //             };
-    //             (vehicle, time)
-    //         })
-    // }
-
     pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
         &self,
         time: &Time,

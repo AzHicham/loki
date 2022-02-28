@@ -584,10 +584,7 @@ where
             return 0;
         }
 
-        //  Option 1 : use buffers to copy the data to keep, and then make swaps
-        //             to obtain the data to keep : iterate on the zip(vec_to_modify, vehicle_data)
-        //
-        //   Option 2 : use retain with a closure whose state tracks the current index/vehicle
+        //  to remove from a vec : use retain with a closure whose state tracks the current index/vehicle
         //              see https://stackoverflow.com/a/59602788
         for board_times in self.board_times_by_position.iter_mut() {
             let mut index = 0;
