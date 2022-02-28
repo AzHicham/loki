@@ -568,7 +568,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
     let base_model = BaseModel::from_transit_model(
         model,
         loki::LoadsData::empty(),
-        config.default_transfer_duration.clone(),
+        config.default_transfer_duration,
     )
     .unwrap();
 
@@ -762,7 +762,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
     let base_model = BaseModel::from_transit_model(
         model,
         loki::LoadsData::empty(),
-        config.default_transfer_duration.clone(),
+        config.default_transfer_duration,
     )
     .unwrap();
 
@@ -861,7 +861,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
     {
         // we retest with the base schedule after removing the first from timetable and we should be
         // able to take the first vehicle_journey
-        let mut request_input = request_input.clone();
+        let mut request_input = request_input;
         request_input.real_time_level = RealTimeLevel::Base;
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
 

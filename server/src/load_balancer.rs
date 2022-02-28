@@ -101,7 +101,7 @@ pub enum LoadBalancerOrder {
 impl LoadBalancer {
     pub fn new(
         data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
-        nb_workers: usize,
+        nb_workers: u16,
         request_default_params: &config::RequestParams,
         zmq_channels: LoadBalancerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
@@ -114,7 +114,9 @@ impl LoadBalancer {
         for id in 0..nb_workers {
             let builder = thread::Builder::new().name(format!("loki_worker_{}", id));
 
-            let worker_id = WorkerId { id };
+            let worker_id = WorkerId {
+                id: usize::from(id),
+            };
 
             let (worker, request_channel) = ComputeWorker::new(
                 worker_id,

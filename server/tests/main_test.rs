@@ -108,6 +108,9 @@ async fn run() {
     subtests::reload_test::reload_test(&config, &data_dir_path).await;
     wait_until_realtime_updated_after(zmq_endpoint, &reload_data_datetime).await;
 
+    subtests::status_metadata_test::status_test(&config).await;
+    subtests::status_metadata_test::metadata_test(&config).await;
+
     subtests::chaos_test::load_database_test(&config).await;
 
     subtests::chaos_test::delete_network_on_invalid_period_test(&config).await;

@@ -42,16 +42,25 @@ use anyhow::{format_err, Context, Error};
 
 use launch::loki::{
     chrono::NaiveDate,
+    chrono_tz,
     tracing::{error, log::warn},
     NaiveDateTime,
 };
 
 use std::thread;
 
+use crate::ServerConfig;
 use tokio::{runtime::Builder, sync::mpsc};
+
+pub const DATE_FORMAT: &str = "%Y%m%d";
+pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
+pub const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct StatusWorker {
     base_data_info: Option<BaseDataInfo>,
+    config_info: ConfigInfo,
+    last_load_succeeded: bool, // last reload was successful
+    is_realtime_loaded: bool,  // is_realtime_loaded for the last reload
     is_connected_to_rabbitmq: bool,
     last_kirin_reload: Option<NaiveDateTime>,
     last_chaos_reload: Option<NaiveDateTime>,
@@ -68,9 +77,20 @@ pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub last_load_at: NaiveDateTime,
+    pub dataset_created_at: Option<NaiveDateTime>,
+    pub timezone: chrono_tz::Tz,
+    pub contributors: Vec<String>,
+    pub publisher_name: Option<String>,
+}
+
+pub struct ConfigInfo {
+    pub pkg_version: String,
+    pub real_time_contributors: Vec<String>,
+    pub nb_workers: u16,
 }
 
 pub enum StatusUpdate {
+    BaseDataLoadFailed,
     BaseDataLoad(BaseDataInfo),
     RabbitMqConnected,
     RabbitMqDisconnected,
@@ -83,10 +103,21 @@ impl StatusWorker {
     pub fn new(
         zmq_channels: StatusWorkerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
+        server_config: &ServerConfig,
     ) -> (Self, mpsc::UnboundedSender<StatusUpdate>) {
         let (status_update_sender, status_update_receiver) = mpsc::unbounded_channel();
         let worker = Self {
             base_data_info: None,
+            config_info: ConfigInfo {
+                pkg_version: PKG_VERSION.to_string(),
+                real_time_contributors: server_config
+                    .rabbitmq_params
+                    .rabbitmq_real_time_topics
+                    .clone(),
+                nb_workers: server_config.nb_workers,
+            },
+            last_load_succeeded: false,
+            is_realtime_loaded: false,
             is_connected_to_rabbitmq: false,
             last_chaos_reload: None,
             last_kirin_reload: None,
@@ -137,46 +168,34 @@ impl StatusWorker {
                     let request_message = has_request.ok_or_else(||
                         format_err!("StatusWorker : channel to receive status requests is closed.")
                     )?;
-                    self.handle_status_request(request_message)?;
+                    self.handle_request(request_message)?;
                 }
 
             }
         }
     }
 
-    fn handle_status_request(&self, request_message: RequestMessage) -> Result<(), Error> {
-        // check that the request api is indeed "status"
-        // form navitia_proto::Response with Some(status)
-        // send it to self.response_sender
+    fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
         let requested_api = request_message.payload.requested_api();
-        if requested_api != navitia_proto::Api::Status {
-            warn!("StatusWorker : received a request with api {:?} while I can only handle Status api.", requested_api);
-            return Ok(());
-        }
-
-        let mut status = navitia_proto::Status::default();
-        let date_format = "%Y%m%d";
-        let datetime_format = "%Y%m%dT%H%M%S.%f";
-        if let Some(info) = &self.base_data_info {
-            status.start_production_date = info.start_date.format(date_format).to_string();
-            status.end_production_date = info.end_date.format(date_format).to_string();
-            status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
-        }
-
-        status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
-
-        if let Some(date) = &self.last_real_time_update {
-            status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
-        }
-
-        let payload = navitia_proto::Response {
-            status: Some(status),
-            ..Default::default()
+        let response_payload = match requested_api {
+            navitia_proto::Api::Status => navitia_proto::Response {
+                status: Some(self.status_response()),
+                metadatas: Some(self.metadatas_response()),
+                ..Default::default()
+            },
+            navitia_proto::Api::Metadatas => navitia_proto::Response {
+                metadatas: Some(self.metadatas_response()),
+                ..Default::default()
+            },
+            _ => {
+                error!("StatusWorker : received a request with api {:?} while I can only handle Status or Metadatas api.", requested_api);
+                return Ok(());
+            }
         };
 
         let response = ResponseMessage {
             client_id: request_message.client_id,
-            payload,
+            payload: response_payload,
         };
 
         self.zmq_channels
@@ -190,10 +209,74 @@ impl StatusWorker {
             })
     }
 
+    fn status_response(&self) -> navitia_proto::Status {
+        let mut status = navitia_proto::Status::default();
+        let date_format = DATE_FORMAT;
+        let datetime_format = DATETIME_FORMAT;
+        if let Some(info) = &self.base_data_info {
+            status.start_production_date = info.start_date.format(date_format).to_string();
+            status.end_production_date = info.end_date.format(date_format).to_string();
+            status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
+            status.dataset_created_at = info
+                .dataset_created_at
+                .map(|dt| dt.format(datetime_format).to_string());
+            status.is_realtime_loaded = Some(self.is_realtime_loaded);
+            status.loaded = Some(true);
+            status.status = Some("running".to_string());
+        } else {
+            status.loaded = Some(false);
+            status.status = Some("no_data".to_string());
+        }
+        status.last_load_status = Some(self.last_load_succeeded);
+
+        status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
+
+        status.navitia_version = Some(self.config_info.pkg_version.clone());
+        status.nb_threads = Some(i32::from(self.config_info.nb_workers));
+        for rt_contributors in &self.config_info.real_time_contributors {
+            status.rt_contributors.push(rt_contributors.clone())
+        }
+
+        if let Some(date) = &self.last_real_time_update {
+            status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
+        }
+
+        status
+    }
+
+    fn metadatas_response(&self) -> navitia_proto::Metadatas {
+        let date_format = DATE_FORMAT;
+        let datetime_format = DATETIME_FORMAT;
+
+        match &self.base_data_info {
+            None => navitia_proto::Metadatas {
+                status: "no_data".to_string(),
+                ..Default::default()
+            },
+            Some(base_data_info) => navitia_proto::Metadatas {
+                start_production_date: base_data_info.start_date.format(date_format).to_string(),
+                end_production_date: base_data_info.end_date.format(date_format).to_string(),
+                dataset_created_at: base_data_info
+                    .dataset_created_at
+                    .map(|dt| dt.format(datetime_format).to_string()),
+                last_load_at: u64::try_from(base_data_info.last_load_at.timestamp()).ok(),
+                timezone: Some(base_data_info.timezone.name().to_string()),
+                contributors: base_data_info.contributors.clone(),
+                status: "running".to_string(),
+                name: base_data_info.publisher_name.clone(),
+                ..Default::default()
+            },
+        }
+    }
+
     fn handle_status_update(&mut self, status_update: StatusUpdate) {
         match status_update {
+            StatusUpdate::BaseDataLoadFailed => {
+                self.last_load_succeeded = false;
+            }
             StatusUpdate::BaseDataLoad(base_data_info) => {
                 self.base_data_info = Some(base_data_info);
+                self.last_load_succeeded = true;
             }
             StatusUpdate::RabbitMqConnected => {
                 if self.is_connected_to_rabbitmq {
@@ -214,6 +297,7 @@ impl StatusWorker {
             StatusUpdate::KirinReload(datetime) => {
                 self.last_kirin_reload = Some(datetime);
                 self.last_real_time_update = Some(datetime);
+                self.is_realtime_loaded = true;
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
                 self.last_real_time_update = Some(datetime);
