@@ -93,7 +93,7 @@ pub enum ChaosImpactObjectIdx {
     Informed(usize), // position in ChaosImpact.informed
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct KirinDisruptionIdx {
     pub(super) idx: usize, // position in RealTimeModel.kirin_disruptions
 }
@@ -104,7 +104,7 @@ pub enum TripVersion {
     Present(Vec<StopTime>), // list of all stop times of this trip
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct NewStopPointIdx {
     pub idx: usize, // position in new_stops
 }
@@ -314,7 +314,7 @@ impl RealTimeModel {
 
     pub fn get_kirin_disruption(
         &self,
-        kirin_disruption_idx: &KirinDisruptionIdx,
+        kirin_disruption_idx: KirinDisruptionIdx,
     ) -> &KirinDisruption {
         &self.kirin_disruptions[kirin_disruption_idx.idx]
     }

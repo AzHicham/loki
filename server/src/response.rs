@@ -137,7 +137,7 @@ fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navit
     }
 
     for kirin_disruption_idx in kirin_disruptions.iter() {
-        let impact_result = make_kirin_impact(kirin_disruption_idx, model);
+        let impact_result = make_kirin_impact(*kirin_disruption_idx, model);
         match impact_result {
             Ok(impact) => {
                 result.push(impact);
@@ -199,11 +199,11 @@ fn worst_effect_on_vehicle(
     models: &ModelRefs<'_>,
 ) -> Option<Effect> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let has_chaos_worst_effect = if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle_journey_idx {
         let has_impacts = models
             .real_time
-            .get_linked_chaos_impacts(*base_vj_idx, *date);
+            .get_linked_chaos_impacts(*base_vj_idx, date);
         has_impacts.and_then(|impacts| {
             impacts
                 .iter()
@@ -221,9 +221,9 @@ fn worst_effect_on_vehicle(
 
     let has_kirin_worst_effect = models
         .real_time
-        .get_linked_kirin_disruption(vehicle_journey_idx, *date)
+        .get_linked_kirin_disruption(vehicle_journey_idx, date)
         .map(|kirin_disruption_idx| {
-            let kirin_disruption = models.real_time.get_kirin_disruption(kirin_disruption_idx);
+            let kirin_disruption = models.real_time.get_kirin_disruption(*kirin_disruption_idx);
             kirin_disruption.effect
         });
 
@@ -968,7 +968,7 @@ fn make_impacted_object_from_informed(
 }
 
 fn make_kirin_impact(
-    kirin_disruption_idx: &KirinDisruptionIdx,
+    kirin_disruption_idx: KirinDisruptionIdx,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Impact, Error> {
     let disruption = model.real_time.get_kirin_disruption(kirin_disruption_idx);

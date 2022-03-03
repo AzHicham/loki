@@ -106,7 +106,7 @@ pub struct Stop {
     pub(super) idx: usize,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Transfer {
     pub(super) idx: usize,
 }
