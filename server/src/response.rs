@@ -234,7 +234,7 @@ fn worst_effect_on_vehicle(
         .cloned()
 }
 
-fn effect_to_string(effect: &Effect) -> String {
+fn effect_to_string(effect: Effect) -> String {
     match effect {
         Effect::NoService => "NO_SERVICE",
         Effect::ReducedService => "REDUCED_SERVICE",
@@ -279,7 +279,7 @@ fn make_journey(
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
         most_serious_disruption_effect: worst_effect_on_journey(journey, model)
-            .map(|effect| effect_to_string(&effect)),
+            .map(|effect| effect_to_string(effect)),
         ..Default::default()
     };
 
@@ -288,7 +288,7 @@ fn make_journey(
         &journey.first_vehicle,
         model,
         section_id,
-        &request_input.real_time_level,
+        request_input.real_time_level,
     )?);
 
     for (connection_idx, connection) in journey.connections.iter().enumerate() {
@@ -311,7 +311,7 @@ fn make_journey(
                 vehicle_section,
                 model,
                 section_id,
-                &request_input.real_time_level,
+                request_input.real_time_level,
             )?;
             proto.sections.push(proto_section);
         }
@@ -385,10 +385,10 @@ fn make_public_transport_section(
     vehicle_section: &VehicleSection,
     model: &ModelRefs<'_>,
     section_id: String,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
 ) -> Result<navitia_proto::Section, Error> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let from_stop_point_idx = model
         .stop_point_at(
@@ -450,11 +450,11 @@ fn make_public_transport_section(
         destination: Some(make_stop_point_pt_object(&to_stop_point_idx, model)?),
         pt_display_informations: Some(make_pt_display_info(
             &vehicle_section.vehicle_journey,
-            *date,
+            date,
             real_time_level,
             model,
         )),
-        stop_date_times: make_stop_datetimes(stop_times, timezone, *date, model)?,
+        stop_date_times: make_stop_datetimes(stop_times, timezone, date, model)?,
         shape,
         length: Some(length_f64 as i32),
         co2_emission,
@@ -586,20 +586,20 @@ fn make_stop_area(
 fn make_pt_display_info(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
     model: &ModelRefs,
 ) -> navitia_proto::PtDisplayInfo {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
         code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
         headsign: model
-            .headsign(vehicle_journey_idx, &date, real_time_level)
+            .headsign(vehicle_journey_idx, date, real_time_level)
             .map(|s| s.to_string()),
         direction: model
-            .direction(vehicle_journey_idx, &date)
+            .direction(vehicle_journey_idx, date)
             .map(|s| s.to_string()),
         color: model
-            .line_color(vehicle_journey_idx, &date)
+            .line_color(vehicle_journey_idx, date)
             .map(|color| format!("{}", color)),
         commercial_mode: Some(model.commercial_mode_name(vehicle_journey_idx).to_string()),
         physical_mode: Some(model.physical_mode_name(vehicle_journey_idx).to_string()),
@@ -638,10 +638,10 @@ fn make_pt_display_info(
         }),
         name: Some(model.line_name(vehicle_journey_idx).to_string()),
         text_color: model
-            .text_color(vehicle_journey_idx, &date)
+            .text_color(vehicle_journey_idx, date)
             .map(|text_color| format!("{}", text_color)),
         trip_short_name: model
-            .trip_short_name(vehicle_journey_idx, &date)
+            .trip_short_name(vehicle_journey_idx, date)
             .map(|s| s.to_string()),
         ..Default::default()
     };
@@ -675,11 +675,11 @@ fn make_stop_datetimes(
 
 fn make_additional_informations(
     vehicle_section: &VehicleSection,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
     models: &ModelRefs<'_>,
 ) -> Vec<i32> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
 

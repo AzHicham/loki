@@ -384,7 +384,7 @@ impl RealTimeModel {
     pub fn stop_times<'a>(
         &'a self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<RealTimeStopTimes<'a>> {
@@ -399,54 +399,58 @@ impl RealTimeModel {
         }
     }
 
-    pub fn last_version(&self, idx: &VehicleJourneyIdx, date: &NaiveDate) -> Option<&TripVersion> {
+    pub fn last_version(&self, idx: &VehicleJourneyIdx, date: NaiveDate) -> Option<&TripVersion> {
         match idx {
             VehicleJourneyIdx::Base(base_idx) => {
-                self.base_vehicle_journey_last_version(base_idx, date)
+                self.base_vehicle_journey_last_version(*base_idx, date)
             }
-            VehicleJourneyIdx::New(new_idx) => self.new_vehicle_journey_last_version(new_idx, date),
+            VehicleJourneyIdx::New(new_idx) => {
+                self.new_vehicle_journey_last_version(*new_idx, date)
+            }
         }
     }
 
     pub(super) fn base_vehicle_journey_last_version(
         &self,
-        idx: &BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        idx: BaseVehicleJourneyIdx,
+        date: NaiveDate,
     ) -> Option<&TripVersion> {
         self.base_vehicle_journeys_idx_to_history
-            .get(idx)
-            .and_then(|vehicle_journey_history| vehicle_journey_history.by_reference_date.get(date))
+            .get(&idx)
+            .and_then(|vehicle_journey_history| {
+                vehicle_journey_history.by_reference_date.get(&date)
+            })
     }
 
     pub fn base_vehicle_journey_is_present(
         &self,
-        idx: &BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        idx: BaseVehicleJourneyIdx,
+        date: NaiveDate,
         base_model: &BaseModel,
     ) -> bool {
         let last_version = self.base_vehicle_journey_last_version(idx, date);
         match last_version {
             Some(&TripVersion::Deleted()) => false,
             Some(&TripVersion::Present(_)) => true,
-            None => base_model.trip_exists(*idx, *date),
+            None => base_model.trip_exists(idx, date),
         }
     }
 
     pub(super) fn new_vehicle_journey_last_version(
         &self,
-        idx: &NewVehicleJourneyIdx,
-        date: &NaiveDate,
+        idx: NewVehicleJourneyIdx,
+        date: NaiveDate,
     ) -> Option<&TripVersion> {
         self.new_vehicle_journeys_history[idx.idx]
             .1
             .by_reference_date
-            .get(date)
+            .get(&date)
     }
 
     pub fn new_vehicle_journey_is_present(
         &self,
-        idx: &NewVehicleJourneyIdx,
-        date: &NaiveDate,
+        idx: NewVehicleJourneyIdx,
+        date: NaiveDate,
     ) -> bool {
         match self.new_vehicle_journey_last_version(idx, date) {
             Some(TripVersion::Present(_)) => true,

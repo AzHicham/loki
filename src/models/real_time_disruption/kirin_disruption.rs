@@ -200,7 +200,7 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
                 base_model,
                 data,
                 vehicle_journey_idx.clone(),
-                &date,
+                date,
                 stop_times,
             );
         }
@@ -255,7 +255,7 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
                 base_model,
                 data,
                 vehicle_journey_idx.clone(),
-                &date,
+                date,
                 stop_times,
             );
         }
@@ -303,7 +303,7 @@ fn delete_trip<Data: DataTrait + DataUpdate>(
     let has_new_vj = real_time_model
         .new_vehicle_journey_idx(vehicle_journey_id)
         .and_then(|new_vj_idx| {
-            if real_time_model.new_vehicle_journey_is_present(&new_vj_idx, &date) {
+            if real_time_model.new_vehicle_journey_is_present(new_vj_idx, date) {
                 Some(VehicleJourneyIdx::New(new_vj_idx))
             } else {
                 None

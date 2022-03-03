@@ -81,12 +81,12 @@ pub struct Config<'a> {
 
 impl<'a> Config<'a> {
     pub fn new(datetime: impl AsDateTime, start: &str, end: &str) -> Self {
-        Self::new_timezoned(datetime, &model_builder::DEFAULT_TIMEZONE, start, end)
+        Self::new_timezoned(datetime, model_builder::DEFAULT_TIMEZONE, start, end)
     }
 
     pub fn new_timezoned(
         datetime: impl AsDateTime,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         start: &str,
         end: &str,
     ) -> Self {
@@ -171,7 +171,7 @@ pub fn build_and_solve(
 pub fn from_to_stop_point_names<'a>(
     vehicle_section: &VehicleSection,
     model: &'a ModelRefs<'a>,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
 ) -> Result<(&'a str, &'a str), Error> {
     let from_stop_name = vehicle_section
         .from_stop_point_name(model, real_time_level)

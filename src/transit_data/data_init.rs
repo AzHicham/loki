@@ -222,9 +222,9 @@ impl TransitData {
                 debark_times,
                 loads_data,
                 dates,
-                &timezone,
+                timezone,
                 vehicle_journey_idx,
-                &local_zones[0],
+                local_zones[0],
                 RealTimeLevel::Base,
             );
             let real_time_model = RealTimeModel::new();
@@ -266,9 +266,9 @@ impl TransitData {
                     debark_times.clone(),
                     loads_data,
                     dates.clone(),
-                    &timezone,
+                    timezone,
                     vehicle_journey_idx.clone(),
-                    &local_zone,
+                    local_zone,
                     RealTimeLevel::Base,
                 );
 

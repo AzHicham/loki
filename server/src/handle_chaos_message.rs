@@ -161,7 +161,7 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error>
     for entity in proto.get_informed_entities() {
         dispatch_pt_object(
             entity,
-            &effect,
+            effect,
             &mut impacted_pt_objects,
             &mut informed_pt_objects,
         )
@@ -182,7 +182,7 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error>
 
 fn dispatch_pt_object(
     proto: &chaos_proto::chaos::PtObject,
-    effect: &Effect,
+    effect: Effect,
     impacted: &mut Vec<Impacted>,
     informed: &mut Vec<Informed>,
 ) -> Result<(), Error> {
@@ -469,12 +469,16 @@ fn make_message(proto: &chaos_proto::chaos::Message) -> Result<Message, Error> {
         channel_id: Some(channel.get_id().to_string()),
         channel_name: channel.get_name().to_string(),
         channel_content_type: Some(channel.get_content_type().to_string()),
-        channel_types: channel.get_types().iter().map(make_channel_type).collect(),
+        channel_types: channel
+            .get_types()
+            .iter()
+            .map(|channel_type| make_channel_type(*channel_type))
+            .collect(),
     };
     Ok(result)
 }
 
-fn make_channel_type(proto: &chaos_proto::chaos::Channel_Type) -> ChannelType {
+fn make_channel_type(proto: chaos_proto::chaos::Channel_Type) -> ChannelType {
     use chaos_proto::chaos::Channel_Type;
     match proto {
         Channel_Type::web => ChannelType::Web,

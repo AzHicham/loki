@@ -317,7 +317,7 @@ where
 
     pub fn first_vehicle_board_datetime(&self, data: &Data) -> NaiveDateTime {
         let seconds = self.first_vehicle_board_time(data);
-        data.to_naive_datetime(&seconds)
+        data.to_naive_datetime(seconds)
     }
 
     fn first_vehicle_board_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
@@ -342,7 +342,7 @@ where
 
     pub fn last_vehicle_debark_datetime(&self, data: &Data) -> NaiveDateTime {
         let seconds = self.last_vehicle_debark_time(data);
-        data.to_naive_datetime(&seconds)
+        data.to_naive_datetime(seconds)
     }
 
     fn arrival(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
@@ -386,12 +386,12 @@ where
     }
 
     pub fn departure_datetime(&self, data: &Data) -> NaiveDateTime {
-        data.to_naive_datetime(&self.departure_datetime)
+        data.to_naive_datetime(self.departure_datetime)
     }
 
     pub fn arrival_datetime(&self, data: &Data) -> NaiveDateTime {
         let arrival_time = self.arrival(data);
-        data.to_naive_datetime(&arrival_time)
+        data.to_naive_datetime(arrival_time)
     }
 
     pub fn total_fallback_duration(&self) -> PositiveDuration {
@@ -416,7 +416,7 @@ where
     ) -> Result<(), std::fmt::Error> {
         writeln!(writer, "*** New journey ***")?;
         let arrival_time = self.arrival(data);
-        let arrival_datetime = data.to_naive_datetime(&arrival_time);
+        let arrival_datetime = data.to_naive_datetime(arrival_time);
         writeln!(writer, "Arrival : {}", Self::write_date(&arrival_datetime))?;
         writeln!(
             writer,
@@ -433,7 +433,7 @@ where
         )?;
         writeln!(writer, "Loads : {}", self.loads_count)?;
 
-        let departure_datetime = data.to_naive_datetime(&self.departure_datetime);
+        let departure_datetime = data.to_naive_datetime(self.departure_datetime);
         writeln!(
             writer,
             "Departure : {}",
@@ -473,12 +473,12 @@ where
             .board_time_of(trip, &vehicle_leg.board_position)
             .unwrap()
             .0;
-        let board_datetime = data.to_naive_datetime(&board_time);
+        let board_datetime = data.to_naive_datetime(board_time);
         let debark_time = data
             .debark_time_of(trip, &vehicle_leg.debark_position)
             .unwrap()
             .0;
-        let debark_datetime = data.to_naive_datetime(&debark_time);
+        let debark_datetime = data.to_naive_datetime(debark_time);
 
         let from_datetime = Self::write_date(&board_datetime);
         let to_datetime = Self::write_date(&debark_datetime);
@@ -504,9 +504,9 @@ impl<Data: DataTrait> Journey<Data> {
     }
 
     pub fn departure_section(&self, data: &Data) -> DepartureSection {
-        let from_datetime = data.to_naive_datetime(&self.departure_datetime);
+        let from_datetime = data.to_naive_datetime(self.departure_datetime);
         let to_seconds = self.departure_datetime + self.departure_fallback_duration;
-        let to_datetime = data.to_naive_datetime(&to_seconds);
+        let to_datetime = data.to_naive_datetime(to_seconds);
         let position = self.first_vehicle.debark_position.clone();
         let trip = &self.first_vehicle.trip;
         let mission = data.mission_of(trip);
@@ -529,8 +529,8 @@ impl<Data: DataTrait> Journey<Data> {
         let stop = data.stop_of(position, &mission);
         let stop_point = data.stop_point_idx(&stop);
         ArrivalSection {
-            from_datetime: data.to_naive_datetime(&from_time),
-            to_datetime: data.to_naive_datetime(&to_time),
+            from_datetime: data.to_naive_datetime(from_time),
+            to_datetime: data.to_naive_datetime(to_time),
             from_stop_point: stop_point,
         }
     }
@@ -560,8 +560,8 @@ impl<Data: DataTrait> Journey<Data> {
             .unwrap()
             .0;
 
-        let from_datetime = data.to_naive_datetime(&board_time);
-        let to_datetime = data.to_naive_datetime(&debark_time);
+        let from_datetime = data.to_naive_datetime(board_time);
+        let to_datetime = data.to_naive_datetime(debark_time);
 
         let day_for_vehicle_journey = data.day_of(trip);
 
@@ -586,13 +586,13 @@ impl<Data: DataTrait> Journey<Data> {
             .debark_time_of(prev_trip, &prev_vehicle_leg.debark_position)
             .unwrap()
             .0;
-        let from_datetime = data.to_naive_datetime(&prev_debark_time);
+        let from_datetime = data.to_naive_datetime(prev_debark_time);
 
         let (transfer, _) = &self.connections[connection_idx];
         let (transfer_from_stop, transfer_to_stop) = data.transfer_from_to_stop(transfer);
         let transfer_duration = data.transfer_duration(transfer);
         let end_transfer_time = prev_debark_time + transfer_duration;
-        let to_datetime = data.to_naive_datetime(&end_transfer_time);
+        let to_datetime = data.to_naive_datetime(end_transfer_time);
         let to_stop_point = data.stop_point_idx(&transfer_to_stop);
         let from_stop_point = data.stop_point_idx(&transfer_from_stop);
         let transfer_idx = data.transfer_idx(transfer);
@@ -656,13 +656,13 @@ impl VehicleSection {
     pub fn from_stop_point_name<'a>(
         &self,
         model: &'a ModelRefs<'a>,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
                 self.from_stoptime_idx,
-                &self.day_for_vehicle_journey,
+                self.day_for_vehicle_journey,
                 real_time_level,
             )
             .map(|idx| model.stop_point_name(&idx))
@@ -671,13 +671,13 @@ impl VehicleSection {
     pub fn to_stop_point_name<'a>(
         &self,
         model: &'a ModelRefs<'a>,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<&'a str> {
         model
             .stop_point_at(
                 &self.vehicle_journey,
                 self.to_stoptime_idx,
-                &self.day_for_vehicle_journey,
+                self.day_for_vehicle_journey,
                 real_time_level,
             )
             .map(|idx| model.stop_point_name(&idx))
@@ -686,7 +686,7 @@ impl VehicleSection {
     fn write<Writer: std::fmt::Write>(
         &self,
         model: &ModelRefs<'_>,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         writer: &mut Writer,
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
@@ -697,7 +697,7 @@ impl VehicleSection {
             .stop_point_at(
                 vehicle_journey_idx,
                 self.from_stoptime_idx,
-                &self.day_for_vehicle_journey,
+                self.day_for_vehicle_journey,
                 real_time_level,
             )
             .map(|stop_idx| model.stop_point_name(&stop_idx))
@@ -706,7 +706,7 @@ impl VehicleSection {
             .stop_point_at(
                 vehicle_journey_idx,
                 self.to_stoptime_idx,
-                &self.day_for_vehicle_journey,
+                self.day_for_vehicle_journey,
                 real_time_level,
             )
             .map(|stop_idx| model.stop_point_name(&stop_idx))
@@ -837,9 +837,9 @@ impl Response {
         )?;
 
         self.first_vehicle
-            .write(model, &self.real_time_level, writer)?;
+            .write(model, self.real_time_level, writer)?;
         for (_, _, vehicle) in self.connections.iter() {
-            vehicle.write(model, &self.real_time_level, writer)?;
+            vehicle.write(model, self.real_time_level, writer)?;
         }
 
         Ok(())

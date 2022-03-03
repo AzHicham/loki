@@ -119,7 +119,7 @@ fn remove_vj() -> Result<(), Error> {
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+    data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
         .unwrap();
 
     {
@@ -229,7 +229,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
             .unwrap();
     }
 
@@ -256,7 +256,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
             .unwrap();
     }
 
@@ -283,7 +283,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
             .unwrap();
     }
 
@@ -367,7 +367,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
             .unwrap();
     }
 
@@ -393,7 +393,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-01".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-01".as_date())
             .unwrap();
     }
 
@@ -493,7 +493,7 @@ fn modify_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             &vj_idx,
         );
         assert!(result.is_ok());
@@ -630,7 +630,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             &vj_idx,
         );
         assert!(result.is_ok());
@@ -826,7 +826,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         let vj_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         // remove the vj
-        data.remove_real_time_vehicle(&vj_idx, &"2020-01-02".as_date())
+        data.remove_real_time_vehicle(&vj_idx, "2020-01-02".as_date())
             .unwrap();
 
         let mut request_input = request_input.clone();
@@ -938,7 +938,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx,
         );
         match insert_result {
@@ -974,7 +974,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx,
         );
         match insert_result {
@@ -1016,7 +1016,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx,
         );
         match insert_result {
@@ -1045,7 +1045,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx,
         );
         match insert_result {
@@ -1087,7 +1087,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx.clone(),
         );
 
@@ -1105,7 +1105,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             debark_times,
             base_model.loads_data(),
             dates,
-            &UTC,
+            UTC,
             vj_idx,
         );
 

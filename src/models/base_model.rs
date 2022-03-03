@@ -465,9 +465,9 @@ impl BaseModel {
     pub fn trip_time_period(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<TimePeriod> {
-        if !self.trip_exists(vehicle_journey_idx, *date) {
+        if !self.trip_exists(vehicle_journey_idx, date) {
             return None;
         }
         let stop_times = self.stop_times(vehicle_journey_idx).ok()?;
@@ -485,8 +485,8 @@ impl BaseModel {
             .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
             .max()?;
 
-        let first_time_utc = calendar::compose(date, &earliest_local_time, &timezone);
-        let last_time_utc = calendar::compose(date, &latest_local_time, &timezone);
+        let first_time_utc = calendar::compose(date, earliest_local_time, timezone);
+        let last_time_utc = calendar::compose(date, latest_local_time, timezone);
 
         // since TimePeriod is open at the end, we add 1s to the last_time
         // so that the constructed time_period contains last_time

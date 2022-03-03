@@ -185,10 +185,10 @@ impl UTCTimetables {
 
     pub fn earliest_trip_to_board_at(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
         position: &Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
     ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
@@ -205,10 +205,10 @@ impl UTCTimetables {
 
     pub fn earliest_filtered_trip_to_board_at<Filter>(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
         position: &Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
@@ -235,7 +235,7 @@ impl UTCTimetables {
                         RealTimeLevel::Base => vehicle_data.base_days_pattern,
                         RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
                     };
-                    days_patterns.is_allowed(&days_pattern, &waiting_day)
+                    days_patterns.is_allowed(&days_pattern, waiting_day)
                         && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
@@ -269,10 +269,10 @@ impl UTCTimetables {
 
     pub fn latest_trip_that_debark_at(
         &self,
-        time: &SecondsSinceDatasetUTCStart,
+        time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
         position: &Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
     ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
@@ -289,10 +289,10 @@ impl UTCTimetables {
 
     pub fn latest_filtered_trip_that_debark_at<Filter>(
         &self,
-        time: &SecondsSinceDatasetUTCStart,
+        time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
         position: &Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
@@ -317,7 +317,7 @@ impl UTCTimetables {
                         RealTimeLevel::Base => vehicle_data.base_days_pattern,
                         RealTimeLevel::RealTime => vehicle_data.real_time_days_pattern,
                     };
-                    days_patterns.is_allowed(&days_pattern, &waiting_day)
+                    days_patterns.is_allowed(&days_pattern, waiting_day)
                         && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
@@ -360,10 +360,10 @@ impl UTCTimetables {
         days: &DaysPattern,
         calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
-        real_time_level: &RealTimeLevel,
+        local_zone: LocalZone,
+        real_time_level: RealTimeLevel,
     ) -> Result<HashMap<Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -447,7 +447,7 @@ impl UTCTimetables {
                     vehicle_journey_idx: vehicle_journey_idx.clone(),
                     base_days_pattern,
                     real_time_days_pattern,
-                    local_zone: *local_zone,
+                    local_zone,
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {
@@ -487,10 +487,10 @@ impl UTCTimetables {
     pub fn remove(
         &mut self,
         timetable: &Mission,
-        day: &DaysSinceDatasetStart,
+        day: DaysSinceDatasetStart,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
-        real_time_level: &RealTimeLevel,
+        local_zone: LocalZone,
+        real_time_level: RealTimeLevel,
         _calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
     ) {
@@ -503,7 +503,7 @@ impl UTCTimetables {
                     RealTimeLevel::RealTime => &mut vehicle_data.real_time_days_pattern,
                 };
                 if vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
-                    && vehicle_data.local_zone == *local_zone
+                    && vehicle_data.local_zone == local_zone
                     && days_patterns.is_allowed(days_pattern, day)
                 {
                     *days_pattern = days_patterns
@@ -539,7 +539,7 @@ impl UTCTimetables {
     pub fn trips_of<'a>(
         &'a self,
         mission: &Mission,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         days_patterns: &'a DaysPatterns,
     ) -> TripsIter<'a> {
         TripsIter::new(self, mission, real_time_level, days_patterns)
@@ -562,7 +562,7 @@ impl<'a> TripsIter<'a> {
     fn new(
         utc_timetables: &'a UTCTimetables,
         timetable: &super::generic_timetables::Timetable,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         days_patterns: &'a DaysPatterns,
     ) -> Self {
         let mut vehicles_iter = utc_timetables.timetables.vehicles(timetable);

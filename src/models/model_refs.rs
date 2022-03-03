@@ -193,10 +193,10 @@ impl<'model> ModelRefs<'model> {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: StopTimeIdx,
-        date: &NaiveDate,
-        real_time_level: &RealTimeLevel,
+        date: NaiveDate,
+        real_time_level: RealTimeLevel,
     ) -> Option<StopPointIdx> {
-        match *real_time_level {
+        match real_time_level {
             RealTimeLevel::Base => {
                 if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
                     self.base
@@ -208,7 +208,7 @@ impl<'model> ModelRefs<'model> {
             }
             RealTimeLevel::RealTime => match vehicle_journey_idx {
                 VehicleJourneyIdx::Base(idx) => {
-                    let has_realtime = self.real_time.base_vehicle_journey_last_version(idx, date);
+                    let has_realtime = self.real_time.base_vehicle_journey_last_version(*idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
                             TripVersion::Deleted() => None,
@@ -223,7 +223,7 @@ impl<'model> ModelRefs<'model> {
                     }
                 }
                 VehicleJourneyIdx::New(idx) => {
-                    let has_realtime = self.real_time.new_vehicle_journey_last_version(idx, date);
+                    let has_realtime = self.real_time.new_vehicle_journey_last_version(*idx, date);
                     if let Some(trip_data) = has_realtime {
                         match trip_data {
                             TripVersion::Deleted() => None,
@@ -435,33 +435,33 @@ impl<'model> ModelRefs<'model> {
     pub fn timezone(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> chrono_tz::Tz {
         if let VehicleJourneyIdx::Base(idx) = vehicle_journey_idx {
             if self
                 .real_time
-                .base_vehicle_journey_last_version(idx, date)
+                .base_vehicle_journey_last_version(*idx, date)
                 .is_none()
             {
                 return self
-                    .base_vehicle_journey_timezone(idx)
+                    .base_vehicle_journey_timezone(*idx)
                     .unwrap_or(chrono_tz::UTC);
             }
         }
         chrono_tz::UTC
     }
 
-    fn base_vehicle_journey_timezone(&self, idx: &BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
-        self.base.timezone(*idx)
+    fn base_vehicle_journey_timezone(&self, idx: BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
+        self.base.timezone(idx)
     }
 
     pub fn stop_times(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<StopTimes> {
         match real_time_level {
             RealTimeLevel::Base => self.stop_times_base_schedule(
@@ -482,14 +482,14 @@ impl<'model> ModelRefs<'model> {
     pub fn stop_times_base_schedule(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::New(_) => None,
             VehicleJourneyIdx::Base(idx) => {
-                if !self.base.trip_exists(*idx, *date) {
+                if !self.base.trip_exists(*idx, date) {
                     return None;
                 }
                 let base_stop_times = self
@@ -505,7 +505,7 @@ impl<'model> ModelRefs<'model> {
     pub fn stop_times_real_time(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> Option<StopTimes> {
@@ -537,10 +537,10 @@ impl<'model> ModelRefs<'model> {
     pub fn has_datetime_estimated(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> bool {
         if self
             .stop_times(
@@ -573,12 +573,12 @@ impl<'model> ModelRefs<'model> {
     pub fn headsign(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
-        real_time_level: &RealTimeLevel,
+        date: NaiveDate,
+        real_time_level: RealTimeLevel,
     ) -> Option<&str> {
         match (vehicle_journey_idx, real_time_level) {
             (VehicleJourneyIdx::Base(idx), RealTimeLevel::RealTime) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
+                let has_history = self.real_time.base_vehicle_journey_last_version(*idx, date);
                 if has_history.is_none() {
                     self.base.headsign(*idx)
                 } else {
@@ -593,11 +593,11 @@ impl<'model> ModelRefs<'model> {
     pub fn direction(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<&str> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
+                let has_history = self.real_time.base_vehicle_journey_last_version(*idx, date);
                 if has_history.is_none() {
                     self.base.direction(*idx)
                 } else {
@@ -611,11 +611,11 @@ impl<'model> ModelRefs<'model> {
     pub fn line_color(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<&Rgb> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
+                let has_history = self.real_time.base_vehicle_journey_last_version(*idx, date);
                 if has_history.is_none() {
                     self.base.line_color(*idx)
                 } else {
@@ -629,11 +629,11 @@ impl<'model> ModelRefs<'model> {
     pub fn text_color(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<&transit_model::objects::Rgb> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
+                let has_history = self.real_time.base_vehicle_journey_last_version(*idx, date);
                 if has_history.is_none() {
                     self.base.text_color(*idx)
                 } else {
@@ -647,11 +647,11 @@ impl<'model> ModelRefs<'model> {
     pub fn trip_short_name(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<&str> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let has_history = self.real_time.base_vehicle_journey_last_version(idx, date);
+                let has_history = self.real_time.base_vehicle_journey_last_version(*idx, date);
                 if has_history.is_none() {
                     self.base.trip_short_name(*idx)
                 } else {

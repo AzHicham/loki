@@ -60,7 +60,7 @@ pub enum Effect {
 }
 
 impl Effect {
-    fn level(&self) -> u8 {
+    fn level(self) -> u8 {
         match self {
             Effect::StopMoved => 0,
             Effect::UnknownEffect => 1,

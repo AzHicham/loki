@@ -363,7 +363,7 @@ where
                             if new_debark_front.dominates(&new_debark_criteria, pt) {
                                 continue;
                             }
-                            let new_debark = self.journeys_tree.debark(board, &position);
+                            let new_debark = self.journeys_tree.debark(*board, &position);
                             debark_front.remove_elements_dominated_by(&new_debark_criteria, pt);
                             new_debark_front.add_and_remove_elements_dominated(
                                 new_debark,
@@ -423,7 +423,7 @@ where
                                 continue;
                             }
 
-                            let new_board = self.journeys_tree.board(wait, &trip, &position);
+                            let new_board = self.journeys_tree.board(*wait, &trip, &position);
                             trace!(
                                 "    New board {:?} at stop {} into trip {}, parent {:?}",
                                 new_board,
@@ -539,7 +539,7 @@ where
                 self.arrive_front
                     .remove_elements_that_can_be_discarded_by(&arrive_criteria, pt);
 
-                let arrive = self.journeys_tree.arrive(debark, &arrival);
+                let arrive = self.journeys_tree.arrive(*debark, &arrival);
 
                 self.arrive_front.add(arrive, arrive_criteria, pt);
                 trace!("Arrival from {}, parent {:?}", pt.stop_name(&stop), debark);
@@ -583,7 +583,7 @@ where
                         self.stops_with_new_wait.push(arrival_stop.clone());
                     }
 
-                    let waiting = self.journeys_tree.transfer(debark, &transfer);
+                    let waiting = self.journeys_tree.transfer(*debark, &transfer);
                     wait_front.remove_elements_dominated_by(&arrival_criteria, pt);
                     new_wait_front.add_and_remove_elements_dominated(waiting, arrival_criteria, pt);
                     trace!(
@@ -669,9 +669,9 @@ where
             if idx < self.results.len() {
                 let journey_to_fill = &mut self.results[idx];
                 self.journeys_tree
-                    .fill_journey(arrived, criteria, journey_to_fill);
+                    .fill_journey(*arrived, criteria, journey_to_fill);
             } else {
-                let new_journey = self.journeys_tree.create_journey(arrived, criteria);
+                let new_journey = self.journeys_tree.create_journey(*arrived, criteria);
                 self.results.push(new_journey);
             }
         }

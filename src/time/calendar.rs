@@ -98,46 +98,46 @@ impl Calendar {
         *datetime >= self.first_datetime() && *datetime <= self.last_datetime()
     }
 
-    pub fn first_date(&self) -> &NaiveDate {
-        &self.first_date
+    pub fn first_date(&self) -> NaiveDate {
+        self.first_date
     }
 
-    pub fn last_date(&self) -> &NaiveDate {
-        &self.last_date
+    pub fn last_date(&self) -> NaiveDate {
+        self.last_date
     }
 
-    pub fn contains_date(&self, date: &NaiveDate) -> bool {
-        self.first_date <= *date && *date <= self.last_date
+    pub fn contains_date(&self, date: NaiveDate) -> bool {
+        self.first_date <= date && date <= self.last_date
     }
 
-    pub fn to_naive_date(&self, day: &DaysSinceDatasetStart) -> NaiveDate {
-        *self.first_date() + chrono::Duration::days(day.days as i64)
+    pub fn to_naive_date(&self, day: DaysSinceDatasetStart) -> NaiveDate {
+        self.first_date() + chrono::Duration::days(day.days as i64)
     }
 
-    pub fn to_string(&self, seconds: &SecondsSinceDatasetUTCStart) -> String {
+    pub fn to_string(&self, seconds: SecondsSinceDatasetUTCStart) -> String {
         let datetime = self.to_naive_datetime(seconds);
         datetime.format("%Y%m%dT%H%M%S").to_string()
     }
 
-    pub fn to_pretty_string(&self, seconds: &SecondsSinceDatasetUTCStart) -> String {
+    pub fn to_pretty_string(&self, seconds: SecondsSinceDatasetUTCStart) -> String {
         let datetime = self.to_naive_datetime(seconds);
         datetime.format("%H:%M:%S %d-%b-%y").to_string()
     }
 
-    pub fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime {
+    pub fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> NaiveDateTime {
         self.first_datetime() + chrono::Duration::seconds(i64::from(seconds.seconds))
     }
 
-    pub fn date_to_days_since_start(&self, date: &NaiveDate) -> Option<DaysSinceDatasetStart> {
+    pub fn date_to_days_since_start(&self, date: NaiveDate) -> Option<DaysSinceDatasetStart> {
         self.date_to_offset(date)
             .map(|offset| DaysSinceDatasetStart { days: offset })
     }
 
-    pub(super) fn date_to_offset(&self, date: &NaiveDate) -> Option<u16> {
-        if *date < self.first_date || *date > self.last_date {
+    pub(super) fn date_to_offset(&self, date: NaiveDate) -> Option<u16> {
+        if date < self.first_date || date > self.last_date {
             None
         } else {
-            let offset_64: i64 = (*date - self.first_date).num_days();
+            let offset_64: i64 = (date - self.first_date).num_days();
             // should be safe because :
             //  - we check that offset_64 is positive above when testing if date < self.first_date
             //  - we check that offset_64 is smaller than u16::MAX because at construction of Calendars
@@ -157,7 +157,7 @@ impl Calendar {
         let seconds_i64 = (datetime_to_decompose - reference_datetime).num_seconds();
 
         let has_seconds = SecondsSinceTimezonedDayStart::from_seconds_i64(seconds_i64);
-        let has_reference_day = self.date_to_days_since_start(&reference_date.naive_local());
+        let has_reference_day = self.date_to_days_since_start(reference_date.naive_local());
         match (has_reference_day, has_seconds) {
             (Some(reference_day), Some(seconds)) => Some((reference_day, seconds)),
             _ => None,
@@ -170,8 +170,8 @@ impl Calendar {
     //  - `time_in_timezoned_day` belongs to the interval `[min_seconds_since_timezoned_day_start, max_seconds_since_timezoned_day_start]`
     pub fn decompositions<'a>(
         &'a self,
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
-        timezone: &Timezone,
+        seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
+        timezone: Timezone,
         max_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
         min_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> + 'a {
@@ -197,7 +197,7 @@ impl Calendar {
 
     pub fn decompositions_utc<'a>(
         &'a self,
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
     ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
         DecomposeUtc::new(seconds_since_dataset_start, self)
     }
@@ -230,15 +230,15 @@ impl Calendar {
 
     pub fn compose(
         &self,
-        day: &DaysSinceDatasetStart,
-        seconds_in_day: &SecondsSinceTimezonedDayStart,
-        timezone: &Timezone,
+        day: DaysSinceDatasetStart,
+        seconds_in_day: SecondsSinceTimezonedDayStart,
+        timezone: Timezone,
     ) -> SecondsSinceDatasetUTCStart {
         debug_assert!(day.days < self.nb_of_days());
-        let date = *self.first_date() + chrono::Duration::days(i64::from(day.days));
+        let date = self.first_date() + chrono::Duration::days(i64::from(day.days));
         // Since DaySinceDatasetStart can only be constructed from the calendar, the date should be allowed by the calendar
-        debug_assert!(self.contains_date(&date));
-        let datetime_utc = compose(&date, seconds_in_day, timezone);
+        debug_assert!(self.contains_date(date));
+        let datetime_utc = compose(date, seconds_in_day, timezone);
 
         debug_assert!(self.contains_datetime(&datetime_utc));
         let seconds_i64 = (datetime_utc - self.first_datetime()).num_seconds();
@@ -311,15 +311,15 @@ impl Calendar {
 }
 
 pub fn compose(
-    date: &NaiveDate,
-    time_in_day: &SecondsSinceTimezonedDayStart,
-    timezone: &chrono_tz::Tz,
+    date: NaiveDate,
+    time_in_day: SecondsSinceTimezonedDayStart,
+    timezone: chrono_tz::Tz,
 ) -> NaiveDateTime {
     use chrono::offset::TimeZone;
     // From : https://developers.google.com/transit/gtfs/reference#field_types
     // The local times of a vehicle journey are interpreted as a duration
     // since "noon minus 12h" on each day.
-    let datetime_timezoned = timezone.from_utc_date(date).and_hms(12, 0, 0)
+    let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
         - chrono::Duration::hours(12)
         + chrono::Duration::seconds(i64::from(time_in_day.seconds));
     use chrono_tz::UTC;
@@ -353,9 +353,9 @@ pub struct ForwardDecompose<'calendar> {
 
 impl<'calendar> ForwardDecompose<'calendar> {
     fn new(
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
         min_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
-        timezone: &Timezone,
+        timezone: Timezone,
         calendar: &'calendar Calendar,
     ) -> Self {
         let datetime_utc = calendar.first_datetime()
@@ -402,7 +402,7 @@ pub struct DecomposeUtc<'calendar> {
 
 impl<'calendar> DecomposeUtc<'calendar> {
     fn new(
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
         calendar: &'calendar Calendar,
     ) -> Self {
         // 0
@@ -541,9 +541,9 @@ pub struct BackwardDecompose<'calendar> {
 
 impl<'calendar> BackwardDecompose<'calendar> {
     fn new(
-        seconds_since_dataset_start: &SecondsSinceDatasetUTCStart,
+        seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
         max_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
-        timezone: &Timezone,
+        timezone: Timezone,
         calendar: &'calendar Calendar,
     ) -> Self {
         let datetime_utc = calendar.first_datetime()
@@ -600,7 +600,7 @@ mod tests {
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
-                .decompositions_utc(&seconds_since_dataset_start)
+                .decompositions_utc(seconds_since_dataset_start)
                 .collect();
 
             // Jan 1st + 12h
@@ -628,7 +628,7 @@ mod tests {
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
-                .decompositions_utc(&seconds_since_dataset_start)
+                .decompositions_utc(seconds_since_dataset_start)
                 .collect();
 
             // Jan 8 at +48h + 12h
@@ -664,7 +664,7 @@ mod tests {
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
-                .decompositions_utc(&seconds_since_dataset_start)
+                .decompositions_utc(seconds_since_dataset_start)
                 .collect();
 
             // Jan 28 at +48h + 12h
@@ -688,7 +688,7 @@ mod tests {
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
-                .decompositions_utc(&seconds_since_dataset_start)
+                .decompositions_utc(seconds_since_dataset_start)
                 .collect();
 
             // Jan 28 at +48h + 12h
@@ -708,7 +708,7 @@ mod tests {
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
-                .decompositions_utc(&seconds_since_dataset_start)
+                .decompositions_utc(seconds_since_dataset_start)
                 .collect();
 
             // Jan 1st - 12h

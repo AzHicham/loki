@@ -635,13 +635,13 @@ impl<'a> VehicleJourneyBuilder<'a> {
         self
     }
 
-    pub fn timezone(mut self, timezone: &chrono_tz::Tz) -> Self {
+    pub fn timezone(mut self, timezone: chrono_tz::Tz) -> Self {
         {
             assert!(
                 self.info == VehicleJourneyInfo::None,
                 "You cannot specify two different info for a vehicle journey"
             );
-            self.info = VehicleJourneyInfo::Timezone(*timezone);
+            self.info = VehicleJourneyInfo::Timezone(timezone);
         }
 
         self

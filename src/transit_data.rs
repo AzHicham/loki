@@ -217,10 +217,10 @@ impl data_interface::Data for TransitData {
 
     fn earliest_trip_to_board_at(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables.earliest_trip_to_board_at(
             waiting_time,
@@ -234,10 +234,10 @@ impl data_interface::Data for TransitData {
 
     fn earliest_filtered_trip_to_board_at<Filter>(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -256,10 +256,10 @@ impl data_interface::Data for TransitData {
 
     fn latest_trip_that_debark_at(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         self.timetables.latest_trip_that_debark_at(
             waiting_time,
@@ -273,10 +273,10 @@ impl data_interface::Data for TransitData {
 
     fn latest_filtered_trip_that_debark_at<Filter>(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -293,10 +293,7 @@ impl data_interface::Data for TransitData {
         )
     }
 
-    fn to_naive_datetime(
-        &self,
-        seconds: &crate::time::SecondsSinceDatasetUTCStart,
-    ) -> chrono::NaiveDateTime {
+    fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {
         self.calendar.to_naive_datetime(seconds)
     }
 
@@ -315,7 +312,7 @@ impl data_interface::Data for TransitData {
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {
         let day = self.timetables.day_of(trip);
-        self.calendar.to_naive_date(&day)
+        self.calendar.to_naive_date(day)
     }
 
     fn is_same_stop(&self, stop_a: &Self::Stop, stop_b: &Self::Stop) -> bool {
@@ -378,7 +375,7 @@ impl<'a> data_interface::DataIters<'a> for TransitData {
     fn trips_of(
         &'a self,
         mission: &Self::Mission,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Self::TripsOfMission {
         self.timetables
             .trips_of(mission, real_time_level, &self.days_patterns)
@@ -389,8 +386,8 @@ impl data_interface::DataWithIters for TransitData {}
 
 pub fn handle_insertion_error(
     model: &ModelRefs,
-    start_date: &NaiveDate,
-    end_date: &NaiveDate,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
     insertion_error: &InsertionError,
 ) {
     use crate::timetables::InsertionError::*;
@@ -401,7 +398,7 @@ pub fn handle_insertion_error(
                 dates,
                 model,
                 error,
-                real_time_level,
+                *real_time_level,
             );
         }
         NoValidDates(vehicle_journey_idx) => {
@@ -442,7 +439,7 @@ fn handle_vehicletimes_error(
     dates: &[NaiveDate],
     model: &ModelRefs<'_>,
     error: &VehicleTimesError,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
 ) -> Result<(), ()> {
     if dates.is_empty() {
         error!("Received a vehicle times error with no date. {:?}", error);
@@ -474,7 +471,7 @@ fn handle_vehicletimes_error(
             let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
-                date,
+                *date,
                 position_pair,
                 real_time_level,
             )?;
@@ -495,7 +492,7 @@ fn handle_vehicletimes_error(
             let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
-                date,
+                *date,
                 position_pair,
                 real_time_level,
             )?;
@@ -516,7 +513,7 @@ fn handle_vehicletimes_error(
             let (upstream_stop_name, downstream_stop_name) = upstream_downstream_stop_uris(
                 model,
                 vehicle_journey_idx,
-                date,
+                *date,
                 position_pair,
                 real_time_level,
             )?;
@@ -541,9 +538,9 @@ fn handle_vehicletimes_error(
 fn upstream_downstream_stop_uris<'model>(
     model: &'model ModelRefs<'model>,
     vehicle_journey_idx: &VehicleJourneyIdx,
-    date: &NaiveDate,
+    date: NaiveDate,
     position_pair: &PositionPair,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
 ) -> Result<(String, String), ()> {
     let upstream_stop = model
         .stop_point_at(
@@ -587,8 +584,8 @@ fn upstream_downstream_stop_uris<'model>(
 
 pub fn handle_removal_error(
     model: &ModelRefs,
-    start_date: &NaiveDate,
-    end_date: &NaiveDate,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
     error: &RemovalError,
 ) {
     match error {
@@ -622,8 +619,8 @@ pub fn handle_removal_error(
 
 pub fn handle_modify_error(
     model: &ModelRefs,
-    start_date: &NaiveDate,
-    end_date: &NaiveDate,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
     modify_error: &ModifyError,
 ) {
     match modify_error {
@@ -658,7 +655,7 @@ pub fn handle_modify_error(
                 dates,
                 model,
                 times_err,
-                &RealTimeLevel::RealTime,
+                RealTimeLevel::RealTime,
             );
         }
     }

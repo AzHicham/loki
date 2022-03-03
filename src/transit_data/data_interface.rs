@@ -105,18 +105,18 @@ pub trait Data: TransitTypes {
 
     fn earliest_trip_to_board_at(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn earliest_filtered_trip_to_board_at<Filter>(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -124,24 +124,24 @@ pub trait Data: TransitTypes {
 
     fn latest_trip_that_debark_at(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
 
     fn latest_filtered_trip_that_debark_at<Filter>(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn to_naive_datetime(&self, seconds: &SecondsSinceDatasetUTCStart) -> NaiveDateTime;
+    fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;
     fn stop_point_idx(&self, stop: &Self::Stop) -> StopPointIdx;
@@ -172,7 +172,7 @@ pub trait Data: TransitTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RealTimeLevel {
     Base,
     RealTime,
@@ -182,7 +182,7 @@ pub trait DataUpdate {
     fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Result<(), RemovalError>;
 
     fn insert_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
@@ -193,7 +193,7 @@ pub trait DataUpdate {
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
     ) -> Result<(), InsertionError>
     where
@@ -211,7 +211,7 @@ pub trait DataUpdate {
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), ModifyError>
     where
@@ -263,7 +263,7 @@ where
     fn trips_of(
         &'a self,
         mission: &Self::Mission,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Self::TripsOfMission;
 }
 
