@@ -67,12 +67,16 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
     fn is_lower(&self, lower: &Self::Criteria, upper: &Self::Criteria) -> bool {
         let arrival_penalty = self.generic.leg_arrival_penalty();
         let walking_penalty = self.generic.leg_walking_penalty();
-        lower.time + arrival_penalty * (lower.nb_of_legs as u32)
-            <= upper.time + arrival_penalty * (upper.nb_of_legs as u32)
+
+        let lower_nb_of_legs = u32::from(lower.nb_of_legs);
+        let upper_nb_of_legs = u32::from(upper.nb_of_legs);
+
+        lower.time + arrival_penalty * lower_nb_of_legs
+            <= upper.time + arrival_penalty * upper_nb_of_legs
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
-        lower.fallback_duration + lower.transfers_duration  + walking_penalty * (lower.nb_of_legs as u32)
-            <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * (upper.nb_of_legs as u32)
+        lower.fallback_duration + lower.transfers_duration  + walking_penalty * lower_nb_of_legs
+            <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * upper_nb_of_legs
     }
 
     fn can_be_discarded(

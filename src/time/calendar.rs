@@ -50,7 +50,7 @@ impl Calendar {
         assert!(first_date <= last_date);
         let last_day_offset_i64: i64 = (last_date - first_date).num_days();
         assert!(
-            last_day_offset_i64 < MAX_DAYS_IN_CALENDAR as i64,
+            last_day_offset_i64 < i64::from(MAX_DAYS_IN_CALENDAR),
             "Trying to construct a calendar with {:#} days \
             which is more than the maximum allowed of {:#} days",
             last_day_offset_i64,
@@ -111,7 +111,7 @@ impl Calendar {
     }
 
     pub fn to_naive_date(&self, day: DaysSinceDatasetStart) -> NaiveDate {
-        self.first_date() + chrono::Duration::days(day.days as i64)
+        self.first_date() + chrono::Duration::days(i64::from(day.days))
     }
 
     pub fn to_string(&self, seconds: SecondsSinceDatasetUTCStart) -> String {
@@ -263,7 +263,7 @@ impl Calendar {
                 + (MAX_TIMEZONE_OFFSET as i64)
                 <= u32::MAX as i64
         );
-        debug_assert!(seconds_i64 <= u32::MAX as i64);
+        debug_assert!(seconds_i64 <= i64::from(u32::MAX));
         let seconds_u32 = seconds_i64 as u32;
         SecondsSinceDatasetUTCStart {
             seconds: seconds_u32,
@@ -295,7 +295,7 @@ impl Calendar {
                 + (MAX_TIMEZONE_OFFSET as i64)
                 <= u32::MAX as i64
         );
-        debug_assert!(seconds_i64 <= u32::MAX as i64);
+        debug_assert!(seconds_i64 <= i64::from(u32::MAX));
 
         let seconds_u32 = seconds_i64 as u32;
         let result = SecondsSinceDatasetUTCStart {
