@@ -289,7 +289,7 @@ where
     pub fn nb_of_trips(&self) -> usize {
         self.timetable_datas
             .iter()
-            .map(|timetable| timetable.nb_of_vehicle())
+            .map(TimetableData::nb_of_vehicle)
             .sum()
     }
 

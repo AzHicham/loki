@@ -39,7 +39,7 @@ use std::fmt::Debug;
 use crate::engine::{
     engine_interface::{Journey, RequestDebug, RequestTypes, RequestWithIters},
     journeys_tree::JourneysTree,
-    pareto_front::{ArriveFront, BoardFront, DebarkFront, WaitFront},
+    pareto_front::{ArriveFront, BoardFront, DebarkFront, ParetoFront, WaitFront},
 };
 use tracing::trace;
 
@@ -139,7 +139,7 @@ where
         debug_assert!(!self.missions_with_new_wait.is_empty());
 
         while !self.missions_with_new_wait.is_empty() {
-            let nb_new_wait: usize = self.new_wait_fronts.iter().map(|front| front.len()).sum();
+            let nb_new_wait: usize = self.new_wait_fronts.iter().map(ParetoFront::len).sum();
             trace!(
                 "Round {}, nb of missions {}, new_wait {}",
                 self.nb_of_rounds,
@@ -521,7 +521,7 @@ where
         >,
         R: RequestDebug,
     {
-        debug_assert!(self.new_wait_fronts.iter().all(|front| front.is_empty()));
+        debug_assert!(self.new_wait_fronts.iter().all(ParetoFront::is_empty));
         debug_assert!(self.stops_with_new_wait.is_empty());
 
         for arrival in pt.arrivals() {

@@ -391,7 +391,7 @@ impl BaseModel {
     pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.vehicle_journey_line(idx)
             .and_then(|line| line.code.as_ref())
-            .map(|s| s.as_str())
+            .map(String::as_str)
     }
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -429,7 +429,7 @@ impl BaseModel {
         vj.short_name
             .as_ref()
             .or(vj.headsign.as_ref())
-            .map(|s| s.as_str())
+            .map(String::as_str)
     }
 
     pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
@@ -687,7 +687,7 @@ impl BaseModel {
         self.collections
             .feed_infos
             .get("feed_publisher_name")
-            .map(|pubisher_name| pubisher_name.as_str())
+            .map(String::as_str)
     }
 
     pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {

@@ -316,7 +316,7 @@ fn solve(
             let stop_point_uri = location_context
                 .place
                 .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(|uri| uri.to_string())
+                .map(ToString::to_string)
                 .or_else(|| {
                     warn!(
                         "The {}th arrival stop point has an uri {} \
@@ -351,7 +351,7 @@ fn solve(
             let stop_point_uri = location_context
                 .place
                 .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(|uri| uri.to_string())
+                .map(ToString::to_string)
                 .or_else(|| {
                     warn!(
                         "The {}th arrival stop point has an uri {} \

@@ -74,7 +74,9 @@ use launch::loki::{
         PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
-    transit_model::objects::{Availability, Line, Network, Route, StopArea},
+    transit_model::objects::{
+        Availability, Line, Network, Route, StopArea, Time as TransitModelTime,
+    },
 };
 use std::{collections::HashSet, convert::TryFrom};
 
@@ -534,7 +536,7 @@ pub fn make_stop_point(
             })
             .collect()
         }),
-        platform_code: model.platform_code(stop_point_idx).map(|s| s.to_string()),
+        platform_code: model.platform_code(stop_point_idx).map(ToString::to_string),
         has_equipments: make_equipments(stop_point_idx, model),
         fare_zone: model
             .fare_zone_id(stop_point_idx)
@@ -591,13 +593,15 @@ fn make_pt_display_info(
 ) -> navitia_proto::PtDisplayInfo {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
-        code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
+        code: model
+            .line_code(vehicle_journey_idx)
+            .map(ToString::to_string),
         headsign: model
             .headsign(vehicle_journey_idx, date, real_time_level)
-            .map(|s| s.to_string()),
+            .map(ToString::to_string),
         direction: model
             .direction(vehicle_journey_idx, date)
-            .map(|s| s.to_string()),
+            .map(ToString::to_string),
         color: model
             .line_color(vehicle_journey_idx, date)
             .map(|color| format!("{}", color)),
@@ -642,7 +646,7 @@ fn make_pt_display_info(
             .map(|text_color| format!("{}", text_color)),
         trip_short_name: model
             .trip_short_name(vehicle_journey_idx, date)
-            .map(|s| s.to_string()),
+            .map(ToString::to_string),
         ..Default::default()
     };
 
@@ -778,7 +782,7 @@ fn compute_journey_co2_emission(
     let total_co2 = sections
         .iter()
         .map(|section| &section.co2_emission)
-        .filter_map(|co2_emission| co2_emission.as_ref())
+        .filter_map(Option::as_ref)
         .filter_map(|co2| co2.value)
         .fold(0_f64, |acc, value| acc + value);
 
@@ -1236,8 +1240,8 @@ pub fn make_line(line: &Line, model: &ModelRefs) -> navitia_proto::Line {
             .as_ref()
             .map(|text_color| format!("{}", text_color)),
         commercial_mode: make_commercial_mode(&line.commercial_mode_id, model),
-        opening_time: line.opening_time.map(|t| t.total_seconds()),
-        closing_time: line.closing_time.map(|t| t.total_seconds()),
+        opening_time: line.opening_time.map(TransitModelTime::total_seconds),
+        closing_time: line.closing_time.map(TransitModelTime::total_seconds),
         // todo add physical_mode of this line
         properties: line
             .object_properties
