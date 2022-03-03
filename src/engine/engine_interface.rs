@@ -231,11 +231,7 @@ pub trait RequestIters<'a>: RequestTypes {
     /// Iterator for all `Trip`s belonging to a `Mission`.
     type TripsOfMission: Iterator<Item = Self::Trip>;
     /// Returns all `Trip`s belonging to `mission`
-    fn trips_of(
-        &'a self,
-        mission: &Self::Mission,
-        real_time_level: &RealTimeLevel,
-    ) -> Self::TripsOfMission;
+    fn trips_of(&'a self, mission: &Self::Mission) -> Self::TripsOfMission;
 }
 
 #[derive(Debug, Clone)]

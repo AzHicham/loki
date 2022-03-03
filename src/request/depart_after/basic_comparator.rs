@@ -40,9 +40,7 @@ use crate::{
         RequestTypes, RequestWithIters,
     },
     models::ModelRefs,
-    transit_data::data_interface::{
-        Data as DataTrait, DataIters, DataWithIters, RealTimeLevel, TransitTypes,
-    },
+    transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 
 use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericDepartAfterRequest};
@@ -213,12 +211,8 @@ where
     }
 
     type TripsOfMission = Data::TripsOfMission;
-    fn trips_of(
-        &'outer self,
-        mission: &Self::Mission,
-        real_time_level: &RealTimeLevel,
-    ) -> Self::TripsOfMission {
-        self.generic.trips_of(mission, real_time_level)
+    fn trips_of(&'outer self, mission: &Self::Mission) -> Self::TripsOfMission {
+        self.generic.trips_of(mission)
     }
 }
 
