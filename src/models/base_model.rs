@@ -89,12 +89,13 @@ pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum BadModel {
     NoDataset,
     StartDateAfterEndDate,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum VehicleJourneyPropertyKey {
     WheelChairAccessible,
     BikeAccepted,
@@ -106,6 +107,7 @@ pub enum VehicleJourneyPropertyKey {
     SchoolVehicle,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum EquipmentPropertyKey {
     WheelChairBoarding,
     Sheltered,
