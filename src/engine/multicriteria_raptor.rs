@@ -279,7 +279,7 @@ where
                     }
                     None => {
                         *current_mission_has_new_wait = Some(position);
-                        self.missions_with_new_wait.push(mission)
+                        self.missions_with_new_wait.push(mission);
                     }
                 }
 

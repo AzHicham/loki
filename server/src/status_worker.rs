@@ -234,7 +234,7 @@ impl StatusWorker {
         status.navitia_version = Some(self.config_info.pkg_version.clone());
         status.nb_threads = Some(i32::from(self.config_info.nb_workers));
         for rt_contributors in &self.config_info.real_time_contributors {
-            status.rt_contributors.push(rt_contributors.clone())
+            status.rt_contributors.push(rt_contributors.clone());
         }
 
         if let Some(date) = &self.last_real_time_update {

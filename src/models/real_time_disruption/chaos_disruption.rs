@@ -1144,7 +1144,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             vehicle_journey_idx.clone(),
             date,
             base_stop_times.clone(),
-        )
+        );
     }
 
     real_time_model.set_base_trip_version(

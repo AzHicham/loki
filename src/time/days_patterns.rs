@@ -148,7 +148,7 @@ impl DaysPatterns {
         for day in calendar.days() {
             if self.is_allowed(days_pattern, day) {
                 let date = calendar.to_naive_date(day);
-                result.push(date)
+                result.push(date);
             }
         }
         result

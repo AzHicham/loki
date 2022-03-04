@@ -321,7 +321,7 @@ impl TransitData {
                 .get(&stop_point_idx)
                 .cloned()
                 .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
-            result.push(stop)
+            result.push(stop);
         }
         result
     }

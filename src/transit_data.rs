@@ -556,7 +556,7 @@ fn upstream_downstream_stop_uris<'model>(
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
                 position_pair.upstream
-            )
+            );
         })?;
     let upstream_stop_name = model.stop_point_uri(&upstream_stop);
 
@@ -574,7 +574,7 @@ fn upstream_downstream_stop_uris<'model>(
                 model.vehicle_journey_name(vehicle_journey_idx),
                 date,
                 position_pair.downstream
-            )
+            );
         })?;
 
     let downstream_stop_name = model.stop_point_uri(&dowstream_stop);

@@ -869,12 +869,12 @@ fn make_chaos_impact(
         Vec::with_capacity(impact.impacted_pt_objects.len() + impact.informed_pt_objects.len());
     for impacted in &impact.impacted_pt_objects {
         if let Ok(object) = make_impacted_object_from_impacted(impacted, model) {
-            impacted_objects.push(object)
+            impacted_objects.push(object);
         }
     }
     for informed in &impact.informed_pt_objects {
         if let Ok(object) = make_impacted_object_from_informed(informed, model) {
-            impacted_objects.push(object)
+            impacted_objects.push(object);
         }
     }
 
@@ -1091,7 +1091,7 @@ fn make_message(message: &Message) -> navitia_proto::MessageContent {
         channel_types: vec![],
     };
     for channel_type in &message.channel_types {
-        channel.push_channel_types(make_channel_type(channel_type))
+        channel.push_channel_types(make_channel_type(channel_type));
     }
 
     navitia_proto::MessageContent {

@@ -202,9 +202,11 @@ impl<'a> Filters<'a> {
                 let filter_result = parse_filter(model, filter_str.as_ref(), "allowed_id[]");
                 if let Ok(filter) = filter_result {
                     match filter {
-                        Filter::Stop(stop_filter) => allowed_stop_filters.push(stop_filter),
+                        Filter::Stop(stop_filter) => {
+                            allowed_stop_filters.push(stop_filter);
+                        }
                         Filter::Vehicle(vehicle_filter) => {
-                            allowed_vehicle_filters.push(vehicle_filter)
+                            allowed_vehicle_filters.push(vehicle_filter);
                         }
                     }
                 }
@@ -219,9 +221,11 @@ impl<'a> Filters<'a> {
                 let filter_result = parse_filter(model, filter_str.as_ref(), "forbidden_id[]");
                 if let Ok(filter) = filter_result {
                     match filter {
-                        Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
+                        Filter::Stop(stop_filter) => {
+                            forbidden_stop_filters.push(stop_filter);
+                        }
                         Filter::Vehicle(vehicle_filter) => {
-                            forbiddden_vehicle_filters.push(vehicle_filter)
+                            forbiddden_vehicle_filters.push(vehicle_filter);
                         }
                     }
                 }

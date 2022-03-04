@@ -98,7 +98,7 @@ impl FilterMemory {
         for idx in model.new_vehicle_journeys() {
             let vj_idx = VehicleJourneyIdx::New(idx);
             self.allowed_new_vehicle_journeys[idx.idx] =
-                filters.is_vehicle_journey_valid(&vj_idx, model)
+                filters.is_vehicle_journey_valid(&vj_idx, model);
         }
 
         self.allowed_new_stop_points

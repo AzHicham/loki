@@ -23,7 +23,7 @@ pub fn init_logger() {
         .with(tracing_subscriber::fmt::layer())
         .with(env_filter_subscriber);
     loki::tracing::subscriber::set_global_default(suscriber)
-        .expect("Failed to set global tracing subscriber.")
+        .expect("Failed to set global tracing subscriber.");
 }
 
 #[must_use]

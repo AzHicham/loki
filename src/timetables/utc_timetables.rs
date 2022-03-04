@@ -476,7 +476,7 @@ impl UTCTimetables {
                         error!(
                             "An error occured while inserting a vehicle. {:?}",
                             times_error
-                        )
+                        );
                     }
                 }
             }
