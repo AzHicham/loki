@@ -159,9 +159,10 @@ pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
 }
 
 pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error> {
+    use loki::DataTrait;
+
     let (data, base_model) = launch::read(&config.launch_params)?;
 
-    use loki::DataTrait;
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let real_time_model = RealTimeModel::new();

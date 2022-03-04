@@ -43,7 +43,7 @@ use crate::{
     },
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
-    transit_data::{Stop, TransitData},
+    transit_data::{data_interface::Data as DataInterface, Stop, TransitData},
     RealTimeLevel,
 };
 
@@ -232,7 +232,7 @@ impl TransitData {
                 base: base_model,
                 real_time: &real_time_model,
             };
-            use crate::transit_data::data_interface::Data;
+
             if let Err(err) = insert_result {
                 handle_insertion_error(
                     &model,
@@ -277,7 +277,7 @@ impl TransitData {
                     base: base_model,
                     real_time: &real_time_model,
                 };
-                use crate::transit_data::data_interface::Data;
+
                 if let Err(err) = insert_result {
                     handle_insertion_error(
                         &model,
@@ -293,9 +293,10 @@ impl TransitData {
     }
 
     fn add_new_stop_point(&mut self, stop_point_idx: StopPointIdx) -> Stop {
+        use super::StopData;
+
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
 
-        use super::StopData;
         let stop_data = StopData {
             stop_point_idx: stop_point_idx.clone(),
             position_in_timetables: Vec::new(),

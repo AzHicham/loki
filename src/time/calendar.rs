@@ -322,8 +322,10 @@ pub fn compose(
     let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
         - chrono::Duration::hours(12)
         + chrono::Duration::seconds(i64::from(time_in_day.seconds));
-    use chrono_tz::UTC;
-    datetime_timezoned.with_timezone(&UTC).naive_utc()
+
+    datetime_timezoned
+        .with_timezone(&chrono_tz::UTC)
+        .naive_utc()
 }
 
 pub struct DaysIter {
@@ -358,10 +360,11 @@ impl<'calendar> ForwardDecompose<'calendar> {
         timezone: Timezone,
         calendar: &'calendar Calendar,
     ) -> Self {
+        use chrono::TimeZone;
         let datetime_utc = calendar.first_datetime()
             + chrono::Duration::seconds(i64::from(seconds_since_dataset_start.seconds));
         debug_assert!(calendar.contains_datetime(&datetime_utc));
-        use chrono::TimeZone;
+
         let datetime_timezoned = timezone.from_utc_datetime(&datetime_utc);
         let date_timezoned = datetime_timezoned.date();
         Self {
@@ -546,10 +549,11 @@ impl<'calendar> BackwardDecompose<'calendar> {
         timezone: Timezone,
         calendar: &'calendar Calendar,
     ) -> Self {
+        use chrono::TimeZone;
         let datetime_utc = calendar.first_datetime()
             + chrono::Duration::seconds(i64::from(seconds_since_dataset_start.seconds));
         debug_assert!(calendar.contains_datetime(&datetime_utc));
-        use chrono::TimeZone;
+
         let datetime_timezoned = timezone.from_utc_datetime(&datetime_utc);
         let date_timezoned = datetime_timezoned.date();
         Self {

@@ -42,7 +42,7 @@ use loki::{
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData,
 };
-use std::{collections::BTreeMap, time::SystemTime};
+use std::{collections::BTreeMap, str::FromStr, time::SystemTime};
 
 pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseModel), Error> {
     let base_model = read_model(launch_params)?;
@@ -68,7 +68,7 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
                 read_as_line: false,
             };
             info!("Reading gtfs from {:?}", &launch_params.input_data_path);
-            use std::str::FromStr;
+
             let max_distance = f64::from_str(transit_model::TRANSFER_MAX_DISTANCE)?;
             let walking_speed = f64::from_str(transit_model::TRANSFER_WALKING_SPEED)?;
             let waiting_time = u32::from_str(transit_model::TRANSFER_WAITING_TIME)?;

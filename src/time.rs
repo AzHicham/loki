@@ -145,9 +145,9 @@ impl<'de> serde::Deserialize<'de> for PositiveDuration {
     where
         D: serde::Deserializer<'de>,
     {
+        use std::str::FromStr;
         let s = String::deserialize(deserializer)?;
 
-        use std::str::FromStr;
         Self::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
