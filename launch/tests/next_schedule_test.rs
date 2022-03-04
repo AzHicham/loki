@@ -114,7 +114,7 @@ pub fn fixture_model() -> BaseModel {
 fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
-    // This part test pickup / drop_off of a StopTime is taken into account by
+    // This part checks that the pickup / drop_off fields of a StopTime are taken into account by
     // next_schedule functions
 
     // Departure Test
@@ -126,6 +126,8 @@ fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
         );
 
         let result = build_and_solve_schedule(&config, &fixture_model)?;
+        // "tyty" is the only vehicle that goes throught the "stop_area:sa:X"
+        // but is cannot be boarded at this stop_point. So we should get no results
         assert_eq!(result.len(), 0);
     }
 
@@ -138,6 +140,8 @@ fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
         );
 
         let result = build_and_solve_schedule(&config, &fixture_model)?;
+        // "tyty" is the only vehicle that goes throught the "stop_area:sa:X"
+        // but is cannot be debarked at this stop_point. So we should get no results
         assert_eq!(result.len(), 0);
     }
 
@@ -233,7 +237,7 @@ fn test_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
 }
 
 #[rstest]
-fn test_invalid_range_datetime_departure(fixture_model: BaseModel) -> Result<(), Error> {
+fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     // This code test multiple from/until_datetime combination
@@ -274,17 +278,6 @@ fn test_invalid_range_datetime_departure(fixture_model: BaseModel) -> Result<(),
         let error = format!("{:?}", result.as_ref().err().unwrap());
         assert_eq!(error, "BadFromDatetime");
     }
-
-    Ok(())
-}
-
-#[rstest]
-fn test_invalid_range_datetime_arrival(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
-
-    // This code test multiple from/until_datetime combination
-    // some datetime could be outside calendar range
-    // We should handle all cases correctly
 
     // Arrival tests
     {
@@ -328,7 +321,7 @@ fn test_invalid_range_datetime_arrival(fixture_model: BaseModel) -> Result<(), E
 fn test_past_midnight_vehicle(fixture_model: BaseModel) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
-    // This code test that vehicle valid on day : from_date - 2 & from_date -1
+    // This code checks that vehicle valid on day : from_date - 2 & from_date -1
     // and with a next_schedule (departure/arrival) after from_datetime are returned as expected
 
     // Departure Tests
