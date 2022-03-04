@@ -149,7 +149,7 @@ impl TransitData {
         let from_stop_data = &mut self.stops_data[from_stop.idx];
         from_stop_data
             .outgoing_transfers
-            .push((to_stop, durations.clone(), transfer.clone()));
+            .push((to_stop, durations.clone(), transfer));
         let to_stop_data = &mut self.stops_data[to_stop.idx];
         to_stop_data
             .incoming_transfers

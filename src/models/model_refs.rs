@@ -74,7 +74,7 @@ impl<'model> ModelRefs<'model> {
             self.real_time
                 .new_stop_id_to_idx
                 .get(stop_id)
-                .map(|idx| StopPointIdx::New(idx.clone()))
+                .map(|idx| StopPointIdx::New(*idx))
         }
     }
 

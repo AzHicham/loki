@@ -115,7 +115,7 @@ where
             max_arrival_time: departure_datetime + request_input.max_journey_duration,
             max_nb_legs: request_input.max_nb_of_legs,
             too_late_threshold: request_input.too_late_threshold,
-            real_time_level: request_input.real_time_level.clone(),
+            real_time_level: request_input.real_time_level,
         };
 
         Ok(result)
@@ -167,7 +167,7 @@ where
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
             self.transit_data,
-            self.real_time_level.clone(),
+            self.real_time_level,
         )
         .map_err(response::JourneyError::BadJourney)?;
         let new_journey = self

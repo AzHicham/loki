@@ -104,7 +104,7 @@ impl FilterMemory {
         self.allowed_new_stop_points
             .resize(model.nb_of_new_stops(), true);
         for idx in model.new_stops() {
-            let stop_idx = StopPointIdx::New(idx.clone());
+            let stop_idx = StopPointIdx::New(idx);
             self.allowed_new_stop_points[idx.idx] = filters.is_stop_point_valid(&stop_idx, model);
         }
     }

@@ -344,8 +344,7 @@ impl RealTimeModel {
             let idx = NewStopPointIdx {
                 idx: self.new_stops.len(),
             };
-            self.new_stop_id_to_idx
-                .insert(stop_id.to_string(), idx.clone());
+            self.new_stop_id_to_idx.insert(stop_id.to_string(), idx);
             StopPointIdx::New(idx)
         })
     }
@@ -356,7 +355,7 @@ impl RealTimeModel {
         } else {
             self.new_stop_id_to_idx
                 .get(stop_id)
-                .map(|idx| StopPointIdx::New(idx.clone()))
+                .map(|idx| StopPointIdx::New(*idx))
         }
     }
 

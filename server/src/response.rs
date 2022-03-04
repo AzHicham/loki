@@ -177,7 +177,7 @@ fn fill_linked_chaos_impacts_and_kirin_disruptions(
         .real_time
         .get_linked_kirin_disruption(&vehicle.vehicle_journey, vehicle.day_for_vehicle_journey)
     {
-        kirin_disruptions.insert(kirin_disruption_idx.clone());
+        kirin_disruptions.insert(*kirin_disruption_idx);
     }
 }
 
@@ -281,7 +281,7 @@ fn make_journey(
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
         most_serious_disruption_effect: worst_effect_on_journey(journey, model)
-            .map(|effect| effect_to_string(effect)),
+            .map(effect_to_string),
         ..Default::default()
     };
 
