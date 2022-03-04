@@ -40,7 +40,6 @@ use crate::{
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::DataTrait;
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -55,7 +54,7 @@ use launch::{
         },
         schedule::{self, ScheduleOn, ScheduleRequestInput},
         tracing::{debug, error, info, trace, warn},
-        NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
+        DataTrait, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
 };

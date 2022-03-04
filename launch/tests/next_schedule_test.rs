@@ -39,12 +39,12 @@ use anyhow::{format_err, Error};
 
 use crate::utils::model_builder::AsDateTime;
 use launch::solver::Solver;
-use loki::chrono::Duration;
-use loki::schedule::{ScheduleOn, ScheduleRequestInput, ScheduleResponse};
-use loki::tracing::info;
 use loki::{
+    chrono::Duration,
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-    schedule, NaiveDateTime, PositiveDuration, RealTimeLevel, TransitData,
+    schedule,
+    schedule::{ScheduleOn, ScheduleRequestInput, ScheduleResponse},
+    NaiveDateTime, PositiveDuration, RealTimeLevel, TransitData,
 };
 use rstest::{fixture, rstest};
 use utils::model_builder::ModelBuilder;
@@ -52,10 +52,10 @@ use utils::model_builder::ModelBuilder;
 #[fixture]
 pub fn fixture_model() -> BaseModel {
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
-        .network("N1", |n| n.name = "N1".into())
         .route("R1", |r| r.name = "R1".into())
         .route("R2", |r| r.name = "R2".into())
         .route("R3", |r| r.name = "R3".into())
+        .route("R4", |r| r.name = "R4".into())
         .vj("toto_1", |vj_builder| {
             vj_builder
                 .route("R1")
@@ -80,15 +80,29 @@ pub fn fixture_model() -> BaseModel {
         .vj("tata_2", |vj_builder| {
             vj_builder
                 .route("R2")
-                .st("E", "10:05:00")
-                .st("F", "10:20:00")
-                .st("G", "10:30:00");
+                .st("E", "10:15:00")
+                .st("F", "10:30:00")
+                .st("G", "10:40:00");
         })
         .vj("tyty", |vj_builder| {
             vj_builder
                 .route("R3")
                 .st_detailed("X", "10:00:00", "10:00:00", 1, 1, None) // no_pickup & no drop_off
                 .st_detailed("Y", "10:10:00", "10:10:00", 0, 0, None);
+        })
+        .vj("past_midnight_1", |vj_builder| {
+            vj_builder
+                .route("R4")
+                .st("I", "23:50:00")
+                .st("J", "24:10:00")
+                .st("K", "24:20:00");
+        })
+        .vj("past_midnight_2", |vj_builder| {
+            vj_builder
+                .route("R4")
+                .st("I", "00:10:00")
+                .st("J", "00:30:00")
+                .st("K", "00:40:00");
         })
         .build();
 
@@ -139,7 +153,7 @@ fn test_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
 }
 
 #[rstest]
-fn test_range_datetime_calendar(fixture_model: BaseModel) -> Result<(), Error> {
+fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     let mut config = ScheduleConfig::new(
@@ -150,7 +164,13 @@ fn test_range_datetime_calendar(fixture_model: BaseModel) -> Result<(), Error> {
     config.duration = 60 * 60; // 1h
 
     // from_datetime < calendar.start
-    // until_datetime < calendar.end
+    // until_datetime < calendar.start
+    let result = build_and_solve_schedule(&config, &fixture_model);
+    let error = format!("{:?}", result.as_ref().err().unwrap());
+    assert_eq!(error, "BadFromDatetime");
+
+    // from_datetime < calendar.start
+    // until_datetime > calendar.end
     let result = build_and_solve_schedule(&config, &fixture_model);
     let error = format!("{:?}", result.as_ref().err().unwrap());
     assert_eq!(error, "BadFromDatetime");
@@ -163,6 +183,78 @@ fn test_range_datetime_calendar(fixture_model: BaseModel) -> Result<(), Error> {
     let result = build_and_solve_schedule(&config, &fixture_model)?;
     // 2 vj per day and calendar is composed of 2 days 2020-01-01 & 2020-01-02
     assert_eq!(result.len(), 4);
+
+    Ok(())
+}
+
+#[rstest]
+fn test_past_midnight_vehicle(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    let mut config = ScheduleConfig::new(
+        ScheduleOn::BoardTimes,
+        "stop_area:sa:J",
+        "2020-01-02T00:00:00",
+    );
+    config.duration = 10 * 60; // 10m
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 1);
+    let stop_time = &result[0];
+    assert_eq!(stop_time.time, "2020-01-02T00:10:00".as_datetime());
+
+    config.duration = 30 * 60; // 30m
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 2);
+    let stop_time = &result[1];
+    assert_eq!(stop_time.time, "2020-01-02T00:30:00".as_datetime());
+
+    Ok(())
+}
+
+#[rstest]
+fn test_on_route(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // In this test we expect to receive all departure of all stop_points of route R1
+    // after a certain datetime (we test multiple datetime)
+    let mut config = ScheduleConfig::new(ScheduleOn::BoardTimes, "route:R1", "2020-01-01T10:00:00");
+    config.duration = 10 * 60 * 60; // 10h
+
+    // on route R1 we have 9 stop_points and 6 valid vj per day
+    // we expect 6 Next Departure per day with from_datetime = 2020-01-02T10:00:00
+    // At stop_point A & B
+    // Note: Last stop_point of a VJ is a terminus and considered as not bordable
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 4);
+
+    // We update from_datetime to retrieve departures after 2020-01-01T11:00:00
+    config.from_datetime = "2020-01-01T11:00:00".as_datetime();
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 2);
+
+    Ok(())
+}
+
+#[rstest]
+fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // In this test we expect to receive all departure of all stop_points of network N1
+    // after a certain datetime
+    let mut config = ScheduleConfig::new(
+        ScheduleOn::BoardTimes,
+        "network:default_network",
+        "2020-01-02T10:00:00",
+    );
+    // fetch next_schedule between 2020-01-02T10:00:00 - 14:00:00
+    config.duration = 4 * 60 * 60; // 4h
+
+    // on network N1 we have 11 stop_points
+    // we expect 8 Next Departure in range 2020-01-01T10:00:00 - 14:00:00
+    // At stop_point A & B & E & F & I & J
+    // Note: Last stop_point of a VJ is a terminus and considered as not bordable
+    let result = build_and_solve_schedule(&config, &fixture_model)?;
+    assert_eq!(result.len(), 8);
 
     Ok(())
 }
