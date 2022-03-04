@@ -168,13 +168,13 @@ impl Calendar {
     // of the form (day, time_in_timezoned_day) such that :
     //  - `day` belongs to the calendar
     //  - `time_in_timezoned_day` belongs to the interval `[min_seconds_since_timezoned_day_start, max_seconds_since_timezoned_day_start]`
-    pub fn decompositions<'a>(
-        &'a self,
+    pub fn decompositions(
+        &self,
         seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
         timezone: Timezone,
         max_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
         min_seconds_since_timezoned_day_start: SecondsSinceTimezonedDayStart,
-    ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> + 'a {
+    ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceTimezonedDayStart)> + '_ {
         // will advance the date until `time_in_timezoned_day` becomes smaller than `min_seconds_since_timezoned_day_start`
         let forward_iter = ForwardDecompose::new(
             seconds_since_dataset_start,
@@ -195,10 +195,10 @@ impl Calendar {
         forward_iter.chain(backward_iter)
     }
 
-    pub fn decompositions_utc<'a>(
-        &'a self,
+    pub fn decompositions_utc(
+        &self,
         seconds_since_dataset_start: SecondsSinceDatasetUTCStart,
-    ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + 'a {
+    ) -> impl Iterator<Item = (DaysSinceDatasetStart, SecondsSinceUTCDayStart)> + '_ {
         DecomposeUtc::new(seconds_since_dataset_start, self)
     }
 

@@ -532,7 +532,7 @@ impl UTCTimetables {
         }
     }
 
-    pub fn positions<'a>(&'a self, mission: &Mission) -> PositionsIter {
+    pub fn positions(&self, mission: &Mission) -> PositionsIter {
         self.timetables.positions(mission)
     }
 
@@ -545,7 +545,7 @@ impl UTCTimetables {
         TripsIter::new(self, mission, real_time_level, days_patterns)
     }
 
-    pub fn missions<'a>(&'a self) -> TimetableIter {
+    pub fn missions(&self) -> TimetableIter {
         self.timetables.timetables()
     }
 }
