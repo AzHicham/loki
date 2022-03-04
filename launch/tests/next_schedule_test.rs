@@ -458,7 +458,7 @@ fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
         config.duration = 4 * 60 * 60; // 4h
 
         // on network "default_network" we have 11 stop_points
-        // we expect 8 Next Departure in range 2020-01-01T10:00:00 - 14:00:00
+        // we expect 9 Next Arrivals in range 2020-01-01T10:00:00 - 14:00:00
         // At stop_point C (10:10:00 & 11:10:00) & B (10:05:00 & 11:05:00), no arrivals on A
         // At stop_point G (10:30:00 & 10:40:00) & F (10:20:00 & 10:30:00), no arrivals on E
         // At stop_point Y (10:10:00) no departure on X (no pickup)
@@ -484,15 +484,23 @@ fn test_forbidden_filter(fixture_model: BaseModel) -> Result<(), Error> {
         // And there is not next_departure at stop:C (terminus)
         config.forbidden_uris = vec!["stop_area:sa:A", "stop_area:sa:B"];
         config.duration = 4 * 60 * 60; // 4h
-                                       // on Route we have 3 stop_points A, B, C
-                                       // we expect 0 Next Departure because of forbidden filter
+
+        // on route R1 we have 3 stop_points A, B, C
+        // we expect only 2 results :
+        //  - 0 on stop_point A because of the forbidden_uris
+        //  - 0 on stop_point B because of the forbidden_uris
+        //  - 0 on stop_point C because there is no departure on terminus
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 0);
 
         config.forbidden_uris = vec!["stop_area:sa:B"];
         config.duration = 4 * 60 * 60; // 4h
-                                       // on Route we have 3 stop_points A, B, C
-                                       // we expect 4 Next Departure because of forbidden filter
+
+        // on route R1 we have 3 stop_points A, B, C
+        // we expect only 2 results :
+        //  - 2 on stop_point A
+        //  - 0 on stop_point B because of the forbidden_uris
+        //  - 0 on stop_point C because there is no departure on terminus
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 2);
     }
@@ -505,15 +513,23 @@ fn test_forbidden_filter(fixture_model: BaseModel) -> Result<(), Error> {
         // And there is not next_departure at stop:C (terminus)
         config.forbidden_uris = vec!["stop_area:sa:B", "stop_area:sa:C"];
         config.duration = 4 * 60 * 60; // 4h
-                                       // on Route we have 3 stop_points A, B, C
-                                       // we expect 0 Next Departure because of forbidden filter
+
+        // on route R1 we have 3 stop_points A, B, C
+        // we expect only 2 results :
+        //  - 0 on stop_point A because there is no arrivals on departure stop_point
+        //  - 0 on stop_point B because of the forbidden_uris
+        //  - 0 on stop_point C because of the forbidden_uris
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 0);
 
         config.forbidden_uris = vec!["stop_area:sa:B"];
         config.duration = 4 * 60 * 60; // 4h
-                                       // on Route we have 3 stop_points A, B, C
-                                       // we expect 4 Next Departure because of forbidden filter
+
+        // on route R1 we have 3 stop_points A, B, C
+        // we expect only 2 results :
+        //  - 0 on stop_point A because there is no arrivals on departure stop_point
+        //  - 2 on stop_point B
+        //  - 0 on stop_point C because of the forbidden_uris
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 2);
     }
