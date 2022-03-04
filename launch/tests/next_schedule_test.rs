@@ -469,6 +469,57 @@ fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
     Ok(())
 }
 
+#[rstest]
+fn test_forbidden_filter(fixture_model: BaseModel) -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // In this test we call next_departures/next_arrivals with a forbidden filter
+
+    // Departure Tests
+    {
+        let mut config =
+            ScheduleConfig::new(ScheduleOn::BoardTimes, "route:R1", "2020-01-02T10:00:00");
+        // we don't want next_departure of sa:A, sa:B
+        // And there is not next_departure at stop:C (terminus)
+        config.forbidden_uris = vec!["stop_area:sa:A", "stop_area:sa:B"];
+        config.duration = 4 * 60 * 60; // 4h
+                                       // on Route we have 3 stop_points A, B, C
+                                       // we expect 0 Next Departure because of forbidden filter
+        let result = build_and_solve_schedule(&config, &fixture_model)?;
+        assert_eq!(result.len(), 0);
+
+        config.forbidden_uris = vec!["stop_area:sa:B"];
+        config.duration = 4 * 60 * 60; // 4h
+                                       // on Route we have 3 stop_points A, B, C
+                                       // we expect 4 Next Departure because of forbidden filter
+        let result = build_and_solve_schedule(&config, &fixture_model)?;
+        assert_eq!(result.len(), 2);
+    }
+
+    // Arrival Tests
+    {
+        let mut config =
+            ScheduleConfig::new(ScheduleOn::DebarkTimes, "route:R1", "2020-01-02T10:00:00");
+        // we don't want next_departure of sa:A, sa:B
+        // And there is not next_departure at stop:C (terminus)
+        config.forbidden_uris = vec!["stop_area:sa:B", "stop_area:sa:C"];
+        config.duration = 4 * 60 * 60; // 4h
+                                       // on Route we have 3 stop_points A, B, C
+                                       // we expect 0 Next Departure because of forbidden filter
+        let result = build_and_solve_schedule(&config, &fixture_model)?;
+        assert_eq!(result.len(), 0);
+
+        config.forbidden_uris = vec!["stop_area:sa:B"];
+        config.duration = 4 * 60 * 60; // 4h
+                                       // on Route we have 3 stop_points A, B, C
+                                       // we expect 4 Next Departure because of forbidden filter
+        let result = build_and_solve_schedule(&config, &fixture_model)?;
+        assert_eq!(result.len(), 2);
+    }
+
+    Ok(())
+}
+
 struct ScheduleConfig<'a> {
     pub schedule_on: ScheduleOn,
     pub input_filter: String,

@@ -128,6 +128,9 @@ async fn run() {
 
     subtests::places_nearby_test::places_nearby_test(&config).await;
 
+    subtests::schedule_test::simple_next_departure_test(&config).await;
+    subtests::schedule_test::simple_next_arrival_test(&config).await;
+
     info!("Everything went Ok ! Now stopping.");
 
     stop_docker(&container_postgres_id).await;
