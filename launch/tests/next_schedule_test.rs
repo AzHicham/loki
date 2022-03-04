@@ -380,14 +380,16 @@ fn test_on_route(fixture_model: BaseModel) -> Result<(), Error> {
             ScheduleConfig::new(ScheduleOn::BoardTimes, "route:R1", "2020-01-01T10:00:00");
         config.duration = 10 * 60 * 60; // 10h
 
-        // on route R1 we have 9 stop_points and 6 valid vj per day
-        // we expect 6 Next Departure per day with from_datetime = 2020-01-02T10:00:00
-        // At stop_point A & B
+        // on route R1 we have 3 stop_points (A,B,C) and 2 valid vj per day
+        // we expect 3 Next Departure with from_datetime = 2020-01-02T10:00:00
+        // At stop_point A (10:00:00 & 11:00:00) & B (10:05:00 & 11:05:00)
         // Note: Last stop_point of a VJ is a terminus and considered as not bordable
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 4);
 
         // We update from_datetime to retrieve departures after 2020-01-01T11:00:00
+        // We expect only two departures after 11:00:00
+        // At stop_point A (11:00:00) & B (11:05:00)
         config.from_datetime = "2020-01-01T11:00:00".as_datetime();
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 2);
@@ -399,14 +401,16 @@ fn test_on_route(fixture_model: BaseModel) -> Result<(), Error> {
             ScheduleConfig::new(ScheduleOn::DebarkTimes, "route:R1", "2020-01-01T10:00:00");
         config.duration = 10 * 60 * 60; // 10h
 
-        // on route R1 we have 9 stop_points and 6 valid vj per day
-        // we expect 6 Next Departure per day with from_datetime = 2020-01-02T10:00:00
-        // At stop_point A & B
+        // on route R1 we have 3 stop_points and 2 valid vj per day
+        // we expect 4 Next Arrival with from_datetime = 2020-01-02T10:00:00
+        // At stop_point C (10:10:00 & 11:10:00) & B (10:05:00 & 11:05:00)
         // Note: Last stop_point of a VJ is a terminus and considered as not bordable
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 4);
 
         // We update from_datetime to retrieve departures after 2020-01-01T11:00:00
+        // We expect only two arrival after 11:00:00
+        // At stop_point C (11:10:00) & B (11:05:00)
         config.from_datetime = "2020-01-01T11:00:00".as_datetime();
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 2);
@@ -432,9 +436,12 @@ fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
         // fetch next_schedule between 2020-01-02T10:00:00 - 14:00:00
         config.duration = 4 * 60 * 60; // 4h
 
-        // on network N1 we have 11 stop_points
+        // on network "default_network" we have 11 stop_points
         // we expect 8 Next Departure in range 2020-01-01T10:00:00 - 14:00:00
-        // At stop_point A & B & E & F & I & J
+        // At stop_point A (10:00:00 & 11:00:00) & B (10:05:00 & 11:05:00), no departure on C
+        // At stop_point E (10:05:00 & 10:15:00) & F (10:20:00 & 10:30:00), no departure on G
+        // no departure on I & J & K on this time range
+        // no departure on X (no pickup) & Y (terminus)
         // Note: Last stop_point of a VJ is a terminus and considered as not bordable
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 8);
@@ -450,11 +457,12 @@ fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
         // fetch next_schedule between 2020-01-02T10:00:00 - 14:00:00
         config.duration = 4 * 60 * 60; // 4h
 
-        // on network N1 we have 11 stop_points
-        // we expect 8 Next Arrival in range 2020-01-01T10:00:00 - 14:00:00
-        // At stop_point A & B & E & F & I & J & Y
-        // Note: Compared to Departure we have Y stop_point (Y is allowed to dropoff)
-        // Note: Last stop_point of a VJ is a terminus and considered as not bordable
+        // on network "default_network" we have 11 stop_points
+        // we expect 8 Next Departure in range 2020-01-01T10:00:00 - 14:00:00
+        // At stop_point C (10:10:00 & 11:10:00) & B (10:05:00 & 11:05:00), no arrivals on A
+        // At stop_point G (10:30:00 & 10:40:00) & F (10:20:00 & 10:30:00), no arrivals on E
+        // At stop_point Y (10:10:00) no departure on X (no pickup)
+        // no departure on I & J & K on this time range
         let result = build_and_solve_schedule(&config, &fixture_model)?;
         assert_eq!(result.len(), 9);
     }
