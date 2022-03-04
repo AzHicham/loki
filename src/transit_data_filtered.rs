@@ -371,7 +371,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
     fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.transit_data
             .stop_point_idx_to_stop(stop_point_idx)
-            .cloned()
+            .copied()
     }
 
     fn nb_of_trips(&self) -> usize {

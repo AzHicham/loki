@@ -459,7 +459,7 @@ impl UTCTimetables {
                     flows.clone(),
                     board_times.clone().map(apply_offset),
                     debark_times.clone().map(apply_offset),
-                    loads.iter().cloned(),
+                    loads.iter().copied(),
                     vehicle_data,
                 );
                 match insert_result {

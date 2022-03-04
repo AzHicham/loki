@@ -193,7 +193,7 @@ fn worst_effect_on_journey(journey: &loki::Response, models: &ModelRefs<'_>) -> 
         .iter()
         .chain(other_sections_worst_effect.iter())
         .max()
-        .cloned()
+        .copied()
 }
 
 fn worst_effect_on_vehicle(
@@ -233,7 +233,7 @@ fn worst_effect_on_vehicle(
         .iter()
         .chain(has_kirin_worst_effect.iter())
         .max()
-        .cloned()
+        .copied()
 }
 
 fn effect_to_string(effect: Effect) -> String {

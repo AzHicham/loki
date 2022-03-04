@@ -364,7 +364,7 @@ impl RealTimeModel {
         vehicle_journey_id: &str,
     ) -> Option<NewVehicleJourneyIdx> {
         let has_new_vj_idx = self.new_vehicle_journeys_id_to_idx.get(vehicle_journey_id);
-        has_new_vj_idx.cloned()
+        has_new_vj_idx.copied()
     }
 
     pub fn vehicle_journey_idx(

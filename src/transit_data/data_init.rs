@@ -320,7 +320,7 @@ impl TransitData {
             let stop = self
                 .stop_point_idx_to_stop
                 .get(&stop_point_idx)
-                .cloned()
+                .copied()
                 .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
             result.push(stop);
         }
