@@ -167,7 +167,7 @@ fn parse_entrypoint(model: &ModelRefs, uri: &str) -> Result<Coord, BadPlacesNear
             match (lon, lat) {
                 (Ok(lon), Ok(lat)) => {
                     if (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat) {
-                        Ok(Coord { lon, lat })
+                        Ok(Coord { lat, lon })
                     } else {
                         Err(BadPlacesNearby::InvalidRangeCoord(uri.to_string()))
                     }

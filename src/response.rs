@@ -568,10 +568,10 @@ impl<Data: DataTrait> Journey<Data> {
         VehicleSection {
             from_datetime,
             to_datetime,
-            from_stoptime_idx,
-            to_stoptime_idx,
             vehicle_journey,
             day_for_vehicle_journey,
+            from_stoptime_idx,
+            to_stoptime_idx,
         }
     }
 

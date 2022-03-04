@@ -108,12 +108,12 @@ pub fn handle_chaos_protobuf(
     Ok(ChaosDisruption {
         id,
         reference,
+        contributor,
         publication_period,
         cause,
         tags,
         properties,
         impacts,
-        contributor,
     })
 }
 
@@ -171,9 +171,9 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error>
     Ok(ChaosImpact {
         id,
         updated_at,
-        severity,
         application_periods,
         application_patterns,
+        severity,
         messages,
         impacted_pt_objects,
         informed_pt_objects,

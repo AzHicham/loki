@@ -1,5 +1,3 @@
-use crate::models::Coord;
-
 // Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
@@ -36,8 +34,10 @@ use crate::models::Coord;
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::models::Coord;
+
 const N_DEG_TO_RAD: f64 = 0.017_453_292_38;
-const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560856;
+const EARTH_RADIUS_IN_METERS: f64 = 6_372_797.560_856;
 
 // distance (in meters) between the two coordinates
 // computed with the Haversine formula
