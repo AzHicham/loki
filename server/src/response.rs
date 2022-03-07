@@ -1462,7 +1462,7 @@ pub fn make_equipments(
     Some(equipments)
 }
 
-fn make_passage<'a>(
+fn make_passage(
     request_input: &ScheduleRequestInput,
     response: &ScheduleResponse,
     model: &ModelRefs<'_>,
