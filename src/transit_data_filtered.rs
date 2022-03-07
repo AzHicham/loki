@@ -98,13 +98,13 @@ impl FilterMemory {
         for idx in model.new_vehicle_journeys() {
             let vj_idx = VehicleJourneyIdx::New(idx);
             self.allowed_new_vehicle_journeys[idx.idx] =
-                filters.is_vehicle_journey_valid(&vj_idx, model)
+                filters.is_vehicle_journey_valid(&vj_idx, model);
         }
 
         self.allowed_new_stop_points
             .resize(model.nb_of_new_stops(), true);
         for idx in model.new_stops() {
-            let stop_idx = StopPointIdx::New(idx.clone());
+            let stop_idx = StopPointIdx::New(idx);
             self.allowed_new_stop_points[idx.idx] = filters.is_stop_point_valid(&stop_idx, model);
         }
     }
@@ -245,10 +245,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
 
     fn earliest_trip_to_board_at(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         let stop = self.stop_of(position, mission);
 
@@ -269,10 +269,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
 
     fn earliest_filtered_trip_to_board_at<Filter>(
         &self,
-        waiting_time: &SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -297,10 +297,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
 
     fn latest_trip_that_debark_at(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
         let stop = self.stop_of(position, mission);
 
@@ -321,10 +321,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
 
     fn latest_filtered_trip_that_debark_at<Filter>(
         &self,
-        waiting_time: &crate::time::SecondsSinceDatasetUTCStart,
+        waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
         position: &Self::Position,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
         filter: Filter,
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
@@ -348,10 +348,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         }
     }
 
-    fn to_naive_datetime(
-        &self,
-        seconds: &crate::time::SecondsSinceDatasetUTCStart,
-    ) -> chrono::NaiveDateTime {
+    fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {
         self.transit_data.calendar().to_naive_datetime(seconds)
     }
 
@@ -382,7 +379,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
     fn stop_point_idx_to_stop(&self, stop_point_idx: &StopPointIdx) -> Option<Self::Stop> {
         self.transit_data
             .stop_point_idx_to_stop(stop_point_idx)
-            .cloned()
+            .copied()
     }
 
     fn nb_of_trips(&self) -> usize {
@@ -428,7 +425,7 @@ impl<'data> data_interface::DataIters<'data> for TransitDataFiltered<'_, '_> {
     fn trips_of(
         &'data self,
         mission: &Self::Mission,
-        real_time_level: &RealTimeLevel,
+        real_time_level: RealTimeLevel,
     ) -> Self::TripsOfMission {
         self.transit_data.trips_of(mission, real_time_level)
     }

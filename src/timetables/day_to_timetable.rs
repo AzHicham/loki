@@ -79,7 +79,7 @@ where
     pub fn insert_base_and_realtime_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
         days_pattern_to_insert: &DaysPattern,
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
@@ -87,9 +87,9 @@ where
         let day_to_timetable = self
             .data
             .entry(vehicle_journey_idx.clone())
-            .or_insert(HashMap::new())
-            .entry(*local_zone)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(HashMap::new)
+            .entry(local_zone)
+            .or_insert_with(DayToTimetable::new);
 
         let base_insert_result = day_to_timetable.base.insert(
             days_pattern_to_insert,
@@ -124,7 +124,7 @@ where
     pub fn insert_real_time_only_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
         days_pattern_to_insert: &DaysPattern,
         timetable_to_insert: &Timetable,
         days_patterns: &mut DaysPatterns,
@@ -132,9 +132,9 @@ where
         let day_to_timetable = self
             .data
             .entry(vehicle_journey_idx.clone())
-            .or_insert(HashMap::new())
-            .entry(*local_zone)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(HashMap::new)
+            .entry(local_zone)
+            .or_insert_with(DayToTimetable::new);
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
             days_pattern_to_insert,
@@ -156,26 +156,26 @@ where
     fn get_mut_day_to_timetable(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
     ) -> Option<&mut DayToTimetable<Timetable>> {
         let has_day_to_timetable = self.data.get_mut(vehicle_journey_idx)?;
-        has_day_to_timetable.get_mut(local_zone)
+        has_day_to_timetable.get_mut(&local_zone)
     }
 
     fn get_day_to_timetable(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
     ) -> Option<&DayToTimetable<Timetable>> {
         let has_day_to_timetable = self.data.get(vehicle_journey_idx)?;
-        has_day_to_timetable.get(local_zone)
+        has_day_to_timetable.get(&local_zone)
     }
 
     pub fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
-        day: &DaysSinceDatasetStart,
+        local_zone: LocalZone,
+        day: DaysSinceDatasetStart,
         days_patterns: &mut DaysPatterns,
     ) -> Result<Timetable, Unknown> {
         let day_to_timetable = self
@@ -190,7 +190,7 @@ where
     pub fn base_vehicle_exists(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
     ) -> bool {
         let day_to_timetable = self.get_day_to_timetable(vehicle_journey_idx, local_zone);
         match day_to_timetable {
@@ -202,8 +202,8 @@ where
     pub fn real_time_vehicle_exists(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        local_zone: &LocalZone,
-        day: &DaysSinceDatasetStart,
+        local_zone: LocalZone,
+        day: DaysSinceDatasetStart,
         days_patterns: &DaysPatterns,
     ) -> bool {
         let day_to_timetable = self.get_day_to_timetable(vehicle_journey_idx, local_zone);

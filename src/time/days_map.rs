@@ -48,7 +48,7 @@ impl<T> DaysMap<T> {
         self.data.is_empty()
     }
 
-    pub fn get(&self, day: &DaysSinceDatasetStart, days_patterns: &DaysPatterns) -> Option<&T> {
+    pub fn get(&self, day: DaysSinceDatasetStart, days_patterns: &DaysPatterns) -> Option<&T> {
         self.data.iter().find_map(|(days_pattern, value)| {
             if days_patterns.is_allowed(days_pattern, day) {
                 Some(value)
@@ -102,7 +102,7 @@ impl<T> DaysMap<T> {
 
     pub fn remove(
         &mut self,
-        day_to_remove: &DaysSinceDatasetStart,
+        day_to_remove: DaysSinceDatasetStart,
         days_patterns: &mut DaysPatterns,
     ) -> Result<T, RemoveError>
     where

@@ -232,7 +232,7 @@ pub fn solve_schedule_request(
                         let time = data.board_time_of(&trip, &position).map(
                             |(second_since_dataset_start, _)| {
                                 data.calendar()
-                                    .to_naive_datetime(&second_since_dataset_start)
+                                    .to_naive_datetime(second_since_dataset_start)
                             },
                         )?;
                         let stop_time_idx = data.stoptime_idx(&position, &trip);
@@ -266,7 +266,7 @@ pub fn solve_schedule_request(
                         let time = data.debark_time_of(&trip, &position).map(
                             |(second_since_dataset_start, _)| {
                                 data.calendar()
-                                    .to_naive_datetime(&second_since_dataset_start)
+                                    .to_naive_datetime(second_since_dataset_start)
                             },
                         )?;
                         let stop_time_idx = data.stoptime_idx(&position, &trip);

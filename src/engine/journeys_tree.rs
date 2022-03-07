@@ -107,40 +107,35 @@ impl<PT: RequestTypes> JourneysTree<PT> {
         Wait { id }
     }
 
-    pub fn board(&mut self, wait: &Wait, trip: &PT::Trip, position: &PT::Position) -> Board {
+    pub fn board(&mut self, wait: Wait, trip: &PT::Trip, position: &PT::Position) -> Board {
         let id = self.boards.len();
-        self.boards.push((trip.clone(), position.clone(), *wait));
+        self.boards.push((trip.clone(), position.clone(), wait));
 
         Board { id }
     }
 
-    pub fn debark(&mut self, board: &Board, position: &PT::Position) -> Debark {
+    pub fn debark(&mut self, board: Board, position: &PT::Position) -> Debark {
         let id = self.debarks.len();
-        self.debarks.push((position.clone(), *board));
+        self.debarks.push((position.clone(), board));
         Debark { id }
     }
 
-    pub fn transfer(&mut self, debark: &Debark, transfer: &PT::Transfer) -> Wait {
+    pub fn transfer(&mut self, debark: Debark, transfer: &PT::Transfer) -> Wait {
         let id = self.waits.len();
         self.waits
-            .push(WaitData::Transfer(transfer.clone(), *debark));
+            .push(WaitData::Transfer(transfer.clone(), debark));
 
         Wait { id }
     }
 
-    pub fn arrive(&mut self, debark: &Debark, arrival: &PT::Arrival) -> Arrive {
+    pub fn arrive(&mut self, debark: Debark, arrival: &PT::Arrival) -> Arrive {
         let id = self.arrives.len();
-        self.arrives.push((arrival.clone(), *debark));
+        self.arrives.push((arrival.clone(), debark));
 
         Arrive { id }
     }
 
-    pub fn fill_journey(
-        &self,
-        arrive: &Arrive,
-        criteria: &PT::Criteria,
-        journey: &mut Journey<PT>,
-    ) {
+    pub fn fill_journey(&self, arrive: Arrive, criteria: &PT::Criteria, journey: &mut Journey<PT>) {
         journey.arrival = self.arrives[arrive.id].0.clone();
         let connection_legs = &mut journey.connection_legs;
         let new_departure_leg = self.fill_journey_data(arrive, connection_legs);
@@ -148,7 +143,7 @@ impl<PT: RequestTypes> JourneysTree<PT> {
         journey.criteria_at_arrival = criteria.clone();
     }
 
-    pub fn create_journey(&self, arrive: &Arrive, criteria: &PT::Criteria) -> Journey<PT> {
+    pub fn create_journey(&self, arrive: Arrive, criteria: &PT::Criteria) -> Journey<PT> {
         let arrival = self.arrives[arrive.id].0.clone();
         let mut connection_legs: Vec<ConnectionLeg<PT>> = Vec::new();
         let departure_leg = self.fill_journey_data(arrive, &mut connection_legs);
@@ -166,7 +161,7 @@ impl<PT: RequestTypes> JourneysTree<PT> {
 
     fn fill_journey_data(
         &self,
-        arrive: &Arrive,
+        arrive: Arrive,
         connections: &mut Vec<ConnectionLeg<PT>>,
     ) -> DepartureLeg<PT> {
         connections.clear();

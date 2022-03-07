@@ -160,8 +160,7 @@ fn test_no_filter(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "C");
 
@@ -199,8 +198,7 @@ fn test_filter_forbidden_stop_point(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
 
@@ -245,8 +243,7 @@ fn test_filter_allowed_stop_point(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
 
@@ -283,8 +280,7 @@ fn test_filter_forbidden_route(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "C");
 
@@ -321,8 +317,7 @@ fn test_filter_allowed_route(
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "C");
 

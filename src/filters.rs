@@ -203,24 +203,24 @@ impl<'a> Filters<'a> {
             (allowed_vehicle_filters, allowed_stop_filters)
         };
 
-        let (forbiddden_vehicle_filters, forbidden_stop_filters) = {
-            let mut forbiddden_vehicle_filters = Vec::new();
+        let (forbidden_vehicle_filters, forbidden_stop_filters) = {
+            let mut forbidden_vehicle_filters = Vec::new();
             let mut forbidden_stop_filters = Vec::new();
             for filter in forbidden_uri {
                 match filter {
                     Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
                     Filter::Vehicle(vehicle_filter) => {
-                        forbiddden_vehicle_filters.push(vehicle_filter)
+                        forbidden_vehicle_filters.push(vehicle_filter)
                     }
                 }
             }
-            (forbiddden_vehicle_filters, forbidden_stop_filters)
+            (forbidden_vehicle_filters, forbidden_stop_filters)
         };
 
         let has_no_filter = allowed_stop_filters.is_empty()
             && allowed_vehicle_filters.is_empty()
             && forbidden_stop_filters.is_empty()
-            && forbiddden_vehicle_filters.is_empty()
+            && forbidden_vehicle_filters.is_empty()
             && !must_be_wheelchair_accessible
             && !must_be_bike_accessible;
 
@@ -231,7 +231,7 @@ impl<'a> Filters<'a> {
                 allowed_stops: allowed_stop_filters,
                 forbidden_stops: forbidden_stop_filters,
                 allowed_vehicles: allowed_vehicle_filters,
-                forbidden_vehicles: forbiddden_vehicle_filters,
+                forbidden_vehicles: forbidden_vehicle_filters,
                 must_be_wheelchair_accessible,
                 must_be_bike_accessible,
             };
@@ -249,89 +249,82 @@ pub fn parse_filter<'a>(
         if model.contains_line_id(line_id) {
             let filter = Filter::Vehicle(VehicleFilter::Line(line_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown line id {} in {} filter {}. I'll ignore it.",
-                line_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown line id {} in {} filter {}. I'll ignore it.",
+            line_id, filter_provenance, filter_str
+        );
+        return None;
     }
     if let Some(route_id) = filter_str.strip_prefix(PREFIX_ID_ROUTE) {
         if model.contains_route_id(route_id) {
             let filter = Filter::Vehicle(VehicleFilter::Route(route_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown route id {} in {} filter {}. I'll ignore it.",
-                route_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown route id {} in {} filter {}. I'll ignore it.",
+            route_id, filter_provenance, filter_str
+        );
+        return None;
     }
     if let Some(network_id) = filter_str.strip_prefix(PREFIX_ID_NETWORK) {
         if model.contains_network_id(network_id) {
             let filter = Filter::Vehicle(VehicleFilter::Network(network_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown network id {} in {} filter {}. I'll ignore it.",
-                network_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown network id {} in {} filter {}. I'll ignore it.",
+            network_id, filter_provenance, filter_str
+        );
+        return None;
     }
 
     if let Some(physical_mode_id) = filter_str.strip_prefix(PREFIX_ID_PHYSICAL_MODE) {
         if model.contains_physical_mode_id(physical_mode_id) {
             let filter = Filter::Vehicle(VehicleFilter::PhysicalMode(physical_mode_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown physical_mode id {} in {} filter {}. I'll ignore it.",
-                physical_mode_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown physical_mode id {} in {} filter {}. I'll ignore it.",
+            physical_mode_id, filter_provenance, filter_str
+        );
+        return None;
     }
 
     if let Some(commercial_model_id) = filter_str.strip_prefix(PREFIX_ID_COMMERCIAL_MODE) {
         if model.contains_commercial_model_id(commercial_model_id) {
             let filter = Filter::Vehicle(VehicleFilter::CommercialMode(commercial_model_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown commercial_mode id {} in {} filter {}. I'll ignore it.",
-                commercial_model_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown commercial_mode id {} in {} filter {}. I'll ignore it.",
+            commercial_model_id, filter_provenance, filter_str
+        );
+        return None;
     }
 
     if let Some(stop_point_id) = filter_str.strip_prefix(PREFIX_ID_STOP_POINT) {
         if model.contains_stop_point_id(stop_point_id) {
             let filter = Filter::Stop(StopFilter::StopPoint(stop_point_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown stop_point id {} in {} filter {}. I'll ignore it.",
-                stop_point_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown stop_point id {} in {} filter {}. I'll ignore it.",
+            stop_point_id, filter_provenance, filter_str
+        );
+        return None;
     }
 
     if let Some(stop_area_id) = filter_str.strip_prefix(PREFIX_ID_STOP_AREA) {
         if model.contains_stop_area_id(stop_area_id) {
             let filter = Filter::Stop(StopFilter::StopArea(stop_area_id));
             return Some(filter);
-        } else {
-            warn!(
-                "Unknown stop_area id {} in {} filter {}. I'll ignore it.",
-                stop_area_id, filter_provenance, filter_str
-            );
-            return None;
         }
+        warn!(
+            "Unknown stop_area id {} in {} filter {}. I'll ignore it.",
+            stop_area_id, filter_provenance, filter_str
+        );
+        return None;
     }
 
     warn!(

@@ -90,8 +90,7 @@ fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Er
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
     assert_eq!(journey.first_vj_uri(&model_refs), "toto");
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
     assert_eq!(
@@ -154,8 +153,7 @@ fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Resul
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
     assert_eq!(
@@ -193,8 +191,7 @@ fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Resul
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "F");
     assert_eq!(to_sp, "G");
     assert_eq!(
@@ -259,8 +256,7 @@ fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), 
 
     // First Vehicle
     let vehicle_sec = &journey.first_vehicle;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
     assert_eq!(
@@ -298,8 +294,7 @@ fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), 
 
     // vehicle section
     let vehicle_sec = &journey.connections[0].2;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "F");
     assert_eq!(to_sp, "G");
     assert_eq!(
@@ -374,8 +369,7 @@ fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(
     // Thanks to the second pass we take the 'tutu" vehicle and not 'toto'
     // Second pass = Maximize departure datetime
     let vehicle_sec = &journey.first_vehicle;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "A");
     assert_eq!(to_sp, "B");
     assert_eq!(
@@ -443,8 +437,7 @@ fn test_second_pass_backward(#[case] comparator_type: ComparatorType) -> Result<
     // Thanks to the second pass we take the 'titi" vehicle and not 'tata'
     // Second pass = Minimize arrival datetime
     let vehicle_sec = &journey.connections[0].2;
-    let (from_sp, to_sp) =
-        from_to_stop_point_names(vehicle_sec, &model_refs, &RealTimeLevel::Base)?;
+    let (from_sp, to_sp) = from_to_stop_point_names(vehicle_sec, &model_refs, RealTimeLevel::Base)?;
     assert_eq!(from_sp, "F");
     assert_eq!(to_sp, "G");
     assert_eq!(

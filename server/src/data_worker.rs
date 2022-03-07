@@ -287,13 +287,13 @@ impl DataWorker {
             let calendar = data_and_models.0.calendar();
             let now = Utc::now().naive_utc();
             let base_data_info = BaseDataInfo {
-                start_date: *calendar.first_date(),
-                end_date: *calendar.last_date(),
+                start_date: calendar.first_date(),
+                end_date: calendar.last_date(),
                 last_load_at: now,
                 dataset_created_at: data_and_models.1.dataset_created_at(),
                 timezone: data_and_models.1.timezone_model().unwrap_or(chrono_tz::UTC),
                 contributors: data_and_models.1.contributors().map(|c| c.id).collect(),
-                publisher_name: data_and_models.1.pubisher_name().map(|n| n.to_string()),
+                publisher_name: data_and_models.1.pubisher_name().map(ToString::to_string),
             };
             Ok(base_data_info)
         };
@@ -320,7 +320,7 @@ impl DataWorker {
             })?;
             let (data, _, _) = rw_lock_read_guard.deref();
             let calendar = data.calendar();
-            (*calendar.first_date(), *calendar.last_date())
+            (calendar.first_date(), calendar.last_date())
         }; // lock is released
         match chaos::models::read_chaos_disruption_from_database(
             &self.config.chaos_params,

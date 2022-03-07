@@ -71,7 +71,7 @@ impl DaysPatterns {
         DaysPattern { idx: 0 }
     }
 
-    pub fn is_allowed(&self, days_pattern: &DaysPattern, day: &DaysSinceDatasetStart) -> bool {
+    pub fn is_allowed(&self, days_pattern: &DaysPattern, day: DaysSinceDatasetStart) -> bool {
         debug_assert!((day.days as usize) < self.buffer.len());
         debug_assert!(days_pattern.idx < self.days_patterns.len());
         let day_idx: usize = day.days.into();
@@ -119,7 +119,7 @@ impl DaysPatterns {
         self.buffer.fill(false);
 
         for date in dates {
-            let has_offset = calendar.date_to_offset(date.borrow());
+            let has_offset = calendar.date_to_offset(*date.borrow());
             if let Some(offset) = has_offset {
                 self.buffer[offset as usize] = true;
             }
@@ -146,9 +146,9 @@ impl DaysPatterns {
     pub fn make_dates(&self, days_pattern: &DaysPattern, calendar: &Calendar) -> Vec<NaiveDate> {
         let mut result = Vec::new();
         for day in calendar.days() {
-            if self.is_allowed(days_pattern, &day) {
-                let date = calendar.to_naive_date(&day);
-                result.push(date)
+            if self.is_allowed(days_pattern, day) {
+                let date = calendar.to_naive_date(day);
+                result.push(date);
             }
         }
         result
@@ -173,7 +173,7 @@ impl DaysPatterns {
     pub fn get_pattern_without_day(
         &mut self,
         original_pattern: DaysPattern,
-        day_to_remove: &DaysSinceDatasetStart,
+        day_to_remove: DaysSinceDatasetStart,
     ) -> Option<DaysPattern> {
         if self.is_allowed(&original_pattern, day_to_remove).not() {
             return None;
@@ -193,7 +193,7 @@ impl DaysPatterns {
     pub fn get_pattern_with_additional_day(
         &mut self,
         original_pattern: DaysPattern,
-        day_to_add: &DaysSinceDatasetStart,
+        day_to_add: DaysSinceDatasetStart,
     ) -> DaysPattern {
         if self.is_allowed(&original_pattern, day_to_add) {
             trace!("Adding a day already set to a pattern");

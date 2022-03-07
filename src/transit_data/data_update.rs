@@ -54,12 +54,12 @@ impl data_interface::DataUpdate for TransitData {
     fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        date: &chrono::NaiveDate,
+        date: chrono::NaiveDate,
     ) -> Result<(), RemovalError> {
         let day = self
             .calendar
             .date_to_days_since_start(date)
-            .ok_or_else(|| RemovalError::UnknownDate(*date, vehicle_journey_idx.clone()))?;
+            .ok_or_else(|| RemovalError::UnknownDate(date, vehicle_journey_idx.clone()))?;
 
         let local_zones = self
             .vehicle_journey_to_timetable
@@ -68,8 +68,8 @@ impl data_interface::DataUpdate for TransitData {
         for local_zone in local_zones {
             let has_timetable = self.vehicle_journey_to_timetable.remove_real_time_vehicle(
                 vehicle_journey_idx,
-                &local_zone.clone(),
-                &day,
+                local_zone,
+                day,
                 &mut self.days_patterns,
             );
             let timetable = match has_timetable {
@@ -82,10 +82,10 @@ impl data_interface::DataUpdate for TransitData {
 
             self.timetables.remove(
                 &timetable,
-                &day,
+                day,
                 vehicle_journey_idx,
-                &local_zone,
-                &RealTimeLevel::RealTime,
+                local_zone,
+                RealTimeLevel::RealTime,
                 &self.calendar,
                 &mut self.days_patterns,
             );
@@ -102,7 +102,7 @@ impl data_interface::DataUpdate for TransitData {
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
     ) -> Result<(), InsertionError>
     where
@@ -121,7 +121,7 @@ impl data_interface::DataUpdate for TransitData {
             valid_dates,
             timezone,
             vehicle_journey_idx,
-            &None,
+            None,
             RealTimeLevel::RealTime,
         )
     }
@@ -134,7 +134,7 @@ impl data_interface::DataUpdate for TransitData {
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
     ) -> Result<(), ModifyError>
     where
@@ -151,7 +151,7 @@ impl data_interface::DataUpdate for TransitData {
         // check validity of dates
         for date in valid_dates.clone() {
             self.calendar
-                .date_to_days_since_start(&date)
+                .date_to_days_since_start(date)
                 .ok_or_else(|| ModifyError::UnknownDate(date, vehicle_journey_idx.clone()))?;
         }
 
@@ -161,13 +161,13 @@ impl data_interface::DataUpdate for TransitData {
 
         for date in valid_dates.clone() {
             // unwrap is safe, because we checked above the validity of all dates
-            let day = self.calendar.date_to_days_since_start(&date).unwrap();
+            let day = self.calendar.date_to_days_since_start(date).unwrap();
 
             for local_zone in local_zones.clone() {
                 let has_timetable = self.vehicle_journey_to_timetable.remove_real_time_vehicle(
                     vehicle_journey_idx,
-                    &local_zone,
-                    &day,
+                    local_zone,
+                    day,
                     &mut self.days_patterns,
                 );
 
@@ -181,10 +181,10 @@ impl data_interface::DataUpdate for TransitData {
 
                 self.timetables.remove(
                     &timetable,
-                    &day,
+                    day,
                     vehicle_journey_idx,
-                    &local_zone,
-                    &RealTimeLevel::RealTime,
+                    local_zone,
+                    RealTimeLevel::RealTime,
                     &self.calendar,
                     &mut self.days_patterns,
                 );
@@ -208,8 +208,8 @@ impl data_interface::DataUpdate for TransitData {
                 &mut self.days_patterns,
                 timezone,
                 vehicle_journey_idx,
-                &local_zone,
-                &RealTimeLevel::RealTime,
+                local_zone,
+                RealTimeLevel::RealTime,
             );
             let timetables = match timetables {
                 Err(err) => {
@@ -223,7 +223,7 @@ impl data_interface::DataUpdate for TransitData {
                     .vehicle_journey_to_timetable
                     .insert_real_time_only_vehicle(
                         vehicle_journey_idx,
-                        &local_zone,
+                        local_zone,
                         days_pattern,
                         timetable,
                         &mut self.days_patterns,
@@ -255,9 +255,9 @@ impl TransitData {
         debark_times: DebarkTimes,
         loads_data: &LoadsData,
         valid_dates: Dates,
-        timezone: &chrono_tz::Tz,
+        timezone: chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
-        local_zone: &LocalZone,
+        local_zone: LocalZone,
         real_time_level: RealTimeLevel,
     ) -> Result<(), InsertionError>
     where
@@ -283,13 +283,13 @@ impl TransitData {
         for date in valid_dates.clone() {
             let day = self
                 .calendar
-                .date_to_days_since_start(&date)
+                .date_to_days_since_start(date)
                 .ok_or_else(|| InsertionError::InvalidDate(date, vehicle_journey_idx.clone()))?;
 
             if self.vehicle_journey_to_timetable.real_time_vehicle_exists(
                 &vehicle_journey_idx,
                 local_zone,
-                &day,
+                day,
                 &self.days_patterns,
             ) {
                 return Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(
@@ -322,7 +322,7 @@ impl TransitData {
                 timezone,
                 &vehicle_journey_idx,
                 local_zone,
-                &real_time_level,
+                real_time_level,
             )
             .map_err(|(err, dates)| {
                 InsertionError::Times(vehicle_journey_idx.clone(), real_time_level, err, dates)

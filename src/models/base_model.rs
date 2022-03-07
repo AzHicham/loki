@@ -91,12 +91,13 @@ pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum BadModel {
     NoDataset,
     StartDateAfterEndDate,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum VehicleJourneyPropertyKey {
     WheelChairAccessible,
     BikeAccepted,
@@ -108,6 +109,7 @@ pub enum VehicleJourneyPropertyKey {
     SchoolVehicle,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum EquipmentPropertyKey {
     WheelChairBoarding,
     Sheltered,
@@ -444,7 +446,7 @@ impl BaseModel {
     pub fn line_code(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         self.vehicle_journey_line(idx)
             .and_then(|line| line.code.as_ref())
-            .map(|s| s.as_str())
+            .map(String::as_str)
     }
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -482,7 +484,7 @@ impl BaseModel {
         vj.short_name
             .as_ref()
             .or(vj.headsign.as_ref())
-            .map(|s| s.as_str())
+            .map(String::as_str)
     }
 
     pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
@@ -518,9 +520,9 @@ impl BaseModel {
     pub fn trip_time_period(
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
-        date: &NaiveDate,
+        date: NaiveDate,
     ) -> Option<TimePeriod> {
-        if !self.trip_exists(vehicle_journey_idx, *date) {
+        if !self.trip_exists(vehicle_journey_idx, date) {
             return None;
         }
         let stop_times = self.stop_times(vehicle_journey_idx).ok()?;
@@ -538,8 +540,8 @@ impl BaseModel {
             .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
             .max()?;
 
-        let first_time_utc = calendar::compose(date, &earliest_local_time, &timezone);
-        let last_time_utc = calendar::compose(date, &latest_local_time, &timezone);
+        let first_time_utc = calendar::compose(date, earliest_local_time, timezone);
+        let last_time_utc = calendar::compose(date, latest_local_time, timezone);
 
         // since TimePeriod is open at the end, we add 1s to the last_time
         // so that the constructed time_period contains last_time
@@ -734,7 +736,7 @@ impl BaseModel {
         self.model
             .feed_infos
             .get("feed_publisher_name")
-            .map(|pubisher_name| pubisher_name.as_str())
+            .map(String::as_str)
     }
 
     pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {

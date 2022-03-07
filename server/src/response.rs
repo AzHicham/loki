@@ -78,6 +78,7 @@ use launch::loki::{
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
     places_nearby::PlacesNearbyIter,
+    transit_data_filtered::TransitModelTime,
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
 use std::convert::TryFrom;
@@ -141,7 +142,7 @@ fn make_impacts(journeys: &[loki::Response], model: &ModelRefs<'_>) -> Vec<navit
     }
 
     for kirin_disruption_idx in kirin_disruptions.iter() {
-        let impact_result = make_kirin_impact(kirin_disruption_idx, model);
+        let impact_result = make_kirin_impact(*kirin_disruption_idx, model);
         match impact_result {
             Ok(impact) => {
                 result.push(impact);
@@ -179,7 +180,7 @@ fn fill_linked_chaos_impacts_and_kirin_disruptions(
         .real_time
         .get_linked_kirin_disruption(&vehicle.vehicle_journey, vehicle.day_for_vehicle_journey)
     {
-        kirin_disruptions.insert(kirin_disruption_idx.clone());
+        kirin_disruptions.insert(*kirin_disruption_idx);
     }
 }
 
@@ -195,7 +196,7 @@ fn worst_effect_on_journey(journey: &loki::Response, models: &ModelRefs<'_>) -> 
         .iter()
         .chain(other_sections_worst_effect.iter())
         .max()
-        .cloned()
+        .copied()
 }
 
 fn worst_effect_on_vehicle(
@@ -203,11 +204,11 @@ fn worst_effect_on_vehicle(
     models: &ModelRefs<'_>,
 ) -> Option<Effect> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let has_chaos_worst_effect = if let VehicleJourneyIdx::Base(base_vj_idx) = vehicle_journey_idx {
         let has_impacts = models
             .real_time
-            .get_linked_chaos_impacts(*base_vj_idx, *date);
+            .get_linked_chaos_impacts(*base_vj_idx, date);
         has_impacts.and_then(|impacts| {
             impacts
                 .iter()
@@ -225,9 +226,9 @@ fn worst_effect_on_vehicle(
 
     let has_kirin_worst_effect = models
         .real_time
-        .get_linked_kirin_disruption(vehicle_journey_idx, *date)
+        .get_linked_kirin_disruption(vehicle_journey_idx, date)
         .map(|kirin_disruption_idx| {
-            let kirin_disruption = models.real_time.get_kirin_disruption(kirin_disruption_idx);
+            let kirin_disruption = models.real_time.get_kirin_disruption(*kirin_disruption_idx);
             kirin_disruption.effect
         });
 
@@ -235,10 +236,10 @@ fn worst_effect_on_vehicle(
         .iter()
         .chain(has_kirin_worst_effect.iter())
         .max()
-        .cloned()
+        .copied()
 }
 
-fn effect_to_string(effect: &Effect) -> String {
+fn effect_to_string(effect: Effect) -> String {
     match effect {
         Effect::NoService => "NO_SERVICE",
         Effect::ReducedService => "REDUCED_SERVICE",
@@ -283,7 +284,7 @@ fn make_journey(
         }),
         requested_date_time: Some(to_u64_timestamp(&request_input.datetime)?),
         most_serious_disruption_effect: worst_effect_on_journey(journey, model)
-            .map(|effect| effect_to_string(&effect)),
+            .map(effect_to_string),
         ..Default::default()
     };
 
@@ -292,7 +293,7 @@ fn make_journey(
         &journey.first_vehicle,
         model,
         section_id,
-        &request_input.real_time_level,
+        request_input.real_time_level,
     )?);
 
     for (connection_idx, connection) in journey.connections.iter().enumerate() {
@@ -315,7 +316,7 @@ fn make_journey(
                 vehicle_section,
                 model,
                 section_id,
-                &request_input.real_time_level,
+                request_input.real_time_level,
             )?;
             proto.sections.push(proto_section);
         }
@@ -389,10 +390,10 @@ fn make_public_transport_section(
     vehicle_section: &VehicleSection,
     model: &ModelRefs<'_>,
     section_id: String,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
 ) -> Result<navitia_proto::Section, Error> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let from_stop_point_idx = model
         .stop_point_at(
@@ -454,11 +455,11 @@ fn make_public_transport_section(
         destination: Some(make_stop_point_pt_object(&to_stop_point_idx, model)?),
         pt_display_informations: Some(make_pt_display_info(
             &vehicle_section.vehicle_journey,
-            *date,
+            date,
             real_time_level,
             model,
         )),
-        stop_date_times: make_stop_datetimes(stop_times, timezone, *date, model)?,
+        stop_date_times: make_stop_datetimes(stop_times, timezone, date, model)?,
         shape,
         length: Some(length_f64 as i32),
         co2_emission,
@@ -538,7 +539,7 @@ pub fn make_stop_point(
             })
             .collect()
         }),
-        platform_code: model.platform_code(stop_point_idx).map(|s| s.to_string()),
+        platform_code: model.platform_code(stop_point_idx).map(ToString::to_string),
         has_equipments: make_equipments(stop_point_idx, model),
         fare_zone: model
             .fare_zone_id(stop_point_idx)
@@ -590,20 +591,22 @@ fn make_stop_area(
 fn make_pt_display_info(
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
     model: &ModelRefs,
 ) -> navitia_proto::PtDisplayInfo {
     let proto = navitia_proto::PtDisplayInfo {
         network: Some(model.network_name(vehicle_journey_idx).to_string()),
-        code: model.line_code(vehicle_journey_idx).map(|s| s.to_string()),
+        code: model
+            .line_code(vehicle_journey_idx)
+            .map(ToString::to_string),
         headsign: model
-            .headsign(vehicle_journey_idx, &date, real_time_level)
-            .map(|s| s.to_string()),
+            .headsign(vehicle_journey_idx, date, real_time_level)
+            .map(ToString::to_string),
         direction: model
-            .direction(vehicle_journey_idx, &date)
-            .map(|s| s.to_string()),
+            .direction(vehicle_journey_idx, date)
+            .map(ToString::to_string),
         color: model
-            .line_color(vehicle_journey_idx, &date)
+            .line_color(vehicle_journey_idx, date)
             .map(|color| format!("{}", color)),
         commercial_mode: Some(model.commercial_mode_name(vehicle_journey_idx).to_string()),
         physical_mode: Some(model.physical_mode_name(vehicle_journey_idx).to_string()),
@@ -642,11 +645,11 @@ fn make_pt_display_info(
         }),
         name: Some(model.line_name(vehicle_journey_idx).to_string()),
         text_color: model
-            .text_color(vehicle_journey_idx, &date)
+            .text_color(vehicle_journey_idx, date)
             .map(|text_color| format!("{}", text_color)),
         trip_short_name: model
-            .trip_short_name(vehicle_journey_idx, &date)
-            .map(|s| s.to_string()),
+            .trip_short_name(vehicle_journey_idx, date)
+            .map(ToString::to_string),
         ..Default::default()
     };
 
@@ -686,11 +689,11 @@ fn make_stop_datetimes(
 
 fn make_additional_informations(
     vehicle_section: &VehicleSection,
-    real_time_level: &RealTimeLevel,
+    real_time_level: RealTimeLevel,
     models: &ModelRefs<'_>,
 ) -> Vec<i32> {
     let vehicle_journey_idx = &vehicle_section.vehicle_journey;
-    let date = &vehicle_section.day_for_vehicle_journey;
+    let date = vehicle_section.day_for_vehicle_journey;
     let from_stoptime_idx = vehicle_section.from_stoptime_idx;
     let to_stoptime_idx = vehicle_section.to_stoptime_idx;
 
@@ -789,7 +792,7 @@ fn compute_journey_co2_emission(
     let total_co2 = sections
         .iter()
         .map(|section| &section.co2_emission)
-        .filter_map(|co2_emission| co2_emission.as_ref())
+        .filter_map(Option::as_ref)
         .filter_map(|co2| co2.value)
         .fold(0_f64, |acc, value| acc + value);
 
@@ -876,12 +879,12 @@ fn make_chaos_impact(
         Vec::with_capacity(impact.impacted_pt_objects.len() + impact.informed_pt_objects.len());
     for impacted in &impact.impacted_pt_objects {
         if let Ok(object) = make_impacted_object_from_impacted(impacted, model) {
-            impacted_objects.push(object)
+            impacted_objects.push(object);
         }
     }
     for informed in &impact.informed_pt_objects {
         if let Ok(object) = make_impacted_object_from_informed(informed, model) {
-            impacted_objects.push(object)
+            impacted_objects.push(object);
         }
     }
 
@@ -979,7 +982,7 @@ fn make_impacted_object_from_informed(
 }
 
 fn make_kirin_impact(
-    kirin_disruption_idx: &KirinDisruptionIdx,
+    kirin_disruption_idx: KirinDisruptionIdx,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Impact, Error> {
     let disruption = model.real_time.get_kirin_disruption(kirin_disruption_idx);
@@ -1098,7 +1101,7 @@ fn make_message(message: &Message) -> navitia_proto::MessageContent {
         channel_types: vec![],
     };
     for channel_type in &message.channel_types {
-        channel.push_channel_types(make_channel_type(channel_type))
+        channel.push_channel_types(make_channel_type(channel_type));
     }
 
     navitia_proto::MessageContent {
@@ -1256,8 +1259,8 @@ pub fn make_line(line: &Line, model: &ModelRefs) -> navitia_proto::Line {
             .as_ref()
             .map(|text_color| format!("{}", text_color)),
         commercial_mode: make_commercial_mode(&line.commercial_mode_id, model),
-        opening_time: line.opening_time.map(|t| t.total_seconds()),
-        closing_time: line.closing_time.map(|t| t.total_seconds()),
+        opening_time: line.opening_time.map(TransitModelTime::total_seconds),
+        closing_time: line.closing_time.map(TransitModelTime::total_seconds),
         // todo add physical_mode of this line
         properties: line
             .object_properties
@@ -1459,19 +1462,19 @@ pub fn make_equipments(
     Some(equipments)
 }
 
-fn make_passage<'a>(
+fn make_passage(
     request_input: &ScheduleRequestInput,
     response: &ScheduleResponse,
     model: &ModelRefs<'_>,
 ) -> Result<navitia_proto::Passage, Error> {
-    let timezone = model.timezone(&response.vehicle_journey_idx, &response.vehicle_date);
+    let timezone = model.timezone(&response.vehicle_journey_idx, response.vehicle_date);
     let vehicle_journey_idx = &response.vehicle_journey_idx;
     let stop_times = model.stop_times(
         vehicle_journey_idx,
-        &response.vehicle_date,
+        response.vehicle_date,
         response.stop_time_idx,
         response.stop_time_idx,
-        &request_input.real_time_level,
+        request_input.real_time_level,
     );
     let stop_times = if let Some(stop_times) = stop_times {
         stop_times
@@ -1499,13 +1502,13 @@ fn make_passage<'a>(
         pt_display_informations: Some(make_pt_display_info(
             &response.vehicle_journey_idx,
             response.vehicle_date,
-            &request_input.real_time_level,
+            request_input.real_time_level,
             model,
         )),
     })
 }
 
-pub fn make_schedule_proto_response<'a>(
+pub fn make_schedule_proto_response(
     request_input: &ScheduleRequestInput,
     responses: Vec<ScheduleResponse>,
     model: &ModelRefs<'_>,

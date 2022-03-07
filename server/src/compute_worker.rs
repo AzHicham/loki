@@ -409,7 +409,7 @@ fn solve(
             let stop_point_uri = location_context
                 .place
                 .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(|uri| uri.to_string())
+                .map(ToString::to_string)
                 .or_else(|| {
                     warn!(
                         "The {}th arrival stop point has an uri {} \
@@ -444,7 +444,7 @@ fn solve(
             let stop_point_uri = location_context
                 .place
                 .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(|uri| uri.to_string())
+                .map(ToString::to_string)
                 .or_else(|| {
                     warn!(
                         "The {}th arrival stop point has an uri {} \
@@ -503,12 +503,12 @@ fn solve(
     let forbidden_filters = journey_request
         .forbidden_uris
         .iter()
-        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "forbidden_uri[]"));
 
     let allowed_filters = journey_request
         .allowed_id
         .iter()
-        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "test"));
+        .filter_map(|forbidden_uri| parse_filter(model, forbidden_uri, "forbidden_uri[]"));
 
     let data_filters = Filters::new(
         forbidden_filters,

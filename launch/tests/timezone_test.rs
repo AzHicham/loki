@@ -57,7 +57,7 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
     let model = ModelBuilder::new("2020-10-23", "2020-10-30")
         .vj("toto", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::Europe::Paris)
+                .timezone(chrono_tz::Europe::Paris)
                 .st("A", "10:00:00")
                 .st("B", "10:05:00")
                 .st("C", "10:10:00");
@@ -71,7 +71,7 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     {
-        let config = Config::new_timezoned("2020-10-24T06:00:00", &chrono_tz::UTC, "A", "B");
+        let config = Config::new_timezoned("2020-10-24T06:00:00", chrono_tz::UTC, "A", "B");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -86,7 +86,7 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
     }
 
     {
-        let config = Config::new_timezoned("2020-10-26T06:00:00", &chrono_tz::UTC, "A", "B");
+        let config = Config::new_timezoned("2020-10-26T06:00:00", chrono_tz::UTC, "A", "B");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -111,7 +111,7 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
     let model = ModelBuilder::new("2020-10-23", "2020-10-30")
         .vj("toto", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::Europe::Paris)
+                .timezone(chrono_tz::Europe::Paris)
                 .st("A", "00:00:00")
                 .st("B", "01:05:00")
                 .st("C", "02:10:00");
@@ -130,7 +130,7 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
     // as 00:00:00 on this day is 2020-10-23 at 22:00:00 UTC
     // we should arrive at 02:10:00 on 2020-10-24 which is 00:10:00 on 2020-10-24 UTC"
     {
-        let config = Config::new_timezoned("2020-10-23T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config::new_timezoned("2020-10-23T22:00:00", chrono_tz::UTC, "A", "C");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -156,7 +156,7 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
     // as 00:00:00 on this day is 2020-10-26 at 23:00:00 UTC
     // we should arrive at 02:10:00 on 2020-10-27 which is 01:10:00 on 2020-10-27 UTC"
     {
-        let config = Config::new_timezoned("2020-10-26T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config::new_timezoned("2020-10-26T22:00:00", chrono_tz::UTC, "A", "C");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -186,7 +186,7 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
     // we board on A on 2020-10-24 at 23:00:00 UTC
     // we arrive on C on 2020-10-25 at 01:10:00 UTC
     {
-        let config = Config::new_timezoned("2020-10-24T22:00:00", &chrono_tz::UTC, "A", "C");
+        let config = Config::new_timezoned("2020-10-24T22:00:00", chrono_tz::UTC, "A", "C");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -218,14 +218,14 @@ fn test_paris_london() -> Result<(), Error> {
     let model = ModelBuilder::new("2020-10-01", "2020-10-30")
         .vj("paris", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::Europe::Paris)
+                .timezone(chrono_tz::Europe::Paris)
                 .st("A", "10:00:00")
                 .st("B", "11:05:00")
                 .st("C", "12:10:00");
         })
         .vj("london", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::Europe::London)
+                .timezone(chrono_tz::Europe::London)
                 .st("C", "11:15:00")
                 .st("D", "11:30:00")
                 .st("E", "11:45:00");
@@ -241,7 +241,7 @@ fn test_paris_london() -> Result<(), Error> {
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
     // Before the daylight saving time switch
     {
-        let config = Config::new_timezoned("2020-10-23T08:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config::new_timezoned("2020-10-23T08:00:00", chrono_tz::UTC, "A", "E");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -271,7 +271,7 @@ fn test_paris_london() -> Result<(), Error> {
 
     // After the daylight saving time switch
     {
-        let config = Config::new_timezoned("2020-10-26T08:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config::new_timezoned("2020-10-26T08:00:00", chrono_tz::UTC, "A", "E");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -311,14 +311,14 @@ fn test_paris_new_york() -> Result<(), Error> {
     let model = ModelBuilder::new("2020-10-01", "2020-10-30")
         .vj("paris", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::Europe::Paris)
+                .timezone(chrono_tz::Europe::Paris)
                 .st("A", "14:00:00")
                 .st("B", "15:05:00")
                 .st("C", "16:10:00");
         })
         .vj("new_york", |vj_builder| {
             vj_builder
-                .timezone(&chrono_tz::America::New_York)
+                .timezone(chrono_tz::America::New_York)
                 .st("C", "10:15:00")
                 .st("D", "10:30:00")
                 .st("E", "10:45:00");
@@ -336,7 +336,7 @@ fn test_paris_new_york() -> Result<(), Error> {
     // Before the daylight saving time switch in Paris, we should be able to take the transfer at C
     // and hence get a journey from A to E
     {
-        let config = Config::new_timezoned("2020-10-23T12:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config::new_timezoned("2020-10-23T12:00:00", chrono_tz::UTC, "A", "E");
 
         let responses = build_and_solve(&model_refs, &config)?;
 
@@ -367,7 +367,7 @@ fn test_paris_new_york() -> Result<(), Error> {
     // After the daylight saving time switch in Paris, we should not be able to take the transfer at C
     // and hence should not get a journey from A to E
     {
-        let config = Config::new_timezoned("2020-10-26T12:00:00", &chrono_tz::UTC, "A", "E");
+        let config = Config::new_timezoned("2020-10-26T12:00:00", chrono_tz::UTC, "A", "E");
 
         let responses = build_and_solve(&model_refs, &config)?;
 

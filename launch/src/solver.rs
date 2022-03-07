@@ -174,7 +174,7 @@ impl Solver {
         }
     }
 
-    pub fn solve_schedule<'r>(
+    pub fn solve_schedule(
         &mut self,
         data: &TransitData,
         model: &ModelRefs<'_>,

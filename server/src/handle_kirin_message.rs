@@ -95,11 +95,11 @@ pub fn handle_kirin_protobuf(
         })?
     };
 
-    let stop_times = make_stop_times(trip_update, &reference_date)?;
+    let stop_times = make_stop_times(trip_update, reference_date)?;
 
     let base_application_period =
         if let Some(idx) = base_model.vehicle_journey_idx(&vehicle_journey_id) {
-            base_model.trip_time_period(idx, &reference_date)
+            base_model.trip_time_period(idx, reference_date)
         } else {
             None
         };
@@ -109,7 +109,7 @@ pub fn handle_kirin_protobuf(
             .with_context(|| "BaseModel has a bad validity period".to_string())?
     };
 
-    let stop_times_time_period = make_time_period(&stop_times, &reference_date);
+    let stop_times_time_period = make_time_period(&stop_times, reference_date);
 
     // we want the application period to cover
     // - the base vehicle period (if any)
@@ -175,7 +175,7 @@ pub fn handle_kirin_protobuf(
 
 fn make_time_period(
     stop_times: &[kirin_disruption::StopTime],
-    reference_date: &NaiveDate,
+    reference_date: NaiveDate,
 ) -> Option<TimePeriod> {
     let min = stop_times
         .iter()
@@ -199,7 +199,7 @@ fn make_time_period(
 
 fn make_stop_times(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
-    reference_date: &NaiveDate,
+    reference_date: NaiveDate,
 ) -> Result<Vec<kirin_disruption::StopTime>, Error> {
     let stop_times =
         create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
@@ -210,7 +210,7 @@ fn make_stop_times(
 
 fn create_stop_times_from_proto(
     proto: &[chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate],
-    reference_date: &NaiveDate,
+    reference_date: NaiveDate,
 ) -> Result<Vec<kirin_disruption::StopTime>, Error> {
     proto
         .iter()
@@ -220,7 +220,7 @@ fn create_stop_times_from_proto(
 
 fn create_stop_time_from_proto(
     proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate,
-    reference_date: &NaiveDate,
+    reference_date: NaiveDate,
 ) -> Result<kirin_disruption::StopTime, Error> {
     let has_arrival_time = if proto.has_arrival() {
         let arrival_time = read_time(proto.get_arrival(), reference_date)
@@ -285,7 +285,7 @@ fn create_stop_time_from_proto(
 
 fn read_time(
     proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeEvent,
-    reference_date: &NaiveDate,
+    reference_date: NaiveDate,
 ) -> Result<SecondsSinceTimezonedDayStart, Error> {
     if proto.has_time().not() {
         return Err(format_err!("The protobuf time field is empty."));

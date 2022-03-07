@@ -214,7 +214,7 @@ pub struct TimeSlot {
     pub end: NaiveTime,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Action {
     Alter,
     Inform,
@@ -332,7 +332,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::LineDeleted(line) => apply_on_line(
                 real_time_model,
@@ -342,7 +342,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::RouteDeleted(route) => apply_on_route(
                 real_time_model,
@@ -352,7 +352,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::BaseTripDeleted(trip) => apply_on_base_vehicle_journey(
                 real_time_model,
@@ -362,7 +362,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::StopAreaDeleted(stop_area) => apply_on_stop_area(
                 real_time_model,
@@ -372,7 +372,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::StopPointDeleted(stop_point) => apply_on_stop_point(
                 real_time_model,
@@ -382,7 +382,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &impact_action,
+                impact_action,
             ),
             Impacted::RailSection(_) => todo!(),
             Impacted::LineSection(_) => todo!(),
@@ -409,7 +409,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
             Informed::Route(route) => apply_on_route(
                 real_time_model,
@@ -419,7 +419,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
             Informed::Line(line) => apply_on_line(
                 real_time_model,
@@ -429,7 +429,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
             Informed::Trip(trip) => apply_on_base_vehicle_journey(
                 real_time_model,
@@ -439,7 +439,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
             Informed::StopArea(stop_area) => apply_on_stop_area(
                 real_time_model,
@@ -449,7 +449,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
             Informed::StopPoint(stop_point) => apply_on_stop_point(
                 real_time_model,
@@ -459,7 +459,7 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
                 &application_periods,
                 impact_idx,
                 &object_idx,
-                &informed_action,
+                informed_action,
             ),
         };
         if let Err(err) = result {
@@ -479,7 +479,7 @@ fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} ",
@@ -518,10 +518,10 @@ fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) {
     for date in application_periods.dates_possibly_concerned() {
-        if let Some(trip_period) = base_model.trip_time_period(base_vehicle_journey_idx, &date) {
+        if let Some(trip_period) = base_model.trip_time_period(base_vehicle_journey_idx, date) {
             if application_periods.intersects(&trip_period) {
                 dispatch_on_base_vehicle_journey(
                     real_time_model,
@@ -546,7 +546,7 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     date: NaiveDate,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} on {}",
@@ -570,8 +570,8 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
                 .is_none()
             {
                 if real_time_model.base_vehicle_journey_is_present(
-                    &base_vehicle_journey_idx,
-                    &date,
+                    base_vehicle_journey_idx,
+                    date,
                     base_model,
                 ) {
                     apply_disruption::delete_trip(
@@ -638,7 +638,7 @@ fn apply_on_network<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on network {} ",
@@ -681,7 +681,7 @@ fn apply_on_line<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on line {} ",
@@ -723,7 +723,7 @@ fn apply_on_route<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on route {} ",
@@ -765,7 +765,7 @@ fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on stop area {} ",
@@ -814,7 +814,7 @@ fn apply_on_stop_point<Data: DataTrait + DataUpdate>(
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
         "Apply chaos disruption {}, {}-th impact, {:?} on stop point {} ",
@@ -856,7 +856,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
-    action: &Action,
+    action: Action,
 ) {
     for base_vehicle_journey_idx in base_model.vehicle_journeys() {
         if let Ok(base_stop_times) = base_model.stop_times(base_vehicle_journey_idx) {
@@ -872,7 +872,7 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
             for date in application_periods.dates_possibly_concerned() {
                 // check if the vehicle exists on the real time level
                 if let Some(time_period) =
-                    base_model.trip_time_period(base_vehicle_journey_idx, &date)
+                    base_model.trip_time_period(base_vehicle_journey_idx, date)
                 {
                     if application_periods.intersects(&time_period) {
                         let is_stop_time_concerned = |stop_time: &models::StopTime| {
@@ -880,9 +880,9 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
                                 return false;
                             }
                             let board_time =
-                                calendar::compose(&date, &stop_time.board_time, &timezone);
+                                calendar::compose(date, stop_time.board_time, timezone);
                             let debark_time =
-                                calendar::compose(&date, &stop_time.debark_time, &timezone);
+                                calendar::compose(date, stop_time.debark_time, timezone);
                             application_periods.contains(&board_time)
                                 || application_periods.contains(&debark_time)
                         };
@@ -980,13 +980,13 @@ fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointId
         if !is_stop_point_concerned(&stop_time.stop) {
             return false;
         }
-        let board_time = calendar::compose(&date, &stop_time.board_time, &timezone);
-        let debark_time = calendar::compose(&date, &stop_time.debark_time, &timezone);
+        let board_time = calendar::compose(date, stop_time.board_time, timezone);
+        let debark_time = calendar::compose(date, stop_time.debark_time, timezone);
         application_periods.contains(&board_time) || application_periods.contains(&debark_time)
     };
 
     let real_time_version =
-        real_time_model.base_vehicle_journey_last_version(&base_vehicle_journey_idx, &date);
+        real_time_model.base_vehicle_journey_last_version(base_vehicle_journey_idx, date);
     let base_stop_times = base_model.stop_times(base_vehicle_journey_idx);
 
     let new_stop_times: Vec<_> = match (real_time_version, base_stop_times) {
@@ -1127,8 +1127,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
     };
 
     // restore the vehicle to its base schedule
-    if real_time_model.base_vehicle_journey_is_present(&base_vehicle_journey_idx, &date, base_model)
-    {
+    if real_time_model.base_vehicle_journey_is_present(base_vehicle_journey_idx, date, base_model) {
         apply_disruption::modify_trip(
             real_time_model,
             base_model,
@@ -1143,9 +1142,9 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             base_model,
             data,
             vehicle_journey_idx.clone(),
-            &date,
+            date,
             base_stop_times.clone(),
-        )
+        );
     }
 
     real_time_model.set_base_trip_version(
@@ -1205,8 +1204,8 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
             | Impacted::RouteDeleted(_)
             | Impacted::BaseTripDeleted(_) => {
                 if real_time_model.base_vehicle_journey_is_present(
-                    &base_vehicle_journey_idx,
-                    &date,
+                    base_vehicle_journey_idx,
+                    date,
                     base_model,
                 ) {
                     apply_disruption::delete_trip(

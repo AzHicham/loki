@@ -55,16 +55,16 @@ impl TimezonesPatterns {
 
     pub fn fetch_or_insert(
         &mut self,
-        timezone: &TimeZone,
+        timezone: TimeZone,
         days_patterns: &mut DaysPatterns,
         calendar: &Calendar,
     ) -> &[(FixedOffset, DaysPattern)] {
         use std::collections::hash_map::Entry;
-        if let Entry::Vacant(vacant_entry) = self.timezones_patterns.entry(*timezone) {
+        if let Entry::Vacant(vacant_entry) = self.timezones_patterns.entry(timezone) {
             self.buffer.clear();
 
             for day in calendar.days() {
-                let naive_date: NaiveDate = calendar.to_naive_date(&day);
+                let naive_date: NaiveDate = calendar.to_naive_date(day);
                 // From : https://developers.google.com/transit/gtfs/reference#field_types
                 // The local times of a vehicle journey are interpreted as a duration
                 // since "noon minus 12h" on each day.
@@ -84,6 +84,6 @@ impl TimezonesPatterns {
             vacant_entry.insert(patterns);
         }
         // unwrap is safe since we just added a value for this key above in case of a vacant entry
-        self.timezones_patterns.get(timezone).unwrap().as_slice()
+        self.timezones_patterns.get(&timezone).unwrap().as_slice()
     }
 }

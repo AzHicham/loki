@@ -43,7 +43,7 @@ use crate::{
     },
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
-    transit_data::{Stop, TransitData},
+    transit_data::{data_interface::Data as DataInterface, Stop, TransitData},
     RealTimeLevel,
 };
 
@@ -149,7 +149,7 @@ impl TransitData {
         let from_stop_data = &mut self.stops_data[from_stop.idx];
         from_stop_data
             .outgoing_transfers
-            .push((to_stop, durations.clone(), transfer.clone()));
+            .push((to_stop, durations.clone(), transfer));
         let to_stop_data = &mut self.stops_data[to_stop.idx];
         to_stop_data
             .incoming_transfers
@@ -222,9 +222,9 @@ impl TransitData {
                 debark_times,
                 loads_data,
                 dates,
-                &timezone,
+                timezone,
                 vehicle_journey_idx,
-                &local_zones[0],
+                local_zones[0],
                 RealTimeLevel::Base,
             );
             let real_time_model = RealTimeModel::new();
@@ -232,7 +232,7 @@ impl TransitData {
                 base: base_model,
                 real_time: &real_time_model,
             };
-            use crate::transit_data::data_interface::Data;
+
             if let Err(err) = insert_result {
                 handle_insertion_error(
                     &model,
@@ -266,9 +266,9 @@ impl TransitData {
                     debark_times.clone(),
                     loads_data,
                     dates.clone(),
-                    &timezone,
+                    timezone,
                     vehicle_journey_idx.clone(),
-                    &local_zone,
+                    local_zone,
                     RealTimeLevel::Base,
                 );
 
@@ -277,7 +277,7 @@ impl TransitData {
                     base: base_model,
                     real_time: &real_time_model,
                 };
-                use crate::transit_data::data_interface::Data;
+
                 if let Err(err) = insert_result {
                     handle_insertion_error(
                         &model,
@@ -293,9 +293,10 @@ impl TransitData {
     }
 
     fn add_new_stop_point(&mut self, stop_point_idx: StopPointIdx) -> Stop {
+        use super::StopData;
+
         debug_assert!(!self.stop_point_idx_to_stop.contains_key(&stop_point_idx));
 
-        use super::StopData;
         let stop_data = StopData {
             stop_point_idx: stop_point_idx.clone(),
             position_in_timetables: Vec::new(),
@@ -319,9 +320,9 @@ impl TransitData {
             let stop = self
                 .stop_point_idx_to_stop
                 .get(&stop_point_idx)
-                .cloned()
+                .copied()
                 .unwrap_or_else(|| self.add_new_stop_point(stop_point_idx));
-            result.push(stop)
+            result.push(stop);
         }
         result
     }

@@ -145,9 +145,9 @@ impl<'de> serde::Deserialize<'de> for PositiveDuration {
     where
         D: serde::Deserializer<'de>,
     {
+        use std::str::FromStr;
         let s = String::deserialize(deserializer)?;
 
-        use std::str::FromStr;
         Self::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
@@ -174,7 +174,7 @@ impl PositiveDuration {
     }
 
     pub fn total_seconds(&self) -> u64 {
-        self.seconds as u64
+        u64::from(self.seconds)
     }
 
     pub fn to_hms_string(&self) -> String {
@@ -363,7 +363,7 @@ impl std::ops::Mul<u16> for PositiveDuration {
 
     fn mul(self, rhs: u16) -> Self::Output {
         PositiveDuration {
-            seconds: self.seconds * (rhs as u32),
+            seconds: self.seconds * u32::from(rhs),
         }
     }
 }
@@ -383,7 +383,7 @@ impl std::ops::Mul<PositiveDuration> for u16 {
 
     fn mul(self, rhs: PositiveDuration) -> Self::Output {
         PositiveDuration {
-            seconds: (self as u32) * rhs.seconds,
+            seconds: u32::from(self) * rhs.seconds,
         }
     }
 }

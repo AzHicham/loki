@@ -77,7 +77,7 @@ pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
             real_time_model.set_new_trip_version(*new_vj_idx, &date, trip_version);
         }
     }
-    let removal_result = data.remove_real_time_vehicle(vehicle_journey_idx, &date);
+    let removal_result = data.remove_real_time_vehicle(vehicle_journey_idx, date);
     if let Err(err) = removal_result {
         let model_ref = ModelRefs {
             base: base_model,
@@ -97,7 +97,7 @@ pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
     base_model: &BaseModel,
     data: &mut Data,
     vehicle_journey_idx: VehicleJourneyIdx,
-    date: &NaiveDate,
+    date: NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
     {
@@ -111,7 +111,7 @@ pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
             date
         );
     }
-    let dates = std::iter::once(*date);
+    let dates = std::iter::once(date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
     let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
@@ -123,7 +123,7 @@ pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
         debark_times,
         base_model.loads_data(),
         dates,
-        &chrono_tz::UTC,
+        chrono_tz::UTC,
         vehicle_journey_idx,
     );
     let model_ref = ModelRefs {
@@ -172,7 +172,7 @@ pub fn modify_trip<Data: DataTrait + DataUpdate>(
         debark_times,
         base_model.loads_data(),
         dates,
-        &chrono_tz::UTC,
+        chrono_tz::UTC,
         vehicle_journey_idx,
     );
     if let Err(err) = modify_result {
