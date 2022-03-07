@@ -256,13 +256,13 @@ fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
         config.duration = 2 * 60 * 60; // 2h
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
 
         // from_datetime < calendar.start < until_datetime < calendar.end
         config.duration = 8 * 24 * 60 * 60; // 7 days ie : until_datetime = 2020-02-01 < calendar.end
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
 
         // calendar.start < from_datetime < calendar.end < until_datetime
         config.from_datetime = "2020-01-01T10:00:00".as_datetime();
@@ -276,7 +276,7 @@ fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
         config.duration = 30 * 24 * 60 * 60; // 1 month
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
     }
 
     // Arrival tests
@@ -291,13 +291,13 @@ fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
         config.duration = 2 * 60 * 60; // 2h
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
 
         // from_datetime < calendar.start < until_datetime < calendar.end
         config.duration = 8 * 24 * 60 * 60; // 7 days ie : until_datetime = 2020-02-01 < calendar.end
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
 
         // calendar.start < from_datetime < calendar.end < until_datetime
         config.from_datetime = "2020-01-01T10:00:00".as_datetime();
@@ -311,7 +311,7 @@ fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
         config.duration = 30 * 24 * 60 * 60; // 1 month
         let result = build_and_solve_schedule(&config, &fixture_model);
         let error = format!("{:?}", result.as_ref().err().unwrap());
-        assert_eq!(error, "BadFromDatetime");
+        assert!(error.starts_with("BadFromDatetime"));
     }
 
     Ok(())
