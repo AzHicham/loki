@@ -133,7 +133,7 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
         max_nb_of_legs: config.request_params.max_nb_of_legs,
         max_journey_duration: config.request_params.max_journey_duration,
         too_late_threshold: config.request_params.too_late_threshold,
-        real_time_level: config.request_params.real_time_level.clone(),
+        real_time_level: config.request_params.real_time_level,
     };
     Ok(request_input)
 }

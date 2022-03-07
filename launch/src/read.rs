@@ -73,14 +73,14 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
 
             let model = transit_model::gtfs::Reader::new(configuration)
                 .parse(&launch_params.input_data_path)?;
-            let model = transit_model::transfers::generates_transfers(
+
+            transit_model::transfers::generates_transfers(
                 model,
                 max_distance,
                 walking_speed,
                 waiting_time,
                 None,
-            )?;
-            model
+            )?
         }
     };
     info!("Transit model loaded");

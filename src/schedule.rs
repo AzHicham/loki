@@ -100,9 +100,7 @@ pub fn generate_stops_for_schedule_request<T>(
 where
     T: AsRef<str>,
 {
-    if let Some(input_filter) =
-        parse_filter(model, input_str.as_ref(), "next_stoptimes_request_input")
-    {
+    if let Some(input_filter) = parse_filter(model, input_str, "next_stoptimes_request_input") {
         let mut stop_points = match input_filter {
             Filter::Stop(StopFilter::StopPoint(id)) => model
                 .stop_point_idx(id)
@@ -205,15 +203,15 @@ pub fn solve_schedule_request(
     let mut all_responses = Vec::new();
     let mut responses_at_current_stop = Vec::new();
     for stop_point_idx in &request.input_stop_points {
-        let stop = if let Some(stop) = data.stop_point_idx_to_stop(&stop_point_idx) {
+        let stop = if let Some(stop) = data.stop_point_idx_to_stop(stop_point_idx) {
             stop
         } else {
-            let stop_point_name = model.stop_point_name(&stop_point_idx);
+            let stop_point_name = model.stop_point_name(stop_point_idx);
             warn!("The stop point {stop_point_name} requested for schedule is not found in transit_data. I ignore it.");
             continue;
         };
         responses_at_current_stop.clear();
-        for (mission, position) in data.missions_of(&stop) {
+        for (mission, position) in data.missions_of(stop) {
             match request.schedule_on {
                 ScheduleOn::BoardTimes => {
                     let trip_iter = data.trips_boardable_between(

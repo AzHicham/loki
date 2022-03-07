@@ -302,7 +302,7 @@ impl ComputeWorker {
                     &request,
                     schedule_on,
                     &model_refs,
-                    &data,
+                    data,
                 ) {
                     Ok(request_input) => {
                         let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
