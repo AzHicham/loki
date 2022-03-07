@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use crate::navitia_proto::{self};
+use std::collections::HashSet;
 
 use launch::loki::{
     self,
@@ -50,6 +51,8 @@ use launch::loki::{
         real_time_model::{ChaosImpactIdx, KirinDisruptionIdx},
         Coord, ModelRefs, StopPointIdx, StopTimes, Timezone, VehicleJourneyIdx,
     },
+    schedule::{ScheduleOn, ScheduleRequestInput, ScheduleResponse},
+    tracing::warn,
     RealTimeLevel, RequestInput,
 };
 
@@ -74,9 +77,10 @@ use launch::loki::{
         PREFIX_ID_COMMERCIAL_MODE, PREFIX_ID_LINE, PREFIX_ID_NETWORK, PREFIX_ID_PHYSICAL_MODE,
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
+    places_nearby::PlacesNearbyIter,
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
-use std::{collections::HashSet, convert::TryFrom};
+use std::convert::TryFrom;
 
 pub fn make_response(
     request_input: &RequestInput,
@@ -551,7 +555,7 @@ fn make_stop_area(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
 ) -> Option<navitia_proto::StopArea> {
-    let stop_area_name = model.stop_area_name(stop_point_idx);
+    let stop_area_name = model.stop_area_id(stop_point_idx);
     let coord =
         model
             .stop_area_coord(stop_area_name)
@@ -656,18 +660,25 @@ fn make_stop_datetimes(
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
     let mut result = Vec::new();
+    let realtime_level = match stop_times {
+        StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
+        StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
+    };
     for stop_time in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
         let departure_seconds = i64::from(stop_time.board_time.total_seconds());
         let departure = to_utc_timestamp(timezone, date, departure_seconds)?;
         let stop_point_idx = stop_time.stop;
-        let proto = navitia_proto::StopDateTime {
+        let mut proto = navitia_proto::StopDateTime {
+            base_arrival_date_time: Some(arrival),
             arrival_date_time: Some(arrival),
+            base_departure_date_time: Some(departure),
             departure_date_time: Some(departure),
             stop_point: Some(make_stop_point(&stop_point_idx, model)),
             ..Default::default()
         };
+        proto.set_data_freshness(realtime_level);
         result.push(proto);
     }
     Ok(result)
@@ -1214,11 +1225,20 @@ pub fn make_route(route: &Route, model: &ModelRefs) -> navitia_proto::Route {
         None
     };
 
+    let physical_modes_idx = model.physical_modes_of_route(&route.id);
+
     navitia_proto::Route {
         name: Some(route.name.clone()),
         uri: Some(route.id.clone()),
         codes: route.codes.iter().map(make_pt_object_code).collect(),
         direction_type: route.direction_type.clone(),
+        physical_modes: physical_modes_idx
+            .iter()
+            .filter_map(|idx| {
+                let id = model.physical_mode_id(*idx);
+                make_physical_mode(id, model)
+            })
+            .collect(),
         direction,
         ..Default::default()
     }
@@ -1347,7 +1367,7 @@ pub fn make_physical_mode(
     model
         .physical_mode(physical_mode_id)
         .map(|p| navitia_proto::PhysicalMode {
-            uri: Some(p.id.clone()),
+            uri: Some(format!("{}{}", PREFIX_ID_PHYSICAL_MODE, p.id)),
             name: Some(p.name.clone()),
         })
 }
@@ -1437,4 +1457,146 @@ pub fn make_equipments(
     }
 
     Some(equipments)
+}
+
+fn make_passage<'a>(
+    request_input: &ScheduleRequestInput,
+    response: &ScheduleResponse,
+    model: &ModelRefs<'_>,
+) -> Result<navitia_proto::Passage, Error> {
+    let timezone = model.timezone(&response.vehicle_journey_idx, &response.vehicle_date);
+    let vehicle_journey_idx = &response.vehicle_journey_idx;
+    let stop_times = model.stop_times(
+        vehicle_journey_idx,
+        &response.vehicle_date,
+        response.stop_time_idx,
+        response.stop_time_idx,
+        &request_input.real_time_level,
+    );
+    let stop_times = if let Some(stop_times) = stop_times {
+        stop_times
+    } else {
+        return Err(format_err!(
+            "make_passage failed to compute stop_times for vehicle {} at date {:?} and stop_time_idx : {:?}",
+            model.vehicle_journey_name(vehicle_journey_idx), response.vehicle_date, response.stop_time_idx
+        ));
+    };
+    let mut stop_date_times =
+        make_stop_datetimes(stop_times, timezone, response.vehicle_date, model)?;
+    let stop_date_time = if stop_date_times.len() == 1 {
+        stop_date_times.pop().unwrap()
+    } else {
+        return Err(format_err!("make_passage expects a stop_times of length 1"));
+    };
+
+    let route_id = model.route_name(vehicle_journey_idx);
+    let proto_route = model.route(route_id).map(|route| make_route(route, model));
+
+    Ok(navitia_proto::Passage {
+        stop_point: make_stop_point(&response.stop_point_idx, model),
+        stop_date_time,
+        route: proto_route,
+        pt_display_informations: Some(make_pt_display_info(
+            &response.vehicle_journey_idx,
+            response.vehicle_date,
+            &request_input.real_time_level,
+            model,
+        )),
+    })
+}
+
+pub fn make_schedule_proto_response<'a>(
+    request_input: &ScheduleRequestInput,
+    responses: Vec<ScheduleResponse>,
+    model: &ModelRefs<'_>,
+    start_page: usize,
+    count: usize,
+) -> Result<navitia_proto::Response, Error> {
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = responses.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    let len = range.len();
+
+    let proto_responses = responses[range]
+        .into_iter()
+        .filter_map(|response| {
+            make_passage(request_input, response, model)
+                .map_err(|err| {
+                    warn!(
+                        "Error while construction a schedule proto response {:?}",
+                        err
+                    )
+                })
+                .ok()
+        })
+        .collect();
+
+    let (next_departures, next_arrivals) = match request_input.schedule_on {
+        ScheduleOn::BoardTimes => (proto_responses, Vec::new()),
+        ScheduleOn::DebarkTimes => (Vec::new(), proto_responses),
+    };
+
+    let proto = navitia_proto::Response {
+        feed_publishers: make_feed_publishers(model),
+        next_departures,
+        next_arrivals,
+        pagination: Some(navitia_proto::Pagination {
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    Ok(proto)
+}
+
+pub fn make_places_nearby_proto_response(
+    model: &ModelRefs,
+    places: &mut PlacesNearbyIter,
+    start_page: usize,
+    count: usize,
+) -> navitia_proto::Response {
+    let pt_objects: Vec<navitia_proto::PtObject> = places
+        .into_iter()
+        .map(|(idx, distance)| navitia_proto::PtObject {
+            name: model.stop_point_name(&idx).to_string(),
+            uri: model.stop_point_uri(&idx),
+            distance: Some(distance as i32),
+            embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
+            stop_point: Some(make_stop_point(&idx, model)),
+            ..Default::default()
+        })
+        .collect();
+
+    let start_index = start_page * count;
+    let end_index = (start_page + 1) * count;
+    let size = pt_objects.len();
+
+    let range = match (start_index, end_index) {
+        (si, ei) if (0..size).contains(&si) && (0..size).contains(&ei) => si..ei,
+        (si, ei) if (0..size).contains(&si) && !(0..size).contains(&ei) => si..size,
+        _ => 0..0,
+    };
+    let len = range.len();
+
+    navitia_proto::Response {
+        places_nearby: pt_objects[range].to_owned(),
+        pagination: Some(navitia_proto::Pagination {
+            start_page: i32::try_from(start_page).unwrap_or_default(),
+            total_result: i32::try_from(size).unwrap_or_default(),
+            items_per_page: i32::try_from(count).unwrap_or_default(),
+            items_on_page: i32::try_from(len).unwrap_or_default(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }

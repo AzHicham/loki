@@ -785,7 +785,7 @@ fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
 
     let is_stop_point_concerned = |stop_point: &StopPointIdx| {
         if let StopPointIdx::Base(base_stop_point) = stop_point {
-            let stop_area = base_model.stop_area_name(*base_stop_point);
+            let stop_area = base_model.stop_area_id(*base_stop_point);
             stop_area == stop_area_id
         } else {
             false
@@ -1222,7 +1222,7 @@ fn cancel_impact<Data: DataTrait + DataUpdate>(
                 if base_model.contains_stop_area_id(&id) {
                     let is_stop_point_concerned = |stop_point: &StopPointIdx| {
                         if let StopPointIdx::Base(base_stop_point) = stop_point {
-                            let stop_area = base_model.stop_area_name(*base_stop_point);
+                            let stop_area = base_model.stop_area_id(*base_stop_point);
                             stop_area == id
                         } else {
                             false

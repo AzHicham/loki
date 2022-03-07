@@ -299,11 +299,17 @@ async fn handle_incoming_request(
                 Api::Status | Api::Metadatas => status_request_sender
                     .send(request_message)
                     .context("ZmqWorker error while forwarding request to status worker."),
-                Api::PtPlanner | Api::PlacesNearby => requests_sender
-                    .send(request_message)
-                    .context("ZmqWorker error while forwarding request to load balancer."),
+                Api::PtPlanner | Api::PlacesNearby | Api::NextDepartures | Api::NextArrivals => {
+                    requests_sender
+                        .send(request_message)
+                        .context("ZmqWorker error while forwarding request to load balancer.")
+                }
                 _ => {
-                    error!("ZmqWorker received a request with api {:?} while I can only handle Status/Metadatas/PtPlanner/PlacesNearby api.", requested_api);
+                    error!(
+                        "ZmqWorker received a request with api {:?} while I can only handle \
+                    Status/Metadatas/PtPlanner/PlacesNearby/NextDepartures/NextArrivals api.",
+                        requested_api
+                    );
                     Ok(())
                 }
             }

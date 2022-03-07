@@ -172,7 +172,7 @@ pub trait Data: TransitTypes {
     fn mission_id(&self, mission: &Self::Mission) -> usize;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RealTimeLevel {
     Base,
     RealTime,

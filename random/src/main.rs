@@ -167,8 +167,8 @@ pub fn launch(config: &Config) -> Result<(), Error> {
     for _ in 0..nb_queries {
         let start_stop_idx = base_model.stop_points().choose(&mut rng).unwrap();
         let end_stop_idx = base_model.stop_points().choose(&mut rng).unwrap();
-        let start_stop_area_uri = base_model.stop_area_name(start_stop_idx);
-        let end_stop_area_uri = base_model.stop_area_name(end_stop_idx);
+        let start_stop_area_uri = base_model.stop_area_id(start_stop_idx);
+        let end_stop_area_uri = base_model.stop_area_id(end_stop_idx);
 
         let request_input = launch::stop_areas::make_query_stop_areas(
             &base_model,
@@ -178,7 +178,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
             &config.request_params,
         )?;
         let before_solve = SystemTime::now();
-        let solve_result = solver.solve_request(
+        let solve_result = solver.solve_journey_request(
             &data,
             &model_refs,
             &request_input,

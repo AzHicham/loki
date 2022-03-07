@@ -89,13 +89,13 @@ impl<'a> VehicleFilter<'a> {
 impl<'a> StopFilter<'a> {
     pub fn applies_on(&self, idx: &StopPointIdx, model: &ModelRefs<'_>) -> bool {
         match self {
-            StopFilter::StopPoint(stop_point_id) => *stop_point_id == model.stop_point_name(idx),
-            StopFilter::StopArea(stop_area_id) => *stop_area_id == model.stop_area_name(idx),
+            StopFilter::StopPoint(stop_point_id) => *stop_point_id == model.stop_point_id(idx),
+            StopFilter::StopArea(stop_area_id) => *stop_area_id == model.stop_area_id(idx),
         }
     }
 }
 
-enum Filter<'a> {
+pub enum Filter<'a> {
     Stop(StopFilter<'a>),
     Vehicle(VehicleFilter<'a>),
 }
@@ -185,28 +185,19 @@ impl<'a> Filters<'a> {
         false
     }
 
-    pub fn new<T>(
-        model: &ModelRefs<'_>,
-        forbidden_uri: &'a [T],
-        allowed_uri: &'a [T],
+    pub fn new(
+        forbidden_uri: impl Iterator<Item = Filter<'a>>,
+        allowed_uri: impl Iterator<Item = Filter<'a>>,
         must_be_wheelchair_accessible: bool,
         must_be_bike_accessible: bool,
-    ) -> Option<Filters<'a>>
-    where
-        T: AsRef<str>,
-    {
+    ) -> Option<Filters<'a>> {
         let (allowed_vehicle_filters, allowed_stop_filters) = {
             let mut allowed_vehicle_filters = Vec::new();
             let mut allowed_stop_filters = Vec::new();
-            for filter_str in allowed_uri {
-                let filter_result = parse_filter(model, filter_str.as_ref(), "allowed_id[]");
-                if let Ok(filter) = filter_result {
-                    match filter {
-                        Filter::Stop(stop_filter) => allowed_stop_filters.push(stop_filter),
-                        Filter::Vehicle(vehicle_filter) => {
-                            allowed_vehicle_filters.push(vehicle_filter)
-                        }
-                    }
+            for filter in allowed_uri {
+                match filter {
+                    Filter::Stop(stop_filter) => allowed_stop_filters.push(stop_filter),
+                    Filter::Vehicle(vehicle_filter) => allowed_vehicle_filters.push(vehicle_filter),
                 }
             }
             (allowed_vehicle_filters, allowed_stop_filters)
@@ -215,14 +206,11 @@ impl<'a> Filters<'a> {
         let (forbiddden_vehicle_filters, forbidden_stop_filters) = {
             let mut forbiddden_vehicle_filters = Vec::new();
             let mut forbidden_stop_filters = Vec::new();
-            for filter_str in forbidden_uri {
-                let filter_result = parse_filter(model, filter_str.as_ref(), "forbidden_id[]");
-                if let Ok(filter) = filter_result {
-                    match filter {
-                        Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
-                        Filter::Vehicle(vehicle_filter) => {
-                            forbiddden_vehicle_filters.push(vehicle_filter)
-                        }
+            for filter in forbidden_uri {
+                match filter {
+                    Filter::Stop(stop_filter) => forbidden_stop_filters.push(stop_filter),
+                    Filter::Vehicle(vehicle_filter) => {
+                        forbiddden_vehicle_filters.push(vehicle_filter)
                     }
                 }
             }
@@ -252,97 +240,97 @@ impl<'a> Filters<'a> {
     }
 }
 
-fn parse_filter<'a>(
+pub fn parse_filter<'a>(
     model: &ModelRefs<'_>,
     filter_str: &'a str,
     filter_provenance: &str,
-) -> Result<Filter<'a>, ()> {
+) -> Option<Filter<'a>> {
     if let Some(line_id) = filter_str.strip_prefix(PREFIX_ID_LINE) {
         if model.contains_line_id(line_id) {
             let filter = Filter::Vehicle(VehicleFilter::Line(line_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown line id {} in {} filter {}. I'll ignore it.",
                 line_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
     if let Some(route_id) = filter_str.strip_prefix(PREFIX_ID_ROUTE) {
         if model.contains_route_id(route_id) {
             let filter = Filter::Vehicle(VehicleFilter::Route(route_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown route id {} in {} filter {}. I'll ignore it.",
                 route_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
     if let Some(network_id) = filter_str.strip_prefix(PREFIX_ID_NETWORK) {
         if model.contains_network_id(network_id) {
             let filter = Filter::Vehicle(VehicleFilter::Network(network_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown network id {} in {} filter {}. I'll ignore it.",
                 network_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
 
     if let Some(physical_mode_id) = filter_str.strip_prefix(PREFIX_ID_PHYSICAL_MODE) {
         if model.contains_physical_mode_id(physical_mode_id) {
             let filter = Filter::Vehicle(VehicleFilter::PhysicalMode(physical_mode_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown physical_mode id {} in {} filter {}. I'll ignore it.",
                 physical_mode_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
 
     if let Some(commercial_model_id) = filter_str.strip_prefix(PREFIX_ID_COMMERCIAL_MODE) {
         if model.contains_commercial_model_id(commercial_model_id) {
             let filter = Filter::Vehicle(VehicleFilter::CommercialMode(commercial_model_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown commercial_mode id {} in {} filter {}. I'll ignore it.",
                 commercial_model_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
 
     if let Some(stop_point_id) = filter_str.strip_prefix(PREFIX_ID_STOP_POINT) {
         if model.contains_stop_point_id(stop_point_id) {
             let filter = Filter::Stop(StopFilter::StopPoint(stop_point_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown stop_point id {} in {} filter {}. I'll ignore it.",
                 stop_point_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
 
     if let Some(stop_area_id) = filter_str.strip_prefix(PREFIX_ID_STOP_AREA) {
         if model.contains_stop_area_id(stop_area_id) {
             let filter = Filter::Stop(StopFilter::StopArea(stop_area_id));
-            return Ok(filter);
+            return Some(filter);
         } else {
             warn!(
                 "Unknown stop_area id {} in {} filter {}. I'll ignore it.",
                 stop_area_id, filter_provenance, filter_str
             );
-            return Err(());
+            return None;
         }
     }
 
@@ -350,5 +338,5 @@ fn parse_filter<'a>(
         "Invalid {} filter : {}. I'll ignore it.",
         filter_provenance, filter_str
     );
-    Err(())
+    None
 }

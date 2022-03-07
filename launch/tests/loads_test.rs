@@ -66,12 +66,10 @@ fn create_model() -> BaseModel {
         })
         .build();
 
-    let collections = model.into_collections();
-
     let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = loki::loads_data::LoadsData::new(filepath, &collections).unwrap();
+    let loads_data = loki::loads_data::LoadsData::new(filepath, &model).unwrap();
 
-    BaseModel::new(collections, loads_data, PositiveDuration::zero()).unwrap()
+    BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
 }
 
 #[test]

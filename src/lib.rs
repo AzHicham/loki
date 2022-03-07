@@ -43,6 +43,7 @@ pub mod loads_data;
 pub mod models;
 pub mod places_nearby;
 pub mod request;
+pub mod schedule;
 pub mod time;
 pub mod timetables;
 mod transit_data;

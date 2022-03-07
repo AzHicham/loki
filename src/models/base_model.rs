@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use std::collections::BTreeSet;
 use tracing::warn;
 use transit_model::objects::{
     Availability, CommercialMode, Equipment, Line, Network, PhysicalMode, Properties, Route,
@@ -75,9 +76,10 @@ pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
 }
 
 pub type Collections = transit_model::model::Collections;
+pub type Model = transit_model::model::Model;
 
 pub struct BaseModel {
-    collections: transit_model::model::Collections,
+    model: Model,
     loads_data: LoadsData,
     validity_period: (NaiveDate, NaiveDate),
     default_transfer_duration: PositiveDuration,
@@ -125,21 +127,17 @@ impl BaseModel {
         loads_data: LoadsData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-        Self::new(
-            model.into_collections(),
-            loads_data,
-            default_transfer_duration,
-        )
+        Self::new(model, loads_data, default_transfer_duration)
     }
 
     pub fn empty() -> Self {
-        let collections = Collections::default();
+        let model = Model::new(Collections::default()).unwrap();
         // let dataset = transit_model::objects::Dataset::default();
         // collections.datasets.push(dataset).unwrap();
         let loads_data = LoadsData::empty();
         let day = NaiveDate::from_ymd(1970, 1, 1);
         Self {
-            collections,
+            model,
             loads_data,
             validity_period: (day, day),
             default_transfer_duration: PositiveDuration::zero(),
@@ -147,18 +145,18 @@ impl BaseModel {
     }
 
     pub fn new(
-        collections: transit_model::model::Collections,
+        model: transit_model::model::Model,
         loads_data: LoadsData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-        let validity_period = collections
+        let validity_period = model
             .calculate_validity_period()
             .map_err(|_| BadModel::NoDataset)?;
         if validity_period.0 > validity_period.1 {
             return Err(BadModel::StartDateAfterEndDate);
         }
         Ok(Self {
-            collections,
+            model,
             loads_data,
             validity_period,
             default_transfer_duration,
@@ -184,51 +182,51 @@ impl BaseModel {
 // stop_points
 impl BaseModel {
     pub fn nb_of_stop_points(&self) -> usize {
-        self.collections.stop_points.len()
+        self.model.stop_points.len()
     }
 
     pub fn stop_points(&self) -> BaseStopPoints<'_> {
         BaseStopPoints {
-            inner: self.collections.stop_points.iter(),
+            inner: self.model.stop_points.iter(),
         }
     }
 
     pub fn stop_point_idx(&self, stop_id: &str) -> Option<BaseStopPointIdx> {
-        self.collections.stop_points.get_idx(stop_id)
+        self.model.stop_points.get_idx(stop_id)
     }
 
     pub fn stop_point_name(&self, stop_idx: BaseStopPointIdx) -> &str {
-        &self.collections.stop_points[stop_idx].name
+        &self.model.stop_points[stop_idx].name
     }
 
     pub fn stop_point_id(&self, stop_idx: BaseStopPointIdx) -> &str {
-        &self.collections.stop_points[stop_idx].id
+        &self.model.stop_points[stop_idx].id
     }
 
     pub fn stop_point_uri(&self, idx: BaseStopPointIdx) -> String {
-        let id = &self.collections.stop_points[idx].id;
+        let id = &self.model.stop_points[idx].id;
         format!("{}{}", PREFIX_ID_STOP_POINT, id)
     }
 
     pub fn house_number(&self, idx: BaseStopPointIdx) -> Option<&str> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         let address_id = stop_point.address_id.as_ref()?;
-        let address = self.collections.addresses.get(address_id)?;
+        let address = self.model.addresses.get(address_id)?;
         let house_number = address.house_number.as_ref()?;
         Some(house_number.as_str())
     }
 
     pub fn street_name(&self, idx: BaseStopPointIdx) -> Option<&str> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         let address_id = &stop_point.address_id.as_ref()?;
-        let address = &self.collections.addresses.get(address_id)?;
-        Some(address.street_name.as_str())
+        let address = &self.model.addresses.get(address_id)?;
+        Some(address.id.as_str())
     }
 
     pub fn equipment(&self, idx: BaseStopPointIdx) -> Option<&Equipment> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         let equipment_id = &stop_point.equipment_id.as_ref()?;
-        let equipment = &self.collections.equipments.get(equipment_id)?;
+        let equipment = &self.model.equipments.get(equipment_id)?;
         Some(equipment)
     }
 
@@ -245,7 +243,7 @@ impl BaseModel {
     }
 
     pub fn coord(&self, idx: BaseStopPointIdx) -> Coord {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         Coord {
             lat: stop_point.coord.lat,
             lon: stop_point.coord.lon,
@@ -253,12 +251,12 @@ impl BaseModel {
     }
 
     pub fn platform_code(&self, idx: BaseStopPointIdx) -> Option<&str> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         stop_point.platform_code.as_deref()
     }
 
     pub fn fare_zone_id(&self, idx: BaseStopPointIdx) -> Option<&str> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         stop_point.fare_zone_id.as_deref()
     }
 
@@ -266,21 +264,21 @@ impl BaseModel {
         &self,
         idx: BaseStopPointIdx,
     ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
-        let stop_point = &self.collections.stop_points[idx];
+        let stop_point = &self.model.stop_points[idx];
         Some(stop_point.codes.iter())
     }
 
-    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
-        &self.collections.stop_points[stop_idx].stop_area_id
+    pub fn stop_area_id(&self, stop_idx: BaseStopPointIdx) -> &str {
+        &self.model.stop_points[stop_idx].stop_area_id
     }
 
     pub fn stop_area_uri(&self, stop_area_id: &str) -> Option<String> {
-        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        let stop_area = self.model.stop_areas.get(stop_area_id)?;
         Some(format!("{}{}", PREFIX_ID_STOP_AREA, stop_area.id))
     }
 
     pub fn stop_area_coord(&self, stop_area_id: &str) -> Option<Coord> {
-        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        let stop_area = self.model.stop_areas.get(stop_area_id)?;
         Some(Coord {
             lat: stop_area.coord.lat,
             lon: stop_area.coord.lon,
@@ -291,43 +289,100 @@ impl BaseModel {
         &self,
         stop_area_id: &str,
     ) -> Option<impl Iterator<Item = &(String, String)> + '_> {
-        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        let stop_area = self.model.stop_areas.get(stop_area_id)?;
         Some(stop_area.codes.iter())
     }
 
     pub fn stop_area_timezone(&self, stop_area_id: &str) -> Option<chrono_tz::Tz> {
-        let stop_area = self.collections.stop_areas.get(stop_area_id)?;
+        let stop_area = self.model.stop_areas.get(stop_area_id)?;
         stop_area.timezone
+    }
+
+    pub fn stop_points_of_stop_area(&self, stop_area_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.stop_areas.get_idx(stop_area_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_route(&self, route_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.routes.get_idx(route_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_line(&self, line_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.lines.get_idx(line_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_network(&self, network_id: &str) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.networks.get_idx(network_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_physical_mode(
+        &self,
+        physical_mode_id: &str,
+    ) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.physical_modes.get_idx(physical_mode_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn stop_points_of_commercial_mode(
+        &self,
+        commercial_mode_id: &str,
+    ) -> BTreeSet<BaseStopPointIdx> {
+        match self.model.commercial_modes.get_idx(commercial_mode_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
+    }
+
+    pub fn physical_mode_id(&self, physical_mode_idx: Idx<PhysicalMode>) -> &str {
+        &self.model.physical_modes[physical_mode_idx].id
+    }
+
+    pub fn physical_modes_of_route(&self, route_id: &str) -> BTreeSet<Idx<PhysicalMode>> {
+        match self.model.routes.get_idx(route_id) {
+            Some(idx) => self.model.get_corresponding_from_idx(idx),
+            None => BTreeSet::new(),
+        }
     }
 }
 
 // vehicle journey
 impl BaseModel {
     pub fn nb_of_vehicle_journeys(&self) -> usize {
-        self.collections.vehicle_journeys.len()
+        self.model.vehicle_journeys.len()
     }
 
     pub fn vehicle_journey(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> &VehicleJourney {
-        &self.collections.vehicle_journeys[vehicle_journey_idx]
+        &self.model.vehicle_journeys[vehicle_journey_idx]
     }
 
     pub fn vehicle_journeys(&self) -> impl Iterator<Item = BaseVehicleJourneyIdx> + '_ {
-        self.collections.vehicle_journeys.iter().map(|(idx, _)| idx)
+        self.model.vehicle_journeys.iter().map(|(idx, _)| idx)
     }
 
     pub fn vehicle_journey_idx(&self, vehicle_journey_id: &str) -> Option<BaseVehicleJourneyIdx> {
-        self.collections
-            .vehicle_journeys
-            .get_idx(vehicle_journey_id)
+        self.model.vehicle_journeys.get_idx(vehicle_journey_id)
     }
 
     pub fn vehicle_journey_name(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> &str {
-        &self.collections.vehicle_journeys[vehicle_journey_idx].id
+        &self.model.vehicle_journeys[vehicle_journey_idx].id
     }
 
     pub fn timezone(&self, idx: BaseVehicleJourneyIdx) -> Option<chrono_tz::Tz> {
         let line = self.vehicle_journey_line(idx)?;
-        let network = self.collections.networks.get(&line.network_id)?;
+        let network = self.model.networks.get(&line.network_id)?;
         network.timezone
     }
 
@@ -335,8 +390,8 @@ impl BaseModel {
         &self,
         idx: BaseVehicleJourneyIdx,
     ) -> Option<impl Iterator<Item = NaiveDate> + '_ + Clone> {
-        let vehicle_journey = &self.collections.vehicle_journeys[idx];
-        self.collections
+        let vehicle_journey = &self.model.vehicle_journeys[idx];
+        self.model
             .calendars
             .get(&vehicle_journey.service_id)
             .map(|calendar| calendar.dates.iter().copied())
@@ -346,8 +401,8 @@ impl BaseModel {
         &self,
         idx: BaseVehicleJourneyIdx,
     ) -> Option<&transit_model::objects::Route> {
-        let route_id = &self.collections.vehicle_journeys[idx].route_id;
-        self.collections.routes.get(route_id)
+        let route_id = &self.model.vehicle_journeys[idx].route_id;
+        self.model.routes.get(route_id)
     }
 
     fn vehicle_journey_line(
@@ -355,7 +410,7 @@ impl BaseModel {
         idx: BaseVehicleJourneyIdx,
     ) -> Option<&transit_model::objects::Line> {
         self.vehicle_journey_route(idx)
-            .and_then(|route| self.collections.lines.get(route.line_id.as_str()))
+            .and_then(|route| self.model.lines.get(route.line_id.as_str()))
     }
 
     pub fn line_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -378,7 +433,7 @@ impl BaseModel {
             VehicleJourneyPropertyKey::AppropriateSignage => "appropriate_signage",
             VehicleJourneyPropertyKey::SchoolVehicle => "school_vehicle_type",
         };
-        let properties = &self.collections.vehicle_journeys[idx].properties();
+        let properties = &self.model.vehicle_journeys[idx].properties();
         let value = properties.get(string_key);
         match value {
             Some(value) => matches!(value.as_str(), "1"), // return true only if value == "1"
@@ -393,18 +448,18 @@ impl BaseModel {
     }
 
     pub fn headsign(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
-        self.collections.vehicle_journeys[idx].headsign.as_deref()
+        self.model.vehicle_journeys[idx].headsign.as_deref()
     }
 
     pub fn direction(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
         let route = self.vehicle_journey_route(idx)?;
         let destination_id = route.destination_id.as_ref()?;
-        let stop_area = self.collections.stop_areas.get(destination_id)?;
+        let stop_area = self.model.stop_areas.get(destination_id)?;
         Some(stop_area.name.as_str())
     }
 
     pub fn route_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
-        self.collections.vehicle_journeys[idx].route_id.as_str()
+        self.model.vehicle_journeys[idx].route_id.as_str()
     }
 
     pub fn network_name(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -423,7 +478,7 @@ impl BaseModel {
     }
 
     pub fn trip_short_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
-        let vj = &self.collections.vehicle_journeys[idx];
+        let vj = &self.model.vehicle_journeys[idx];
         vj.short_name
             .as_ref()
             .or(vj.headsign.as_ref())
@@ -431,9 +486,7 @@ impl BaseModel {
     }
 
     pub fn physical_mode_name(&self, idx: BaseVehicleJourneyIdx) -> &str {
-        self.collections.vehicle_journeys[idx]
-            .physical_mode_id
-            .as_str()
+        self.model.vehicle_journeys[idx].physical_mode_id.as_str()
     }
 
     pub fn commercial_mode_name(&self, idx: BaseVehicleJourneyIdx) -> Option<&str> {
@@ -446,15 +499,15 @@ impl BaseModel {
         vehicle_journey_idx: BaseVehicleJourneyIdx,
         stop_time_idx: StopTimeIdx,
     ) -> Option<BaseStopPointIdx> {
-        self.collections.vehicle_journeys[vehicle_journey_idx]
+        self.model.vehicle_journeys[vehicle_journey_idx]
             .stop_times
             .get(stop_time_idx.idx)
             .map(|stop_time| stop_time.stop_point_idx)
     }
 
     pub fn trip_exists(&self, vehicle_journey_idx: BaseVehicleJourneyIdx, date: NaiveDate) -> bool {
-        let vehicle_journey = &self.collections.vehicle_journeys[vehicle_journey_idx];
-        let has_calendar = &self.collections.calendars.get(&vehicle_journey.service_id);
+        let vehicle_journey = &self.model.vehicle_journeys[vehicle_journey_idx];
+        let has_calendar = &self.model.calendars.get(&vehicle_journey.service_id);
         if let Some(calendar) = has_calendar {
             calendar.dates.contains(&date)
         } else {
@@ -497,7 +550,7 @@ impl BaseModel {
 
     pub fn co2_emission(&self, vehicle_journey_idx: BaseVehicleJourneyIdx) -> Option<f32> {
         let physical_mode_name = self.physical_mode_name(vehicle_journey_idx);
-        let physical_mode = self.collections.physical_modes.get(physical_mode_name)?;
+        let physical_mode = self.model.physical_modes.get(physical_mode_name)?;
         physical_mode.co2_emission
     }
 
@@ -527,31 +580,31 @@ impl BaseModel {
 // contains ids
 impl BaseModel {
     pub fn contains_line_id(&self, id: &str) -> bool {
-        self.collections.lines.contains_id(id)
+        self.model.lines.contains_id(id)
     }
 
     pub fn contains_route_id(&self, id: &str) -> bool {
-        self.collections.routes.contains_id(id)
+        self.model.routes.contains_id(id)
     }
 
     pub fn contains_network_id(&self, id: &str) -> bool {
-        self.collections.networks.contains_id(id)
+        self.model.networks.contains_id(id)
     }
 
     pub fn contains_physical_mode_id(&self, id: &str) -> bool {
-        self.collections.physical_modes.contains_id(id)
+        self.model.physical_modes.contains_id(id)
     }
 
     pub fn contains_commercial_model_id(&self, id: &str) -> bool {
-        self.collections.commercial_modes.contains_id(id)
+        self.model.commercial_modes.contains_id(id)
     }
 
     pub fn contains_stop_point_id(&self, id: &str) -> bool {
-        self.collections.stop_points.contains_id(id)
+        self.model.stop_points.contains_id(id)
     }
 
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
-        self.collections.stop_areas.contains_id(id)
+        self.model.stop_areas.contains_id(id)
     }
 }
 
@@ -561,7 +614,7 @@ impl BaseModel {
         &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
     ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
-        let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
+        let vj = &self.model.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let inner = stop_times.iter();
         BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx }))
@@ -590,7 +643,7 @@ impl BaseModel {
         from_stoptime_idx: StopTimeIdx,
         to_stoptime_idx: StopTimeIdx,
     ) -> &[transit_model::objects::StopTime] {
-        let vj = &self.collections.vehicle_journeys[vehicle_journey_idx];
+        let vj = &self.model.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let from_idx = from_stoptime_idx.idx;
         let to_idx = to_stoptime_idx.idx;
@@ -602,44 +655,40 @@ impl BaseModel {
 // transfers
 impl BaseModel {
     pub fn nb_of_transfers(&self) -> usize {
-        self.collections.transfers.len()
+        self.model.transfers.len()
     }
 
     pub fn transfers(&self) -> impl Iterator<Item = BaseTransferIdx> + '_ + Clone {
-        self.collections.transfers.iter().map(|(idx, _)| idx)
+        self.model.transfers.iter().map(|(idx, _)| idx)
     }
 
     pub fn from_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
-        let stop_id = self.collections.transfers[transfer_idx]
-            .from_stop_id
-            .as_str();
-        self.collections.stop_points.get_idx(stop_id)
+        let stop_id = self.model.transfers[transfer_idx].from_stop_id.as_str();
+        self.model.stop_points.get_idx(stop_id)
     }
 
     pub fn from_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
-        self.collections.transfers[transfer_idx]
-            .from_stop_id
-            .as_str()
+        self.model.transfers[transfer_idx].from_stop_id.as_str()
     }
 
     pub fn to_stop(&self, transfer_idx: BaseTransferIdx) -> Option<BaseStopPointIdx> {
-        let stop_id = self.collections.transfers[transfer_idx].to_stop_id.as_str();
-        self.collections.stop_points.get_idx(stop_id)
+        let stop_id = self.model.transfers[transfer_idx].to_stop_id.as_str();
+        self.model.stop_points.get_idx(stop_id)
     }
 
     pub fn to_stop_name(&self, transfer_idx: BaseTransferIdx) -> &str {
-        self.collections.transfers[transfer_idx].to_stop_id.as_str()
+        self.model.transfers[transfer_idx].to_stop_id.as_str()
     }
 
     pub fn transfer_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {
-        let seconds = self.collections.transfers[transfer_idx]
+        let seconds = self.model.transfers[transfer_idx]
             .real_min_transfer_time
             .unwrap_or(self.default_transfer_duration.seconds);
         PositiveDuration { seconds }
     }
 
     pub fn transfer_walking_duration(&self, transfer_idx: BaseTransferIdx) -> PositiveDuration {
-        let seconds = self.collections.transfers[transfer_idx]
+        let seconds = self.model.transfers[transfer_idx]
             .min_transfer_time
             .unwrap_or(0u32);
         PositiveDuration { seconds }
@@ -650,9 +699,9 @@ impl BaseModel {
         transfer_idx: BaseTransferIdx,
         property_key: EquipmentPropertyKey,
     ) -> bool {
-        let transfer = &self.collections.transfers[transfer_idx];
+        let transfer = &self.model.transfers[transfer_idx];
         if let Some(equipment_id) = &transfer.equipment_id {
-            let equipments = &self.collections.equipments.get(equipment_id);
+            let equipments = &self.model.equipments.get(equipment_id);
             if let Some(equipments) = equipments {
                 equipment_property(equipments, &property_key)
             } else {
@@ -667,7 +716,7 @@ impl BaseModel {
 // various
 impl BaseModel {
     pub fn dataset_created_at(&self) -> Option<NaiveDateTime> {
-        let feed_info = &self.collections.feed_infos;
+        let feed_info = &self.model.feed_infos;
         let date = feed_info
             .get("feed_creation_date")
             .and_then(|date_str| NaiveDate::parse_from_str(date_str, "%Y%m%d").ok());
@@ -682,14 +731,14 @@ impl BaseModel {
     }
 
     pub fn pubisher_name(&self) -> Option<&str> {
-        self.collections
+        self.model
             .feed_infos
             .get("feed_publisher_name")
             .map(|pubisher_name| pubisher_name.as_str())
     }
 
     pub fn timezone_model(&self) -> Option<chrono_tz::Tz> {
-        for (_, network) in &self.collections.networks {
+        for (_, network) in &self.model.networks {
             if network.timezone.is_some() {
                 return network.timezone;
             }
@@ -698,7 +747,7 @@ impl BaseModel {
     }
 
     pub fn contributors(&self) -> impl Iterator<Item = Contributor> + '_ {
-        self.collections.contributors.values().map(|c| Contributor {
+        self.model.contributors.values().map(|c| Contributor {
             id: c.id.clone(),
             name: c.name.clone(),
             license: c.license.clone(),
@@ -707,31 +756,31 @@ impl BaseModel {
     }
 
     pub fn line(&self, id: &str) -> Option<&Line> {
-        self.collections.lines.get(id)
+        self.model.lines.get(id)
     }
 
     pub fn route(&self, id: &str) -> Option<&Route> {
-        self.collections.routes.get(id)
+        self.model.routes.get(id)
     }
 
     pub fn routes(&self) -> impl Iterator<Item = &Route> {
-        self.collections.routes.iter().map(|(_, route)| route)
+        self.model.routes.iter().map(|(_, route)| route)
     }
 
     pub fn network(&self, id: &str) -> Option<&Network> {
-        self.collections.networks.get(id)
+        self.model.networks.get(id)
     }
 
     pub fn stop_area(&self, id: &str) -> Option<&StopArea> {
-        self.collections.stop_areas.get(id)
+        self.model.stop_areas.get(id)
     }
 
     pub fn commercial_mode(&self, id: &str) -> Option<&CommercialMode> {
-        self.collections.commercial_modes.get(id)
+        self.model.commercial_modes.get(id)
     }
 
     pub fn physical_mode(&self, id: &str) -> Option<&PhysicalMode> {
-        self.collections.physical_modes.get(id)
+        self.model.physical_modes.get(id)
     }
 }
 
