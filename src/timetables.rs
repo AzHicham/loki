@@ -36,6 +36,7 @@
 
 pub mod day_to_timetable;
 pub(crate) mod generic_timetables;
+mod timetable_data;
 mod timetable_iters;
 
 pub mod utc_timetables;

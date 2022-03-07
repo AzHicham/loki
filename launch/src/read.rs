@@ -53,10 +53,8 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
 }
 
 pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
-    let collections = match launch_params.input_data_type {
-        config::InputDataType::Ntfs => {
-            transit_model::ntfs::read_collections(&launch_params.input_data_path)?
-        }
+    let model = match launch_params.input_data_type {
+        config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
         config::InputDataType::Gtfs => {
             let configuration = transit_model::gtfs::Configuration {
                 contributor: transit_model::objects::Contributor::default(),
@@ -75,35 +73,28 @@ pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
 
             let model = transit_model::gtfs::Reader::new(configuration)
                 .parse(&launch_params.input_data_path)?;
-            let model = transit_model::transfers::generates_transfers(
+
+            transit_model::transfers::generates_transfers(
                 model,
                 max_distance,
                 walking_speed,
                 waiting_time,
                 None,
-            )?;
-            model.into_collections()
+            )?
         }
     };
     info!("Transit model loaded");
-    let loads_data = read_loads_data(launch_params, &collections);
-    BaseModel::new(
-        collections,
-        loads_data,
-        launch_params.default_transfer_duration,
-    )
-    .map_err(|err| format_err!("Could not create base model {:?}", err))
+    let loads_data = read_loads_data(launch_params, &model);
+    BaseModel::new(model, loads_data, launch_params.default_transfer_duration)
+        .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
-fn read_loads_data(
-    launch_params: &LaunchParams,
-    collections: &base_model::Collections,
-) -> LoadsData {
+fn read_loads_data(launch_params: &LaunchParams, model: &base_model::Model) -> LoadsData {
     launch_params
         .loads_data_path
         .as_ref()
         .map(|path| {
-            LoadsData::new(&path, collections).unwrap_or_else(|err| {
+            LoadsData::new(&path, model).unwrap_or_else(|err| {
                 warn!(
                     "Error while reading the passenger loads file at {:?} : {:?}",
                     &path,

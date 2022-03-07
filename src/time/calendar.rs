@@ -45,6 +45,12 @@ use chrono::{NaiveDate, NaiveDateTime};
 use chrono_tz::Tz as Timezone;
 use std::convert::TryFrom;
 
+pub enum DecomposeUTCResult {
+    BelowMin,
+    Success(SecondsSinceUTCDayStart),
+    AboveMax,
+}
+
 impl Calendar {
     pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         assert!(first_date <= last_date);
@@ -145,6 +151,39 @@ impl Calendar {
             //    and we check above that date <= self.last_date
             let offset = offset_64 as u16;
             Some(offset)
+        }
+    }
+
+    pub fn next_day(&self, day: DaysSinceDatasetStart) -> Option<DaysSinceDatasetStart> {
+        let days = day.days + 1;
+        if days > self.last_day_offset {
+            None
+        } else {
+            Some(DaysSinceDatasetStart { days })
+        }
+    }
+
+    pub fn decompose_utc(
+        &self,
+        datetime_to_decompose: SecondsSinceDatasetUTCStart,
+        reference_day: DaysSinceDatasetStart,
+    ) -> DecomposeUTCResult {
+        let reference_day_at_midnight =
+            self.compose_utc(&reference_day, &SecondsSinceUTCDayStart { seconds: 0 });
+        let duration =
+            i64::from(datetime_to_decompose.seconds) - i64::from(reference_day_at_midnight.seconds);
+        if duration < -i64::from(MAX_SECONDS_IN_UTC_DAY) {
+            DecomposeUTCResult::BelowMin
+        } else if duration > i64::from(MAX_SECONDS_IN_UTC_DAY) {
+            DecomposeUTCResult::AboveMax
+        } else {
+            // cast is safe since here
+            // - i32::MIN < - MAX_SECONDS_IN_UTC_DAY < duration < MAX_SECONDS_IN_UTC_DAY < i32::MAX
+            let seconds_i32 = duration as i32;
+            let result = SecondsSinceUTCDayStart {
+                seconds: seconds_i32,
+            };
+            DecomposeUTCResult::Success(result)
         }
     }
 

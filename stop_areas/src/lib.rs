@@ -190,7 +190,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
         end_stop_area_uri,
         &config.request_params,
     )?;
-    let solve_result = solver.solve_request(
+    let solve_result = solver.solve_journey_request(
         &data,
         &model_refs,
         &request_input,

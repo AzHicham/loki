@@ -47,6 +47,7 @@ use crate::{
 use transit_model::objects::{
     CommercialMode, Equipment, Line, Network, PhysicalMode, Route, StopArea, VehicleJourney,
 };
+use typed_index_collection::Idx;
 
 use super::{
     base_model::{BaseModel, BaseStopPointIdx, BaseVehicleJourneyIdx},
@@ -85,9 +86,16 @@ impl<'model> ModelRefs<'model> {
         }
     }
 
-    pub fn stop_area_name(&self, stop_idx: &StopPointIdx) -> &str {
+    pub fn stop_point_id(&self, stop_idx: &StopPointIdx) -> &str {
         match stop_idx {
-            StopPointIdx::Base(idx) => self.base.stop_area_name(*idx),
+            StopPointIdx::Base(idx) => self.base.stop_point_id(*idx),
+            StopPointIdx::New(idx) => &self.real_time.new_stops[idx.idx].name,
+        }
+    }
+
+    pub fn stop_area_id(&self, stop_idx: &StopPointIdx) -> &str {
+        match stop_idx {
+            StopPointIdx::Base(idx) => self.base.stop_area_id(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
@@ -347,6 +355,65 @@ impl<'model> ModelRefs<'model> {
 
     pub fn contains_stop_area_id(&self, id: &str) -> bool {
         self.base.contains_stop_area_id(id)
+    }
+
+    pub fn physical_mode_id(&self, physical_mode_idx: Idx<PhysicalMode>) -> &str {
+        self.base.physical_mode_id(physical_mode_idx)
+    }
+
+    pub fn physical_modes_of_route(&self, route_id: &str) -> Vec<Idx<PhysicalMode>> {
+        self.base
+            .physical_modes_of_route(route_id)
+            .into_iter()
+            .collect()
+    }
+
+    pub fn stop_points_of_stop_area(&self, stop_area_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_stop_area(stop_area_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn stop_points_of_route(&self, route_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_route(route_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn stop_points_of_line(&self, line_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_line(line_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn stop_points_of_network(&self, network_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_network(network_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn stop_points_of_physical_mode(&self, physical_mode_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_physical_mode(physical_mode_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
+    }
+
+    pub fn stop_points_of_commercial_mode(&self, commercial_mode_id: &str) -> Vec<StopPointIdx> {
+        self.base
+            .stop_points_of_commercial_mode(commercial_mode_id)
+            .into_iter()
+            .map(StopPointIdx::Base)
+            .collect()
     }
 }
 

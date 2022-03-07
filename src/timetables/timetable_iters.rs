@@ -60,6 +60,35 @@ where
     }
 }
 
+impl<Time, Load, VehicleData> TimetableData<Time, Load, VehicleData>
+where
+    Time: Ord + Clone + Debug,
+    Load: Ord + Debug,
+{
+    pub(super) fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
+        debug_assert!(vehicle_idx < self.vehicle_datas.len());
+        VehicleTimes {
+            times_by_position: &self.debark_times_by_position,
+            position_idx: 0,
+            vehicle_idx,
+        }
+    }
+
+    pub(super) fn vehicle_board_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
+        debug_assert!(vehicle_idx < self.vehicle_datas.len());
+        VehicleTimes {
+            times_by_position: &self.board_times_by_position,
+            position_idx: 0,
+            vehicle_idx,
+        }
+    }
+
+    pub(super) fn vehicle_loads(&self, vehicle_idx: usize) -> std::slice::Iter<'_, Load> {
+        debug_assert!(vehicle_idx < self.vehicle_datas.len());
+        self.vehicle_loads[vehicle_idx].iter()
+    }
+}
+
 pub struct PositionsIter {
     timetable: Timetable,
     position_idxs: Range<usize>,
@@ -107,33 +136,6 @@ impl Iterator for VehicleIter {
             timetable: self.timetable.clone(),
             idx,
         })
-    }
-}
-
-impl<Time, Load, TripData> TimetableData<Time, Load, TripData>
-// where Time
-{
-    pub(super) fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
-        debug_assert!(vehicle_idx < self.vehicle_datas.len());
-        VehicleTimes {
-            times_by_position: &self.debark_times_by_position,
-            position_idx: 0,
-            vehicle_idx,
-        }
-    }
-
-    pub(super) fn vehicle_board_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
-        debug_assert!(vehicle_idx < self.vehicle_datas.len());
-        VehicleTimes {
-            times_by_position: &self.board_times_by_position,
-            position_idx: 0,
-            vehicle_idx,
-        }
-    }
-
-    pub(super) fn vehicle_loads(&self, vehicle_idx: usize) -> std::slice::Iter<'_, Load> {
-        debug_assert!(vehicle_idx < self.vehicle_datas.len());
-        self.vehicle_loads[vehicle_idx].iter()
     }
 }
 

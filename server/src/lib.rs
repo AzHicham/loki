@@ -47,6 +47,7 @@ extern crate diesel;
 
 #[macro_use]
 extern crate diesel_derive_enum;
+extern crate core;
 
 pub mod handle_chaos_message;
 pub mod handle_kirin_message;

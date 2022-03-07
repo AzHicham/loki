@@ -38,7 +38,7 @@ mod utils;
 use anyhow::Error;
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
-    places_nearby::{places_nearby_impl, BadPlacesNearby},
+    places_nearby::{solve_places_nearby_request, BadPlacesNearby},
     transit_model::objects::Coord,
     PositiveDuration,
 };
@@ -122,55 +122,57 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "2.32610:48.82325", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "2.32610:48.82325", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidEntryPoint(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "A", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "A", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidEntryPoint(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "stop_pointA", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "stop_pointA", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidEntryPoint(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "coord:2.32610;48.82325", 500_f64);
+    let places_nearby_iter =
+        solve_places_nearby_request(&model_refs, "coord:2.32610;48.82325", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "coord::", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "coord::", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "coord:", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "coord:", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "coord:2.32610:", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "coord:2.32610:", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidFormatCoord(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "stop_point:Z", 500_f64);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, "stop_point:Z", 500_f64);
     assert!(matches!(
         places_nearby_iter,
         Err(BadPlacesNearby::InvalidPtObject(_))
     ));
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, "coord:400.545:50.1854", 500_f64);
+    let places_nearby_iter =
+        solve_places_nearby_request(&model_refs, "coord:400.545:50.1854", 500_f64);
 
     assert!(matches!(
         places_nearby_iter,
@@ -259,7 +261,7 @@ fn places_nearby_impl_test(
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(fixture_model, &real_time_model);
 
-    let places_nearby_iter = places_nearby_impl(&model_refs, uri, radius_search);
+    let places_nearby_iter = solve_places_nearby_request(&model_refs, uri, radius_search);
     assert!(places_nearby_iter.is_ok());
 
     let places_nearby_iter = places_nearby_iter.unwrap();
