@@ -1524,7 +1524,7 @@ pub fn make_schedule_proto_response<'a>(
     let len = range.len();
 
     let proto_responses = responses[range]
-        .into_iter()
+        .iter()
         .filter_map(|response| {
             make_passage(request_input, response, model)
                 .map_err(|err| {

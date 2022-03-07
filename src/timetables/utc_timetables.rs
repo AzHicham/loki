@@ -566,7 +566,7 @@ impl UTCTimetables {
         debug_assert!(position.timetable == *mission);
 
         TripsBoardableBetween::new(
-            &self,
+            self,
             real_time_level,
             days_patterns,
             calendar,
@@ -590,7 +590,7 @@ impl UTCTimetables {
         debug_assert!(position.timetable == *mission);
 
         TripsDebarkableBetween::new(
-            &self,
+            self,
             real_time_level,
             days_patterns,
             calendar,
@@ -642,7 +642,7 @@ impl<'a> TripsIter<'a> {
             utc_timetables,
             current_vehicle_days,
             vehicles_iter,
-            real_time_level: real_time_level.clone(),
+            real_time_level: *real_time_level,
             days_patterns,
         }
     }

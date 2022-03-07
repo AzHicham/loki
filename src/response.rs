@@ -499,7 +499,7 @@ impl<Data: DataTrait> Journey<Data> {
             connections: self.connections(data).collect(),
             arrival: self.arrival_section(data),
             loads_count: self.loads_count.clone(),
-            real_time_level: self.real_time_level.clone(),
+            real_time_level: self.real_time_level,
         }
     }
 
