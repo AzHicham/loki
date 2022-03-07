@@ -87,9 +87,9 @@ where
         let day_to_timetable = self
             .data
             .entry(vehicle_journey_idx.clone())
-            .or_insert(HashMap::new())
+            .or_insert_with(HashMap::new)
             .entry(local_zone)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(DayToTimetable::new);
 
         let base_insert_result = day_to_timetable.base.insert(
             days_pattern_to_insert,
@@ -132,9 +132,9 @@ where
         let day_to_timetable = self
             .data
             .entry(vehicle_journey_idx.clone())
-            .or_insert(HashMap::new())
+            .or_insert_with(HashMap::new)
             .entry(local_zone)
-            .or_insert(DayToTimetable::new());
+            .or_insert_with(DayToTimetable::new);
 
         let real_time_insert_result = day_to_timetable.real_time.insert(
             days_pattern_to_insert,

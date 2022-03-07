@@ -67,7 +67,6 @@ use loki::{
 };
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::transit_data_filtered::TransitModelTime;
 use launch::loki::{
     chrono::Timelike,
     models::base_model::{
@@ -79,6 +78,7 @@ use launch::loki::{
         PREFIX_ID_ROUTE, PREFIX_ID_VEHICLE_JOURNEY,
     },
     places_nearby::PlacesNearbyIter,
+    transit_data_filtered::TransitModelTime,
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
 use std::convert::TryFrom;
@@ -1508,7 +1508,7 @@ fn make_passage(
     })
 }
 
-pub fn make_schedule_proto_response<'a>(
+pub fn make_schedule_proto_response(
     request_input: &ScheduleRequestInput,
     responses: Vec<ScheduleResponse>,
     model: &ModelRefs<'_>,

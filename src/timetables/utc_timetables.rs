@@ -642,7 +642,7 @@ impl<'a> TripsIter<'a> {
             utc_timetables,
             current_vehicle_days,
             vehicles_iter,
-            real_time_level: real_time_level,
+            real_time_level,
             days_patterns,
         }
     }
