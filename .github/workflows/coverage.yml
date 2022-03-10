@@ -25,6 +25,7 @@ jobs:
           override: true
       - name: Install & Run cargo-tarpaulin
         run: |
+          rustup component add llvm-tools-preview
           cargo install cargo-llvm-cov
           cargo llvm-cov clean --workspace # remove artifacts that may affect the coverage results
           cargo llvm-cov --no-report --workspace

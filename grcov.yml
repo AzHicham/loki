@@ -3,7 +3,8 @@ branch: false
 output-type: lcov
 output-path: ./lcov.info
 ignore:
-  - "server/*"
+  - "server/tests/*"
+  - "launch/tests/*"
   - "stop_areas/*"
   - "random/*"
   - "target/*"
