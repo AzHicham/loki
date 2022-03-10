@@ -20,7 +20,8 @@ comment:
   require_changes: no
 
 ignore:
-  - "server/**/*"
+  - "server/tests/*"
+  - "launch/tests/*"
   - "stop_areas/**/*"
   - "random/**/*"
   - "target/**/*"

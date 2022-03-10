@@ -1,6 +1,8 @@
 name: Coverage
 
 on:
+  pull_request:
+    branches: [ master ]
   push:
     branches: [ master ]
 
@@ -21,13 +23,17 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--workspace --tests --exclude loki_random loki_stop_areas --no-fail-fast -v'
+      - name: Install llvm-cov & Build & Tests
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov
+          cargo llvm-cov clean --workspace # remove artifacts that may affect the coverage results
+          cargo llvm-cov --no-report --workspace
+          cargo llvm-cov --no-report --workspace --features vehicle_loads
+          cargo llvm-cov --no-run --workspace --lcov --output-path lcov.info
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ steps.coverage.outputs.report }}
+          files: lcov.info
           name: codecov-loki # optional
           verbose: true # optional (default = false)
