@@ -25,16 +25,15 @@ jobs:
           override: true
       - name: Install & Run cargo-tarpaulin
         run: |
-          cargo install grcov
-          export CARGO_INCREMENTAL=0
-          export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
-          export RUSTDOCFLAGS="-Cpanic=abort"
-          cargo build --workspace
-          cargo test --workspace
-          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
+          cargo install cargo-llvm-cov
+          cargo llvm-cov clean --workspace # remove artifacts that may affect the coverage results
+          cargo llvm-cov --no-report --workspace
+          cargo llvm-cov --no-report --workspace --features vehicle_loads 
+          cargo llvm-cov --no-run --workspace --lcov --output-path lcov.info
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           name: codecov-loki # optional
           verbose: true # optional (default = false)
+          
