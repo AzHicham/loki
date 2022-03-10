@@ -1,6 +1,8 @@
 name: Coverage
 
 on:
+  pull_request:
+    branches: [ master ]
   push:
     branches: [ master ]
 
@@ -21,13 +23,18 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--workspace --tests --exclude loki_random loki_stop_areas --no-fail-fast -v'
+      - name: Install & Run cargo-tarpaulin
+        run: |
+          cargo install grcov
+          export CARGO_INCREMENTAL=0
+          export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+          export RUSTDOCFLAGS="-Cpanic=abort"
+          cargo build --workspace
+          cargo test --workspace
+          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ steps.coverage.outputs.report }}
+          files: lcov.info
           name: codecov-loki # optional
           verbose: true # optional (default = false)
