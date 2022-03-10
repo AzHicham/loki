@@ -37,4 +37,3 @@ jobs:
           files: lcov.info
           name: codecov-loki # optional
           verbose: true # optional (default = false)
-
