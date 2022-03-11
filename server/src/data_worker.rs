@@ -79,6 +79,9 @@ use launch::loki::{
     DataTrait, NaiveDateTime,
 };
 
+use s3::creds::Credentials;
+use s3::{Bucket, Region};
+use std::path::PathBuf;
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -156,6 +159,9 @@ impl DataWorker {
 
     async fn run_loop(&mut self) -> Result<(), Error> {
         debug!("DataWorker starts initial load data from disk.");
+        if let Err(err) = self.download_data_from_bucket().await {
+            error!("Error while downloading data from S3 Bucket. {:?}", err);
+        }
         self.load_data_from_disk()
             .await
             .with_context(|| "Error while loading data from disk.".to_string())?;
@@ -260,6 +266,64 @@ impl DataWorker {
                 }
             }
         }
+    }
+
+    async fn download_data_from_bucket(&mut self) -> Result<(), Error> {
+        let region = if let Ok(region) = self.config.bucket_params.bucket_region.parse() {
+            region
+        } else if let Some(endpoint) = &self.config.bucket_params.bucket_endpoint {
+            Region::Custom {
+                region: self.config.bucket_params.bucket_region.clone(),
+                endpoint: endpoint.clone(),
+            }
+        } else {
+            return Err(format_err!("Unknown region"));
+        };
+
+        let credentials = Credentials::default()?;
+        let bucket = Bucket::new(&self.config.bucket_params.bucket_name, region, credentials)?;
+
+        // List files available under a certain coverage
+        let file_list = bucket
+            .list(format!("/{}/", self.config.instance_name), None)
+            .await
+            .context(format!(
+                "Cannot retrieve file-list on bucket {}",
+                self.config.bucket_params.bucket_name
+            ))?;
+        // Get the latest one, if list empty abort download
+        let latest_data_file = "";
+
+        // Get parent folder of current data file
+        // then create a temp_file in this folder
+        let parent_folder = self.config.launch_params.input_data_path.parent().map_or(
+            Err(format_err!(
+                "Parent folder of current data file cannot be found "
+            )),
+            Ok,
+        )?;
+        let temporary_file_name = parent_folder.join("temp_data.zip");
+        let mut output_file = tokio::fs::File::create(&temporary_file_name)
+            .await
+            .context(format!(
+                "Cannot create temporary data file {:?}",
+                temporary_file_name
+            ))?;
+        let status_code = bucket
+            .get_object_stream(latest_data_file, &mut output_file)
+            .await
+            .context(format!(
+                "Cannot download file {:?} from bucket",
+                latest_data_file
+            ))?;
+
+        if status_code == 200 {
+            // Replace current file by the newly download file
+        } else {
+            bail!("")
+        }
+
+        bail!("")
     }
 
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
