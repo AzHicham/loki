@@ -47,6 +47,8 @@ pub struct ServerConfig {
     #[serde(flatten)]
     pub bucket_params: BucketParams,
 
+    pub storage_type: StorageType,
+
     /// zmq socket to listen for protobuf requests
     pub requests_socket: String,
 
@@ -71,6 +73,7 @@ impl ServerConfig {
         Self {
             launch_params: config::LaunchParams::new(input_data_path),
             bucket_params: Default::default(),
+            storage_type: StorageType::Local,
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
             request_default_params: config::RequestParams::default(),
@@ -199,10 +202,7 @@ pub struct BucketParams {
     pub bucket_secret_key: String,
 
     #[serde(default)]
-    pub s3_data_path: String,
-
-    #[serde(default)]
-    pub s3_load_data_path: Option<String>,
+    pub data_path_key: String,
 }
 
 impl Default for BucketParams {
@@ -212,8 +212,7 @@ impl Default for BucketParams {
             bucket_region: default_bucket_region(),
             bucket_access_key: "".to_string(),
             bucket_secret_key: "".to_string(),
-            s3_data_path: "".to_string(),
-            s3_load_data_path: None,
+            data_path_key: "".to_string(),
         }
     }
 }
@@ -224,4 +223,17 @@ pub fn default_bucket_name() -> String {
 
 pub fn default_bucket_region() -> String {
     "eu-west-1".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageType {
+    Local,
+    S3,
+}
+
+impl Default for StorageType {
+    fn default() -> Self {
+        StorageType::Local
+    }
 }

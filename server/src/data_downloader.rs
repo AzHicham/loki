@@ -35,22 +35,22 @@
 // www.navitia.io
 
 use anyhow::{bail, Context, Error};
-use s3::creds::Credentials;
-use s3::{Bucket, Region};
-use std::path::PathBuf;
+use s3::{creds::Credentials, Bucket, Region};
+use std::io::Cursor;
 
 use crate::server_config::BucketParams;
 pub struct DataDownloader {
     bucket: Bucket,
+
     // S3 key of ntfs/gtfs file
     fusio_data_key: String,
 
-    // latest version_id of ntfs/gtfs file & load_data file already downloaded
+    // latest version_id of ntfs/gtfs file
     fusio_data_version_id: String,
 }
 
 pub enum DownloadStatus {
-    Ok((PathBuf, String)), // return Path of downloaded file & version_id
+    Ok(Cursor<Vec<u8>>), // In-Memory File Handler
     AlreadyPresent,
 }
 
@@ -82,7 +82,7 @@ impl DataDownloader {
 
         Ok(Self {
             bucket,
-            fusio_data_key: config.s3_data_path.clone(),
+            fusio_data_key: config.data_path_key.clone(),
             fusio_data_version_id: "".to_string(),
         })
     }
@@ -95,7 +95,7 @@ impl DataDownloader {
             } else {
                 bail!(
                     "Error while fetching file metadata, version_id contains no value,\
-                   file_key: {}, bucket: {}",
+                    file_key: {}, bucket: {}",
                     file_key,
                     self.bucket.name
                 )
@@ -112,20 +112,16 @@ impl DataDownloader {
         Ok(version_id)
     }
 
-    async fn download_file(&self, file_key: &str, destination_path: &str) -> Result<(), Error> {
-        let mut data_file_handler = tokio::fs::File::create(&destination_path)
-            .await
-            .context(format!("Cannot create file {:?}", destination_path))?;
-        let status_code = self
-            .bucket
-            .get_object_stream(file_key, &mut data_file_handler)
-            .await
-            .context(format!(
-                "Cannot download file {} from bucket {}",
-                file_key, self.bucket.name
-            ))?;
+    async fn download_file(&self, file_key: &str) -> Result<Vec<u8>, Error> {
+        // let mut data_file_handler = tokio::fs::File::create(&destination_path)
+        //     .await
+        //     .context(format!("Cannot create file {:?}", destination_path))?;
+        let (data, status_code) = self.bucket.get_object(file_key).await.context(format!(
+            "Cannot download file {} from bucket {}",
+            file_key, self.bucket.name
+        ))?;
         if status_code == 200 {
-            Ok(())
+            Ok(data)
         } else {
             bail!(
                 "Error while downloading file {} from bucket {}, status code : {}",
@@ -136,21 +132,16 @@ impl DataDownloader {
         }
     }
 
-    pub async fn download_fusio_data(&self) -> Result<DownloadStatus, Error> {
+    pub async fn download_fusio_data(&mut self) -> Result<DownloadStatus, Error> {
         // get meta info about file we are going to download
         let version_id = self.get_file_version_id(&self.fusio_data_key).await?;
         if self.fusio_data_version_id != version_id {
-            let output_file = "/tmp/data";
-            self.download_file(&self.fusio_data_key, &output_file)
-                .await?;
-            let path = PathBuf::from(output_file);
-            Ok(DownloadStatus::Ok((path, version_id)))
+            let data = self.download_file(&self.fusio_data_key).await?;
+            let cursor = std::io::Cursor::new(data);
+            self.fusio_data_version_id = version_id;
+            Ok(DownloadStatus::Ok(cursor))
         } else {
             Ok(DownloadStatus::AlreadyPresent)
         }
-    }
-
-    pub fn set_fusio_version_id(&mut self, version_id: &str) {
-        self.fusio_data_version_id = version_id.to_string();
     }
 }

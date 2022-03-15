@@ -52,6 +52,50 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
     Ok((data, base_model))
 }
 
+pub fn read_model_from_reader<R>(
+    reader: R,
+    source: &str,
+    launch_params: &LaunchParams,
+) -> Result<BaseModel, Error>
+where
+    R: std::io::Seek + std::io::Read,
+{
+    let model = match launch_params.input_data_type {
+        config::InputDataType::Ntfs => transit_model::ntfs::from_zip_reader(reader, source)?,
+        config::InputDataType::Gtfs => {
+            let configuration = transit_model::gtfs::Configuration {
+                contributor: transit_model::objects::Contributor::default(),
+                dataset: transit_model::objects::Dataset::default(),
+                feed_infos: BTreeMap::new(),
+                prefix_conf: None,
+                on_demand_transport: false,
+                on_demand_transport_comment: None,
+                read_as_line: false,
+            };
+            info!("Reading gtfs from {source}");
+
+            let max_distance = f64::from_str(transit_model::TRANSFER_MAX_DISTANCE)?;
+            let walking_speed = f64::from_str(transit_model::TRANSFER_WALKING_SPEED)?;
+            let waiting_time = u32::from_str(transit_model::TRANSFER_WAITING_TIME)?;
+
+            let model =
+                transit_model::gtfs::Reader::new(configuration).parse_zip_reader(reader, source)?;
+
+            transit_model::transfers::generates_transfers(
+                model,
+                max_distance,
+                walking_speed,
+                waiting_time,
+                None,
+            )?
+        }
+    };
+    info!("Transit model loaded");
+    let loads_data = read_loads_data(launch_params, &model);
+    BaseModel::new(model, loads_data, launch_params.default_transfer_duration)
+        .map_err(|err| format_err!("Could not create base model {:?}", err))
+}
+
 pub fn read_model(launch_params: &LaunchParams) -> Result<BaseModel, Error> {
     let model = match launch_params.input_data_type {
         config::InputDataType::Ntfs => transit_model::ntfs::read(&launch_params.input_data_path)?,
