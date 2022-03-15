@@ -44,6 +44,9 @@ pub struct ServerConfig {
     #[serde(flatten)]
     pub launch_params: config::LaunchParams,
 
+    #[serde(flatten)]
+    pub bucket_params: BucketParams,
+
     /// zmq socket to listen for protobuf requests
     pub requests_socket: String,
 
@@ -67,6 +70,7 @@ impl ServerConfig {
     pub fn new(input_data_path: std::path::PathBuf, zmq_socket: &str, instance_name: &str) -> Self {
         Self {
             launch_params: config::LaunchParams::new(input_data_path),
+            bucket_params: Default::default(),
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
             request_default_params: config::RequestParams::default(),
@@ -178,4 +182,54 @@ impl Default for ChaosParams {
             chaos_batch_size: default_batch_size(),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BucketParams {
+    #[serde(default = "default_bucket_name")]
+    pub bucket_name: String,
+
+    #[serde(default = "default_bucket_region")]
+    pub bucket_region: String,
+
+    #[serde(default = "default_bucket_access_key")]
+    pub bucket_access_key: String,
+
+    #[serde(default = "default_bucket_secret_key")]
+    pub bucket_secret_key: String,
+
+    #[serde(default)]
+    pub s3_data_path: String,
+
+    #[serde(default)]
+    pub s3_load_data_path: Option<String>,
+}
+
+impl Default for BucketParams {
+    fn default() -> Self {
+        BucketParams {
+            bucket_name: default_bucket_name(),
+            bucket_region: default_bucket_region(),
+            bucket_access_key: default_bucket_access_key(),
+            bucket_secret_key: default_bucket_secret_key(),
+            s3_data_path: "".to_string(),
+            s3_load_data_path: None,
+        }
+    }
+}
+
+pub fn default_bucket_name() -> String {
+    "loki".to_string()
+}
+
+pub fn default_bucket_access_key() -> String {
+    "".to_string()
+}
+
+pub fn default_bucket_secret_key() -> String {
+    "".to_string()
+}
+
+pub fn default_bucket_region() -> String {
+    "eu-west-1".to_string()
 }

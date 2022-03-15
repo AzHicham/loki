@@ -60,9 +60,6 @@ pub struct LaunchParams {
     #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
-
-    #[structopt(skip)]
-    pub bucket_params: BucketParams,
 }
 
 pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
@@ -79,72 +76,6 @@ impl LaunchParams {
             input_data_type: InputDataType::Ntfs,
             default_transfer_duration: default_transfer_duration(),
             loads_data_path: None,
-            bucket_params: BucketParams::default(),
         }
     }
-}
-
-pub enum StorageType {
-    Local(LocalDataFiles),
-    Object(BucketParams),
-}
-
-#[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
-#[structopt(rename_all = "snake_case")]
-pub struct LocalDataFiles {
-    #[structopt(long)]
-    pub input_data_path: std::path::PathBuf,
-
-    #[structopt(long)]
-    pub loads_data_path: Option<std::path::PathBuf>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, StructOpt)]
-pub struct BucketParams {
-    #[serde(default = "default_bucket_name")]
-    pub bucket_name: String,
-
-    #[serde(default = "default_bucket_region")]
-    pub bucket_region: String,
-
-    #[serde(default = "default_bucket_access_key")]
-    pub bucket_access_key: String,
-
-    #[serde(default = "default_bucket_secret_key")]
-    pub bucket_secret_key: String,
-
-    #[serde(default)]
-    pub s3_data_path: String,
-
-    #[serde(default)]
-    pub s3_load_data_path: Option<String>,
-}
-
-impl Default for BucketParams {
-    fn default() -> Self {
-        BucketParams {
-            bucket_name: default_bucket_name(),
-            bucket_region: default_bucket_region(),
-            bucket_access_key: default_bucket_access_key(),
-            bucket_secret_key: default_bucket_secret_key(),
-            s3_data_path: "".to_string(),
-            s3_load_data_path: None,
-        }
-    }
-}
-
-pub fn default_bucket_name() -> String {
-    "loki".to_string()
-}
-
-pub fn default_bucket_access_key() -> String {
-    "".to_string()
-}
-
-pub fn default_bucket_secret_key() -> String {
-    "".to_string()
-}
-
-pub fn default_bucket_region() -> String {
-    "eu-west-1".to_string()
 }

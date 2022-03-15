@@ -267,9 +267,9 @@ impl DataWorker {
         }
     }
 
-    async fn download_data_from_bucket(&mut self) -> Result<String, Error> {
+    async fn download_data_from_bucket(&mut self) -> Result<(), Error> {
         let launch_params = &self.config.launch_params;
-        let bucket_params = &launch_params.bucket_params;
+        let bucket_params = &self.config.bucket_params;
 
         let credentials = Credentials::new(
             Some(&bucket_params.bucket_access_key),
@@ -297,14 +297,15 @@ impl DataWorker {
 
         let data_file_path = "/tmp/fusio.zip";
 
-        let mut file_handler = tokio::fs::File::create(&data_file_path)
-            .await
-            .context(format!(
-                "Cannot create temporary data file {:?}",
-                data_file_path
-            ))?;
+        let mut data_file_handler =
+            tokio::fs::File::create(&data_file_path)
+                .await
+                .context(format!(
+                    "Cannot create temporary data file {:?}",
+                    data_file_path
+                ))?;
         let status_code = bucket
-            .get_object_stream(&bucket_params.s3_data_path, &mut file_handler)
+            .get_object_stream(&bucket_params.s3_data_path, &mut data_file_handler)
             .await
             .context(format!(
                 "Cannot download file {:?} from bucket",
@@ -312,9 +313,11 @@ impl DataWorker {
             ))?;
 
         if status_code == 200 {
-            Ok(data_file_path.to_string())
+            // move temporary data file to input_data_file
+            tokio::fs::rename(data_file_path, &launch_params.input_data_path).await?;
+            Ok(())
         } else {
-            bail!("status code : {status_code}")
+            bail!("Error while download file, status code : {status_code}")
         }
     }
 
