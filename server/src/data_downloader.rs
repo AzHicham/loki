@@ -76,7 +76,12 @@ impl DataDownloader {
             // AWS Region
             Ok(region) => Bucket::new(&config.bucket_name, region, credentials)?,
             Err(err) => {
-                bail!("{err}")
+                bail!(
+                    "Error while creating Bucket {} with region {} and name {}",
+                    err,
+                    config.bucket_region,
+                    config.bucket_region
+                )
             }
         };
 
