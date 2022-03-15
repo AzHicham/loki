@@ -113,9 +113,6 @@ impl DataDownloader {
     }
 
     async fn download_file(&self, file_key: &str) -> Result<Vec<u8>, Error> {
-        // let mut data_file_handler = tokio::fs::File::create(&destination_path)
-        //     .await
-        //     .context(format!("Cannot create file {:?}", destination_path))?;
         let (data, status_code) = self.bucket.get_object(file_key).await.context(format!(
             "Cannot download file {} from bucket {}",
             file_key, self.bucket.name
@@ -134,6 +131,7 @@ impl DataDownloader {
 
     pub async fn download_fusio_data(&mut self) -> Result<DownloadStatus, Error> {
         // get meta info about file we are going to download
+        // if file has already been download skip the download
         let version_id = self.get_file_version_id(&self.fusio_data_key).await?;
         if self.fusio_data_version_id != version_id {
             let data = self.download_file(&self.fusio_data_key).await?;
