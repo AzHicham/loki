@@ -79,14 +79,14 @@ use launch::loki::{
     DataTrait, NaiveDateTime,
 };
 
-use s3::creds::Credentials;
-use s3::{Bucket, Region};
 use std::{
     sync::{Arc, RwLock},
     thread,
 };
 
+use crate::data_downloader::{DataDownloader, DownloadStatus};
 use crate::handle_chaos_message::handle_chaos_protobuf;
+use launch::loki::tracing::warn;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -106,6 +106,8 @@ pub struct DataWorker {
     status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
 
     shutdown_sender: mpsc::Sender<()>,
+
+    data_downloader: Option<DataDownloader>,
 }
 
 impl DataWorker {
@@ -117,7 +119,7 @@ impl DataWorker {
         shutdown_sender: mpsc::Sender<()>,
     ) -> Self {
         let host_name = hostname::get()
-            .context("Could not retreive hostname.")
+            .context("Could not retrieve hostname.")
             .and_then(|os_string| {
                 os_string
                     .into_string()
@@ -134,7 +136,10 @@ impl DataWorker {
         let instance_name = &config.instance_name;
         let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
         let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
+
+        let data_downloader = DataDownloader::new(&config.bucket_params).ok();
         info!("Data worker created.");
+
         Self {
             config,
             data_and_models,
@@ -146,6 +151,7 @@ impl DataWorker {
             kirin_reload_done: false,
             status_update_sender,
             shutdown_sender,
+            data_downloader,
         }
     }
 
@@ -268,57 +274,21 @@ impl DataWorker {
     }
 
     async fn download_data_from_bucket(&mut self) -> Result<(), Error> {
-        let launch_params = &self.config.launch_params;
-        let bucket_params = &self.config.bucket_params;
-
-        let credentials = Credentials::new(
-            Some(&bucket_params.bucket_access_key),
-            Some(&bucket_params.bucket_secret_key),
-            None,
-            None,
-            None,
-        )?;
-
-        let bucket = match bucket_params.bucket_region.parse() {
-            // Custom Region / Minio
-            Ok(Region::Custom { .. }) => {
-                let region = Region::Custom {
-                    region: "".to_string(),
-                    endpoint: bucket_params.bucket_region.clone(),
-                };
-                Bucket::new_with_path_style(&bucket_params.bucket_name, region, credentials)?
+        if let Some(data_downloader) = &mut self.data_downloader {
+            let fusio_download_status = data_downloader.download_fusio_data().await?;
+            if let DownloadStatus::Ok((path, version_id)) = fusio_download_status {
+                // If download succeeded then move temporary download file to input_data_path
+                tokio::fs::rename(path, &self.config.launch_params.input_data_path).await?;
+                data_downloader.set_fusio_version_id(&version_id);
+                info!("Data successfully downloaded")
+            } else {
+                info!("No need to download data from S3, latest version already present locally")
             }
-            // AWS Region
-            Ok(region) => Bucket::new(&bucket_params.bucket_name, region, credentials)?,
-            Err(err) => {
-                bail!("{err}")
-            }
-        };
-
-        let data_file_path = "/tmp/fusio.zip";
-
-        let mut data_file_handler =
-            tokio::fs::File::create(&data_file_path)
-                .await
-                .context(format!(
-                    "Cannot create temporary data file {:?}",
-                    data_file_path
-                ))?;
-        let status_code = bucket
-            .get_object_stream(&bucket_params.s3_data_path, &mut data_file_handler)
-            .await
-            .context(format!(
-                "Cannot download file {:?} from bucket",
-                bucket_params.s3_data_path
-            ))?;
-
-        if status_code == 200 {
-            // move temporary data file to input_data_file
-            tokio::fs::rename(data_file_path, &launch_params.input_data_path).await?;
-            Ok(())
         } else {
-            bail!("Error while download file, status code : {status_code}")
+            warn!("DataDownloader is not configured properly")
         }
+
+        Ok(())
     }
 
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {

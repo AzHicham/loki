@@ -192,10 +192,10 @@ pub struct BucketParams {
     #[serde(default = "default_bucket_region")]
     pub bucket_region: String,
 
-    #[serde(default = "default_bucket_access_key")]
+    #[serde(default)]
     pub bucket_access_key: String,
 
-    #[serde(default = "default_bucket_secret_key")]
+    #[serde(default)]
     pub bucket_secret_key: String,
 
     #[serde(default)]
@@ -210,8 +210,8 @@ impl Default for BucketParams {
         BucketParams {
             bucket_name: default_bucket_name(),
             bucket_region: default_bucket_region(),
-            bucket_access_key: default_bucket_access_key(),
-            bucket_secret_key: default_bucket_secret_key(),
+            bucket_access_key: "".to_string(),
+            bucket_secret_key: "".to_string(),
             s3_data_path: "".to_string(),
             s3_load_data_path: None,
         }
@@ -220,14 +220,6 @@ impl Default for BucketParams {
 
 pub fn default_bucket_name() -> String {
     "loki".to_string()
-}
-
-pub fn default_bucket_access_key() -> String {
-    "".to_string()
-}
-
-pub fn default_bucket_secret_key() -> String {
-    "".to_string()
 }
 
 pub fn default_bucket_region() -> String {
