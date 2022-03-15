@@ -40,9 +40,9 @@ jobs:
     - name: Install libzmq
       run: sudo apt install libzmq3-dev
     - name: Build
-      run: cargo build --jobs 1 --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
+      run: cargo build --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
     - name: Test
-      run: cargo test --jobs 1 --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
+      run: cargo test --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
 
   pre-commit:
     runs-on: ubuntu-latest
