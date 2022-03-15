@@ -81,7 +81,6 @@ use launch::loki::{
 
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
-use std::path::PathBuf;
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -268,62 +267,55 @@ impl DataWorker {
         }
     }
 
-    async fn download_data_from_bucket(&mut self) -> Result<(), Error> {
-        let region = if let Ok(region) = self.config.bucket_params.bucket_region.parse() {
-            region
-        } else if let Some(endpoint) = &self.config.bucket_params.bucket_endpoint {
-            Region::Custom {
-                region: self.config.bucket_params.bucket_region.clone(),
-                endpoint: endpoint.clone(),
+    async fn download_data_from_bucket(&mut self) -> Result<String, Error> {
+        let launch_params = &self.config.launch_params;
+        let bucket_params = &launch_params.bucket_params;
+
+        let credentials = Credentials::new(
+            Some(&bucket_params.bucket_access_key),
+            Some(&bucket_params.bucket_secret_key),
+            None,
+            None,
+            None,
+        )?;
+
+        let bucket = match bucket_params.bucket_region.parse() {
+            // Custom Region / Minio
+            Ok(Region::Custom { .. }) => {
+                let region = Region::Custom {
+                    region: "".to_string(),
+                    endpoint: bucket_params.bucket_region.clone(),
+                };
+                Bucket::new_with_path_style(&bucket_params.bucket_name, region, credentials)?
             }
-        } else {
-            return Err(format_err!("Unknown region"));
+            // AWS Region
+            Ok(region) => Bucket::new(&bucket_params.bucket_name, region, credentials)?,
+            Err(err) => {
+                bail!("{err}")
+            }
         };
 
-        let credentials = Credentials::default()?;
-        let bucket = Bucket::new(&self.config.bucket_params.bucket_name, region, credentials)?;
+        let data_file_path = "/tmp/fusio.zip";
 
-        // List files available under a certain coverage
-        let file_list = bucket
-            .list(format!("/{}/", self.config.instance_name), None)
-            .await
-            .context(format!(
-                "Cannot retrieve file-list on bucket {}",
-                self.config.bucket_params.bucket_name
-            ))?;
-        // Get the latest one, if list empty abort download
-        let latest_data_file = "";
-
-        // Get parent folder of current data file
-        // then create a temp_file in this folder
-        let parent_folder = self.config.launch_params.input_data_path.parent().map_or(
-            Err(format_err!(
-                "Parent folder of current data file cannot be found "
-            )),
-            Ok,
-        )?;
-        let temporary_file_name = parent_folder.join("temp_data.zip");
-        let mut output_file = tokio::fs::File::create(&temporary_file_name)
+        let mut file_handler = tokio::fs::File::create(&data_file_path)
             .await
             .context(format!(
                 "Cannot create temporary data file {:?}",
-                temporary_file_name
+                data_file_path
             ))?;
         let status_code = bucket
-            .get_object_stream(latest_data_file, &mut output_file)
+            .get_object_stream(&bucket_params.s3_data_path, &mut file_handler)
             .await
             .context(format!(
                 "Cannot download file {:?} from bucket",
-                latest_data_file
+                bucket_params.s3_data_path
             ))?;
 
         if status_code == 200 {
-            // Replace current file by the newly download file
+            Ok(data_file_path.to_string())
         } else {
-            bail!("")
+            bail!("status code : {status_code}")
         }
-
-        bail!("")
     }
 
     async fn load_data_from_disk(&mut self) -> Result<(), Error> {
