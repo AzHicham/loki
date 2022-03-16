@@ -1,2 +1,2 @@
 [build]
-rustflags = ["-C", "target-feature=+avx2,+fma"]
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "target-feature=+avx2,+fma"]

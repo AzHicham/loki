@@ -46,12 +46,16 @@ See the docker-readme_ for usage.
 Development
 =========
 
-To be able to compile this project, you'll need to have libraries for zmq and initialize the submodule that brings protobuf description for Navitia.
+To be able to compile this project, you'll need to:
+
+- initialize the submodule that brings protobuf description for Navitia
+- have libraries for zmq and PostgreSQL
+- have the `lld` linker (faster than the default `ld`) which is not installed on most default Linux distributions
 
 .. code-block::
 
     git submodule update --init --recursive
-    sudo apt install libzmq3-dev
+    sudo apt install libzmq3-dev libpq-dev lld
 
 Acknowledgments
 =========
