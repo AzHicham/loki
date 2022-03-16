@@ -203,6 +203,9 @@ pub struct BucketParams {
 
     #[serde(default)]
     pub data_path_key: String,
+
+    #[serde(default = "default_bucket_timeout_in_ms")]
+    pub bucket_timeout_in_ms: u32,
 }
 
 impl Default for BucketParams {
@@ -213,6 +216,7 @@ impl Default for BucketParams {
             bucket_access_key: "".to_string(),
             bucket_secret_key: "".to_string(),
             data_path_key: "".to_string(),
+            bucket_timeout_in_ms: default_bucket_timeout_in_ms(),
         }
     }
 }
@@ -223,6 +227,10 @@ pub fn default_bucket_name() -> String {
 
 pub fn default_bucket_region() -> String {
     "eu-west-1".to_string()
+}
+
+pub fn default_bucket_timeout_in_ms() -> u32 {
+    30_000
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

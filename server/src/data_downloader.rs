@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use anyhow::{bail, Context, Error};
+use core::time::Duration;
 use s3::{creds::Credentials, Bucket, Region};
 use std::io::Cursor;
 
@@ -64,7 +65,7 @@ impl DataDownloader {
             None,
         )?;
 
-        let bucket = match config.bucket_region.parse() {
+        let mut bucket = match config.bucket_region.parse() {
             // Custom Region / Minio
             Ok(Region::Custom { .. }) => {
                 let region = Region::Custom {
@@ -84,6 +85,9 @@ impl DataDownloader {
                 )
             }
         };
+
+        let timeout = Duration::from_millis(u64::from(config.bucket_timeout_in_ms));
+        bucket.set_request_timeout(Some(timeout));
 
         Ok(Self {
             bucket,
