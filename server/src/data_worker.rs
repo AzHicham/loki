@@ -284,8 +284,8 @@ impl DataWorker {
 
     async fn load_data_from_bucket(&mut self) -> Result<DataReloadStatus, Error> {
         if let Some(data_downloader) = &mut self.data_downloader {
-            let fusio_download_status = data_downloader.download_fusio_data().await?;
-            if let DownloadStatus::Ok(data_cursor) = fusio_download_status {
+            let download_status = data_downloader.download_data().await?;
+            if let DownloadStatus::Ok(data_cursor) = download_status {
                 info!("Data successfully downloaded");
                 let launch_params = self.config.launch_params.clone();
                 let updater = move |data_and_models: &mut DataAndModels| {
@@ -336,7 +336,7 @@ impl DataWorker {
                 }
             } else {
                 info!("No need to download data from S3, latest version already present locally");
-                Ok(DataReloadStatus::Skiped)
+                Ok(DataReloadStatus::Skipped)
             }
         } else {
             Err(format_err!("DataDownloader is not configured properly"))
@@ -590,7 +590,7 @@ impl DataWorker {
                                     self.reload_kirin(channel).await?;
                                     debug!("Reload completed successfully.");
                                 }
-                                DataReloadStatus::Skiped => {
+                                DataReloadStatus::Skipped => {
                                     info!("Reload skipped");
                                 }
                             }
@@ -996,5 +996,5 @@ fn parse_header_datetime(
 
 enum DataReloadStatus {
     Ok,
-    Skiped,
+    Skipped,
 }

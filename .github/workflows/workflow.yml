@@ -28,7 +28,7 @@ jobs:
         fail-fast: false
         matrix:
                 build_type: [{name: "Release", flag: "--release"}, {name: "Debug", flag: ""}]
-                features: ["--features launch/vehicle_loads", ""]
+                features: ["launch/vehicle_loads", ""]
 
     steps:
     - name: Set Swap Space
@@ -43,10 +43,8 @@ jobs:
         key: ${{ matrix.build_type.name }}-${{ matrix.features }}
     - name: Install libzmq
       run: sudo apt install libzmq3-dev
-    - name: Build
-      run: cargo build --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
-    - name: Test
-      run: cargo test --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
+    - name: Build & Test
+      run: cargo test --workspace ${{ matrix.build_type.flag }} --features "${{ matrix.features }}"
 
   pre-commit:
     runs-on: ubuntu-latest

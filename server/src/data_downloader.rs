@@ -44,10 +44,10 @@ pub struct DataDownloader {
     bucket: Bucket,
 
     // S3 key of ntfs/gtfs file
-    fusio_data_key: String,
+    data_key: String,
 
     // latest version_id of ntfs/gtfs file
-    fusio_data_version_id: String,
+    data_version_id: String,
 }
 
 pub enum DownloadStatus {
@@ -91,8 +91,8 @@ impl DataDownloader {
 
         Ok(Self {
             bucket,
-            fusio_data_key: config.data_path_key.clone(),
-            fusio_data_version_id: "".to_string(),
+            data_key: config.data_path_key.clone(),
+            data_version_id: "".to_string(),
         })
     }
 
@@ -138,14 +138,14 @@ impl DataDownloader {
         }
     }
 
-    pub async fn download_fusio_data(&mut self) -> Result<DownloadStatus, Error> {
+    pub async fn download_data(&mut self) -> Result<DownloadStatus, Error> {
         // get meta info about file we are going to download
         // if file has already been download skip the download
-        let version_id = self.get_file_version_id(&self.fusio_data_key).await?;
-        if self.fusio_data_version_id != version_id {
-            let data = self.download_file(&self.fusio_data_key).await?;
+        let version_id = self.get_file_version_id(&self.data_key).await?;
+        if self.data_version_id != version_id {
+            let data = self.download_file(&self.data_key).await?;
             let cursor = std::io::Cursor::new(data);
-            self.fusio_data_version_id = version_id;
+            self.data_version_id = version_id;
             Ok(DownloadStatus::Ok(cursor))
         } else {
             Ok(DownloadStatus::AlreadyPresent)
