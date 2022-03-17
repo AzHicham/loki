@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use std::{error::Error, fmt::Display, path::Path};
+use std::{error::Error, fmt::Display, io};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Load {
     Unknown,
@@ -117,8 +117,8 @@ impl LoadsData {
         LoadsData {}
     }
 
-    pub fn new<P: AsRef<Path>>(
-        _csv_occupancys_filepath: P,
+    pub fn new<R: io::Read>(
+        _reader: R,
         _collections: &base_model::Collections,
     ) -> Result<Self, Box<dyn Error>> {
         Ok(LoadsData::empty())

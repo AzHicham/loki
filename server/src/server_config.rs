@@ -36,18 +36,23 @@
 
 use launch::{config, loki::PositiveDuration};
 
+use launch::config::launch_params::{default_transfer_duration, LocalFileParams};
+use launch::config::InputDataType;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerConfig {
-    #[serde(flatten)]
-    pub launch_params: config::LaunchParams,
+    // param to load data from either local file or S3
+    pub data_source: DataSourceParams,
 
-    #[serde(flatten)]
-    pub bucket_params: BucketParams,
+    /// type of input data given (ntfs/gtfs)
+    #[serde(default)]
+    pub input_data_type: InputDataType,
 
-    pub storage_type: StorageType,
+    /// the transfer duration between a stop point and itself
+    #[serde(default = "default_transfer_duration")]
+    pub default_transfer_duration: PositiveDuration,
 
     /// zmq socket to listen for protobuf requests
     pub requests_socket: String,
@@ -71,9 +76,12 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn new(input_data_path: std::path::PathBuf, zmq_socket: &str, instance_name: &str) -> Self {
         Self {
-            launch_params: config::LaunchParams::new(input_data_path),
-            bucket_params: Default::default(),
-            storage_type: StorageType::Local,
+            default_transfer_duration: default_transfer_duration(),
+            data_source: DataSourceParams::Local(LocalFileParams {
+                input_data_path,
+                loads_data_path: None,
+            }),
+            input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
             request_default_params: config::RequestParams::default(),
@@ -234,14 +242,8 @@ pub fn default_bucket_timeout_in_ms() -> u32 {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum StorageType {
-    Local,
-    S3,
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Local
-    }
+#[serde(tag = "type", content = "config", rename_all = "snake_case")]
+pub enum DataSourceParams {
+    Local(LocalFileParams),
+    S3(BucketParams),
 }

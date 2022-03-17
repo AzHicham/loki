@@ -97,7 +97,7 @@ impl MasterWorker {
             load_balancer_channels,
             status_update_sender,
             shutdown_sender,
-        );
+        )?;
         let _data_worker_handle = data_worker.run_in_a_thread()?;
 
         // Master worker

@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use chrono::NaiveDate;
-use std::{collections::BTreeMap, error::Error, fmt::Display, path::Path};
+use std::{collections::BTreeMap, error::Error, fmt::Display, io};
 use tracing::{debug, trace};
 
 type StopSequence = u32;
@@ -246,17 +246,16 @@ impl LoadsData {
         }
     }
 
-    pub fn new<P: AsRef<Path>>(
-        csv_occupancys_filepath: P,
+    pub fn new<R: io::Read>(
+        csv_occupancys_reader: R,
         model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),
         };
-        let filepath = csv_occupancys_filepath.as_ref();
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b',')
-            .from_path(filepath)?;
+            .from_reader(csv_occupancys_reader);
 
         let mut record = csv::StringRecord::new();
 
@@ -295,10 +294,9 @@ impl LoadsData {
                     .get(&stop_sequence);
                 if has_idx.is_none() {
                     trace!(
-                        "Error reading {:?} at line {}. \n
+                        "Error while reading at line {}. \n
                         The provided stop_sequence {} is not valid for the vehicle_journey {}.
                         I'll skip this line.",
-                        filepath,
                         reader.position().line(),
                         stop_sequence,
                         &record[0]

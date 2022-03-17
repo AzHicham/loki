@@ -84,11 +84,12 @@ use std::{
     thread,
 };
 
+use crate::server_config::DataSourceParams;
 use crate::{
     data_downloader::{DataDownloader, DownloadStatus},
     handle_chaos_message::handle_chaos_protobuf,
-    server_config::StorageType,
 };
+use launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -109,7 +110,7 @@ pub struct DataWorker {
 
     shutdown_sender: mpsc::Sender<()>,
 
-    data_downloader: Option<DataDownloader>,
+    data_source: DataSource,
 }
 
 impl DataWorker {
@@ -119,7 +120,7 @@ impl DataWorker {
         load_balancer_channels: LoadBalancerChannels,
         status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
         shutdown_sender: mpsc::Sender<()>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let host_name = hostname::get()
             .context("Could not retrieve hostname.")
             .and_then(|os_string| {
@@ -139,10 +140,18 @@ impl DataWorker {
         let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
         let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
 
-        let data_downloader = DataDownloader::new(&config.bucket_params).ok();
-        info!("Data worker created.");
+        let data_source = match &config.data_source {
+            DataSourceParams::Local(local_file_params) => {
+                DataSource::Local(local_file_params.clone())
+            }
+            DataSourceParams::S3(bucket_params) => {
+                let data_downloader = DataDownloader::new(bucket_params)?;
+                DataSource::S3(data_downloader)
+            }
+        };
 
-        Self {
+        info!("Data worker created.");
+        Ok(Self {
             config,
             data_and_models,
             load_balancer_channels,
@@ -153,8 +162,8 @@ impl DataWorker {
             kirin_reload_done: false,
             status_update_sender,
             shutdown_sender,
-            data_downloader,
-        }
+            data_source,
+        })
     }
 
     async fn run(mut self) {
@@ -165,20 +174,10 @@ impl DataWorker {
     }
 
     async fn run_loop(&mut self) -> Result<(), Error> {
-        match self.config.storage_type {
-            StorageType::Local => {
-                debug!("DataWorker starts initial load data from disk");
-                self.load_data_from_disk()
-                    .await
-                    .with_context(|| "Error while loading data from disk.".to_string())?;
-            }
-            StorageType::S3 => {
-                debug!("DataWorker starts initial load data from S3");
-                self.load_data_from_bucket()
-                    .await
-                    .with_context(|| "Error while downloading data from S3 Bucket.".to_string())?;
-            }
-        }
+        debug!("DataWorker starts initial load data.");
+        self.load_data()
+            .await
+            .with_context(|| "Error while loading data".to_string())?;
 
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
@@ -282,79 +281,37 @@ impl DataWorker {
         }
     }
 
-    async fn load_data_from_bucket(&mut self) -> Result<DataReloadStatus, Error> {
-        if let Some(data_downloader) = &mut self.data_downloader {
-            let download_status = data_downloader.download_data().await?;
-            if let DownloadStatus::Ok(data_cursor) = download_status {
-                info!("Data successfully downloaded");
-                let launch_params = self.config.launch_params.clone();
-                let updater = move |data_and_models: &mut DataAndModels| {
-                    let new_base_model =
-                        launch::read::read_model_from_reader(data_cursor, "S3", &launch_params)
-                            .map_err(|err| {
-                                error!(
-                                    "Could not read data from disk at {:?}. {:?}. \
-                            I'll keep running with an empty model.",
-                                    launch_params.input_data_path, err
-                                );
-                            })
-                            .unwrap_or_else(|()| BaseModel::empty());
+    async fn load_data(&mut self) -> Result<DataReloadStatus, Error> {
+        let config = &self.config;
 
-                    info!("Model loaded");
-                    info!("Starting to build data");
-                    let new_data = launch::read::build_transit_data(&new_base_model);
-                    info!("Data loaded");
-                    let new_real_time_model = RealTimeModel::new();
-                    data_and_models.0 = new_data;
-                    data_and_models.1 = new_base_model;
-                    data_and_models.2 = new_real_time_model;
+        let new_base_model = match &mut self.data_source {
+            DataSource::S3(data_downloader) => match data_downloader.download_data().await {
+                Ok(DownloadStatus::Ok(data_reader)) => launch::read::read_model_from_reader(
+                    data_reader,
+                    None,
+                    "S3",
+                    config.input_data_type.clone(),
+                    config.default_transfer_duration,
+                ),
+                Ok(DownloadStatus::AlreadyPresent) => return Ok(DataReloadStatus::Skipped),
+                Err(err) => Err(err),
+            },
+            DataSource::Local(local_files) => launch::read::read_model(
+                local_files,
+                config.input_data_type.clone(),
+                config.default_transfer_duration,
+            ),
+        };
 
-                    let calendar = data_and_models.0.calendar();
-                    let now = Utc::now().naive_utc();
-                    let base_data_info = BaseDataInfo {
-                        start_date: calendar.first_date(),
-                        end_date: calendar.last_date(),
-                        last_load_at: now,
-                        dataset_created_at: data_and_models.1.dataset_created_at(),
-                        timezone: data_and_models.1.timezone_model().unwrap_or(chrono_tz::UTC),
-                        contributors: data_and_models.1.contributors().map(|c| c.id).collect(),
-                        publisher_name: data_and_models.1.pubisher_name().map(ToString::to_string),
-                    };
-                    Ok(base_data_info)
-                };
-
-                let load_result = self.update_data_and_models(updater).await;
-                match load_result {
-                    Ok(base_data_info) => {
-                        self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))?;
-                        Ok(DataReloadStatus::Ok)
-                    }
-                    Err(err) => {
-                        self.send_status_update(StatusUpdate::BaseDataLoadFailed)?;
-                        Err(err)
-                    }
-                }
-            } else {
-                info!("No need to download data from S3, latest version already present locally");
-                Ok(DataReloadStatus::Skipped)
-            }
-        } else {
-            Err(format_err!("DataDownloader is not configured properly"))
-        }
-    }
-
-    async fn load_data_from_disk(&mut self) -> Result<DataReloadStatus, Error> {
-        let launch_params = self.config.launch_params.clone();
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params)
+            let new_base_model = new_base_model
                 .map_err(|err| {
                     error!(
-                        "Could not read data from disk at {:?}. {:?}. \
-                            I'll keep running with an empty model.",
-                        launch_params.input_data_path, err
+                        "Could not read data. {:?}.I'll keep running with an empty model.",
+                        err
                     );
                 })
-                .unwrap_or_else(|()| BaseModel::empty());
+                .unwrap_or_else(|_| BaseModel::empty());
 
             info!("Model loaded");
             info!("Starting to build data");
@@ -380,6 +337,7 @@ impl DataWorker {
         };
 
         let load_result = self.update_data_and_models(updater).await;
+
         match load_result {
             Ok(base_data_info) => {
                 self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))?;
@@ -567,16 +525,7 @@ impl DataWorker {
                         let action = proto_message.action();
                         if let navitia_proto::Action::Reload = action {
                             debug!("Received a Reload order.");
-                            let reload_result = match self.config.storage_type {
-                                StorageType::Local => {
-                                    debug!("DataWorker starts initial load data from disk");
-                                    self.load_data_from_disk().await?
-                                }
-                                StorageType::S3 => {
-                                    debug!("DataWorker starts initial load data from S3");
-                                    self.load_data_from_bucket().await?
-                                }
-                            };
+                            let reload_result = self.load_data().await?;
                             match reload_result {
                                 DataReloadStatus::Ok => {
                                     // if we have unhandled kirin messages, we clear them,
@@ -997,4 +946,9 @@ fn parse_header_datetime(
 enum DataReloadStatus {
     Ok,
     Skipped,
+}
+
+pub enum DataSource {
+    Local(LocalFileParams),
+    S3(DataDownloader),
 }

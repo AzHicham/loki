@@ -30,7 +30,7 @@
 use std::path::Path;
 
 pub use loki_server;
-use loki_server::server_config::ServerConfig;
+use loki_server::server_config::{DataSourceParams, ServerConfig};
 
 use launch::loki::NaiveDateTime;
 
@@ -66,12 +66,14 @@ pub async fn reload_test(config: &ServerConfig, data_dir_path: &Path) {
 
     crate::wait_until_connected_to_rabbitmq(&config.requests_socket).await;
 
-    // copy the modified trips.txt into working dir
-    std::fs::copy(
-        data_dir_path.join("trips_renamed.txt"),
-        config.launch_params.input_data_path.join("trips.txt"),
-    )
-    .unwrap();
+    if let DataSourceParams::Local(data_paths) = &config.data_source {
+        // copy the modified trips.txt into working dir
+        std::fs::copy(
+            data_dir_path.join("trips_renamed.txt"),
+            data_paths.input_data_path.join("trips.txt"),
+        )
+        .unwrap();
+    }
 
     reload_base_data(config).await;
 
