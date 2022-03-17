@@ -106,7 +106,7 @@ jobs:
       run: |
         mkdir -p ../artemis
         git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis.git --branch master ../artemis
-        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch zip -–depth 1 ../artemis/artemis_data
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/CanalTP/artemis_data.git --branch zip --depth 1 ../artemis/artemis_data
         cd ../artemis/artemis_data
         unzip idfm.zip
 
