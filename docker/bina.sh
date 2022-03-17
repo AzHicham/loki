@@ -221,11 +221,15 @@ zmq_socket = tcp://*:${krakenPort}
           --arg inputPath "/data/$inputType/" \
           --arg instanceName "${coverage}" \
           '{
-    input_data_path: $inputPath,
+    data_source: {
+      type : "local",
+      config: {
+        input_data_path: $inputPath,
+        loads_data_path: "/data/stoptimes_loads.csv"
+      }
+    },
     input_data_type: $inputType,
-    storage_type: "local",
     instance_name: $instanceName,
-    loads_data_path: "/data/stoptimes_loads.csv",
     requests_socket: $lokiSocket,
 }' > ${output}/${coverage}/loki_config.json
 
