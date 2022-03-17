@@ -55,7 +55,7 @@ jobs:
     - name: install dependencies
       run: |
         sudo apt update
-        sudo apt install -y python3 python3-pip git
+        sudo apt install -y python3 python3-pip git lld
         pip install pre-commit
     - name: Pre-commit
       run: |
