@@ -9,7 +9,7 @@ COPY ./docker/bina.sh /bina.sh
 
 # install dependencies
 RUN apt-get update
-RUN apt-get install -y python3 python3-pip libpq-dev jq git zip
+RUN apt-get install -y python3 python3-pip libpq-dev jq git zip curl
 
 # install navitia-ed package
 RUN apt-get install -y /navitia-ed_*.deb
