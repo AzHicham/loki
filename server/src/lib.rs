@@ -70,8 +70,7 @@ use server_config::ServerConfig;
 use structopt::StructOpt;
 
 use std::{
-    fs::File,
-    io::BufReader,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -97,14 +96,13 @@ pub fn launch_server() -> Result<(), Error> {
 
 pub fn read_config(config_file: &Path) -> Result<ServerConfig, Error> {
     info!("Reading config from file {:?}", &config_file);
-    let file = match File::open(&config_file) {
+    let content = match fs::read_to_string(config_file) {
         Ok(file) => file,
         Err(e) => {
             bail!("Error opening config file {:?} : {}", &config_file, e)
         }
     };
-    let reader = BufReader::new(file);
-    let config: ServerConfig = serde_json::from_reader(reader)?;
+    let config: ServerConfig = toml::from_str(&content)?;
     debug!("Launching with config : {:#?}", config);
     Ok(config)
 }
