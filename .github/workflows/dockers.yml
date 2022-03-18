@@ -79,7 +79,7 @@ jobs:
         docker-compose down --rmi all -v
 
   artemis:
-    if: ${{ false }}  # disable for now # ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     needs: build
     steps:
