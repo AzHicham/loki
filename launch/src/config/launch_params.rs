@@ -79,3 +79,9 @@ impl LaunchParams {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LocalFileParams {
+    pub input_data_path: std::path::PathBuf,
+    pub loads_data_path: Option<std::path::PathBuf>,
+}

@@ -31,6 +31,10 @@ jobs:
                 features: ["launch/vehicle_loads", ""]
 
     steps:
+    - name: Set Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 10
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
@@ -40,7 +44,7 @@ jobs:
     - name: Install libzmq
       run: sudo apt install libzmq3-dev
     - name: Build & Test
-      run: cargo test --workspace ${{ matrix.build_type.flag }} ${{ matrix.features }}
+      run: cargo test --workspace ${{ matrix.build_type.flag }} --features "${{ matrix.features }}"
 
   pre-commit:
     runs-on: ubuntu-latest

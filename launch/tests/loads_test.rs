@@ -34,15 +34,15 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use crate::utils::{build_and_solve, Config};
 use anyhow::Error;
 use launch::config::ComparatorType;
+use launch::read::read_loads_data;
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     PositiveDuration,
 };
 use utils::model_builder::ModelBuilder;
-
-use crate::utils::{build_and_solve, Config};
 mod utils;
 
 // The data consists of  a single line from `massy` to `paris`
@@ -67,7 +67,7 @@ fn create_model() -> BaseModel {
         .build();
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = loki::loads_data::LoadsData::new(filepath, &model).unwrap();
+    let loads_data = read_loads_data(&Some(filepath.into()), &model);
 
     BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
 }

@@ -36,13 +36,23 @@
 
 use launch::{config, loki::PositiveDuration};
 
+use launch::config::launch_params::{default_transfer_duration, LocalFileParams};
+use launch::config::InputDataType;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerConfig {
-    #[serde(flatten)]
-    pub launch_params: config::LaunchParams,
+    // param to load data from either local file or S3
+    pub data_source: DataSourceParams,
+
+    /// type of input data given (ntfs/gtfs)
+    #[serde(default)]
+    pub input_data_type: InputDataType,
+
+    /// the transfer duration between a stop point and itself
+    #[serde(default = "default_transfer_duration")]
+    pub default_transfer_duration: PositiveDuration,
 
     /// zmq socket to listen for protobuf requests
     pub requests_socket: String,
@@ -66,7 +76,12 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn new(input_data_path: std::path::PathBuf, zmq_socket: &str, instance_name: &str) -> Self {
         Self {
-            launch_params: config::LaunchParams::new(input_data_path),
+            default_transfer_duration: default_transfer_duration(),
+            data_source: DataSourceParams::Local(LocalFileParams {
+                input_data_path,
+                loads_data_path: None,
+            }),
+            input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
             request_default_params: config::RequestParams::default(),
@@ -178,4 +193,57 @@ impl Default for ChaosParams {
             chaos_batch_size: default_batch_size(),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BucketParams {
+    #[serde(default = "default_bucket_name")]
+    pub bucket_name: String,
+
+    #[serde(default = "default_bucket_region")]
+    pub bucket_region: String,
+
+    #[serde(default)]
+    pub bucket_access_key: String,
+
+    #[serde(default)]
+    pub bucket_secret_key: String,
+
+    #[serde(default)]
+    pub data_path_key: String,
+
+    #[serde(default = "default_bucket_timeout_in_ms")]
+    pub bucket_timeout_in_ms: u32,
+}
+
+impl Default for BucketParams {
+    fn default() -> Self {
+        BucketParams {
+            bucket_name: default_bucket_name(),
+            bucket_region: default_bucket_region(),
+            bucket_access_key: "".to_string(),
+            bucket_secret_key: "".to_string(),
+            data_path_key: "".to_string(),
+            bucket_timeout_in_ms: default_bucket_timeout_in_ms(),
+        }
+    }
+}
+
+pub fn default_bucket_name() -> String {
+    "loki".to_string()
+}
+
+pub fn default_bucket_region() -> String {
+    "eu-west-1".to_string()
+}
+
+pub fn default_bucket_timeout_in_ms() -> u32 {
+    30_000
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", content = "config", rename_all = "snake_case")]
+pub enum DataSourceParams {
+    Local(LocalFileParams),
+    S3(BucketParams),
 }

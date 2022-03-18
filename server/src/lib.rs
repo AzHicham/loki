@@ -55,6 +55,7 @@ pub mod response;
 
 pub mod chaos;
 pub mod compute_worker;
+pub mod data_downloader;
 pub mod load_balancer;
 pub mod master_worker;
 pub mod status_worker;

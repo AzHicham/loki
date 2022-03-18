@@ -84,7 +84,12 @@ use std::{
     thread,
 };
 
-use crate::handle_chaos_message::handle_chaos_protobuf;
+use crate::server_config::DataSourceParams;
+use crate::{
+    data_downloader::{DataDownloader, DownloadStatus},
+    handle_chaos_message::handle_chaos_protobuf,
+};
+use launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -104,6 +109,8 @@ pub struct DataWorker {
     status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
 
     shutdown_sender: mpsc::Sender<()>,
+
+    data_source: DataSource,
 }
 
 impl DataWorker {
@@ -113,9 +120,9 @@ impl DataWorker {
         load_balancer_channels: LoadBalancerChannels,
         status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
         shutdown_sender: mpsc::Sender<()>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let host_name = hostname::get()
-            .context("Could not retreive hostname.")
+            .context("Could not retrieve hostname.")
             .and_then(|os_string| {
                 os_string
                     .into_string()
@@ -132,8 +139,19 @@ impl DataWorker {
         let instance_name = &config.instance_name;
         let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
         let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
+
+        let data_source = match &config.data_source {
+            DataSourceParams::Local(local_file_params) => {
+                DataSource::Local(local_file_params.clone())
+            }
+            DataSourceParams::S3(bucket_params) => {
+                let data_downloader = DataDownloader::new(bucket_params)?;
+                DataSource::S3(data_downloader)
+            }
+        };
+
         info!("Data worker created.");
-        Self {
+        Ok(Self {
             config,
             data_and_models,
             load_balancer_channels,
@@ -144,7 +162,8 @@ impl DataWorker {
             kirin_reload_done: false,
             status_update_sender,
             shutdown_sender,
-        }
+            data_source,
+        })
     }
 
     async fn run(mut self) {
@@ -155,10 +174,10 @@ impl DataWorker {
     }
 
     async fn run_loop(&mut self) -> Result<(), Error> {
-        debug!("DataWorker starts initial load data from disk.");
-        self.load_data_from_disk()
+        debug!("DataWorker starts initial load data.");
+        self.load_data()
             .await
-            .with_context(|| "Error while loading data from disk.".to_string())?;
+            .with_context(|| "Error while loading data".to_string())?;
 
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
@@ -262,18 +281,37 @@ impl DataWorker {
         }
     }
 
-    async fn load_data_from_disk(&mut self) -> Result<(), Error> {
-        let launch_params = self.config.launch_params.clone();
+    async fn load_data(&mut self) -> Result<DataReloadStatus, Error> {
+        let config = &self.config;
+
+        let new_base_model = match &mut self.data_source {
+            DataSource::S3(data_downloader) => match data_downloader.download_data().await {
+                Ok(DownloadStatus::Ok(data_reader)) => launch::read::read_model_from_zip_reader(
+                    data_reader,
+                    None,
+                    "S3",
+                    config.input_data_type.clone(),
+                    config.default_transfer_duration,
+                ),
+                Ok(DownloadStatus::AlreadyPresent) => return Ok(DataReloadStatus::Skipped),
+                Err(err) => Err(err),
+            },
+            DataSource::Local(local_files) => launch::read::read_model(
+                local_files,
+                config.input_data_type.clone(),
+                config.default_transfer_duration,
+            ),
+        };
+
         let updater = move |data_and_models: &mut DataAndModels| {
-            let new_base_model = launch::read::read_model(&launch_params)
+            let new_base_model = new_base_model
                 .map_err(|err| {
                     error!(
-                        "Could not read data from disk at {:?}. {:?}. \
-                            I'll keep running with an empty model.",
-                        launch_params.input_data_path, err
+                        "Could not read data. {:?}.I'll keep running with an empty model.",
+                        err
                     );
                 })
-                .unwrap_or_else(|()| BaseModel::empty());
+                .unwrap_or_else(|_| BaseModel::empty());
 
             info!("Model loaded");
             info!("Starting to build data");
@@ -299,9 +337,11 @@ impl DataWorker {
         };
 
         let load_result = self.update_data_and_models(updater).await;
+
         match load_result {
             Ok(base_data_info) => {
-                self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))
+                self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))?;
+                Ok(DataReloadStatus::Ok)
             }
             Err(err) => {
                 self.send_status_update(StatusUpdate::BaseDataLoadFailed)?;
@@ -485,17 +525,24 @@ impl DataWorker {
                         let action = proto_message.action();
                         if let navitia_proto::Action::Reload = action {
                             debug!("Received a Reload order.");
-                            // if we have unhandled kirin messages, we clear them,
-                            // since we are going to request a full reload from kirin
-                            self.kirin_messages.clear();
-                            self.load_data_from_disk().await?;
-                            // After loading data from disk, load all disruption in chaos database
-                            // Then apply all extracted disruptions
-                            if let Err(err) = self.reload_chaos().await {
-                                error!("Error during reload of Chaos database : {:?}", err);
+                            let reload_result = self.load_data().await?;
+                            match reload_result {
+                                DataReloadStatus::Ok => {
+                                    // if we have unhandled kirin messages, we clear them,
+                                    // since we are going to request a full reload from kirin
+                                    self.kirin_messages.clear();
+                                    // After loading data from disk, load all disruption in chaos database
+                                    // Then apply all extracted disruptions
+                                    if let Err(err) = self.reload_chaos().await {
+                                        error!("Error during reload of Chaos database : {:?}", err);
+                                    }
+                                    self.reload_kirin(channel).await?;
+                                    debug!("Reload completed successfully.");
+                                }
+                                DataReloadStatus::Skipped => {
+                                    info!("Reload skipped");
+                                }
                             }
-                            self.reload_kirin(channel).await?;
-                            debug!("Reload completed successfully.");
                         } else {
                             error!(
                                 "Receive a reload message with unhandled action value : {:?}",
@@ -894,4 +941,14 @@ fn parse_header_datetime(
     } else {
         bail!("FeedMessage has no header");
     }
+}
+
+enum DataReloadStatus {
+    Ok,
+    Skipped,
+}
+
+pub enum DataSource {
+    Local(LocalFileParams),
+    S3(DataDownloader),
 }
