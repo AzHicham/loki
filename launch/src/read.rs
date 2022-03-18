@@ -61,7 +61,7 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
     Ok((data, base_model))
 }
 
-pub fn read_model_from_reader<R>(
+pub fn read_model_from_zip_reader<R>(
     input_data_reader: R,
     loads_data_reader: Option<R>,
     source: &str,
@@ -94,7 +94,7 @@ where
         }
     };
     info!("Transit model loaded");
-    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+    let loads_data = read_loads_data_from_zip_reader(loads_data_reader, &model);
     BaseModel::new(model, loads_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
@@ -130,7 +130,7 @@ pub fn read_model(
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
-fn read_loads_data_from_reader<R: std::io::Read>(
+fn read_loads_data_from_zip_reader<R: std::io::Read>(
     reader: Option<R>,
     model: &base_model::Model,
 ) -> LoadsData {
@@ -150,7 +150,7 @@ pub fn read_loads_data(loads_data_path: &Option<PathBuf>, model: &base_model::Mo
         .as_ref()
         .map(|path| {
             let reader = std::fs::File::open(path).ok();
-            read_loads_data_from_reader(reader, model)
+            read_loads_data_from_zip_reader(reader, model)
         })
         .unwrap_or_else(LoadsData::empty)
 }

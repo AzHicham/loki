@@ -286,7 +286,7 @@ impl DataWorker {
 
         let new_base_model = match &mut self.data_source {
             DataSource::S3(data_downloader) => match data_downloader.download_data().await {
-                Ok(DownloadStatus::Ok(data_reader)) => launch::read::read_model_from_reader(
+                Ok(DownloadStatus::Ok(data_reader)) => launch::read::read_model_from_zip_reader(
                     data_reader,
                     None,
                     "S3",
