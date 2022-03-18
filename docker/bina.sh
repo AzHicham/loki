@@ -225,9 +225,9 @@ zmq_socket = tcp://*:${krakenPort}
     [data_source.config]
     input_data_path = ""
     loads_data_path = "/data/stoptimes_loads.csv"
-' | dasel put string -p toml 'data_source.config.input_data_path' $inputPath \
-  | dasel put string -p toml 'instance_name' $instanceName \
-  | dasel put string -p toml 'requests_socket' $lokiSocket \
+' | dasel put string -p toml 'data_source.config.input_data_path' /data/$inputType/ \
+  | dasel put string -p toml 'instance_name' $coverage \
+  | dasel put string -p toml 'requests_socket' tcp://*:$lokiPort \
   | dasel put string -p toml 'input_data_type' $inputType \
 > ${output}/${coverage}/loki_config.toml
 
