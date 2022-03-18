@@ -36,8 +36,10 @@
 
 use launch::{config, loki::PositiveDuration};
 
-use launch::config::launch_params::{default_transfer_duration, LocalFileParams};
-use launch::config::InputDataType;
+use launch::config::{
+    launch_params::{default_transfer_duration, LocalFileParams},
+    InputDataType,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 

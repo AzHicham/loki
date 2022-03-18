@@ -35,16 +35,14 @@
 // www.navitia.io
 
 use super::config;
-use crate::config::launch_params::LocalFileParams;
-use crate::loki::TransitData;
+use crate::{config::launch_params::LocalFileParams, loki::TransitData};
 use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     tracing::{info, warn},
     transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
 };
-use std::path::PathBuf;
-use std::{str::FromStr, time::SystemTime};
+use std::{path::PathBuf, str::FromStr, time::SystemTime};
 
 pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseModel), Error> {
     let base_model = read_model(

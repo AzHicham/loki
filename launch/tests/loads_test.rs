@@ -36,8 +36,7 @@
 
 use crate::utils::{build_and_solve, Config};
 use anyhow::Error;
-use launch::config::ComparatorType;
-use launch::read::read_loads_data;
+use launch::{config::ComparatorType, read::read_loads_data};
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     PositiveDuration,

@@ -84,10 +84,10 @@ use std::{
     thread,
 };
 
-use crate::server_config::DataSourceParams;
 use crate::{
     data_downloader::{DataDownloader, DownloadStatus},
     handle_chaos_message::handle_chaos_protobuf,
+    server_config::DataSourceParams,
 };
 use launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
