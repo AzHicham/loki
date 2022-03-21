@@ -45,8 +45,10 @@ use std::{fmt::Debug, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServerConfig {
-    // param to load data from either local file or S3
-    pub data_source: DataSourceParams,
+    pub instance_name: String,
+
+    /// zmq socket to listen for protobuf requests
+    pub requests_socket: String,
 
     /// type of input data given (ntfs/gtfs)
     #[serde(default)]
@@ -56,18 +58,16 @@ pub struct ServerConfig {
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
 
-    /// zmq socket to listen for protobuf requests
-    pub requests_socket: String,
+    // param to load data from either local file or S3
+    pub data_source: DataSourceParams,
 
-    pub instance_name: String,
-
-    #[serde(flatten)]
+    #[serde(default)]
     pub request_default_params: config::RequestParams,
 
-    #[serde(flatten)]
+    #[serde(default)]
     pub rabbitmq_params: RabbitMqParams,
 
-    #[serde(flatten)]
+    #[serde(default)]
     pub chaos_params: ChaosParams,
 
     /// number of workers that solve requests in parallel
