@@ -46,14 +46,61 @@ use crate::{
     transit_data::{data_interface::Data as DataInterface, Stop, TransitData},
     RealTimeLevel,
 };
+use std::collections::HashMap;
 
 use crate::time::PositiveDuration;
 use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
+use crate::models::base_model::BaseVehicleJourneyIdx;
 use tracing::{info, warn};
 
 use super::{handle_insertion_error, Timetables, Transfer, TransferData, TransferDurations};
+
+struct VJGroupedByStayIn<'model> {
+    stay_in_vj: HashMap<(&'model str, chrono_tz::Tz), Vec<BaseVehicleJourneyIdx>>,
+    base_model: &'model BaseModel,
+}
+
+impl<'model> VJGroupedByStayIn<'model> {
+    pub fn new(base_model: &'model BaseModel) -> Self {
+        let mut stay_in_vj = HashMap::new();
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            let vehicle_journey = base_model.vehicle_journey(vehicle_journey_idx);
+            let block_id = &vehicle_journey.block_id;
+            let timezone = base_model.timezone(vehicle_journey_idx);
+
+            if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
+                if !block_id.is_empty() && vehicle_journey.stop_times.len() > 1 {
+                    let vehicle_journeys_idx = stay_in_vj
+                        .entry((block_id.as_str(), timezone))
+                        .or_insert_with(Vec::new);
+                    vehicle_journeys_idx.push(vehicle_journey_idx);
+                }
+            }
+        }
+        for (_, vec_idx) in &mut stay_in_vj {
+            vec_idx.sort_unstable_by(|lhs_idx, rhs_idx| {
+                let lhs_vehicle_journey = base_model.vehicle_journey(*lhs_idx);
+                let rhs_vehicle_journey = base_model.vehicle_journey(*rhs_idx);
+                let lhs_first_stoptime = lhs_vehicle_journey.stop_times[0].departure_time;
+                let rhs_first_stoptime = rhs_vehicle_journey.stop_times[0].departure_time;
+                lhs_first_stoptime.cmp(&rhs_first_stoptime)
+            });
+        }
+
+        Self {
+            stay_in_vj,
+            base_model,
+        }
+    }
+
+    pub fn get_prev_and_next_vj(
+        vehicle_journey_idx: BaseVehicleJourneyIdx,
+    ) -> (Option<BaseVehicleJourneyIdx>, Option<BaseVehicleJourneyIdx>) {
+        (None, None)
+    }
+}
 
 impl TransitData {
     pub fn _new(base_model: &BaseModel) -> Self {
@@ -82,11 +129,14 @@ impl TransitData {
     fn init(&mut self, base_model: &BaseModel) {
         let loads_data = base_model.loads_data();
         info!("Inserting vehicle journeys");
+
+        let vehicle_stay_in = VJGroupedByStayIn::new(base_model);
+
         for vehicle_journey_idx in base_model.vehicle_journeys() {
             let _ = self.insert_base_vehicle_journey(vehicle_journey_idx, base_model, loads_data);
         }
-        info!("Inserting transfers");
 
+        info!("Inserting transfers");
         for transfer_idx in base_model.transfers() {
             let _ = self.insert_base_transfer(transfer_idx, base_model)
                 .map_err(|()| {

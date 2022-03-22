@@ -182,6 +182,14 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.generic.mission_id(mission)
     }
+
+    fn stay_in(
+        &self,
+        trip_before: &Self::Trip,
+        criteria_before: &Self::Criteria,
+    ) -> Option<(Self::Trip, Self::Criteria)> {
+        None
+    }
 }
 
 impl<'data, 'model, 'outer, Data> RequestIters<'outer> for Request<'data, 'model, Data>
@@ -190,14 +198,14 @@ where
     Data::Transfer: 'outer,
     Data::Stop: 'outer,
 {
-    type Departures = Departures;
-    fn departures(&'outer self) -> Self::Departures {
-        self.generic.departures()
-    }
-
     type Arrivals = Arrivals;
     fn arrivals(&'outer self) -> Self::Arrivals {
         self.generic.arrivals()
+    }
+
+    type Departures = Departures;
+    fn departures(&'outer self) -> Self::Departures {
+        self.generic.departures()
     }
 
     type MissionsAtStop = Data::MissionsAtStop;

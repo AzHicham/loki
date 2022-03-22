@@ -103,6 +103,8 @@ pub trait Data: TransitTypes {
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
 
+    // fn stay_in(Trip, waintingTime) -> Option<(Trip, waintingTime)>
+
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,

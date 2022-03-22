@@ -73,6 +73,7 @@ pub struct TransitData {
     pub(super) stops_data: Vec<StopData>,
     pub(super) timetables: Timetables,
 
+    // pub(super) next_vj_idx HashMap<VJIdx, VJIdx>
     pub(super) transfers_data: Vec<TransferData>,
 
     pub(super) vehicle_journey_to_timetable: VehicleJourneyToTimetable<Mission>,
