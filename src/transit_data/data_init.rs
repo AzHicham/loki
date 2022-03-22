@@ -65,6 +65,7 @@ struct VJGroupedByStayIn<'model> {
 impl<'model> VJGroupedByStayIn<'model> {
     pub fn new(base_model: &'model BaseModel) -> Self {
         let mut stay_in_vj = HashMap::new();
+
         for vehicle_journey_idx in base_model.vehicle_journeys() {
             let vehicle_journey = base_model.vehicle_journey(vehicle_journey_idx);
             let block_id = &vehicle_journey.block_id;
@@ -79,10 +80,13 @@ impl<'model> VJGroupedByStayIn<'model> {
                 }
             }
         }
-        for (_, vec_idx) in &mut stay_in_vj {
+
+        for vec_idx in stay_in_vj.values_mut() {
             vec_idx.sort_unstable_by(|lhs_idx, rhs_idx| {
                 let lhs_vehicle_journey = base_model.vehicle_journey(*lhs_idx);
                 let rhs_vehicle_journey = base_model.vehicle_journey(*rhs_idx);
+                // Accessing index 0 is safe here because only vehicle_journeys with
+                // stop_times.len() > 1 were inserted
                 let lhs_first_stoptime = lhs_vehicle_journey.stop_times[0].departure_time;
                 let rhs_first_stoptime = rhs_vehicle_journey.stop_times[0].departure_time;
                 lhs_first_stoptime.cmp(&rhs_first_stoptime)
@@ -95,10 +99,54 @@ impl<'model> VJGroupedByStayIn<'model> {
         }
     }
 
-    pub fn get_prev_and_next_vj(
+    pub fn get_previous_stay_in_vj(
+        &self,
         vehicle_journey_idx: BaseVehicleJourneyIdx,
-    ) -> (Option<BaseVehicleJourneyIdx>, Option<BaseVehicleJourneyIdx>) {
-        (None, None)
+    ) -> Option<BaseVehicleJourneyIdx> {
+        let vehicle_journey = self.base_model.vehicle_journey(vehicle_journey_idx);
+        let block_id = &vehicle_journey.block_id;
+        let timezone = self.base_model.timezone(vehicle_journey_idx);
+
+        let vec_idx = if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
+            self.stay_in_vj.get(&(block_id.as_str(), timezone))?
+        } else {
+            return None;
+        };
+
+        let mut prev_vehicle_idx: Option<BaseVehicleJourneyIdx> = None;
+        for idx in vec_idx {
+            if vehicle_journey_idx == *idx {
+                if let Some(prev_vehicle_idx) = &prev_vehicle_idx {
+                    let previous_vehicle = self.base_model.vehicle_journey(*prev_vehicle_idx);
+                    let current_vehicle = self.base_model.vehicle_journey(*idx);
+                    // Unwrap on first/last is safe here because only vehicle_journeys with
+                    // stop_times.len() > 1 were inserted
+                    let prev_vehicle_last_stoptime = previous_vehicle.stop_times.last().unwrap();
+                    let current_vehicle_first_stoptime =
+                        current_vehicle.stop_times.first().unwrap();
+
+                    if prev_vehicle_last_stoptime.arrival_time
+                        <= current_vehicle_first_stoptime.departure_time
+                    {
+                        if prev_vehicle_last_stoptime.stop_point_idx
+                            != current_vehicle_first_stoptime.stop_point_idx
+                            && prev_vehicle_last_stoptime.departure_time
+                                > current_vehicle_first_stoptime.arrival_time
+                        {
+                            warn!(
+                                "Stay-in on different stop points with overlapping stop_times. \
+                                 Stay-in cannot be done between vjs {} and {}",
+                                previous_vehicle.id, current_vehicle.id
+                            )
+                        } else {
+                            return Some(*prev_vehicle_idx);
+                        }
+                    }
+                }
+            }
+            prev_vehicle_idx = Some(*idx);
+        }
+        None
     }
 }
 
@@ -119,6 +167,8 @@ impl TransitData {
             vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
             calendar,
             days_patterns: DaysPatterns::new(usize::from(nb_of_days)),
+            vehicle_journey_to_next_stay_in: std::collections::HashMap::new(),
+            vehicle_journey_to_prev_stay_in: std::collections::HashMap::new(),
         };
 
         data.init(base_model);
@@ -133,7 +183,14 @@ impl TransitData {
         let vehicle_stay_in = VJGroupedByStayIn::new(base_model);
 
         for vehicle_journey_idx in base_model.vehicle_journeys() {
-            let _ = self.insert_base_vehicle_journey(vehicle_journey_idx, base_model, loads_data);
+            let prev_stay_in_vehicle_journey_idx =
+                vehicle_stay_in.get_previous_stay_in_vj(vehicle_journey_idx);
+            let _ = self.insert_base_vehicle_journey(
+                vehicle_journey_idx,
+                prev_stay_in_vehicle_journey_idx,
+                base_model,
+                loads_data,
+            );
         }
 
         info!("Inserting transfers");
@@ -209,6 +266,7 @@ impl TransitData {
     fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
+        prev_stay_in_vehicle_journey_idx: Option<Idx<VehicleJourney>>,
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
@@ -273,7 +331,7 @@ impl TransitData {
                 loads_data,
                 dates,
                 timezone,
-                vehicle_journey_idx,
+                vehicle_journey_idx.clone(),
                 local_zones[0],
                 RealTimeLevel::Base,
             );
@@ -337,6 +395,16 @@ impl TransitData {
                     );
                 }
             }
+        }
+
+        if let Some(prev_vehicle_journey_idx) = prev_stay_in_vehicle_journey_idx {
+            let prev_vehicle_journey_idx = VehicleJourneyIdx::Base(prev_vehicle_journey_idx);
+            self.vehicle_journey_to_next_stay_in.insert(
+                prev_vehicle_journey_idx.clone(),
+                vehicle_journey_idx.clone(),
+            );
+            self.vehicle_journey_to_prev_stay_in
+                .insert(vehicle_journey_idx, prev_vehicle_journey_idx);
         }
 
         Ok(())
