@@ -243,6 +243,22 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.transfer_idx(transfer)
     }
 
+    fn stay_in_next(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        self.transit_data.stay_in_next(trip, real_time_level)
+    }
+
+    fn stay_in_previous(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        self.transit_data.stay_in_next(trip, real_time_level)
+    }
+
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,

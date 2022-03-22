@@ -58,6 +58,8 @@ use tracing::{info, warn};
 use super::{handle_insertion_error, Timetables, Transfer, TransferData, TransferDurations};
 
 struct VJGroupedByStayIn<'model> {
+    // the HashMap 'stay_in_vj' is used to group vehicle_journey with the same 'blocked_id' and timezone
+    // allowing use to use a vehicle of this group and move to another vehicle of this group without transfer
     stay_in_vj: HashMap<(&'model str, chrono_tz::Tz), Vec<BaseVehicleJourneyIdx>>,
     base_model: &'model BaseModel,
 }
@@ -72,7 +74,7 @@ impl<'model> VJGroupedByStayIn<'model> {
             let timezone = base_model.timezone(vehicle_journey_idx);
 
             if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
-                if !block_id.is_empty() && vehicle_journey.stop_times.len() > 1 {
+                if !block_id.is_empty() && !vehicle_journey.stop_times.is_empty() {
                     let vehicle_journeys_idx = stay_in_vj
                         .entry((block_id.as_str(), timezone))
                         .or_insert_with(Vec::new);
@@ -86,7 +88,7 @@ impl<'model> VJGroupedByStayIn<'model> {
                 let lhs_vehicle_journey = base_model.vehicle_journey(*lhs_idx);
                 let rhs_vehicle_journey = base_model.vehicle_journey(*rhs_idx);
                 // Accessing index 0 is safe here because only vehicle_journeys with
-                // stop_times.len() > 1 were inserted
+                // stop_times.len() > 0 were inserted
                 let lhs_first_stoptime = lhs_vehicle_journey.stop_times[0].departure_time;
                 let rhs_first_stoptime = rhs_vehicle_journey.stop_times[0].departure_time;
                 lhs_first_stoptime.cmp(&rhs_first_stoptime)
@@ -125,6 +127,7 @@ impl<'model> VJGroupedByStayIn<'model> {
                     let current_vehicle_first_stoptime =
                         current_vehicle.stop_times.first().unwrap();
 
+                    // take max/min(arrival_time, departure_time) for both
                     if prev_vehicle_last_stoptime.arrival_time
                         <= current_vehicle_first_stoptime.departure_time
                     {
@@ -321,8 +324,9 @@ impl TransitData {
         let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
         local_zones.sort_unstable();
         local_zones.dedup();
+        let local_zone_length = local_zones.len();
 
-        if local_zones.len() == 1 {
+        if local_zone_length == 1 {
             let insert_result = self.insert_inner(
                 stops,
                 flows,
@@ -397,14 +401,19 @@ impl TransitData {
             }
         }
 
-        if let Some(prev_vehicle_journey_idx) = prev_stay_in_vehicle_journey_idx {
-            let prev_vehicle_journey_idx = VehicleJourneyIdx::Base(prev_vehicle_journey_idx);
-            self.vehicle_journey_to_next_stay_in.insert(
-                prev_vehicle_journey_idx.clone(),
-                vehicle_journey_idx.clone(),
-            );
-            self.vehicle_journey_to_prev_stay_in
-                .insert(vehicle_journey_idx, prev_vehicle_journey_idx);
+        // We handle stay-in vehicle only for single local_zone case
+        if local_zone_length == 1 {
+            if let Some(prev_vehicle_journey_idx) = prev_stay_in_vehicle_journey_idx {
+                let prev_vehicle_journey_idx = VehicleJourneyIdx::Base(prev_vehicle_journey_idx);
+                self.vehicle_journey_to_next_stay_in.insert(
+                    prev_vehicle_journey_idx.clone(),
+                    vehicle_journey_idx.clone(),
+                );
+                self.vehicle_journey_to_prev_stay_in
+                    .insert(vehicle_journey_idx, prev_vehicle_journey_idx);
+            }
+        } else {
+            warn!("Stay-in vehicle feature is not handled for vehicles with multiple local_zone");
         }
 
         Ok(())

@@ -218,6 +218,47 @@ impl data_interface::Data for TransitData {
         transfer_data.transit_model_transfer_idx.clone()
     }
 
+    fn stay_in_next(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        let vehicle_journey_idx = self.timetables.vehicle_journey_idx(trip);
+        let day = self.timetables.day_of(trip);
+        let next_vehicle_journey_idx = self
+            .vehicle_journey_to_next_stay_in
+            .get(&vehicle_journey_idx)?;
+
+        // find timetable & local_zone of next_vehicle_journey_idx
+        let local_zones = self
+            .vehicle_journey_to_timetable
+            .get_vehicle_local_zones(next_vehicle_journey_idx);
+        let local_zone = local_zones.first()?;
+        let timetable = self.vehicle_journey_to_timetable.get_timetable(
+            &vehicle_journey_idx,
+            *local_zone,
+            day,
+            &self.days_patterns,
+        )?;
+        // find trip
+        self.timetables.find_trip(
+            &timetable,
+            day,
+            &vehicle_journey_idx,
+            *local_zone,
+            real_time_level,
+            &self.days_patterns,
+        )
+    }
+
+    fn stay_in_previous(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        None
+    }
+
     fn earliest_trip_to_board_at(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,

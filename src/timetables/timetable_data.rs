@@ -637,6 +637,13 @@ where
 
         nb_updated
     }
+
+    pub fn find_vehicles_data<Finder>(&self, finder: Finder) -> Option<usize>
+    where
+        Finder: FnMut(&VehicleData) -> bool,
+    {
+        self.vehicle_datas.iter().position(finder)
+    }
 }
 
 fn combine(a: Ordering, b: Ordering) -> Option<Ordering> {

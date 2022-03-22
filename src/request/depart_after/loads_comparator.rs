@@ -189,7 +189,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         trip_before: &Self::Trip,
         criteria_before: &Self::Criteria,
     ) -> Option<(Self::Trip, Self::Criteria)> {
-        None
+        self.generic.stay_in(trip_before, criteria_before)
     }
 }
 

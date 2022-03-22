@@ -488,6 +488,33 @@ impl UTCTimetables {
         Ok(result)
     }
 
+    pub fn find_trip(
+        &self,
+        timetable: &Mission,
+        day: DaysSinceDatasetStart,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: LocalZone,
+        real_time_level: RealTimeLevel,
+        days_patterns: &DaysPatterns,
+    ) -> Option<Trip> {
+        let timetable_data = self.timetables.timetable_data(timetable);
+
+        let idx = timetable_data.find_vehicles_data(|vehicle_data: &VehicleData| {
+            let days_pattern = match real_time_level {
+                RealTimeLevel::Base => &vehicle_data.base_days_pattern,
+                RealTimeLevel::RealTime => &vehicle_data.real_time_days_pattern,
+            };
+            vehicle_data.vehicle_journey_idx == *vehicle_journey_idx
+                && vehicle_data.local_zone == local_zone
+                && days_patterns.is_allowed(days_pattern, day)
+        })?;
+        let vehicle = Vehicle {
+            timetable: timetable.clone(),
+            idx,
+        };
+        Some(Trip { vehicle, day })
+    }
+
     pub fn remove(
         &mut self,
         timetable: &Mission,

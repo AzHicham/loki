@@ -171,6 +171,20 @@ where
         has_day_to_timetable.get(&local_zone)
     }
 
+    pub fn get_timetable(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        local_zone: LocalZone,
+        day: DaysSinceDatasetStart,
+        days_patterns: &DaysPatterns,
+    ) -> Option<Timetable> {
+        let day_to_timetable = self.get_day_to_timetable(vehicle_journey_idx, local_zone)?;
+        day_to_timetable
+            .base
+            .get(day, days_patterns)
+            .map(|timetable| timetable.clone())
+    }
+
     pub fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,

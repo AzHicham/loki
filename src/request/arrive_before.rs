@@ -259,6 +259,10 @@ where
         Some(new_criteria)
     }
 
+    fn stay_in(&self, trip: &Data::Trip, criteria: &Criteria) -> Option<(Data::Trip, Criteria)> {
+        None
+    }
+
     fn best_trip_to_board(
         &self,
         position: &Data::Position,
