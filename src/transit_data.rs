@@ -223,14 +223,11 @@ impl data_interface::Data for TransitData {
         trip: &Self::Trip,
         real_time_level: RealTimeLevel,
     ) -> Option<Self::Trip> {
-        let vehicle_journey_idx = self.timetables.vehicle_journey_idx(trip);
+        let vehicle_journey_idx = self.vehicle_journey_idx(trip);
         let day = self.timetables.day_of(trip);
         let next_vehicle_journey_idx = self
             .vehicle_journey_to_next_stay_in
             .get(&vehicle_journey_idx)?;
-
-        dbg!(vehicle_journey_idx);
-        dbg!(next_vehicle_journey_idx);
 
         // find timetable & local_zone of next_vehicle_journey_idx
         let local_zones = self
@@ -269,7 +266,7 @@ impl data_interface::Data for TransitData {
         trip: &Self::Trip,
         real_time_level: RealTimeLevel,
     ) -> Option<Self::Trip> {
-        let vehicle_journey_idx = self.timetables.vehicle_journey_idx(trip);
+        let vehicle_journey_idx = self.vehicle_journey_idx(trip);
         let day = self.timetables.day_of(trip);
         let next_vehicle_journey_idx = self
             .vehicle_journey_to_prev_stay_in

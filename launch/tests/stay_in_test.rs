@@ -93,11 +93,11 @@ fn simple_stay_in() -> Result<(), Error> {
     for trip in data.trips_of(&mission, RealTimeLevel::Base) {
         // we assert here to make sure we are iterating over the right trip/vehicle_journey
         assert_eq!(vj_idx_first, data.vehicle_journey_idx(&trip));
-        let next_trip_stay_in = data.stay_in_next(&trip, RealTimeLevel::Base);
+        let next_trip_stay_in = data.stay_in_next(&trip, RealTimeLevel::Base).unwrap();
         // more important, this assert test is we have a trip to stay_in after
         // trip { vj 'first' on date 2020-01-01 }
-        info!("{:?}, {:?}", trip, next_trip_stay_in);
-        //assert_eq!(next_trip_stay_in, None);
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        assert_eq!(next_vj_idx, vj_idx_second);
     }
 
     // we have only one Trip going through stop_point 'E'
@@ -120,7 +120,7 @@ fn simple_stay_in() -> Result<(), Error> {
 }
 
 #[test]
-fn multiple_stay_in() -> Result<(), Error> {
+fn multiple_stay() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
@@ -132,21 +132,14 @@ fn multiple_stay_in() -> Result<(), Error> {
                 .st("B", "10:05:00")
                 .st("C", "10:10:00");
         })
-        .vj("second_A", |vj_builder| {
-            vj_builder
-                .property("block_1")
-                .st("E", "10:05:00")
-                .st("F", "10:10:00")
-                .st("G", "10:15:00");
-        })
-        .vj("second_B", |vj_builder| {
+        .vj("second_a", |vj_builder| {
             vj_builder
                 .property("block_1")
                 .st("E", "10:15:00")
                 .st("F", "10:20:00")
                 .st("G", "10:25:00");
         })
-        .vj("second_C", |vj_builder| {
+        .vj("second_b", |vj_builder| {
             vj_builder
                 .property("block_1")
                 .st("E", "10:20:00")
@@ -164,8 +157,65 @@ fn multiple_stay_in() -> Result<(), Error> {
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vj_idx_first = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("second_B").unwrap();
-    let vj_idx_second_B = VehicleJourneyIdx::Base(vehicle_journey_idx);
+    let vehicle_journey_idx = base_model.vehicle_journey_idx("second_a").unwrap();
+    let vj_idx_second_a = VehicleJourneyIdx::Base(vehicle_journey_idx);
+
+    let stop_point_idx = base_model.stop_point_idx("C").unwrap();
+    let stop_point_idx = StopPointIdx::Base(stop_point_idx);
+    let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
+
+    // we have only one Trip going through stop_point 'C'
+    // Trip { vehicle_journey 'first' on date 2020-01-01 }
+    let (mission, _) = data.missions_of(stop).next().unwrap();
+
+    for trip in data.trips_of(&mission, RealTimeLevel::Base) {
+        assert_eq!(vj_idx_first, data.vehicle_journey_idx(&trip));
+        let next_trip_stay_in = data.stay_in_next(&trip, RealTimeLevel::Base).unwrap();
+
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        assert_eq!(next_vj_idx, vj_idx_second_a);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
+
+    // We set only one valid date in calendar for simplicity
+    let model = ModelBuilder::new("2020-01-01", "2020-01-01")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .st("A", "10:00:00")
+                .st("B", "10:05:00")
+                .st("C", "10:10:00");
+        })
+        .vj("second_a", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .st("E", "10:05:00")
+                .st("F", "10:10:00")
+                .st("G", "10:15:00");
+        })
+        .vj("second_b", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .st("E", "10:15:00")
+                .st("F", "10:20:00")
+                .st("G", "10:25:00");
+        })
+        .build();
+
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
+            .unwrap();
+
+    let data = launch::read::build_transit_data(&base_model);
+
+    let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
+    let vj_idx_first = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
     let stop_point_idx = base_model.stop_point_idx("C").unwrap();
     let stop_point_idx = StopPointIdx::Base(stop_point_idx);
@@ -178,17 +228,14 @@ fn multiple_stay_in() -> Result<(), Error> {
     for trip in data.trips_of(&mission, RealTimeLevel::Base) {
         assert_eq!(vj_idx_first, data.vehicle_journey_idx(&trip));
         let next_trip_stay_in = data.stay_in_next(&trip, RealTimeLevel::Base);
-        // more important, this assert test is we have a trip to stay_in after
-        // trip { vj 'first' on date 2020-01-01 }
-        info!("{:?}, {:?}", trip, next_trip_stay_in);
-        //assert_eq!(next_trip_stay_in, None);
+        assert!(next_trip_stay_in.is_none());
     }
 
     Ok(())
 }
 
 #[test]
-fn stay_in_with_wrong_stop_times() -> Result<(), Error> {
+fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
@@ -218,9 +265,6 @@ fn stay_in_with_wrong_stop_times() -> Result<(), Error> {
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vj_idx_first = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
-    let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
-
     let stop_point_idx = base_model.stop_point_idx("C").unwrap();
     let stop_point_idx = StopPointIdx::Base(stop_point_idx);
     let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
@@ -237,22 +281,6 @@ fn stay_in_with_wrong_stop_times() -> Result<(), Error> {
         // trip { vj 'first' on date 2020-01-01 }
         // because departure time of vj 'second' at stop_point 'E' is before
         // arrival_time of vj 'first' at stop_point 'C'
-        assert!(next_trip_stay_in.is_none());
-    }
-
-    // we have only one Trip going through stop_point 'E'
-    // Trip { vehicle_journey 'second' on date 2020-01-01
-    let stop_point_idx = base_model.stop_point_idx("E").unwrap();
-    let stop_point_idx = StopPointIdx::Base(stop_point_idx);
-    let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
-    let (mission, _) = data.missions_of(stop).next().unwrap();
-
-    for trip in data.trips_of(&mission, RealTimeLevel::Base) {
-        // we assert here to make sure we are iterating over the right trip/vehicle_journey
-        assert_eq!(vj_idx_second, data.vehicle_journey_idx(&trip));
-        let next_trip_stay_in = data.stay_in_next(&trip, RealTimeLevel::Base);
-        // more important, this assert test if we do not have a trip to stay_in after
-        // trip { vj 'second' on date 2020-01-01 }
         assert!(next_trip_stay_in.is_none());
     }
 
