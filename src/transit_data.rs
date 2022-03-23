@@ -229,22 +229,35 @@ impl data_interface::Data for TransitData {
             .vehicle_journey_to_next_stay_in
             .get(&vehicle_journey_idx)?;
 
+        dbg!(vehicle_journey_idx);
+        dbg!(next_vehicle_journey_idx);
+
         // find timetable & local_zone of next_vehicle_journey_idx
         let local_zones = self
             .vehicle_journey_to_timetable
             .get_vehicle_local_zones(next_vehicle_journey_idx);
         let local_zone = local_zones.first()?;
-        let timetable = self.vehicle_journey_to_timetable.get_timetable(
-            &vehicle_journey_idx,
-            *local_zone,
-            day,
-            &self.days_patterns,
-        )?;
+
+        let timetable = match real_time_level {
+            RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
+                next_vehicle_journey_idx,
+                *local_zone,
+                day,
+                &self.days_patterns,
+            )?,
+            RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.get_realtime_timetable(
+                next_vehicle_journey_idx,
+                *local_zone,
+                day,
+                &self.days_patterns,
+            )?,
+        };
+
         // find trip
         self.timetables.find_trip(
             &timetable,
             day,
-            &vehicle_journey_idx,
+            next_vehicle_journey_idx,
             *local_zone,
             real_time_level,
             &self.days_patterns,
@@ -256,7 +269,42 @@ impl data_interface::Data for TransitData {
         trip: &Self::Trip,
         real_time_level: RealTimeLevel,
     ) -> Option<Self::Trip> {
-        None
+        let vehicle_journey_idx = self.timetables.vehicle_journey_idx(trip);
+        let day = self.timetables.day_of(trip);
+        let next_vehicle_journey_idx = self
+            .vehicle_journey_to_prev_stay_in
+            .get(&vehicle_journey_idx)?;
+
+        // find timetable & local_zone of previous_vehicle_journey_idx
+        let local_zones = self
+            .vehicle_journey_to_timetable
+            .get_vehicle_local_zones(next_vehicle_journey_idx);
+        let local_zone = local_zones.first()?;
+
+        let timetable = match real_time_level {
+            RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
+                next_vehicle_journey_idx,
+                *local_zone,
+                day,
+                &self.days_patterns,
+            )?,
+            RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.get_realtime_timetable(
+                next_vehicle_journey_idx,
+                *local_zone,
+                day,
+                &self.days_patterns,
+            )?,
+        };
+
+        // find trip
+        self.timetables.find_trip(
+            &timetable,
+            day,
+            next_vehicle_journey_idx,
+            *local_zone,
+            real_time_level,
+            &self.days_patterns,
+        )
     }
 
     fn earliest_trip_to_board_at(
