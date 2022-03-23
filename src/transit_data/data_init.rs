@@ -74,23 +74,36 @@ impl<'model> VJGroupedByStayIn<'model> {
             let timezone = base_model.timezone(vehicle_journey_idx);
 
             if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
-                if !block_id.is_empty() && !vehicle_journey.stop_times.is_empty() {
-                    let vehicle_journeys_idx = stay_in_vj
-                        .entry((block_id.as_str(), timezone))
-                        .or_insert_with(Vec::new);
-                    vehicle_journeys_idx.push(vehicle_journey_idx);
+                if let Ok(stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                    let mut local_zones: Vec<_> =
+                        stop_times.clone().map(|s| s.local_zone_id).collect();
+                    local_zones.sort_unstable();
+                    local_zones.dedup();
+
+                    if !block_id.is_empty() && stop_times.len() > 0 && local_zones.len() == 1 {
+                        let vehicle_journeys_idx = stay_in_vj
+                            .entry((block_id.as_str(), timezone))
+                            .or_insert_with(Vec::new);
+                        vehicle_journeys_idx.push(vehicle_journey_idx);
+                    }
                 }
             }
         }
 
         for vec_idx in stay_in_vj.values_mut() {
             vec_idx.sort_unstable_by(|lhs_idx, rhs_idx| {
-                let lhs_vehicle_journey = base_model.vehicle_journey(*lhs_idx);
-                let rhs_vehicle_journey = base_model.vehicle_journey(*rhs_idx);
-                // Accessing index 0 is safe here because only vehicle_journeys with
-                // stop_times.len() > 0 were inserted
-                let lhs_first_stoptime = lhs_vehicle_journey.stop_times[0].departure_time;
-                let rhs_first_stoptime = rhs_vehicle_journey.stop_times[0].departure_time;
+                let lhs_first_stoptime = base_model
+                    .stop_times(*lhs_idx)
+                    .unwrap() // unwrap is safe because already checked in fn new
+                    .next()
+                    .unwrap() // unwrap is safe because already check in fn new stop_times.len() > 0
+                    .board_time;
+                let rhs_first_stoptime = base_model
+                    .stop_times(*rhs_idx)
+                    .unwrap() // unwrap is safe because already checked in fn new
+                    .next()
+                    .unwrap() // unwrap is safe because already check in fn new stop_times.len() > 0
+                    .board_time;
                 lhs_first_stoptime.cmp(&rhs_first_stoptime)
             });
         }

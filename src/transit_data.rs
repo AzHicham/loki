@@ -233,7 +233,12 @@ impl data_interface::Data for TransitData {
         let local_zones = self
             .vehicle_journey_to_timetable
             .get_vehicle_local_zones(next_vehicle_journey_idx);
-        let local_zone = local_zones.first()?;
+        let local_zone = if local_zones.len() == 1 {
+            local_zones.first().unwrap() // safe because we check length of local_zones
+        } else {
+            error!("Stay-in VehicleJourney cannot have multiple LocalZone");
+            return None;
+        };
 
         let timetable = match real_time_level {
             RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
@@ -272,11 +277,16 @@ impl data_interface::Data for TransitData {
             .vehicle_journey_to_prev_stay_in
             .get(&vehicle_journey_idx)?;
 
-        // find timetable & local_zone of previous_vehicle_journey_idx
+        // find timetable & local_zone of next_vehicle_journey_idx
         let local_zones = self
             .vehicle_journey_to_timetable
             .get_vehicle_local_zones(next_vehicle_journey_idx);
-        let local_zone = local_zones.first()?;
+        let local_zone = if local_zones.len() == 1 {
+            local_zones.first().unwrap() // safe because we check length of local_zones
+        } else {
+            error!("Stay-in VehicleJourney cannot have multiple LocalZone");
+            return None;
+        };
 
         let timetable = match real_time_level {
             RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
