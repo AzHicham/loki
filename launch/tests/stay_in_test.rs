@@ -69,6 +69,24 @@ fn get_next_trip(
     data.stay_in_next(&trip, RealTimeLevel::Base)
 }
 
+fn get_prev_trip(
+    vj_id: &str,
+    data: &TransitData,
+    base_model: &BaseModel,
+) -> Option<<TransitData as TransitTypes>::Trip> {
+    let vehicle_journey_idx = base_model.vehicle_journey_idx(vj_id).unwrap();
+    let vehicle_journey = base_model.vehicle_journey(vehicle_journey_idx);
+
+    // take first stop_point_idx
+    let stop_point_idx = &vehicle_journey.stop_times.first().unwrap().stop_point_idx;
+    let stop_point_idx = StopPointIdx::Base(stop_point_idx.clone());
+    let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
+
+    let (mission, _) = data.missions_of(stop).next().unwrap();
+    let trip = data.trips_of(&mission, RealTimeLevel::Base).next().unwrap();
+    data.stay_in_previous(&trip, RealTimeLevel::Base)
+}
+
 #[test]
 fn simple_stay_in() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
@@ -97,18 +115,35 @@ fn simple_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
-    // we should find the following Trip { vj 'second' on date 2020-01-01 }
-    let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
-    let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
-    let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
-    assert_eq!(next_vj_idx, vj_idx_second);
+    {
+        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // we should find the following Trip { vj 'second' on date 2020-01-01 }
+        let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(next_vj_idx, vj_idx_second);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
-    // we expect no stay_in trip
-    let next_trip_stay_in = get_next_trip("second", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+        // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
+        // we expect no stay_in trip
+        let next_trip_stay_in = get_next_trip("second", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
+    }
+
+    {
+        // this assert test is we have a trip to stay_in before trip { vj 'second' on date 2020-01-01 }
+        // we should find the following Trip { vj 'first' on date 2020-01-01 }
+        let prev_trip_stay_in = get_prev_trip("second", &data, &base_model).unwrap();
+        let prev_vj_idx = data.vehicle_journey_idx(&prev_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(prev_vj_idx, vj_idx_second);
+
+        // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
+        // we expect no stay_in trip
+        let prev_trip_stay_in = get_prev_trip("first", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+    }
 
     Ok(())
 }
@@ -136,7 +171,7 @@ fn multiple_stay() -> Result<(), Error> {
         .vj("second_b", |vj_builder| {
             vj_builder
                 .property("block_1")
-                .st("E", "10:20:00")
+                .st("R", "10:20:00")
                 .st("F", "10:25:00")
                 .st("G", "10:30:00");
         })
@@ -148,20 +183,41 @@ fn multiple_stay() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
-    // we should find the following Trip { vj 'second' on date 2020-01-01 }
-    // and not Trip with vj_id 'second_b'
-    let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
-    let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("second_a").unwrap();
-    let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
-    assert_eq!(next_vj_idx, vj_idx_second);
+    {
+        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // we should find the following Trip { vj 'second' on date 2020-01-01 }
+        // and not Trip with vj_id 'second_b'
+        let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("second_a").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(next_vj_idx, vj_idx_second);
 
-    // We test that both 'second_a' & 'second_b' have no next_trip stay_in
-    let next_trip_stay_in = get_next_trip("second_a", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
-    let next_trip_stay_in = get_next_trip("second_b", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+        // We test that both 'second_a' & 'second_b' have no next_trip stay_in
+        let next_trip_stay_in = get_next_trip("second_a", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
+
+        let next_trip_stay_in = get_next_trip("second_b", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
+    }
+
+    {
+        // this assert test is we have a trip to stay_in before trip { vj 'second_a' on date 2020-01-01 }
+        // we should find the following Trip { vj 'first' on date 2020-01-01 }
+        // and not Trip with vj_id 'second_b'
+        let prev_trip_stay_in = get_prev_trip("second_a", &data, &base_model).unwrap();
+        let prev_vj_idx = data.vehicle_journey_idx(&prev_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(prev_vj_idx, vj_idx_second);
+
+        // We test that both 'second_a' & 'second_b' have no next_trip stay_in
+        let prev_trip_stay_in = get_prev_trip("first", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+
+        let prev_trip_stay_in = get_prev_trip("second_b", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+    }
 
     Ok(())
 }
@@ -200,6 +256,9 @@ fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
     // departure time of vj 'second_a' at stop_point 'E'
     let next_trip_stay_in = get_next_trip("first", &data, &base_model);
     assert!(next_trip_stay_in.is_none());
+
+    let prev_trip_stay_in = get_prev_trip("second", &data, &base_model);
+    assert!(prev_trip_stay_in.is_none());
 
     Ok(())
 }
@@ -248,6 +307,12 @@ fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
     let next_trip_stay_in = get_next_trip("first", &data, &base_model);
     assert!(next_trip_stay_in.is_none());
 
+    let prev_trip_stay_in = get_prev_trip("second_a", &data, &base_model);
+    assert!(prev_trip_stay_in.is_none());
+
+    let prev_trip_stay_in = get_prev_trip("second_b", &data, &base_model);
+    assert!(prev_trip_stay_in.is_none());
+
     Ok(())
 }
 
@@ -286,26 +351,45 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
-    // we should find the following Trip { vj 'second' on date 2020-01-01 }
-    let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
-    let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
-    let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
-    assert_eq!(next_vj_idx, vj_idx_second);
+    {
+        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // we should find the following Trip { vj 'second' on date 2020-01-01 }
+        let next_trip_stay_in = get_next_trip("first", &data, &base_model).unwrap();
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(next_vj_idx, vj_idx_second);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
-    // we should find the following Trip { vj 'third' on date 2020-01-01 }
-    let next_trip_stay_in = get_next_trip("second", &data, &base_model).unwrap();
-    let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
-    let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
-    let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
-    assert_eq!(next_vj_idx, vj_idx_second);
+        // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
+        // we should find the following Trip { vj 'third' on date 2020-01-01 }
+        let next_trip_stay_in = get_next_trip("second", &data, &base_model).unwrap();
+        let next_vj_idx = data.vehicle_journey_idx(&next_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("third").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(next_vj_idx, vj_idx_second);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'third' on date 2020-01-01 }
-    // we should find no Trip
-    let next_trip_stay_in = get_next_trip("third", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+        // this assert test is we have a trip to stay_in after trip { vj 'third' on date 2020-01-01 }
+        // we should find no Trip
+        let next_trip_stay_in = get_next_trip("third", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
+    }
+
+    {
+        let prev_trip_stay_in = get_prev_trip("third", &data, &base_model).unwrap();
+        let prev_vj_idx = data.vehicle_journey_idx(&prev_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(prev_vj_idx, vj_idx_second);
+
+        let prev_trip_stay_in = get_prev_trip("second", &data, &base_model).unwrap();
+        let prev_vj_idx = data.vehicle_journey_idx(&prev_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(prev_vj_idx, vj_idx_second);
+
+        let prev_trip_stay_in = get_prev_trip("first", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+    }
 
     Ok(())
 }
@@ -345,14 +429,27 @@ fn stay_in_with_local_zone() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    let next_trip_stay_in = get_next_trip("first", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+    {
+        let next_trip_stay_in = get_next_trip("first", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
 
-    let next_trip_stay_in = get_next_trip("second", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+        let next_trip_stay_in = get_next_trip("second", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
 
-    let next_trip_stay_in = get_next_trip("third", &data, &base_model);
-    assert!(next_trip_stay_in.is_none());
+        let next_trip_stay_in = get_next_trip("third", &data, &base_model);
+        assert!(next_trip_stay_in.is_none());
+    }
+
+    {
+        let prev_trip_stay_in = get_prev_trip("first", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+
+        let prev_trip_stay_in = get_next_trip("second", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+
+        let prev_trip_stay_in = get_next_trip("third", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
+    }
 
     Ok(())
 }
@@ -397,6 +494,9 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
     // we should find no Trip because vj 'second' is valid on a different day ie '2020-01-02"
     let next_trip_stay_in = get_next_trip("first", &data, &base_model);
     assert!(next_trip_stay_in.is_none());
+
+    let prev_trip_stay_in = get_prev_trip("second", &data, &base_model);
+    assert!(prev_trip_stay_in.is_none());
 
     Ok(())
 }
@@ -496,6 +596,12 @@ fn past_midnight_stay_in() -> Result<(), Error> {
         let vehicle_journey_idx = base_model.vehicle_journey_idx("second").unwrap();
         let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
         assert_eq!(next_vj_idx, vj_idx_second);
+
+        let prev_trip_stay_in = get_prev_trip("second", &data, &base_model).unwrap();
+        let prev_vj_idx = data.vehicle_journey_idx(&prev_trip_stay_in);
+        let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
+        let vj_idx_second = VehicleJourneyIdx::Base(vehicle_journey_idx);
+        assert_eq!(prev_vj_idx, vj_idx_second);
     }
 
     {
@@ -535,6 +641,9 @@ fn past_midnight_stay_in() -> Result<(), Error> {
 
         let next_trip_stay_in = get_next_trip("first", &data, &base_model);
         assert!(next_trip_stay_in.is_none());
+
+        let prev_trip_stay_in = get_prev_trip("second", &data, &base_model);
+        assert!(prev_trip_stay_in.is_none());
     }
 
     Ok(())
