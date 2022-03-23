@@ -1,0 +1,5 @@
+
+instance_name = 'transilien'
+requests_socket = 'tcp://*:30001'
+
+input_data_tyype = 'ntfs'

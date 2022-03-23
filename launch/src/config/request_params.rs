@@ -41,6 +41,7 @@ use structopt::StructOpt;
 use loki::{PositiveDuration, RealTimeLevel};
 #[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
 #[structopt(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey
     #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]

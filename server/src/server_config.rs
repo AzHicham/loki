@@ -44,6 +44,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ServerConfig {
     pub instance_name: String,
 
@@ -58,6 +59,10 @@ pub struct ServerConfig {
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
 
+    /// number of workers that solve requests in parallel
+    #[serde(default = "default_nb_workers")]
+    pub nb_workers: u16,
+
     // param to load data from either local file or S3
     pub data_source: DataSourceParams,
 
@@ -69,10 +74,13 @@ pub struct ServerConfig {
 
     #[serde(default)]
     pub chaos_params: ChaosParams,
+}
 
-    /// number of workers that solve requests in parallel
-    #[serde(default = "default_nb_workers")]
-    pub nb_workers: u16,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum DataSourceParams {
+    Local(LocalFileParams),
+    S3(BucketParams),
 }
 
 impl ServerConfig {
@@ -95,6 +103,7 @@ impl ServerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RabbitMqParams {
     #[serde(default = "default_rabbitmq_endpoint")]
     pub rabbitmq_endpoint: String,
@@ -173,6 +182,7 @@ impl Default for RabbitMqParams {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ChaosParams {
     #[serde(default = "default_chaos_database")]
     pub chaos_database: String,
@@ -198,6 +208,7 @@ impl Default for ChaosParams {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct BucketParams {
     #[serde(default = "default_bucket_name")]
     pub bucket_name: String,
@@ -243,9 +254,45 @@ pub fn default_bucket_timeout_in_ms() -> u32 {
     30_000
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "config", rename_all = "snake_case")]
-pub enum DataSourceParams {
-    Local(LocalFileParams),
-    S3(BucketParams),
+#[cfg(test)]
+mod tests {
+
+    use super::super::read_config;
+    use std::{path::PathBuf, str::FromStr};
+
+    #[test]
+    fn test_config_for_data_in_local_folder() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("tests")
+            .join("config_files")
+            .join("data_in_local_folder.toml");
+        // let config_result = read_config(&path);
+        // let config = config_result.unwrap();
+        // println!("{}",  toml::to_string_pretty(&config).unwrap());
+
+        assert!(read_config(&path).is_ok());
+    }
+
+    #[test]
+    fn test_config_for_data_in_s3() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("tests")
+            .join("config_files")
+            .join("data_in_s3.toml");
+
+        assert!(read_config(&path).is_ok());
+    }
+
+    #[test]
+    fn test_typo_in_config() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("tests")
+            .join("config_files")
+            .join("typo_in_config.toml");
+
+        assert!(read_config(&path).is_err());
+    }
 }
