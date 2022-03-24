@@ -1,12 +1,46 @@
+# A sample config file for loki_server
+# where
+
+# name of the coverage
+# REQUIRED
 instance_name = 'my_coverage'
+
+# zmq socket to listen for protobuf requests
+# see http://api.zeromq.org/master:zmq-bind for a description
+# of valid formats
+# REQUIRED
 requests_socket = 'tcp://*:30001'
+
+# the format of the input files
+# can be : 'ntfs' or 'gtfs'
+# defaults to 'ntfs'
 input_data_type = 'ntfs'
+
+# the input data may contains a transfer with no
+# duration. In this case, we will use this value as the duration.
+# defaults to '00:01:00', which means 1 minute
 default_transfer_duration = '00:01:00'
+
+# Number of threads to spawn to handle requests concurrently
+# default to 1 worker
 nb_workers = 2
 
+# How to obtain the input data.
+# It can be obtained from a local folder
+# or downloaded from a S3/Minio bucket.
+# See the file "data_in_s3.toml" for
+# configuration of a S3/Minio bucket.
+# REQUIRED
 [data_source]
+
+# the input data is in a local folder
+# REQUIRED
 type = 'local'
+
+# in which folder the input data is located
+# REQUIRED
 input_data_path = '/path/to/my/ntfs/folder'
+
 
 [request_default_params]
 leg_arrival_penalty = '00:02:00'
