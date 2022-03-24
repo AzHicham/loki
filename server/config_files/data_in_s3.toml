@@ -1,0 +1,37 @@
+instance_name = 'my_coverage'
+requests_socket = 'tcp://*:30001'
+
+[data_source]
+type = 's3'
+bucket_name = 'loki'
+bucket_region = 'http://s3_hostname/'
+bucket_access_key = 'loki_rw'
+bucket_secret_key = 'my_secret_key'
+data_path_key = 'my_coverage/ntfs.zip'
+bucket_timeout_in_ms = 30000
+
+
+[request_default_params]
+leg_arrival_penalty = '00:02:00'
+leg_walking_penalty = '00:02:00'
+max_nb_of_legs = 10
+max_journey_duration = '24:00:00'
+too_late_threshold = '02:00:00'
+real_time_level = 'base'
+
+[rabbitmq_params]
+rabbitmq_endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
+rabbitmq_exchange = 'navitia'
+rabbitmq_real_time_topics = [
+    'shortterm.my_coverage',
+    'another_topic',
+]
+rabbitmq_queue_auto_delete = false
+real_time_update_interval = '00:00:30'
+rabbitmq_connect_retry_interval = '00:00:10'
+reload_request_time_to_live = '00:00:02'
+reload_kirin_timeout = '00:00:10'
+
+[chaos_params]
+chaos_database = 'postgres://login:password@chaos_hostname:5432/chaos'
+chaos_batch_size = 1000000

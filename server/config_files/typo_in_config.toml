@@ -1,5 +1,5 @@
 
-instance_name = 'transilien'
+instance_name = 'my_coverage'
 requests_socket = 'tcp://*:30001'
 
 input_data_tyype = 'ntfs'

@@ -1,4 +1,4 @@
-instance_name = 'transilien'
+instance_name = 'my_coverage'
 requests_socket = 'tcp://*:30001'
 input_data_type = 'ntfs'
 default_transfer_duration = '00:01:00'
@@ -17,11 +17,11 @@ too_late_threshold = '02:00:00'
 real_time_level = 'base'
 
 [rabbitmq_params]
-rabbitmq_endpoint = 'amqp://guest:guest@par-vm147.srv.canaltp.fr:5672/navitia'
+rabbitmq_endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
 rabbitmq_exchange = 'navitia'
 rabbitmq_real_time_topics = [
-    'shortterm.transilien',
-    'shortterm.tr_transilien',
+    'shortterm.my_coverage',
+    'another_topic',
 ]
 rabbitmq_queue_auto_delete = false
 real_time_update_interval = '00:00:30'
@@ -30,5 +30,5 @@ reload_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 
 [chaos_params]
-chaos_database = 'postgres://navitia:navitia@par-vm202.srv.canaltp.fr:5432/chaos_dev'
+chaos_database = 'postgres://login:password@chaos_hostname:5432/chaos'
 chaos_batch_size = 1000000

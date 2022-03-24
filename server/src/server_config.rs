@@ -264,12 +264,8 @@ mod tests {
     fn test_config_for_data_in_local_folder() {
         let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
             .unwrap()
-            .join("tests")
             .join("config_files")
             .join("data_in_local_folder.toml");
-        // let config_result = read_config(&path);
-        // let config = config_result.unwrap();
-        // println!("{}",  toml::to_string_pretty(&config).unwrap());
 
         assert!(read_config(&path).is_ok());
     }
@@ -278,7 +274,6 @@ mod tests {
     fn test_config_for_data_in_s3() {
         let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
             .unwrap()
-            .join("tests")
             .join("config_files")
             .join("data_in_s3.toml");
 
@@ -289,7 +284,6 @@ mod tests {
     fn test_typo_in_config() {
         let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
             .unwrap()
-            .join("tests")
             .join("config_files")
             .join("typo_in_config.toml");
 
