@@ -75,6 +75,8 @@ impl<'model> VJGroupedByStayIn<'model> {
 
             if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
                 if let Ok(stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                    // for now, we do not want to have stay_in on vehicle journeys
+                    // with multiple local zone
                     // !todo find a better way to check for multiple local zone
                     let mut local_zones: Vec<_> =
                         stop_times.clone().map(|s| s.local_zone_id).collect();
@@ -283,7 +285,7 @@ impl TransitData {
     fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
-        prev_stay_in_vehicle_journey_idx: Option<Idx<VehicleJourney>>,
+        has_prev_stay_in_vehicle_journey_idx: Option<Idx<VehicleJourney>>,
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
@@ -338,9 +340,9 @@ impl TransitData {
         let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
         local_zones.sort_unstable();
         local_zones.dedup();
-        let local_zone_length = local_zones.len();
+        let nb_of_local_zones = local_zones.len();
 
-        if local_zone_length == 1 {
+        if nb_of_local_zones == 1 {
             let insert_result = self.insert_inner(
                 stops,
                 flows,
@@ -416,8 +418,9 @@ impl TransitData {
         }
 
         // We handle stay-in vehicle only for single local_zone case
-        if local_zone_length == 1 {
-            if let Some(prev_vehicle_journey_idx) = prev_stay_in_vehicle_journey_idx {
+
+        if let Some(prev_vehicle_journey_idx) = has_prev_stay_in_vehicle_journey_idx {
+            if nb_of_local_zones == 1 {
                 let prev_vehicle_journey_idx = VehicleJourneyIdx::Base(prev_vehicle_journey_idx);
                 self.vehicle_journey_to_next_stay_in.insert(
                     prev_vehicle_journey_idx.clone(),
@@ -425,9 +428,11 @@ impl TransitData {
                 );
                 self.vehicle_journey_to_prev_stay_in
                     .insert(vehicle_journey_idx, prev_vehicle_journey_idx);
+            } else {
+                warn!(
+                    "Stay-in vehicle feature is not handled for vehicles with multiple local_zone"
+                );
             }
-        } else {
-            warn!("Stay-in vehicle feature is not handled for vehicles with multiple local_zone");
         }
 
         Ok(())

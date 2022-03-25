@@ -244,7 +244,10 @@ impl data_interface::Data for TransitData {
         let local_zone = if local_zones.len() == 1 {
             local_zones.first().unwrap() // safe because we check length of local_zones
         } else {
-            error!("Stay-in VehicleJourney cannot have multiple LocalZone");
+            error!(
+                "Stay-in VehicleJourney {:?} cannot have multiple LocalZone",
+                next_vehicle_journey_idx
+            );
             return None;
         };
 
@@ -292,7 +295,10 @@ impl data_interface::Data for TransitData {
         let local_zone = if local_zones.len() == 1 {
             local_zones.first().unwrap() // safe because we check length of local_zones
         } else {
-            error!("Stay-in VehicleJourney cannot have multiple LocalZone");
+            error!(
+                "Stay-in VehicleJourney {:?} cannot have multiple LocalZone",
+                next_vehicle_journey_idx
+            );
             return None;
         };
 
