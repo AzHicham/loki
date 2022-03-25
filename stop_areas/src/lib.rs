@@ -46,9 +46,13 @@ use launch::{
 
 use loki::tracing::{debug, error, info};
 
-use std::{fs::File, io::BufReader, time::SystemTime};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
-use anyhow::{bail, Context, Error};
+use anyhow::{bail, Error};
 
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
@@ -59,102 +63,60 @@ use structopt::StructOpt;
     about = "Perform a public transport request between two stop areas.",
     rename_all = "snake_case"
 )]
-pub enum Options {
-    /// Create a config file from cli arguments
-    CreateConfig(ConfigCreator),
-    /// Launch from a config file
-    ConfigFile(ConfigFile),
-    /// Launch from cli arguments
-    Launch(Config),
-}
-
-#[derive(StructOpt)]
-#[structopt(rename_all = "snake_case")]
-pub struct ConfigCreator {
-    #[structopt(flatten)]
-    pub config: Config,
-}
-
-#[derive(StructOpt)]
-pub struct ConfigFile {
-    /// path to the json config file
+pub struct Options {
+    /// path to the config file
     #[structopt(parse(from_os_str))]
-    file: std::path::PathBuf,
+    config_file: PathBuf,
 }
-#[derive(Serialize, Deserialize, StructOpt, Clone)]
-#[structopt(rename_all = "snake_case")]
-pub struct Config {
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    pub launch_params: config::LaunchParams,
 
-    #[serde(flatten)]
-    #[structopt(flatten)]
-    pub request_params: config::RequestParams,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct Config {
+    /// name of the start stop_area
+    pub start_stop_area: String,
+
+    /// name of the end stop_area
+    pub end_stop_area: String,
 
     /// Datetime of the query , formatted like 20190628T163215
     /// This datetime will be interpreted as a departure time or arrival time,
     /// depending on the value of the datetime_represent parameter.
     /// If none is given, all queries will be made at 08:00:00 on the first
     /// valid day of the dataset
-    #[structopt(long)]
     pub datetime: Option<String>,
 
     /// "departure_datetime" can represent
     /// a DepartureAfter datetime
     /// or ArrivalBefore datetime
     #[serde(default)]
-    #[structopt(long, default_value)]
     pub datetime_represent: DateTimeRepresent,
 
     /// Which comparator to use for the request
     /// "basic" or "loads"
     #[serde(default)]
-    #[structopt(long, default_value)]
     pub comparator_type: config::ComparatorType,
 
-    /// name of the start stop_area
-    #[structopt(long)]
-    pub start: String,
+    pub launch_params: config::LaunchParams,
 
-    /// name of the end stop_area
-    #[structopt(long)]
-    pub end: String,
+    pub request_params: config::RequestParams,
 }
 
 pub fn run() -> Result<(), Error> {
     let options = Options::from_args();
-    match options {
-        Options::ConfigFile(config_file) => {
-            let config = read_config(&config_file)?;
-            launch(config)?;
-            Ok(())
-        }
-        Options::CreateConfig(config_creator) => {
-            let json_string = serde_json::to_string_pretty(&config_creator.config)?;
 
-            println!("{}", json_string);
-
-            Ok(())
-        }
-        Options::Launch(config) => {
-            launch(config)?;
-            Ok(())
-        }
-    }
+    let config = read_config(&options.config_file)?;
+    launch(config)?;
+    Ok(())
 }
 
-pub fn read_config(config_file: &ConfigFile) -> Result<Config, Error> {
-    let file = match File::open(&config_file.file) {
+pub fn read_config(config_file_path: &Path) -> Result<Config, Error> {
+    let content = match fs::read_to_string(&config_file_path) {
         Ok(file) => file,
         Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file.file, e)
+            bail!("Error opening config file {:?} : {}", &config_file_path, e)
         }
     };
-    let reader = BufReader::new(file);
-    let config: Config = serde_json::from_reader(reader)
-        .with_context(|| format!("Could not read config file at {:?}", config_file.file))?;
-
+    let config: Config = toml::from_str(&content)?;
     Ok(config)
 }
 
@@ -180,8 +142,8 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
 
     let compute_timer = SystemTime::now();
 
-    let start_stop_area_uri = &config.start;
-    let end_stop_area_uri = &config.end;
+    let start_stop_area_uri = &config.start_stop_area;
+    let end_stop_area_uri = &config.end_stop_area;
 
     let request_input = launch::stop_areas::make_query_stop_areas(
         &base_model,
@@ -216,4 +178,21 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
     let responses = solve_result?;
 
     Ok((base_model, responses))
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::read_config;
+    use std::{path::PathBuf, str::FromStr};
+
+    #[test]
+    fn test_config() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("config.toml");
+
+        println!("{:?}", read_config(&path));
+        assert!(read_config(&path).is_ok());
+    }
 }

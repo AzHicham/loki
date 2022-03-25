@@ -33,6 +33,7 @@ fn main() {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub launch_params: config::LaunchParams,
 
@@ -190,7 +191,7 @@ mod tests {
             .unwrap()
             .join("config.toml");
 
-        // println!("{:?}", read_config(&path));
+        println!("{:?}", read_config(&path));
         assert!(read_config(&path).is_ok());
     }
 }

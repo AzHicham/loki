@@ -22,7 +22,7 @@ You can obtain more logs by setting the environment variable `RUST_LOG` the appr
 For example :
 
 ```bash
-  RUST_LOG=TRACE cargo run --release -- launch --input_data_path ../data/idfm/ntfs/ --input_data_type ntfs
+  RUST_LOG=TRACE cargo run --release -- path/to/config.toml
 ```
 
 The allowed log levels are `TRACE, DEBUG, INFO, WARN, ERROR`.
