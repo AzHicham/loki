@@ -163,6 +163,22 @@ where
         upstream.idx < downstream.idx
     }
 
+    pub(super) fn first_position(&self, timetable: &Timetable) -> Position {
+        assert!(self.timetable_data(timetable).nb_of_positions() > 0);
+        Position {
+            timetable: timetable.clone(),
+            idx: 0,
+        }
+    }
+
+    pub(super) fn last_position(&self, timetable: &Timetable) -> Position {
+        assert!(self.timetable_data(timetable).nb_of_positions() > 0);
+        Position {
+            timetable: timetable.clone(),
+            idx: self.timetable_data(timetable).nb_of_positions() - 1,
+        }
+    }
+
     pub(super) fn next_position(
         &self,
         position: &Position,

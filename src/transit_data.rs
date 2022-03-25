@@ -143,6 +143,14 @@ impl data_interface::Data for TransitData {
             .is_upstream_in_mission(upstream, downstream, mission)
     }
 
+    fn first_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.timetables.first_position(mission)
+    }
+
+    fn last_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.timetables.last_position(mission)
+    }
+
     fn next_on_mission(
         &self,
         position: &Self::Position,

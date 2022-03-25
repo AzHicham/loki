@@ -161,6 +161,14 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
+    fn first_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.transit_data.first_on_mission(mission)
+    }
+
+    fn last_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.transit_data.last_on_mission(mission)
+    }
+
     fn next_on_mission(
         &self,
         position: &Self::Position,

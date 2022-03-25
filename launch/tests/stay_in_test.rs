@@ -40,13 +40,11 @@ use anyhow::Error;
 use launch::config::launch_params::default_transfer_duration;
 use std::ops::Add;
 
-use loki::chrono::{Duration, NaiveDate};
-use loki::models::StopPointIdx;
-use loki::tracing::info;
-use loki::transit_data::data_interface::{DataIters, TransitTypes};
-use loki::transit_model::objects::Date;
 use loki::{
-    models::{base_model::BaseModel, VehicleJourneyIdx},
+    chrono::{Duration, NaiveDate},
+    models::{base_model::BaseModel, StopPointIdx, VehicleJourneyIdx},
+    transit_data::data_interface::{DataIters, TransitTypes},
+    transit_model::objects::Date,
     DataTrait, RealTimeLevel, TransitData,
 };
 use utils::model_builder::ModelBuilder;
@@ -61,7 +59,7 @@ fn get_next_trip(
 
     // take first stop_point_idx
     let stop_point_idx = &vehicle_journey.stop_times.first().unwrap().stop_point_idx;
-    let stop_point_idx = StopPointIdx::Base(stop_point_idx.clone());
+    let stop_point_idx = StopPointIdx::Base(*stop_point_idx);
     let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
 
     let (mission, _) = data.missions_of(stop).next().unwrap();
@@ -79,7 +77,7 @@ fn get_prev_trip(
 
     // take first stop_point_idx
     let stop_point_idx = &vehicle_journey.stop_times.first().unwrap().stop_point_idx;
-    let stop_point_idx = StopPointIdx::Base(stop_point_idx.clone());
+    let stop_point_idx = StopPointIdx::Base(*stop_point_idx);
     let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
 
     let (mission, _) = data.missions_of(stop).next().unwrap();
@@ -542,7 +540,7 @@ fn multiple_day_stay_in() -> Result<(), Error> {
         .first()
         .unwrap()
         .stop_point_idx;
-    let stop_point_idx = StopPointIdx::Base(stop_point_idx.clone());
+    let stop_point_idx = StopPointIdx::Base(*stop_point_idx);
     let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
 
     let mut current_date = NaiveDate::from_ymd(2020, 1, 1);

@@ -75,6 +75,7 @@ impl<'model> VJGroupedByStayIn<'model> {
 
             if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
                 if let Ok(stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                    // !todo find a better way to check for multiple local zone
                     let mut local_zones: Vec<_> =
                         stop_times.clone().map(|s| s.local_zone_id).collect();
                     local_zones.sort_unstable();

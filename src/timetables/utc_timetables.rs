@@ -128,6 +128,14 @@ impl UTCTimetables {
         self.timetables.is_upstream(upstream, downstream, mission)
     }
 
+    pub fn first_position(&self, mission: &Mission) -> Position {
+        self.timetables.first_position(mission)
+    }
+
+    pub fn last_position(&self, mission: &Mission) -> Position {
+        self.timetables.last_position(mission)
+    }
+
     pub fn next_position(&self, position: &Position, mission: &Mission) -> Option<Position> {
         self.timetables.next_position(position, mission)
     }
