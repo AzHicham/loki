@@ -36,28 +36,23 @@
 
 use super::InputDataType;
 use loki::PositiveDuration;
-use structopt::StructOpt;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, StructOpt, Clone)]
-#[structopt(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct LaunchParams {
     /// directory containing ntfs/gtfs files to load
-    #[structopt(long)]
     pub input_data_path: std::path::PathBuf,
 
     /// type of input data given (ntfs/gtfs)
-    #[structopt(long, default_value)]
     #[serde(default)]
     pub input_data_type: InputDataType,
 
     /// path to the passengers loads file
-    #[structopt(long)]
     pub loads_data_path: Option<std::path::PathBuf>,
 
     /// the transfer duration between a stop point and itself
-    #[structopt(long, default_value = DEFAULT_TRANSFER_DURATION)]
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
 }

@@ -83,7 +83,7 @@ use anyhow::{bail, Error};
     rename_all = "snake_case"
 )]
 pub struct Options {
-    /// path to the json config file
+    /// path to the  config file
     #[structopt(parse(from_os_str))]
     config_file: PathBuf,
 }
@@ -94,12 +94,12 @@ pub fn launch_server() -> Result<(), Error> {
     launch_master_worker(config)
 }
 
-pub fn read_config(config_file: &Path) -> Result<ServerConfig, Error> {
-    info!("Reading config from file {:?}", &config_file);
-    let content = match fs::read_to_string(config_file) {
+pub fn read_config(config_file_path: &Path) -> Result<ServerConfig, Error> {
+    info!("Reading config from file {:?}", &config_file_path);
+    let content = match fs::read_to_string(config_file_path) {
         Ok(file) => file,
         Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file, e)
+            bail!("Error opening config file {:?} : {}", &config_file_path, e)
         }
     };
     let config: ServerConfig = toml::from_str(&content)?;
