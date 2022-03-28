@@ -148,6 +148,7 @@ fn copy_ntfs(from_dir: &Path, to_dir: &Path) {
         "feed_infos.txt",
         "lines.txt",
         "networks.txt",
+        "pathways.txt",
         "physical_modes.txt",
         "routes.txt",
         "stop_times.txt",

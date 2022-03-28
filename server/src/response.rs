@@ -645,7 +645,6 @@ pub fn make_stop_point(
         access_points,
         ..Default::default()
     };
-
     proto
 }
 

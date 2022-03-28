@@ -1,0 +1,4 @@
+pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional,length,traversal_time,stair_count,max_slope,min_width,signposted_as,reversed_signposted_as
+massy:massy_entrance_only_exit,massy,massy_entrance_only_exit,1,0,42,43,44,45,46,47,48
+massy_entrance_only_entrance:massy,massy_entrance_only_entrance,massy,1,0,21,22,23,24,25,26,27
+massy_entrance_both_entrance_and_exit:massy,massy_entrance_both_entrance_and_exit,massy,1,1,84,85,86,87,88,89,90
