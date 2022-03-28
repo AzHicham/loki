@@ -105,6 +105,7 @@ pub fn run() -> Result<(), Error> {
     let options = Options::from_args();
 
     let config = read_config(&options.config_file)?;
+
     launch(config)?;
     Ok(())
 }
