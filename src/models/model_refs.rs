@@ -38,7 +38,8 @@ use crate::{
     chrono::NaiveDate,
     models::{
         base_model::{
-            BaseTransferIdx, EquipmentPropertyKey, VehicleJourneyPropertyKey, PREFIX_ID_STOP_POINT,
+            BaseTransferIdx, EquipmentPropertyKey, PathwayByIter, VehicleJourneyPropertyKey,
+            PREFIX_ID_STOP_POINT,
         },
         TransferIdx,
     },
@@ -96,6 +97,13 @@ impl<'model> ModelRefs<'model> {
     pub fn stop_area_id(&self, stop_idx: &StopPointIdx) -> &str {
         match stop_idx {
             StopPointIdx::Base(idx) => self.base.stop_area_id(*idx),
+            StopPointIdx::New(_idx) => "unknown_stop_area",
+        }
+    }
+
+    pub fn stop_area_name(&self, stop_idx: &StopPointIdx) -> &str {
+        match stop_idx {
+            StopPointIdx::Base(idx) => self.base.stop_area_name(*idx),
             StopPointIdx::New(_idx) => "unknown_stop_area",
         }
     }
@@ -414,6 +422,10 @@ impl<'model> ModelRefs<'model> {
             .into_iter()
             .map(StopPointIdx::Base)
             .collect()
+    }
+
+    pub fn get_associated_pathway(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
+        self.base.get_pathway(stop_point_idx)
     }
 }
 
