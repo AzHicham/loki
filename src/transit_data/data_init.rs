@@ -102,20 +102,13 @@ impl VJGroupedByStayIn {
 
         // Sort stay_in_vj
         for vec_idx in stay_in_vj.values_mut() {
-            vec_idx.sort_unstable_by(|lhs_idx, rhs_idx| {
-                let lhs_first_stoptime = base_model
-                    .stop_times(*lhs_idx)
+            vec_idx.sort_unstable_by_key(|vehicle_journey_idx| {
+                base_model
+                    .stop_times(*vehicle_journey_idx)
                     .unwrap() // unwrap is safe because already checked in fn new
                     .next()
                     .unwrap() // unwrap is safe because already check in fn new stop_times.len() > 0
-                    .board_time;
-                let rhs_first_stoptime = base_model
-                    .stop_times(*rhs_idx)
-                    .unwrap() // unwrap is safe because already checked in fn new
-                    .next()
-                    .unwrap() // unwrap is safe because already check in fn new stop_times.len() > 0
-                    .board_time;
-                lhs_first_stoptime.cmp(&rhs_first_stoptime)
+                    .board_time
             });
         }
 
@@ -405,15 +398,13 @@ impl TransitData {
         let corrected_flows = flows.enumerate().map(|(position_idx, flow)| {
             if position_idx == 0 && has_prev_stay_in_on_same_stop {
                 match flow {
-                    BoardAndDebark => BoardOnly,
-                    DebarkOnly => NoBoardDebark,
-                    _ => flow,
+                    BoardAndDebark | BoardOnly => BoardOnly,
+                    DebarkOnly | NoBoardDebark => NoBoardDebark,
                 }
             } else if position_idx == nb_of_positions - 1 && has_next_stay_in_on_same_stop {
                 match flow {
-                    BoardAndDebark => DebarkOnly,
-                    BoardOnly => NoBoardDebark,
-                    _ => flow,
+                    BoardAndDebark | DebarkOnly => DebarkOnly,
+                    BoardOnly | NoBoardDebark => NoBoardDebark,
                 }
             } else {
                 flow

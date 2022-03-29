@@ -507,7 +507,7 @@ impl UTCTimetables {
     ) -> Option<Trip> {
         let timetable_data = self.timetables.timetable_data(timetable);
 
-        let idx = timetable_data.find_vehicles_data(|vehicle_data: &VehicleData| {
+        let idx = timetable_data.find_vehicles(|vehicle_data: &VehicleData| {
             let days_pattern = match real_time_level {
                 RealTimeLevel::Base => &vehicle_data.base_days_pattern,
                 RealTimeLevel::RealTime => &vehicle_data.real_time_days_pattern,

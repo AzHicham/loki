@@ -265,15 +265,15 @@ where
             .stay_in_previous(trip, self.real_time_level)?;
         let mission = self.transit_data.mission_of(&previous_trip);
         let last_position = self.transit_data.last_on_mission(&mission);
-        let (arrival_time_at_last_stop, load) = self
+        let (departure_time_at_last_stop, _load) = self
             .transit_data
-            .arrival_time_of(&previous_trip, &last_position);
+            .departure_time_of(&previous_trip, &last_position);
         let new_criteria = Criteria {
-            time: arrival_time_at_last_stop,
+            time: departure_time_at_last_stop,
             nb_of_legs: criteria.nb_of_legs + 1,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
-            loads_count: criteria.loads_count.add(load),
+            loads_count: criteria.loads_count.clone(),
         };
         Some((previous_trip, new_criteria))
     }

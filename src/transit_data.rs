@@ -251,20 +251,13 @@ impl data_interface::Data for TransitData {
             return None;
         };
 
-        let timetable = match real_time_level {
-            RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
-                next_vehicle_journey_idx,
-                *local_zone,
-                day,
-                &self.days_patterns,
-            )?,
-            RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.get_realtime_timetable(
-                next_vehicle_journey_idx,
-                *local_zone,
-                day,
-                &self.days_patterns,
-            )?,
-        };
+        let timetable = self.vehicle_journey_to_timetable.get_timetable(
+            next_vehicle_journey_idx,
+            *local_zone,
+            day,
+            &self.days_patterns,
+            real_time_level,
+        )?;
 
         // find trip
         self.timetables.find_trip(
@@ -302,20 +295,13 @@ impl data_interface::Data for TransitData {
             return None;
         };
 
-        let timetable = match real_time_level {
-            RealTimeLevel::Base => self.vehicle_journey_to_timetable.get_base_timetable(
-                next_vehicle_journey_idx,
-                *local_zone,
-                day,
-                &self.days_patterns,
-            )?,
-            RealTimeLevel::RealTime => self.vehicle_journey_to_timetable.get_realtime_timetable(
-                next_vehicle_journey_idx,
-                *local_zone,
-                day,
-                &self.days_patterns,
-            )?,
-        };
+        let timetable = self.vehicle_journey_to_timetable.get_timetable(
+            next_vehicle_journey_idx,
+            *local_zone,
+            day,
+            &self.days_patterns,
+            real_time_level,
+        )?;
 
         // find trip
         self.timetables.find_trip(
