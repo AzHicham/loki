@@ -249,7 +249,7 @@ where
             .arrival_time_of(&next_trip, &first_position);
         let new_criteria = Criteria {
             time: arrival_time_at_first_stop,
-            nb_of_legs: criteria.nb_of_legs + 1,
+            nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),

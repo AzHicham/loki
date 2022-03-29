@@ -172,10 +172,11 @@ where
     }
 
     pub(super) fn last_position(&self, timetable: &Timetable) -> Position {
-        assert!(self.timetable_data(timetable).nb_of_positions() > 0);
+        let nb_of_positions = self.timetable_data(timetable).nb_of_positions();
+        assert!(nb_of_positions > 0);
         Position {
             timetable: timetable.clone(),
-            idx: self.timetable_data(timetable).nb_of_positions() - 1,
+            idx: nb_of_positions - 1,
         }
     }
 
