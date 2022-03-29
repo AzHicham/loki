@@ -123,7 +123,7 @@ impl VJGroupedByStayIn {
                     let previous_vehicle = base_model.vehicle_journey(*prev_vehicle_idx);
                     let current_vehicle = base_model.vehicle_journey(*idx);
                     // Unwrap on first/last is safe here because only vehicle_journeys with
-                    // stop_times.len() > 1 were inserted
+                    // stop_times.len() > 0 were inserted
                     let prev_vehicle_last_stoptime = previous_vehicle.stop_times.last().unwrap();
                     let current_vehicle_first_stoptime =
                         current_vehicle.stop_times.first().unwrap();
