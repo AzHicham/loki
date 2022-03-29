@@ -187,7 +187,12 @@ mod tests {
             .unwrap()
             .join("config.toml");
 
-        println!("{:?}", read_config(&path));
-        assert!(read_config(&path).is_ok());
+        let read_result = read_config(&path);
+        assert!(
+            read_config(&path).is_ok(),
+            "Error while reading config file {:?} : {:?}",
+            &path,
+            read_result
+        );
     }
 }

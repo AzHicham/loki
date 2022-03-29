@@ -267,7 +267,13 @@ mod tests {
             .join("config_files")
             .join("data_in_local_folder.toml");
 
-        assert!(read_config(&path).is_ok());
+        let read_result = read_config(&path);
+        assert!(
+            read_config(&path).is_ok(),
+            "Error while reading config file {:?} : {:?}",
+            &path,
+            read_result
+        );
     }
 
     #[test]
@@ -277,7 +283,13 @@ mod tests {
             .join("config_files")
             .join("data_in_s3.toml");
 
-        assert!(read_config(&path).is_ok());
+        let read_result = read_config(&path);
+        assert!(
+            read_config(&path).is_ok(),
+            "Error while reading config file {:?} : {:?}",
+            &path,
+            read_result
+        );
     }
 
     #[test]
