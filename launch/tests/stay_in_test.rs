@@ -150,7 +150,7 @@ fn simple_stay_in() -> Result<(), Error> {
     let data = launch::read::build_transit_data(&base_model);
 
     {
-        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
         // we should find the following Trip { vj 'second' on date 2020-01-01 }
         assert!(is_forward_stay_in(
             "first",
@@ -159,13 +159,13 @@ fn simple_stay_in() -> Result<(), Error> {
             &base_model
         ));
 
-        // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
         // we expect no stay_in trip
         assert!(is_forward_stay_in("second", None, &data, &base_model));
     }
 
     {
-        // this assert test is we have a trip to stay_in before trip { vj 'second' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in before trip { vj 'second' on date 2020-01-01 }
         // we should find the following Trip { vj 'first' on date 2020-01-01 }
         assert!(is_backward_stay_in(
             "second",
@@ -174,7 +174,7 @@ fn simple_stay_in() -> Result<(), Error> {
             &base_model
         ));
 
-        // this assert test is we have a trip to stay_in before trip { vj 'first' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in before trip { vj 'first' on date 2020-01-01 }
         // we expect no trip
         assert!(is_backward_stay_in("first", None, &data, &base_model));
     }
@@ -218,7 +218,7 @@ fn multiple_stay() -> Result<(), Error> {
     let data = launch::read::build_transit_data(&base_model);
 
     {
-        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
         // we should find the following Trip { vj 'second' on date 2020-01-01 }
         // and not Trip with vj_id 'second_b'
         assert!(is_forward_stay_in(
@@ -235,7 +235,7 @@ fn multiple_stay() -> Result<(), Error> {
     }
 
     {
-        // this assert test is we have a trip to stay_in before trip { vj 'second_a' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in before trip { vj 'second_a' on date 2020-01-01 }
         // we should find the following Trip { vj 'first' on date 2020-01-01 }
         // and not Trip with vj_id 'second_b'
         assert!(is_backward_stay_in(
@@ -281,7 +281,7 @@ fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+    // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no nxt_trip stay_in
     // because vj 'first' arrival time at stop_point 'C' is greater than
     // departure time of vj 'second_a' at stop_point 'E'
@@ -329,7 +329,7 @@ fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+    // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no next_trip stay_in
     // because vj 'first' arrival time at stop_point 'C' is greater than
     // departure time of vj 'second_a' at stop_point 'E'
@@ -389,7 +389,7 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
     let data = launch::read::build_transit_data(&base_model);
 
     {
-        // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
         // we should find the following Trip { vj 'second' on date 2020-01-01 }
         assert!(is_forward_stay_in(
             "first",
@@ -398,7 +398,7 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
             &base_model
         ));
 
-        // this assert test is we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'second' on date 2020-01-01 }
         // we should find the following Trip { vj 'third' on date 2020-01-01 }
         assert!(is_forward_stay_in(
             "second",
@@ -407,7 +407,7 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
             &base_model
         ));
 
-        // this assert test is we have a trip to stay_in after trip { vj 'third' on date 2020-01-01 }
+        // this assert test if we have a trip to stay_in after trip { vj 'third' on date 2020-01-01 }
         // we should find no Trip
         assert!(is_forward_stay_in("third", None, &data, &base_model));
     }
@@ -523,7 +523,7 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+    // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no Trip because vj 'second' is valid on a different day ie '2020-01-02"
     assert!(is_forward_stay_in("first", None, &data, &base_model));
 
@@ -560,7 +560,7 @@ fn multiple_day_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test is we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
+    // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vehicle_journey_first = base_model.vehicle_journey(vehicle_journey_idx);
 
@@ -594,90 +594,87 @@ fn multiple_day_stay_in() -> Result<(), Error> {
 }
 
 #[test]
-fn past_midnight_stay_in() -> Result<(), Error> {
+fn past_midnight_on_same_valid_day_stay_in() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
-    {
-        let model = ModelBuilder::new("2020-01-01", "2020-01-01")
-            .vj("first", |vj_builder| {
-                vj_builder
-                    .property("block_1")
-                    .st("A", "23:00:00")
-                    .st("B", "24:00:00")
-                    .st("C", "24:30:00");
-            })
-            .vj("second", |vj_builder| {
-                vj_builder
-                    .property("block_1")
-                    .st("E", "24:50:00")
-                    .st("F", "25:25:00")
-                    .st("G", "25:30:00");
-            })
-            .build();
+    let model = ModelBuilder::new("2020-01-01", "2020-01-01")
+        .vj("first", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .st("A", "23:00:00")
+                .st("B", "24:00:00")
+                .st("C", "24:30:00");
+        })
+        .vj("second", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .st("E", "24:50:00")
+                .st("F", "25:25:00")
+                .st("G", "25:30:00");
+        })
+        .build();
 
-        let base_model = BaseModel::from_transit_model(
-            model,
-            loki::LoadsData::empty(),
-            default_transfer_duration(),
-        )
-        .unwrap();
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
+            .unwrap();
 
-        let data = launch::read::build_transit_data(&base_model);
+    let data = launch::read::build_transit_data(&base_model);
 
-        assert!(is_forward_stay_in(
-            "first",
-            Some("second"),
-            &data,
-            &base_model
-        ));
+    assert!(is_forward_stay_in(
+        "first",
+        Some("second"),
+        &data,
+        &base_model
+    ));
 
-        assert!(is_backward_stay_in(
-            "second",
-            Some("first"),
-            &data,
-            &base_model
-        ));
-    }
+    assert!(is_backward_stay_in(
+        "second",
+        Some("first"),
+        &data,
+        &base_model
+    ));
 
-    {
-        let model = ModelBuilder::new("2020-01-01", "2020-01-2")
-            .calendar_mut("c1", |c| {
-                c.dates.insert(Date::from_ymd(2020, 1, 1));
-            })
-            .calendar_mut("c2", |c| {
-                c.dates.insert(Date::from_ymd(2020, 1, 2));
-            })
-            .vj("first", |vj_builder| {
-                vj_builder
-                    .property("block_1")
-                    .calendar("c1")
-                    .st("A", "23:00:00")
-                    .st("B", "24:00:00")
-                    .st("C", "24:30:00");
-            })
-            .vj("second", |vj_builder| {
-                vj_builder
-                    .calendar("c2")
-                    .property("block_1")
-                    .st("E", "00:50:00")
-                    .st("F", "01:25:00")
-                    .st("G", "01:30:00");
-            })
-            .build();
+    Ok(())
+}
 
-        let base_model = BaseModel::from_transit_model(
-            model,
-            loki::LoadsData::empty(),
-            default_transfer_duration(),
-        )
-        .unwrap();
+#[test]
+fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
+    let _log_guard = launch::logger::init_test_logger();
 
-        let data = launch::read::build_transit_data(&base_model);
+    let model = ModelBuilder::new("2020-01-01", "2020-01-2")
+        .calendar_mut("c1", |c| {
+            c.dates.insert(Date::from_ymd(2020, 1, 1));
+        })
+        .calendar_mut("c2", |c| {
+            c.dates.insert(Date::from_ymd(2020, 1, 2));
+        })
+        .vj("first", |vj_builder| {
+            vj_builder
+                .property("block_1")
+                .calendar("c1")
+                .st("A", "23:00:00")
+                .st("B", "24:00:00")
+                .st("C", "24:30:00");
+        })
+        .vj("second", |vj_builder| {
+            vj_builder
+                .calendar("c2")
+                .property("block_1")
+                .st("E", "00:50:00")
+                .st("F", "01:25:00")
+                .st("G", "01:30:00");
+        })
+        .build();
 
-        assert!(is_forward_stay_in("first", None, &data, &base_model));
+    let base_model =
+        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
+            .unwrap();
 
-        assert!(is_backward_stay_in("second", None, &data, &base_model));
-    }
+    let data = launch::read::build_transit_data(&base_model);
+
+    assert!(is_forward_stay_in("first", None, &data, &base_model));
+
+    assert!(is_backward_stay_in("second", None, &data, &base_model));
 
     Ok(())
 }
