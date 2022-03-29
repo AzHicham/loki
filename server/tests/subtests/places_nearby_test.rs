@@ -35,6 +35,8 @@ fn check_access_point(
     name: &str,
     lon: f64,
     lat: f64,
+    is_entrance: bool,
+    is_exit: bool,
     length: i32,
     traversal_time: i32,
     stair_count: i32,
@@ -53,6 +55,8 @@ fn check_access_point(
         ap.coord,
         Some(navitia_proto::GeographicalCoord { lon, lat })
     );
+    assert_eq!(ap.is_entrance, Some(is_entrance));
+    assert_eq!(ap.is_exit, Some(is_exit));
     assert_eq!(ap.length, Some(length));
     assert_eq!(ap.traversal_time, Some(traversal_time));
     assert_eq!(ap.stair_count, Some(stair_count));
@@ -102,6 +106,8 @@ pub async fn places_nearby_test(config: &ServerConfig) {
         "Massy Only Exit",
         2.2601,
         48.7251,
+        false,
+        true,
         42,
         43,
         44,
@@ -118,6 +124,8 @@ pub async fn places_nearby_test(config: &ServerConfig) {
         "Massy Only Entrance",
         2.2602,
         48.7252,
+        true,
+        false,
         21,
         22,
         23,
@@ -134,6 +142,8 @@ pub async fn places_nearby_test(config: &ServerConfig) {
         "Massy Entrance And Exit",
         2.2603,
         48.7253,
+        true,
+        true,
         84,
         85,
         86,
