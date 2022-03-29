@@ -52,7 +52,7 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::{bail, Error};
+use anyhow::{Context, Error};
 
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
@@ -111,12 +111,8 @@ pub fn run() -> Result<(), Error> {
 }
 
 pub fn read_config(config_file_path: &Path) -> Result<Config, Error> {
-    let content = match fs::read_to_string(&config_file_path) {
-        Ok(file) => file,
-        Err(e) => {
-            bail!("Error opening config file {:?} : {}", &config_file_path, e)
-        }
-    };
+    let content = fs::read_to_string(&config_file_path)
+        .with_context(|| format!("Error opening config file {:?}", &config_file_path))?;
     let config: Config = toml::from_str(&content)?;
     Ok(config)
 }
