@@ -83,7 +83,7 @@ use anyhow::{Context, Error};
     rename_all = "snake_case"
 )]
 pub struct Options {
-    /// path to the  config file
+    /// path to the config file
     #[structopt(parse(from_os_str))]
     config_file: PathBuf,
 }
