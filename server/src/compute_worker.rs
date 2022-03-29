@@ -70,7 +70,7 @@ pub struct ComputeWorker {
     data_and_models: Arc<RwLock<(Data, BaseModel, RealTimeModel)>>,
     solver: Solver,
     worker_id: WorkerId,
-    request_default_params: config::RequestParams,
+    default_request_params: config::RequestParams,
     request_channel: mpsc::Receiver<RequestMessage>,
     responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
 }
@@ -79,7 +79,7 @@ impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
         data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
-        request_default_params: config::RequestParams,
+        default_request_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
         let solver = Solver::new(0, 0);
@@ -90,7 +90,7 @@ impl ComputeWorker {
             data_and_models,
             solver,
             worker_id,
-            request_default_params,
+            default_request_params,
             responses_channel,
             request_channel: requests_channel_receiver,
         };
@@ -223,7 +223,7 @@ impl ComputeWorker {
                     data,
                     &model_refs,
                     &mut self.solver,
-                    &self.request_default_params,
+                    &self.default_request_params,
                     &config::ComparatorType::Basic,
                     real_time_level,
                 );
@@ -385,7 +385,7 @@ fn solve(
     data: &TransitData,
     model: &ModelRefs<'_>,
     solver: &mut Solver,
-    request_default_params: &config::RequestParams,
+    default_request_params: &config::RequestParams,
     comparator_type: &config::ComparatorType,
     real_time_level: RealTimeLevel,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
@@ -483,18 +483,18 @@ fn solve(
             warn!(
                 "The max duration {} cannot be converted to a u32.\
                 I'm gonna use the default {} as max duration",
-                journey_request.max_duration, request_default_params.max_journey_duration
+                journey_request.max_duration, default_request_params.max_journey_duration
             );
-            request_default_params.max_journey_duration
+            default_request_params.max_journey_duration
         });
 
     let max_nb_of_legs = u8::try_from(journey_request.max_transfers + 1).unwrap_or_else(|_| {
         warn!(
             "The max nb of transfers {} cannot be converted to a u8.\
                     I'm gonna use the default {} as the max nb of legs",
-            journey_request.max_transfers, request_default_params.max_nb_of_legs
+            journey_request.max_transfers, default_request_params.max_nb_of_legs
         );
-        request_default_params.max_nb_of_legs
+        default_request_params.max_nb_of_legs
     });
 
     let must_be_wheelchair_accessible = journey_request.wheelchair.unwrap_or(false);
@@ -521,11 +521,11 @@ fn solve(
         datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        leg_arrival_penalty: request_default_params.leg_arrival_penalty,
-        leg_walking_penalty: request_default_params.leg_walking_penalty,
+        leg_arrival_penalty: default_request_params.leg_arrival_penalty,
+        leg_walking_penalty: default_request_params.leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
-        too_late_threshold: request_default_params.too_late_threshold,
+        too_late_threshold: default_request_params.too_late_threshold,
         real_time_level,
     };
 

@@ -67,7 +67,7 @@ pub struct ServerConfig {
     pub data_source: DataSourceParams,
 
     #[serde(default)]
-    pub request_default_params: config::RequestParams,
+    pub default_request_params: config::RequestParams,
 
     #[serde(default)]
     pub rabbitmq_params: RabbitMqParams,
@@ -94,7 +94,7 @@ impl ServerConfig {
             input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
-            request_default_params: config::RequestParams::default(),
+            default_request_params: config::RequestParams::default(),
             rabbitmq_params: RabbitMqParams::default(),
             chaos_params: ChaosParams::default(),
             nb_workers: default_nb_workers(),

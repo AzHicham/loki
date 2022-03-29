@@ -42,7 +42,7 @@ type = 'local'
 input_data_path = '/path/to/my/ntfs/folder'
 
 
-[request_default_params]
+[default_request_params]
 leg_arrival_penalty = '00:02:00'
 leg_walking_penalty = '00:02:00'
 max_nb_of_legs = 10

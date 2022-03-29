@@ -11,7 +11,7 @@ data_path_key = 'my_coverage/ntfs.zip'
 bucket_timeout_in_ms = 30000
 
 
-[request_default_params]
+[default_request_params]
 leg_arrival_penalty = '00:02:00'
 leg_walking_penalty = '00:02:00'
 max_nb_of_legs = 10
