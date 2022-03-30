@@ -73,7 +73,7 @@ pub struct ServerConfig {
     pub rabbitmq: RabbitMqParams,
 
     #[serde(default)]
-    pub chaos_params: ChaosParams,
+    pub chaos: Option<ChaosParams>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -96,7 +96,7 @@ impl ServerConfig {
             instance_name: instance_name.to_string(),
             default_request_params: config::RequestParams::default(),
             rabbitmq: RabbitMqParams::default(),
-            chaos_params: ChaosParams::default(),
+            chaos: None,
             nb_workers: default_nb_workers(),
         }
     }
@@ -184,27 +184,19 @@ impl Default for RabbitMqParams {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ChaosParams {
-    #[serde(default = "default_chaos_database")]
-    pub chaos_database: String,
-    #[serde(default = "default_batch_size")]
-    pub chaos_batch_size: u32,
-}
+    /// connection string to the chaos database
+    /// for example : "postgres://guest:guest@localhost:5432/chaos"
+    pub database: String,
 
-pub fn default_chaos_database() -> String {
-    "postgres://guest:guest@localhost:5432/chaos".to_string()
+    /// During reload of chaos disruption
+    /// we will ask the database to send
+    /// blocks of rows of size `batch_size`
+    #[serde(default = "default_batch_size")]
+    pub batch_size: u32,
 }
 
 pub fn default_batch_size() -> u32 {
-    5000
-}
-
-impl Default for ChaosParams {
-    fn default() -> Self {
-        Self {
-            chaos_database: default_chaos_database(),
-            chaos_batch_size: default_batch_size(),
-        }
-    }
+    1_000_000
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

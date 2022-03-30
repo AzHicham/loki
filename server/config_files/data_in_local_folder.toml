@@ -63,6 +63,6 @@ connect_retry_interval = '00:00:10'
 reload_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 
-[chaos_params]
-chaos_database = 'postgres://login:password@chaos_hostname:5432/chaos'
-chaos_batch_size = 1000000
+[chaos]
+database = 'postgres://login:password@chaos_hostname:5432/chaos'
+batch_size = 1_000_000

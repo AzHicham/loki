@@ -75,7 +75,7 @@ use launch::loki::{
         },
         RealTimeModel,
     },
-    tracing::{debug, error, info, log::trace},
+    tracing::{debug, error, info, log::trace, warn},
     DataTrait, NaiveDateTime,
 };
 
@@ -347,6 +347,13 @@ impl DataWorker {
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {
+        let chaos_params = match &self.config.chaos {
+            Some(chaos_params) => chaos_params,
+            None => {
+                warn!("Chaos is not configured. I skip reload of chaos disruptions.");
+                return Ok(());
+            }
+        };
         let (start_date, end_date) = {
             let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
                 format_err!(
@@ -359,7 +366,7 @@ impl DataWorker {
             (calendar.first_date(), calendar.last_date())
         }; // lock is released
         match chaos::models::read_chaos_disruption_from_database(
-            &self.config.chaos_params,
+            chaos_params,
             (start_date, end_date),
             &self.config.rabbitmq.real_time_topics,
         ) {

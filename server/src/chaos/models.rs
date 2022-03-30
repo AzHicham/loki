@@ -55,29 +55,29 @@ use std::collections::{hash_map::Entry::Vacant, HashMap, HashSet};
 use uuid::Uuid as Uid;
 
 pub fn read_chaos_disruption_from_database(
-    config: &ChaosParams,
+    chaos_params: &ChaosParams,
     publication_period: (NaiveDate, NaiveDate),
     contributors: &[String],
 ) -> Result<Vec<chaos_proto::chaos::Disruption>, Error> {
-    let connection = PgConnection::establish(&config.chaos_database)
+    let connection = PgConnection::establish(&chaos_params.database)
         .context("Connection to chaos database failed")?;
 
     let mut disruption_maker = DisruptionMaker::default();
 
     let mut offset_query = 0_u32;
 
-    info!("Querying chaos database {}", &config.chaos_database);
+    info!("Querying chaos database {}", &chaos_params.database);
     loop {
         let res = diesel::sql_query(include_str!("query.sql"))
             .bind::<Date, _>(publication_period.1)
             .bind::<Date, _>(publication_period.0)
             .bind::<Date, _>(publication_period.1)
             .bind::<Array<Text>, _>(contributors)
-            .bind::<Int8, _>(i64::from(config.chaos_batch_size))
+            .bind::<Int8, _>(i64::from(chaos_params.batch_size))
             .bind::<Int8, _>(i64::from(offset_query))
             .load::<ChaosRow>(&connection);
         // Increment offset in query
-        offset_query += config.chaos_batch_size;
+        offset_query += chaos_params.batch_size;
 
         let rows = res?;
         if rows.is_empty() {
