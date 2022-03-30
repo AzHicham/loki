@@ -156,8 +156,8 @@ impl BaseModel {
 
     fn insert_pathway_into_association(
         model: &transit_model::model::Model,
-        stop_point_id: &String,
-        access_point_id: &String,
+        stop_point_id: &str,
+        access_point_id: &str,
         pathway_idx: Idx<Pathway>,
         association: &mut AssociationStopPoint2PathWays,
     ) -> Option<bool> {
@@ -173,7 +173,7 @@ impl BaseModel {
 
     fn associate_stop_points_with_pathway(
         model: &transit_model::model::Model,
-    ) -> Result<AssociationStopPoint2PathWays, BadModel> {
+    ) -> AssociationStopPoint2PathWays {
         let mut association = AssociationStopPoint2PathWays::new();
 
         for (pathway_idx, pathway) in &model.pathways {
@@ -197,8 +197,8 @@ impl BaseModel {
                 };
             match Self::insert_pathway_into_association(
                 model,
-                &stop_point_id,
-                &access_point_id,
+                stop_point_id,
+                access_point_id,
                 pathway_idx,
                 &mut association,
             ) {
@@ -218,7 +218,7 @@ impl BaseModel {
             association.values().map(|v| v.len()).sum::<usize>(),
             association.len()
         );
-        return Ok(association);
+        return association;
     }
 
     pub fn new(
@@ -234,7 +234,7 @@ impl BaseModel {
             return Err(BadModel::StartDateAfterEndDate);
         }
         // Associate stop_points with path way
-        let stop_point_to_pathways = Self::associate_stop_points_with_pathway(&model)?;
+        let stop_point_to_pathways = Self::associate_stop_points_with_pathway(&model);
 
         Ok(Self {
             model,
@@ -279,6 +279,12 @@ impl<'model> PathwayByIter<'model> {
 impl<'model> Iterator for PathwayByIter<'model> {
     type Item = (&'model Pathway, StopLocationIdx);
 
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match &self.idx_iter {
+            Some(iter) => iter.size_hint(),
+            None => (0, None),
+        }
+    }
     fn next(&mut self) -> Option<Self::Item> {
         let iter = self.idx_iter.as_mut()?;
         let (pathway_idx, access_point_idx) = iter.next()?;

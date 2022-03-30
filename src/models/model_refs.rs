@@ -424,7 +424,7 @@ impl<'model> ModelRefs<'model> {
             .collect()
     }
 
-    pub fn get_associated_pathway(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
+    pub fn stop_point_pathways(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
         self.base.stop_point_pathways(stop_point_idx)
     }
 }
