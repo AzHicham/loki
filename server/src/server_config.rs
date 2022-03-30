@@ -70,7 +70,7 @@ pub struct ServerConfig {
     pub default_request_params: config::RequestParams,
 
     #[serde(default)]
-    pub rabbitmq_params: RabbitMqParams,
+    pub rabbitmq: RabbitMqParams,
 
     #[serde(default)]
     pub chaos_params: ChaosParams,
@@ -95,7 +95,7 @@ impl ServerConfig {
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
             default_request_params: config::RequestParams::default(),
-            rabbitmq_params: RabbitMqParams::default(),
+            rabbitmq: RabbitMqParams::default(),
             chaos_params: ChaosParams::default(),
             nb_workers: default_nb_workers(),
         }
@@ -106,22 +106,22 @@ impl ServerConfig {
 #[serde(deny_unknown_fields)]
 pub struct RabbitMqParams {
     #[serde(default = "default_rabbitmq_endpoint")]
-    pub rabbitmq_endpoint: String,
+    pub endpoint: String,
 
     #[serde(default = "default_rabbitmq_exchange")]
-    pub rabbitmq_exchange: String,
+    pub exchange: String,
 
     #[serde(default = "default_rabbitmq_real_time_topics")]
-    pub rabbitmq_real_time_topics: Vec<String>,
+    pub real_time_topics: Vec<String>,
 
     #[serde(default = "default_rabbitmq_queue_auto_delete")]
-    pub rabbitmq_queue_auto_delete: bool,
+    pub queue_auto_delete: bool,
 
     #[serde(default = "default_real_time_update_interval")]
     pub real_time_update_interval: PositiveDuration,
 
     #[serde(default = "default_rabbitmq_connect_retry_interval")]
-    pub rabbitmq_connect_retry_interval: PositiveDuration,
+    pub connect_retry_interval: PositiveDuration,
 
     #[serde(default = "default_reload_request_time_to_live")]
     pub reload_request_time_to_live: PositiveDuration,
@@ -169,12 +169,12 @@ pub fn default_reload_kirin_timeout() -> PositiveDuration {
 impl Default for RabbitMqParams {
     fn default() -> Self {
         Self {
-            rabbitmq_endpoint: default_rabbitmq_endpoint(),
-            rabbitmq_exchange: default_rabbitmq_exchange(),
-            rabbitmq_real_time_topics: default_rabbitmq_real_time_topics(),
-            rabbitmq_queue_auto_delete: default_rabbitmq_queue_auto_delete(),
+            endpoint: default_rabbitmq_endpoint(),
+            exchange: default_rabbitmq_exchange(),
+            real_time_topics: default_rabbitmq_real_time_topics(),
+            queue_auto_delete: default_rabbitmq_queue_auto_delete(),
             real_time_update_interval: default_real_time_update_interval(),
-            rabbitmq_connect_retry_interval: default_rabbitmq_connect_retry_interval(),
+            connect_retry_interval: default_rabbitmq_connect_retry_interval(),
             reload_request_time_to_live: default_reload_request_time_to_live(),
             reload_kirin_timeout: default_reload_kirin_timeout(),
         }

@@ -50,16 +50,16 @@ max_journey_duration = '24:00:00'
 too_late_threshold = '02:00:00'
 real_time_level = 'base'
 
-[rabbitmq_params]
-rabbitmq_endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
-rabbitmq_exchange = 'navitia'
-rabbitmq_real_time_topics = [
+[rabbitmq]
+endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
+exchange = 'navitia'
+real_time_topics = [
     'shortterm.my_coverage',
     'another_topic',
 ]
-rabbitmq_queue_auto_delete = false
+queue_auto_delete = false
 real_time_update_interval = '00:00:30'
-rabbitmq_connect_retry_interval = '00:00:10'
+connect_retry_interval = '00:00:10'
 reload_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 
