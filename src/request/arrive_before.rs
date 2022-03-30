@@ -259,6 +259,25 @@ where
         Some(new_criteria)
     }
 
+    fn stay_in(&self, trip: &Data::Trip, criteria: &Criteria) -> Option<(Data::Trip, Criteria)> {
+        let previous_trip = self
+            .transit_data
+            .stay_in_previous(trip, self.real_time_level)?;
+        let mission = self.transit_data.mission_of(&previous_trip);
+        let last_position = self.transit_data.last_on_mission(&mission);
+        let (departure_time_at_last_stop, _load) = self
+            .transit_data
+            .departure_time_of(&previous_trip, &last_position);
+        let new_criteria = Criteria {
+            time: departure_time_at_last_stop,
+            nb_of_legs: criteria.nb_of_legs,
+            fallback_duration: criteria.fallback_duration,
+            transfers_duration: criteria.transfers_duration,
+            loads_count: criteria.loads_count.clone(),
+        };
+        Some((previous_trip, new_criteria))
+    }
+
     fn best_trip_to_board(
         &self,
         position: &Data::Position,

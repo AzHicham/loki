@@ -182,6 +182,14 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.generic.mission_id(mission)
     }
+
+    fn stay_in(
+        &self,
+        trip_before: &Self::Trip,
+        criteria_before: &Self::Criteria,
+    ) -> Option<(Self::Trip, Self::Criteria)> {
+        self.generic.stay_in(trip_before, criteria_before)
+    }
 }
 
 impl<'data, 'model, 'outer, Data> RequestIters<'outer> for Request<'data, 'model, Data>

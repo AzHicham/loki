@@ -40,6 +40,16 @@ pub trait Data: TransitTypes {
         mission: &Self::Mission,
     ) -> bool;
 
+    /// Returns `first_position` of a `mission`.
+    ///
+    /// Panics if `mission` has no `position`
+    fn first_on_mission(&self, mission: &Self::Mission) -> Self::Position;
+
+    /// Returns `last_position` of a `mission`.
+    ///
+    /// Panics if `mission` has no `position`
+    fn last_on_mission(&self, mission: &Self::Mission) -> Self::Position;
+
     /// Returns `Some(next_position)` if `next_position` is after `position` on `mission`.
     ///
     /// Returns `None` if `position` is the last on `mission`.
@@ -102,6 +112,15 @@ pub trait Data: TransitTypes {
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
+
+    fn stay_in_next(&self, trip: &Self::Trip, real_time_level: RealTimeLevel)
+        -> Option<Self::Trip>;
+
+    fn stay_in_previous(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip>;
 
     fn earliest_trip_to_board_at(
         &self,

@@ -79,6 +79,9 @@ pub struct TransitData {
 
     pub(super) calendar: Calendar,
     pub(super) days_patterns: DaysPatterns,
+
+    pub(super) vehicle_journey_to_next_stay_in: HashMap<VehicleJourneyIdx, VehicleJourneyIdx>,
+    pub(super) vehicle_journey_to_prev_stay_in: HashMap<VehicleJourneyIdx, VehicleJourneyIdx>,
 }
 
 pub struct StopData {
@@ -138,6 +141,14 @@ impl data_interface::Data for TransitData {
     ) -> bool {
         self.timetables
             .is_upstream_in_mission(upstream, downstream, mission)
+    }
+
+    fn first_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.timetables.first_position(mission)
+    }
+
+    fn last_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.timetables.last_position(mission)
     }
 
     fn next_on_mission(
@@ -213,6 +224,94 @@ impl data_interface::Data for TransitData {
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         let transfer_data = &self.transfers_data[transfer.idx];
         transfer_data.transit_model_transfer_idx.clone()
+    }
+
+    fn stay_in_next(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        let vehicle_journey_idx = self.vehicle_journey_idx(trip);
+        let day = self.timetables.day_of(trip);
+        let next_vehicle_journey_idx = self
+            .vehicle_journey_to_next_stay_in
+            .get(&vehicle_journey_idx)?;
+
+        // find timetable & local_zone of next_vehicle_journey_idx
+        let local_zones = self
+            .vehicle_journey_to_timetable
+            .get_vehicle_local_zones(next_vehicle_journey_idx);
+        let local_zone = if local_zones.len() == 1 {
+            local_zones.first().unwrap() // safe because we check length of local_zones
+        } else {
+            error!(
+                "Stay-in VehicleJourney {:?} cannot have multiple LocalZone",
+                next_vehicle_journey_idx
+            );
+            return None;
+        };
+
+        let timetable = self.vehicle_journey_to_timetable.get_timetable(
+            next_vehicle_journey_idx,
+            *local_zone,
+            day,
+            &self.days_patterns,
+            real_time_level,
+        )?;
+
+        // find trip
+        self.timetables.find_trip(
+            &timetable,
+            day,
+            next_vehicle_journey_idx,
+            *local_zone,
+            real_time_level,
+            &self.days_patterns,
+        )
+    }
+
+    fn stay_in_previous(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        let vehicle_journey_idx = self.vehicle_journey_idx(trip);
+        let day = self.timetables.day_of(trip);
+        let next_vehicle_journey_idx = self
+            .vehicle_journey_to_prev_stay_in
+            .get(&vehicle_journey_idx)?;
+
+        // find timetable & local_zone of next_vehicle_journey_idx
+        let local_zones = self
+            .vehicle_journey_to_timetable
+            .get_vehicle_local_zones(next_vehicle_journey_idx);
+        let local_zone = if local_zones.len() == 1 {
+            local_zones.first().unwrap() // safe because we check length of local_zones
+        } else {
+            error!(
+                "Stay-in VehicleJourney {:?} cannot have multiple LocalZone",
+                next_vehicle_journey_idx
+            );
+            return None;
+        };
+
+        let timetable = self.vehicle_journey_to_timetable.get_timetable(
+            next_vehicle_journey_idx,
+            *local_zone,
+            day,
+            &self.days_patterns,
+            real_time_level,
+        )?;
+
+        // find trip
+        self.timetables.find_trip(
+            &timetable,
+            day,
+            next_vehicle_journey_idx,
+            *local_zone,
+            real_time_level,
+            &self.days_patterns,
+        )
     }
 
     fn earliest_trip_to_board_at(

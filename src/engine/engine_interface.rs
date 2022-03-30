@@ -191,6 +191,14 @@ pub trait Request: RequestTypes {
     /// Returns an usize between 0 and nb_of_misions()
     /// Returns a different value for two different `mission`s
     fn mission_id(&self, mission: &Self::Mission) -> usize;
+
+    /// Given a trip and a criteria
+    /// Return the trip we can stay in, and computed criteria
+    fn stay_in(
+        &self,
+        trip_before: &Self::Trip,
+        criteria_before: &Self::Criteria,
+    ) -> Option<(Self::Trip, Self::Criteria)>;
 }
 
 pub trait RequestIters<'a>: RequestTypes {

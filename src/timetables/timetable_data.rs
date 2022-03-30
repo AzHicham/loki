@@ -637,6 +637,14 @@ where
 
         nb_updated
     }
+
+    // Returns the smallest `vehicle_idx` such that `finder(self.vehicle_datas[vehicle_idx]) == true`
+    pub fn find_vehicles<Finder>(&self, finder: Finder) -> Option<usize>
+    where
+        Finder: FnMut(&VehicleData) -> bool,
+    {
+        self.vehicle_datas.iter().position(finder)
+    }
 }
 
 fn combine(a: Ordering, b: Ordering) -> Option<Ordering> {

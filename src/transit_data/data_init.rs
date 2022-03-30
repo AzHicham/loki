@@ -46,14 +46,125 @@ use crate::{
     transit_data::{data_interface::Data as DataInterface, Stop, TransitData},
     RealTimeLevel,
 };
+use std::collections::HashMap;
 
 use crate::time::PositiveDuration;
 use transit_model::objects::VehicleJourney;
 use typed_index_collection::Idx;
 
+use crate::models::base_model::BaseVehicleJourneyIdx;
 use tracing::{info, warn};
 
 use super::{handle_insertion_error, Timetables, Transfer, TransferData, TransferDurations};
+
+#[derive(Clone, Debug)]
+pub(super) enum StayInType {
+    SameStopPoint(BaseVehicleJourneyIdx),
+    DifferentStopPoint(BaseVehicleJourneyIdx),
+}
+
+struct VJGroupedByStayIn {
+    pub vehicle_journey_to_prev_stay_in: HashMap<BaseVehicleJourneyIdx, StayInType>,
+    pub vehicle_journey_to_next_stay_in: HashMap<BaseVehicleJourneyIdx, StayInType>,
+}
+
+impl VJGroupedByStayIn {
+    pub fn new(base_model: &BaseModel) -> Self {
+        // the HashMap 'stay_in_vj' is used to group vehicle_journeys with the same ('block_id', timezone).
+        //  A stay-in may be allowed between vehicle_journeys within each group
+        let mut stay_in_vj = HashMap::new();
+
+        // Fill stay_in_vj
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            let vehicle_journey = base_model.vehicle_journey(vehicle_journey_idx);
+            let block_id = &vehicle_journey.block_id;
+            let timezone = base_model.timezone(vehicle_journey_idx);
+
+            if let (Some(block_id), Some(timezone)) = (block_id, timezone) {
+                if let Ok(stop_times) = base_model.stop_times(vehicle_journey_idx) {
+                    // for now, we do not want to have stay_in on vehicle journeys
+                    // with multiple local zone
+                    // !todo find a better way to check for multiple local zone
+                    let mut local_zones: Vec<_> =
+                        stop_times.clone().map(|s| s.local_zone_id).collect();
+                    local_zones.sort_unstable();
+                    local_zones.dedup();
+
+                    if !block_id.is_empty() && stop_times.len() > 0 && local_zones.len() == 1 {
+                        let vehicle_journeys_group = stay_in_vj
+                            .entry((block_id.as_str(), timezone))
+                            .or_insert_with(Vec::new);
+                        vehicle_journeys_group.push(vehicle_journey_idx);
+                    }
+                }
+            }
+        }
+
+        // Within each group, sort the vehicle_journeys by their board_time on their first stop_time
+        for vehicle_journeys_group in stay_in_vj.values_mut() {
+            vehicle_journeys_group.sort_unstable_by_key(|vehicle_journey_idx| {
+                base_model
+                    .stop_times(*vehicle_journey_idx)
+                    .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with valid stop_times
+                    .next()
+                    .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with stop_times.len() > 0
+                    .board_time
+            });
+        }
+
+        let mut vehicle_journey_to_prev_stay_in = HashMap::new();
+        let mut vehicle_journey_to_next_stay_in = HashMap::new();
+
+        // Fill vehicle_journey_to_prev_stay_in
+        for vec_idx in stay_in_vj.values() {
+            let mut has_prev_vehicle_idx: Option<BaseVehicleJourneyIdx> = None;
+            for idx in vec_idx {
+                if let Some(prev_vehicle_idx) = &has_prev_vehicle_idx {
+                    let previous_vehicle = base_model.vehicle_journey(*prev_vehicle_idx);
+                    let current_vehicle = base_model.vehicle_journey(*idx);
+                    // Unwrap on first/last is safe here because only vehicle_journeys with
+                    // stop_times.len() > 0 were inserted
+                    let prev_vehicle_last_stoptime = previous_vehicle.stop_times.last().unwrap();
+                    let current_vehicle_first_stoptime =
+                        current_vehicle.stop_times.first().unwrap();
+
+                    if prev_vehicle_last_stoptime.stop_point_idx
+                        != current_vehicle_first_stoptime.stop_point_idx
+                    {
+                        if prev_vehicle_last_stoptime.departure_time
+                            > current_vehicle_first_stoptime.arrival_time
+                        {
+                            warn!(
+                                "Stay-in on different stop points with overlapping stop_times. \
+                                 Stay-in cannot be done between vjs {} and {}",
+                                previous_vehicle.id, current_vehicle.id
+                            )
+                        } else {
+                            vehicle_journey_to_prev_stay_in
+                                .insert(*idx, StayInType::DifferentStopPoint(*prev_vehicle_idx));
+                            vehicle_journey_to_next_stay_in
+                                .insert(*prev_vehicle_idx, StayInType::DifferentStopPoint(*idx));
+                        }
+                    } else if prev_vehicle_last_stoptime.arrival_time
+                        <= current_vehicle_first_stoptime.departure_time
+                    {
+                        vehicle_journey_to_prev_stay_in
+                            .insert(*idx, StayInType::SameStopPoint(*prev_vehicle_idx));
+                        vehicle_journey_to_next_stay_in
+                            .insert(*prev_vehicle_idx, StayInType::SameStopPoint(*idx));
+                    }
+                }
+
+                has_prev_vehicle_idx = Some(*idx);
+            }
+        }
+
+        Self {
+            vehicle_journey_to_prev_stay_in,
+            vehicle_journey_to_next_stay_in,
+        }
+    }
+}
 
 impl TransitData {
     pub fn _new(base_model: &BaseModel) -> Self {
@@ -72,6 +183,8 @@ impl TransitData {
             vehicle_journey_to_timetable: VehicleJourneyToTimetable::new(),
             calendar,
             days_patterns: DaysPatterns::new(usize::from(nb_of_days)),
+            vehicle_journey_to_next_stay_in: std::collections::HashMap::new(),
+            vehicle_journey_to_prev_stay_in: std::collections::HashMap::new(),
         };
 
         data.init(base_model);
@@ -82,11 +195,45 @@ impl TransitData {
     fn init(&mut self, base_model: &BaseModel) {
         let loads_data = base_model.loads_data();
         info!("Inserting vehicle journeys");
-        for vehicle_journey_idx in base_model.vehicle_journeys() {
-            let _ = self.insert_base_vehicle_journey(vehicle_journey_idx, base_model, loads_data);
-        }
-        info!("Inserting transfers");
 
+        let vehicle_stay_in = VJGroupedByStayIn::new(base_model);
+
+        for vehicle_journey_idx in base_model.vehicle_journeys() {
+            let _ = self.insert_base_vehicle_journey(
+                vehicle_journey_idx,
+                &vehicle_stay_in.vehicle_journey_to_prev_stay_in,
+                &vehicle_stay_in.vehicle_journey_to_next_stay_in,
+                base_model,
+                loads_data,
+            );
+        }
+        self.vehicle_journey_to_prev_stay_in = vehicle_stay_in
+            .vehicle_journey_to_prev_stay_in
+            .into_iter()
+            .map(|(vehicle_idx, prev_vehicle_idx)| {
+                let vehicle_idx = VehicleJourneyIdx::Base(vehicle_idx);
+                let prev_vehicle_idx = match prev_vehicle_idx {
+                    StayInType::SameStopPoint(idx) => VehicleJourneyIdx::Base(idx),
+                    StayInType::DifferentStopPoint(idx) => VehicleJourneyIdx::Base(idx),
+                };
+                (vehicle_idx, prev_vehicle_idx)
+            })
+            .collect();
+
+        self.vehicle_journey_to_next_stay_in = vehicle_stay_in
+            .vehicle_journey_to_next_stay_in
+            .into_iter()
+            .map(|(vehicle_idx, next_vehicle_idx)| {
+                let vehicle_idx = VehicleJourneyIdx::Base(vehicle_idx);
+                let next_vehicle_idx = match next_vehicle_idx {
+                    StayInType::SameStopPoint(idx) => VehicleJourneyIdx::Base(idx),
+                    StayInType::DifferentStopPoint(idx) => VehicleJourneyIdx::Base(idx),
+                };
+                (vehicle_idx, next_vehicle_idx)
+            })
+            .collect();
+
+        info!("Inserting transfers");
         for transfer_idx in base_model.transfers() {
             let _ = self.insert_base_transfer(transfer_idx, base_model)
                 .map_err(|()| {
@@ -159,6 +306,8 @@ impl TransitData {
     fn insert_base_vehicle_journey(
         &mut self,
         vehicle_journey_idx: Idx<VehicleJourney>,
+        vehicle_journey_to_prev_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
+        vehicle_journey_to_next_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
         base_model: &BaseModel,
         loads_data: &LoadsData,
     ) -> Result<(), ()> {
@@ -173,12 +322,7 @@ impl TransitData {
                     err
                 );
                 })?;
-        // let rt_model = RealTimeModel::new();
-        // let refs = ModelRefs::new(base_model, &rt_model);
-        // debug!("Trying to insert vj {} on stops : \n {:#?}",
-        //     base_model.vehicle_journey_name(vehicle_journey_idx),
-        //     stop_times.clone().map(|stop_time| refs.stop_point_uri(&stop_time.stop)).collect::<Vec<_>>()
-        // );
+
         if stop_times.len() < 2 {
             warn!(
                 "Skipping vehicle journey {} because it has less than 2 stop times.",
@@ -208,22 +352,82 @@ impl TransitData {
         let board_times = stop_times.clone().map(|s| s.board_time);
         let debark_times = stop_times.clone().map(|s| s.debark_time);
 
+        /*
+         * Flow correction with stay-in
+         *
+         * The stay-in section is allowed with 2 configurations:
+         *  - when two VJ share the same stop point with similar stop times (example 1)
+         *  - when two VJ are joined on 2 different stop points with consecutive stop times (example 2)
+         *
+         *   Example 1:
+         *   ----------
+         *         out          in   out         in
+         *          X    SP1    |    ▲    SP2    X
+         *          X           ▼    |           X
+         *    VJ:1   08:00-09:00      10:00-11:00
+         *    VJ:2                    10:00-11:00      14:00-15:00
+         *                           X           ▲    |           X
+         *                           X           |    ▼   SP3     X
+         *                           out         in   out         in
+         *                           |- Stay-In -|
+         *
+         *   Example 2:
+         *   ----------
+         *                                       (1)  (2)
+         *         out          in   out         in   out         in   out         in
+         *          X    SP1    |    ▲    SP2    |    ▲    SP3    |    ▲   SP4     X
+         *          X           ▼    |           ▼    |           |    |           X
+         *    VJ:1   08:00-09:00      10:00-11:00     |           ▼    |           X
+         *    VJ:2                                     12:00-13:00      14:00-15:00
+         *                           |---------- Stay In ---------|
+         *
+         *  Example 2 is the only case were we allow specific pick-up and drop-off
+         */
+        let has_prev_stay_in_on_same_stop =
+            match vehicle_journey_to_prev_stay_in.get(&vehicle_journey_idx) {
+                Some(StayInType::SameStopPoint(_)) => true,
+                Some(StayInType::DifferentStopPoint(_)) | None => false,
+            };
+        let has_next_stay_in_on_same_stop =
+            match vehicle_journey_to_next_stay_in.get(&vehicle_journey_idx) {
+                Some(StayInType::SameStopPoint(_)) => true,
+                Some(StayInType::DifferentStopPoint(_)) | None => false,
+            };
+
+        let nb_of_positions = flows.len();
+        let corrected_flows = flows.enumerate().map(|(position_idx, flow)| {
+            if position_idx == 0 && has_prev_stay_in_on_same_stop {
+                match flow {
+                    BoardAndDebark | BoardOnly => BoardOnly,
+                    DebarkOnly | NoBoardDebark => NoBoardDebark,
+                }
+            } else if position_idx == nb_of_positions - 1 && has_next_stay_in_on_same_stop {
+                match flow {
+                    BoardAndDebark | DebarkOnly => DebarkOnly,
+                    BoardOnly | NoBoardDebark => NoBoardDebark,
+                }
+            } else {
+                flow
+            }
+        });
+
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
         local_zones.sort_unstable();
         local_zones.dedup();
+        let nb_of_local_zones = local_zones.len();
 
-        if local_zones.len() == 1 {
+        if nb_of_local_zones == 1 {
             let insert_result = self.insert_inner(
                 stops,
-                flows,
+                corrected_flows,
                 board_times,
                 debark_times,
                 loads_data,
                 dates,
                 timezone,
-                vehicle_journey_idx,
+                vehicle_journey_idx.clone(),
                 local_zones[0],
                 RealTimeLevel::Base,
             );

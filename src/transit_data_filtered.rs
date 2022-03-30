@@ -161,6 +161,14 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.is_upstream(upstream, downstream, mission)
     }
 
+    fn first_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.transit_data.first_on_mission(mission)
+    }
+
+    fn last_on_mission(&self, mission: &Self::Mission) -> Self::Position {
+        self.transit_data.last_on_mission(mission)
+    }
+
     fn next_on_mission(
         &self,
         position: &Self::Position,
@@ -241,6 +249,22 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
 
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {
         self.transit_data.transfer_idx(transfer)
+    }
+
+    fn stay_in_next(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        self.transit_data.stay_in_next(trip, real_time_level)
+    }
+
+    fn stay_in_previous(
+        &self,
+        trip: &Self::Trip,
+        real_time_level: RealTimeLevel,
+    ) -> Option<Self::Trip> {
+        self.transit_data.stay_in_next(trip, real_time_level)
     }
 
     fn earliest_trip_to_board_at(

@@ -46,7 +46,7 @@ pub mod request;
 pub mod schedule;
 pub mod time;
 pub mod timetables;
-mod transit_data;
+pub mod transit_data;
 pub mod transit_data_filtered;
 
 pub use chrono::{self, NaiveDateTime};

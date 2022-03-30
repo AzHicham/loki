@@ -163,6 +163,23 @@ where
         upstream.idx < downstream.idx
     }
 
+    pub(super) fn first_position(&self, timetable: &Timetable) -> Position {
+        assert!(self.timetable_data(timetable).nb_of_positions() > 0);
+        Position {
+            timetable: timetable.clone(),
+            idx: 0,
+        }
+    }
+
+    pub(super) fn last_position(&self, timetable: &Timetable) -> Position {
+        let nb_of_positions = self.timetable_data(timetable).nb_of_positions();
+        assert!(nb_of_positions > 0);
+        Position {
+            timetable: timetable.clone(),
+            idx: nb_of_positions - 1,
+        }
+    }
+
     pub(super) fn next_position(
         &self,
         position: &Position,
@@ -316,37 +333,16 @@ where
         assert!(nb_of_positions == loads.len() + 1);
         inspect(flows.clone(), board_times.clone(), debark_times.clone())?;
 
-        let corrected_flows = flows.enumerate().map(|(position_idx, flow)| {
-            if position_idx == 0 {
-                match flow {
-                    BoardAndDebark => BoardOnly,
-                    DebarkOnly => NoBoardDebark,
-                    _ => flow,
-                }
-            } else if position_idx == nb_of_positions - 1 {
-                match flow {
-                    BoardAndDebark => DebarkOnly,
-                    BoardOnly => NoBoardDebark,
-                    _ => flow,
-                }
-            } else {
-                flow
-            }
-        });
-
-        let corrected_board_debark_times = board_times
-            .zip(debark_times)
-            .zip(corrected_flows.clone())
-            .map(
-                |((board_time, debark_time), flow_direction)| match flow_direction {
-                    BoardOnly => (board_time.clone(), board_time),
-                    DebarkOnly => (debark_time.clone(), debark_time),
-                    BoardAndDebark | NoBoardDebark => (board_time, debark_time),
-                },
-            );
+        let corrected_board_debark_times = board_times.zip(debark_times).zip(flows.clone()).map(
+            |((board_time, debark_time), flow_direction)| match flow_direction {
+                BoardOnly => (board_time.clone(), board_time),
+                DebarkOnly => (debark_time.clone(), debark_time),
+                BoardAndDebark | NoBoardDebark => (board_time, debark_time),
+            },
+        );
         let corrected_board_times = corrected_board_debark_times.clone().map(|(board, _)| board);
         let corrected_debark_times = corrected_board_debark_times.map(|(_, debark)| debark);
-        let stop_flows: Vec<(Stop, FlowDirection)> = stops.zip(corrected_flows).collect();
+        let stop_flows: Vec<(Stop, FlowDirection)> = stops.zip(flows).collect();
         let stop_flows_timetables = self
             .stop_flows_to_timetables
             .entry(stop_flows.clone())
