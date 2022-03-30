@@ -427,7 +427,7 @@ impl TransitData {
                 loads_data,
                 dates,
                 timezone,
-                vehicle_journey_idx.clone(),
+                vehicle_journey_idx,
                 local_zones[0],
                 RealTimeLevel::Base,
             );
