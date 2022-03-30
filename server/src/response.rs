@@ -510,7 +510,7 @@ fn make_access_point(
     } else if pathway.to_stop_type == StopType::StopEntrance {
         (false, true)
     } else {
-        warn!("Something weired occurred when filling pathway");
+        warn!("Something weired occurred when filling pathway: pathway.from {} and pathway.to {} has erroneous types ", pathway.from_stop_id, pathway.to_stop_id );
         return None;
     };
 
@@ -519,7 +519,7 @@ fn make_access_point(
     } else if pathway.to_stop_type == StopType::Point {
         model.base.stop_point_idx(&pathway.to_stop_id)?
     } else {
-        warn!("Something weired occurred when filling pathway");
+        warn!("Something weired occurred when filling pathway: cannot find stop point");
         return None;
     };
     let coord = model.base.stop_location_coord(access_point_idx);
