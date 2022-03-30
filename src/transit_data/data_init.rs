@@ -70,8 +70,8 @@ struct VJGroupedByStayIn {
 
 impl VJGroupedByStayIn {
     pub fn new(base_model: &BaseModel) -> Self {
-        // the HashMap 'stay_in_vj' is used to group vehicle_journey with the same 'blocked_id' and timezone
-        // allowing use to use a vehicle of this group and move to another vehicle of the same group without transfer
+        // the HashMap 'stay_in_vj' is used to group vehicle_journeys with the same ('block_id', timezone).
+        //  A stay-in may be allowed between vehicle_journeys within each group
         let mut stay_in_vj = HashMap::new();
 
         // Fill stay_in_vj
@@ -91,23 +91,23 @@ impl VJGroupedByStayIn {
                     local_zones.dedup();
 
                     if !block_id.is_empty() && stop_times.len() > 0 && local_zones.len() == 1 {
-                        let vehicle_journeys_idx = stay_in_vj
+                        let vehicle_journeys_group = stay_in_vj
                             .entry((block_id.as_str(), timezone))
                             .or_insert_with(Vec::new);
-                        vehicle_journeys_idx.push(vehicle_journey_idx);
+                        vehicle_journeys_group.push(vehicle_journey_idx);
                     }
                 }
             }
         }
 
-        // Sort stay_in_vj
-        for vec_idx in stay_in_vj.values_mut() {
-            vec_idx.sort_unstable_by_key(|vehicle_journey_idx| {
+        // Within each group, sort the vehicle_journeys by their board_time on their first stop_time
+        for vehicle_journeys_group in stay_in_vj.values_mut() {
+            vehicle_journeys_group.sort_unstable_by_key(|vehicle_journey_idx| {
                 base_model
                     .stop_times(*vehicle_journey_idx)
-                    .unwrap() // unwrap is safe because already checked in fn new
+                    .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with valid stop_times
                     .next()
-                    .unwrap() // unwrap is safe because already check in fn new stop_times.len() > 0
+                    .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with stop_times.len() > 0
                     .board_time
             });
         }

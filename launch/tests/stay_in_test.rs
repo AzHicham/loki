@@ -536,7 +536,7 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
 fn multiple_day_stay_in() -> Result<(), Error> {
     let _log_guard = launch::logger::init_test_logger();
 
-    // We set only one valid date in calendar for simplicity
+    // We set 10 days of validity in the calendar
     let model = ModelBuilder::new("2020-01-01", "2020-01-10")
         .vj("first", |vj_builder| {
             vj_builder
@@ -560,7 +560,6 @@ fn multiple_day_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
-    // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vehicle_journey_first = base_model.vehicle_journey(vehicle_journey_idx);
 
@@ -672,6 +671,9 @@ fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
 
     let data = launch::read::build_transit_data(&base_model);
 
+    // a stay-in may happens only between trips with the same reference date
+    // so even if the stop_times would allow to stay-in from (vj 'first' on 2020-01-01) to (vj 'second' on 2020-01-02)
+    // the stay-in should be absent because of the different circulation dates
     assert!(is_forward_stay_in("first", None, &data, &base_model));
 
     assert!(is_backward_stay_in("second", None, &data, &base_model));
