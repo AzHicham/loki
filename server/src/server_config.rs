@@ -72,6 +72,10 @@ pub struct ServerConfig {
     #[serde(default)]
     pub rabbitmq: RabbitMqParams,
 
+    /// Configures the connection to a chaos database that will be used
+    /// to retreive the history of chaos disruptions when the public transport data is (re)loaded
+    /// If None, the retreival of past chaos disruptions will be disabled.
+    /// Defaults to None.
     #[serde(default)]
     pub chaos: Option<ChaosParams>,
 }

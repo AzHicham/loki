@@ -63,6 +63,18 @@ connect_retry_interval = '00:00:10'
 reload_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 
+# Configures the connection to a chaos database that will be used
+# to retreive the history of chaos disruptions when the public transport data is (re)loaded
+# Optional.
+# If not present, the retreival of past chaos disruptions will be disabled
 [chaos]
+# connection string to the chaos database
+# for example : "postgres://guest:guest@localhost:5432/chaos"
 database = 'postgres://login:password@chaos_hostname:5432/chaos'
+
+# During reload of chaos disruption
+# we will ask the database to send
+# blocks of rows of size `batch_size`
+# Optional.
+# Defaults to 1_000_000
 batch_size = 1_000_000
