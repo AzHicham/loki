@@ -110,10 +110,7 @@ impl StatusWorker {
             base_data_info: None,
             config_info: ConfigInfo {
                 pkg_version: PKG_VERSION.to_string(),
-                real_time_contributors: server_config
-                    .rabbitmq_params
-                    .rabbitmq_real_time_topics
-                    .clone(),
+                real_time_contributors: server_config.rabbitmq.real_time_topics.clone(),
                 nb_workers: server_config.nb_workers,
             },
             last_load_succeeded: false,

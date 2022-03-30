@@ -102,7 +102,7 @@ impl LoadBalancer {
     pub fn new(
         data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
         nb_workers: u16,
-        request_default_params: &config::RequestParams,
+        default_request_params: &config::RequestParams,
         zmq_channels: LoadBalancerToZmqChannels,
         shutdown_sender: mpsc::Sender<()>,
     ) -> Result<(Self, LoadBalancerChannels), Error> {
@@ -121,7 +121,7 @@ impl LoadBalancer {
             let (worker, request_channel) = ComputeWorker::new(
                 worker_id,
                 data_and_models.clone(),
-                request_default_params.clone(),
+                default_request_params.clone(),
                 workers_response_sender.clone(),
             );
             let _thread_handle = builder.spawn(move || worker.run())?;

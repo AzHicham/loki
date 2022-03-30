@@ -185,12 +185,8 @@ impl DataWorker {
             error!("Error while reloading chaos. {:?}", err);
         }
 
-        let rabbitmq_connect_retry_interval = Duration::from_secs(
-            self.config
-                .rabbitmq_params
-                .rabbitmq_connect_retry_interval
-                .total_seconds(),
-        );
+        let rabbitmq_connect_retry_interval =
+            Duration::from_secs(self.config.rabbitmq.connect_retry_interval.total_seconds());
 
         // A future that will tick() at regular interval
         // cf https://docs.rs/tokio/1.14.0/tokio/time/fn.interval.html
@@ -251,7 +247,7 @@ impl DataWorker {
 
         let interval = tokio::time::interval(Duration::from_secs(
             self.config
-                .rabbitmq_params
+                .rabbitmq
                 .real_time_update_interval
                 .total_seconds(),
         ));
@@ -365,7 +361,7 @@ impl DataWorker {
         match chaos::models::read_chaos_disruption_from_database(
             &self.config.chaos_params,
             (start_date, end_date),
-            &self.config.rabbitmq_params.rabbitmq_real_time_topics,
+            &self.config.rabbitmq.real_time_topics,
         ) {
             Err(err) => error!("Loading chaos database failed : {:?}.", err),
             Ok(disruptions) => {
@@ -569,7 +565,7 @@ impl DataWorker {
     }
 
     async fn connect(&self) -> Result<lapin::Channel, Error> {
-        let endpoint = &self.config.rabbitmq_params.rabbitmq_endpoint;
+        let endpoint = &self.config.rabbitmq.endpoint;
         let connection =
             lapin::Connection::connect(endpoint, lapin::ConnectionProperties::default())
                 .await
@@ -582,7 +578,7 @@ impl DataWorker {
         let channel = connection.create_channel().await?;
 
         // we declare the exchange
-        let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
+        let exchange = &self.config.rabbitmq.exchange;
         channel
             .exchange_declare(
                 exchange,
@@ -632,9 +628,9 @@ impl DataWorker {
             &self.real_time_queue_name
         );
 
-        let exchange = &self.config.rabbitmq_params.rabbitmq_exchange;
+        let exchange = &self.config.rabbitmq.exchange;
         // bind topics to the real time queue
-        for topic in &self.config.rabbitmq_params.rabbitmq_real_time_topics {
+        for topic in &self.config.rabbitmq.real_time_topics {
             channel
                 .queue_bind(
                     &self.real_time_queue_name,
@@ -681,7 +677,7 @@ impl DataWorker {
         channel
             .queue_bind(
                 &self.reload_queue_name,
-                &self.config.rabbitmq_params.rabbitmq_exchange,
+                &self.config.rabbitmq.exchange,
                 &topic,
                 QueueBindOptions::default(),
                 FieldTable::default(),
@@ -745,11 +741,7 @@ impl DataWorker {
 
             let load_realtime = navitia_proto::LoadRealtime {
                 queue_name: queue_name.clone(),
-                contributors: self
-                    .config
-                    .rabbitmq_params
-                    .rabbitmq_real_time_topics
-                    .clone(),
+                contributors: self.config.rabbitmq.real_time_topics.clone(),
                 begin_date: Some(start_date),
                 end_date: Some(end_date),
             };
@@ -763,7 +755,7 @@ impl DataWorker {
         let time_to_live_in_milliseconds = format!(
             "{}",
             self.config
-                .rabbitmq_params
+                .rabbitmq
                 .reload_request_time_to_live
                 .total_seconds()
                 * 1000
@@ -774,7 +766,7 @@ impl DataWorker {
         // send the reload task to kirin
         channel
             .basic_publish(
-                &self.config.rabbitmq_params.rabbitmq_exchange,
+                &self.config.rabbitmq.exchange,
                 routing_key,
                 BasicPublishOptions::default(),
                 &payload,
@@ -791,10 +783,7 @@ impl DataWorker {
         // wait for the reload messages from kirin
         let mut consumer = create_consumer(channel, &queue_name).await?;
         let timeout = std::time::Duration::from_secs(
-            self.config
-                .rabbitmq_params
-                .reload_kirin_timeout
-                .total_seconds(),
+            self.config.rabbitmq.reload_kirin_timeout.total_seconds(),
         );
 
         let has_message = tokio::time::timeout(timeout, consumer.next()).await;

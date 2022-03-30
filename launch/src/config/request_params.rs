@@ -36,42 +36,35 @@
 
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use structopt::StructOpt;
 
 use loki::{PositiveDuration, RealTimeLevel};
-#[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
-#[structopt(rename_all = "snake_case")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RequestParams {
     /// penalty to apply to arrival time for each vehicle leg in a journey
-    #[structopt(long, default_value = DEFAULT_LEG_ARRIVAL_PENALTY)]
     #[serde(default = "default_leg_arrival_penalty")]
     pub leg_arrival_penalty: PositiveDuration,
 
     /// penalty to apply to walking time for each vehicle leg in a journey
-    #[structopt(long, default_value = DEFAULT_LEG_WALKING_PENALTY)]
     #[serde(default = "default_leg_walking_penalty")]
     pub leg_walking_penalty: PositiveDuration,
 
     /// maximum number of vehicle legs in a journey
-    #[structopt(long, default_value = DEFAULT_MAX_NB_LEGS)]
     #[serde(default = "default_max_nb_of_legs")]
     pub max_nb_of_legs: u8,
 
     /// maximum duration of a journey
-    #[structopt(long, default_value = DEFAULT_MAX_JOURNEY_DURATION)]
     #[serde(default = "default_max_journey_duration")]
     pub max_journey_duration: PositiveDuration,
 
     /// discard any journey that arrive later than
     /// the arrival time of another journey + too_late_threshold
-    #[structopt(long, default_value = DEFAULT_TOO_LATE_THRESHOLD)]
     #[serde(default = "default_too_late_threshold")]
     pub too_late_threshold: PositiveDuration,
 
     /// Which version of the data to use for computing journeys ?
     /// base : the initial scheduled provided in the ntfs, disregarding real time updates
     /// real_time : includes the real time updates
-    #[structopt(long, default_value = DEFAULT_REAL_TIME_LEVEL)]
     #[serde(default = "default_real_time_level")]
     pub real_time_level: RealTimeLevel,
 }

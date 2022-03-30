@@ -1,0 +1,68 @@
+# A sample config file for loki_server
+# where
+
+# name of the coverage
+# REQUIRED
+instance_name = 'my_coverage'
+
+# zmq socket to listen for protobuf requests
+# see http://api.zeromq.org/master:zmq-bind for a description
+# of valid formats
+# REQUIRED
+requests_socket = 'tcp://*:30001'
+
+# the format of the input files
+# can be : 'ntfs' or 'gtfs'
+# defaults to 'ntfs'
+input_data_type = 'ntfs'
+
+# the input data may contains a transfer with no
+# duration. In this case, we will use this value as the duration.
+# defaults to '00:01:00', which means 1 minute
+default_transfer_duration = '00:01:00'
+
+# Number of threads to spawn to handle requests concurrently
+# default to 1 worker
+nb_workers = 2
+
+# How to obtain the input data.
+# It can be obtained from a local folder
+# or downloaded from a S3/Minio bucket.
+# See the file "data_in_s3.toml" for
+# configuration of a S3/Minio bucket.
+# REQUIRED
+[data_source]
+
+# the input data is in a local folder
+# REQUIRED
+type = 'local'
+
+# in which folder the input data is located
+# REQUIRED
+input_data_path = '/path/to/my/ntfs/folder'
+
+
+[default_request_params]
+leg_arrival_penalty = '00:02:00'
+leg_walking_penalty = '00:02:00'
+max_nb_of_legs = 10
+max_journey_duration = '24:00:00'
+too_late_threshold = '02:00:00'
+real_time_level = 'base'
+
+[rabbitmq]
+endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
+exchange = 'navitia'
+real_time_topics = [
+    'shortterm.my_coverage',
+    'another_topic',
+]
+queue_auto_delete = false
+real_time_update_interval = '00:00:30'
+connect_retry_interval = '00:00:10'
+reload_request_time_to_live = '00:00:02'
+reload_kirin_timeout = '00:00:10'
+
+[chaos_params]
+chaos_database = 'postgres://login:password@chaos_hostname:5432/chaos'
+chaos_batch_size = 1000000

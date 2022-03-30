@@ -1,0 +1,51 @@
+
+# Departure datetime of the query, formatted like 20190628T163215
+# If none is given, all queries will be made at 08:00:00 on the first
+# valid day of the dataset
+departure_datetime = '20190628T163215'
+
+# Which comparator to use for the request
+# can be "basic" or "loads"
+# defaults to "basic"
+
+comparator_type = 'basic'
+
+# Number of queries to perform
+# defaults to 10
+
+nb_queries = 100
+
+# Seed for random generator
+# defaults to 0
+seed = 12345
+
+[request_params]
+leg_arrival_penalty = '00:02:00'
+leg_walking_penalty = '00:02:00'
+max_nb_of_legs = 10
+max_journey_duration = '24:00:00'
+too_late_threshold = '02:00:00'
+real_time_level = 'base'
+
+
+[launch_params]
+
+# in which folder the input data is located
+# REQUIRED
+input_data_path = '/path/to/my/ntfs/folder'
+
+# the format of the input files
+# can be : 'ntfs' or 'gtfs'
+# defaults to 'ntfs'
+
+input_data_type = 'ntfs'
+
+# path to the passengers loads file
+# defaults to None
+loads_data_path = '/path/to/passagenrs/loads/file'
+
+# the input data may contains a transfer with no
+# duration. In this case, we will use this value as the duration.
+# defaults to '00:01:00', which means 1 minute
+
+default_transfer_duration = '00:01:00'

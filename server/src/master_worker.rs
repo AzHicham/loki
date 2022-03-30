@@ -76,7 +76,7 @@ impl MasterWorker {
         let (load_balancer, load_balancer_channels) = LoadBalancer::new(
             data_and_models.clone(),
             config.nb_workers,
-            &config.request_default_params,
+            &config.default_request_params,
             load_balancer_to_zmq_channels,
             shutdown_sender.clone(),
         )?;

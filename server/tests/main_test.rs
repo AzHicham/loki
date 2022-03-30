@@ -83,13 +83,13 @@ async fn run() {
 
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     config.chaos_params.chaos_database = chaos_endpoint.to_string();
-    config.rabbitmq_params.rabbitmq_endpoint = rabbitmq_endpoint.to_string();
-    config.rabbitmq_params.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
-    config.rabbitmq_params.rabbitmq_connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
-    config.rabbitmq_params.real_time_update_interval = PositiveDuration::from_hms(0, 0, 1);
+    config.rabbitmq.endpoint = rabbitmq_endpoint.to_string();
+    config.rabbitmq.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
+    config.rabbitmq.connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
+    config.rabbitmq.real_time_update_interval = PositiveDuration::from_hms(0, 0, 1);
     config
-        .rabbitmq_params
-        .rabbitmq_real_time_topics
+        .rabbitmq
+        .real_time_topics
         .push("test_realtime_topic".to_string());
 
     wait_until_connected_to_postgresql(&config.chaos_params.chaos_database).await;
@@ -392,7 +392,7 @@ async fn send_realtime_message_and_wait_until_reception(
 
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
-        &config.rabbitmq_params.rabbitmq_endpoint,
+        &config.rabbitmq.endpoint,
         lapin::ConnectionProperties::default(),
     )
     .await
@@ -402,10 +402,10 @@ async fn send_realtime_message_and_wait_until_reception(
     let mut payload = Vec::new();
     realtime_message.write_to_vec(&mut payload).unwrap();
 
-    let routing_key = &config.rabbitmq_params.rabbitmq_real_time_topics[0];
+    let routing_key = &config.rabbitmq.real_time_topics[0];
     channel
         .basic_publish(
-            &config.rabbitmq_params.rabbitmq_exchange,
+            &config.rabbitmq.exchange,
             routing_key,
             lapin::options::BasicPublishOptions::default(),
             &payload,
@@ -500,7 +500,7 @@ fn arrival_time(journey: &navitia_proto::Journey) -> NaiveDateTime {
 async fn send_reload_order(config: &ServerConfig) {
     // connect to rabbitmq
     let connection = lapin::Connection::connect(
-        &config.rabbitmq_params.rabbitmq_endpoint,
+        &config.rabbitmq.endpoint,
         lapin::ConnectionProperties::default(),
     )
     .await
@@ -514,7 +514,7 @@ async fn send_reload_order(config: &ServerConfig) {
     let routing_key = format!("{}.task.reload", &config.instance_name);
     channel
         .basic_publish(
-            &config.rabbitmq_params.rabbitmq_exchange,
+            &config.rabbitmq.exchange,
             &routing_key,
             BasicPublishOptions::default(),
             &payload,

@@ -44,6 +44,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ServerConfig {
     pub instance_name: String,
 
@@ -58,21 +59,28 @@ pub struct ServerConfig {
     #[serde(default = "default_transfer_duration")]
     pub default_transfer_duration: PositiveDuration,
 
+    /// number of workers that solve requests in parallel
+    #[serde(default = "default_nb_workers")]
+    pub nb_workers: u16,
+
     // param to load data from either local file or S3
     pub data_source: DataSourceParams,
 
     #[serde(default)]
-    pub request_default_params: config::RequestParams,
+    pub default_request_params: config::RequestParams,
 
     #[serde(default)]
-    pub rabbitmq_params: RabbitMqParams,
+    pub rabbitmq: RabbitMqParams,
 
     #[serde(default)]
     pub chaos_params: ChaosParams,
+}
 
-    /// number of workers that solve requests in parallel
-    #[serde(default = "default_nb_workers")]
-    pub nb_workers: u16,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum DataSourceParams {
+    Local(LocalFileParams),
+    S3(BucketParams),
 }
 
 impl ServerConfig {
@@ -86,8 +94,8 @@ impl ServerConfig {
             input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
             instance_name: instance_name.to_string(),
-            request_default_params: config::RequestParams::default(),
-            rabbitmq_params: RabbitMqParams::default(),
+            default_request_params: config::RequestParams::default(),
+            rabbitmq: RabbitMqParams::default(),
             chaos_params: ChaosParams::default(),
             nb_workers: default_nb_workers(),
         }
@@ -95,24 +103,25 @@ impl ServerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RabbitMqParams {
     #[serde(default = "default_rabbitmq_endpoint")]
-    pub rabbitmq_endpoint: String,
+    pub endpoint: String,
 
     #[serde(default = "default_rabbitmq_exchange")]
-    pub rabbitmq_exchange: String,
+    pub exchange: String,
 
     #[serde(default = "default_rabbitmq_real_time_topics")]
-    pub rabbitmq_real_time_topics: Vec<String>,
+    pub real_time_topics: Vec<String>,
 
     #[serde(default = "default_rabbitmq_queue_auto_delete")]
-    pub rabbitmq_queue_auto_delete: bool,
+    pub queue_auto_delete: bool,
 
     #[serde(default = "default_real_time_update_interval")]
     pub real_time_update_interval: PositiveDuration,
 
     #[serde(default = "default_rabbitmq_connect_retry_interval")]
-    pub rabbitmq_connect_retry_interval: PositiveDuration,
+    pub connect_retry_interval: PositiveDuration,
 
     #[serde(default = "default_reload_request_time_to_live")]
     pub reload_request_time_to_live: PositiveDuration,
@@ -160,12 +169,12 @@ pub fn default_reload_kirin_timeout() -> PositiveDuration {
 impl Default for RabbitMqParams {
     fn default() -> Self {
         Self {
-            rabbitmq_endpoint: default_rabbitmq_endpoint(),
-            rabbitmq_exchange: default_rabbitmq_exchange(),
-            rabbitmq_real_time_topics: default_rabbitmq_real_time_topics(),
-            rabbitmq_queue_auto_delete: default_rabbitmq_queue_auto_delete(),
+            endpoint: default_rabbitmq_endpoint(),
+            exchange: default_rabbitmq_exchange(),
+            real_time_topics: default_rabbitmq_real_time_topics(),
+            queue_auto_delete: default_rabbitmq_queue_auto_delete(),
             real_time_update_interval: default_real_time_update_interval(),
-            rabbitmq_connect_retry_interval: default_rabbitmq_connect_retry_interval(),
+            connect_retry_interval: default_rabbitmq_connect_retry_interval(),
             reload_request_time_to_live: default_reload_request_time_to_live(),
             reload_kirin_timeout: default_reload_kirin_timeout(),
         }
@@ -173,6 +182,7 @@ impl Default for RabbitMqParams {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ChaosParams {
     #[serde(default = "default_chaos_database")]
     pub chaos_database: String,
@@ -198,6 +208,7 @@ impl Default for ChaosParams {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct BucketParams {
     #[serde(default = "default_bucket_name")]
     pub bucket_name: String,
@@ -243,9 +254,51 @@ pub fn default_bucket_timeout_in_ms() -> u32 {
     30_000
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "config", rename_all = "snake_case")]
-pub enum DataSourceParams {
-    Local(LocalFileParams),
-    S3(BucketParams),
+#[cfg(test)]
+mod tests {
+
+    use super::super::read_config;
+    use std::{path::PathBuf, str::FromStr};
+
+    #[test]
+    fn test_config_for_data_in_local_folder() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("config_files")
+            .join("data_in_local_folder.toml");
+
+        let read_result = read_config(&path);
+        assert!(
+            read_config(&path).is_ok(),
+            "Error while reading config file {:?} : {:?}",
+            &path,
+            read_result
+        );
+    }
+
+    #[test]
+    fn test_config_for_data_in_s3() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("config_files")
+            .join("data_in_s3.toml");
+
+        let read_result = read_config(&path);
+        assert!(
+            read_config(&path).is_ok(),
+            "Error while reading config file {:?} : {:?}",
+            &path,
+            read_result
+        );
+    }
+
+    #[test]
+    fn test_typo_in_config() {
+        let path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+            .unwrap()
+            .join("config_files")
+            .join("typo_in_config.toml");
+
+        assert!(read_config(&path).is_err());
+    }
 }
