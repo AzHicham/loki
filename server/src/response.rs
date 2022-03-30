@@ -490,7 +490,7 @@ fn make_stop_point_pt_object(
     let mut proto = navitia_proto::PtObject {
         name: model.stop_point_name(stop_point_idx).to_string(),
         uri: model.stop_point_uri(stop_point_idx),
-        stop_point: Some(make_stop_point(stop_point_idx, model, 2)),
+        stop_point: Some(make_stop_point(stop_point_idx, model, false)),
         ..Default::default()
     };
     proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
@@ -581,7 +581,7 @@ fn make_access_points(
 pub fn make_stop_point(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
-    depth: usize,
+    include_access_points: bool,
 ) -> navitia_proto::StopPoint {
     let has_coord = model.coord(stop_point_idx);
 
@@ -610,10 +610,10 @@ pub fn make_stop_point(
 
     let stop_point_name = model.stop_point_name(stop_point_idx);
 
-    let access_points: Vec<navitia_proto::AccessPoint> = if depth > 2 {
+    let access_points: Vec<navitia_proto::AccessPoint> = if include_access_points {
         match stop_point_idx {
             StopPointIdx::Base(base_stop_point_idx) => {
-                make_access_points(model, model.base.get_pathway(base_stop_point_idx))
+                make_access_points(model, model.base.stop_point_pathways(base_stop_point_idx))
             }
             StopPointIdx::New(_) => vec![],
         }
@@ -775,7 +775,7 @@ fn make_stop_datetimes(
             arrival_date_time: Some(arrival),
             base_departure_date_time: Some(departure),
             departure_date_time: Some(departure),
-            stop_point: Some(make_stop_point(&stop_point_idx, model, 2)),
+            stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
         proto.set_data_freshness(realtime_level);
@@ -1593,7 +1593,7 @@ fn make_passage(
     let proto_route = model.route(route_id).map(|route| make_route(route, model));
 
     Ok(navitia_proto::Passage {
-        stop_point: make_stop_point(&response.stop_point_idx, model, 2),
+        stop_point: make_stop_point(&response.stop_point_idx, model, false),
         stop_date_time,
         route: proto_route,
         pt_display_informations: Some(make_pt_display_info(
@@ -1666,6 +1666,7 @@ pub fn make_places_nearby_proto_response(
     count: usize,
     depth: usize,
 ) -> navitia_proto::Response {
+    let include_access_points = depth > 2;
     let pt_objects: Vec<navitia_proto::PtObject> = places
         .into_iter()
         .map(|(idx, distance)| navitia_proto::PtObject {
@@ -1673,7 +1674,7 @@ pub fn make_places_nearby_proto_response(
             uri: model.stop_point_uri(&idx),
             distance: Some(distance as i32),
             embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
-            stop_point: Some(make_stop_point(&idx, model, depth)),
+            stop_point: Some(make_stop_point(&idx, model, include_access_points)),
             ..Default::default()
         })
         .collect();

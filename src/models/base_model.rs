@@ -79,23 +79,22 @@ pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
 
 pub type Collections = transit_model::model::Collections;
 pub type Model = transit_model::model::Model;
-pub type PathwayId = Idx<transit_model::objects::Pathway>;
-pub type AccessPointId = Idx<transit_model::objects::StopLocation>;
+pub type PathwayIdx = Idx<transit_model::objects::Pathway>;
+pub type StopLocationIdx = Idx<transit_model::objects::StopLocation>;
 pub type AssociationStopPoint2PathWays =
-    HashMap<Idx<transit_model::objects::StopPoint>, HashSet<(PathwayId, AccessPointId)>>;
+    HashMap<Idx<transit_model::objects::StopPoint>, HashSet<(PathwayIdx, StopLocationIdx)>>;
 
 pub struct BaseModel {
     model: Model,
     loads_data: LoadsData,
     validity_period: (NaiveDate, NaiveDate),
     default_transfer_duration: PositiveDuration,
-    association_stop_point_to_pathways: AssociationStopPoint2PathWays,
+    stop_point_to_pathways: AssociationStopPoint2PathWays,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
 pub type BaseStopPointIdx = Idx<transit_model::objects::StopPoint>;
 pub type BaseTransferIdx = Idx<transit_model::objects::Transfer>;
-pub type StopLocationIdx = Idx<transit_model::objects::StopLocation>;
 
 pub type BaseStopTime = transit_model::objects::StopTime;
 
@@ -151,7 +150,7 @@ impl BaseModel {
             loads_data,
             validity_period: (day, day),
             default_transfer_duration: PositiveDuration::zero(),
-            association_stop_point_to_pathways: AssociationStopPoint2PathWays::new(),
+            stop_point_to_pathways: AssociationStopPoint2PathWays::new(),
         }
     }
 
@@ -235,15 +234,14 @@ impl BaseModel {
             return Err(BadModel::StartDateAfterEndDate);
         }
         // Associate stop_points with path way
-        let association_stop_point_to_pathways =
-            Self::associate_stop_points_with_pathway(&model).unwrap();
+        let stop_point_to_pathways = Self::associate_stop_points_with_pathway(&model)?;
 
         Ok(Self {
             model,
             loads_data,
             validity_period,
             default_transfer_duration,
-            association_stop_point_to_pathways,
+            stop_point_to_pathways,
         })
     }
 
@@ -264,18 +262,13 @@ impl BaseModel {
 }
 
 pub struct PathwayByIter<'model> {
-    idx_iter: Option<
-        std::collections::hash_set::Iter<
-            'model,
-            (Idx<Pathway>, Idx<transit_model::objects::StopLocation>),
-        >,
-    >,
+    idx_iter: Option<std::collections::hash_set::Iter<'model, (PathwayIdx, StopLocationIdx)>>,
     model: &'model BaseModel,
 }
 
 impl<'model> PathwayByIter<'model> {
     pub fn new(stop_point_idx: &BaseStopPointIdx, model: &'model BaseModel) -> Self {
-        let idx_iter = match model.association_stop_point_to_pathways.get(stop_point_idx) {
+        let idx_iter = match model.stop_point_to_pathways.get(stop_point_idx) {
             Some(pathways) => Some(pathways.iter()),
             None => None,
         };
@@ -284,7 +277,7 @@ impl<'model> PathwayByIter<'model> {
 }
 
 impl<'model> Iterator for PathwayByIter<'model> {
-    type Item = (&'model Pathway, Idx<transit_model::objects::StopLocation>);
+    type Item = (&'model Pathway, StopLocationIdx);
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter = self.idx_iter.as_mut()?;
@@ -481,7 +474,7 @@ impl BaseModel {
         }
     }
 
-    pub fn get_pathway(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
+    pub fn stop_point_pathways(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
         PathwayByIter::new(stop_point_idx, self)
     }
 }
