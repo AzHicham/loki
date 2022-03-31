@@ -72,7 +72,6 @@ use launch::loki::transit_model::objects::{Pathway, PathwayMode, StopType};
 use loki::{
     chrono::Timelike,
     models::base_model::{
-        PathwayByIter,
         VehicleJourneyPropertyKey::{
             AirConditioned, AppropriateEscort, AppropriateSignage, AudibleAnnouncement,
             BikeAccepted, SchoolVehicle, VisualAnnouncement, WheelChairAccessible,
@@ -518,7 +517,10 @@ fn make_access_point(
 
     Some(navitia_proto::AccessPoint {
         name: Some(model.base.stop_location_name(access_point_idx).to_string()),
-        uri: Some(String::from("access_point:") + model.base.stop_location_id(access_point_idx)),
+        uri: Some(format!(
+            "access_point:{}",
+            model.base.stop_location_id(access_point_idx)
+        )),
         coord: Some(navitia_proto::GeographicalCoord {
             lat: coord.lat,
             lon: coord.lon,
@@ -557,18 +559,6 @@ fn convert_pathwaymode(mode: &PathwayMode) -> i32 {
     }
 }
 
-fn make_access_points(
-    model: &ModelRefs,
-    pathway_iter: PathwayByIter,
-) -> Vec<navitia_proto::AccessPoint> {
-    pathway_iter
-        .into_iter()
-        .filter_map(|(pathway, access_point_idx)| {
-            make_access_point(model, pathway, access_point_idx)
-        })
-        .collect()
-}
-
 pub fn make_stop_point(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
@@ -603,9 +593,14 @@ pub fn make_stop_point(
 
     let access_points: Vec<navitia_proto::AccessPoint> = if include_access_points {
         match stop_point_idx {
-            StopPointIdx::Base(base_stop_point_idx) => {
-                make_access_points(model, model.base.stop_point_pathways(base_stop_point_idx))
-            }
+            StopPointIdx::Base(base_stop_point_idx) => model
+                .base
+                .stop_point_pathways(base_stop_point_idx)
+                .into_iter()
+                .filter_map(|(pathway, access_point_idx)| {
+                    make_access_point(model, pathway, access_point_idx)
+                })
+                .collect(),
             StopPointIdx::New(_) => vec![],
         }
     } else {

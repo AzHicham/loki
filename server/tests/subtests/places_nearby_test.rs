@@ -50,6 +50,7 @@ fn check_access_point(
         .iter()
         .find(|ap| ap.uri == Some(uri.to_string()))
         .unwrap();
+
     assert_eq!(ap.name, Some(name.to_string()));
     assert_eq!(
         ap.coord,
