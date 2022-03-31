@@ -529,14 +529,17 @@ fn make_access_point(
         is_exit: Some(is_exit),
         pathway_mode: Some(convert_pathwaymode(&pathway.pathway_mode)),
         length: pathway.length.map(|x| {
-            x.to_i32()
+            x.floor()
+                .to_i32()
                 .or_else(|| {
                     warn!("cannot convert pathway length to i32");
                     Some(0)
                 })
                 .unwrap()
         }),
-        traversal_time: pathway.traversal_time.map(|x| x as i32),
+        traversal_time: pathway.traversal_time.map(|x| {
+            i32::try_from(x).expect("traversal_time shouldn't be greater than u32::MAX/2")
+        }),
         stair_count: pathway.stair_count.map(|x| x as i32),
         max_slope: pathway.max_slope.map(|x| x as i32),
         min_width: pathway.min_width.map(|x| x as i32),
