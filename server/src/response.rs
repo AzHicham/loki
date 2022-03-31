@@ -503,16 +503,8 @@ fn make_access_point(
     pathway: &Pathway,
     access_point_idx: StopLocationIdx,
 ) -> Option<navitia_proto::AccessPoint> {
-    let (is_entrance, is_exit) = if pathway.is_bidirectional {
-        (true, true)
-    } else if pathway.from_stop_type == StopType::StopEntrance {
-        (true, false)
-    } else if pathway.to_stop_type == StopType::StopEntrance {
-        (false, true)
-    } else {
-        warn!("Something weired occurred when filling pathway: pathway.from {} and pathway.to {} has erroneous types ", pathway.from_stop_id, pathway.to_stop_id );
-        return None;
-    };
+    let is_entrance = pathway.is_bidirectional || pathway.from_stop_type == StopType::StopEntrance;
+    let is_exit = pathway.is_bidirectional || pathway.to_stop_type == StopType::StopEntrance;
 
     let pathway_stop_point_idx = if pathway.from_stop_type == StopType::Point {
         model.base.stop_point_idx(&pathway.from_stop_id)?
@@ -548,9 +540,8 @@ fn make_access_point(
         min_width: pathway.min_width.map(|x| x as i32),
         signposted_as: pathway.signposted_as.clone(),
         reversed_signposted_as: pathway.reversed_signposted_as.clone(),
-        stop_code: model.base.stop_location_stop_code(access_point_idx).clone(),
+        stop_code: model.base.stop_location_stop_code(access_point_idx),
         parent_station: make_stop_area(&StopPointIdx::Base(pathway_stop_point_idx), model),
-        ..Default::default()
     })
 }
 

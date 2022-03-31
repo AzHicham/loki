@@ -98,7 +98,7 @@ pub async fn places_nearby_test(config: &ServerConfig) {
     let pt_object = &places_nearby_response.places_nearby[0];
     assert_eq!(pt_object.uri, "stop_point:massy");
     let access_points = &pt_object.stop_point.as_ref().unwrap().access_points;
-    assert_eq!(access_points.len(), 3);
+    assert_eq!(access_points.len(), 4);
 
     check_access_point(
         access_points,
@@ -138,8 +138,8 @@ pub async fn places_nearby_test(config: &ServerConfig) {
 
     check_access_point(
         access_points,
-        "access_point:massy_entrance_both_entrance_and_exit",
-        "Massy Entrance And Exit",
+        "access_point:massy_entrance_both_entrance_and_exit_1",
+        "Massy Entrance And Exit 1",
         2.2603,
         48.7253,
         true,
@@ -151,6 +151,24 @@ pub async fn places_nearby_test(config: &ServerConfig) {
         88,
         "89",
         "90",
+        "stop_area:massy_area",
+    );
+
+    check_access_point(
+        access_points,
+        "access_point:massy_entrance_both_entrance_and_exit_2",
+        "Massy Entrance And Exit 2",
+        2.2604,
+        48.7254,
+        true,
+        true,
+        100,
+        101,
+        102,
+        103,
+        104,
+        "105",
+        "106",
         "stop_area:massy_area",
     );
 

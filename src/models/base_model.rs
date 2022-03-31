@@ -218,7 +218,7 @@ impl BaseModel {
             association.values().map(|v| v.len()).sum::<usize>(),
             association.len()
         );
-        return association;
+        association
     }
 
     pub fn new(
@@ -268,10 +268,10 @@ pub struct PathwayByIter<'model> {
 
 impl<'model> PathwayByIter<'model> {
     pub fn new(stop_point_idx: &BaseStopPointIdx, model: &'model BaseModel) -> Self {
-        let idx_iter = match model.stop_point_to_pathways.get(stop_point_idx) {
-            Some(pathways) => Some(pathways.iter()),
-            None => None,
-        };
+        let idx_iter = model
+            .stop_point_to_pathways
+            .get(stop_point_idx)
+            .map(|pathways| pathways.iter());
         Self { idx_iter, model }
     }
 }
@@ -279,12 +279,6 @@ impl<'model> PathwayByIter<'model> {
 impl<'model> Iterator for PathwayByIter<'model> {
     type Item = (&'model Pathway, StopLocationIdx);
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match &self.idx_iter {
-            Some(iter) => iter.size_hint(),
-            None => (0, None),
-        }
-    }
     fn next(&mut self) -> Option<Self::Item> {
         let iter = self.idx_iter.as_mut()?;
         let (pathway_idx, access_point_idx) = iter.next()?;
@@ -292,6 +286,12 @@ impl<'model> Iterator for PathwayByIter<'model> {
             self.model.model.pathways.index(*pathway_idx),
             *access_point_idx,
         ))
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match &self.idx_iter {
+            Some(iter) => iter.size_hint(),
+            None => (0, None),
+        }
     }
 }
 
