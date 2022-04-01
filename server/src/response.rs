@@ -528,18 +528,19 @@ fn make_access_point(
         is_entrance: Some(is_entrance),
         is_exit: Some(is_exit),
         pathway_mode: Some(convert_pathwaymode(&pathway.pathway_mode)),
-        length: pathway.length.map(|x| {
-            x.floor()
-                .to_i32()
-                .or_else(|| {
+        length: pathway
+            .length
+            .map(|x| {
+                x.floor().to_i32().or_else(|| {
                     warn!("cannot convert pathway length to i32");
-                    Some(0)
+                    None
                 })
-                .unwrap()
-        }),
-        traversal_time: pathway.traversal_time.map(|x| {
-            i32::try_from(x).expect("traversal_time shouldn't be greater than u32::MAX/2")
-        }),
+            })
+            .flatten(),
+        traversal_time: pathway
+            .traversal_time
+            .map(|x| i32::try_from(x).map_or(None, |v| Some(v)))
+            .flatten(),
         stair_count: pathway.stair_count.map(|x| i32::from(x)),
         max_slope: pathway.max_slope.map(|x| x.floor().to_i32()).flatten(),
         min_width: pathway.min_width.map(|x| x.floor().to_i32()).flatten(),
@@ -599,7 +600,6 @@ pub fn make_stop_point(
             StopPointIdx::Base(base_stop_point_idx) => model
                 .base
                 .stop_point_pathways(base_stop_point_idx)
-                .into_iter()
                 .filter_map(|(pathway, access_point_idx)| {
                     make_access_point(model, pathway, access_point_idx)
                 })

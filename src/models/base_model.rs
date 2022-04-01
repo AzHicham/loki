@@ -81,7 +81,7 @@ pub type Collections = transit_model::model::Collections;
 pub type Model = transit_model::model::Model;
 pub type PathwayIdx = Idx<transit_model::objects::Pathway>;
 pub type StopLocationIdx = Idx<transit_model::objects::StopLocation>;
-pub type AssociationStopPoint2PathWays =
+pub type StopPointToPathWays =
     HashMap<Idx<transit_model::objects::StopPoint>, HashSet<(PathwayIdx, StopLocationIdx)>>;
 
 pub struct BaseModel {
@@ -89,7 +89,7 @@ pub struct BaseModel {
     loads_data: LoadsData,
     validity_period: (NaiveDate, NaiveDate),
     default_transfer_duration: PositiveDuration,
-    stop_point_to_pathways: AssociationStopPoint2PathWays,
+    stop_point_to_pathways: StopPointToPathWays,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -150,7 +150,7 @@ impl BaseModel {
             loads_data,
             validity_period: (day, day),
             default_transfer_duration: PositiveDuration::zero(),
-            stop_point_to_pathways: AssociationStopPoint2PathWays::new(),
+            stop_point_to_pathways: StopPointToPathWays::new(),
         }
     }
 
@@ -159,7 +159,7 @@ impl BaseModel {
         stop_point_id: &str,
         access_point_id: &str,
         pathway_idx: Idx<Pathway>,
-        association: &mut AssociationStopPoint2PathWays,
+        association: &mut StopPointToPathWays,
     ) -> Option<bool> {
         let stop_point_idx = model.stop_points.get_idx(stop_point_id)?;
         let access_point_idx = model.stop_locations.get_idx(access_point_id)?;
@@ -173,8 +173,8 @@ impl BaseModel {
 
     fn associate_stop_points_with_pathway(
         model: &transit_model::model::Model,
-    ) -> AssociationStopPoint2PathWays {
-        let mut association = AssociationStopPoint2PathWays::new();
+    ) -> StopPointToPathWays {
+        let mut association = StopPointToPathWays::new();
 
         for (pathway_idx, pathway) in &model.pathways {
             let (stop_point_id, access_point_id) =
@@ -202,7 +202,10 @@ impl BaseModel {
                 pathway_idx,
                 &mut association,
             ) {
-                Some(false) => warn!("Cannot insert pathway to association"),
+                Some(false) => warn!(
+                    "Inserted twice the pathway {} between stop_point {} and access_point {}",
+                    pathway.id, stop_point_id, access_point_id
+                ),
 
                 None => warn!(
                     "Cannot find pathway: {} from: {}, to {}",
@@ -290,7 +293,7 @@ impl<'model> Iterator for PathwayByIter<'model> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         match &self.idx_iter {
             Some(iter) => iter.size_hint(),
-            None => (0, 0),
+            None => (0, Some(0)),
         }
     }
 }
