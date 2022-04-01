@@ -290,7 +290,7 @@ impl<'model> Iterator for PathwayByIter<'model> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         match &self.idx_iter {
             Some(iter) => iter.size_hint(),
-            None => (0, None),
+            None => (0, 0),
         }
     }
 }
