@@ -37,7 +37,10 @@ use std::{
 use lapin::{options::BasicPublishOptions, BasicProperties};
 pub use loki_server;
 use loki_server::{
-    chaos_proto, master_worker::MasterWorker, navitia_proto, server_config::ServerConfig,
+    chaos_proto,
+    master_worker::MasterWorker,
+    navitia_proto,
+    server_config::{self, ChaosParams, ServerConfig},
 };
 use prost::Message;
 use protobuf::Message as ProtobufMessage;
@@ -82,7 +85,11 @@ async fn run() {
     let container_rabbitmq_id = start_rabbitmq_docker().await;
 
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
-    config.chaos_params.chaos_database = chaos_endpoint.to_string();
+    let chaos_params = ChaosParams {
+        database: chaos_endpoint.to_string(),
+        batch_size: server_config::default_batch_size(),
+    };
+    config.chaos = Some(chaos_params.clone());
     config.rabbitmq.endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
     config.rabbitmq.connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
@@ -92,7 +99,7 @@ async fn run() {
         .real_time_topics
         .push("test_realtime_topic".to_string());
 
-    wait_until_connected_to_postgresql(&config.chaos_params.chaos_database).await;
+    wait_until_connected_to_postgresql(&chaos_params.database).await;
 
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
