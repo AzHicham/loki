@@ -167,7 +167,7 @@ impl VJGroupedByStayIn {
 }
 
 impl TransitData {
-    pub fn _new(base_model: &BaseModel) -> Self {
+    pub fn new(base_model: &BaseModel) -> Self {
         let nb_of_stop_points = base_model.nb_of_stop_points();
         let nb_transfers = base_model.nb_of_transfers();
 

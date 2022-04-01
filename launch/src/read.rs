@@ -40,7 +40,7 @@ use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     tracing::{info, warn},
-    transit_model, DataIO, DataTrait, LoadsData, PositiveDuration,
+    transit_model, DataTrait, LoadsData, PositiveDuration,
 };
 use std::{path::PathBuf, str::FromStr, time::SystemTime};
 

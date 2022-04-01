@@ -40,7 +40,7 @@ use crate::{
         real_time_model::{KirinDisruptionIdx, TripVersion},
         VehicleJourneyIdx,
     },
-    transit_data::data_interface::{Data as DataTrait, DataUpdate},
+    TransitData,
 };
 
 use crate::{
@@ -101,11 +101,11 @@ pub enum KirinUpdateError {
     DeleteAbsentTrip(VehicleJourneyId, NaiveDate),
 }
 
-pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
+pub fn store_and_apply_kirin_disruption(
     real_time_model: &mut RealTimeModel,
     disruption: KirinDisruption,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
 ) {
     let kirin_disruption_idx = KirinDisruptionIdx {
         idx: real_time_model.kirin_disruptions.len(),
@@ -151,10 +151,10 @@ pub fn store_and_apply_kirin_disruption<Data: DataTrait + DataUpdate>(
     real_time_model.kirin_disruptions.push(disruption);
 }
 
-fn update_new_trip<Data: DataTrait + DataUpdate>(
+fn update_new_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_id: &str,
     date: NaiveDate,
     update_data: &UpdateData,
@@ -211,10 +211,10 @@ fn update_new_trip<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn update_base_trip<Data: DataTrait + DataUpdate>(
+fn update_base_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_id: &str,
     date: NaiveDate,
     update_data: &UpdateData,
@@ -280,10 +280,10 @@ fn update_base_trip<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn delete_trip<Data: DataTrait + DataUpdate>(
+fn delete_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_id: &str,
     date: NaiveDate,
     kirin_disruption_idx: KirinDisruptionIdx,

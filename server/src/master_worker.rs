@@ -38,7 +38,7 @@ use anyhow::{bail, Context, Error};
 use launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     tracing::{error, info},
-    DataIO, TransitData,
+    TransitData,
 };
 use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};

@@ -43,16 +43,15 @@ use crate::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
     },
+    TransitData,
 };
 
 use crate::models::{base_model::BaseModel, ModelRefs};
 
-use crate::DataUpdate;
-
-pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
+pub(super) fn delete_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
 ) {
@@ -92,10 +91,10 @@ pub(super) fn delete_trip<Data: DataTrait + DataUpdate>(
     }
 }
 
-pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
+pub(super) fn add_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_idx: VehicleJourneyIdx,
     date: NaiveDate,
     stop_times: Vec<models::StopTime>,
@@ -140,10 +139,10 @@ pub(super) fn add_trip<Data: DataTrait + DataUpdate>(
     }
 }
 
-pub fn modify_trip<Data: DataTrait + DataUpdate>(
+pub fn modify_trip(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_idx: &VehicleJourneyIdx,
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,

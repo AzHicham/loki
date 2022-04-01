@@ -41,7 +41,7 @@ use crate::{
         RealTimeModel, StopPointIdx, VehicleJourneyIdx,
     },
     time::calendar,
-    transit_data::data_interface::{Data as DataTrait, DataUpdate},
+    TransitData,
 };
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -233,11 +233,11 @@ pub enum ChaosImpactError {
     DeletePresentTrip(VehicleJourneyId, NaiveDate),
 }
 
-pub fn store_and_apply_chaos_disruption<Data: DataTrait + DataUpdate>(
+pub fn store_and_apply_chaos_disruption(
     real_time_model: &mut RealTimeModel,
     disruption: ChaosDisruption,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
 ) {
     debug!("Apply chaos disruption {}", disruption.id);
     let disruption_idx = real_time_model.chaos_disruptions.len();
@@ -259,11 +259,11 @@ pub fn store_and_apply_chaos_disruption<Data: DataTrait + DataUpdate>(
     }
 }
 
-pub fn cancel_chaos_disruption<Data: DataTrait + DataUpdate>(
+pub fn cancel_chaos_disruption(
     real_time_model: &mut RealTimeModel,
     disruption_id: &str,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
 ) {
     debug!("Cancel chaos disruption {disruption_id}");
 
@@ -292,11 +292,11 @@ pub fn cancel_chaos_disruption<Data: DataTrait + DataUpdate>(
     }
 }
 
-fn apply_impact<Data: DataTrait + DataUpdate>(
+fn apply_impact(
     real_time_model: &mut RealTimeModel,
     impact: &ChaosImpact,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     impact_idx: &ChaosImpactIdx,
     cancel_impact: bool,
 ) {
@@ -471,10 +471,10 @@ fn apply_impact<Data: DataTrait + DataUpdate>(
     }
 }
 
-fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
+fn apply_on_base_vehicle_journey(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     vehicle_journey_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -510,10 +510,10 @@ fn apply_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     }
 }
 
-fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
+fn apply_on_base_vehicle_journey_idx(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -538,10 +538,10 @@ fn apply_on_base_vehicle_journey_idx<Data: DataTrait + DataUpdate>(
     }
 }
 
-fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
+fn dispatch_on_base_vehicle_journey(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     date: NaiveDate,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -630,10 +630,10 @@ fn dispatch_on_base_vehicle_journey<Data: DataTrait + DataUpdate>(
     }
 }
 
-fn apply_on_network<Data: DataTrait + DataUpdate>(
+fn apply_on_network(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     network_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -673,10 +673,10 @@ fn apply_on_network<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn apply_on_line<Data: DataTrait + DataUpdate>(
+fn apply_on_line(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     line_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -715,10 +715,10 @@ fn apply_on_line<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn apply_on_route<Data: DataTrait + DataUpdate>(
+fn apply_on_route(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     route_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -757,10 +757,10 @@ fn apply_on_route<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
+fn apply_on_stop_area(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     stop_area_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -806,10 +806,10 @@ fn apply_on_stop_area<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn apply_on_stop_point<Data: DataTrait + DataUpdate>(
+fn apply_on_stop_point(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     stop_point_id: &str,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -848,10 +848,10 @@ fn apply_on_stop_point<Data: DataTrait + DataUpdate>(
     Ok(())
 }
 
-fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPointIdx) -> bool>(
+fn apply_on_stop_point_by_closure<F: Fn(&StopPointIdx) -> bool>(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     is_stop_point_concerned: F,
     application_periods: &TimePeriods,
     chaos_impact_idx: &ChaosImpactIdx,
@@ -952,10 +952,10 @@ fn apply_on_stop_point_by_closure<Data: DataTrait + DataUpdate, F: Fn(&StopPoint
     }
 }
 
-fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointIdx) -> bool>(
+fn remove_stop_points_from_trip<F: Fn(&StopPointIdx) -> bool>(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     is_stop_point_concerned: &F,
     application_periods: &TimePeriods,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
@@ -1051,10 +1051,10 @@ fn remove_stop_points_from_trip<Data: DataTrait + DataUpdate, F: Fn(&StopPointId
     );
 }
 
-fn cancel_impact<Data: DataTrait + DataUpdate>(
+fn cancel_impact(
     real_time_model: &mut RealTimeModel,
     base_model: &BaseModel,
-    data: &mut Data,
+    data: &mut TransitData,
     chaos_impact_idx: &ChaosImpactIdx,
     chaos_object_idx: &ChaosImpactObjectIdx,
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,

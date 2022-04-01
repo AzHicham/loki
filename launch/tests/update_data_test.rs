@@ -47,7 +47,7 @@ use loki::{
         VehicleJourneyIdx,
     },
     timetables::InsertionError,
-    DataTrait, DataUpdate, RealTimeLevel,
+    DataTrait, RealTimeLevel,
 };
 use utils::{
     disruption_builder::StopTimesBuilder,
