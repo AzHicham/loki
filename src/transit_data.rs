@@ -42,9 +42,7 @@ use chrono::NaiveDate;
 
 use crate::{
     loads_data::Load,
-    models::{
-        base_model::BaseModel, ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx,
-    },
+    models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
@@ -444,12 +442,6 @@ impl data_interface::Data for TransitData {
 
     fn mission_id(&self, mission: &Self::Mission) -> usize {
         self.timetables.mission_id(mission)
-    }
-}
-
-impl data_interface::DataIO for TransitData {
-    fn new(base_model: &BaseModel) -> Self {
-        Self::_new(base_model)
     }
 }
 

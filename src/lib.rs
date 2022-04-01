@@ -57,7 +57,7 @@ pub use transit_model;
 pub use typed_index_collection;
 
 pub use transit_data::data_interface::{
-    Data as DataTrait, DataIO, DataUpdate, DataWithIters, RealTimeLevel, TransitTypes,
+    Data as DataTrait, DataWithIters, RealTimeLevel, TransitTypes,
 };
 
 pub use loads_data::LoadsData;

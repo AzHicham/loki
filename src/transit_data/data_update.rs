@@ -45,13 +45,10 @@ use crate::{
 
 use crate::{time::SecondsSinceTimezonedDayStart, timetables::FlowDirection};
 
-use super::{
-    data_interface::{self, RealTimeLevel},
-    Mission,
-};
+use super::{data_interface::RealTimeLevel, Mission};
 
-impl data_interface::DataUpdate for TransitData {
-    fn remove_real_time_vehicle(
+impl TransitData {
+    pub fn remove_real_time_vehicle(
         &mut self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: chrono::NaiveDate,
@@ -94,7 +91,7 @@ impl data_interface::DataUpdate for TransitData {
         Ok(())
     }
 
-    fn insert_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    pub fn insert_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stop_points: Stops,
         flows: Flows,
@@ -126,7 +123,7 @@ impl data_interface::DataUpdate for TransitData {
         )
     }
 
-    fn modify_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
+    pub fn modify_real_time_vehicle<Stops, Flows, Dates, BoardTimes, DebarkTimes>(
         &mut self,
         stops: Stops,
         flows: Flows,
