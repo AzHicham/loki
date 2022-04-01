@@ -540,9 +540,9 @@ fn make_access_point(
         traversal_time: pathway.traversal_time.map(|x| {
             i32::try_from(x).expect("traversal_time shouldn't be greater than u32::MAX/2")
         }),
-        stair_count: pathway.stair_count.map(|x| x as i32),
-        max_slope: pathway.max_slope.map(|x| x as i32),
-        min_width: pathway.min_width.map(|x| x as i32),
+        stair_count: pathway.stair_count.map(|x| i32::from(x)),
+        max_slope: pathway.max_slope.map(|x| x.floor().to_i32()).flatten(),
+        min_width: pathway.min_width.map(|x| x.floor().to_i32()).flatten(),
         signposted_as: pathway.signposted_as.clone(),
         reversed_signposted_as: pathway.reversed_signposted_as.clone(),
         stop_code: model.base.stop_location_stop_code(access_point_idx),
