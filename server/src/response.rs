@@ -510,7 +510,7 @@ fn make_access_point(
     } else if pathway.to_stop_type == StopType::Point {
         model.base.stop_point_idx(&pathway.to_stop_id)?
     } else {
-        warn!("Something weired occurred when filling pathway: cannot find stop point");
+        warn!("Unable to convert pathway {} to protobuf : neither from_stop nor to_stop are stop points.", pathway.id);
         return None;
     };
     let coord = model.base.stop_location_coord(access_point_idx);
