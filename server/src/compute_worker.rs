@@ -261,6 +261,7 @@ impl ComputeWorker {
                 let uri = places_nearby_request.uri;
                 let start_page = usize::try_from(places_nearby_request.start_page).unwrap_or(0);
                 let count = usize::try_from(places_nearby_request.count).unwrap_or(0);
+                let depth = usize::try_from(places_nearby_request.depth).unwrap_or(2);
 
                 match self.solver.solve_places_nearby(&model_refs, &uri, radius) {
                     Ok(mut places_nearby_iter) => Ok(response::make_places_nearby_proto_response(
@@ -268,6 +269,7 @@ impl ComputeWorker {
                         &mut places_nearby_iter,
                         start_page,
                         count,
+                        depth,
                     )),
                     Err(err) => Ok(make_error_response(&format_err!("{}", err))),
                 }

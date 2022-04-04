@@ -35,11 +35,13 @@
 // www.navitia.io
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use std::collections::BTreeSet;
-use tracing::warn;
+use std::collections::HashMap;
+use std::collections::{BTreeSet, HashSet};
+use std::ops::Index;
+use tracing::{info, warn};
 use transit_model::objects::{
-    Availability, CommercialMode, Equipment, Line, Network, PhysicalMode, Properties, Route,
-    StopArea, VehicleJourney,
+    Availability, CommercialMode, Equipment, Line, Network, Pathway, PhysicalMode, Properties,
+    Route, StopArea, StopType, VehicleJourney,
 };
 
 use typed_index_collection::Idx;
@@ -77,12 +79,17 @@ pub fn strip_id_prefix<'a>(id: &'a str, prefix: &str) -> &'a str {
 
 pub type Collections = transit_model::model::Collections;
 pub type Model = transit_model::model::Model;
+pub type PathwayIdx = Idx<transit_model::objects::Pathway>;
+pub type StopLocationIdx = Idx<transit_model::objects::StopLocation>;
+pub type StopPointToPathWays =
+    HashMap<Idx<transit_model::objects::StopPoint>, HashSet<(PathwayIdx, StopLocationIdx)>>;
 
 pub struct BaseModel {
     model: Model,
     loads_data: LoadsData,
     validity_period: (NaiveDate, NaiveDate),
     default_transfer_duration: PositiveDuration,
+    stop_point_to_pathways: StopPointToPathWays,
 }
 
 pub type BaseVehicleJourneyIdx = Idx<transit_model::objects::VehicleJourney>;
@@ -143,7 +150,78 @@ impl BaseModel {
             loads_data,
             validity_period: (day, day),
             default_transfer_duration: PositiveDuration::zero(),
+            stop_point_to_pathways: StopPointToPathWays::new(),
         }
+    }
+
+    fn insert_pathway_into_association(
+        model: &transit_model::model::Model,
+        stop_point_id: &str,
+        access_point_id: &str,
+        pathway_idx: Idx<Pathway>,
+        association: &mut StopPointToPathWays,
+    ) -> Option<bool> {
+        let stop_point_idx = model.stop_points.get_idx(stop_point_id)?;
+        let access_point_idx = model.stop_locations.get_idx(access_point_id)?;
+        Some(
+            association
+                .entry(stop_point_idx)
+                .or_insert_with(HashSet::new)
+                .insert((pathway_idx, access_point_idx)),
+        )
+    }
+
+    fn associate_stop_points_with_pathway(
+        model: &transit_model::model::Model,
+    ) -> StopPointToPathWays {
+        let mut association = StopPointToPathWays::new();
+
+        for (pathway_idx, pathway) in &model.pathways {
+            let (stop_point_id, access_point_id) =
+                if (&pathway.from_stop_type, &pathway.to_stop_type)
+                    == (&StopType::Point, &StopType::StopEntrance)
+                {
+                    (&pathway.from_stop_id, &pathway.to_stop_id)
+                } else if (&pathway.to_stop_type, &pathway.from_stop_type)
+                    == (&StopType::Point, &StopType::StopEntrance)
+                {
+                    (&pathway.to_stop_id, &pathway.from_stop_id)
+                } else {
+                    warn!(
+                        "Pathway {} has incorrect stop_type from:{} to:{}",
+                        &pathway_idx.get(),
+                        pathway.from_stop_id,
+                        pathway.to_stop_id
+                    );
+                    continue;
+                };
+            match Self::insert_pathway_into_association(
+                model,
+                stop_point_id,
+                access_point_id,
+                pathway_idx,
+                &mut association,
+            ) {
+                Some(false) => warn!(
+                    "Inserted twice the pathway {} between stop_point {} and access_point {}",
+                    pathway.id, stop_point_id, access_point_id
+                ),
+
+                None => warn!(
+                    "Cannot find pathway: {} from: {}, to {}",
+                    &pathway_idx.get(),
+                    pathway.from_stop_id,
+                    pathway.to_stop_id
+                ),
+                _ => (),
+            }
+        }
+        info!(
+            "{} pathways are associated to {} stop points",
+            association.values().map(|v| v.len()).sum::<usize>(),
+            association.len()
+        );
+        association
     }
 
     pub fn new(
@@ -154,14 +232,19 @@ impl BaseModel {
         let validity_period = model
             .calculate_validity_period()
             .map_err(|_| BadModel::NoDataset)?;
+
         if validity_period.0 > validity_period.1 {
             return Err(BadModel::StartDateAfterEndDate);
         }
+        // Associate stop_points with path way
+        let stop_point_to_pathways = Self::associate_stop_points_with_pathway(&model);
+
         Ok(Self {
             model,
             loads_data,
             validity_period,
             default_transfer_duration,
+            stop_point_to_pathways,
         })
     }
 
@@ -178,6 +261,40 @@ impl BaseModel {
         let end_datetime = self.validity_period.1.and_hms(0, 0, 0) + Duration::days(1);
         TimePeriod::new(start_datetime, end_datetime).unwrap() // unwrap is safe here, because we check in new()
                                                                // that validity_period.0 <= validity_period.1
+    }
+}
+
+pub struct PathwayByIter<'model> {
+    idx_iter: Option<std::collections::hash_set::Iter<'model, (PathwayIdx, StopLocationIdx)>>,
+    model: &'model BaseModel,
+}
+
+impl<'model> PathwayByIter<'model> {
+    pub fn new(stop_point_idx: &BaseStopPointIdx, model: &'model BaseModel) -> Self {
+        let idx_iter = model
+            .stop_point_to_pathways
+            .get(stop_point_idx)
+            .map(|pathways| pathways.iter());
+        Self { idx_iter, model }
+    }
+}
+
+impl<'model> Iterator for PathwayByIter<'model> {
+    type Item = (&'model Pathway, StopLocationIdx);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter = self.idx_iter.as_mut()?;
+        let (pathway_idx, access_point_idx) = iter.next()?;
+        Some((
+            self.model.model.pathways.index(*pathway_idx),
+            *access_point_idx,
+        ))
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match &self.idx_iter {
+            Some(iter) => iter.size_hint(),
+            None => (0, Some(0)),
+        }
     }
 }
 
@@ -273,6 +390,13 @@ impl BaseModel {
     pub fn stop_area_id(&self, stop_idx: BaseStopPointIdx) -> &str {
         &self.model.stop_points[stop_idx].stop_area_id
     }
+    pub fn stop_area_name(&self, stop_idx: BaseStopPointIdx) -> &str {
+        let sa_id = &self.model.stop_points[stop_idx].stop_area_id;
+        self.model
+            .stop_areas
+            .get(sa_id)
+            .map_or(sa_id, |stop_area| &stop_area.name)
+    }
 
     pub fn stop_area_uri(&self, stop_area_id: &str) -> Option<String> {
         let stop_area = self.model.stop_areas.get(stop_area_id)?;
@@ -357,6 +481,33 @@ impl BaseModel {
             Some(idx) => self.model.get_corresponding_from_idx(idx),
             None => BTreeSet::new(),
         }
+    }
+
+    pub fn stop_point_pathways(&self, stop_point_idx: &BaseStopPointIdx) -> PathwayByIter {
+        PathwayByIter::new(stop_point_idx, self)
+    }
+}
+// stop_locations
+impl BaseModel {
+    pub fn stop_location_name(&self, idx: StopLocationIdx) -> &str {
+        &self.model.stop_locations[idx].name
+    }
+    pub fn stop_location_id(&self, idx: StopLocationIdx) -> &str {
+        &self.model.stop_locations[idx].id
+    }
+    pub fn stop_location_stop_code(&self, idx: StopLocationIdx) -> Option<String> {
+        self.model.stop_locations[idx].code.clone()
+    }
+    pub fn stop_location_coord(&self, idx: StopLocationIdx) -> Coord {
+        let stop_location = &self.model.stop_locations[idx];
+        Coord {
+            lat: stop_location.coord.lat,
+            lon: stop_location.coord.lon,
+        }
+    }
+    pub fn stop_location_parent_station(&self, idx: StopLocationIdx) -> Option<&StopArea> {
+        let parent_id = &self.model.stop_locations[idx].parent_id.as_ref()?;
+        self.model.stop_areas.get(parent_id)
     }
 }
 

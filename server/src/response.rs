@@ -67,7 +67,9 @@ use loki::{
 };
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::{
+use launch::loki::models::base_model::StopLocationIdx;
+use launch::loki::transit_model::objects::{Pathway, PathwayMode, StopType};
+use loki::{
     chrono::Timelike,
     models::base_model::{
         VehicleJourneyPropertyKey::{
@@ -81,6 +83,7 @@ use launch::loki::{
     transit_data_filtered::TransitModelTime,
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
 };
+use num_traits::cast::ToPrimitive;
 use std::convert::TryFrom;
 
 pub fn make_response(
@@ -486,7 +489,7 @@ fn make_stop_point_pt_object(
     let mut proto = navitia_proto::PtObject {
         name: model.stop_point_name(stop_point_idx).to_string(),
         uri: model.stop_point_uri(stop_point_idx),
-        stop_point: Some(make_stop_point(stop_point_idx, model)),
+        stop_point: Some(make_stop_point(stop_point_idx, model, false)),
         ..Default::default()
     };
     proto.set_embedded_type(navitia_proto::NavitiaType::StopPoint);
@@ -494,9 +497,76 @@ fn make_stop_point_pt_object(
     Ok(proto)
 }
 
+fn make_access_point(
+    model: &ModelRefs,
+    pathway: &Pathway,
+    access_point_idx: StopLocationIdx,
+) -> Option<navitia_proto::AccessPoint> {
+    let is_entrance = pathway.is_bidirectional || pathway.from_stop_type == StopType::StopEntrance;
+    let is_exit = pathway.is_bidirectional || pathway.to_stop_type == StopType::StopEntrance;
+
+    let pathway_stop_point_idx = if pathway.from_stop_type == StopType::Point {
+        model.base.stop_point_idx(&pathway.from_stop_id)?
+    } else if pathway.to_stop_type == StopType::Point {
+        model.base.stop_point_idx(&pathway.to_stop_id)?
+    } else {
+        warn!("Unable to convert pathway {} to protobuf : neither from_stop nor to_stop are stop points.", pathway.id);
+        return None;
+    };
+    let coord = model.base.stop_location_coord(access_point_idx);
+
+    Some(navitia_proto::AccessPoint {
+        name: Some(model.base.stop_location_name(access_point_idx).to_string()),
+        uri: Some(format!(
+            "access_point:{}",
+            model.base.stop_location_id(access_point_idx)
+        )),
+        coord: Some(navitia_proto::GeographicalCoord {
+            lat: coord.lat,
+            lon: coord.lon,
+        }),
+        is_entrance: Some(is_entrance),
+        is_exit: Some(is_exit),
+        pathway_mode: Some(convert_pathwaymode(&pathway.pathway_mode)),
+        length: pathway
+            .length
+            .map(|x| {
+                x.floor().to_i32().or_else(|| {
+                    warn!("cannot convert pathway length to i32");
+                    None
+                })
+            })
+            .flatten(),
+        traversal_time: pathway
+            .traversal_time
+            .map(|x| i32::try_from(x).map_or(None, |v| Some(v)))
+            .flatten(),
+        stair_count: pathway.stair_count.map(|x| i32::from(x)),
+        max_slope: pathway.max_slope.map(|x| x.floor().to_i32()).flatten(),
+        min_width: pathway.min_width.map(|x| x.floor().to_i32()).flatten(),
+        signposted_as: pathway.signposted_as.clone(),
+        reversed_signposted_as: pathway.reversed_signposted_as.clone(),
+        stop_code: model.base.stop_location_stop_code(access_point_idx),
+        parent_station: make_stop_area(&StopPointIdx::Base(pathway_stop_point_idx), model),
+    })
+}
+
+fn convert_pathwaymode(mode: &PathwayMode) -> i32 {
+    match mode {
+        PathwayMode::Walkway => 1,
+        PathwayMode::Stairs => 2,
+        PathwayMode::MovingSidewalk => 3,
+        PathwayMode::Escalator => 4,
+        PathwayMode::Elevator => 5,
+        PathwayMode::FareGate => 6,
+        PathwayMode::ExitGate => 7,
+    }
+}
+
 pub fn make_stop_point(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
+    include_access_points: bool,
 ) -> navitia_proto::StopPoint {
     let has_coord = model.coord(stop_point_idx);
 
@@ -524,6 +594,21 @@ pub fn make_stop_point(
     });
 
     let stop_point_name = model.stop_point_name(stop_point_idx);
+
+    let access_points: Vec<navitia_proto::AccessPoint> = if include_access_points {
+        match stop_point_idx {
+            StopPointIdx::Base(base_stop_point_idx) => model
+                .base
+                .stop_point_pathways(base_stop_point_idx)
+                .filter_map(|(pathway, access_point_idx)| {
+                    make_access_point(model, pathway, access_point_idx)
+                })
+                .collect(),
+            StopPointIdx::New(_) => vec![],
+        }
+    } else {
+        vec![]
+    };
     let proto = navitia_proto::StopPoint {
         name: Some(stop_point_name.to_string()),
         // uri: Some(stop_point.id.clone()),
@@ -546,9 +631,9 @@ pub fn make_stop_point(
             .map(|s| navitia_proto::FareZone {
                 name: Some(s.to_string()),
             }),
+        access_points,
         ..Default::default()
     };
-
     proto
 }
 
@@ -556,21 +641,22 @@ fn make_stop_area(
     stop_point_idx: &StopPointIdx,
     model: &ModelRefs,
 ) -> Option<navitia_proto::StopArea> {
-    let stop_area_name = model.stop_area_id(stop_point_idx);
-    let coord =
-        model
-            .stop_area_coord(stop_area_name)
-            .map(|coord| navitia_proto::GeographicalCoord {
-                lat: coord.lat,
-                lon: coord.lon,
-            });
+    let stop_area_id = model.stop_area_id(stop_point_idx);
+    let stop_area_name = model.stop_area_name(stop_point_idx);
+
+    let coord = model
+        .stop_area_coord(stop_area_id)
+        .map(|coord| navitia_proto::GeographicalCoord {
+            lat: coord.lat,
+            lon: coord.lon,
+        });
     let proto = navitia_proto::StopArea {
         name: Some(stop_area_name.to_string()),
-        uri: model.stop_area_uri(stop_area_name),
+        uri: model.stop_area_uri(stop_area_id),
         coord,
         label: Some(stop_area_name.to_string()),
         codes: model
-            .stop_area_codes(stop_area_name)
+            .stop_area_codes(stop_area_id)
             .map(|codes| {
                 codes
                     .map(|(key, value)| navitia_proto::Code {
@@ -581,7 +667,7 @@ fn make_stop_area(
             })
             .unwrap_or_else(Vec::new),
         timezone: model
-            .stop_area_timezone(stop_area_name)
+            .stop_area_timezone(stop_area_id)
             .map(|timezone| timezone.to_string()),
         ..Default::default()
     };
@@ -678,7 +764,7 @@ fn make_stop_datetimes(
             arrival_date_time: Some(arrival),
             base_departure_date_time: Some(departure),
             departure_date_time: Some(departure),
-            stop_point: Some(make_stop_point(&stop_point_idx, model)),
+            stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
         proto.set_data_freshness(realtime_level);
@@ -1496,7 +1582,7 @@ fn make_passage(
     let proto_route = model.route(route_id).map(|route| make_route(route, model));
 
     Ok(navitia_proto::Passage {
-        stop_point: make_stop_point(&response.stop_point_idx, model),
+        stop_point: make_stop_point(&response.stop_point_idx, model, false),
         stop_date_time,
         route: proto_route,
         pt_display_informations: Some(make_pt_display_info(
@@ -1567,7 +1653,9 @@ pub fn make_places_nearby_proto_response(
     places: &mut PlacesNearbyIter,
     start_page: usize,
     count: usize,
+    depth: usize,
 ) -> navitia_proto::Response {
+    let include_access_points = depth > 2;
     let pt_objects: Vec<navitia_proto::PtObject> = places
         .into_iter()
         .map(|(idx, distance)| navitia_proto::PtObject {
@@ -1575,7 +1663,7 @@ pub fn make_places_nearby_proto_response(
             uri: model.stop_point_uri(&idx),
             distance: Some(distance as i32),
             embedded_type: Some(navitia_proto::NavitiaType::StopPoint as i32),
-            stop_point: Some(make_stop_point(&idx, model)),
+            stop_point: Some(make_stop_point(&idx, model, include_access_points)),
             ..Default::default()
         })
         .collect();
