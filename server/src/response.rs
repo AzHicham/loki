@@ -67,8 +67,10 @@ use loki::{
 };
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::models::base_model::StopLocationIdx;
-use launch::loki::transit_model::objects::{Pathway, PathwayMode, StopType};
+use launch::loki::{
+    models::base_model::StopLocationIdx,
+    transit_model::objects::{Pathway, PathwayMode, StopType},
+};
 use loki::{
     chrono::Timelike,
     models::base_model::{
@@ -528,22 +530,16 @@ fn make_access_point(
         is_entrance: Some(is_entrance),
         is_exit: Some(is_exit),
         pathway_mode: Some(convert_pathwaymode(&pathway.pathway_mode)),
-        length: pathway
-            .length
-            .map(|x| {
-                x.floor().to_i32().or_else(|| {
-                    warn!("cannot convert pathway length to i32");
-                    None
-                })
+        length: pathway.length.and_then(|x| {
+            x.floor().to_i32().or_else(|| {
+                warn!("cannot convert pathway length to i32");
+                None
             })
-            .flatten(),
-        traversal_time: pathway
-            .traversal_time
-            .map(|x| i32::try_from(x).map_or(None, |v| Some(v)))
-            .flatten(),
-        stair_count: pathway.stair_count.map(|x| i32::from(x)),
-        max_slope: pathway.max_slope.map(|x| x.floor().to_i32()).flatten(),
-        min_width: pathway.min_width.map(|x| x.floor().to_i32()).flatten(),
+        }),
+        traversal_time: pathway.traversal_time.and_then(|x| i32::try_from(x).ok()),
+        stair_count: pathway.stair_count.map(i32::from),
+        max_slope: pathway.max_slope.and_then(|x| x.floor().to_i32()),
+        min_width: pathway.min_width.and_then(|x| x.floor().to_i32()),
         signposted_as: pathway.signposted_as.clone(),
         reversed_signposted_as: pathway.reversed_signposted_as.clone(),
         stop_code: model.base.stop_location_stop_code(access_point_idx),
