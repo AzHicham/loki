@@ -35,9 +35,10 @@
 // www.navitia.io
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use std::collections::HashMap;
-use std::collections::{BTreeSet, HashSet};
-use std::ops::Index;
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    ops::Index,
+};
 use tracing::{info, warn};
 use transit_model::objects::{
     Availability, CommercialMode, Equipment, Line, Network, Pathway, PhysicalMode, Properties,
