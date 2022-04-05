@@ -40,10 +40,10 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=CanalTP_loki
+          -Dsonar.projectKey=Hove_loki
           -Dsonar.projectName=loki
           -Dsonar.sources=.
           -Dsonar.sourceEncoding=UTF-8
           -Dsonar.externalIssuesReportPaths=sonar.json
-          -Dsonar.organization=canaltp
+          -Dsonar.organization=hove-io
           -Dsonar.verbose=true

@@ -1,7 +1,7 @@
 [submodule "server/navitia-proto"]
 	path = server/navitia-proto
-	url = https://github.com/CanalTP/navitia-proto.git
+	url = git@github.com:hove-io/navitia-proto.git
 
 [submodule "server/chaos-proto"]
 	path = server/chaos-proto
-	url = https://github.com/CanalTP/chaos-proto.git
+	url = git@github.com:hove-io/chaos-proto.git
