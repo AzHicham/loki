@@ -3,12 +3,12 @@ Loki
 
 Tips and tricks to fluidify your (public) transit !
 
-.. |Build Status| image:: https://img.shields.io/github/workflow/status/CanalTP/loki/Build%20and%20test?logo=github&style=flat-square
-    :target: https://github.com/CanalTP/loki/actions?query=workflow%3A%22Build+and+test%22
+.. |Build Status| image:: https://img.shields.io/github/workflow/status/hove-io/loki/Build%20and%20test?logo=github&style=flat-square
+    :target: https://github.com/hove-io/loki/actions?query=workflow%3A%22Build+and+test%22
     :alt: Last build
 
-.. |Code Coverage| image:: https://codecov.io/gh/CanalTP/loki/branch/master/graph/badge.svg?token=IYF7W6U2NI
-    :target: https://codecov.io/gh/CanalTP/loki
+.. |Code Coverage| image:: https://codecov.io/gh/hove-io/loki/branch/master/graph/badge.svg?token=IYF7W6U2NI
+    :target: https://codecov.io/gh/hove-io/loki
     :alt: Coverage
 
 +----------------+-----------------+
@@ -68,8 +68,8 @@ Ile-De-France Mobilités (IDFM), SNCF, and public funds
 under the scope of the French Program "Investissements d’Avenir".
 
 .. _stop_areas: ./stop_areas/Readme.md
-.. _navitia-proto: https://github.com/CanalTP/navitia-proto
+.. _navitia-proto: https://github.com/hove-io/navitia-proto
 .. _server: ./server/Readme.md
-.. _Navitia: https://github.com/CanalTP/navitia
+.. _Navitia: https://github.com/hove-io/navitia
 .. _docker-readme: ./docker/Readme.md
 .. _random: ./random/Readme.md

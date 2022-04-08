@@ -78,7 +78,7 @@ if [[ $event == "push" ]]; then
         show_help
         exit 1
     fi
-    fork="CanalTP"
+    fork="hove-io"
 elif [[ $event == "pull_request" ]]; then
     if [[ -z $branch ]]; then
         echo "branch must be set for pull_request events (-e pull_request -b branch_name)"
@@ -111,13 +111,13 @@ run git clone https://x-token-auth:${token}@github.com/${fork}/navitia.git --bra
 
 # let's dowload the navitia package built on gihub actions
 # for that we need the repo core_team_ci_tools
-run git clone https://x-token-auth:${token}@github.com/CanalTP/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
+run git clone https://x-token-auth:${token}@github.com/hove-io/core_team_ci_tools.git  ./tmp/core_team_ci_tools/
 
 # we setup the right python environnement to use core_team_ci_tools
 run pip install -r ./tmp/core_team_ci_tools/github_artifacts/requirements.txt --user
 
 # let's download the navitia packages
-run python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o CanalTP -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/ --waiting
+run python ./tmp/core_team_ci_tools/github_artifacts/github_artifacts.py -o hove-io -r navitia -t $token -w $workflow -b $branch -a $archive -e $event --output-dir ./tmp/ --waiting
 
 # let's unzip what we received
 run unzip -q ./tmp/${archive} -d ./tmp/

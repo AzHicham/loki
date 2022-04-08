@@ -1,10 +1,10 @@
-// Copyright  (C) 2020, Kisio Digital and/or its affiliates. All rights reserved.
+// Copyright  (C) 2020, Hove and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
 // the software to build cool stuff with public transport.
 //
 // Hope you'll enjoy and contribute to this project,
-// powered by Kisio Digital (www.kisio.com).
+// powered by Hove (www.kisio.com).
 // Help us simplify mobility and open public transport:
 // a non ending quest to the responsive locomotion way of traveling!
 //
@@ -136,7 +136,7 @@ pub fn handle_kirin_protobuf(
     };
 
     // Please see kirin-proto documentation to understand the following code
-    // https://github.com/CanalTP/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
+    // https://github.com/hove-io/chaos-proto/blob/6b2fea75cdb39c7850571b01888b550881027068/kirin_proto_doc.rs#L67-L89
     use Effect::*;
     let update = match effect {
         NoService => UpdateType::TripDeleted(),

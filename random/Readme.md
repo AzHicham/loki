@@ -36,7 +36,7 @@ Install [flamegraph-rs][5] and launch
 cargo flamegraph --bin loki_random -- path/to/config.toml
 ```
 
-[1]: https://github.com/CanalTP/ntfs-specification
+[1]: https://github.com/hove-io/ntfs-specification
 [2]: https://crates.io/crates/log
 [3]: ./Cargo.toml
 [4]: https://docs.rs/log/0.4.11/log/#compile-time-filters

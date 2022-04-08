@@ -72,11 +72,11 @@ See [this page][6] for more information on build scripts.
 
 
 
-[1]: https://github.com/CanalTP/ntfs-specification
-[2]: https://github.com/CanalTP/navitia-proto
+[1]: https://github.com/hove-io/ntfs-specification
+[2]: https://github.com/hove-io/navitia-proto
 [3]: https://crates.io/crates/prost-build
 [4]: https://crates.io/crates/prost
 [5]: ./build.rs
 [6]: https://doc.rust-lang.org/cargo/reference/build-scripts.html
-[7]: https://github.com/CanalTP/navitia/pull/3251
-[8]: https://github.com/CanalTP/navitia/blob/dev/source/eitri/Readme.md
+[7]: https://github.com/hove-io/navitia/pull/3251
+[8]: https://github.com/hove-io/navitia/blob/dev/source/eitri/Readme.md
