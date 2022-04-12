@@ -201,7 +201,15 @@ for folder in $(ls -d */); do
     jq -n --arg instance "${coverage}" --arg krakenSocket "tcp://kraken-${coverage}:${krakenPort}" --arg lokiSocket "tcp://loki-${coverage}:${lokiPort}" '{
     key: $instance,
     zmq_socket: $krakenSocket,
-    pt_zmq_socket : $lokiSocket
+    pt_planners: {
+        loki: {
+          klass: "jormungandr.pt_planners.loki.Loki",
+          args: {
+            timeout: 10000,
+            zmq_socket: $lokiSocket
+          }
+        }
+    }
 }'  > ${output}/jormun_conf/${coverage}.json
 
 
