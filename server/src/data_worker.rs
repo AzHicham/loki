@@ -624,7 +624,11 @@ impl DataWorker {
         channel
             .queue_declare(
                 &self.real_time_queue_name,
-                QueueDeclareOptions::default(),
+                QueueDeclareOptions {
+                    exclusive: true,
+                    auto_delete: true,
+                    ..QueueDeclareOptions::default()
+                },
                 FieldTable::default(),
             )
             .await
@@ -671,7 +675,11 @@ impl DataWorker {
         channel
             .queue_declare(
                 &self.reload_queue_name,
-                QueueDeclareOptions::default(),
+                QueueDeclareOptions {
+                    exclusive: true,
+                    auto_delete: true,
+                    ..QueueDeclareOptions::default()
+                },
                 FieldTable::default(),
             )
             .await
