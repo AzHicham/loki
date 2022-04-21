@@ -135,10 +135,12 @@ impl DataWorker {
                 );
                 String::from("unknown_host")
             });
+        let uuid = uuid::Uuid::new_v4();
 
         let instance_name = &config.instance_name;
-        let real_time_queue_name = format!("loki_{}_{}_real_time", host_name, instance_name);
-        let reload_queue_name = format!("loki_{}_{}_reload", host_name, instance_name);
+        let real_time_queue_name =
+            format!("loki_{}_{}_real_time_{}", host_name, instance_name, uuid);
+        let reload_queue_name = format!("loki_{}_{}_reload_{}", host_name, instance_name, uuid);
 
         let data_source = match &config.data_source {
             DataSourceParams::Local(local_file_params) => {
