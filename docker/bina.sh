@@ -224,19 +224,15 @@ zmq_socket = tcp://*:${krakenPort}
 " > ${output}/${coverage}/kraken.ini
 
     # Loki config files
-    echo '
-    instance_name = ""
-    requests_socket = ""
-    input_data_type = ""
+    echo """
+    instance_name = '${coverage}'
+    requests_socket = 'tcp://*:${lokiPort}'
+    input_data_type = '${inputType}'
     [data_source]
-    type = "local"
-    input_data_path = ""
-    loads_data_path = "/data/stoptimes_loads.csv"
-' | dasel put string -p toml 'data_source.input_data_path' /data/$inputType/ \
-  | dasel put string -p toml 'instance_name' $coverage \
-  | dasel put string -p toml 'requests_socket' tcp://*:$lokiPort \
-  | dasel put string -p toml 'input_data_type' $inputType \
-> ${output}/${coverage}/loki_config.toml
+    type = 'local'
+    input_data_path = '/data/${inputType}/'
+    loads_data_path = '/data/stoptimes_loads.csv'
+""" > ${output}/${coverage}/loki_config.toml
 
 
   # add kraken and loki services to kubernetes for this coverage
