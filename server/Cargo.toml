@@ -17,7 +17,7 @@ protobuf = "2"
 # Postgres sql connection
 diesel = { version = "1.4", features = ["64-column-tables", "postgres", "chrono", "uuid", "uuidv07"] }
 diesel-derive-enum = { version = "1.1", features = ["postgres"] }
-uuid = "0.8"
+uuid = "1.0"
 
 # Zmq lib with async interface
 tmq = "0.3"
