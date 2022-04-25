@@ -31,7 +31,7 @@ lapin = "2.0"
 tokio-amqp = "2"
 
 # Object Storage library (S3, Minio, ..)
-rust-s3 = "0.30"
+rust-s3 = "0.31"
 
 launch = { path = "../launch"}
 structopt = "0.3"
