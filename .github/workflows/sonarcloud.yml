@@ -15,7 +15,7 @@ jobs:
     name: Analyzing code with Clippy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: 'recursive'
     - name: Install dependencies
@@ -30,9 +30,9 @@ jobs:
     - name: Run cargo clippy
       run: cargo clippy --workspace --all-features --message-format=json -- --warn clippy::pedantic > clippy.json
     - name: Install 'cargo-sonar'
-      run: cargo install cargo-sonar --version 0.9.0 --locked
+      run: cargo install cargo-sonar --version 0.11.0 --locked
     - name: Convert into Sonar compatible format
-      run: cargo-sonar --features clippy --clippy-path clippy.json
+      run: cargo sonar --issues clippy --clippy-path clippy.json
     - name: Run sonar-scanner
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -44,6 +44,6 @@ jobs:
           -Dsonar.projectName=loki
           -Dsonar.sources=.
           -Dsonar.sourceEncoding=UTF-8
-          -Dsonar.externalIssuesReportPaths=sonar.json
+          -Dsonar.externalIssuesReportPaths=sonar-issues.json
           -Dsonar.organization=hove-io
           -Dsonar.verbose=true
