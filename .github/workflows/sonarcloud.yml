@@ -44,6 +44,6 @@ jobs:
           -Dsonar.projectName=loki
           -Dsonar.sources=.
           -Dsonar.sourceEncoding=UTF-8
-          -Dsonar.externalIssuesReportPaths=sonar.json
+          -Dsonar.externalIssuesReportPaths=sonar-issues.json
           -Dsonar.organization=hove-io
           -Dsonar.verbose=true
