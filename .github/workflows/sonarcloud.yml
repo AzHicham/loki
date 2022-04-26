@@ -32,7 +32,7 @@ jobs:
     - name: Install 'cargo-sonar'
       run: cargo install cargo-sonar --version 0.11.0 --locked
     - name: Convert into Sonar compatible format
-      run: cargo-sonar --features clippy --clippy-path clippy.json
+      run: cargo sonar --issues clippy --clippy-path clippy.json
     - name: Run sonar-scanner
       uses: SonarSource/sonarcloud-github-action@master
       env:
