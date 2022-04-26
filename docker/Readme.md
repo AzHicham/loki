@@ -7,9 +7,10 @@ will solve the "public transport" part of the request, instead of kraken.
 # Build
 You can build the dockers by launching
 ```bash
-./build_docker.sh -o my_github_token
+./build_docker.sh -t navitia_tag
 ```
-from the root directory of this repository, where `my_github_token` is a OAuth token for github.
+from the root directory of this repository, where `navitia_tag` is the desired tag for navitia images, default is latest.
+You can found all available tag here https://hub.docker.com/r/navitia/eitri/tags
 
 # Binarize
 
