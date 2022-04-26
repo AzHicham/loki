@@ -19,7 +19,7 @@ jobs:
         submodules: recursive
     - name: Build dockers
       run: |
-        ./build_dockers.sh -o ${{secrets.oauth_token}}
+        ./build_dockers.sh -t latest
     - name: Binarize
       run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina
     - name: Launch dockers
