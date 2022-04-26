@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev cmake
 RUN cargo install --path server
 
 FROM debian:buster-slim
-RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libzmq5 libpq5 && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 
 VOLUME /data
