@@ -268,7 +268,7 @@ async fn handle_incoming_request(
         return Ok(());
     }
 
-    // unwraps are safe because of the check above en the len
+    // unwraps are safe because of the check of the len above
     let payload_message = zmq_message.pop_back().unwrap();
     let empty_frame = zmq_message.pop_back().unwrap();
     if empty_frame.len() > 0 {
