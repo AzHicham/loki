@@ -236,10 +236,10 @@ async fn send_response_to_zmq(
     let response_bytes = response.payload.encode_to_vec();
     let payload_message = tmq::Message::from(response_bytes);
 
-    // The Router socket requires sending a multi frames message as response :
-    //  - the first frames forms an identifier of the client
-    //  - then empty frame
-    //  - and last frame with the actual message
+    // The Router socket requires sending a multiframe message as a response, structured as follows :
+    //  - the first frames form an identifier of the client
+    //  - then an empty frame
+    //  - and a last frame with the actual message
     // see https://zguide.zeromq.org/docs/chapter3/#The-Extended-Reply-Envelope
     let mut message = response.client_id;
     message.push_back(tmq::Message::new());
@@ -257,10 +257,10 @@ async fn handle_incoming_request(
     requests_sender: &mut mpsc::UnboundedSender<RequestMessage>,
     status_request_sender: &mut mpsc::UnboundedSender<RequestMessage>,
 ) -> Result<(), Error> {
-    // The Router socket should always provides a message with multiple frames  :
+    // The Router socket should always provides a multiframe message, structured as follows :
     // - one or more frame identifying the client
     // - then an empty frame
-    // - and last frame with the actual payload
+    // - and a last frame with the actual payload
     // see https://zguide.zeromq.org/docs/chapter3/#The-Extended-Reply-Envelope
     let nb_parts = zmq_message.len();
     if nb_parts < 3 {
