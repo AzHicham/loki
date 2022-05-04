@@ -56,13 +56,13 @@ use crate::navitia_proto;
 #[derive(Debug)]
 pub struct RequestMessage {
     pub payload: navitia_proto::Request, // the actual data received from zmq
-    pub client_id: tmq::Multipart,       // the identifer of the client in the zmq socket
+    pub client_id: tmq::Multipart,       // the identifier of the client in the zmq socket
 }
 
 #[derive(Debug)]
 pub struct ResponseMessage {
     pub payload: navitia_proto::Response,
-    pub client_id: tmq::Multipart, // the identifer of the client in the zmq socket
+    pub client_id: tmq::Multipart, // the identifier of the client in the zmq socket
 }
 
 pub struct ZmqWorker {
