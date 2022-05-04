@@ -56,13 +56,13 @@ use crate::navitia_proto;
 #[derive(Debug)]
 pub struct RequestMessage {
     pub payload: navitia_proto::Request, // the actual data received from zmq
-    pub client_id: tmq::Message,         // the identifer of the client in the zmq socket
+    pub client_id: tmq::Multipart,       // the identifier of the client in the zmq socket
 }
 
 #[derive(Debug)]
 pub struct ResponseMessage {
     pub payload: navitia_proto::Response,
-    pub client_id: tmq::Message, // the identifer of the client in the zmq socket
+    pub client_id: tmq::Multipart, // the identifier of the client in the zmq socket
 }
 
 pub struct ZmqWorker {
@@ -236,21 +236,17 @@ async fn send_response_to_zmq(
     let response_bytes = response.payload.encode_to_vec();
     let payload_message = tmq::Message::from(response_bytes);
 
-    // The Router socket requires sending 3 parts messages as responses, where :
-    //  - the first part is an identifier or the client
-    //  - the second part is empty
-    //  - the third part is the actual message
+    // The Router socket requires sending a multiframe message as a response, structured as follows :
+    //  - the first frames form an identifier of the client
+    //  - then an empty frame
+    //  - and a last frame with the actual message
     // see https://zguide.zeromq.org/docs/chapter3/#The-Extended-Reply-Envelope
-    let client_id_message = response.client_id;
-    let empty_message = tmq::Message::new();
-    let iter = std::iter::once(client_id_message)
-        .chain(std::iter::once(empty_message))
-        .chain(std::iter::once(payload_message));
-
-    let multipart_msg: tmq::Multipart = iter.collect();
+    let mut message = response.client_id;
+    message.push_back(tmq::Message::new());
+    message.push_back(payload_message);
 
     zmq_socket
-        .send(multipart_msg)
+        .send(message)
         .await
         .context("ZmqWorker, error while sending response to zmq socket.")
 }
@@ -261,22 +257,25 @@ async fn handle_incoming_request(
     requests_sender: &mut mpsc::UnboundedSender<RequestMessage>,
     status_request_sender: &mut mpsc::UnboundedSender<RequestMessage>,
 ) -> Result<(), Error> {
-    // The Router socket should always provides 3 parts messages with an empty second part.
+    // The Router socket should always provides a multiframe message, structured as follows :
+    // - one or more frame identifying the client
+    // - then an empty frame
+    // - and a last frame with the actual payload
     // see https://zguide.zeromq.org/docs/chapter3/#The-Extended-Reply-Envelope
     let nb_parts = zmq_message.len();
-    if nb_parts != 3 {
-        error!("ZmqWorker received a zmq message with {} parts. I only know how to handle messages with 3 parts. I'll ignore it", nb_parts);
+    if nb_parts < 3 {
+        error!("ZmqWorker received a zmq message with {} parts. I only know how to handle messages with at least 3 parts. I'll ignore it", nb_parts);
         return Ok(());
     }
-    // the 3 unwraps are safe since we just checked that the message has lenght 3
-    let client_id_message = zmq_message.pop_front().unwrap();
-    let empty_message = zmq_message.pop_front().unwrap();
-    let payload_message = zmq_message.pop_front().unwrap();
 
-    if empty_message.len() > 0 {
-        error!("ZmqWorker received a zmq message with a non empty second part. Since this is invalid, I'll skip this message");
+    // unwraps are safe because of the check of the len above
+    let payload_message = zmq_message.pop_back().unwrap();
+    let empty_frame = zmq_message.pop_back().unwrap();
+    if empty_frame.len() > 0 {
+        error!("ZmqWorker received a zmq message with a non-empty penultimate frame. I only know how to handle messages with an empty penultimate frame. I'll ignore it");
         return Ok(());
     }
+    let client_id = zmq_message;
 
     let proto_request_result = navitia_proto::Request::decode(payload_message.deref());
     // TODO ? : if deadline is expired, do not forward request
@@ -290,7 +289,7 @@ async fn handle_incoming_request(
             let requested_api = proto_request.requested_api();
 
             let request_message = RequestMessage {
-                client_id: client_id_message,
+                client_id,
                 payload: proto_request,
             };
             use navitia_proto::Api;
@@ -321,7 +320,7 @@ async fn handle_incoming_request(
             // let's send back a response to our zmq client that we received an invalid protobuf
             let response_proto = make_error_response(&format_err!("{}", err_str));
             let response_message = ResponseMessage {
-                client_id: client_id_message,
+                client_id,
                 payload: response_proto,
             };
             send_response_to_zmq(zmq_socket, response_message).await
