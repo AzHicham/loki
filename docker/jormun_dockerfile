@@ -9,4 +9,3 @@ VOLUME /data
 EXPOSE 80
 
 ENTRYPOINT [ "/usr/src/app/run.sh" ]
-
