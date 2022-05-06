@@ -112,7 +112,7 @@ impl<'a> Config<'a> {
     }
 }
 
-pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> {
+pub fn make_request_from_config(config: &Config) -> RequestInput {
     let datetime = config.datetime;
 
     let start_stop_point_uri = &config.start;
@@ -135,7 +135,7 @@ pub fn make_request_from_config(config: &Config) -> Result<RequestInput, Error> 
         too_late_threshold: config.request_params.too_late_threshold,
         real_time_level: config.request_params.real_time_level,
     };
-    Ok(request_input)
+    request_input
 }
 
 pub fn build_and_solve(
@@ -164,7 +164,7 @@ pub fn build_and_solve(
         config.bike_accessible,
     );
 
-    let request_input = make_request_from_config(config)?;
+    let request_input = make_request_from_config(config);
 
     let responses = solver.solve_journey_request(
         &data,

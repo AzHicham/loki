@@ -92,7 +92,7 @@ fn remove_vj() -> Result<(), Error> {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -123,7 +123,7 @@ fn remove_vj() -> Result<(), Error> {
         .unwrap();
 
     {
-        let mut request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config);
         request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_journey_request(
             &data,
@@ -139,7 +139,7 @@ fn remove_vj() -> Result<(), Error> {
 
     {
         let config = Config::new("2020-01-02T08:00:00", "A", "G");
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -208,7 +208,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -234,7 +234,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     }
 
     {
-        let mut request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config);
         request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_journey_request(
             &data,
@@ -261,7 +261,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     }
 
     {
-        let mut request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config);
         request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_journey_request(
             &data,
@@ -288,7 +288,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     }
 
     {
-        let mut request_input = utils::make_request_from_config(&config)?;
+        let mut request_input = utils::make_request_from_config(&config);
         request_input.real_time_level = RealTimeLevel::RealTime;
         let responses = solver.solve_journey_request(
             &data,
@@ -346,7 +346,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -372,7 +372,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     }
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -398,7 +398,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     }
 
     {
-        let request_input = utils::make_request_from_config(&config)?;
+        let request_input = utils::make_request_from_config(&config);
         let responses = solver.solve_journey_request(
             &data,
             &model_refs,
@@ -443,7 +443,7 @@ fn modify_vj() -> Result<(), Error> {
     let mut real_time_model = RealTimeModel::new();
 
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
-    let request_input = utils::make_request_from_config(&config)?;
+    let request_input = utils::make_request_from_config(&config);
 
     let mut data = launch::read::build_transit_data(&base_model);
 
@@ -574,7 +574,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
 
     let mut real_time_model = RealTimeModel::new();
 
-    let request_input = utils::make_request_from_config(&config)?;
+    let request_input = utils::make_request_from_config(&config);
 
     let mut data = launch::read::build_transit_data(&base_model);
 
@@ -695,7 +695,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
 
     // let's now try another request, from C to D
     let config = Config::new("2020-01-01T09:50:00", "C", "D");
-    let request_input = utils::make_request_from_config(&config)?;
+    let request_input = utils::make_request_from_config(&config);
     // we run the request on Base level
     {
         let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -768,7 +768,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
 
     let real_time_model = RealTimeModel::new();
 
-    let request_input = utils::make_request_from_config(&config)?;
+    let request_input = utils::make_request_from_config(&config);
 
     let mut data = launch::read::build_transit_data(&base_model);
 
