@@ -72,7 +72,7 @@ impl DataDownloader {
                     region: "".to_string(),
                     endpoint: config.bucket_region.clone(),
                 };
-                Bucket::new_with_path_style(&config.bucket_name, region, credentials)?
+                Bucket::new(&config.bucket_name, region, credentials)?.with_path_style()
             }
             // AWS Region
             Ok(region) => Bucket::new(&config.bucket_name, region, credentials)?,
