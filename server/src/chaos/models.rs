@@ -154,14 +154,16 @@ impl DisruptionMaker {
             disruption.set_reference(reference.clone());
         }
         // Fill cause
-        let cause = disruption.mut_cause();
+        let cause = disruption.cause.mut_or_insert_default();
         cause.set_wording(row.cause_wording.clone());
         if let Some(category_name) = &row.category_name {
-            let category = cause.mut_category();
-            category.set_name(category_name.clone());
+            cause
+                .category
+                .mut_or_insert_default()
+                .set_name(category_name.clone());
         }
         // Fill publication_period
-        let publication_period = disruption.mut_publication_period();
+        let publication_period = disruption.publication_period.mut_or_insert_default();
         if let Some(start) = &row.disruption_start_publication_date {
             publication_period.set_start(u64::try_from(start.timestamp())?);
         }
@@ -194,7 +196,7 @@ impl DisruptionMaker {
         disruption: &mut chaos_proto::chaos::Disruption,
     ) -> Result<(), Error> {
         // type_ is here like an Uuid
-        if let Some(type_) = &row.property_type {
+        if let Some(r#type) = &row.property_type {
             let key = if let Some(key) = &row.property_key {
                 key
             } else {
@@ -205,10 +207,10 @@ impl DisruptionMaker {
             } else {
                 bail!("Property has no value");
             };
-            let tuple = (type_.clone(), key.clone(), value.clone());
+            let tuple = (r#type.clone(), key.clone(), value.clone());
             if properties_set.insert(tuple) {
                 let mut property = chaos_proto::chaos::DisruptionProperty::new();
-                property.set_field_type(type_.clone());
+                property.set_type(r#type.clone());
                 property.set_key(key.clone());
                 property.set_value(value.clone());
                 disruption.properties.push(property);
@@ -253,18 +255,18 @@ impl DisruptionMaker {
         Ok(())
     }
 
-    fn make_severity_effect(effect: &SeverityEffect) -> chaos_proto::gtfs_realtime::Alert_Effect {
-        use chaos_proto::gtfs_realtime::Alert_Effect;
+    fn make_severity_effect(effect: &SeverityEffect) -> chaos_proto::gtfs_realtime::alert::Effect {
+        use chaos_proto::gtfs_realtime::alert::Effect;
         match effect {
-            SeverityEffect::NoService => Alert_Effect::NO_SERVICE,
-            SeverityEffect::OtherEffect => Alert_Effect::OTHER_EFFECT,
-            SeverityEffect::ModifiedService => Alert_Effect::MODIFIED_SERVICE,
-            SeverityEffect::AdditionalService => Alert_Effect::ADDITIONAL_SERVICE,
-            SeverityEffect::StopMoved => Alert_Effect::STOP_MOVED,
-            SeverityEffect::SignificantDelays => Alert_Effect::SIGNIFICANT_DELAYS,
-            SeverityEffect::ReducedService => Alert_Effect::REDUCED_SERVICE,
-            SeverityEffect::UnknownEffect => Alert_Effect::UNKNOWN_EFFECT,
-            SeverityEffect::Detour => Alert_Effect::DETOUR,
+            SeverityEffect::NoService => Effect::NO_SERVICE,
+            SeverityEffect::OtherEffect => Effect::OTHER_EFFECT,
+            SeverityEffect::ModifiedService => Effect::MODIFIED_SERVICE,
+            SeverityEffect::AdditionalService => Effect::ADDITIONAL_SERVICE,
+            SeverityEffect::StopMoved => Effect::STOP_MOVED,
+            SeverityEffect::SignificantDelays => Effect::SIGNIFICANT_DELAYS,
+            SeverityEffect::ReducedService => Effect::REDUCED_SERVICE,
+            SeverityEffect::UnknownEffect => Effect::UNKNOWN_EFFECT,
+            SeverityEffect::Detour => Effect::DETOUR,
         }
     }
 }
@@ -293,7 +295,7 @@ impl ImpactMaker {
             impact.set_updated_at(u64::try_from(updated_at.timestamp())?);
         }
         // Fill severity
-        let severity = impact.mut_severity();
+        let severity = impact.severity.mut_or_insert_default();
         severity.set_id(row.severity_id.to_string());
         severity.set_wording(row.severity_wording.clone());
         severity.set_priority(row.severity_priority);
@@ -337,7 +339,7 @@ impl ImpactMaker {
                 if let Some(text) = &row.message_text {
                     message.set_text(text.clone());
                 }
-                let channel = message.mut_channel();
+                let channel = message.channel.mut_or_insert_default();
                 if let Some(name) = &row.channel_name {
                     channel.set_name(name.clone());
                 }
@@ -350,25 +352,25 @@ impl ImpactMaker {
                 for channel_type in row.channel_type.iter().flatten() {
                     channel
                         .types
-                        .push(ImpactMaker::make_channel_type(channel_type));
+                        .push(ImpactMaker::make_channel_type(channel_type).into());
                 }
                 impact.messages.push(message);
             }
         }
     }
 
-    fn make_channel_type(channel_type: &ChannelTypeSQL) -> chaos_proto::chaos::Channel_Type {
-        use chaos_proto::chaos::Channel_Type;
+    fn make_channel_type(channel_type: &ChannelTypeSQL) -> chaos_proto::chaos::channel::Type {
+        use chaos_proto::chaos::channel::Type;
         match channel_type {
-            ChannelTypeSQL::Title => Channel_Type::title,
-            ChannelTypeSQL::Beacon => Channel_Type::beacon,
-            ChannelTypeSQL::Twitter => Channel_Type::twitter,
-            ChannelTypeSQL::Notification => Channel_Type::notification,
-            ChannelTypeSQL::Sms => Channel_Type::sms,
-            ChannelTypeSQL::Facebook => Channel_Type::facebook,
-            ChannelTypeSQL::Email => Channel_Type::email,
-            ChannelTypeSQL::Mobile => Channel_Type::mobile,
-            ChannelTypeSQL::Web => Channel_Type::web,
+            ChannelTypeSQL::Title => Type::title,
+            ChannelTypeSQL::Beacon => Type::beacon,
+            ChannelTypeSQL::Twitter => Type::twitter,
+            ChannelTypeSQL::Notification => Type::notification,
+            ChannelTypeSQL::Sms => Type::sms,
+            ChannelTypeSQL::Facebook => Type::facebook,
+            ChannelTypeSQL::Email => Type::email,
+            ChannelTypeSQL::Mobile => Type::mobile,
+            ChannelTypeSQL::Web => Type::web,
         }
     }
 
@@ -401,7 +403,7 @@ impl ImpactMaker {
                     // with last element corresponding to the bit pattern
                     // example : 248 -> "11111000"
                     if week_pattern.len() == 5 {
-                        let mut proto_week = chaos_proto::chaos::WeekPattern::new();
+                        let proto_week = pattern.week_pattern.mut_or_insert_default();
                         // unwrap is safe thanks to len check before
                         let char_bit = format!("{:b}", week_pattern.last().unwrap());
                         let mut iter = char_bit.chars();
@@ -412,7 +414,6 @@ impl ImpactMaker {
                         proto_week.set_friday(iter.next() == Some('1'));
                         proto_week.set_saturday(iter.next() == Some('1'));
                         proto_week.set_sunday(iter.next() == Some('1'));
-                        pattern.set_week_pattern(proto_week);
                     } else {
                         bail!("pattern_weekly_pattern must have a size of 7");
                     }
@@ -453,7 +454,7 @@ impl ImpactMaker {
         }
         pt_object_set.insert(id.clone());
 
-        use chaos_proto::chaos::PtObject_Type;
+        use chaos_proto::chaos::pt_object;
         match pt_object_type {
             PtObjectType::LineSection => {
                 // check if we need to create a new line section
@@ -461,60 +462,63 @@ impl ImpactMaker {
                 let found_line_section = impact
                     .informed_entities
                     .iter_mut()
-                    .filter(|pt_object| {
-                        pt_object.get_pt_object_type() == PtObject_Type::line_section
+                    .filter(|pt_object| match pt_object.pt_object_type {
+                        Some(pt_object_type) => match pt_object_type.enum_value() {
+                            Ok(object_type) => object_type == pt_object::Type::line_section,
+                            _ => false,
+                        },
+                        None => false,
                     })
-                    .find(|pt_object| pt_object.get_uri() == id);
+                    .find(|pt_object| matches!(&pt_object.uri, Some(uri) if uri == &id));
 
                 match found_line_section {
                     Some(pt_object) => {
                         // we found line_section so we push a new route
                         // if not already in line_section.routes[]
                         if let Some(route_id) = &row.ls_route_uri {
-                            let found_route = pt_object
-                                .get_pt_line_section()
-                                .routes
-                                .iter()
-                                .find(|route| route.get_uri() == *route_id);
+                            let found_route =
+                                pt_object.pt_line_section.routes.iter().find(
+                                    |route| matches!(&route.uri, Some(uri) if uri == route_id),
+                                );
                             if found_route.is_none() {
                                 let mut route = chaos_proto::chaos::PtObject::new();
                                 route.set_uri(route_id.clone());
-                                route.set_pt_object_type(PtObject_Type::route);
-                                pt_object.mut_pt_line_section().routes.push(route);
+                                route.set_pt_object_type(pt_object::Type::route);
+                                pt_object
+                                    .pt_line_section
+                                    .mut_or_insert_default()
+                                    .routes
+                                    .push(route);
                             }
                         }
                     }
                     None => {
-                        let mut line_section = chaos_proto::chaos::LineSection::new();
+                        let mut pt_object = chaos_proto::chaos::PtObject::new();
+                        pt_object.set_uri(id.clone());
+                        pt_object.set_pt_object_type(pt_object::Type::line_section);
+                        let line_section = pt_object.pt_line_section.mut_or_insert_default();
                         if let Some(line_id) = &row.ls_line_uri {
-                            let mut line = chaos_proto::chaos::PtObject::new();
+                            let line = line_section.line.mut_or_insert_default();
                             line.set_uri(line_id.clone());
-                            line.set_pt_object_type(PtObject_Type::line);
-                            line_section.set_line(line);
+                            line.set_pt_object_type(pt_object::Type::line);
                         }
                         if let Some(start) = &row.ls_start_uri {
-                            let mut start_stop = chaos_proto::chaos::PtObject::new();
+                            let start_stop = line_section.start_point.mut_or_insert_default();
                             start_stop.set_uri(start.clone());
-                            start_stop.set_pt_object_type(PtObject_Type::stop_area);
-                            line_section.set_start_point(start_stop);
+                            start_stop.set_pt_object_type(pt_object::Type::stop_area);
                         }
                         if let Some(end) = &row.ls_end_uri {
-                            let mut end_stop = chaos_proto::chaos::PtObject::new();
+                            let end_stop = line_section.end_point.mut_or_insert_default();
                             end_stop.set_uri(end.clone());
-                            end_stop.set_pt_object_type(PtObject_Type::stop_area);
-                            line_section.set_end_point(end_stop);
+                            end_stop.set_pt_object_type(pt_object::Type::stop_area);
                         }
                         if let Some(route_id) = &row.ls_route_uri {
                             let mut route = chaos_proto::chaos::PtObject::new();
                             route.set_uri(route_id.clone());
-                            route.set_pt_object_type(PtObject_Type::route);
+                            route.set_pt_object_type(pt_object::Type::route);
                             line_section.routes.push(route);
                         }
 
-                        let mut pt_object = chaos_proto::chaos::PtObject::new();
-                        pt_object.set_uri(id.clone());
-                        pt_object.set_pt_object_type(PtObject_Type::line_section);
-                        pt_object.set_pt_line_section(line_section);
                         impact.informed_entities.push(pt_object);
                     }
                 }
@@ -524,53 +528,60 @@ impl ImpactMaker {
                 let found_rail_section = impact
                     .informed_entities
                     .iter_mut()
-                    .filter(|pt_object| {
-                        pt_object.get_pt_object_type() == PtObject_Type::rail_section
+                    .filter(|pt_object| match pt_object.pt_object_type {
+                        Some(pt_object_type) => match pt_object_type.enum_value() {
+                            Ok(object_type) => object_type == pt_object::Type::rail_section,
+                            _ => false,
+                        },
+                        None => false,
                     })
-                    .find(|pt_object| pt_object.get_uri() == id);
+                    .find(|pt_object| matches!(&pt_object.uri, Some(uri) if uri == &id));
 
                 match found_rail_section {
                     Some(pt_object) => {
                         // we found rail_section so we push a new route
                         // if not already in rail_section.routes[]
                         if let Some(route_id) = &row.rs_route_uri {
-                            let found_route = pt_object
-                                .get_pt_rail_section()
-                                .routes
-                                .iter()
-                                .find(|route| route.get_uri() == *route_id);
+                            let found_route =
+                                pt_object.pt_rail_section.routes.iter().find(
+                                    |route| matches!(&route.uri, Some(uri) if uri == route_id),
+                                );
                             if found_route.is_none() {
                                 let mut route = chaos_proto::chaos::PtObject::new();
                                 route.set_uri(route_id.clone());
-                                route.set_pt_object_type(PtObject_Type::route);
-                                pt_object.mut_pt_rail_section().routes.push(route);
+                                route.set_pt_object_type(pt_object::Type::route);
+                                pt_object
+                                    .pt_rail_section
+                                    .mut_or_insert_default()
+                                    .routes
+                                    .push(route);
                             }
                         }
                     }
                     None => {
-                        let mut rail_section = chaos_proto::chaos::RailSection::new();
+                        let mut pt_object = chaos_proto::chaos::PtObject::new();
+                        pt_object.set_uri(id.clone());
+                        pt_object.set_pt_object_type(pt_object::Type::rail_section);
+                        let rail_section = pt_object.pt_rail_section.mut_or_insert_default();
                         if let Some(line_id) = &row.rs_line_uri {
-                            let mut line = chaos_proto::chaos::PtObject::new();
+                            let line = rail_section.line.mut_or_insert_default();
                             line.set_uri(line_id.clone());
-                            line.set_pt_object_type(PtObject_Type::line);
-                            rail_section.set_line(line);
+                            line.set_pt_object_type(pt_object::Type::line);
                         }
                         if let Some(start) = &row.rs_start_uri {
-                            let mut start_stop = chaos_proto::chaos::PtObject::new();
+                            let start_stop = rail_section.start_point.mut_or_insert_default();
                             start_stop.set_uri(start.clone());
-                            start_stop.set_pt_object_type(PtObject_Type::stop_area);
-                            rail_section.set_start_point(start_stop);
+                            start_stop.set_pt_object_type(pt_object::Type::stop_area);
                         }
                         if let Some(end) = &row.rs_end_uri {
-                            let mut end_stop = chaos_proto::chaos::PtObject::new();
+                            let end_stop = rail_section.end_point.mut_or_insert_default();
                             end_stop.set_uri(end.clone());
-                            end_stop.set_pt_object_type(PtObject_Type::stop_area);
-                            rail_section.set_end_point(end_stop);
+                            end_stop.set_pt_object_type(pt_object::Type::stop_area);
                         }
                         if let Some(route_id) = &row.rs_route_uri {
                             let mut route = chaos_proto::chaos::PtObject::new();
                             route.set_uri(route_id.clone());
-                            route.set_pt_object_type(PtObject_Type::route);
+                            route.set_pt_object_type(pt_object::Type::route);
                             rail_section.routes.push(route);
                         }
 
@@ -590,10 +601,6 @@ impl ImpactMaker {
                             }
                         }
 
-                        let mut pt_object = chaos_proto::chaos::PtObject::new();
-                        pt_object.set_uri(id.clone());
-                        pt_object.set_pt_object_type(PtObject_Type::rail_section);
-                        pt_object.set_pt_rail_section(rail_section);
                         impact.informed_entities.push(pt_object);
                     }
                 }
@@ -609,16 +616,16 @@ impl ImpactMaker {
         Ok(())
     }
 
-    fn make_pt_object_type(pt_object_type: &PtObjectType) -> chaos_proto::chaos::PtObject_Type {
-        use chaos_proto::chaos::PtObject_Type;
+    fn make_pt_object_type(pt_object_type: &PtObjectType) -> chaos_proto::chaos::pt_object::Type {
+        use chaos_proto::chaos::pt_object::Type;
         match pt_object_type {
-            PtObjectType::StopArea => PtObject_Type::stop_area,
-            PtObjectType::StopPoint => PtObject_Type::stop_point,
-            PtObjectType::LineSection => PtObject_Type::line_section,
-            PtObjectType::RailSection => PtObject_Type::rail_section,
-            PtObjectType::Route => PtObject_Type::route,
-            PtObjectType::Line => PtObject_Type::line,
-            PtObjectType::Network => PtObject_Type::network,
+            PtObjectType::StopArea => Type::stop_area,
+            PtObjectType::StopPoint => Type::stop_point,
+            PtObjectType::LineSection => Type::line_section,
+            PtObjectType::RailSection => Type::rail_section,
+            PtObjectType::Route => Type::route,
+            PtObjectType::Line => Type::line,
+            PtObjectType::Network => Type::network,
         }
     }
 }

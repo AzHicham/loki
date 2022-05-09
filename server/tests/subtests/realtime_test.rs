@@ -31,8 +31,9 @@ pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::gtfs_realtime as kirin_proto;
+use kirin_proto::FeedHeader;
 use launch::loki::{chrono::NaiveDate, NaiveDateTime};
-use protobuf::Message;
+use protobuf::{Enum, Message, MessageField};
 
 use crate::{arrival_time, first_section_vj_name};
 
@@ -97,7 +98,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(10, 0, 0)),
                 ("cdg", date.and_hms(10, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+            kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -178,7 +179,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -205,7 +206,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(9, 0, 0)),
                 ("cdg", date.and_hms(10, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
+            kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -319,7 +320,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -359,7 +360,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(14, 0, 0)),
                 ("cdg", date.and_hms(14, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -385,7 +386,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(15, 0, 0)),
                 ("cdg", date.and_hms(15, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+            kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -437,7 +438,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
+            kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -462,7 +463,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
                 ("paris", date.and_hms(10, 0, 0)),
                 ("cdg", date.and_hms(11, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -538,7 +539,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+            kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -563,7 +564,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -600,7 +601,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(14, 0, 0)),
                 ("cdg", date.and_hms(14, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -626,7 +627,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(15, 0, 0)),
                 ("cdg", date.and_hms(15, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::MODIFIED_SERVICE,
+            kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -675,7 +676,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(13, 0, 0)),
                 ("cdg", date.and_hms(13, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::SIGNIFICANT_DELAYS,
+            kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -700,7 +701,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
                 ("paris", date.and_hms(10, 0, 0)),
                 ("cdg", date.and_hms(10, 30, 0)),
             ],
-            kirin_proto::Alert_Effect::ADDITIONAL_SERVICE,
+            kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
         crate::send_realtime_message_and_wait_until_reception(config, realtime_message).await;
 
@@ -725,7 +726,7 @@ fn create_no_service_disruption(
     create_disruption_inner(
         vehicle_journey_id,
         date,
-        kirin_proto::Alert_Effect::NO_SERVICE,
+        kirin_proto::alert::Effect::NO_SERVICE,
         Vec::new(),
     )
 }
@@ -734,23 +735,28 @@ fn create_disruption(
     vehicle_journey_id: &str,
     date: NaiveDate,
     stop_times: Vec<(&str, NaiveDateTime)>,
-    effect: kirin_proto::Alert_Effect,
+    effect: kirin_proto::alert::Effect,
 ) -> kirin_proto::FeedMessage {
     let stop_time_event_status = chaos_proto::kirin::StopTimeEventStatus::SCHEDULED;
     let stop_time_updates: Vec<_> = stop_times
         .into_iter()
         .map(|(stop_name, time)| {
-            let field_number = chaos_proto::kirin::exts::stop_time_event_status.field_number;
-            let mut stop_time_event = kirin_proto::TripUpdate_StopTimeEvent::default();
+            let mut stop_time_event = kirin_proto::trip_update::StopTimeEvent::default();
             stop_time_event.set_time(time.timestamp());
             stop_time_event
                 .mut_unknown_fields()
-                .add_varint(field_number, stop_time_event_status as u64);
+                // 1001 is the field number of `stop_time_event_status` in `StopTimeEvent`
+                // We used to be able to no hardcode the value in `protobuf:2`
+                // https://github.com/stepancheg/rust-protobuf/discussions/623
+                .add_varint(1001, stop_time_event_status as u64);
 
-            let mut trip_update = kirin_proto::TripUpdate_StopTimeUpdate::default();
+            let mut trip_update = kirin_proto::trip_update::StopTimeUpdate::default();
             trip_update.set_stop_id(stop_name.to_string());
-            trip_update.set_arrival(stop_time_event.clone());
-            trip_update.set_departure(stop_time_event);
+            trip_update.arrival = MessageField::<kirin_proto::trip_update::StopTimeEvent>::some(
+                stop_time_event.clone(),
+            );
+            trip_update.departure =
+                MessageField::<kirin_proto::trip_update::StopTimeEvent>::some(stop_time_event);
             trip_update
         })
         .collect();
@@ -761,20 +767,18 @@ fn create_disruption(
 fn create_disruption_inner(
     vehicle_journey_id: &str,
     date: NaiveDate,
-    effect: kirin_proto::Alert_Effect,
-    stop_times: Vec<kirin_proto::TripUpdate_StopTimeUpdate>,
+    effect: kirin_proto::alert::Effect,
+    stop_times: Vec<kirin_proto::trip_update::StopTimeUpdate>,
 ) -> kirin_proto::FeedMessage {
-    use protobuf::ProtobufEnum;
-
     let mut trip_update = kirin_proto::TripUpdate::default();
 
     // set the "effect" field to NO_SERVICE
-    let field_number = chaos_proto::kirin::exts::effect.field_number;
     trip_update
         .mut_unknown_fields()
-        //.add_fixed32(field_number, effect.value() as u32);
-        //.add_fixed64(field_number, effect.value() as u64);
-        .add_varint(field_number, effect.value() as u64);
+        // 1001 is the field number of `effect` in `TripUpdate`
+        // We used to be able to no hardcode the value in `protobuf:2`
+        // https://github.com/stepancheg/rust-protobuf/discussions/623
+        .add_varint(1001, effect.value() as u64);
 
     trip_update.stop_time_update.extend(stop_times.into_iter());
 
@@ -782,12 +786,16 @@ fn create_disruption_inner(
     let mut trip_descriptor = kirin_proto::TripDescriptor::default();
     trip_descriptor.set_trip_id(vehicle_journey_id.to_string());
     trip_descriptor.set_start_date(date.format("%Y%m%d").to_string());
-    trip_update.set_trip(trip_descriptor);
+    trip_update.trip = MessageField::<kirin_proto::TripDescriptor>::some(trip_descriptor);
+
+    // set vehicle_description
+    let vehicle_descriptor = kirin_proto::VehicleDescriptor::default();
+    trip_update.vehicle = MessageField::<kirin_proto::VehicleDescriptor>::some(vehicle_descriptor);
 
     // put the update in a feed_entity
     let mut feed_entity = kirin_proto::FeedEntity::default();
     feed_entity.set_id(format!("test_delete_{}_{}", vehicle_journey_id, date));
-    feed_entity.set_trip_update(trip_update);
+    feed_entity.trip_update = MessageField::<kirin_proto::TripUpdate>::some(trip_update);
 
     let mut feed_header = kirin_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
@@ -797,8 +805,8 @@ fn create_disruption_inner(
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = kirin_proto::FeedMessage::new();
-    feed_message.mut_entity().push(feed_entity);
-    feed_message.set_header(feed_header);
+    feed_message.entity.push(feed_entity);
+    feed_message.header = MessageField::<FeedHeader>::some(feed_header);
 
     feed_message
 }

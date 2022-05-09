@@ -12,7 +12,7 @@ prost = "0.10"
 
 # for chaos_proto which uses protobuf v2 extensions features, which are not supported by prost
 # cf https://github.com/tokio-rs/prost/issues/100
-protobuf = "2"
+protobuf = "3"
 
 # Postgres sql connection
 diesel = { version = "1.4", features = ["64-column-tables", "postgres", "chrono", "uuid", "uuidv07"] }
@@ -48,4 +48,4 @@ tempfile = "3"
 
 [build-dependencies]
 prost-build = "0.10"
-protobuf-codegen-pure = "2"
+protobuf-codegen = "3"

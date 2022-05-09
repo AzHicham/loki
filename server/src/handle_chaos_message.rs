@@ -34,8 +34,8 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::chaos_proto::{self};
-use anyhow::{bail, Context, Error};
+use crate::chaos_proto;
+use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveTime,
     models::{
@@ -59,37 +59,32 @@ use launch::loki::{
 pub fn handle_chaos_protobuf(
     proto: &chaos_proto::chaos::Disruption,
 ) -> Result<ChaosDisruption, Error> {
-    let id = if proto.has_id() {
-        proto.get_id().to_string()
-    } else {
-        bail!("Disruption has no id.");
-    };
+    let id = proto
+        .id
+        .as_ref()
+        .ok_or_else(|| format_err!("Disruption has no id."))?
+        .to_string();
 
-    let reference = if proto.has_reference() {
-        Some(proto.get_reference().to_string())
-    } else {
-        None
-    };
+    let reference = proto.reference.as_ref().map(ToString::to_string);
 
-    let publication_period = if proto.has_publication_period() {
-        make_datetime_period(proto.get_publication_period())
-            .context("Could not parse disruption.publication_period")?
-    } else {
-        bail!("Disruption has no publication period");
-    };
+    let publication_period = proto
+        .publication_period
+        .as_ref()
+        .ok_or_else(|| format_err!("Disruption has no publication period"))?;
+    let publication_period = make_datetime_period(publication_period)
+        .context("Could not parse disruption.publication_period")?;
 
-    let cause = if proto.has_cause() {
-        make_cause(proto.get_cause())
-    } else {
-        bail!("Disruption has no cause");
-    };
+    let cause = proto
+        .cause
+        .as_ref()
+        .ok_or_else(|| format_err!("Disruption has no cause"))?;
+    let cause = make_cause(cause)?;
 
-    let tags: Vec<_> = proto.get_tags().iter().map(make_tag).collect();
+    let tags: Vec<_> = proto.tags.iter().map(make_tag).collect::<Result<_, _>>()?;
 
     let impacts = {
-        let proto_impacts = proto.get_impacts();
-        let mut impacts = Vec::with_capacity(proto_impacts.len());
-        for (idx, proto_impact) in proto.get_impacts().iter().enumerate() {
+        let mut impacts = Vec::with_capacity(proto.impacts.len());
+        for (idx, proto_impact) in proto.impacts.iter().enumerate() {
             let impact = make_impact(proto_impact)
                 .with_context(|| format!("Could not parse {}-th impact of disruption", idx))?;
             impacts.push(impact);
@@ -97,13 +92,9 @@ pub fn handle_chaos_protobuf(
         impacts
     };
 
-    let contributor = if proto.has_contributor() {
-        Some(proto.get_contributor().to_string())
-    } else {
-        None
-    };
+    let contributor = proto.contributor.as_ref().map(ToString::to_string);
 
-    let properties = make_properties(proto.get_properties())?;
+    let properties = make_properties(&proto.properties)?;
 
     Ok(ChaosDisruption {
         id,
@@ -118,47 +109,47 @@ pub fn handle_chaos_protobuf(
 }
 
 fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error> {
-    let id = if proto.has_id() {
-        proto.get_id().to_string()
-    } else {
-        bail!("Impact has no id");
-    };
+    let id = proto
+        .id
+        .as_ref()
+        .ok_or_else(|| format_err!("Impact has no id"))?
+        .to_string();
 
-    let created_at = if proto.has_created_at() {
-        make_datetime(proto.get_created_at())
-            .context("Could not parse impact.created_at".to_string())?
-    } else {
-        bail!("Impact has no created_at datetime");
-    };
+    let created_at = proto
+        .created_at
+        .ok_or_else(|| format_err!("Impact has no created_at datetime"))?;
+    let created_at =
+        make_datetime(created_at).context("Could not parse impact.created_at".to_string())?;
 
-    let updated_at = if proto.has_updated_at() {
-        make_datetime(proto.get_updated_at())
-            .context("Could not parse impact.updated_at".to_string())?
-    } else {
-        created_at
-    };
+    let updated_at = proto
+        .updated_at
+        .map(|updated_at| {
+            make_datetime(updated_at).context("Could not parse impact.updated_at".to_string())
+        })
+        .transpose()?
+        .unwrap_or(created_at);
 
-    let severity = if proto.has_severity() {
-        make_severity(proto.get_severity())
-            .context("Could not parse impact.severity".to_string())?
-    } else {
-        bail!("Impact has no severity");
-    };
+    let severity = proto
+        .severity
+        .as_ref()
+        .ok_or_else(|| format_err!("Impact has no severity"))?;
+    let severity =
+        make_severity(severity).context("Could not parse impact.severity".to_string())?;
 
-    let application_periods = make_periods(proto.get_application_periods())
+    let application_periods = make_periods(&proto.application_periods)
         .context("Could not parse impact.application_periods".to_string())?;
 
-    let application_patterns = make_application_patterns(proto.get_application_patterns())
+    let application_patterns = make_application_patterns(&proto.application_patterns)
         .context("Could not parse impact.application_patterns".to_string())?;
 
-    let messages = make_messages(proto.get_messages())
-        .context("Could not parse impact.messages".to_string())?;
+    let messages =
+        make_messages(&proto.messages).context("Could not parse impact.messages".to_string())?;
 
     let effect = severity.effect;
     let mut impacted_pt_objects = vec![];
     let mut informed_pt_objects = vec![];
 
-    for entity in proto.get_informed_entities() {
+    for entity in &proto.informed_entities {
         dispatch_pt_object(
             entity,
             effect,
@@ -186,18 +177,19 @@ fn dispatch_pt_object(
     impacted: &mut Vec<Impacted>,
     informed: &mut Vec<Informed>,
 ) -> Result<(), Error> {
-    use chaos_proto::chaos::PtObject_Type as Type;
+    use chaos_proto::chaos::pt_object::Type;
 
-    let id = if proto.has_uri() {
-        proto.get_uri().to_string()
-    } else {
-        bail!("PtObject has no uri");
-    };
-    let pt_object_type = if proto.has_pt_object_type() {
-        proto.get_pt_object_type()
-    } else {
-        bail!("PtObject has no pt_object_type");
-    };
+    let id = proto
+        .uri
+        .as_ref()
+        .ok_or_else(|| format_err!("PtObject has no uri"))?
+        .to_string();
+    let pt_object_type = proto
+        .pt_object_type
+        .as_ref()
+        .ok_or_else(|| format_err!("PtObject has no pt_object_type"))?
+        .enum_value()
+        .map_err(|value| format_err!("'{}' is not a valid 'PtObjectType'", value))?;
 
     match (pt_object_type, effect) {
         (Type::network, Effect::NoService) => {
@@ -265,68 +257,126 @@ fn dispatch_pt_object(
         })),
 
         (Type::line_section, _) => {
-            if !proto.has_pt_line_section() {
-                bail!("PtObject has type line_section but the field pt_line_section is empty");
-            }
-            let proto_line_section = proto.get_pt_line_section();
+            let proto_line_section = proto.pt_line_section.as_ref().ok_or_else(|| {
+                format_err!("PtObject has type line_section but the field pt_line_section is empty")
+            })?;
 
-            let line = proto_line_section.get_line();
-            let start_stop_area = proto_line_section.get_start_point();
-            let end_stop_area = proto_line_section.get_end_point();
-            let routes = proto_line_section.get_routes();
+            let line_uri = proto_line_section
+                .line
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'line'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (line) has no 'uri'"))?;
+            let start_stop_area_uri = proto_line_section
+                .start_point
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'start_point'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
+            let end_stop_area_uri = proto_line_section
+                .end_point
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'end_point'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
             let line_section = LineSection {
                 line: LineId {
-                    id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
+                    id: strip_id_prefix(line_uri, PREFIX_ID_LINE).to_string(),
                 },
                 start: StopAreaId {
-                    id: strip_id_prefix(start_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
+                    id: strip_id_prefix(start_stop_area_uri, PREFIX_ID_STOP_AREA).to_string(),
                 },
                 end: StopAreaId {
-                    id: strip_id_prefix(end_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
+                    id: strip_id_prefix(end_stop_area_uri, PREFIX_ID_STOP_AREA).to_string(),
                 },
-                routes: routes
+                routes: proto_line_section
+                    .routes
                     .iter()
-                    .map(|r| RouteId {
-                        id: strip_id_prefix(r.get_uri(), PREFIX_ID_ROUTE).to_string(),
+                    .map(|route| {
+                        let route_uri = route
+                            .uri
+                            .as_ref()
+                            .ok_or_else(|| format_err!("'PtObject' (route) has no 'uri'"))?;
+                        let route_id = RouteId {
+                            id: strip_id_prefix(route_uri, PREFIX_ID_ROUTE).to_string(),
+                        };
+                        Ok::<_, Error>(route_id)
                     })
-                    .collect(),
+                    .collect::<Result<_, _>>()?,
             };
             impacted.push(Impacted::LineSection(line_section));
         }
         (Type::rail_section, _) => {
-            if !proto.has_pt_rail_section() {
-                bail!("PtObject has type line_section but the field pt_line_section is empty");
-            }
-            let proto_rail_section = proto.get_pt_rail_section();
+            let proto_rail_section = proto.pt_rail_section.as_ref().ok_or_else(|| {
+                format_err!("PtObject has type line_section but the field pt_line_section is empty")
+            })?;
 
-            let line = proto_rail_section.get_line();
-            let start_stop_area = proto_rail_section.get_start_point();
-            let end_stop_area = proto_rail_section.get_end_point();
-            let routes = proto_rail_section.get_routes();
-            let blocked_stop_areas = proto_rail_section.get_blocked_stop_areas();
+            let line_uri = proto_rail_section
+                .line
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'line'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (line) has no 'uri'"))?;
+            let start_stop_area_uri = proto_rail_section
+                .start_point
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'start_point'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
+            let end_stop_area_uri = proto_rail_section
+                .end_point
+                .as_ref()
+                .ok_or_else(|| format_err!("'LineSection' has no 'end_point'"))?
+                .uri
+                .as_ref()
+                .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
             let rail_section = RailSection {
                 line: LineId {
-                    id: strip_id_prefix(line.get_uri(), PREFIX_ID_LINE).to_string(),
+                    id: strip_id_prefix(line_uri, PREFIX_ID_LINE).to_string(),
                 },
                 start: StopAreaId {
-                    id: strip_id_prefix(start_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
+                    id: strip_id_prefix(start_stop_area_uri, PREFIX_ID_STOP_AREA).to_string(),
                 },
                 end: StopAreaId {
-                    id: strip_id_prefix(end_stop_area.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
+                    id: strip_id_prefix(end_stop_area_uri, PREFIX_ID_STOP_AREA).to_string(),
                 },
-                routes: routes
+                routes: proto_rail_section
+                    .routes
                     .iter()
-                    .map(|r| RouteId {
-                        id: strip_id_prefix(r.get_uri(), PREFIX_ID_ROUTE).to_string(),
+                    .map(|route| {
+                        let route_uri = route
+                            .uri
+                            .as_ref()
+                            .ok_or_else(|| format_err!("'PtObject' (route) has no 'uri'"))?;
+                        let route_id = RouteId {
+                            id: strip_id_prefix(route_uri, PREFIX_ID_ROUTE).to_string(),
+                        };
+                        Ok::<_, Error>(route_id)
                     })
-                    .collect(),
-                blocked_stop_area: blocked_stop_areas
+                    .collect::<Result<_, _>>()?,
+                blocked_stop_area: proto_rail_section
+                    .blocked_stop_areas
                     .iter()
-                    .map(|sa| BlockedStopArea {
-                        id: strip_id_prefix(sa.get_uri(), PREFIX_ID_STOP_AREA).to_string(),
-                        order: sa.get_order(),
+                    .map(|stop_area| {
+                        let stop_area_uri = stop_area
+                            .uri
+                            .as_ref()
+                            .ok_or_else(|| format_err!("'PtObject' (stop_area) has no 'uri'"))?;
+                        let stop_area_order = stop_area
+                            .order
+                            .ok_or_else(|| format_err!("'PtObject' (stop_area) has no 'order'"))?;
+                        let blocked_stop_area = BlockedStopArea {
+                            id: strip_id_prefix(stop_area_uri, PREFIX_ID_STOP_AREA).to_string(),
+                            order: stop_area_order,
+                        };
+                        Ok::<_, Error>(blocked_stop_area)
                     })
-                    .collect(),
+                    .collect::<Result<_, _>>()?,
             };
             impacted.push(Impacted::RailSection(rail_section));
         }
@@ -339,75 +389,65 @@ fn dispatch_pt_object(
 }
 
 fn make_severity(proto: &chaos_proto::chaos::Severity) -> Result<Severity, Error> {
-    let effect = if proto.has_effect() {
-        make_effect(proto.get_effect())
-    } else {
-        bail!("Severity has no effect");
-    };
-
-    let priority = if proto.has_priority() {
-        Some(proto.get_priority())
-    } else {
-        None
-    };
-
-    let color = if proto.has_color() {
-        Some(proto.get_color().to_string())
-    } else {
-        None
-    };
-
-    let wording = if proto.has_wording() {
-        Some(proto.get_wording().to_string())
-    } else {
-        None
-    };
+    let effect = proto
+        .effect
+        .as_ref()
+        .ok_or_else(|| format_err!("'Severity' has no 'effect'"))?
+        .enum_value()
+        .map_err(|value| format_err!("'{}' is not a valid 'Effect'", value))?;
+    let effect = make_effect(effect);
 
     let result = Severity {
-        wording,
-        color,
-        priority,
+        wording: proto.wording.clone(),
+        color: proto.color.clone(),
+        priority: proto.priority,
         effect,
     };
     Ok(result)
 }
 
-pub fn make_effect(proto: chaos_proto::gtfs_realtime::Alert_Effect) -> Effect {
-    use chaos_proto::gtfs_realtime::Alert_Effect;
+pub fn make_effect(proto: chaos_proto::gtfs_realtime::alert::Effect) -> Effect {
+    use chaos_proto::gtfs_realtime::alert;
     match proto {
-        Alert_Effect::NO_SERVICE => Effect::NoService,
-        Alert_Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
-        Alert_Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
-        Alert_Effect::MODIFIED_SERVICE => Effect::ModifiedService,
-        Alert_Effect::DETOUR => Effect::Detour,
-        Alert_Effect::REDUCED_SERVICE => Effect::ReducedService,
-        Alert_Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
-        Alert_Effect::OTHER_EFFECT => Effect::OtherEffect,
-        Alert_Effect::STOP_MOVED => Effect::StopMoved,
+        alert::Effect::NO_SERVICE => Effect::NoService,
+        alert::Effect::UNKNOWN_EFFECT => Effect::UnknownEffect,
+        alert::Effect::SIGNIFICANT_DELAYS => Effect::SignificantDelays,
+        alert::Effect::MODIFIED_SERVICE => Effect::ModifiedService,
+        alert::Effect::DETOUR => Effect::Detour,
+        alert::Effect::REDUCED_SERVICE => Effect::ReducedService,
+        alert::Effect::ADDITIONAL_SERVICE => Effect::AdditionalService,
+        alert::Effect::OTHER_EFFECT => Effect::OtherEffect,
+        alert::Effect::STOP_MOVED => Effect::StopMoved,
     }
 }
 
-fn make_cause(proto: &chaos_proto::chaos::Cause) -> Cause {
-    Cause {
-        wording: proto.get_wording().to_string(),
-        category: proto.get_category().get_name().to_string(),
-    }
+fn make_cause(proto: &chaos_proto::chaos::Cause) -> Result<Cause, Error> {
+    let wording = proto
+        .wording
+        .as_ref()
+        .ok_or_else(|| format_err!("'Cause' has no 'wording'"))?
+        .to_string();
+    let category = proto
+        .category
+        .as_ref()
+        .ok_or_else(|| format_err!("'Cause' has no 'category'"))?
+        .name
+        .as_ref()
+        .ok_or_else(|| format_err!("'Category' has no 'name'"))?
+        .to_string();
+    let cause = Cause { wording, category };
+    Ok(cause)
 }
 
 fn make_datetime_period(
     proto: &chaos_proto::gtfs_realtime::TimeRange,
 ) -> Result<TimePeriod, Error> {
-    let start_timestamp = if proto.has_start() {
-        proto.get_start()
-    } else {
-        bail!("No start timestamp");
-    };
-
-    let end_timestamp = if proto.has_end() {
-        proto.get_end()
-    } else {
-        bail!("No end timestamp");
-    };
+    let start_timestamp = proto
+        .start
+        .ok_or_else(|| format_err!("'TimeRange' has no 'start'"))?;
+    let end_timestamp = proto
+        .end
+        .ok_or_else(|| format_err!("'TimeRange' has no 'end'"))?;
 
     let start = make_datetime(start_timestamp).with_context(|| {
         format!(
@@ -436,10 +476,14 @@ fn make_periods(
     Ok(result)
 }
 
-fn make_tag(proto: &chaos_proto::chaos::Tag) -> Tag {
-    Tag {
-        name: proto.get_name().to_string(),
-    }
+fn make_tag(proto: &chaos_proto::chaos::Tag) -> Result<Tag, Error> {
+    proto
+        .name
+        .as_ref()
+        .ok_or_else(|| format_err!("'Tag' has no 'name'"))
+        .map(|name| Tag {
+            name: name.to_string(),
+        })
 }
 
 fn make_messages(proto_messages: &[chaos_proto::chaos::Message]) -> Result<Vec<Message>, Error> {
@@ -453,85 +497,87 @@ fn make_messages(proto_messages: &[chaos_proto::chaos::Message]) -> Result<Vec<M
 }
 
 fn make_message(proto: &chaos_proto::chaos::Message) -> Result<Message, Error> {
-    let text = if proto.has_text() {
-        proto.get_text().to_string()
-    } else {
-        bail!("Message has no text");
-    };
-    let channel = if proto.has_channel() {
-        proto.get_channel()
-    } else {
-        bail!("Message has no channel");
-    };
+    let text = proto
+        .text
+        .as_ref()
+        .ok_or_else(|| format_err!("'Message' has no 'text'"))?
+        .to_string();
+    let channel = proto
+        .channel
+        .as_ref()
+        .ok_or_else(|| format_err!("'Message' has no 'channel'"))?;
+    let channel_id = channel.id.clone();
+    let channel_name = channel
+        .name
+        .as_ref()
+        .ok_or_else(|| format_err!("'Channel' has no 'name'"))?
+        .to_string();
+    let channel_content_type = channel.content_type.clone();
 
     let result = Message {
         text,
-        channel_id: Some(channel.get_id().to_string()),
-        channel_name: channel.get_name().to_string(),
-        channel_content_type: Some(channel.get_content_type().to_string()),
+        channel_id,
+        channel_name,
+        channel_content_type,
         channel_types: channel
-            .get_types()
+            .types
             .iter()
-            .map(|channel_type| make_channel_type(*channel_type))
-            .collect(),
+            .map(|channel_type| {
+                let channel_type = channel_type
+                    .enum_value()
+                    .map_err(|value| format_err!("'{}' is not a valid 'channel::Type'", value))?;
+                let channel_type = make_channel_type(channel_type);
+                Ok::<_, Error>(channel_type)
+            })
+            .collect::<Result<_, _>>()?,
     };
     Ok(result)
 }
 
-fn make_channel_type(proto: chaos_proto::chaos::Channel_Type) -> ChannelType {
-    use chaos_proto::chaos::Channel_Type;
+fn make_channel_type(proto: chaos_proto::chaos::channel::Type) -> ChannelType {
+    use chaos_proto::chaos::channel;
     match proto {
-        Channel_Type::web => ChannelType::Web,
-        Channel_Type::sms => ChannelType::Sms,
-        Channel_Type::email => ChannelType::Email,
-        Channel_Type::mobile => ChannelType::Mobile,
-        Channel_Type::notification => ChannelType::Notification,
-        Channel_Type::twitter => ChannelType::Twitter,
-        Channel_Type::facebook => ChannelType::Facebook,
-        Channel_Type::unkown_type => ChannelType::UnknownType,
-        Channel_Type::title => ChannelType::Title,
-        Channel_Type::beacon => ChannelType::Beacon,
+        channel::Type::web => ChannelType::Web,
+        channel::Type::sms => ChannelType::Sms,
+        channel::Type::email => ChannelType::Email,
+        channel::Type::mobile => ChannelType::Mobile,
+        channel::Type::notification => ChannelType::Notification,
+        channel::Type::twitter => ChannelType::Twitter,
+        channel::Type::facebook => ChannelType::Facebook,
+        channel::Type::unkown_type => ChannelType::UnknownType,
+        channel::Type::title => ChannelType::Title,
+        channel::Type::beacon => ChannelType::Beacon,
     }
 }
 
 fn make_application_pattern(
     proto: &chaos_proto::chaos::Pattern,
 ) -> Result<ApplicationPattern, Error> {
-    let begin_date = if proto.has_start_date() {
-        let timestamp = proto.get_start_date();
-        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
-        datetime.date()
-    } else {
-        bail!("Pattern has no start_date");
-    };
-    let end_date = if proto.has_end_date() {
-        let timestamp = proto.get_end_date();
-        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
-        datetime.date()
-    } else {
-        bail!("Pattern has no end_date");
-    };
-    let time_slots = proto.get_time_slots().iter().map(make_timeslot).collect();
-    if proto.has_end_date() {
-        let timestamp = proto.get_end_date();
-        let datetime = NaiveDateTime::from_timestamp(i64::from(timestamp), 0);
-        datetime.date()
-    } else {
-        bail!("Pattern has no end_date");
-    };
+    let begin_date = proto
+        .start_date
+        .ok_or_else(|| format_err!("'Pattern' has no 'start_date'"))?;
+    let begin_date = make_datetime(begin_date as u64)?.date(); // u32 can always be coerced to u64
+    let end_date = proto
+        .end_date
+        .ok_or_else(|| format_err!("'Pattern' has no 'end_date'"))?;
+    let end_date = make_datetime(end_date as u64)?.date(); // u32 can always be coerced to u64
+    let time_slots = proto
+        .time_slots
+        .iter()
+        .map(make_timeslot)
+        .collect::<Result<_, _>>()?;
     let mut week_pattern = [false; 7];
-    if proto.has_week_pattern() {
-        let proto_week_pattern = proto.get_week_pattern();
-        week_pattern[0] = proto_week_pattern.get_monday();
-        week_pattern[1] = proto_week_pattern.get_tuesday();
-        week_pattern[2] = proto_week_pattern.get_wednesday();
-        week_pattern[3] = proto_week_pattern.get_thursday();
-        week_pattern[4] = proto_week_pattern.get_friday();
-        week_pattern[5] = proto_week_pattern.get_saturday();
-        week_pattern[6] = proto_week_pattern.get_sunday();
-    } else {
-        bail!("Pattern has no week_pattern");
-    };
+    let proto_week_pattern = proto
+        .week_pattern
+        .as_ref()
+        .ok_or_else(|| format_err!("'Pattern' has no 'week_pattern'"))?;
+    week_pattern[0] = matches!(proto_week_pattern.monday, Some(true));
+    week_pattern[1] = matches!(proto_week_pattern.tuesday, Some(true));
+    week_pattern[2] = matches!(proto_week_pattern.wednesday, Some(true));
+    week_pattern[3] = matches!(proto_week_pattern.thursday, Some(true));
+    week_pattern[4] = matches!(proto_week_pattern.friday, Some(true));
+    week_pattern[5] = matches!(proto_week_pattern.saturday, Some(true));
+    week_pattern[6] = matches!(proto_week_pattern.sunday, Some(true));
 
     Ok(ApplicationPattern {
         begin_date,
@@ -553,11 +599,18 @@ fn make_application_patterns(
     Ok(result)
 }
 
-fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> TimeSlot {
-    TimeSlot {
-        begin: NaiveTime::from_num_seconds_from_midnight(proto.get_begin(), 0),
-        end: NaiveTime::from_num_seconds_from_midnight(proto.get_end(), 0),
-    }
+fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> Result<TimeSlot, Error> {
+    let begin = proto
+        .begin
+        .ok_or_else(|| format_err!("'TimeSlot' has no 'begin'"))?;
+    let end = proto
+        .end
+        .ok_or_else(|| format_err!("'TimeSlot' has no 'end'"))?;
+    let time_slot = TimeSlot {
+        begin: NaiveTime::from_num_seconds_from_midnight(begin, 0),
+        end: NaiveTime::from_num_seconds_from_midnight(end, 0),
+    };
+    Ok(time_slot)
 }
 
 fn make_properties(
@@ -575,26 +628,22 @@ fn make_properties(
 fn make_property(
     proto: &chaos_proto::chaos::DisruptionProperty,
 ) -> Result<DisruptionProperty, Error> {
-    let key = if proto.has_key() {
-        proto.get_key()
-    } else {
-        bail!("DisruptionProperty has no key");
-    };
-    let value = if proto.has_value() {
-        proto.get_value()
-    } else {
-        bail!("DisruptionProperty has no value");
-    };
-    let type_ = if proto.has_field_type() {
-        proto.get_field_type()
-    } else {
-        bail!("DisruptionProperty has no type_");
-    };
-    Ok(DisruptionProperty {
-        key: key.to_string(),
-        type_: type_.to_string(),
-        value: value.to_string(),
-    })
+    let key = proto
+        .key
+        .as_ref()
+        .ok_or_else(|| format_err!("'DisruptionProperty' has no 'key'"))?
+        .to_string();
+    let value = proto
+        .value
+        .as_ref()
+        .ok_or_else(|| format_err!("'DisruptionProperty' has no 'value'"))?
+        .to_string();
+    let type_ = proto
+        .type_
+        .as_ref()
+        .ok_or_else(|| format_err!("'DisruptionProperty' has no 'type'"))?
+        .to_string();
+    Ok(DisruptionProperty { key, type_, value })
 }
 
 pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {

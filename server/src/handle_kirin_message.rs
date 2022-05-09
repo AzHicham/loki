@@ -34,8 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::ops::Not;
-
 use anyhow::{bail, format_err, Context, Error};
 use launch::loki::{
     chrono::{Duration, NaiveDate},
@@ -59,40 +57,47 @@ pub fn handle_kirin_protobuf(
     header_datetime: &NaiveDateTime,
     base_model: &BaseModel,
 ) -> Result<KirinDisruption, Error> {
-    let disruption_id = feed_entity.get_id().to_string();
-    if feed_entity.has_trip_update().not() {
-        bail!("Feed entity has no trip_update");
-    }
+    let disruption_id = feed_entity
+        .id
+        .as_ref()
+        .ok_or_else(|| format_err!("'FeedEntity' has no 'id'"))?
+        .to_string();
 
-    let trip_update = feed_entity.get_trip_update();
-    let trip_descriptor = trip_update.get_trip();
+    let trip_update = feed_entity
+        .trip_update
+        .as_ref()
+        .ok_or_else(|| format_err!("Feed entity has no trip_update"))?;
+    let trip_descriptor = trip_update
+        .trip
+        .as_ref()
+        .ok_or_else(|| format_err!("'TripUpdate' has no 'trip'"))?;
     let contributor = chaos_proto::kirin::exts::contributor.get(trip_descriptor);
 
     let effect: Effect =
         if let Some(proto_effect) = chaos_proto::kirin::exts::effect.get(trip_update) {
+            let proto_effect = proto_effect
+                .enum_value()
+                .map_err(|value| format_err!("'{}' is not a valid 'alert::Effect'", value))?;
             make_effect(proto_effect)
         } else {
-            return Err(format_err!("TripUpdate has an empty effect."));
+            bail!("TripUpdate has an empty effect.");
         };
 
-    let vehicle_journey_id = {
-        if trip_descriptor.has_trip_id().not() {
-            return Err(format_err!("TripDescriptor has an empty trip_id."));
-        }
-        strip_id_prefix(trip_descriptor.get_trip_id(), PREFIX_ID_VEHICLE_JOURNEY).to_string()
+    let vehicle_journey_id = if let Some(trip_id) = trip_descriptor.trip_id.as_ref() {
+        strip_id_prefix(trip_id, PREFIX_ID_VEHICLE_JOURNEY).to_string()
+    } else {
+        bail!("TripDescriptor has an empty trip_id.")
     };
 
-    let reference_date = {
-        if trip_descriptor.has_start_date().not() {
-            return Err(format_err!("TripDescriptor has an empty start_time."));
-        }
-        let start_date = trip_descriptor.get_start_date();
+    let reference_date = if let Some(start_date) = trip_descriptor.start_date.as_ref() {
         NaiveDate::parse_from_str(start_date, "%Y%m%d").with_context(|| {
             format!(
-                "TripDescriptor has a start date {} that could not be parsed.",
+                "TripDescriptor has a start date '{}' that could not be parsed.",
                 start_date
             )
         })?
+    } else {
+        bail!("TripDescriptor has an empty start_time.");
     };
 
     let stop_times = make_stop_times(trip_update, reference_date)?;
@@ -127,8 +132,11 @@ pub fn handle_kirin_protobuf(
     };
 
     let company_id = chaos_proto::kirin::exts::company_id.get(trip_descriptor);
-    let physical_mode_id =
-        chaos_proto::kirin::exts::physical_mode_id.get(trip_update.get_vehicle());
+    let vehicle = trip_update
+        .vehicle
+        .as_ref()
+        .ok_or_else(|| format_err!("'TripUpdate' has no 'VehicleDescriptor'"))?;
+    let physical_mode_id = chaos_proto::kirin::exts::physical_mode_id.get(vehicle);
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
 
     let trip_id = VehicleJourneyId {
@@ -201,15 +209,14 @@ fn make_stop_times(
     trip_update: &chaos_proto::gtfs_realtime::TripUpdate,
     reference_date: NaiveDate,
 ) -> Result<Vec<kirin_disruption::StopTime>, Error> {
-    let stop_times =
-        create_stop_times_from_proto(trip_update.get_stop_time_update(), reference_date)
-            .with_context(|| "Could not handle stop times in kirin disruption.")?;
+    let stop_times = create_stop_times_from_proto(&trip_update.stop_time_update, reference_date)
+        .with_context(|| "Could not handle stop times in kirin disruption.")?;
 
     Ok(stop_times)
 }
 
 fn create_stop_times_from_proto(
-    proto: &[chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate],
+    proto: &[chaos_proto::gtfs_realtime::trip_update::StopTimeUpdate],
     reference_date: NaiveDate,
 ) -> Result<Vec<kirin_disruption::StopTime>, Error> {
     proto
@@ -219,47 +226,40 @@ fn create_stop_times_from_proto(
 }
 
 fn create_stop_time_from_proto(
-    proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeUpdate,
+    proto: &chaos_proto::gtfs_realtime::trip_update::StopTimeUpdate,
     reference_date: NaiveDate,
 ) -> Result<kirin_disruption::StopTime, Error> {
-    let has_arrival_time = if proto.has_arrival() {
-        let arrival_time = read_time(proto.get_arrival(), reference_date)
-            .context("StopTime has a bad arrival time")?;
-        Some(arrival_time)
-    } else {
-        None
-    };
+    let departure = proto.departure.as_ref();
+    let arrival = proto.arrival.as_ref();
+    let has_arrival_time = arrival
+        .map(|arrival| {
+            read_time(arrival, reference_date).context("StopTime has a bad arrival time")
+        })
+        .transpose()?;
 
-    let has_departure_time = if proto.has_departure() {
-        let departure_time = read_time(proto.get_departure(), reference_date)
-            .context("StopTime has a bad departure time")?;
-        Some(departure_time)
-    } else {
-        None
-    };
+    let has_departure_time = departure
+        .map(|departure| {
+            read_time(departure, reference_date).context("StopTime has a bad departure time")
+        })
+        .transpose()?;
 
     let (arrival_time, departure_time) = match (has_arrival_time, has_departure_time) {
         (Some(arrival_time), Some(departure_time)) => (arrival_time, departure_time),
         (Some(arrival_time), None) => (arrival_time, arrival_time),
         (None, Some(departure_time)) => (departure_time, departure_time),
         (None, None) => {
-            return Err(format_err!(
-                "StopTime does not have an arrival time nor a departure time."
-            ));
+            bail!("StopTime does not have an arrival time nor a departure time.");
         }
     };
 
-    let can_board = if proto.has_departure() {
-        read_status(proto.get_departure()).context("StopTime has a bad departure status.")?
-    } else {
-        false
-    };
-
-    let can_debark = if proto.has_arrival() {
-        read_status(proto.get_arrival()).context("StopTime has a bad arrival status.")?
-    } else {
-        false
-    };
+    let can_board = departure
+        .map(|departure| read_status(departure).context("StopTime has a bad departure status."))
+        .transpose()?
+        .unwrap_or(false);
+    let can_debark = arrival
+        .map(|arrival| read_status(arrival).context("StopTime has a bad arrival status."))
+        .transpose()?
+        .unwrap_or(false);
 
     let flow_direction = match (can_board, can_debark) {
         (true, true) => FlowDirection::BoardAndDebark,
@@ -268,10 +268,11 @@ fn create_stop_time_from_proto(
         (false, false) => FlowDirection::NoBoardDebark,
     };
 
-    if proto.has_stop_id().not() {
-        return Err(format_err!("StopTime does not have a stop_id."));
-    }
-    let stop_id = strip_id_prefix(proto.get_stop_id(), PREFIX_ID_STOP_POINT).to_string();
+    let stop_id = if let Some(stop_id) = &proto.stop_id {
+        strip_id_prefix(stop_id, PREFIX_ID_STOP_POINT).to_string()
+    } else {
+        bail!("StopTime does not have a stop_id.");
+    };
 
     let stop_time = kirin_disruption::StopTime {
         stop_id,
@@ -284,18 +285,17 @@ fn create_stop_time_from_proto(
 }
 
 fn read_time(
-    proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeEvent,
+    proto: &chaos_proto::gtfs_realtime::trip_update::StopTimeEvent,
     reference_date: NaiveDate,
 ) -> Result<SecondsSinceTimezonedDayStart, Error> {
-    if proto.has_time().not() {
-        return Err(format_err!("The protobuf time field is empty."));
-    }
     // this is a unix timestamp
-    let time_i64 = proto.get_time();
+    let time_i64 = proto
+        .time
+        .ok_or_else(|| format_err!("'StopTimeEvent' has no 'time'"))?;
     let naive_datetime = NaiveDateTime::from_timestamp_opt(time_i64, 0).ok_or_else(|| {
         format_err!(
             "Could not parse the time value {} as a unix timestamp.",
-            time_i64
+            time_i64,
         )
     })?;
 
@@ -311,18 +311,21 @@ fn read_time(
 }
 
 fn read_status(
-    proto: &chaos_proto::gtfs_realtime::TripUpdate_StopTimeEvent,
+    proto: &chaos_proto::gtfs_realtime::trip_update::StopTimeEvent,
 ) -> Result<bool, Error> {
     use chaos_proto::kirin::StopTimeEventStatus::*;
     if let Some(stop_time_event_status) =
         chaos_proto::kirin::exts::stop_time_event_status.get(proto)
     {
+        let stop_time_event_status = stop_time_event_status
+            .enum_value()
+            .map_err(|value| format_err!("'{}' is not a valid 'StopTimeEventStatus'", value))?;
         match stop_time_event_status {
             SCHEDULED | ADDED | ADDED_FOR_DETOUR => Ok(true),
 
             DELETED_FOR_DETOUR | DELETED => Ok(false),
 
-            NO_DATA => Err(format_err!("No_data in stop time event status.")),
+            NO_DATA => bail!("No_data in stop time event status."),
         }
     } else {
         Ok(false)
