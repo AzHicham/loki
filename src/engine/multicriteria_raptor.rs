@@ -458,8 +458,11 @@ where
                             continue;
                         }
 
-                        self.new_board_front
-                            .add((*board, trip.clone()), new_criteria, pt);
+                        self.new_board_front.add_and_remove_elements_dominated(
+                            (*board, trip.clone()),
+                            new_criteria,
+                            pt,
+                        );
                     }
                 }
                 self.board_front.replace_with(&mut self.new_board_front);

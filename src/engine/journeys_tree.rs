@@ -59,7 +59,7 @@ pub struct Arrive {
 }
 
 /// A complete journey is a sequence of moments the form
-///  Wait, Board, Debark, (Wait, Board, Debark)*, Arrive
+///  Departure, (Wait, Board, Debark)+, Arrive
 /// i.e. it always starts with a Wait, Board, Debark,
 ///      followed by zero or more (Wait, Board, Debark)
 ///      and then finished by an Arrive
@@ -70,7 +70,7 @@ pub struct Arrive {
 ///  - Debark   -> a Position
 ///      The specific Trip that is alighted is
 ///      given by the Trip associated to the Board moment that comes before this Debark
-///  - Wait  -> either a Transfer of a Departure
+///  - Wait  -> either a Transfer or a Departure
 ///      A Wait can occurs either :
 ///         - at the beginning of the journey,
 ///         - or between a Debark and a Board, which means we are making a transfer
