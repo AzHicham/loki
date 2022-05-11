@@ -118,7 +118,7 @@ pub fn make_request_from_config(config: &Config) -> RequestInput {
     let start_stop_point_uri = &config.start;
     let end_stop_point_uri = &config.end;
 
-    let request_input = RequestInput {
+    RequestInput {
         datetime,
         departures_stop_point_and_fallback_duration: vec![(
             start_stop_point_uri.clone(),
@@ -134,8 +134,7 @@ pub fn make_request_from_config(config: &Config) -> RequestInput {
         max_journey_duration: config.request_params.max_journey_duration,
         too_late_threshold: config.request_params.too_late_threshold,
         real_time_level: config.request_params.real_time_level,
-    };
-    request_input
+    }
 }
 
 pub fn build_and_solve(
