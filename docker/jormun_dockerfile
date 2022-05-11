@@ -6,5 +6,6 @@ ENV JORMUNGANDR_INSTANCES_DIR=/data/jormun_conf/
 ENV JORMUNGANDR_DISABLE_DATABASE=True
 
 VOLUME /data
+EXPOSE 80
 
-CMD ["uwsgi", "--master", "--lazy-apps", "--mount", "/=jormungandr:app", "--http", "0.0.0.0:80"]
+ENTRYPOINT [ "/usr/src/app/run.sh" ]
