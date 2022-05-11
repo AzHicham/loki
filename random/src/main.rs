@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 fn main() {
-    let _log_guard = launch::logger::init_logger();
+    launch::logger::init_logger();
     if let Err(err) = run() {
         eprintln!("{:?}", err);
         std::process::exit(1);
