@@ -242,12 +242,12 @@ where
                 ));
             }
 
-            let debark_timeload = data.debark_time_of(trip, debark_position).ok_or_else(|| {
+            let debark_time = data.debark_time_of(trip, debark_position).ok_or_else(|| {
                 BadJourney::NoDebarkTime(self.first_vehicle.clone(), VehicleLegIdx::First)
             })?;
 
             let debark_stop = data.stop_of(debark_position, &mission);
-            (debark_stop, debark_timeload.0)
+            (debark_stop, debark_time)
         };
 
         let mut prev_debark_stop = first_debark_stop;
@@ -277,15 +277,13 @@ where
                 ));
             }
 
-            let board_timeload = data.board_time_of(trip, board_position).ok_or_else(|| {
+            let board_time = data.board_time_of(trip, board_position).ok_or_else(|| {
                 BadJourney::NoBoardTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
             })?;
-            let board_time = board_timeload.0;
 
-            let debark_timeload = data.debark_time_of(trip, debark_position).ok_or_else(|| {
+            let debark_time = data.debark_time_of(trip, debark_position).ok_or_else(|| {
                 BadJourney::NoDebarkTime(vehicle_leg.clone(), VehicleLegIdx::Connection(idx))
             })?;
-            let debark_time = debark_timeload.0;
 
             let board_stop = data.stop_of(board_position, &mission);
             let debark_stop = data.stop_of(debark_position, &mission);
@@ -323,7 +321,6 @@ where
     fn first_vehicle_board_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
         data.board_time_of(&self.first_vehicle.trip, &self.first_vehicle.board_position)
             .unwrap()
-            .0
     }
 
     fn last_vehicle_leg(&self) -> &VehicleLeg<Data> {
@@ -336,8 +333,7 @@ where
     fn last_vehicle_debark_time(&self, data: &Data) -> SecondsSinceDatasetUTCStart {
         let last_vehicle_leg = self.last_vehicle_leg();
         data.debark_time_of(&last_vehicle_leg.trip, &last_vehicle_leg.debark_position)
-            .unwrap()
-            .0 //unwrap is safe because of checks that happens during Self construction
+            .unwrap() //unwrap is safe because of checks that happens during Self construction
     }
 
     pub fn last_vehicle_debark_datetime(&self, data: &Data) -> NaiveDateTime {
@@ -471,13 +467,11 @@ where
 
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
-            .unwrap()
-            .0;
+            .unwrap();
         let board_datetime = data.to_naive_datetime(board_time);
         let debark_time = data
             .debark_time_of(trip, &vehicle_leg.debark_position)
-            .unwrap()
-            .0;
+            .unwrap();
         let debark_datetime = data.to_naive_datetime(debark_time);
 
         let from_datetime = Self::write_date(&board_datetime);
@@ -553,12 +547,10 @@ impl<Data: DataTrait> Journey<Data> {
         //unwraps below are safe because of checks that happens during Self::new()
         let board_time = data
             .board_time_of(trip, &vehicle_leg.board_position)
-            .unwrap()
-            .0;
+            .unwrap();
         let debark_time = data
             .debark_time_of(trip, &vehicle_leg.debark_position)
-            .unwrap()
-            .0;
+            .unwrap();
 
         let from_datetime = data.to_naive_datetime(board_time);
         let to_datetime = data.to_naive_datetime(debark_time);
@@ -584,8 +576,7 @@ impl<Data: DataTrait> Journey<Data> {
         let prev_trip = &prev_vehicle_leg.trip;
         let prev_debark_time = data
             .debark_time_of(prev_trip, &prev_vehicle_leg.debark_position)
-            .unwrap()
-            .0;
+            .unwrap();
         let from_datetime = data.to_naive_datetime(prev_debark_time);
 
         let (transfer, _) = &self.connections[connection_idx];

@@ -214,44 +214,56 @@ where
         }
     }
 
-    pub(super) fn debark_time(
-        &self,
-        vehicle: &Vehicle,
-        position: &Position,
-    ) -> Option<(&Time, &Load)> {
+    pub(super) fn debark_time(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
         assert!(vehicle.timetable == position.timetable);
-        let timetable_data = self.timetable_data(&vehicle.timetable);
-        let time = timetable_data.debark_time(vehicle.idx, position.idx)?;
-        let load = timetable_data.load_before(vehicle.idx, position.idx);
-        Some((time, load))
+        self.timetable_data(&vehicle.timetable)
+            .debark_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn board_time(
-        &self,
-        vehicle: &Vehicle,
-        position: &Position,
-    ) -> Option<(&Time, &Load)> {
+    pub(super) fn debark_load(&self, vehicle: &Vehicle, position: &Position) -> Option<&Load> {
         assert!(vehicle.timetable == position.timetable);
-        let timetable_data = self.timetable_data(&vehicle.timetable);
-        let time = timetable_data.board_time(vehicle.idx, position.idx)?;
-        let load = timetable_data.load_after(vehicle.idx, position.idx);
-        Some((time, load))
+        let load = self
+            .timetable_data(&vehicle.timetable)
+            .load_before(vehicle.idx, position.idx);
+        Some(load)
     }
 
-    pub(super) fn arrival_time(&self, vehicle: &Vehicle, position: &Position) -> (&Time, &Load) {
+    pub(super) fn board_time(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
         assert!(vehicle.timetable == position.timetable);
-        let timetable_data = self.timetable_data(&vehicle.timetable);
-        let time = timetable_data.arrival_time(vehicle.idx, position.idx);
-        let load = timetable_data.load_before(vehicle.idx, position.idx);
-        (time, load)
+        self.timetable_data(&vehicle.timetable)
+            .board_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn departure_time(&self, vehicle: &Vehicle, position: &Position) -> (&Time, &Load) {
+    pub(super) fn board_load(&self, vehicle: &Vehicle, position: &Position) -> Option<&Load> {
         assert!(vehicle.timetable == position.timetable);
-        let timetable_data = self.timetable_data(&vehicle.timetable);
-        let time = timetable_data.departure_time(vehicle.idx, position.idx);
-        let load = timetable_data.load_after(vehicle.idx, position.idx);
-        (time, load)
+        let load = self
+            .timetable_data(&vehicle.timetable)
+            .load_after(vehicle.idx, position.idx);
+        Some(load)
+    }
+
+    pub(super) fn arrival_time(&self, vehicle: &Vehicle, position: &Position) -> &Time {
+        assert!(vehicle.timetable == position.timetable);
+        self.timetable_data(&vehicle.timetable)
+            .arrival_time(vehicle.idx, position.idx)
+    }
+
+    pub(super) fn arrival_load(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+        assert!(vehicle.timetable == position.timetable);
+        self.timetable_data(&vehicle.timetable)
+            .load_before(vehicle.idx, position.idx)
+    }
+
+    pub(super) fn departure_time(&self, vehicle: &Vehicle, position: &Position) -> &Time {
+        assert!(vehicle.timetable == position.timetable);
+        self.timetable_data(&vehicle.timetable)
+            .departure_time(vehicle.idx, position.idx)
+    }
+
+    pub(super) fn departure_load(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+        assert!(vehicle.timetable == position.timetable);
+        self.timetable_data(&vehicle.timetable)
+            .load_after(vehicle.idx, position.idx)
     }
 
     pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
