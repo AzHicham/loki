@@ -19,10 +19,10 @@ pub fn init_logger() {
         );
         EnvFilter::new(default_level.to_string())
     });
-    let suscriber = tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
         .with(env_filter_subscriber);
-    loki::tracing::subscriber::set_global_default(suscriber)
+    loki::tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set global tracing subscriber.");
 }
 
@@ -72,9 +72,9 @@ pub fn init_global_test_logger() {
         );
         EnvFilter::new(default_level.to_string())
     });
-    let suscriber = tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_test_writer())
         .with(env_filter_subscriber);
-    loki::tracing::subscriber::set_global_default(suscriber)
+    loki::tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set global tracing subscriber.");
 }
