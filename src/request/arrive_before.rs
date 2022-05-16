@@ -249,9 +249,7 @@ where
         let departure_time_at_previous_stop = self
             .transit_data
             .departure_time_of(trip, &previous_position);
-        let load = self
-            .transit_data
-            .departure_load_of(trip, &previous_position);
+        let load = self.transit_data.load_after(trip, &previous_position);
         let new_criteria = Criteria {
             time: departure_time_at_previous_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -332,9 +330,7 @@ where
         let departure_time_at_previous_position = self
             .transit_data
             .departure_time_of(trip, &previous_position);
-        let load = self
-            .transit_data
-            .departure_load_of(trip, &previous_position);
+        let load = self.transit_data.load_after(trip, &previous_position);
         Criteria {
             time: departure_time_at_previous_position,
             nb_of_legs: criteria.nb_of_legs,

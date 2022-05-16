@@ -229,7 +229,7 @@ where
         let mission = self.transit_data.mission_of(trip);
         let next_position = self.transit_data.next_on_mission(position, &mission)?;
         let arrival_time_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
-        let load = self.transit_data.arrival_load_of(trip, &next_position);
+        let load = self.transit_data.load_before(trip, &next_position);
         let new_criteria = Criteria {
             time: arrival_time_at_next_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -306,7 +306,7 @@ where
             .next_on_mission(position, &mission)
             .unwrap();
         let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
-        let load = self.transit_data.arrival_load_of(trip, &next_position);
+        let load = self.transit_data.load_before(trip, &next_position);
         Criteria {
             time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,

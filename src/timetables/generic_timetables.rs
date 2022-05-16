@@ -220,26 +220,10 @@ where
             .debark_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn debark_load(&self, vehicle: &Vehicle, position: &Position) -> Option<&Load> {
-        assert!(vehicle.timetable == position.timetable);
-        let load = self
-            .timetable_data(&vehicle.timetable)
-            .load_before(vehicle.idx, position.idx);
-        Some(load)
-    }
-
     pub(super) fn board_time(&self, vehicle: &Vehicle, position: &Position) -> Option<&Time> {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
             .board_time(vehicle.idx, position.idx)
-    }
-
-    pub(super) fn board_load(&self, vehicle: &Vehicle, position: &Position) -> Option<&Load> {
-        assert!(vehicle.timetable == position.timetable);
-        let load = self
-            .timetable_data(&vehicle.timetable)
-            .load_after(vehicle.idx, position.idx);
-        Some(load)
     }
 
     pub(super) fn arrival_time(&self, vehicle: &Vehicle, position: &Position) -> &Time {
@@ -248,7 +232,7 @@ where
             .arrival_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn arrival_load(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+    pub(super) fn load_before(&self, vehicle: &Vehicle, position: &Position) -> &Load {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
             .load_before(vehicle.idx, position.idx)
@@ -260,7 +244,7 @@ where
             .departure_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn departure_load(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+    pub(super) fn load_after(&self, vehicle: &Vehicle, position: &Position) -> &Load {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
             .load_after(vehicle.idx, position.idx)

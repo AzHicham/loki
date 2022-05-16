@@ -182,10 +182,6 @@ impl data_interface::Data for TransitData {
             .board_time_of(trip, position, &self.calendar)
     }
 
-    fn board_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<Load> {
-        self.timetables.board_load_of(trip, position)
-    }
-
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
@@ -193,10 +189,6 @@ impl data_interface::Data for TransitData {
     ) -> Option<SecondsSinceDatasetUTCStart> {
         self.timetables
             .debark_time_of(trip, position, &self.calendar)
-    }
-
-    fn debark_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<Load> {
-        self.timetables.debark_load_of(trip, position)
     }
 
     fn arrival_time_of(
@@ -208,8 +200,8 @@ impl data_interface::Data for TransitData {
             .arrival_time_of(trip, position, &self.calendar)
     }
 
-    fn arrival_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
-        self.timetables.arrival_load_of(trip, position)
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+        self.timetables.load_before(trip, position)
     }
 
     fn departure_time_of(
@@ -221,8 +213,8 @@ impl data_interface::Data for TransitData {
             .departure_time_of(trip, position, &self.calendar)
     }
 
-    fn departure_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
-        self.timetables.departure_load_of(trip, position)
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+        self.timetables.load_after(trip, position)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {

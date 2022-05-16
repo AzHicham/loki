@@ -87,16 +87,12 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
     ) -> Option<SecondsSinceDatasetUTCStart>;
     // Panics if `position` is not valid for `trip`
-    fn board_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<Load>;
-    // Panics if `position` is not valid for `trip`
     // None if `trip` does not allows debark at `stop_idx`
     fn debark_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
     ) -> Option<SecondsSinceDatasetUTCStart>;
-    // Panics if `position` is not valid for `trip`
-    fn debark_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Option<Load>;
 
     // Panics if `trip` does not go through `position`
     fn arrival_time_of(
@@ -106,7 +102,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn arrival_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
 
     // Panics if `trip` does not go through `position`
     fn departure_time_of(
@@ -116,7 +112,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn departure_load_of(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;

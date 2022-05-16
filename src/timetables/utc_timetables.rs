@@ -154,8 +154,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn arrival_load_of(&self, trip: &Trip, position: &Position) -> Load {
-        *self.timetables.arrival_load(&trip.vehicle, position)
+    pub fn load_before(&self, trip: &Trip, position: &Position) -> Load {
+        *self.timetables.load_before(&trip.vehicle, position)
     }
 
     pub fn departure_time_of(
@@ -168,8 +168,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn departure_load_of(&self, trip: &Trip, position: &Position) -> Load {
-        *self.timetables.departure_load(&trip.vehicle, position)
+    pub fn load_after(&self, trip: &Trip, position: &Position) -> Load {
+        *self.timetables.load_after(&trip.vehicle, position)
     }
 
     pub fn debark_time_of(
@@ -187,12 +187,6 @@ impl UTCTimetables {
             })
     }
 
-    pub fn debark_load_of(&self, trip: &Trip, position: &Position) -> Option<Load> {
-        self.timetables
-            .debark_load(&trip.vehicle, position)
-            .copied()
-    }
-
     pub fn board_time_of(
         &self,
         trip: &Trip,
@@ -206,10 +200,6 @@ impl UTCTimetables {
                 let time = calendar.compose_utc(day, time_in_day);
                 time
             })
-    }
-
-    pub fn board_load_of(&self, trip: &Trip, position: &Position) -> Option<Load> {
-        self.timetables.board_load(&trip.vehicle, position).copied()
     }
 
     pub fn earliest_trip_to_board_at(
@@ -274,7 +264,7 @@ impl UTCTimetables {
             if let Some(vehicle) = has_vehicle {
                 let arrival_time_in_day_at_next_stop =
                     self.timetables.arrival_time(&vehicle, &next_position);
-                let load = self.timetables.arrival_load(&vehicle, &next_position);
+                let load = self.timetables.load_before(&vehicle, &next_position);
                 let arrival_time_at_next_stop =
                     calendar.compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
                 if let Some((_, _, best_arrival_time, best_load)) =
