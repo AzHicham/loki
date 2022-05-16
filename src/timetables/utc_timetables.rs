@@ -149,10 +149,13 @@ impl UTCTimetables {
         trip: &Trip,
         position: &Position,
         calendar: &Calendar,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let (time_in_day, load) = self.timetables.arrival_time(&trip.vehicle, position);
-        let time_utc = calendar.compose_utc(&trip.day, time_in_day);
-        (time_utc, *load)
+    ) -> SecondsSinceDatasetUTCStart {
+        let time_in_day = self.timetables.arrival_time(&trip.vehicle, position);
+        calendar.compose_utc(&trip.day, time_in_day)
+    }
+
+    pub fn load_before(&self, trip: &Trip, position: &Position) -> Load {
+        *self.timetables.load_before(&trip.vehicle, position)
     }
 
     pub fn departure_time_of(
@@ -160,10 +163,13 @@ impl UTCTimetables {
         trip: &Trip,
         position: &Position,
         calendar: &Calendar,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
-        let (time_in_day, load) = self.timetables.departure_time(&trip.vehicle, position);
-        let time_utc = calendar.compose_utc(&trip.day, time_in_day);
-        (time_utc, *load)
+    ) -> SecondsSinceDatasetUTCStart {
+        let time_in_day = self.timetables.departure_time(&trip.vehicle, position);
+        calendar.compose_utc(&trip.day, time_in_day)
+    }
+
+    pub fn load_after(&self, trip: &Trip, position: &Position) -> Load {
+        *self.timetables.load_after(&trip.vehicle, position)
     }
 
     pub fn debark_time_of(
@@ -171,13 +177,14 @@ impl UTCTimetables {
         trip: &Trip,
         position: &Position,
         calendar: &Calendar,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        let has_timeload_in_day = self.timetables.debark_time(&trip.vehicle, position);
-        has_timeload_in_day.map(|(time_in_day, load)| {
-            let day = &trip.day;
-            let time = calendar.compose_utc(day, time_in_day);
-            (time, *load)
-        })
+    ) -> Option<SecondsSinceDatasetUTCStart> {
+        self.timetables
+            .debark_time(&trip.vehicle, position)
+            .map(|time_in_day| {
+                let day = &trip.day;
+                let time = calendar.compose_utc(day, time_in_day);
+                time
+            })
     }
 
     pub fn board_time_of(
@@ -185,13 +192,14 @@ impl UTCTimetables {
         trip: &Trip,
         position: &Position,
         calendar: &Calendar,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
-        let has_timeload_in_day = self.timetables.board_time(&trip.vehicle, position);
-        has_timeload_in_day.map(|(time_in_day, load)| {
-            let day = &trip.day;
-            let time = calendar.compose_utc(day, time_in_day);
-            (time, *load)
-        })
+    ) -> Option<SecondsSinceDatasetUTCStart> {
+        self.timetables
+            .board_time(&trip.vehicle, position)
+            .map(|time_in_day| {
+                let day = &trip.day;
+                let time = calendar.compose_utc(day, time_in_day);
+                time
+            })
     }
 
     pub fn earliest_trip_to_board_at(
@@ -254,8 +262,9 @@ impl UTCTimetables {
                 },
             );
             if let Some(vehicle) = has_vehicle {
-                let (arrival_time_in_day_at_next_stop, load) =
+                let arrival_time_in_day_at_next_stop =
                     self.timetables.arrival_time(&vehicle, &next_position);
+                let load = self.timetables.load_before(&vehicle, &next_position);
                 let arrival_time_at_next_stop =
                     calendar.compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
                 if let Some((_, _, best_arrival_time, best_load)) =

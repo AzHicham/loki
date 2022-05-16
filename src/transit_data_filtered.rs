@@ -197,7 +197,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         let mission = self.mission_of(trip);
         let stop = self.stop_of(position, &mission);
 
@@ -212,7 +212,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> Option<(SecondsSinceDatasetUTCStart, Load)> {
+    ) -> Option<SecondsSinceDatasetUTCStart> {
         let mission = self.mission_of(trip);
         let stop = self.stop_of(position, &mission);
 
@@ -227,16 +227,24 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
+    ) -> SecondsSinceDatasetUTCStart {
         self.transit_data.arrival_time_of(trip, position)
+    }
+
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+        self.transit_data.load_before(trip, position)
     }
 
     fn departure_time_of(
         &self,
         trip: &Self::Trip,
         position: &Self::Position,
-    ) -> (SecondsSinceDatasetUTCStart, Load) {
+    ) -> SecondsSinceDatasetUTCStart {
         self.transit_data.departure_time_of(trip, position)
+    }
+
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+        self.transit_data.load_after(trip, position)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {

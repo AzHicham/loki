@@ -324,7 +324,7 @@ where
     }
 
     // Try to insert the trip in this timetable
-    // Returns `true` if insertion was succesfull, `false` otherwise
+    // Returns `true` if insertion was successfull, `false` otherwise
     pub(super) fn try_insert<BoardTimes, DebarkTimes, Loads>(
         &mut self,
         board_times: BoardTimes,

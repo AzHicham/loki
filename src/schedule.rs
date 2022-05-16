@@ -230,7 +230,7 @@ pub fn solve_schedule_request(
                         }
                         let vehicle_date = data.day_of(&trip);
                         let time = data.board_time_of(&trip, &position).map(
-                            |(second_since_dataset_start, _)| {
+                            |second_since_dataset_start| {
                                 data.calendar()
                                     .to_naive_datetime(second_since_dataset_start)
                             },
@@ -264,7 +264,7 @@ pub fn solve_schedule_request(
                         }
                         let vehicle_date = data.day_of(&trip);
                         let time = data.debark_time_of(&trip, &position).map(
-                            |(second_since_dataset_start, _)| {
+                            |second_since_dataset_start| {
                                 data.calendar()
                                     .to_naive_datetime(second_since_dataset_start)
                             },

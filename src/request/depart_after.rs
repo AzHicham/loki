@@ -219,8 +219,8 @@ where
         waiting_criteria: &Criteria,
     ) -> Option<Criteria> {
         let has_board = self.transit_data.board_time_of(trip, position);
-        if let Some(board_timeload) = has_board {
-            if waiting_criteria.time > board_timeload.0 {
+        if let Some(board_time) = has_board {
+            if waiting_criteria.time > board_time {
                 return None;
             }
         } else {
@@ -228,8 +228,8 @@ where
         }
         let mission = self.transit_data.mission_of(trip);
         let next_position = self.transit_data.next_on_mission(position, &mission)?;
-        let (arrival_time_at_next_stop, load) =
-            self.transit_data.arrival_time_of(trip, &next_position);
+        let arrival_time_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
+        let load = self.transit_data.load_before(trip, &next_position);
         let new_criteria = Criteria {
             time: arrival_time_at_next_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
@@ -244,7 +244,7 @@ where
         let next_trip = self.transit_data.stay_in_next(trip, self.real_time_level)?;
         let mission = self.transit_data.mission_of(&next_trip);
         let first_position = self.transit_data.first_on_mission(&mission);
-        let (arrival_time_at_first_stop, _load) = self
+        let arrival_time_at_first_stop = self
             .transit_data
             .arrival_time_of(&next_trip, &first_position);
         let new_criteria = Criteria {
@@ -286,11 +286,11 @@ where
     ) -> Option<Criteria> {
         debug_assert!({
             let arrival_time = &onboard_criteria.time;
-            self.transit_data.arrival_time_of(trip, position).0 == *arrival_time
+            self.transit_data.arrival_time_of(trip, position) == *arrival_time
         });
         self.transit_data
             .debark_time_of(trip, position)
-            .map(|(debark_time, _)| Criteria {
+            .map(|debark_time| Criteria {
                 time: debark_time,
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
@@ -305,8 +305,8 @@ where
             .transit_data
             .next_on_mission(position, &mission)
             .unwrap();
-        let (arrival_time_at_next_position, load) =
-            self.transit_data.arrival_time_of(trip, &next_position);
+        let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
+        let load = self.transit_data.load_before(trip, &next_position);
         Criteria {
             time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
@@ -408,8 +408,7 @@ where
         let board_time = self
             .transit_data
             .board_time_of(trip, board_position)
-            .ok_or_else(|| NoBoardTime(trip.clone(), board_position.clone()))?
-            .0;
+            .ok_or_else(|| NoBoardTime(trip.clone(), board_position.clone()))?;
         Ok(board_time)
     }
 
@@ -433,8 +432,7 @@ where
                     last_vehicle_leg.trip.clone(),
                     last_vehicle_leg.board_position.clone(),
                 )
-            })?
-            .0;
+            })?;
 
         for (transfer, vehicle) in journey.connections.iter_mut().rev() {
             let new_board_time = self._maximize_leg_board_time(vehicle, current_time)?;
