@@ -556,11 +556,11 @@ fn make_application_pattern(
     let begin_date = proto
         .start_date
         .ok_or_else(|| format_err!("'Pattern' has no 'start_date'"))?;
-    let begin_date = make_datetime(begin_date as u64)?.date(); // u32 can always be coerced to u64
+    let begin_date = make_datetime(u64::from(begin_date))?.date(); // u32 can always be coerced to u64
     let end_date = proto
         .end_date
         .ok_or_else(|| format_err!("'Pattern' has no 'end_date'"))?;
-    let end_date = make_datetime(end_date as u64)?.date(); // u32 can always be coerced to u64
+    let end_date = make_datetime(u64::from(end_date))?.date(); // u32 can always be coerced to u64
     let time_slots = proto
         .time_slots
         .iter()
