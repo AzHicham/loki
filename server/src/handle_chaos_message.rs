@@ -118,14 +118,11 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error>
     let created_at = proto
         .created_at
         .ok_or_else(|| format_err!("Impact has no created_at datetime"))?;
-    let created_at =
-        make_datetime(created_at).context("Could not parse impact.created_at".to_string())?;
+    let created_at = make_datetime(created_at).context("Could not parse impact.created_at")?;
 
     let updated_at = proto
         .updated_at
-        .map(|updated_at| {
-            make_datetime(updated_at).context("Could not parse impact.updated_at".to_string())
-        })
+        .map(|updated_at| make_datetime(updated_at).context("Could not parse impact.updated_at"))
         .transpose()?
         .unwrap_or(created_at);
 
@@ -133,17 +130,15 @@ fn make_impact(proto: &chaos_proto::chaos::Impact) -> Result<ChaosImpact, Error>
         .severity
         .as_ref()
         .ok_or_else(|| format_err!("Impact has no severity"))?;
-    let severity =
-        make_severity(severity).context("Could not parse impact.severity".to_string())?;
+    let severity = make_severity(severity).context("Could not parse impact.severity")?;
 
     let application_periods = make_periods(&proto.application_periods)
-        .context("Could not parse impact.application_periods".to_string())?;
+        .context("Could not parse impact.application_periods")?;
 
     let application_patterns = make_application_patterns(&proto.application_patterns)
-        .context("Could not parse impact.application_patterns".to_string())?;
+        .context("Could not parse impact.application_patterns")?;
 
-    let messages =
-        make_messages(&proto.messages).context("Could not parse impact.messages".to_string())?;
+    let messages = make_messages(&proto.messages).context("Could not parse impact.messages")?;
 
     let effect = severity.effect;
     let mut impacted_pt_objects = vec![];
