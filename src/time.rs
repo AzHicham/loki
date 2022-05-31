@@ -230,7 +230,7 @@ impl SecondsSinceTimezonedDayStart {
     }
 
     pub fn from_seconds(seconds: i32) -> Option<Self> {
-        if seconds > MAX_SECONDS_IN_TIMEZONED_DAY || seconds < -MAX_SECONDS_IN_TIMEZONED_DAY {
+        if !(-MAX_SECONDS_IN_TIMEZONED_DAY..=MAX_SECONDS_IN_TIMEZONED_DAY).contains(&seconds) {
             None
         } else {
             let result = Self { seconds };

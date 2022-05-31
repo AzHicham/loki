@@ -182,8 +182,8 @@ impl UTCTimetables {
             .debark_time(&trip.vehicle, position)
             .map(|time_in_day| {
                 let day = &trip.day;
-                let time = calendar.compose_utc(day, time_in_day);
-                time
+
+                calendar.compose_utc(day, time_in_day)
             })
     }
 
@@ -197,8 +197,8 @@ impl UTCTimetables {
             .board_time(&trip.vehicle, position)
             .map(|time_in_day| {
                 let day = &trip.day;
-                let time = calendar.compose_utc(day, time_in_day);
-                time
+
+                calendar.compose_utc(day, time_in_day)
             })
     }
 

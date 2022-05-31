@@ -36,7 +36,7 @@
 
 use diesel::sql_types::NotNull;
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "impact_status"]
 #[DbValueStyle = "snake_case"]
 pub enum ImpactStatus {
@@ -44,7 +44,7 @@ pub enum ImpactStatus {
     Archived,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "severity_effect"]
 #[DbValueStyle = "snake_case"]
 pub enum SeverityEffect {
@@ -59,7 +59,7 @@ pub enum SeverityEffect {
     StopMoved,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "channel_type_enum"]
 #[DbValueStyle = "snake_case"]
 pub enum ChannelType {
@@ -74,7 +74,7 @@ pub enum ChannelType {
     Beacon,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "disruption_status"]
 #[DbValueStyle = "snake_case"]
 pub enum DisruptionStatus {
@@ -83,7 +83,7 @@ pub enum DisruptionStatus {
     Draft,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "status"]
 #[DbValueStyle = "snake_case"]
 pub enum Status {
@@ -93,7 +93,7 @@ pub enum Status {
     Done,
 }
 
-#[derive(Clone, Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Clone, Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "pt_object_type"]
 #[DbValueStyle = "snake_case"]
 pub enum PtObjectType {
@@ -106,7 +106,7 @@ pub enum PtObjectType {
     RailSection,
 }
 
-#[derive(Debug, PartialEq, DbEnum, SqlType, AsExpression)]
+#[derive(Debug, PartialEq, Eq, DbEnum, SqlType, AsExpression)]
 #[DieselType = "disruption_type_enum"]
 #[DbValueStyle = "snake_case"]
 pub enum DisruptionType {
