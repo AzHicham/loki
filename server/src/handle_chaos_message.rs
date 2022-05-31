@@ -306,27 +306,27 @@ fn dispatch_pt_object(
         }
         (Type::rail_section, _) => {
             let proto_rail_section = proto.pt_rail_section.as_ref().ok_or_else(|| {
-                format_err!("PtObject has type line_section but the field pt_line_section is empty")
+                format_err!("PtObject has type rail_section but the field pt_rail_section is empty")
             })?;
 
             let line_uri = proto_rail_section
                 .line
                 .as_ref()
-                .ok_or_else(|| format_err!("'LineSection' has no 'line'"))?
+                .ok_or_else(|| format_err!("'RailSection' has no 'line'"))?
                 .uri
                 .as_ref()
                 .ok_or_else(|| format_err!("'PtObject' (line) has no 'uri'"))?;
             let start_stop_area_uri = proto_rail_section
                 .start_point
                 .as_ref()
-                .ok_or_else(|| format_err!("'LineSection' has no 'start_point'"))?
+                .ok_or_else(|| format_err!("'RailSection' has no 'start_point'"))?
                 .uri
                 .as_ref()
                 .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
             let end_stop_area_uri = proto_rail_section
                 .end_point
                 .as_ref()
-                .ok_or_else(|| format_err!("'LineSection' has no 'end_point'"))?
+                .ok_or_else(|| format_err!("'RailSection' has no 'end_point'"))?
                 .uri
                 .as_ref()
                 .ok_or_else(|| format_err!("'PtObject' (stop_point) has no 'uri'"))?;
