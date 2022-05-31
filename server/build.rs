@@ -71,7 +71,8 @@ fn main() {
     .expect("Failed to generate protobuf code for navitia-proto.");
     println!("Writing protobuf code in {}/pbnavitia.rs", out_dir);
 
-    protobuf_codegen_pure::Codegen::new()
+    protobuf_codegen::Codegen::new()
+        .pure()
         .out_dir(out_dir.as_str())
         .inputs(&[
             "chaos-proto/gtfs-realtime.proto",

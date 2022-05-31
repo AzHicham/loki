@@ -30,13 +30,14 @@
 pub use loki_server;
 use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
-use chaos_proto::{chaos::exts, gtfs_realtime as gtfs_proto};
+use chaos_proto::gtfs_realtime as gtfs_proto;
+use gtfs_proto::FeedHeader;
 use launch::loki::{
     chrono,
     chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
     models::real_time_disruption::time_periods::TimePeriod,
 };
-use protobuf::Message;
+use protobuf::{Message, MessageField};
 
 use crate::{first_section_vj_name, reload_base_data, wait_until_realtime_updated_after};
 
@@ -1027,27 +1028,27 @@ fn create_no_service_disruption(
     let mut entity = chaos_proto::chaos::PtObject::new();
     match pt_object {
         PtObject::Network(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::network);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::network);
             entity.set_uri(id.to_string());
         }
         PtObject::Route(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::route);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::route);
             entity.set_uri(id.to_string());
         }
         PtObject::Line(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::line);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::line);
             entity.set_uri(id.to_string());
         }
         PtObject::Trip(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::trip);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::trip);
             entity.set_uri(id.to_string());
         }
         PtObject::StopArea(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::stop_area);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::stop_area);
             entity.set_uri(id.to_string());
         }
         PtObject::StopPoint(id) => {
-            entity.set_pt_object_type(chaos_proto::chaos::PtObject_Type::stop_point);
+            entity.set_pt_object_type(chaos_proto::chaos::pt_object::Type::stop_point);
             entity.set_uri(id.to_string());
         }
     }
@@ -1062,48 +1063,54 @@ fn create_no_service_disruption(
     channel.set_content_type("html".to_string());
     channel.set_max_size(250);
     channel
-        .mut_types()
-        .push(chaos_proto::chaos::Channel_Type::web);
+        .types
+        .push(chaos_proto::chaos::channel::Type::web.into());
 
     let mut message = chaos_proto::chaos::Message::default();
     message.set_text("disruption test sample".to_string());
-    message.set_channel(channel);
+    message.channel = MessageField::<chaos_proto::chaos::Channel>::some(channel);
 
     let mut severity = chaos_proto::chaos::Severity::default();
     severity.set_id("severity id for NO_SERVICE".to_string());
     severity.set_wording("severity wording for NO_SERVICE".to_string());
     severity.set_color("#FF0000".to_string());
     severity.set_priority(10);
-    severity.set_effect(gtfs_proto::Alert_Effect::NO_SERVICE);
+    severity.set_effect(gtfs_proto::alert::Effect::NO_SERVICE);
 
     let mut impact = chaos_proto::chaos::Impact::default();
     impact.set_id(id.clone());
     impact.set_created_at(Utc::now().timestamp() as u64);
     impact.set_updated_at(Utc::now().timestamp() as u64);
-    impact.mut_informed_entities().push(entity);
-    impact.mut_application_periods().push(period.clone());
-    impact.mut_messages().push(message);
-    impact.set_severity(severity);
+    impact.informed_entities.push(entity);
+    impact.application_periods.push(period.clone());
+    impact.messages.push(message);
+    impact.severity = MessageField::<chaos_proto::chaos::Severity>::some(severity);
 
     let mut cause = chaos_proto::chaos::Cause::default();
     cause.set_id("disruption cause test".to_string());
     cause.set_wording("disruption cause test".to_string());
+    let mut category = chaos_proto::chaos::Category::default();
+    category.set_id("disruption cause category test".to_string());
+    category.set_name("disruption cause category test".to_string());
+    cause.category = MessageField::<chaos_proto::chaos::Category>::some(category);
 
     let mut disruption = chaos_proto::chaos::Disruption::default();
     disruption.set_id(id.clone());
     disruption.set_reference("ChaosDisruptionTest".to_string());
-    disruption.set_publication_period(period.clone());
-    disruption.set_cause(cause);
-    disruption.mut_impacts().push(impact);
+    disruption.publication_period = MessageField::<gtfs_proto::TimeRange>::some(period.clone());
+    disruption.cause = MessageField::<chaos_proto::chaos::Cause>::some(cause);
+    disruption.impacts.push(impact);
 
     // put the update in a feed_entity
     let mut feed_entity = gtfs_proto::FeedEntity::new();
     feed_entity.set_id(id);
-    let field_number = exts::disruption.field_number;
     let vec: Vec<u8> = disruption.write_to_bytes().expect("cannot write message");
     feed_entity
         .mut_unknown_fields()
-        .add_length_delimited(field_number, vec);
+        // 1000 is the field number of `disruption` in `FeedEntity`
+        // We used to be able to no hardcode the value in `protobuf:2`
+        // https://github.com/stepancheg/rust-protobuf/discussions/623
+        .add_length_delimited(1000, vec);
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
@@ -1113,8 +1120,8 @@ fn create_no_service_disruption(
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = gtfs_proto::FeedMessage::new();
-    feed_message.mut_entity().push(feed_entity);
-    feed_message.set_header(feed_header);
+    feed_message.entity.push(feed_entity);
+    feed_message.header = MessageField::<FeedHeader>::some(feed_header);
 
     feed_message
 }
@@ -1133,8 +1140,8 @@ fn create_cancel_disruption(id_of_disruption_to_cancel: &str) -> gtfs_proto::Fee
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = gtfs_proto::FeedMessage::new();
-    feed_message.mut_entity().push(feed_entity);
-    feed_message.set_header(feed_header);
+    feed_message.entity.push(feed_entity);
+    feed_message.header = MessageField::<FeedHeader>::some(feed_header);
 
     feed_message
 }

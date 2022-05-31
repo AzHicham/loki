@@ -902,22 +902,22 @@ fn handle_feed_entity(
     feed_entity: &chaos_proto::gtfs_realtime::FeedEntity,
     header_datetime: &NaiveDateTime,
 ) -> Result<(), Error> {
-    if !feed_entity.has_id() {
-        bail!("FeedEntity has no id");
-    }
-    let id = feed_entity.get_id();
+    let id = feed_entity
+        .id
+        .as_ref()
+        .ok_or_else(|| format_err!("FeedEntity has no id"))?;
 
     let data = &mut data_and_models.0;
     let base_model = &data_and_models.1;
     let real_time_model = &mut data_and_models.2;
 
-    if feed_entity.get_is_deleted() {
+    if matches!(feed_entity.is_deleted, Some(true)) {
         cancel_chaos_disruption(real_time_model, id, base_model, data);
     } else if let Some(chaos_disruption) = exts::disruption.get(feed_entity) {
         let chaos_disruption = handle_chaos_protobuf(&chaos_disruption)
             .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?;
         store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
-    } else if feed_entity.has_trip_update() {
+    } else if feed_entity.trip_update.is_some() {
         let kirin_disruption =
             handle_kirin_protobuf(feed_entity, header_datetime, &data_and_models.1).with_context(
                 || format!("Could not handle kirin disruption in FeedEntity {}", id),
@@ -936,10 +936,8 @@ fn handle_feed_entity(
 fn parse_header_datetime(
     message: &chaos_proto::gtfs_realtime::FeedMessage,
 ) -> Result<NaiveDateTime, Error> {
-    if message.has_header() {
-        let header = message.get_header();
-        if header.has_timestamp() {
-            let timestamp = header.get_timestamp();
+    if let Some(header) = message.header.as_ref() {
+        if let Some(timestamp) = header.timestamp {
             make_datetime(timestamp)
         } else {
             bail!("FeedHeader has no timestamp");
