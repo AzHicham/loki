@@ -460,7 +460,7 @@ async fn send_request_and_wait_for_response(
     let (mut reply, _) = tokio::time::timeout(
         timeout, 
         recv_socket.recv()
-    ).await.expect("Send to zmq endpoint timed out").unwrap();
+    ).await.expect("Receive zmq endpoint timed out").unwrap();
 
     let reply_payload = reply.pop_back().unwrap();
 
