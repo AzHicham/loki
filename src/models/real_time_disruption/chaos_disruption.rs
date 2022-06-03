@@ -384,8 +384,20 @@ fn apply_impact(
                 &object_idx,
                 impact_action,
             ),
-            Impacted::RailSection(_) => todo!(),
-            Impacted::LineSection(_) => todo!(),
+            Impacted::RailSection(_) => {
+                error!(
+                    "Error while applying impact {} : Rail section is not supported",
+                    impact.id
+                );
+                Ok(())
+            }
+            Impacted::LineSection(_) => {
+                error!(
+                    "Error while applying impact {} : Line section is not supported",
+                    impact.id
+                );
+                Ok(())
+            }
         };
         if let Err(err) = result {
             error!("Error while applying impact {} : {:?}", impact.id, err);
@@ -1254,8 +1266,22 @@ fn cancel_impact(
                     );
                 }
             }
-            Impacted::LineSection(_) => todo!(),
-            Impacted::RailSection(_) => todo!(),
+            Impacted::LineSection(_) => {
+                error!("Error while cancelling {}-th impact of chaos disruption {} : Rail section is not supported",
+                    chaos_impact_idx.impact_idx,
+                    real_time_model
+                        .get_chaos_disruption_and_impact(chaos_impact_idx)
+                        .0.id,
+                );
+            }
+            Impacted::RailSection(_) => {
+                error!("Error while cancelling {}-th impact of chaos disruption {} : Line section is not supported",
+                    chaos_impact_idx.impact_idx,
+                    real_time_model
+                        .get_chaos_disruption_and_impact(chaos_impact_idx)
+                        .0.id,
+                );
+            }
         }
     }
 }
