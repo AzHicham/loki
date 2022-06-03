@@ -443,14 +443,24 @@ async fn send_request_and_wait_for_response(
     zmq_endpoint: &str,
     request: navitia_proto::Request,
 ) -> navitia_proto::Response {
+    let timeout = std::time::Duration::from_secs(60);
+
     let context = tmq::Context::new();
     let zmq_socket = tmq::request(&context).connect(zmq_endpoint).unwrap();
 
     // cf https://github.com/cetra3/tmq/blob/master/examples/request.rs
     let zmq_message = tmq::Message::from(request.encode_to_vec());
 
-    let recv_socket = zmq_socket.send(zmq_message.into()).await.unwrap();
-    let (mut reply, _) = recv_socket.recv().await.unwrap();
+    let recv_socket = tokio::time::timeout(timeout, zmq_socket.send(zmq_message.into()))
+        .await
+        .expect("Send to zmq endpoint timed out")
+        .unwrap();
+
+    let (mut reply, _) = tokio::time::timeout(timeout, recv_socket.recv())
+        .await
+        .expect("Receive zmq endpoint timed out")
+        .unwrap();
+
     let reply_payload = reply.pop_back().unwrap();
 
     navitia_proto::Response::decode(&*reply_payload).unwrap()
