@@ -19,7 +19,7 @@ default = [] #["vehicle_loads"]
 vehicle_loads = []
 
 [dependencies]
-transit_model = "0.49"
+transit_model = "0.51"
 typed_index_collection = { version = "2", features = ["expose-inner"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.6"
