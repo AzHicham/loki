@@ -464,7 +464,7 @@ fn solve(
 
     let departure_timestamp_u64 = journey_request
         .datetimes
-        .get(0)
+        .first()
         .ok_or_else(|| format_err!("No departure datetime provided."))?;
     let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).with_context(|| {
         format!(
