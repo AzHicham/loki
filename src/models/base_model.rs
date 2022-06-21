@@ -1010,6 +1010,7 @@ pub fn flow(stop_time: &transit_model::objects::StopTime) -> Result<FlowDirectio
     let can_board = match stop_time.pickup_type {
         0 => true,
         1 => false,
+        3 => false,
         _ => {
             return Err(BadStopTime::PickupType);
         }
@@ -1017,6 +1018,7 @@ pub fn flow(stop_time: &transit_model::objects::StopTime) -> Result<FlowDirectio
     let can_debark = match stop_time.drop_off_type {
         0 => true,
         1 => false,
+        3 => false,
         _ => {
             return Err(BadStopTime::DropOffType);
         }
