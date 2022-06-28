@@ -36,7 +36,7 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum ComparatorType {
     Loads,
