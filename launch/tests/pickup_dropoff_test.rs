@@ -38,16 +38,11 @@ mod utils;
 use anyhow::Error;
 use launch::{
     config::ComparatorType,
-    datetime::DateTimeRepresent,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
-use loki::{models::base_model::BaseModel, PositiveDuration, RealTimeLevel};
+use loki::{models::base_model::BaseModel, PositiveDuration};
 use rstest::rstest;
-use utils::{
-    build_and_solve, from_to_stop_point_names,
-    model_builder::{AsDateTime, ModelBuilder},
-    Config,
-};
+use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
 #[rstest]
 #[case(ComparatorType::Loads)]
