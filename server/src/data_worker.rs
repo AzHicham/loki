@@ -103,7 +103,7 @@ pub struct DataWorker {
     real_time_queue_name: String,
     reload_queue_name: String,
 
-    kirin_messages: Vec<gtfs_realtime::FeedMessage>,
+    realtime_messages: Vec<gtfs_realtime::FeedMessage>,
     kirin_reload_done: bool,
 
     status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
@@ -160,7 +160,7 @@ impl DataWorker {
             host_name,
             real_time_queue_name,
             reload_queue_name,
-            kirin_messages: Vec::new(),
+            realtime_messages: Vec::new(),
             kirin_reload_done: false,
             status_update_sender,
             shutdown_sender,
@@ -176,7 +176,7 @@ impl DataWorker {
     }
 
     async fn run_loop(&mut self) -> Result<(), Error> {
-        debug!("DataWorker starts initial load data.");
+        info!("DataWorker starts initial load data.");
         self.load_data()
             .await
             .with_context(|| "Error while loading data".to_string())?;
@@ -259,16 +259,16 @@ impl DataWorker {
             tokio::select! {
                 // sends all messages in the buffer every X seconds
                 _ = interval.tick() => {
-                    if ! self.kirin_messages.is_empty() {
-                        trace!("It's time to apply {} real time updates.", self.kirin_messages.len());
+                    if ! self.realtime_messages.is_empty() {
+                        info!("It's time to apply {} real time messages.", self.realtime_messages.len());
                         self.apply_realtime_messages().await?;
-                        trace!("Successfully applied real time updates.");
+                        info!("Successfully applied real time messages.");
                     }
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
                     info!("Received a real time message.");
-                    self.handle_incoming_kirin_message(has_real_time_message).await?;
+                    self.handle_incoming_realtime_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
                 has_reload_message = reload_consumer.next() => {
@@ -349,6 +349,7 @@ impl DataWorker {
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {
+        info!("Start reloading chaos disruptions.");
         let chaos_params = match &self.config.chaos {
             Some(chaos_params) => chaos_params,
             None => {
@@ -367,11 +368,12 @@ impl DataWorker {
             let calendar = data.calendar();
             (calendar.first_date(), calendar.last_date())
         }; // lock is released
-        match chaos::models::read_chaos_disruption_from_database(
+        let chaos_disruptions_result = chaos::models::read_chaos_disruption_from_database(
             chaos_params,
             (start_date, end_date),
             &self.config.rabbitmq.real_time_topics,
-        ) {
+        );
+        match chaos_disruptions_result {
             Err(err) => error!("Loading chaos database failed : {:?}.", err),
             Ok(disruptions) => {
                 let updater = |data_and_models: &mut DataAndModels| {
@@ -404,11 +406,12 @@ impl DataWorker {
                 self.send_status_update(StatusUpdate::ChaosReload(now))?;
             }
         }
+        info!("Finished reloading chaos disruptions.");
         Ok(())
     }
 
     async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
-        let messages = std::mem::take(&mut self.kirin_messages);
+        let messages = std::mem::take(&mut self.realtime_messages);
         let updater = |data_and_models: &mut DataAndModels| {
             for message in messages {
                 let result = handle_realtime_message(data_and_models, &message);
@@ -466,7 +469,7 @@ impl DataWorker {
             .with_context(|| format!("Could not send order {:?} to load balancer.", order))
     }
 
-    async fn handle_incoming_kirin_message(
+    async fn handle_incoming_realtime_message(
         &mut self,
         has_real_time_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
     ) -> Result<(), Error> {
@@ -478,7 +481,7 @@ impl DataWorker {
                     .await
                     .map_err(|err| {
                         error!(
-                            "Error while acknowledging reception of kirin message : {:?}",
+                            "Error while acknowledging reception of realtime message : {:?}",
                             err
                         );
                     });
@@ -487,21 +490,21 @@ impl DataWorker {
                     gtfs_realtime::FeedMessage::parse_from_bytes(delivery.data.as_slice());
                 match proto_message_result {
                     Ok(proto_message) => {
-                        self.kirin_messages.push(proto_message);
+                        self.realtime_messages.push(proto_message);
                         Ok(())
                     }
                     Err(err) => {
-                        error!("Could not decode kirin message into protobuf. {:?}", err);
+                        error!("Could not decode realtime message into protobuf. {:?}", err);
                         Ok(())
                     }
                 }
             }
             Some(Err(err)) => {
-                error!("Error while receiving a kirin message. {:?}", err);
+                error!("Error while receiving a realtime message. {:?}", err);
                 Ok(())
             }
             None => {
-                bail!("Consumer for kirin messages has closed.");
+                bail!("Consumer for realtime messages has closed.");
             }
         }
     }
@@ -535,7 +538,7 @@ impl DataWorker {
                                 DataReloadStatus::Ok => {
                                     // if we have unhandled kirin messages, we clear them,
                                     // since we are going to request a full reload from kirin
-                                    self.kirin_messages.clear();
+                                    self.realtime_messages.clear();
                                     // After loading data from disk, load all disruption in chaos database
                                     // Then apply all extracted disruptions
                                     if let Err(err) = self.reload_chaos().await {
@@ -811,7 +814,7 @@ impl DataWorker {
             }
             Ok(message) => {
                 info!("Realtime reload message received. Starting to apply these updates.");
-                self.handle_incoming_kirin_message(message).await?;
+                self.handle_incoming_realtime_message(message).await?;
                 self.apply_realtime_messages().await?;
                 info!("Realtime reload completed successfully.");
 

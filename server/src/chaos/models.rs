@@ -90,8 +90,13 @@ pub fn read_chaos_disruption_from_database(
             }
         }
     }
-
-    Ok(disruption_maker.disruptions.into_values().collect())
+    let disruptions: Vec<_> = disruption_maker.disruptions.into_values().collect();
+    info!(
+        "Obtained {} disruptions from chaos database {}",
+        disruptions.len(),
+        &chaos_params.database
+    );
+    Ok(disruptions)
 }
 
 // In the SQL query to the Chaos database, we ask to sort the response's rows by disruption id.
