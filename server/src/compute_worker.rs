@@ -117,8 +117,6 @@ impl ComputeWorker {
                 )
             })?;
 
-            debug!("Worker {} received a request.", self.worker_id.id);
-
             let reponse_result = self.handle_request(request_message.payload);
             let proto_response = match reponse_result {
                 Err(err) => {
@@ -131,8 +129,6 @@ impl ComputeWorker {
                 payload: proto_response,
                 client_id: request_message.client_id,
             };
-
-            debug!("Worker {} finished solving.", self.worker_id.id);
 
             // block until the response is sent
             self.responses_channel
