@@ -2976,9 +2976,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tmq"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48fc0820216dbcbc4af5fceb12dc08a99bf93174198afe0bf989d5440a5c6cb8"
+checksum = "2e83994e39464b6dd4b3d3e1596744d6c1d56b6687fa4aa099c4994c31835763"
 dependencies = [
  "futures",
  "log",
