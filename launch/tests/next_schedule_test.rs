@@ -580,13 +580,13 @@ fn build_and_solve_schedule(
         config.duration,
         config.nb_max_responses,
         config.real_time_level,
-        &*config.forbidden_uris,
+        &config.forbidden_uris,
         &model_refs,
         &data,
     )?;
 
     let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
-        &*config.forbidden_uris,
+        &config.forbidden_uris,
         &model_refs,
     );
 

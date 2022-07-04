@@ -448,7 +448,7 @@ impl DataWorker {
                 )
             })?;
 
-            updater(&mut *lock_guard)
+            updater(&mut lock_guard)
         }; // lock_guard is now released
 
         trace!("DataWorker ask LoadBalancer to Start.");
