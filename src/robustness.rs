@@ -27,8 +27,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use transit_model::objects::PhysicalMode;
-
+#[derive(Debug, Copy, Clone)]
 pub enum Regularity {
     Rare,
     Intermittent,
@@ -36,15 +35,16 @@ pub enum Regularity {
 }
 
 impl Regularity {
-    pub fn new(physical_mode: &PhysicalMode) -> Option<Self> {
-        match physical_mode.id.as_str() {
-            "physical_mode:Bus" | "physical_mode:Funicular" => Some(Regularity::Rare),
+    pub fn new(physical_mode_name: &str) -> Self {
+        match physical_mode_name {
+            "physical_mode:Bus" | "physical_mode:Funicular" => Regularity::Rare,
 
             "physical_mode:LocalTrain" | "physical_mode:RapidTransit" | "physical_mode:Tramway" => {
-                Some(Regularity::Intermittent)
+                Regularity::Intermittent
             }
-            "physical_mode:Metro" => Some(Regularity::Frequent),
-            _ => None,
+            "physical_mode:Metro" => Regularity::Frequent,
+            // unknown physical mode, let's default to Rare
+            _ => Regularity::Rare,
         }
     }
 }

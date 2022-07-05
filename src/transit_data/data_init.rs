@@ -41,6 +41,7 @@ use crate::{
         real_time_model::RealTimeModel,
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
+    robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
     transit_data::{data_interface::Data as DataInterface, Stop, TransitData},
@@ -411,6 +412,8 @@ impl TransitData {
             }
         });
 
+        let physical_mode_name = base_model.physical_mode_name(vehicle_journey_idx);
+        let regularity = Regularity::new(physical_mode_name);
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
         let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
@@ -430,6 +433,7 @@ impl TransitData {
                 vehicle_journey_idx,
                 local_zones[0],
                 RealTimeLevel::Base,
+                regularity,
             );
             let real_time_model = RealTimeModel::new();
             let model = ModelRefs {
@@ -474,6 +478,7 @@ impl TransitData {
                     vehicle_journey_idx.clone(),
                     local_zone,
                     RealTimeLevel::Base,
+                    regularity,
                 );
 
                 let real_time_model = RealTimeModel::new();

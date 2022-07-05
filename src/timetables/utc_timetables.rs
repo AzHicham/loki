@@ -37,6 +37,7 @@
 use crate::{
     loads_data::{Load, LoadsData},
     models::{StopTimeIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     time::{
         calendar::DecomposeUTCResult,
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
@@ -74,6 +75,7 @@ pub struct VehicleData {
     base_days_pattern: DaysPattern,
     real_time_days_pattern: DaysPattern,
     local_zone: LocalZone,
+    regularity: Regularity,
 }
 
 impl UTCTimetables {
@@ -97,6 +99,10 @@ impl UTCTimetables {
             .vehicle_data(&trip.vehicle)
             .vehicle_journey_idx
             .clone()
+    }
+
+    pub fn regularity(&self, trip: &Trip) -> Regularity {
+        self.timetables.vehicle_data(&trip.vehicle).regularity
     }
 
     pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> StopTimeIdx {
@@ -355,6 +361,7 @@ impl UTCTimetables {
         vehicle_journey_idx: &VehicleJourneyIdx,
         local_zone: LocalZone,
         real_time_level: RealTimeLevel,
+        regularity: Regularity,
     ) -> Result<HashMap<Mission, DaysPattern>, (VehicleTimesError, Vec<NaiveDate>)>
     where
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
@@ -436,6 +443,7 @@ impl UTCTimetables {
                     base_days_pattern,
                     real_time_days_pattern,
                     local_zone,
+                    regularity,
                 };
 
                 let apply_offset = |time_in_timezoned_day: SecondsSinceTimezonedDayStart| -> SecondsSinceUTCDayStart {

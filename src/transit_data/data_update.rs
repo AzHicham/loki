@@ -39,6 +39,7 @@ use tracing::error;
 use crate::{
     loads_data::LoadsData,
     models::{StopPointIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     timetables::{day_to_timetable::LocalZone, InsertionError, ModifyError, RemovalError},
     transit_data::TransitData,
 };
@@ -101,6 +102,7 @@ impl TransitData {
         valid_dates: Dates,
         timezone: chrono_tz::Tz,
         vehicle_journey_idx: VehicleJourneyIdx,
+        regularity: Regularity,
     ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -120,6 +122,7 @@ impl TransitData {
             vehicle_journey_idx,
             None,
             RealTimeLevel::RealTime,
+            regularity,
         )
     }
 
@@ -133,6 +136,7 @@ impl TransitData {
         valid_dates: Dates,
         timezone: chrono_tz::Tz,
         vehicle_journey_idx: &VehicleJourneyIdx,
+        regularity: Regularity,
     ) -> Result<(), ModifyError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -207,6 +211,7 @@ impl TransitData {
                 vehicle_journey_idx,
                 local_zone,
                 RealTimeLevel::RealTime,
+                regularity,
             );
             let timetables = match timetables {
                 Err(err) => {
@@ -256,6 +261,7 @@ impl TransitData {
         vehicle_journey_idx: VehicleJourneyIdx,
         local_zone: LocalZone,
         real_time_level: RealTimeLevel,
+        regularity: Regularity,
     ) -> Result<(), InsertionError>
     where
         Stops: Iterator<Item = StopPointIdx> + ExactSizeIterator + Clone,
@@ -320,6 +326,7 @@ impl TransitData {
                 &vehicle_journey_idx,
                 local_zone,
                 real_time_level,
+                regularity,
             )
             .map_err(|(err, dates)| {
                 InsertionError::Times(vehicle_journey_idx.clone(), real_time_level, err, dates)
