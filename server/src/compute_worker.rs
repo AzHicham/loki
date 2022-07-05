@@ -149,10 +149,7 @@ impl ComputeWorker {
         proto_request: navitia_proto::Request,
     ) -> Result<navitia_proto::Response, Error> {
         check_deadline(&proto_request)?;
-        let request_id = proto_request
-            .request_id
-            .clone()
-            .unwrap_or_else(|| String::from("absent_id"));
+        let request_id = proto_request.request_id.clone().unwrap_or_else(String::new);
         let requested_api = proto_request.requested_api();
 
         info!(
