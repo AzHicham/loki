@@ -152,7 +152,7 @@ impl ComputeWorker {
         let request_id = proto_request
             .request_id
             .clone()
-            .unwrap_or(String::from("absent_id"));
+            .unwrap_or_else(|| String::from("absent_id"));
         let requested_api = proto_request.requested_api();
 
         info!(

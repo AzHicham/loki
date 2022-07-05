@@ -178,7 +178,7 @@ impl StatusWorker {
             .payload
             .request_id
             .clone()
-            .unwrap_or(String::from("absent_id"));
+            .unwrap_or_else(|| String::from("absent_id"));
         info!(
             "Status worker received request on api {:?} with id '{}'",
             requested_api, request_id
