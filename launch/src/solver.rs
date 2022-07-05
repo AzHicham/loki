@@ -94,7 +94,7 @@ impl Solver {
         Self: Sized,
     {
         use crate::datetime::DateTimeRepresent::{Arrival, Departure};
-        use config::ComparatorType::{Basic, Loads};
+        use config::ComparatorType::{Basic, Loads, Robustness};
 
         if let Some(filters) = has_filters {
             self.fill_allowed_stops_and_vehicles(model, &filters);
@@ -134,6 +134,23 @@ impl Solver {
                     )?;
                     solve_journeys_request_inner(&mut self.engine, &request, &data)
                 }
+
+                (Arrival, Robustness) => {
+                    let request = request::arrive_before::robustness_comparator::Request::new(
+                        model,
+                        &data,
+                        request_input,
+                    )?;
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
+                }
+                (Departure, Robustness) => {
+                    let request = request::depart_after::robustness_comparator::Request::new(
+                        model,
+                        &data,
+                        request_input,
+                    )?;
+                    solve_journeys_request_inner(&mut self.engine, &request, &data)
+                }
             };
             Ok(responses)
         } else {
@@ -164,6 +181,22 @@ impl Solver {
                 }
                 (Departure, Basic) => {
                     let request = request::depart_after::basic_comparator::Request::new(
+                        model,
+                        data,
+                        request_input,
+                    )?;
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
+                }
+                (Arrival, Robustness) => {
+                    let request = request::arrive_before::robustness_comparator::Request::new(
+                        model,
+                        data,
+                        request_input,
+                    )?;
+                    solve_journeys_request_inner(&mut self.engine, &request, data)
+                }
+                (Departure, Robustness) => {
+                    let request = request::depart_after::robustness_comparator::Request::new(
                         model,
                         data,
                         request_input,

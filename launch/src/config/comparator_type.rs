@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 pub enum ComparatorType {
     Loads,
     Basic,
+    Robustness,
 }
 impl std::str::FromStr for ComparatorType {
     type Err = ComparatorTypeConfigError;
@@ -48,6 +49,7 @@ impl std::str::FromStr for ComparatorType {
         let request_type = match s {
             "loads" => ComparatorType::Loads,
             "basic" => ComparatorType::Basic,
+            "robustness" => ComparatorType::Robustness,
             _ => {
                 return Err(ComparatorTypeConfigError {
                     comparator_type_name: s.to_string(),
@@ -69,6 +71,7 @@ impl std::fmt::Display for ComparatorType {
         match self {
             ComparatorType::Loads => write!(f, "loads"),
             ComparatorType::Basic => write!(f, "basic"),
+            ComparatorType::Robustness => write!(f, "robustness"),
         }
     }
 }
