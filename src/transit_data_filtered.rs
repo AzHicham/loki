@@ -332,6 +332,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         }
     }
 
+    fn regularity(&self, trip: &Self::Trip) -> Regularity {
+        self.transit_data.regularity(trip)
+    }
+
     fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {
         self.transit_data.calendar().to_naive_datetime(seconds)
     }

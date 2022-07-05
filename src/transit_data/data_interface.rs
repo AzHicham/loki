@@ -149,6 +149,8 @@ pub trait Data: TransitTypes {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
+    fn regularity(&self, trip: &Self::Trip) -> Regularity;
+
     fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 
     fn vehicle_journey_idx(&self, trip: &Self::Trip) -> VehicleJourneyIdx;

@@ -27,7 +27,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Regularity {
     Rare,
     Intermittent,
@@ -46,5 +46,25 @@ impl Regularity {
             // unknown physical mode, let's default to Rare
             _ => Regularity::Rare,
         }
+    }
+
+    fn level(&self) -> u8 {
+        match &self {
+            Regularity::Rare => 0,
+            Regularity::Intermittent => 1,
+            Regularity::Frequent => 2,
+        }
+    }
+}
+
+impl Ord for Regularity {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        Ord::cmp(&self.level(), &other.level())
+    }
+}
+
+impl PartialOrd for Regularity {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }

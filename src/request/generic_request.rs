@@ -37,6 +37,7 @@
 use crate::{
     loads_data::LoadsCount,
     models::ModelRefs,
+    robustness::Regularity,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::generic_timetables,
     transit_data::{self, data_interface::TransitTypes},
@@ -103,6 +104,7 @@ pub struct Criteria {
     pub(super) fallback_duration: PositiveDuration,
     pub(super) transfers_duration: PositiveDuration,
     pub(super) loads_count: LoadsCount,
+    pub(super) max_regularity: Regularity,
 }
 
 pub struct RequestTypes {}

@@ -36,6 +36,7 @@
 
 pub mod basic_comparator;
 pub mod loads_comparator;
+pub mod robustness_comparator;
 
 use crate::{
     loads_data::LoadsCount,
@@ -250,12 +251,14 @@ where
             .transit_data
             .departure_time_of(trip, &previous_position);
         let load = self.transit_data.load_after(trip, &previous_position);
+        let regularity = self.transit_data.regularity(trip);
         let new_criteria = Criteria {
             time: departure_time_at_previous_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
             loads_count: waiting_criteria.loads_count.add(load),
+            max_regularity: std::cmp::max(regularity, waiting_criteria.max_regularity),
         };
         Some(new_criteria)
     }
@@ -269,12 +272,14 @@ where
         let departure_time_at_last_stop = self
             .transit_data
             .departure_time_of(&previous_trip, &last_position);
+        let regularity = self.transit_data.regularity(&previous_trip);
         let new_criteria = Criteria {
             time: departure_time_at_last_stop,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
+            max_regularity: std::cmp::max(regularity, criteria.max_regularity),
         };
         Some((previous_trip, new_criteria))
     }
@@ -295,12 +300,14 @@ where
                 |_| true,
             )
             .map(|(trip, debark_time, load)| {
+                let regularity = self.transit_data.regularity(&trip);
                 let new_criteria = Criteria {
                     time: debark_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
                     loads_count: waiting_criteria.loads_count.add(load),
+                    max_regularity: std::cmp::max(regularity, waiting_criteria.max_regularity),
                 };
                 (trip, new_criteria)
             })
@@ -324,6 +331,7 @@ where
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
                 loads_count: onboard_criteria.loads_count.clone(),
+                max_regularity: onboard_criteria.max_regularity,
             })
     }
 
@@ -343,6 +351,7 @@ where
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.add(load),
+            max_regularity: criteria.max_regularity,
         }
     }
 
@@ -355,6 +364,7 @@ where
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
             loads_count: LoadsCount::zero(),
+            max_regularity: crate::robustness::Regularity::Rare,
         };
         (stop.clone(), criteria)
     }
@@ -373,6 +383,7 @@ where
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
+            max_regularity: criteria.max_regularity,
         }
     }
 
@@ -544,6 +555,7 @@ where
                 fallback_duration: self.criteria.fallback_duration,
                 transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
                 loads_count: self.criteria.loads_count.clone(),
+                max_regularity: self.criteria.max_regularity,
             };
             (stop.clone(), new_criteria, transfer.clone())
         })
