@@ -39,7 +39,7 @@ use crate::{
     load_balancer::WorkerId,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
-use anyhow::{bail, format_err, Context, Error};
+use anyhow::{anyhow, format_err, Context, Error};
 use launch::{
     config,
     datetime::DateTimeRepresent,
@@ -117,8 +117,6 @@ impl ComputeWorker {
                 )
             })?;
 
-            info!("Worker {} received a request.", self.worker_id.id);
-
             let reponse_result = self.handle_request(request_message.payload);
             let proto_response = match reponse_result {
                 Err(err) => {
@@ -131,8 +129,6 @@ impl ComputeWorker {
                 payload: proto_response,
                 client_id: request_message.client_id,
             };
-
-            debug!("Worker {} finished solving.", self.worker_id.id);
 
             // block until the response is sent
             self.responses_channel
@@ -153,8 +149,15 @@ impl ComputeWorker {
         proto_request: navitia_proto::Request,
     ) -> Result<navitia_proto::Response, Error> {
         check_deadline(&proto_request)?;
+        let request_id = proto_request.request_id.clone().unwrap_or_default();
+        let requested_api = proto_request.requested_api();
 
-        match proto_request.requested_api() {
+        info!(
+            "Worker {} received request on api {:?} with id '{}'",
+            self.worker_id.id, requested_api, request_id
+        );
+
+        let result = match requested_api {
             navitia_proto::Api::PtPlanner => {
                 let journey_request = proto_request.journeys.ok_or_else(|| {
                     format_err!("request.journey should not be empty for api PtPlanner.")
@@ -182,12 +185,18 @@ impl ComputeWorker {
                 self.handle_schedule(request, ScheduleOn::DebarkTimes)
             }
             _ => {
-                bail!(
+                error!("I can't handle the requested api : {:?}", requested_api);
+                Err(anyhow!(
                     "I can't handle the requested api : {:?}",
-                    proto_request.requested_api()
-                )
+                    requested_api
+                ))
             }
-        }
+        };
+        info!(
+            "Worker {} finished solving request on api {:?} with id '{}'",
+            self.worker_id.id, requested_api, request_id
+        );
+        result
     }
 
     fn handle_journey_request(

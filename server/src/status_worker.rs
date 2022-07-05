@@ -43,7 +43,7 @@ use anyhow::{format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
     chrono_tz,
-    tracing::{error, log::warn},
+    tracing::{error, info, log::warn},
     NaiveDateTime,
 };
 
@@ -174,6 +174,15 @@ impl StatusWorker {
 
     fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
         let requested_api = request_message.payload.requested_api();
+        let request_id = request_message
+            .payload
+            .request_id
+            .clone()
+            .unwrap_or_default();
+        info!(
+            "Status worker received request on api {:?} with id '{}'",
+            requested_api, request_id
+        );
         let response_payload = match requested_api {
             navitia_proto::Api::Status => navitia_proto::Response {
                 status: Some(self.status_response()),
@@ -203,7 +212,14 @@ impl StatusWorker {
                     "StatusWorker : channel to send status response is closed : {}",
                     err
                 )
-            })
+            })?;
+
+        info!(
+            "Status worker responded to request on api {:?} with id '{}'",
+            requested_api, request_id
+        );
+
+        Ok(())
     }
 
     fn status_response(&self) -> navitia_proto::Status {
