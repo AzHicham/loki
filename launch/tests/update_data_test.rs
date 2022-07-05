@@ -46,6 +46,7 @@ use loki::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
         VehicleJourneyIdx,
     },
+    robustness::Regularity,
     timetables::InsertionError,
     DataTrait, RealTimeLevel,
 };
@@ -495,6 +496,7 @@ fn modify_vj() -> Result<(), Error> {
             dates,
             UTC,
             &vj_idx,
+            Regularity::Rare,
         );
         assert!(result.is_ok());
     }
@@ -632,6 +634,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             dates,
             UTC,
             &vj_idx,
+            Regularity::Rare,
         );
         assert!(result.is_ok());
     }
@@ -940,6 +943,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx,
+            Regularity::Rare,
         );
         match insert_result {
             Err(InsertionError::InvalidDate(_, _)) => {
@@ -976,6 +980,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx,
+            Regularity::Rare,
         );
         match insert_result {
             Err(InsertionError::NoValidDates(_)) => {
@@ -1018,6 +1023,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx,
+            Regularity::Rare,
         );
         match insert_result {
             Err(InsertionError::Times(_, _, _, _)) => {
@@ -1047,6 +1053,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx,
+            Regularity::Rare,
         );
         match insert_result {
             Err(InsertionError::RealTimeVehicleJourneyAlreadyExistsOnDate(_, _)) => {
@@ -1089,6 +1096,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx.clone(),
+            Regularity::Rare,
         );
 
         assert!(insert_result.is_ok());
@@ -1107,6 +1115,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             dates,
             UTC,
             vj_idx,
+            Regularity::Rare,
         );
 
         match insert_result {
