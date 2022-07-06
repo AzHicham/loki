@@ -27,6 +27,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+use core::panic;
+use std::fmt::Display;
+
+use tracing::debug;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Regularity {
     Rare,
@@ -37,18 +42,21 @@ pub enum Regularity {
 impl Regularity {
     pub fn new(physical_mode_name: &str) -> Self {
         match physical_mode_name {
-            "physical_mode:Bus" | "physical_mode:Funicular" => Regularity::Rare,
+            "Bus" | "Funicular" => Regularity::Rare,
 
-            "physical_mode:LocalTrain" | "physical_mode:RapidTransit" | "physical_mode:Tramway" => {
+            "Train" | "LocalTrain" | "RapidTransit" | "Tramway" | "RailShuttle" => {
                 Regularity::Intermittent
             }
-            "physical_mode:Metro" => Regularity::Frequent,
+            "Metro" => Regularity::Frequent,
             // unknown physical mode, let's default to Rare
-            _ => Regularity::Rare,
+            _ => {
+                debug!("unknown physical mode {}", physical_mode_name);
+                Regularity::Rare
+            }
         }
     }
 
-    fn level(&self) -> u8 {
+    fn level(self) -> u8 {
         match &self {
             Regularity::Rare => 0,
             Regularity::Intermittent => 1,
@@ -66,5 +74,15 @@ impl Ord for Regularity {
 impl PartialOrd for Regularity {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Display for Regularity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Regularity::Frequent => write!(f, "frequent"),
+            Regularity::Intermittent => write!(f, "intermittent"),
+            Regularity::Rare => write!(f, "rare"),
+        }
     }
 }

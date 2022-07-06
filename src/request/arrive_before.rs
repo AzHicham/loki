@@ -185,6 +185,7 @@ where
             connections,
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
+            pt_journey.criteria_at_arrival.max_regularity,
             self.transit_data,
             self.real_time_level,
         )
