@@ -27,7 +27,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use core::panic;
 use std::fmt::Display;
 
 use tracing::debug;
@@ -42,11 +41,9 @@ pub enum Regularity {
 impl Regularity {
     pub fn new(physical_mode_name: &str) -> Self {
         match physical_mode_name {
-            "Bus" | "Funicular" | "Coach" | "LongDistanceTrain" => Regularity::Rare,
+            "Bus" | "Funicular" | "Coach" | "Train" | "LongDistanceTrain" => Regularity::Rare,
 
-            "Train" | "LocalTrain" | "RapidTransit" | "Tramway" | "RailShuttle" => {
-                Regularity::Intermittent
-            }
+            "LocalTrain" | "RapidTransit" | "Tramway" | "RailShuttle" => Regularity::Intermittent,
             "Metro" => Regularity::Frequent,
             // unknown physical mode, let's default to Rare
             _ => {
