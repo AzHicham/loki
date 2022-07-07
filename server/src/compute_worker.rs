@@ -41,7 +41,7 @@ use crate::{
 };
 use anyhow::{anyhow, format_err, Context, Error};
 use launch::{
-    config,
+    config::{self, ComparatorType},
     datetime::DateTimeRepresent,
     loki::{
         self,
@@ -214,12 +214,6 @@ impl ComputeWorker {
                 Ok(make_error_response(&err))
             }
             Ok(journey_request) => {
-                let real_time_level = match journey_request.realtime_level() {
-                    navitia_proto::RtLevel::BaseSchedule => RealTimeLevel::Base,
-                    navitia_proto::RtLevel::Realtime | navitia_proto::RtLevel::AdaptedSchedule => {
-                        RealTimeLevel::RealTime
-                    }
-                };
                 let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
                     format_err!(
                         "Compute worker {} failed to acquire read lock on data_and_models. {}",
@@ -237,8 +231,6 @@ impl ComputeWorker {
                     &model_refs,
                     &mut self.solver,
                     &self.default_request_params,
-                    &config::ComparatorType::Basic,
-                    real_time_level,
                 );
 
                 let response = make_proto_response(solve_result, &model_refs);
@@ -401,8 +393,6 @@ fn solve(
     model: &ModelRefs<'_>,
     solver: &mut Solver,
     default_request_params: &config::RequestParams,
-    comparator_type: &config::ComparatorType,
-    real_time_level: RealTimeLevel,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
     // println!("{:#?}", journey_request);
     let departures_stop_point_and_fallback_duration = journey_request
@@ -532,6 +522,26 @@ fn solve(
         must_be_bike_accessible,
     );
 
+    let real_time_level = if journey_request.realtime_level.is_some() {
+        match journey_request.realtime_level() {
+            navitia_proto::RtLevel::BaseSchedule => RealTimeLevel::Base,
+            navitia_proto::RtLevel::Realtime | navitia_proto::RtLevel::AdaptedSchedule => {
+                RealTimeLevel::RealTime
+            }
+        }
+    } else {
+        RealTimeLevel::RealTime
+    };
+
+    let comparator_type = if journey_request.criteria.is_some() {
+        match journey_request.criteria() {
+            navitia_proto::Criteria::Classic => ComparatorType::Basic,
+            navitia_proto::Criteria::Robustness => ComparatorType::Robustness,
+        }
+    } else {
+        ComparatorType::Basic
+    };
+
     let request_input = RequestInput {
         datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
@@ -555,7 +565,7 @@ fn solve(
         model,
         &request_input,
         data_filters,
-        comparator_type,
+        &comparator_type,
         &datetime_represent,
     )?;
     for response in &responses {
