@@ -480,7 +480,7 @@ fn make_journeys_request(
         ..Default::default()
     };
 
-    let journeys = navitia_proto::JourneysRequest {
+    let mut journeys = navitia_proto::JourneysRequest {
         origin: vec![origin],
         destination: vec![destination],
         datetimes: vec![from_datetime.timestamp() as u64],
@@ -488,6 +488,7 @@ fn make_journeys_request(
         max_duration: 24 * 60 * 60, // 1 day
         ..Default::default()
     };
+    journeys.set_realtime_level(navitia_proto::RtLevel::BaseSchedule);
 
     let mut request = navitia_proto::Request {
         journeys: Some(journeys),
