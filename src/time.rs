@@ -173,6 +173,14 @@ impl PositiveDuration {
         }
     }
 
+    pub fn try_from(seconds: i32) -> Option<PositiveDuration> {
+        let seconds_u32 = u32::try_from(seconds).ok()?;
+        let result = PositiveDuration {
+            seconds: seconds_u32,
+        };
+        Some(result)
+    }
+
     pub fn total_seconds(&self) -> u64 {
         u64::from(self.seconds)
     }

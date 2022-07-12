@@ -542,12 +542,24 @@ fn solve(
         ComparatorType::Basic
     };
 
+    let leg_arrival_penalty = journey_request
+        .arrival_transfer_penalty
+        .map(|seconds_i32| PositiveDuration::try_from(seconds_i32))
+        .flatten()
+        .unwrap_or(default_request_params.leg_arrival_penalty);
+
+    let leg_walking_penalty = journey_request
+        .walking_transfer_penalty
+        .map(|seconds_i32| PositiveDuration::try_from(seconds_i32))
+        .flatten()
+        .unwrap_or(default_request_params.leg_walking_penalty);
+
     let request_input = RequestInput {
         datetime: departure_datetime,
         departures_stop_point_and_fallback_duration,
         arrivals_stop_point_and_fallback_duration,
-        leg_arrival_penalty: default_request_params.leg_arrival_penalty,
-        leg_walking_penalty: default_request_params.leg_walking_penalty,
+        leg_arrival_penalty,
+        leg_walking_penalty,
         max_nb_of_legs,
         max_journey_duration,
         too_late_threshold: default_request_params.too_late_threshold,
