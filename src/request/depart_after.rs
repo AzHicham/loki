@@ -438,7 +438,10 @@ where
             let new_board_time = self._maximize_leg_board_time(vehicle, current_time)?;
             current_time = new_board_time;
 
-            let transfer_duration = self.transit_data.transfer_duration(transfer);
+            let transfer_duration = self
+                .transit_data
+                .transfer_durations(transfer)
+                .total_duration;
             current_time = current_time - transfer_duration;
         }
 

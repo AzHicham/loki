@@ -222,9 +222,9 @@ impl data_interface::Data for TransitData {
         (transfer_data.from_stop, transfer_data.to_stop)
     }
 
-    fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
+    fn transfer_durations(&self, transfer: &Self::Transfer) -> &TransferDurations {
         let transfer_data = &self.transfers_data[transfer.idx];
-        transfer_data.durations.total_duration
+        &transfer_data.durations
     }
 
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {

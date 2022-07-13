@@ -256,7 +256,7 @@ where
 
         for (idx, (transfer, vehicle_leg)) in self.connections.iter().enumerate() {
             let (transfer_from_stop, transfer_to_stop) = data.transfer_from_to_stop(transfer);
-            let transfer_duration = data.transfer_duration(transfer);
+            let transfer_duration = data.transfer_durations(transfer).total_duration;
 
             if !data.is_same_stop(&prev_debark_stop, &transfer_from_stop) {
                 return Err(BadJourney::BadTransferStartStop(
@@ -346,10 +346,10 @@ where
         last_debark_time + self.arrival_fallback_duration
     }
 
-    pub fn total_transfer_duration(&self, data: &Data) -> PositiveDuration {
+    pub fn total_transfer_walking_duration(&self, data: &Data) -> PositiveDuration {
         let mut result = PositiveDuration::zero();
         for (transfer, _) in &self.connections {
-            let transfer_duration = data.transfer_duration(transfer);
+            let transfer_duration = data.transfer_durations(transfer).walking_duration;
             result = result + transfer_duration;
         }
         result
@@ -416,8 +416,8 @@ where
         writeln!(writer, "Arrival : {}", Self::write_date(&arrival_datetime))?;
         writeln!(
             writer,
-            "Transfer duration : {}",
-            self.total_transfer_duration(data)
+            "Transfer walking duration : {}",
+            self.total_transfer_walking_duration(data)
         )?;
         writeln!(writer, "Nb of vehicles : {}", self.nb_of_legs())?;
         writeln!(
@@ -581,7 +581,7 @@ impl<Data: DataTrait> Journey<Data> {
 
         let (transfer, _) = &self.connections[connection_idx];
         let (transfer_from_stop, transfer_to_stop) = data.transfer_from_to_stop(transfer);
-        let transfer_duration = data.transfer_duration(transfer);
+        let transfer_duration = data.transfer_durations(transfer).walking_duration;
         let end_transfer_time = prev_debark_time + transfer_duration;
         let to_datetime = data.to_naive_datetime(end_transfer_time);
         let to_stop_point = data.stop_point_idx(&transfer_to_stop);
