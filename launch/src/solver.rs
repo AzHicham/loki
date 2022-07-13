@@ -229,12 +229,12 @@ where
     let request_timer = SystemTime::now();
     engine.compute(request);
     info!(
-        "Journeys computed in {} ms with {} rounds",
+        "Computed {} journeys in {} ms with {} rounds. Tree size : {}",
+        engine.nb_of_journeys(),
         request_timer.elapsed().unwrap().as_millis(),
-        engine.nb_of_rounds()
+        engine.nb_of_rounds(),
+        engine.tree_size(),
     );
-    info!("Nb of journeys found : {}", engine.nb_of_journeys());
-    info!("Tree size : {}", engine.tree_size());
 
     let journeys_iter = engine.responses().filter_map(|pt_journey| {
         request

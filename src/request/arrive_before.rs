@@ -451,7 +451,10 @@ where
 
         for (transfer, vehicle) in journey.connections.iter_mut() {
             // increase time by transfer_duration
-            let transfer_duration = self.transit_data.transfer_duration(transfer);
+            let transfer_duration = self
+                .transit_data
+                .transfer_durations(transfer)
+                .total_duration;
             current_time = current_time + transfer_duration;
 
             let new_debark_time = self._minimize_leg_debark_time(vehicle, current_time)?;

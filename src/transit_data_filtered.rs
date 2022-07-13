@@ -38,9 +38,9 @@ use crate::{
     filters::Filters,
     loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
+    time::{Calendar, SecondsSinceDatasetUTCStart},
     timetables::utc_timetables,
-    transit_data::{self, data_interface, data_iters},
+    transit_data::{self, data_interface, data_iters, TransferDurations},
     RealTimeLevel, TransitData,
 };
 pub use transit_model::objects::{
@@ -251,8 +251,8 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.transfer_from_to_stop(transfer)
     }
 
-    fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration {
-        self.transit_data.transfer_duration(transfer)
+    fn transfer_durations(&self, transfer: &Self::Transfer) -> &TransferDurations {
+        self.transit_data.transfer_durations(transfer)
     }
 
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx {

@@ -483,7 +483,7 @@ fn solve(
     })?;
     let departure_datetime = loki::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
-    info!(
+    debug!(
         "Requested timestamp {}, datetime {}",
         departure_timestamp_u64, departure_datetime
     );

@@ -186,6 +186,7 @@ impl DataWorker {
         if let Err(err) = self.reload_chaos().await {
             error!("Error while reloading chaos. {:?}", err);
         }
+        info!("DataWorker completed initial load data.");
 
         let rabbitmq_connect_retry_interval =
             Duration::from_secs(self.config.rabbitmq.connect_retry_interval.total_seconds());
@@ -226,7 +227,7 @@ impl DataWorker {
                     }
                     let result = self.main_loop(&channel).await;
                     error!(
-                        "DataWorker main loop exited. I'll relaunch the worker. {:?} ",
+                        "DataWorker was disconnected from rabbitmq. I'll try to reconnect. {:?} ",
                         result
                     );
                     self.send_status_update(StatusUpdate::RabbitMqDisconnected)?;
@@ -257,7 +258,7 @@ impl DataWorker {
 
         loop {
             tokio::select! {
-                // sends all messages in the buffer every X seconds
+                // apply all messages in the buffer every X seconds
                 _ = interval.tick() => {
                     if ! self.realtime_messages.is_empty() {
                         info!("It's time to apply {} real time messages.", self.realtime_messages.len());

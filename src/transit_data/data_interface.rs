@@ -1,7 +1,7 @@
 use crate::{
     loads_data::Load,
     models::{StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    time::{PositiveDuration, SecondsSinceDatasetUTCStart},
+    time::SecondsSinceDatasetUTCStart,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 pub use typed_index_collection::Idx;
@@ -115,7 +115,7 @@ pub trait Data: TransitTypes {
     fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
-    fn transfer_duration(&self, transfer: &Self::Transfer) -> PositiveDuration;
+    fn transfer_durations(&self, transfer: &Self::Transfer) -> &TransferDurations;
     fn transfer_idx(&self, transfer: &Self::Transfer) -> TransferIdx;
 
     fn stay_in_next(&self, trip: &Self::Trip, real_time_level: RealTimeLevel)
