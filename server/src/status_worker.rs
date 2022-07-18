@@ -43,7 +43,7 @@ use anyhow::{format_err, Context, Error};
 use launch::loki::{
     chrono::NaiveDate,
     chrono_tz,
-    tracing::{error, info, log::warn},
+    tracing::{debug, error, info, log::warn},
     NaiveDateTime,
 };
 
@@ -179,7 +179,7 @@ impl StatusWorker {
             .request_id
             .clone()
             .unwrap_or_default();
-        info!(
+        debug!(
             "Status worker received request on api {:?} with id '{}'",
             requested_api, request_id
         );
