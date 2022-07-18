@@ -315,7 +315,7 @@ impl UTCTimetables {
                 let departure_time_at_previous_stop =
                     calendar.compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
 
-                let load = self.timetables.load_before(&vehicle, &position);
+                let load = self.timetables.load_before(&vehicle, position);
                 if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {
