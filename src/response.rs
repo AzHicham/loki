@@ -684,7 +684,7 @@ impl VehicleSection {
         // let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
         let line_code = model
             .line_code(vehicle_journey_idx)
-            .unwrap_or("unknown_line");
+            .unwrap_or(model.line_name(vehicle_journey_idx));
         let physical_mode = model.physical_mode_name(vehicle_journey_idx);
         let line_pretty_name = format!("{}_{}", physical_mode, line_code);
 
