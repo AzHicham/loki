@@ -682,7 +682,11 @@ impl VehicleSection {
     ) -> Result<(), std::fmt::Error> {
         let vehicle_journey_idx = &self.vehicle_journey;
         // let route_id = real_time_model.route_name(&vehicle_journey_idx, model);
-        let line_id = model.line_name(vehicle_journey_idx);
+        let line_code = model
+            .line_code(vehicle_journey_idx)
+            .unwrap_or_else(|| model.line_name(vehicle_journey_idx));
+        let physical_mode = model.physical_mode_name(vehicle_journey_idx);
+        let line_pretty_name = format!("{}_{}", physical_mode, line_code);
 
         let from_stop_id = model
             .stop_point_at(
@@ -708,7 +712,7 @@ impl VehicleSection {
         writeln!(
             writer,
             "{} from {} at {} to {} at {} ",
-            line_id, from_stop_id, from_datetime, to_stop_id, to_datetime
+            line_pretty_name, from_stop_id, from_datetime, to_stop_id, to_datetime
         )?;
         Ok(())
     }

@@ -62,6 +62,7 @@ use std::{
     convert::TryFrom,
     ops::Deref,
     sync::{Arc, RwLock},
+    time::SystemTime,
 };
 use tokio::sync::mpsc;
 
@@ -152,7 +153,8 @@ impl ComputeWorker {
         let request_id = proto_request.request_id.clone().unwrap_or_default();
         let requested_api = proto_request.requested_api();
 
-        info!(
+        let request_timer = SystemTime::now();
+        debug!(
             "Worker {} received request on api {:?} with id '{}'",
             self.worker_id.id, requested_api, request_id
         );
@@ -192,9 +194,13 @@ impl ComputeWorker {
                 ))
             }
         };
+        let duration = request_timer.elapsed().map_or_else(
+            |err| err.to_string(),
+            |duration| duration.as_millis().to_string(),
+        );
         info!(
-            "Worker {} finished solving request on api {:?} with id '{}'",
-            self.worker_id.id, requested_api, request_id
+            "Worker {} took {} ms on api {:?} for request with id '{}'",
+            self.worker_id.id, duration, requested_api, request_id
         );
         result
     }

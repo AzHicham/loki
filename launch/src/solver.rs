@@ -228,10 +228,14 @@ where
     debug!("Start computing journeys");
     let request_timer = SystemTime::now();
     engine.compute(request);
+    let duration = request_timer.elapsed().map_or_else(
+        |err| err.to_string(),
+        |duration| duration.as_millis().to_string(),
+    );
     info!(
         "Computed {} journeys in {} ms with {} rounds. Tree size : {}",
         engine.nb_of_journeys(),
-        request_timer.elapsed().unwrap().as_millis(),
+        duration,
         engine.nb_of_rounds(),
         engine.tree_size(),
     );
