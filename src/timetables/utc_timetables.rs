@@ -202,27 +202,7 @@ impl UTCTimetables {
             })
     }
 
-    pub fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.earliest_filtered_trip_to_board_at(
-            waiting_time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            calendar,
-            days_patterns,
-        )
-    }
-
-    pub fn earliest_filtered_trip_to_board_at<Filter>(
+    pub fn earliest_trip_to_board<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
@@ -292,27 +272,7 @@ impl UTCTimetables {
         )
     }
 
-    pub fn latest_trip_that_debark_at(
-        &self,
-        time: SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.latest_filtered_trip_that_debark_at(
-            time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            calendar,
-            days_patterns,
-        )
-    }
-
-    pub fn latest_filtered_trip_that_debark_at<Filter>(
+    pub fn latest_trip_that_debark<Filter>(
         &self,
         time: SecondsSinceDatasetUTCStart,
         mission: &Mission,

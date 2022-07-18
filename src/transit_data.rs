@@ -320,24 +320,7 @@ impl data_interface::Data for TransitData {
         )
     }
 
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.earliest_trip_to_board_at(
-            waiting_time,
-            mission,
-            position,
-            real_time_level,
-            &self.calendar,
-            &self.days_patterns,
-        )
-    }
-
-    fn earliest_filtered_trip_to_board_at<Filter>(
+    fn earliest_trip_to_board<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -348,7 +331,7 @@ impl data_interface::Data for TransitData {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        self.timetables.earliest_filtered_trip_to_board_at(
+        self.timetables.earliest_trip_to_board(
             waiting_time,
             mission,
             position,
@@ -359,24 +342,7 @@ impl data_interface::Data for TransitData {
         )
     }
 
-    fn latest_trip_that_debark_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.timetables.latest_trip_that_debark_at(
-            waiting_time,
-            mission,
-            position,
-            real_time_level,
-            &self.calendar,
-            &self.days_patterns,
-        )
-    }
-
-    fn latest_filtered_trip_that_debark_at<Filter>(
+    fn latest_trip_that_debark<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -387,7 +353,7 @@ impl data_interface::Data for TransitData {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
-        self.timetables.latest_filtered_trip_that_debark_at(
+        self.timetables.latest_trip_that_debark(
             waiting_time,
             mission,
             position,

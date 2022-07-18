@@ -127,15 +127,7 @@ pub trait Data: TransitTypes {
         real_time_level: RealTimeLevel,
     ) -> Option<Self::Trip>;
 
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
-
-    fn earliest_filtered_trip_to_board_at<Filter>(
+    fn earliest_trip_to_board<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -146,15 +138,7 @@ pub trait Data: TransitTypes {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
-    fn latest_trip_that_debark_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>;
-
-    fn latest_filtered_trip_that_debark_at<Filter>(
+    fn latest_trip_that_debark<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
