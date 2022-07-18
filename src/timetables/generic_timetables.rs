@@ -250,7 +250,7 @@ where
             .load_after(vehicle.idx, position.idx)
     }
 
-    pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
+    pub(super) fn earliest_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
         timetable: &Timetable,
@@ -262,7 +262,7 @@ where
     {
         assert!(position.timetable == *timetable);
         self.timetable_data(timetable)
-            .earliest_filtered_vehicle_to_board(waiting_time, position.idx, &filter)
+            .earliest_vehicle_to_board(waiting_time, position.idx, &filter)
             .map(|idx| Vehicle {
                 timetable: timetable.clone(),
                 idx,

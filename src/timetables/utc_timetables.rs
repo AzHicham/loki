@@ -248,7 +248,7 @@ impl UTCTimetables {
         )> = None;
 
         for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self.timetables.earliest_filtered_vehicle_to_board(
+            let has_vehicle = self.timetables.earliest_vehicle_to_board(
                 &waiting_time_in_day,
                 mission,
                 position,
@@ -794,7 +794,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             // find first vehicle that depart after from_time_in_day
             let current_vehicle_idx = if BOARD_TIMES {
                 timetable_data
-                    .earliest_vehicle_to_board(&from_time_in_day, position_idx)
+                    .earliest_vehicle_to_board(&from_time_in_day, position_idx, |_| true)
                     .unwrap_or_else(|| timetable_data.nb_of_vehicle())
             } else {
                 timetable_data
@@ -911,7 +911,9 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                     // find first vehicle that depart after from_time_in_day
                     if BOARD_TIMES {
                         self.current_vehicle_idx = timetable_data
-                            .earliest_vehicle_to_board(&from_time_in_day, self.position_idx)
+                            .earliest_vehicle_to_board(&from_time_in_day, self.position_idx, |_| {
+                                true
+                            })
                             .unwrap_or_else(|| timetable_data.nb_of_vehicle());
                     } else {
                         self.current_vehicle_idx = timetable_data

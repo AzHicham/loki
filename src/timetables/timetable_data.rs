@@ -114,15 +114,19 @@ where
         &self.vehicle_datas[vehicle_idx]
     }
 
-    // If we are waiting to board a trip at `position` at time ``
+    // If we are waiting to board a trip at `position` at time `waiting_time`
     // return `Some(best_vehicle_idx)`
-    // where `best_vehicle_idx` is the idx of the first Vehicle that can be boarded
-    //  after waiting_time
-    pub(super) fn earliest_vehicle_to_board(
+    // where `best_vehicle_idx` is the idx of the earliest vehicle, among those on which `filter` returns true,
+    // that can be boarded after or at waiting_time
+    pub(super) fn earliest_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
         position_idx: usize,
-    ) -> Option<usize> {
+        filter: Filter,
+    ) -> Option<usize>
+    where
+        Filter: Fn(&VehicleData) -> bool,
+    {
         if !self.can_board(position_idx) {
             return None;
         }
@@ -158,20 +162,6 @@ where
                     .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
                     .unwrap_err()
             };
-
-        Some(first_boardable_vehicle)
-    }
-
-    pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
-        &self,
-        waiting_time: &Time,
-        position_idx: usize,
-        filter: &Filter,
-    ) -> Option<usize>
-    where
-        Filter: Fn(&VehicleData) -> bool,
-    {
-        let first_boardable_vehicle = self.earliest_vehicle_to_board(waiting_time, position_idx)?;
 
         for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicle() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
