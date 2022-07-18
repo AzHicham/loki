@@ -269,7 +269,7 @@ where
             })
     }
 
-    pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
+    pub(super) fn latest_vehicle_that_debark<Filter>(
         &self,
         time: &Time,
         timetable: &Timetable,
@@ -281,7 +281,7 @@ where
     {
         assert_eq!(position.timetable, *timetable);
         self.timetable_data(timetable)
-            .latest_filtered_vehicle_that_debark(time, position.idx, filter)
+            .latest_vehicle_that_debark(time, position.idx, filter)
             .map(|(idx, time)| {
                 let vehicle = Vehicle {
                     timetable: timetable.clone(),

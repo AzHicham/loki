@@ -332,7 +332,7 @@ impl UTCTimetables {
             Load,
         )> = None;
         for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self.timetables.latest_filtered_vehicle_that_debark(
+            let has_vehicle = self.timetables.latest_vehicle_that_debark(
                 &waiting_time_in_day,
                 mission,
                 position,
@@ -798,7 +798,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
                     .unwrap_or_else(|| timetable_data.nb_of_vehicle())
             } else {
                 timetable_data
-                    .earliest_vehicle_to_debark(&from_time_in_day, position_idx)
+                    .earliest_vehicle_that_debark(&from_time_in_day, position_idx, |_| true)
                     .unwrap_or_else(|| timetable_data.nb_of_vehicle())
             };
 
@@ -917,7 +917,11 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                             .unwrap_or_else(|| timetable_data.nb_of_vehicle());
                     } else {
                         self.current_vehicle_idx = timetable_data
-                            .earliest_vehicle_to_debark(&from_time_in_day, self.position_idx)
+                            .earliest_vehicle_that_debark(
+                                &from_time_in_day,
+                                self.position_idx,
+                                |_| true,
+                            )
                             .unwrap_or_else(|| timetable_data.nb_of_vehicle());
                     }
 
