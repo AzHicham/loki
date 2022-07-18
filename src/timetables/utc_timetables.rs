@@ -238,6 +238,7 @@ impl UTCTimetables {
         let decompositions = calendar.decompositions_utc(waiting_time);
 
         // if there is not next position, we cannot board this mission at this posision
+        // TODO : revise this comment when stay_ins are implemented
         let next_position = self.timetables.next_position(position, mission)?;
 
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
@@ -324,6 +325,9 @@ impl UTCTimetables {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
+        // if there is not prev position, we cannot debark this mission at this posision
+        // TODO : revise this comment when stay_ins are implemented
+        let prev_position = self.timetables.previous_position(position, mission)?;
         let decompositions = calendar.decompositions_utc(time);
         let mut best_vehicle_day_and_its_departure_time_at_previous_position: Option<(
             Vehicle,
@@ -345,10 +349,13 @@ impl UTCTimetables {
                         && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
-            if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {
+            if let Some(vehicle) = has_vehicle {
+                let departure_time_in_day_at_previous_stop =
+                    self.timetables.departure_time(&vehicle, &prev_position);
                 let departure_time_at_previous_stop =
                     calendar.compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
 
+                let load = self.timetables.load_before(&vehicle, &position);
                 if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {

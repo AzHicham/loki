@@ -275,22 +275,16 @@ where
         timetable: &Timetable,
         position: &Position,
         filter: Filter,
-    ) -> Option<(Vehicle, &Time, &Load)>
+    ) -> Option<Vehicle>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
         assert_eq!(position.timetable, *timetable);
         self.timetable_data(timetable)
             .latest_vehicle_that_debark(time, position.idx, filter)
-            .map(|(idx, time)| {
-                let vehicle = Vehicle {
-                    timetable: timetable.clone(),
-                    idx,
-                };
-                let load = self
-                    .timetable_data(timetable)
-                    .load_before(idx, position.idx);
-                (vehicle, time, load)
+            .map(|idx| Vehicle {
+                timetable: timetable.clone(),
+                idx,
             })
     }
 

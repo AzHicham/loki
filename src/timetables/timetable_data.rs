@@ -232,24 +232,22 @@ where
         None
     }
 
-    // Given a `position` and a `time`
-    // return `Some(best_trip_idx)`
-    // where `best_trip_idx` is the idx of the latest vehicle, among those  on which `filter` returns true,
-    // that debark at the subsequent positions at the latest time
+    // Returns `Some(best_vehicle_idx)`
+    // where `best_vehicle_idx` is the idx of the vehicle with the latest debark time, among those on which `filter` returns true,
+    // that can be debarked at `position` before or at `waiting_time`.
+    // Returns None if no vehicle can be debarked at `position` before or at `waiting_time`.
     pub(super) fn latest_vehicle_that_debark<Filter>(
         &self,
         waiting_time: &Time,
         position_idx: usize,
         filter: Filter,
-    ) -> Option<(usize, &Time)>
+    ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
         if !self.can_debark(position_idx) {
             return None;
         }
-        // we should not be able to debark at the first position
-        assert!(position_idx > 0);
 
         let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
         if nb_of_vehicles == 0 {
@@ -287,9 +285,7 @@ where
         for vehicle_idx in (0..after_last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             if filter(vehicle_data) {
-                let departure_time_at_previous_position =
-                    self.departure_time(vehicle_idx, position_idx - 1);
-                return Some((vehicle_idx, departure_time_at_previous_position));
+                return Some(vehicle_idx);
             }
         }
         None
