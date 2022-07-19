@@ -52,26 +52,6 @@ impl Regularity {
             }
         }
     }
-
-    fn level(self) -> u8 {
-        match &self {
-            Regularity::Rare => 0,
-            Regularity::Intermittent => 1,
-            Regularity::Frequent => 2,
-        }
-    }
-}
-
-impl Ord for Regularity {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        Ord::cmp(&self.level(), &other.level())
-    }
-}
-
-impl PartialOrd for Regularity {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 impl Display for Regularity {
@@ -81,5 +61,44 @@ impl Display for Regularity {
             Regularity::Intermittent => write!(f, "intermittent"),
             Regularity::Rare => write!(f, "rare"),
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Uncertainty {
+    level: u8,
+    last_vehicle_regularity: Option<Regularity>,
+}
+
+impl Uncertainty {
+    pub fn zero() -> Self {
+        Self {
+            level: 0,
+            last_vehicle_regularity: None,
+        }
+    }
+
+    pub fn extend(&self, next_vehicle_regularity: Regularity) -> Self {
+        use Regularity::{Frequent, Intermittent, Rare};
+        let delta = match (self.last_vehicle_regularity, next_vehicle_regularity) {
+            (_, Frequent) => 1,
+
+            (None, Intermittent) | (Some(Frequent), Intermittent) => 2,
+
+            (None, Rare) | (Some(Frequent), Rare) => 3,
+
+            (Some(Intermittent), Intermittent) | (Some(Rare), Intermittent) => 5,
+
+            (Some(Intermittent), Rare) | (Some(Rare), Rare) => 10,
+        };
+        let level = self.level.saturating_add(delta);
+        Self {
+            level,
+            last_vehicle_regularity: Some(next_vehicle_regularity),
+        }
+    }
+
+    pub fn is_lower(&self, other: &Self) -> bool {
+        self.level <= other.level
     }
 }

@@ -73,7 +73,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
 
         lower.time + arrival_penalty * lower_nb_of_legs
             <= upper.time + arrival_penalty * upper_nb_of_legs
-            && lower.max_regularity >= upper.max_regularity
+            && lower.uncertainty.is_lower(&upper.uncertainty)
             && lower.fallback_duration
                 + lower.transfers_duration
                 + walking_penalty * lower_nb_of_legs

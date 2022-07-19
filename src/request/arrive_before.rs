@@ -41,6 +41,7 @@ pub mod robustness_comparator;
 use crate::{
     loads_data::LoadsCount,
     models::ModelRefs,
+    robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
     RealTimeLevel,
@@ -185,7 +186,7 @@ where
             connections,
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
-            pt_journey.criteria_at_arrival.max_regularity,
+            pt_journey.criteria_at_arrival.uncertainty,
             self.transit_data,
             self.real_time_level,
         )
@@ -259,7 +260,7 @@ where
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
             loads_count: waiting_criteria.loads_count.add(load),
-            max_regularity: std::cmp::max(regularity, waiting_criteria.max_regularity),
+            uncertainty: waiting_criteria.uncertainty.extend(regularity),
         };
         Some(new_criteria)
     }
@@ -280,7 +281,7 @@ where
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
-            max_regularity: std::cmp::max(regularity, criteria.max_regularity),
+            uncertainty: criteria.uncertainty.extend(regularity),
         };
         Some((previous_trip, new_criteria))
     }
@@ -308,7 +309,7 @@ where
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
                     loads_count: waiting_criteria.loads_count.add(load),
-                    max_regularity: std::cmp::max(regularity, waiting_criteria.max_regularity),
+                    uncertainty: waiting_criteria.uncertainty.extend(regularity),
                 };
                 (trip, new_criteria)
             })
@@ -332,7 +333,7 @@ where
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
                 loads_count: onboard_criteria.loads_count.clone(),
-                max_regularity: onboard_criteria.max_regularity,
+                uncertainty: onboard_criteria.uncertainty,
             })
     }
 
@@ -352,7 +353,7 @@ where
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.add(load),
-            max_regularity: criteria.max_regularity,
+            uncertainty: criteria.uncertainty,
         }
     }
 
@@ -365,7 +366,7 @@ where
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
             loads_count: LoadsCount::zero(),
-            max_regularity: crate::robustness::Regularity::Rare,
+            uncertainty: Uncertainty::zero(),
         };
         (stop.clone(), criteria)
     }
@@ -384,7 +385,7 @@ where
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
-            max_regularity: criteria.max_regularity,
+            uncertainty: criteria.uncertainty,
         }
     }
 
@@ -556,7 +557,7 @@ where
                 fallback_duration: self.criteria.fallback_duration,
                 transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
                 loads_count: self.criteria.loads_count.clone(),
-                max_regularity: self.criteria.max_regularity,
+                uncertainty: self.criteria.uncertainty,
             };
             (stop.clone(), new_criteria, transfer.clone())
         })

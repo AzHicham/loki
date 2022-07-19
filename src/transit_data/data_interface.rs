@@ -1,6 +1,7 @@
 use crate::{
     loads_data::Load,
     models::{StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     time::SecondsSinceDatasetUTCStart,
 };
 use chrono::{NaiveDate, NaiveDateTime};
