@@ -37,7 +37,7 @@
 use crate::{
     loads_data::LoadsCount,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    robustness::{Regularity, Uncertainty},
+    robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
 };
@@ -433,7 +433,7 @@ where
             self.arrival_fallback_duration
         )?;
         writeln!(writer, "Loads : {}", self.loads_count)?;
-        writeln!(writer, "Uncertainty : {:?}", self.uncertainty)?;
+        writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         let departure_datetime = data.to_naive_datetime(self.departure_datetime);
         writeln!(
@@ -831,7 +831,7 @@ impl Response {
             write_duration(self.arrival.duration_in_seconds())
         )?;
         writeln!(writer, "Loads : {}", self.loads_count)?;
-        writeln!(writer, "Uncertainty : {:?}", self.uncertainty)?;
+        writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         writeln!(
             writer,

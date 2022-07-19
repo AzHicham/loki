@@ -37,7 +37,7 @@
 use crate::{
     loads_data::LoadsCount,
     models::ModelRefs,
-    robustness::{Regularity, Uncertainty},
+    robustness::Uncertainty,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::generic_timetables,
     transit_data::{self, data_interface::TransitTypes},

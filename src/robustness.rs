@@ -102,3 +102,9 @@ impl Uncertainty {
         self.level <= other.level
     }
 }
+
+impl Display for Uncertainty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.level)
+    }
+}
