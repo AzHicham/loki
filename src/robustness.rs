@@ -103,6 +103,18 @@ impl Uncertainty {
     }
 }
 
+impl Ord for Uncertainty {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.level.cmp(&other.level)
+    }
+}
+
+impl PartialOrd for Uncertainty {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
 impl Display for Uncertainty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.level)
