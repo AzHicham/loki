@@ -98,10 +98,15 @@ pub struct Position {
     pub(super) idx: PositionIdx,
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) struct VehicleIdx {
+    pub(super) idx: usize,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Vehicle {
     pub(super) timetable: Timetable,
-    pub(super) idx: usize,
+    pub(super) idx: VehicleIdx,
 }
 
 #[derive(Debug, Clone)]

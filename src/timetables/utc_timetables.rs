@@ -48,7 +48,7 @@ use crate::{
 
 use super::{
     day_to_timetable::LocalZone,
-    generic_timetables::{GenericTimetables, PositionIdx, Vehicle},
+    generic_timetables::{GenericTimetables, PositionIdx, Vehicle, VehicleIdx},
     timetable_iters::{PositionsIter, TimetableIter},
 };
 use crate::time::{
@@ -717,7 +717,7 @@ pub struct TripsBetween<'a, const BOARD_TIMES: bool> {
 
     // the iterator is exhausted when current_day.is_none()
     current_day: Option<DaysSinceDatasetStart>,
-    current_vehicle_idx: usize,
+    current_vehicle_idx: VehicleIdx,
     current_until_time_in_day: SecondsSinceUTCDayStart,
 }
 
@@ -745,7 +745,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             from_time,
             until_time,
             current_day: None,
-            current_vehicle_idx: nb_of_vehicle,
+            current_vehicle_idx: VehicleIdx { idx: nb_of_vehicle },
             current_until_time_in_day: SecondsSinceUTCDayStart::min(),
         };
 
@@ -762,11 +762,11 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             let current_vehicle_idx = if BOARD_TIMES {
                 timetable_data
                     .earliest_vehicle_to_board(&from_time_in_day, position_idx, |_| true)
-                    .unwrap_or_else(|| timetable_data.nb_of_vehicle())
+                    .unwrap_or_else(|| VehicleIdx { idx: nb_of_vehicle })
             } else {
                 timetable_data
                     .earliest_vehicle_that_debark(&from_time_in_day, position_idx, |_| true)
-                    .unwrap_or_else(|| timetable_data.nb_of_vehicle())
+                    .unwrap_or_else(|| VehicleIdx { idx: nb_of_vehicle })
             };
 
             let until_time_in_day = match calendar.decompose_utc(until_time, from_day) {
@@ -812,13 +812,15 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
 
             let timetable_data = self.utc_timetables.timetables.timetable_data(&self.mission);
             let nb_of_vehicle = timetable_data.nb_of_vehicle();
-            if self.current_vehicle_idx < nb_of_vehicle {
+            if self.current_vehicle_idx.idx < nb_of_vehicle {
                 let vehicle_idx = self.current_vehicle_idx;
-                self.current_vehicle_idx += 1;
+                self.current_vehicle_idx = VehicleIdx {
+                    idx: vehicle_idx.idx + 1,
+                };
                 let time = if BOARD_TIMES {
-                    &timetable_data.board_times_by_position[self.position_idx.idx][vehicle_idx]
+                    &timetable_data.board_times_by_position[self.position_idx.idx][vehicle_idx.idx]
                 } else {
-                    &timetable_data.debark_times_by_position[self.position_idx.idx][vehicle_idx]
+                    &timetable_data.debark_times_by_position[self.position_idx.idx][vehicle_idx.idx]
                 };
 
                 if *time > self.current_until_time_in_day {
@@ -826,7 +828,7 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                     // it means that all subsequent vehicle will have a board_time > self.current_until_time_in_day
                     // So here we finished exploring vehicles on self.current_day
                     // let's loop and increase the day on the next loop iteration
-                    self.current_vehicle_idx = nb_of_vehicle;
+                    self.current_vehicle_idx = VehicleIdx { idx: nb_of_vehicle };
                     continue;
                 } else {
                     let vehicle_data = timetable_data.vehicle_data(vehicle_idx);
@@ -881,7 +883,9 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                             .earliest_vehicle_to_board(&from_time_in_day, self.position_idx, |_| {
                                 true
                             })
-                            .unwrap_or_else(|| timetable_data.nb_of_vehicle());
+                            .unwrap_or_else(|| VehicleIdx {
+                                idx: timetable_data.nb_of_vehicle(),
+                            });
                     } else {
                         self.current_vehicle_idx = timetable_data
                             .earliest_vehicle_that_debark(
@@ -889,7 +893,9 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                                 self.position_idx,
                                 |_| true,
                             )
-                            .unwrap_or_else(|| timetable_data.nb_of_vehicle());
+                            .unwrap_or_else(|| VehicleIdx {
+                                idx: timetable_data.nb_of_vehicle(),
+                            });
                     }
 
                     self.current_until_time_in_day = until_time_in_day;

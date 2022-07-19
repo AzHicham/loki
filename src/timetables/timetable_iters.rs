@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use super::generic_timetables::{
-    GenericTimetables, Position, PositionIdx, Timetable, TimetableData, Vehicle,
+    GenericTimetables, Position, PositionIdx, Timetable, TimetableData, Vehicle, VehicleIdx,
 };
 use std::{fmt::Debug, iter::Map, ops::Range};
 
@@ -136,7 +136,7 @@ impl Iterator for VehicleIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.vehicle_idxs.next().map(|idx| Vehicle {
             timetable: self.timetable.clone(),
-            idx,
+            idx: VehicleIdx { idx },
         })
     }
 }

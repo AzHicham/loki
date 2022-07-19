@@ -43,7 +43,7 @@ use crate::{
 };
 use std::cmp::Ordering::{Greater, Less};
 
-use super::generic_timetables::{PositionIdx, TimetableData};
+use super::generic_timetables::{PositionIdx, TimetableData, VehicleIdx};
 
 impl<Time, Load, VehicleData> TimetableData<Time, Load, VehicleData>
 where
@@ -64,38 +64,38 @@ where
         }
     }
 
-    pub(super) fn arrival_time(&self, vehicle_idx: usize, position: PositionIdx) -> &Time {
-        &self.debark_times_by_position[position.idx][vehicle_idx]
+    pub(super) fn arrival_time(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Time {
+        &self.debark_times_by_position[position.idx][vehicle.idx]
     }
 
-    pub(super) fn departure_time(&self, vehicle_idx: usize, position: PositionIdx) -> &Time {
-        &self.board_times_by_position[position.idx][vehicle_idx]
+    pub(super) fn departure_time(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Time {
+        &self.board_times_by_position[position.idx][vehicle.idx]
     }
 
-    pub(super) fn debark_time(&self, vehicle_idx: usize, position: PositionIdx) -> Option<&Time> {
+    pub(super) fn debark_time(&self, vehicle: VehicleIdx, position: PositionIdx) -> Option<&Time> {
         if self.can_debark(position) {
-            Some(&self.debark_times_by_position[position.idx][vehicle_idx])
+            Some(&self.debark_times_by_position[position.idx][vehicle.idx])
         } else {
             None
         }
     }
 
-    pub(super) fn board_time(&self, vehicle_idx: usize, position: PositionIdx) -> Option<&Time> {
+    pub(super) fn board_time(&self, vehicle: VehicleIdx, position: PositionIdx) -> Option<&Time> {
         if self.can_board(position) {
-            Some(&self.board_times_by_position[position.idx][vehicle_idx])
+            Some(&self.board_times_by_position[position.idx][vehicle.idx])
         } else {
             None
         }
     }
 
-    pub(super) fn load_after(&self, vehicle_idx: usize, position: PositionIdx) -> &Load {
+    pub(super) fn load_after(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Load {
         assert!(position.idx + 1 < self.nb_of_positions());
-        &self.vehicle_loads[vehicle_idx][position.idx]
+        &self.vehicle_loads[vehicle.idx][position.idx]
     }
 
-    pub(super) fn load_before(&self, vehicle_idx: usize, position: PositionIdx) -> &Load {
+    pub(super) fn load_before(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Load {
         assert!(position.idx > 0);
-        &self.vehicle_loads[vehicle_idx][position.idx - 1]
+        &self.vehicle_loads[vehicle.idx][position.idx - 1]
     }
 
     pub(super) fn stop_at(&self, position: PositionIdx) -> &Stop {
@@ -110,8 +110,8 @@ where
         self.vehicle_datas.len()
     }
 
-    pub(super) fn vehicle_data(&self, vehicle_idx: usize) -> &VehicleData {
-        &self.vehicle_datas[vehicle_idx]
+    pub(super) fn vehicle_data(&self, vehicle: VehicleIdx) -> &VehicleData {
+        &self.vehicle_datas[vehicle.idx]
     }
 
     // Returns `Some(best_vehicle_idx)`
@@ -123,7 +123,7 @@ where
         waiting_time: &Time,
         position: PositionIdx,
         filter: Filter,
-    ) -> Option<usize>
+    ) -> Option<VehicleIdx>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -167,7 +167,7 @@ where
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             let board_time = &self.board_times_by_position[position.idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= board_time {
-                return Some(vehicle_idx);
+                return Some(VehicleIdx { idx: vehicle_idx });
             }
         }
         None
@@ -182,7 +182,7 @@ where
         waiting_time: &Time,
         position: PositionIdx,
         filter: Filter,
-    ) -> Option<usize>
+    ) -> Option<VehicleIdx>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -226,7 +226,7 @@ where
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             let debark_time = &self.debark_times_by_position[position.idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= debark_time {
-                return Some(vehicle_idx);
+                return Some(VehicleIdx { idx: vehicle_idx });
             }
         }
         None
@@ -241,7 +241,7 @@ where
         waiting_time: &Time,
         position: PositionIdx,
         filter: Filter,
-    ) -> Option<usize>
+    ) -> Option<VehicleIdx>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
@@ -285,7 +285,7 @@ where
         for vehicle_idx in (0..after_last_debarkable_vehicle).rev() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
             if filter(vehicle_data) {
-                return Some(vehicle_idx);
+                return Some(VehicleIdx { idx: vehicle_idx });
             }
         }
         None
@@ -621,6 +621,7 @@ where
         nb_to_remove
     }
 
+    // Returns the number of updated entries
     pub fn update_vehicles_data<Updater>(&mut self, mut updater: Updater) -> usize
     where
         Updater: FnMut(&mut VehicleData) -> bool, // returns true when an update took place
@@ -637,11 +638,14 @@ where
     }
 
     // Returns the smallest `vehicle_idx` such that `finder(self.vehicle_datas[vehicle_idx]) == true`
-    pub fn find_vehicles<Finder>(&self, finder: Finder) -> Option<usize>
+    pub fn find_vehicles<Finder>(&self, finder: Finder) -> Option<VehicleIdx>
     where
         Finder: FnMut(&VehicleData) -> bool,
     {
-        self.vehicle_datas.iter().position(finder)
+        self.vehicle_datas
+            .iter()
+            .position(finder)
+            .map(|idx| VehicleIdx { idx })
     }
 }
 
