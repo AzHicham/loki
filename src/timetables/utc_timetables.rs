@@ -217,7 +217,7 @@ impl UTCTimetables {
     {
         let decompositions = calendar.decompositions_utc(waiting_time);
 
-        // if there is not next position, we cannot board this mission at this posision
+        // if there is not next position, we cannot board this mission at this position
         // TODO : revise this comment when stay_ins are implemented
         let next_position = self.timetables.next_position(position, mission)?;
 
