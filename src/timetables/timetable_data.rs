@@ -43,63 +43,63 @@ use crate::{
 };
 use std::cmp::Ordering::{Greater, Less};
 
-use super::generic_timetables::TimetableData;
+use super::generic_timetables::{PositionIdx, TimetableData};
 
 impl<Time, Load, VehicleData> TimetableData<Time, Load, VehicleData>
 where
     Time: Ord + Clone + Debug,
     Load: Ord + Debug,
 {
-    pub(super) fn can_board(&self, position_idx: usize) -> bool {
-        match &self.stop_flows[position_idx].1 {
+    pub(super) fn can_board(&self, position: PositionIdx) -> bool {
+        match &self.stop_flows[position.idx].1 {
             BoardAndDebark | BoardOnly => true,
             NoBoardDebark | DebarkOnly => false,
         }
     }
 
-    pub(super) fn can_debark(&self, position_idx: usize) -> bool {
-        match &self.stop_flows[position_idx].1 {
+    pub(super) fn can_debark(&self, position: PositionIdx) -> bool {
+        match &self.stop_flows[position.idx].1 {
             BoardAndDebark | DebarkOnly => true,
             NoBoardDebark | BoardOnly => false,
         }
     }
 
-    pub(super) fn arrival_time(&self, vehicle_idx: usize, position_idx: usize) -> &Time {
-        &self.debark_times_by_position[position_idx][vehicle_idx]
+    pub(super) fn arrival_time(&self, vehicle_idx: usize, position: PositionIdx) -> &Time {
+        &self.debark_times_by_position[position.idx][vehicle_idx]
     }
 
-    pub(super) fn departure_time(&self, vehicle_idx: usize, position_idx: usize) -> &Time {
-        &self.board_times_by_position[position_idx][vehicle_idx]
+    pub(super) fn departure_time(&self, vehicle_idx: usize, position: PositionIdx) -> &Time {
+        &self.board_times_by_position[position.idx][vehicle_idx]
     }
 
-    pub(super) fn debark_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
-        if self.can_debark(position_idx) {
-            Some(&self.debark_times_by_position[position_idx][vehicle_idx])
+    pub(super) fn debark_time(&self, vehicle_idx: usize, position: PositionIdx) -> Option<&Time> {
+        if self.can_debark(position) {
+            Some(&self.debark_times_by_position[position.idx][vehicle_idx])
         } else {
             None
         }
     }
 
-    pub(super) fn board_time(&self, vehicle_idx: usize, position_idx: usize) -> Option<&Time> {
-        if self.can_board(position_idx) {
-            Some(&self.board_times_by_position[position_idx][vehicle_idx])
+    pub(super) fn board_time(&self, vehicle_idx: usize, position: PositionIdx) -> Option<&Time> {
+        if self.can_board(position) {
+            Some(&self.board_times_by_position[position.idx][vehicle_idx])
         } else {
             None
         }
     }
 
-    pub(super) fn load_after(&self, vehicle_idx: usize, position_idx: usize) -> &Load {
-        assert!(position_idx + 1 < self.nb_of_positions());
-        &self.vehicle_loads[vehicle_idx][position_idx]
+    pub(super) fn load_after(&self, vehicle_idx: usize, position: PositionIdx) -> &Load {
+        assert!(position.idx + 1 < self.nb_of_positions());
+        &self.vehicle_loads[vehicle_idx][position.idx]
     }
 
-    pub(super) fn load_before(&self, vehicle_idx: usize, position_idx: usize) -> &Load {
-        assert!(position_idx > 0);
-        &self.vehicle_loads[vehicle_idx][position_idx - 1]
+    pub(super) fn load_before(&self, vehicle_idx: usize, position: PositionIdx) -> &Load {
+        assert!(position.idx > 0);
+        &self.vehicle_loads[vehicle_idx][position.idx - 1]
     }
 
-    pub(super) fn stop_at(&self, position_idx: usize) -> &Stop {
-        &self.stop_flows[position_idx].0
+    pub(super) fn stop_at(&self, position: PositionIdx) -> &Stop {
+        &self.stop_flows[position.idx].0
     }
 
     pub(super) fn nb_of_positions(&self) -> usize {
@@ -121,28 +121,28 @@ where
     pub(super) fn earliest_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
-        position_idx: usize,
+        position: PositionIdx,
         filter: Filter,
     ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
-        if !self.can_board(position_idx) {
+        if !self.can_board(position) {
             return None;
         }
 
-        let nb_of_vehicles = self.board_times_by_position[position_idx].len();
+        let nb_of_vehicles = self.board_times_by_position[position.idx].len();
         if nb_of_vehicles == 0 {
             return None;
         }
 
         let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
-        if waiting_time > &self.board_times_by_position[position_idx][last_vehicle_idx] {
+        if waiting_time > &self.board_times_by_position[position.idx][last_vehicle_idx] {
             return None;
         }
 
         let first_boardable_vehicle =
-            if waiting_time <= &self.board_times_by_position[position_idx][0] {
+            if waiting_time <= &self.board_times_by_position[position.idx][0] {
                 0
             } else {
                 // We are looking for the smallest index in slice (board_times_by_position here)
@@ -158,14 +158,14 @@ where
                 // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
                 // And slice(idx-1) < waiting_time
                 // So idx is the smallest index such that slice(idx) >= waiting_time
-                self.board_times_by_position[position_idx]
+                self.board_times_by_position[position.idx]
                     .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
                     .unwrap_err()
             };
 
         for vehicle_idx in first_boardable_vehicle..self.nb_of_vehicle() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
-            let board_time = &self.board_times_by_position[position_idx][vehicle_idx];
+            let board_time = &self.board_times_by_position[position.idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= board_time {
                 return Some(vehicle_idx);
             }
@@ -180,28 +180,28 @@ where
     pub(super) fn earliest_vehicle_that_debark<Filter>(
         &self,
         waiting_time: &Time,
-        position_idx: usize,
+        position: PositionIdx,
         filter: Filter,
     ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
-        if !self.can_debark(position_idx) {
+        if !self.can_debark(position) {
             return None;
         }
 
-        let nb_of_vehicles = self.board_times_by_position[position_idx].len();
+        let nb_of_vehicles = self.board_times_by_position[position.idx].len();
         if nb_of_vehicles == 0 {
             return None;
         }
 
         let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
-        if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+        if waiting_time > &self.debark_times_by_position[position.idx][last_vehicle_idx] {
             return None;
         }
 
         let first_debarkable_vehicle =
-            if waiting_time <= &self.debark_times_by_position[position_idx][0] {
+            if waiting_time <= &self.debark_times_by_position[position.idx][0] {
                 0
             } else {
                 // We are looking for the smallest index in slice (debark_times_by_position here)
@@ -217,14 +217,14 @@ where
                 // So when we obtain Err(idx) it means that slice(idx) >= waiting_time
                 // And slice(idx-1) < waiting_time
                 // So idx is the smallest index such that slice(idx) >= waiting_time
-                self.debark_times_by_position[position_idx]
+                self.debark_times_by_position[position.idx]
                     .binary_search_by(|time| if time < waiting_time { Less } else { Greater })
                     .unwrap_err()
             };
 
         for vehicle_idx in first_debarkable_vehicle..self.nb_of_vehicle() {
             let vehicle_data = &self.vehicle_datas[vehicle_idx];
-            let debark_time = &self.debark_times_by_position[position_idx][vehicle_idx];
+            let debark_time = &self.debark_times_by_position[position.idx][vehicle_idx];
             if filter(vehicle_data) && waiting_time <= debark_time {
                 return Some(vehicle_idx);
             }
@@ -239,29 +239,29 @@ where
     pub(super) fn latest_vehicle_that_debark<Filter>(
         &self,
         waiting_time: &Time,
-        position_idx: usize,
+        position: PositionIdx,
         filter: Filter,
     ) -> Option<usize>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
-        if !self.can_debark(position_idx) {
+        if !self.can_debark(position) {
             return None;
         }
 
-        let nb_of_vehicles = self.debark_times_by_position[position_idx].len();
+        let nb_of_vehicles = self.debark_times_by_position[position.idx].len();
         if nb_of_vehicles == 0 {
             return None;
         }
 
         let last_vehicle_idx = nb_of_vehicles - 1; // substraction is safe since we checked that nb_of_vehicles > 0
 
-        if waiting_time < &self.debark_times_by_position[position_idx][0] {
+        if waiting_time < &self.debark_times_by_position[position.idx][0] {
             return None;
         }
 
         let after_last_debarkable_vehicle =
-            if waiting_time > &self.debark_times_by_position[position_idx][last_vehicle_idx] {
+            if waiting_time > &self.debark_times_by_position[position.idx][last_vehicle_idx] {
                 last_vehicle_idx + 1
             } else {
                 // We are looking for the greatest index in slice (debark_times_by_position here)
@@ -277,7 +277,7 @@ where
                 // So when we obtain Err(idx) it means that slice(idx) > waiting_time
                 // And slice(idx-1) <= waiting_time
                 // So idx-1 is the greatest index such that slice(idx-1) <= waiting_time
-                self.debark_times_by_position[position_idx]
+                self.debark_times_by_position[position.idx]
                     .binary_search_by(|time| if time <= waiting_time { Less } else { Greater })
                     .unwrap_err()
             };

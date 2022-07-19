@@ -48,7 +48,7 @@ use crate::{
 
 use super::{
     day_to_timetable::LocalZone,
-    generic_timetables::{GenericTimetables, Vehicle},
+    generic_timetables::{GenericTimetables, PositionIdx, Vehicle},
     timetable_iters::{PositionsIter, TimetableIter},
 };
 use crate::time::{
@@ -711,7 +711,7 @@ pub struct TripsBetween<'a, const BOARD_TIMES: bool> {
     days_patterns: &'a DaysPatterns,
     calendar: &'a Calendar,
     mission: Mission,
-    position_idx: usize,
+    position_idx: PositionIdx,
     from_time: SecondsSinceDatasetUTCStart,
     until_time: SecondsSinceDatasetUTCStart,
 
@@ -728,7 +728,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
         days_patterns: &'a DaysPatterns,
         calendar: &'a Calendar,
         mission: Mission,
-        position_idx: usize,
+        position_idx: PositionIdx,
         from_time: SecondsSinceDatasetUTCStart,
         until_time: SecondsSinceDatasetUTCStart,
     ) -> Self {
@@ -816,9 +816,9 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                 let vehicle_idx = self.current_vehicle_idx;
                 self.current_vehicle_idx += 1;
                 let time = if BOARD_TIMES {
-                    &timetable_data.board_times_by_position[self.position_idx][vehicle_idx]
+                    &timetable_data.board_times_by_position[self.position_idx.idx][vehicle_idx]
                 } else {
-                    &timetable_data.debark_times_by_position[self.position_idx][vehicle_idx]
+                    &timetable_data.debark_times_by_position[self.position_idx.idx][vehicle_idx]
                 };
 
                 if *time > self.current_until_time_in_day {

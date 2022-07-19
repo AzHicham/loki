@@ -87,10 +87,15 @@ pub struct Timetable {
     pub(super) idx: usize,
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) struct PositionIdx {
+    pub(super) idx: usize,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Position {
     pub(super) timetable: Timetable,
-    pub(super) idx: usize,
+    pub(super) idx: PositionIdx,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -141,7 +146,7 @@ where
     }
 
     pub(super) fn stoptime_idx(&self, position: &Position) -> usize {
-        position.idx
+        position.idx.idx
     }
 
     pub(super) fn timetable_of(&self, vehicle: &Vehicle) -> Timetable {
@@ -160,14 +165,14 @@ where
         timetable: &Timetable,
     ) -> bool {
         assert!(upstream.timetable == *timetable);
-        upstream.idx < downstream.idx
+        upstream.idx.idx < downstream.idx.idx
     }
 
     pub(super) fn first_position(&self, timetable: &Timetable) -> Position {
         assert!(self.timetable_data(timetable).nb_of_positions() > 0);
         Position {
             timetable: timetable.clone(),
-            idx: 0,
+            idx: PositionIdx { idx: 0 },
         }
     }
 
@@ -176,7 +181,9 @@ where
         assert!(nb_of_positions > 0);
         Position {
             timetable: timetable.clone(),
-            idx: nb_of_positions - 1,
+            idx: PositionIdx {
+                idx: nb_of_positions - 1,
+            },
         }
     }
 
@@ -186,10 +193,11 @@ where
         timetable: &Timetable,
     ) -> Option<Position> {
         assert!(position.timetable == *timetable);
-        if position.idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
+        let idx = position.idx.idx;
+        if idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
             let result = Position {
                 timetable: position.timetable.clone(),
-                idx: position.idx + 1,
+                idx: PositionIdx { idx: idx + 1 },
             };
             Some(result)
         } else {
@@ -203,10 +211,11 @@ where
         timetable: &Timetable,
     ) -> Option<Position> {
         assert_eq!(position.timetable, *timetable);
-        if position.idx >= 1 {
+        let idx = position.idx.idx;
+        if idx >= 1 {
             let result = Position {
                 timetable: position.timetable.clone(),
-                idx: position.idx - 1,
+                idx: PositionIdx { idx: idx - 1 },
             };
             Some(result)
         } else {
