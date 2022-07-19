@@ -85,11 +85,10 @@ fn test_loads_matin() -> Result<(), Error> {
 
     let base_model = create_model();
 
-    let config = Config::new("2021-01-01T08:00:00", "massy", "paris");
-    let config = Config {
-        comparator_type: ComparatorType::Loads,
-        ..config
-    };
+    let mut config = Config::new("2021-01-01T08:00:00", "massy", "paris");
+    config.comparator_type = ComparatorType::Loads;
+    config.request_params.too_late_threshold = PositiveDuration::from_hms(24, 0, 0);
+
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
