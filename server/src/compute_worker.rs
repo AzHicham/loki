@@ -544,14 +544,12 @@ fn solve(
 
     let leg_arrival_penalty = journey_request
         .arrival_transfer_penalty
-        .map(|seconds_i32| PositiveDuration::try_from(seconds_i32))
-        .flatten()
+        .and_then(|seconds_i32| PositiveDuration::try_from(seconds_i32).ok())
         .unwrap_or(default_request_params.leg_arrival_penalty);
 
     let leg_walking_penalty = journey_request
         .walking_transfer_penalty
-        .map(|seconds_i32| PositiveDuration::try_from(seconds_i32))
-        .flatten()
+        .and_then(|seconds_i32| PositiveDuration::try_from(seconds_i32).ok())
         .unwrap_or(default_request_params.leg_walking_penalty);
 
     let request_input = RequestInput {

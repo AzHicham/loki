@@ -160,7 +160,7 @@ pub fn modify_trip(
         model_ref.vehicle_journey_name(vehicle_journey_idx),
         date
     );
-    let physical_mode = model_ref.physical_mode_name(&vehicle_journey_idx);
+    let physical_mode = model_ref.physical_mode_name(vehicle_journey_idx);
     let regularity = Regularity::new(physical_mode);
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
