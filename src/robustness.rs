@@ -83,23 +83,19 @@ impl Uncertainty {
         let delta = match (self.last_vehicle_regularity, next_vehicle_regularity) {
             (_, Frequent) => 1,
 
-            (None, Intermittent) | (Some(Frequent), Intermittent) => 2,
+            (None | Some(Frequent), Intermittent) => 2,
 
-            (None, Rare) | (Some(Frequent), Rare) => 3,
+            (None | Some(Frequent), Rare) => 3,
 
-            (Some(Intermittent), Intermittent) | (Some(Rare), Intermittent) => 5,
+            (Some(Rare | Intermittent), Intermittent) => 5,
 
-            (Some(Intermittent), Rare) | (Some(Rare), Rare) => 10,
+            (Some(Rare | Intermittent), Rare) => 10,
         };
         let level = self.level.saturating_add(delta);
         Self {
             level,
             last_vehicle_regularity: Some(next_vehicle_regularity),
         }
-    }
-
-    pub fn is_lower(&self, other: &Self) -> bool {
-        self.level <= other.level
     }
 }
 
@@ -111,7 +107,7 @@ impl Ord for Uncertainty {
 
 impl PartialOrd for Uncertainty {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 
