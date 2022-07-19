@@ -503,7 +503,7 @@ where
         Some(nb_of_vehicle)
     }
 
-    pub(super) fn do_insert<BoardTimes, DebarkTimes, Loads>(
+    fn do_insert<BoardTimes, DebarkTimes, Loads>(
         &mut self,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
@@ -569,6 +569,7 @@ where
         combine(board_debark_cmp, loads_cmp)
     }
 
+    // Returns the number of removed entries
     pub(super) fn remove_vehicles<Filter>(&mut self, vehicle_filter: Filter) -> usize
     where
         Filter: Fn(&VehicleData) -> bool,
@@ -664,7 +665,7 @@ fn combine(a: Ordering, b: Ordering) -> Option<Ordering> {
 //    - Some(Less)    if lower[i] <= upper[i] for all i
 //    - Some(Greater) if lower[i] >= upper[i] for all i
 //    - None otherwise (the two vector are not comparable)
-pub(super) fn partial_cmp<Lower, Upper, Value, UpperVal, LowerVal>(
+fn partial_cmp<Lower, Upper, Value, UpperVal, LowerVal>(
     lower: Lower,
     upper: Upper,
 ) -> Option<Ordering>
