@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::{Load, LoadsData},
-    models::VehicleJourneyIdx,
+    models::{StopTimeIdx, VehicleJourneyIdx},
     time::{
         calendar::DecomposeUTCResult,
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
@@ -99,7 +99,7 @@ impl UTCTimetables {
             .clone()
     }
 
-    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> usize {
+    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> StopTimeIdx {
         self.timetables.stoptime_idx(position)
     }
 

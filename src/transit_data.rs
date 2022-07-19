@@ -377,8 +377,7 @@ impl data_interface::Data for TransitData {
     }
 
     fn stoptime_idx(&self, position: &Self::Position, trip: &Self::Trip) -> StopTimeIdx {
-        let idx = self.timetables.stoptime_idx(position, trip);
-        StopTimeIdx { idx }
+        self.timetables.stoptime_idx(position, trip)
     }
 
     fn day_of(&self, trip: &Self::Trip) -> chrono::NaiveDate {

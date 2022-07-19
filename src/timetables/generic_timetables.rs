@@ -150,8 +150,10 @@ where
             .vehicle_data(vehicle.idx)
     }
 
-    pub(super) fn stoptime_idx(&self, position: &Position) -> usize {
-        position.idx.idx
+    pub(super) fn stoptime_idx(&self, position: &Position) -> StopTimeIdx {
+        StopTimeIdx {
+            idx: position.idx.idx,
+        }
     }
 
     pub(super) fn timetable_of(&self, vehicle: &Vehicle) -> Timetable {
