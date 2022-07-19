@@ -36,7 +36,7 @@
 
 use crate::{
     loads_data::{Load, LoadsData},
-    models::VehicleJourneyIdx,
+    models::{StopTimeIdx, VehicleJourneyIdx},
     time::{
         calendar::DecomposeUTCResult,
         days_patterns::{DaysInPatternIter, DaysPattern, DaysPatterns},
@@ -48,7 +48,7 @@ use crate::{
 
 use super::{
     day_to_timetable::LocalZone,
-    generic_timetables::{GenericTimetables, Vehicle},
+    generic_timetables::{GenericTimetables, PositionIdx, Vehicle, VehicleIdx},
     timetable_iters::{PositionsIter, TimetableIter},
 };
 use crate::time::{
@@ -99,7 +99,7 @@ impl UTCTimetables {
             .clone()
     }
 
-    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> usize {
+    pub fn stoptime_idx(&self, position: &Position, _trip: &Trip) -> StopTimeIdx {
         self.timetables.stoptime_idx(position)
     }
 
@@ -202,27 +202,7 @@ impl UTCTimetables {
             })
     }
 
-    pub fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.earliest_filtered_trip_to_board_at(
-            waiting_time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            calendar,
-            days_patterns,
-        )
-    }
-
-    pub fn earliest_filtered_trip_to_board_at<Filter>(
+    pub fn earliest_trip_to_board<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
@@ -237,7 +217,8 @@ impl UTCTimetables {
     {
         let decompositions = calendar.decompositions_utc(waiting_time);
 
-        // if there is not next position, we cannot board this mission at this posision
+        // if there is not next position, we cannot board this mission at this position
+        // TODO : revise this comment when stay_ins are implemented
         let next_position = self.timetables.next_position(position, mission)?;
 
         let mut best_vehicle_day_and_its_arrival_time_at_next_position: Option<(
@@ -248,7 +229,7 @@ impl UTCTimetables {
         )> = None;
 
         for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self.timetables.earliest_filtered_vehicle_to_board(
+            let has_vehicle = self.timetables.earliest_vehicle_to_board(
                 &waiting_time_in_day,
                 mission,
                 position,
@@ -291,27 +272,7 @@ impl UTCTimetables {
         )
     }
 
-    pub fn latest_trip_that_debark_at(
-        &self,
-        time: SecondsSinceDatasetUTCStart,
-        mission: &Mission,
-        position: &Position,
-        real_time_level: RealTimeLevel,
-        calendar: &Calendar,
-        days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)> {
-        self.latest_filtered_trip_that_debark_at(
-            time,
-            mission,
-            position,
-            real_time_level,
-            |_| true,
-            calendar,
-            days_patterns,
-        )
-    }
-
-    pub fn latest_filtered_trip_that_debark_at<Filter>(
+    pub fn latest_trip_that_debark<Filter>(
         &self,
         time: SecondsSinceDatasetUTCStart,
         mission: &Mission,
@@ -324,6 +285,9 @@ impl UTCTimetables {
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
+        // if there is not prev position, we cannot debark this mission at this posision
+        // TODO : revise this comment when stay_ins are implemented
+        let prev_position = self.timetables.previous_position(position, mission)?;
         let decompositions = calendar.decompositions_utc(time);
         let mut best_vehicle_day_and_its_departure_time_at_previous_position: Option<(
             Vehicle,
@@ -332,7 +296,7 @@ impl UTCTimetables {
             Load,
         )> = None;
         for (waiting_day, waiting_time_in_day) in decompositions {
-            let has_vehicle = self.timetables.latest_filtered_vehicle_that_debark(
+            let has_vehicle = self.timetables.latest_vehicle_that_debark(
                 &waiting_time_in_day,
                 mission,
                 position,
@@ -345,10 +309,13 @@ impl UTCTimetables {
                         && filter(&vehicle_data.vehicle_journey_idx)
                 },
             );
-            if let Some((vehicle, departure_time_in_day_at_previous_stop, load)) = has_vehicle {
+            if let Some(vehicle) = has_vehicle {
+                let departure_time_in_day_at_previous_stop =
+                    self.timetables.departure_time(&vehicle, &prev_position);
                 let departure_time_at_previous_stop =
                     calendar.compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
 
+                let load = self.timetables.load_before(&vehicle, position);
                 if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {
@@ -744,13 +711,13 @@ pub struct TripsBetween<'a, const BOARD_TIMES: bool> {
     days_patterns: &'a DaysPatterns,
     calendar: &'a Calendar,
     mission: Mission,
-    position_idx: usize,
+    position_idx: PositionIdx,
     from_time: SecondsSinceDatasetUTCStart,
     until_time: SecondsSinceDatasetUTCStart,
 
     // the iterator is exhausted when current_day.is_none()
     current_day: Option<DaysSinceDatasetStart>,
-    current_vehicle_idx: usize,
+    current_vehicle_idx: VehicleIdx,
     current_until_time_in_day: SecondsSinceUTCDayStart,
 }
 
@@ -761,12 +728,13 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
         days_patterns: &'a DaysPatterns,
         calendar: &'a Calendar,
         mission: Mission,
-        position_idx: usize,
+        position_idx: PositionIdx,
         from_time: SecondsSinceDatasetUTCStart,
         until_time: SecondsSinceDatasetUTCStart,
     ) -> Self {
         let timetable_data = utc_timetables.timetables.timetable_data(&mission);
         let nb_of_vehicle = timetable_data.nb_of_vehicle();
+        let after_last_vehicle_idx = VehicleIdx { idx: nb_of_vehicle };
 
         let empty_iterator = Self {
             utc_timetables,
@@ -778,7 +746,7 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             from_time,
             until_time,
             current_day: None,
-            current_vehicle_idx: nb_of_vehicle,
+            current_vehicle_idx: VehicleIdx { idx: nb_of_vehicle },
             current_until_time_in_day: SecondsSinceUTCDayStart::min(),
         };
 
@@ -794,12 +762,12 @@ impl<'a, const BOARD_TIMES: bool> TripsBetween<'a, BOARD_TIMES> {
             // find first vehicle that depart after from_time_in_day
             let current_vehicle_idx = if BOARD_TIMES {
                 timetable_data
-                    .earliest_vehicle_to_board(&from_time_in_day, position_idx)
-                    .unwrap_or_else(|| timetable_data.nb_of_vehicle())
+                    .earliest_vehicle_to_board(&from_time_in_day, position_idx, |_| true)
+                    .unwrap_or(after_last_vehicle_idx)
             } else {
                 timetable_data
-                    .earliest_vehicle_to_debark(&from_time_in_day, position_idx)
-                    .unwrap_or_else(|| timetable_data.nb_of_vehicle())
+                    .earliest_vehicle_that_debark(&from_time_in_day, position_idx, |_| true)
+                    .unwrap_or(after_last_vehicle_idx)
             };
 
             let until_time_in_day = match calendar.decompose_utc(until_time, from_day) {
@@ -845,13 +813,16 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
 
             let timetable_data = self.utc_timetables.timetables.timetable_data(&self.mission);
             let nb_of_vehicle = timetable_data.nb_of_vehicle();
-            if self.current_vehicle_idx < nb_of_vehicle {
+            let after_last_vehicle_idx = VehicleIdx { idx: nb_of_vehicle };
+            if self.current_vehicle_idx.idx < nb_of_vehicle {
                 let vehicle_idx = self.current_vehicle_idx;
-                self.current_vehicle_idx += 1;
+                self.current_vehicle_idx = VehicleIdx {
+                    idx: vehicle_idx.idx + 1,
+                };
                 let time = if BOARD_TIMES {
-                    &timetable_data.board_times_by_position[self.position_idx][vehicle_idx]
+                    &timetable_data.board_times_by_position[self.position_idx.idx][vehicle_idx.idx]
                 } else {
-                    &timetable_data.debark_times_by_position[self.position_idx][vehicle_idx]
+                    &timetable_data.debark_times_by_position[self.position_idx.idx][vehicle_idx.idx]
                 };
 
                 if *time > self.current_until_time_in_day {
@@ -859,7 +830,7 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                     // it means that all subsequent vehicle will have a board_time > self.current_until_time_in_day
                     // So here we finished exploring vehicles on self.current_day
                     // let's loop and increase the day on the next loop iteration
-                    self.current_vehicle_idx = nb_of_vehicle;
+                    self.current_vehicle_idx = VehicleIdx { idx: nb_of_vehicle };
                     continue;
                 } else {
                     let vehicle_data = timetable_data.vehicle_data(vehicle_idx);
@@ -911,12 +882,18 @@ impl<'a, const BOARD_TIMES: bool> Iterator for TripsBetween<'a, BOARD_TIMES> {
                     // find first vehicle that depart after from_time_in_day
                     if BOARD_TIMES {
                         self.current_vehicle_idx = timetable_data
-                            .earliest_vehicle_to_board(&from_time_in_day, self.position_idx)
-                            .unwrap_or_else(|| timetable_data.nb_of_vehicle());
+                            .earliest_vehicle_to_board(&from_time_in_day, self.position_idx, |_| {
+                                true
+                            })
+                            .unwrap_or(after_last_vehicle_idx);
                     } else {
                         self.current_vehicle_idx = timetable_data
-                            .earliest_vehicle_to_debark(&from_time_in_day, self.position_idx)
-                            .unwrap_or_else(|| timetable_data.nb_of_vehicle());
+                            .earliest_vehicle_that_debark(
+                                &from_time_in_day,
+                                self.position_idx,
+                                |_| true,
+                            )
+                            .unwrap_or(after_last_vehicle_idx);
                     }
 
                     self.current_until_time_in_day = until_time_in_day;

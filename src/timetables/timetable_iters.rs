@@ -34,7 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use super::generic_timetables::{GenericTimetables, Position, Timetable, TimetableData, Vehicle};
+use super::generic_timetables::{
+    GenericTimetables, Position, PositionIdx, Timetable, TimetableData, Vehicle, VehicleIdx,
+};
 use std::{fmt::Debug, iter::Map, ops::Range};
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
@@ -109,7 +111,7 @@ impl Iterator for PositionsIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.position_idxs.next().map(|idx| Position {
             timetable: self.timetable.clone(),
-            idx,
+            idx: PositionIdx { idx },
         })
     }
 }
@@ -134,7 +136,7 @@ impl Iterator for VehicleIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.vehicle_idxs.next().map(|idx| Vehicle {
             timetable: self.timetable.clone(),
-            idx,
+            idx: VehicleIdx { idx },
         })
     }
 }

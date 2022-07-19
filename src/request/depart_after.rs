@@ -265,7 +265,13 @@ where
     ) -> Option<(Data::Trip, Criteria)> {
         let waiting_time = waiting_criteria.time;
         self.transit_data
-            .earliest_trip_to_board_at(waiting_time, mission, position, self.real_time_level)
+            .earliest_trip_to_board(
+                waiting_time,
+                mission,
+                position,
+                self.real_time_level,
+                |_| true,
+            )
             .map(|(trip, arrival_time, load)| {
                 let new_criteria = Criteria {
                     time: arrival_time,
@@ -402,7 +408,13 @@ where
         let mission = &self.transit_data.mission_of(trip);
         let (new_trip, _, _) = self
             .transit_data
-            .latest_trip_that_debark_at(debark_time, mission, debark_position, self.real_time_level)
+            .latest_trip_that_debark(
+                debark_time,
+                mission,
+                debark_position,
+                self.real_time_level,
+                |_| true,
+            )
             .ok_or_else(|| NoTrip(debark_time, mission.clone(), debark_position.clone()))?;
         *trip = new_trip;
         let board_time = self

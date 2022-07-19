@@ -87,16 +87,26 @@ pub struct Timetable {
     pub(super) idx: usize,
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) struct PositionIdx {
+    pub(super) idx: usize,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Position {
     pub(super) timetable: Timetable,
+    pub(super) idx: PositionIdx,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) struct VehicleIdx {
     pub(super) idx: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Vehicle {
     pub(super) timetable: Timetable,
-    pub(super) idx: usize,
+    pub(super) idx: VehicleIdx,
 }
 
 #[derive(Debug, Clone)]
@@ -140,8 +150,10 @@ where
             .vehicle_data(vehicle.idx)
     }
 
-    pub(super) fn stoptime_idx(&self, position: &Position) -> usize {
-        position.idx
+    pub(super) fn stoptime_idx(&self, position: &Position) -> StopTimeIdx {
+        StopTimeIdx {
+            idx: position.idx.idx,
+        }
     }
 
     pub(super) fn timetable_of(&self, vehicle: &Vehicle) -> Timetable {
@@ -160,14 +172,14 @@ where
         timetable: &Timetable,
     ) -> bool {
         assert!(upstream.timetable == *timetable);
-        upstream.idx < downstream.idx
+        upstream.idx.idx < downstream.idx.idx
     }
 
     pub(super) fn first_position(&self, timetable: &Timetable) -> Position {
         assert!(self.timetable_data(timetable).nb_of_positions() > 0);
         Position {
             timetable: timetable.clone(),
-            idx: 0,
+            idx: PositionIdx { idx: 0 },
         }
     }
 
@@ -176,7 +188,9 @@ where
         assert!(nb_of_positions > 0);
         Position {
             timetable: timetable.clone(),
-            idx: nb_of_positions - 1,
+            idx: PositionIdx {
+                idx: nb_of_positions - 1,
+            },
         }
     }
 
@@ -186,10 +200,11 @@ where
         timetable: &Timetable,
     ) -> Option<Position> {
         assert!(position.timetable == *timetable);
-        if position.idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
+        let idx = position.idx.idx;
+        if idx + 1 < self.timetable_data(&position.timetable).nb_of_positions() {
             let result = Position {
                 timetable: position.timetable.clone(),
-                idx: position.idx + 1,
+                idx: PositionIdx { idx: idx + 1 },
             };
             Some(result)
         } else {
@@ -203,10 +218,11 @@ where
         timetable: &Timetable,
     ) -> Option<Position> {
         assert_eq!(position.timetable, *timetable);
-        if position.idx >= 1 {
+        let idx = position.idx.idx;
+        if idx >= 1 {
             let result = Position {
                 timetable: position.timetable.clone(),
-                idx: position.idx - 1,
+                idx: PositionIdx { idx: idx - 1 },
             };
             Some(result)
         } else {
@@ -250,7 +266,7 @@ where
             .load_after(vehicle.idx, position.idx)
     }
 
-    pub(super) fn earliest_filtered_vehicle_to_board<Filter>(
+    pub(super) fn earliest_vehicle_to_board<Filter>(
         &self,
         waiting_time: &Time,
         timetable: &Timetable,
@@ -262,35 +278,29 @@ where
     {
         assert!(position.timetable == *timetable);
         self.timetable_data(timetable)
-            .earliest_filtered_vehicle_to_board(waiting_time, position.idx, &filter)
+            .earliest_vehicle_to_board(waiting_time, position.idx, &filter)
             .map(|idx| Vehicle {
                 timetable: timetable.clone(),
                 idx,
             })
     }
 
-    pub(super) fn latest_filtered_vehicle_that_debark<Filter>(
+    pub(super) fn latest_vehicle_that_debark<Filter>(
         &self,
         time: &Time,
         timetable: &Timetable,
         position: &Position,
         filter: Filter,
-    ) -> Option<(Vehicle, &Time, &Load)>
+    ) -> Option<Vehicle>
     where
         Filter: Fn(&VehicleData) -> bool,
     {
         assert_eq!(position.timetable, *timetable);
         self.timetable_data(timetable)
-            .latest_filtered_vehicle_that_debark(time, position.idx, filter)
-            .map(|(idx, time)| {
-                let vehicle = Vehicle {
-                    timetable: timetable.clone(),
-                    idx,
-                };
-                let load = self
-                    .timetable_data(timetable)
-                    .load_before(idx, position.idx);
-                (vehicle, time, load)
+            .latest_vehicle_that_debark(time, position.idx, filter)
+            .map(|idx| Vehicle {
+                timetable: timetable.clone(),
+                idx,
             })
     }
 

@@ -275,31 +275,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.stay_in_next(trip, real_time_level)
     }
 
-    fn earliest_trip_to_board_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        let stop = self.stop_of(position, mission);
-
-        if self.is_stop_allowed(&stop) {
-            self.transit_data.earliest_filtered_trip_to_board_at(
-                waiting_time,
-                mission,
-                position,
-                real_time_level,
-                |vehicle_journey_idx: &VehicleJourneyIdx| {
-                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                },
-            )
-        } else {
-            None
-        }
-    }
-
-    fn earliest_filtered_trip_to_board_at<Filter>(
+    fn earliest_trip_to_board<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -312,7 +288,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
     {
         let stop = self.stop_of(position, mission);
         if self.is_stop_allowed(&stop) {
-            self.transit_data.earliest_filtered_trip_to_board_at(
+            self.transit_data.earliest_trip_to_board(
                 waiting_time,
                 mission,
                 position,
@@ -327,31 +303,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         }
     }
 
-    fn latest_trip_that_debark_at(
-        &self,
-        waiting_time: SecondsSinceDatasetUTCStart,
-        mission: &Self::Mission,
-        position: &Self::Position,
-        real_time_level: RealTimeLevel,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)> {
-        let stop = self.stop_of(position, mission);
-
-        if self.is_stop_allowed(&stop) {
-            self.transit_data.latest_filtered_trip_that_debark_at(
-                waiting_time,
-                mission,
-                position,
-                real_time_level,
-                |vehicle_journey_idx: &VehicleJourneyIdx| {
-                    self.is_vehicle_journey_allowed(vehicle_journey_idx)
-                },
-            )
-        } else {
-            None
-        }
-    }
-
-    fn latest_filtered_trip_that_debark_at<Filter>(
+    fn latest_trip_that_debark<Filter>(
         &self,
         waiting_time: SecondsSinceDatasetUTCStart,
         mission: &Self::Mission,
@@ -365,7 +317,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         let stop = self.stop_of(position, mission);
 
         if self.is_stop_allowed(&stop) {
-            self.transit_data.latest_filtered_trip_that_debark_at(
+            self.transit_data.latest_trip_that_debark(
                 waiting_time,
                 mission,
                 position,
