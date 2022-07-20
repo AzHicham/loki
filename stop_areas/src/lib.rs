@@ -155,8 +155,8 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
         &model_refs,
         &request_input,
         None,
-        &config.comparator_type,
-        datetime_represent,
+        config.comparator_type,
+        *datetime_represent,
     );
 
     let duration = timer::duration_since(start_compute_time);
