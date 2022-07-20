@@ -88,8 +88,8 @@ impl Solver {
         model: &ModelRefs<'_>,
         request_input: &RequestInput,
         has_filters: Option<Filters>,
-        comparator_type: &config::ComparatorType,
-        datetime_represent: &DateTimeRepresent,
+        comparator_type: config::ComparatorType,
+        datetime_represent: DateTimeRepresent,
     ) -> Result<Vec<response::Response>, BadRequest>
     where
         Self: Sized,
@@ -153,8 +153,8 @@ fn select_journeys_implem_and_solve<Data>(
     data: &Data,
     model: &ModelRefs<'_>,
     request_input: &RequestInput,
-    comparator_type: &config::ComparatorType,
-    datetime_represent: &DateTimeRepresent,
+    comparator_type: config::ComparatorType,
+    datetime_represent: DateTimeRepresent,
 ) -> Result<Vec<response::Response>, BadRequest>
 where
     Data: DataWithIters<
@@ -172,22 +172,22 @@ where
         (Arrival, Loads) => {
             let request =
                 request::arrive_before::loads_comparator::Request::new(model, data, request_input)?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
         (Departure, Loads) => {
             let request =
                 request::depart_after::loads_comparator::Request::new(model, data, request_input)?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
         (Arrival, Basic) => {
             let request =
                 request::arrive_before::basic_comparator::Request::new(model, data, request_input)?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
         (Departure, Basic) => {
             let request =
                 request::depart_after::basic_comparator::Request::new(model, data, request_input)?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
 
         (Arrival, Robustness) => {
@@ -196,7 +196,7 @@ where
                 data,
                 request_input,
             )?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
         (Departure, Robustness) => {
             let request = request::depart_after::robustness_comparator::Request::new(
@@ -204,7 +204,7 @@ where
                 data,
                 request_input,
             )?;
-            solve_journeys_request_inner(engine, &request, &data)
+            solve_journeys_request_inner(engine, &request, data)
         }
     };
 

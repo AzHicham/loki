@@ -170,8 +170,8 @@ pub fn build_and_solve(
         model,
         &request_input,
         filters,
-        &config.comparator_type,
-        &config.datetime_represent,
+        config.comparator_type,
+        config.datetime_represent,
     )?;
     for response in responses.iter() {
         debug!("{}", response.print(model)?);

@@ -99,8 +99,8 @@ fn remove_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -131,8 +131,8 @@ fn remove_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 0);
@@ -146,8 +146,8 @@ fn remove_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -215,8 +215,8 @@ fn remove_successive_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -242,8 +242,8 @@ fn remove_successive_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -269,8 +269,8 @@ fn remove_successive_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -296,8 +296,8 @@ fn remove_successive_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 0);
@@ -353,8 +353,8 @@ fn remove_middle_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -379,8 +379,8 @@ fn remove_middle_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -405,8 +405,8 @@ fn remove_middle_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -457,8 +457,8 @@ fn modify_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -512,8 +512,8 @@ fn modify_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // the request is to depart at 9:50, but the vehicle depart at 9:45 at the real time level
@@ -531,8 +531,8 @@ fn modify_vj() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // the request is to depart at 9:50,
@@ -589,8 +589,8 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -650,8 +650,8 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // All base vehicle journeys are deactivated
@@ -679,8 +679,8 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -708,8 +708,8 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // we should not get any response, since A and C are in the same local zone
@@ -727,8 +727,8 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // we should not get a response, since there is no local zone on
@@ -789,8 +789,8 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -806,8 +806,8 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         assert_eq!(responses.len(), 1);
@@ -842,8 +842,8 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // the first vehicle_journey is totally removed for RealTime, the only solution is to take
@@ -873,8 +873,8 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
-            &config.datetime_represent,
+            config.comparator_type,
+            config.datetime_represent,
         )?;
 
         // the request is to depart at 9:50,

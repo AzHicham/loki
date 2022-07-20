@@ -575,8 +575,8 @@ fn solve(
         model,
         &request_input,
         data_filters,
-        &comparator_type,
-        &datetime_represent,
+        comparator_type,
+        datetime_represent,
     )?;
     for response in &responses {
         debug!("{}", response.print(model)?);
