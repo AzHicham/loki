@@ -43,6 +43,7 @@ use loki::{
     request::generic_request,
     schedule::{self, ScheduleRequestError, ScheduleRequestInput, ScheduleResponse},
     tracing::{debug, info, trace},
+    DataWithIters,
 };
 
 use loki::{
@@ -93,118 +94,27 @@ impl Solver {
     where
         Self: Sized,
     {
-        use crate::datetime::DateTimeRepresent::{Arrival, Departure};
-        use config::ComparatorType::{Basic, Loads, Robustness};
-
         if let Some(filters) = has_filters {
             self.fill_allowed_stops_and_vehicles(model, &filters);
 
-            let data = TransitDataFiltered::new(data, &self.filter_memory);
-
-            let responses = match (datetime_represent, comparator_type) {
-                (Arrival, Loads) => {
-                    let request = request::arrive_before::loads_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-                (Departure, Loads) => {
-                    let request = request::depart_after::loads_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-                (Arrival, Basic) => {
-                    let request = request::arrive_before::basic_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-                (Departure, Basic) => {
-                    let request = request::depart_after::basic_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-
-                (Arrival, Robustness) => {
-                    let request = request::arrive_before::robustness_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-                (Departure, Robustness) => {
-                    let request = request::depart_after::robustness_comparator::Request::new(
-                        model,
-                        &data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, &data)
-                }
-            };
-            Ok(responses)
+            let filtered_data = TransitDataFiltered::new(data, &self.filter_memory);
+            select_journeys_implem_and_solve(
+                &mut self.engine,
+                &filtered_data,
+                model,
+                request_input,
+                comparator_type,
+                datetime_represent,
+            )
         } else {
-            let responses = match (datetime_represent, comparator_type) {
-                (Arrival, Loads) => {
-                    let request = request::arrive_before::loads_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-                (Departure, Loads) => {
-                    let request = request::depart_after::loads_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-                (Arrival, Basic) => {
-                    let request = request::arrive_before::basic_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-                (Departure, Basic) => {
-                    let request = request::depart_after::basic_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-                (Arrival, Robustness) => {
-                    let request = request::arrive_before::robustness_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-                (Departure, Robustness) => {
-                    let request = request::depart_after::robustness_comparator::Request::new(
-                        model,
-                        data,
-                        request_input,
-                    )?;
-                    solve_journeys_request_inner(&mut self.engine, &request, data)
-                }
-            };
-            Ok(responses)
+            select_journeys_implem_and_solve(
+                &mut self.engine,
+                data,
+                model,
+                request_input,
+                comparator_type,
+                datetime_represent,
+            )
         }
     }
 
@@ -236,6 +146,69 @@ impl Solver {
     ) -> Result<PlacesNearbyIter<'model>, BadPlacesNearby> {
         places_nearby::solve_places_nearby_request(models, uri, radius)
     }
+}
+
+fn select_journeys_implem_and_solve<Data>(
+    engine: &mut MultiCriteriaRaptor<RequestTypes>,
+    data: &Data,
+    model: &ModelRefs<'_>,
+    request_input: &RequestInput,
+    comparator_type: &config::ComparatorType,
+    datetime_represent: &DateTimeRepresent,
+) -> Result<Vec<response::Response>, BadRequest>
+where
+    Data: DataWithIters<
+        Position = generic_request::Position,
+        Mission = generic_request::Mission,
+        Stop = generic_request::Stop,
+        Trip = generic_request::Trip,
+        Transfer = generic_request::Transfer,
+    >,
+{
+    use crate::datetime::DateTimeRepresent::{Arrival, Departure};
+    use config::ComparatorType::{Basic, Loads, Robustness};
+
+    let responses = match (datetime_represent, comparator_type) {
+        (Arrival, Loads) => {
+            let request =
+                request::arrive_before::loads_comparator::Request::new(model, data, request_input)?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+        (Departure, Loads) => {
+            let request =
+                request::depart_after::loads_comparator::Request::new(model, data, request_input)?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+        (Arrival, Basic) => {
+            let request =
+                request::arrive_before::basic_comparator::Request::new(model, data, request_input)?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+        (Departure, Basic) => {
+            let request =
+                request::depart_after::basic_comparator::Request::new(model, data, request_input)?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+
+        (Arrival, Robustness) => {
+            let request = request::arrive_before::robustness_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+        (Departure, Robustness) => {
+            let request = request::depart_after::robustness_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
+            solve_journeys_request_inner(engine, &request, &data)
+        }
+    };
+
+    Ok(responses)
 }
 
 fn solve_journeys_request_inner<'data, 'model, Data, Request>(
