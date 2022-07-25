@@ -122,12 +122,13 @@ impl DataDownloader {
     }
 
     async fn download_file(&self, file_key: &str) -> Result<Vec<u8>, Error> {
-        let (data, status_code) = self.bucket.get_object(file_key).await.context(format!(
+        let response = self.bucket.get_object(file_key).await.context(format!(
             "Cannot download file {} from bucket {}",
             file_key, self.bucket.name
         ))?;
+        let status_code = response.status_code();
         if status_code == 200 {
-            Ok(data)
+            Ok(response.bytes().to_owned())
         } else {
             bail!(
                 "Error while downloading file {} from bucket {}, status code : {}",
