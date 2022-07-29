@@ -494,12 +494,15 @@ fn apply_on_base_vehicle_journey(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} ",
+        "Apply chaos disruption {}, impactt {}, {:?} on vehicle journey {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .1
+            .id,
         action,
         vehicle_journey_id,
     );
@@ -561,12 +564,15 @@ fn dispatch_on_base_vehicle_journey(
     action: Action,
 ) {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on vehicle journey {} on {}",
+        "Apply chaos disruption {}, impact {}, {:?} on vehicle journey {} on {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         base_model.vehicle_journey_name(base_vehicle_journey_idx),
         date
@@ -594,8 +600,15 @@ fn dispatch_on_base_vehicle_journey(
                         date,
                     );
                 } else {
-                    warn!("Chaos impact {:?} asked for removal of already absent vehicle journey {} on {}",
-                        chaos_impact_idx,
+                    warn!("Chaos disruption {}, impact {} asked for removal of already absent vehicle journey {} on {}",
+                        real_time_model
+                        .get_chaos_disruption_and_impact(chaos_impact_idx)
+                        .0
+                        .id,
+                        real_time_model
+                            .get_chaos_disruption_and_impact(chaos_impact_idx)
+                            .0
+                            .id,
                         base_model.vehicle_journey_name(base_vehicle_journey_idx),
                         date,
                     );
@@ -653,12 +666,15 @@ fn apply_on_network(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on network {} ",
+        "Apply chaos disruption {}, impact {}, {:?} on network {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         network_id,
     );
@@ -696,12 +712,15 @@ fn apply_on_line(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on line {} ",
+        "Apply chaos disruption {}, impact {}, {:?} on line {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         line_id,
     );
@@ -738,12 +757,15 @@ fn apply_on_route(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on route {} ",
+        "Apply chaos disruption {}, impact {}, {:?} on route {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         route_id,
     );
@@ -780,12 +802,15 @@ fn apply_on_stop_area(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on stop area {} ",
+        "Apply chaos disruption {}, impact {}, {:?} on stop area {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         stop_area_id,
     );
@@ -829,12 +854,15 @@ fn apply_on_stop_point(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, {}-th impact, {:?} on stop point {} ",
+        "Apply chaos disruption {}, impact {}, {:?} on stop point {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         action,
         stop_point_id,
     );
@@ -1073,12 +1101,15 @@ fn cancel_impact(
     date: NaiveDate,
 ) {
     debug!(
-        "Cancel chaos disruption {}, {}-th impact,  vehicle journey {} on {}",
+        "Cancel chaos disruption {}, impact {}, for vehicle journey {} on {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
             .id,
-        chaos_impact_idx.impact_idx,
+        real_time_model
+            .get_chaos_disruption_and_impact(chaos_impact_idx)
+            .0
+            .id,
         base_model.vehicle_journey_name(base_vehicle_journey_idx),
         date,
     );
@@ -1181,12 +1212,15 @@ fn cancel_impact(
     // iterate all linked_chaos_impacts and apply them to this vj
     for (impact_idx, object_idx) in linked_chaos_impacts {
         debug!(
-            "Reapplying disruption {} impact {:?} object {:?} on vehicle journey {:?} on {}",
+            "Reapplying disruption {}, impact {} object {:?} on vehicle journey {:?} on {}",
             real_time_model
-                .get_chaos_disruption_and_impact(&impact_idx)
+                .get_chaos_disruption_and_impact(chaos_impact_idx)
                 .0
                 .id,
-            impact_idx,
+            real_time_model
+                .get_chaos_disruption_and_impact(chaos_impact_idx)
+                .0
+                .id,
             object_idx,
             base_model.vehicle_journey_name(base_vehicle_journey_idx),
             date,
