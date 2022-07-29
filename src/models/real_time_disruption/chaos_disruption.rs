@@ -46,7 +46,7 @@ use crate::{
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, trace};
 
 use super::{
     apply_disruption,
@@ -494,11 +494,7 @@ fn apply_on_base_vehicle_journey(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impactt {}, {:?} on vehicle journey {} ",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on vehicle journey {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .1
@@ -563,20 +559,6 @@ fn dispatch_on_base_vehicle_journey(
     chaos_object_idx: &ChaosImpactObjectIdx,
     action: Action,
 ) {
-    debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on vehicle journey {} on {}",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
-        action,
-        base_model.vehicle_journey_name(base_vehicle_journey_idx),
-        date
-    );
     match action {
         Action::Alter => {
             // we consider that Kirin information is more "fresh" than chaos
@@ -599,12 +581,17 @@ fn dispatch_on_base_vehicle_journey(
                         &vehicle_journey_idx,
                         date,
                     );
-                } else {
-                    warn!("Chaos disruption {}, impact {} asked for removal of already absent vehicle journey {} on {}",
+                    debug!(
+                        "Chaos impact {} removed vehicle journey {} on {}",
                         real_time_model
-                        .get_chaos_disruption_and_impact(chaos_impact_idx)
-                        .0
-                        .id,
+                            .get_chaos_disruption_and_impact(chaos_impact_idx)
+                            .0
+                            .id,
+                        base_model.vehicle_journey_name(base_vehicle_journey_idx),
+                        date,
+                    );
+                } else {
+                    trace!("Chaos impact {} asked for removal of already absent vehicle journey {} on {}",
                         real_time_model
                             .get_chaos_disruption_and_impact(chaos_impact_idx)
                             .0
@@ -666,11 +653,7 @@ fn apply_on_network(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on network {}",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on network {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -712,11 +695,7 @@ fn apply_on_line(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on line {}",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on line {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -757,11 +736,7 @@ fn apply_on_route(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on route {} ",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on route {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -802,11 +777,7 @@ fn apply_on_stop_area(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on stop area {} ",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on stop area {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -854,11 +825,7 @@ fn apply_on_stop_point(
     action: Action,
 ) -> Result<(), ChaosImpactError> {
     debug!(
-        "Apply chaos disruption {}, impact {}, {:?} on stop point {} ",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+        "Apply chaos impact {}, {:?} on stop point {} ",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -937,6 +904,16 @@ fn apply_on_stop_point_by_closure<F: Fn(&StopPointIdx) -> bool>(
 
                         match action {
                             Action::Alter => {
+                                debug!(
+                                    "Chaos impact {}, {:?} modify vehicle journey {} on {} ",
+                                    real_time_model
+                                        .get_chaos_disruption_and_impact(chaos_impact_idx)
+                                        .0
+                                        .id,
+                                    action,
+                                    base_model.vehicle_journey_name(base_vehicle_journey_idx),
+                                    date,
+                                );
                                 remove_stop_points_from_trip(
                                     real_time_model,
                                     base_model,
@@ -1100,12 +1077,8 @@ fn cancel_impact(
     base_vehicle_journey_idx: BaseVehicleJourneyIdx,
     date: NaiveDate,
 ) {
-    debug!(
-        "Cancel chaos disruption {}, impact {}, for vehicle journey {} on {}",
-        real_time_model
-            .get_chaos_disruption_and_impact(chaos_impact_idx)
-            .0
-            .id,
+    trace!(
+        "Cancel chaos impact {}, for vehicle journey {} on {}",
         real_time_model
             .get_chaos_disruption_and_impact(chaos_impact_idx)
             .0
@@ -1211,20 +1184,6 @@ fn cancel_impact(
 
     // iterate all linked_chaos_impacts and apply them to this vj
     for (impact_idx, object_idx) in linked_chaos_impacts {
-        debug!(
-            "Reapplying disruption {}, impact {} object {:?} on vehicle journey {:?} on {}",
-            real_time_model
-                .get_chaos_disruption_and_impact(chaos_impact_idx)
-                .0
-                .id,
-            real_time_model
-                .get_chaos_disruption_and_impact(chaos_impact_idx)
-                .0
-                .id,
-            object_idx,
-            base_model.vehicle_journey_name(base_vehicle_journey_idx),
-            date,
-        );
         let (impacted_object, application_periods) = match object_idx {
             ChaosImpactObjectIdx::Informed(_) => {
                 continue;
@@ -1241,6 +1200,16 @@ fn cancel_impact(
         if application_periods.is_empty() {
             continue;
         }
+        debug!(
+            "Reapplying impact {} object {:?} on vehicle journey {:?} on {}",
+            real_time_model
+                .get_chaos_disruption_and_impact(chaos_impact_idx)
+                .0
+                .id,
+            impacted_object,
+            base_model.vehicle_journey_name(base_vehicle_journey_idx),
+            date,
+        );
         // unwrap is safe here because we checked if application_periods is empty or not
         let application_periods = TimePeriods::new(&application_periods).unwrap();
 
