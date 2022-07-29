@@ -181,7 +181,7 @@ impl Debug for TimePeriodError {
             TimePeriodError::StartAfterEnd(start, end) => {
                 write!(
                     f,
-                    "Bad TimePeriod, start {} must be strictly greater than end {}",
+                    "Bad TimePeriod, start {} must be strictly lower than end {}",
                     start, end
                 )
             }
