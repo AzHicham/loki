@@ -57,7 +57,7 @@ use crate::time::{
 };
 use chrono::NaiveDate;
 use std::collections::{BTreeMap, HashMap};
-use tracing::log::error;
+use tracing::error;
 
 use crate::timetables::FlowDirection;
 
