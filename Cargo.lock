@@ -2438,9 +2438,9 @@ dependencies = [
 
 [[package]]
 name = "rust-s3"
-version = "0.32.1"
+version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6f742334654ff932c3255a2ef2161ecd19b59a4df903cfd4d05f4fa60cb0932"
+checksum = "b6009d9d4cf910505534d62d380a0aa305805a2af0b5c3ad59a3024a0715b847"
 dependencies = [
  "async-trait",
  "aws-creds",
