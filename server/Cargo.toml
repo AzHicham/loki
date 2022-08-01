@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 # for navitia_proto
-prost = "0.10"
+prost = "0.11"
 
 # for chaos_proto which uses protobuf v2 extensions features, which are not supported by prost
 # cf https://github.com/tokio-rs/prost/issues/100
