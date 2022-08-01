@@ -302,9 +302,9 @@ fn apply_impact(
     cancel_impact: bool,
 ) {
     if cancel_impact {
-        debug!("Cancelling impact {}", impact.id);
+        debug!("Cancelling chaos impact {}", impact.id);
     } else {
-        debug!("Applying impact {}", impact.id);
+        debug!("Applying chaos impact {}", impact.id);
     }
 
     let model_period = [base_model.time_period()];
@@ -317,7 +317,7 @@ fn apply_impact(
         .collect();
 
     if application_periods.is_empty() {
-        debug!("Ignored impact {} that have application periods that do not intersect the data period.", impact.id);
+        debug!("Ignored chaos impact {} that have application periods that do not intersect the data period.", impact.id);
         return;
     }
     // unwrap is safe here because we checked if application_periods is empty or not
@@ -408,7 +408,10 @@ fn apply_impact(
             }
         };
         if let Err(err) = result {
-            error!("Error while applying impact {} : {:?}", impact.id, err);
+            error!(
+                "Error while applying chaos impact {} : {:?}",
+                impact.id, err
+            );
         }
     }
 
@@ -484,16 +487,16 @@ fn apply_impact(
         };
         if let Err(err) = result {
             error!(
-                "Error while applying impact {} on {:?} : {:?}",
+                "Error while applying chaos impact {} on {:?} : {:?}",
                 impact.id, pt_object, err
             );
         }
     }
 
     if cancel_impact {
-        debug!("Finished cancelling impact {}", impact.id);
+        debug!("Finished cancelling chaos impact {}", impact.id);
     } else {
-        debug!("Finished applying impact {}", impact.id);
+        debug!("Finished applying chaos impact {}", impact.id);
     }
 }
 
