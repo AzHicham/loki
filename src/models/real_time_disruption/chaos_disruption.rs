@@ -257,6 +257,7 @@ pub fn store_and_apply_chaos_disruption(
             false,
         );
     }
+    debug!("Finished applying chaos disruption {}", disruption.id);
 }
 
 pub fn cancel_chaos_disruption(
@@ -300,6 +301,12 @@ fn apply_impact(
     impact_idx: &ChaosImpactIdx,
     cancel_impact: bool,
 ) {
+    if cancel_impact {
+        debug!("Cancelling impact {}", impact.id);
+    } else {
+        debug!("Applying impact {}", impact.id);
+    }
+
     let model_period = [base_model.time_period()];
     // filter application_periods by model_period
     // by taking the intersection of theses two TimePeriods
@@ -310,6 +317,7 @@ fn apply_impact(
         .collect();
 
     if application_periods.is_empty() {
+        debug!("Ignored impact {} that have application periods that do not intersect the data period.", impact.id);
         return;
     }
     // unwrap is safe here because we checked if application_periods is empty or not
@@ -476,10 +484,16 @@ fn apply_impact(
         };
         if let Err(err) = result {
             error!(
-                "Error while storing informed impact {} : {:?}",
-                impact.id, err
+                "Error while applying impact {} on {:?} : {:?}",
+                impact.id, pt_object, err
             );
         }
+    }
+
+    if cancel_impact {
+        debug!("Finished cancelling impact {}", impact.id);
+    } else {
+        debug!("Finished applying impact {}", impact.id);
     }
 }
 

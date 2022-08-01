@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{
     chrono::NaiveDate,
@@ -60,7 +60,7 @@ pub(super) fn delete_trip(
             base: base_model,
             real_time: real_time_model,
         };
-        debug!(
+        trace!(
             "Deleting vehicle journey {} on {}",
             model_ref.vehicle_journey_name(vehicle_journey_idx),
             date
