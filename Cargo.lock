@@ -1479,6 +1479,7 @@ dependencies = [
  "tokio",
  "tokio-amqp",
  "toml 0.5.9",
+ "tracing",
  "uuid 0.8.2",
 ]
 
