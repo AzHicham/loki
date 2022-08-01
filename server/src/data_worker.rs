@@ -61,7 +61,7 @@ use lapin::{
     BasicProperties, ExchangeKind,
 };
 
-use std::ops::Deref;
+use std::{ops::Deref, time::SystemTime};
 
 use futures::StreamExt;
 use launch::loki::{
@@ -433,6 +433,8 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<T, Error>,
     {
+        let timer = SystemTime::now();
+
         trace!("DataWorker ask LoadBalancer to Stop.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
@@ -458,6 +460,12 @@ impl DataWorker {
         trace!("DataWorker ask LoadBalancer to Start.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
+
+        let duration = timer.elapsed().map_or_else(
+            |err| err.to_string(),
+            |duration| duration.as_millis().to_string(),
+        );
+        info!("Updated data in {:?} ms", duration,);
 
         update_result
     }
