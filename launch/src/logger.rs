@@ -19,8 +19,13 @@ pub fn init_logger() {
         );
         EnvFilter::new(default_level.to_string())
     });
+    let format = tracing_subscriber::fmt::format()
+        .with_source_location(true)
+        .with_target(false)
+        .with_ansi(true) // set to false to remove color in output
+        .compact();
     let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().event_format(format))
         .with(env_filter_subscriber);
     loki::tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set global tracing subscriber.");
