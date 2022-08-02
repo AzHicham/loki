@@ -66,7 +66,7 @@ pub fn read_chaos_disruption_from_database(
 
     let mut offset_query = 0_u32;
 
-    info!("Querying chaos database {}", &chaos_params.database);
+    info!("Querying chaos database",);
     loop {
         let res = diesel::sql_query(include_str!("query.sql"))
             .bind::<Date, _>(publication_period.1)
@@ -92,9 +92,8 @@ pub fn read_chaos_disruption_from_database(
     }
     let disruptions: Vec<_> = disruption_maker.disruptions.into_values().collect();
     info!(
-        "Obtained {} disruptions from chaos database {}",
+        "Obtained {} disruptions from chaos database",
         disruptions.len(),
-        &chaos_params.database
     );
     Ok(disruptions)
 }
