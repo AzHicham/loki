@@ -40,11 +40,14 @@ use super::navitia_proto;
 
 use anyhow::{format_err, Context, Error};
 
-use launch::loki::{
-    chrono::NaiveDate,
-    chrono_tz,
-    tracing::{debug, error, info, log::warn},
-    NaiveDateTime,
+use launch::{
+    loki::{
+        chrono::NaiveDate,
+        chrono_tz,
+        tracing::{debug, error, info, log::warn},
+        NaiveDateTime,
+    },
+    timer,
 };
 
 use std::{thread, time::SystemTime};
@@ -173,7 +176,7 @@ impl StatusWorker {
     }
 
     fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
-        let request_timer = SystemTime::now();
+        let handle_request_start_time = SystemTime::now();
         let requested_api = request_message.payload.requested_api();
         let request_id = request_message.payload.request_id.unwrap_or_default();
         debug!(
@@ -211,10 +214,7 @@ impl StatusWorker {
                 )
             })?;
 
-        let duration = request_timer.elapsed().map_or_else(
-            |err| err.to_string(),
-            |duration| duration.as_millis().to_string(),
-        );
+        let duration = timer::duration_since(handle_request_start_time);
         info!(
             "Status worker responded in {} ms to request on api {:?} with id '{}'",
             duration, requested_api, request_id

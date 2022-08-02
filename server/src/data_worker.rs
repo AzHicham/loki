@@ -64,19 +64,22 @@ use lapin::{
 use std::{ops::Deref, time::SystemTime};
 
 use futures::StreamExt;
-use launch::loki::{
-    chrono::Utc,
-    chrono_tz,
-    models::{
-        base_model::BaseModel,
-        real_time_disruption::{
-            chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
-            kirin_disruption::store_and_apply_kirin_disruption,
+use launch::{
+    loki::{
+        chrono::Utc,
+        chrono_tz,
+        models::{
+            base_model::BaseModel,
+            real_time_disruption::{
+                chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
+                kirin_disruption::store_and_apply_kirin_disruption,
+            },
+            RealTimeModel,
         },
-        RealTimeModel,
+        tracing::{debug, error, info, log::trace, warn},
+        DataTrait, NaiveDateTime,
     },
-    tracing::{debug, error, info, log::trace, warn},
-    DataTrait, NaiveDateTime,
+    timer::duration_since,
 };
 
 use std::{
@@ -461,11 +464,7 @@ impl DataWorker {
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
 
-        let duration = timer.elapsed().map_or_else(
-            |err| err.to_string(),
-            |duration| duration.as_millis().to_string(),
-        );
-        info!("Updated data in {:?} ms", duration,);
+        info!("Updated data in {} ms", duration_since(timer));
 
         update_result
     }

@@ -5,6 +5,7 @@ use launch::{
         models::{real_time_model::RealTimeModel, ModelRefs},
     },
     solver::Solver,
+    timer,
 };
 use loki::{tracing::debug, DataTrait};
 
@@ -161,7 +162,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
             }
         }
     }
-    let total_duration = start_all.elapsed().unwrap().as_millis();
+    let total_duration = timer::duration_since(start_all);
 
     log::info!("Total duration : {} ms", total_duration);
     log::info!("Average duration per request : {} ms", histogram.mean());

@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use super::config;
-use crate::{config::launch_params::LocalFileParams, loki::TransitData};
+use crate::{config::launch_params::LocalFileParams, loki::TransitData, timer};
 use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
@@ -159,9 +159,9 @@ pub fn build_transit_data(base_model: &BaseModel) -> TransitData {
         base_model.nb_of_vehicle_journeys()
     );
 
-    let data_timer = SystemTime::now();
+    let start_build_time = SystemTime::now();
     let data = TransitData::new(base_model);
-    let data_build_duration = data_timer.elapsed().unwrap().as_millis();
+    let data_build_duration = timer::duration_since(start_build_time);
     info!("Data constructed in {} ms", data_build_duration);
     info!("Number of missions {} ", data.nb_of_missions());
     info!("Number of trips {} ", data.nb_of_trips());

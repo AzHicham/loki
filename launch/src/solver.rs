@@ -230,7 +230,7 @@ where
     engine.compute(request);
     let duration = request_timer.elapsed().map_or_else(
         |err| err.to_string(),
-        |duration| duration.as_millis().to_string(),
+        |duration| format!("{:?}", duration.as_millis()),
     );
     info!(
         "Computed {} journeys in {} ms with {} rounds. Tree size : {}",
