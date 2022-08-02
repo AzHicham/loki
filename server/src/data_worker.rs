@@ -353,7 +353,8 @@ impl DataWorker {
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {
-        info!("Start reloading chaos disruptions.");
+        info!("Start loading chaos disruptions from database");
+        let chaos_reload_start_time = SystemTime::now();
         let chaos_params = match &self.config.chaos {
             Some(chaos_params) => chaos_params,
             None => {
@@ -377,9 +378,14 @@ impl DataWorker {
             (start_date, end_date),
             &self.config.rabbitmq.real_time_topics,
         );
+        info!(
+            "Loading chaos disruptions from database completed in {} ms",
+            duration_since(chaos_reload_start_time)
+        );
         match chaos_disruptions_result {
             Err(err) => error!("Loading chaos database failed : {:?}.", err),
             Ok(disruptions) => {
+                info!("Loading chaos disruptions from database succeeded. I'll now apply these disruptions.");
                 let updater = |data_and_models: &mut DataAndModels| {
                     let data = &mut data_and_models.0;
                     let base_model = &data_and_models.1;
@@ -410,7 +416,7 @@ impl DataWorker {
                 self.send_status_update(StatusUpdate::ChaosReload(now))?;
             }
         }
-        info!("Finished reloading chaos disruptions.");
+        info!("Finished loading and applying chaos disruptions from database.");
         Ok(())
     }
 
