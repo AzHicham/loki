@@ -1287,7 +1287,7 @@ fn cancel_impact(
                 }
             }
             Impacted::LineSection(_) => {
-                error!("Error while cancelling {}-th impact of chaos disruption {} : Rail section is not supported",
+                error!("Error while reapplying {}-th impact of chaos disruption {} : line section is not supported",
                     chaos_impact_idx.impact_idx,
                     real_time_model
                         .get_chaos_disruption_and_impact(chaos_impact_idx)
@@ -1295,7 +1295,7 @@ fn cancel_impact(
                 );
             }
             Impacted::RailSection(_) => {
-                error!("Error while cancelling {}-th impact of chaos disruption {} : Line section is not supported",
+                error!("Error while reapplying {}-th impact of chaos disruption {} : rail section is not supported",
                     chaos_impact_idx.impact_idx,
                     real_time_model
                         .get_chaos_disruption_and_impact(chaos_impact_idx)
