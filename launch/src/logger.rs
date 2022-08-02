@@ -20,8 +20,9 @@ pub fn init_logger() {
         EnvFilter::new(default_level.to_string())
     });
     let format = tracing_subscriber::fmt::format()
-        .with_source_location(true)
-        .with_target(false)
+        .with_thread_ids(false) // set to true to display id of the thread emitting the log
+        .with_source_location(true) // set to true to include source file and line number in log
+        .with_target(false) // set to true to include module name in logs
         .with_ansi(true) // set to false to remove color in output
         .compact();
     let subscriber = tracing_subscriber::registry()
