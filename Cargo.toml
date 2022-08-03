@@ -23,7 +23,7 @@ transit_model = "0.51"
 typed_index_collection = { version = "2", features = ["expose-inner"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.6"
-tracing = { version = "0.1", features = ["std", "release_max_level_info"] }
+tracing = { version = "0.1"}
 static_assertions = "1.1.0"
 csv = "1"
 serde = "1.0"

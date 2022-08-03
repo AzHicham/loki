@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use tracing::log::error;
+use tracing::error;
 
 use crate::{
     loads_data::LoadsData,

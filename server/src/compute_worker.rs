@@ -57,6 +57,7 @@ use launch::{
         DataTrait, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
     },
     solver::Solver,
+    timer,
 };
 use std::{
     convert::TryFrom,
@@ -153,7 +154,7 @@ impl ComputeWorker {
         let request_id = proto_request.request_id.clone().unwrap_or_default();
         let requested_api = proto_request.requested_api();
 
-        let request_timer = SystemTime::now();
+        let start_request_time = SystemTime::now();
         debug!(
             "Worker {} received request on api {:?} with id '{}'",
             self.worker_id.id, requested_api, request_id
@@ -194,10 +195,7 @@ impl ComputeWorker {
                 ))
             }
         };
-        let duration = request_timer.elapsed().map_or_else(
-            |err| err.to_string(),
-            |duration| duration.as_millis().to_string(),
-        );
+        let duration = timer::duration_since(start_request_time);
         info!(
             "Worker {} took {} ms on api {:?} for request with id '{}'",
             self.worker_id.id, duration, requested_api, request_id

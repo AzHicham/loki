@@ -42,6 +42,7 @@ use launch::{
         models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     },
     solver::Solver,
+    timer,
 };
 
 use loki::tracing::{debug, error, info};
@@ -137,7 +138,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
 
     let datetime_represent = &config.datetime_represent;
 
-    let compute_timer = SystemTime::now();
+    let start_compute_time = SystemTime::now();
 
     let start_stop_area_uri = &config.start_stop_area;
     let end_stop_area_uri = &config.end_stop_area;
@@ -158,8 +159,8 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
         datetime_represent,
     );
 
-    let duration = compute_timer.elapsed().unwrap().as_millis();
-    info!("Duration : {} ms", duration as f64);
+    let duration = timer::duration_since(start_compute_time);
+    info!("Duration : {} ms", duration);
 
     match &solve_result {
         Err(err) => {

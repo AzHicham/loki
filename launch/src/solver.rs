@@ -54,6 +54,7 @@ use super::config;
 use crate::{
     datetime::DateTimeRepresent,
     loki::{DataTrait, TransitData},
+    timer,
 };
 use loki::{
     places_nearby::{BadPlacesNearby, PlacesNearbyIter},
@@ -226,16 +227,12 @@ where
     Request::Criteria: Debug,
 {
     debug!("Start computing journeys");
-    let request_timer = SystemTime::now();
+    let start_compute_time = SystemTime::now();
     engine.compute(request);
-    let duration = request_timer.elapsed().map_or_else(
-        |err| err.to_string(),
-        |duration| duration.as_millis().to_string(),
-    );
     info!(
         "Computed {} journeys in {} ms with {} rounds. Tree size : {}",
         engine.nb_of_journeys(),
-        duration,
+        timer::duration_since(start_compute_time),
         engine.nb_of_rounds(),
         engine.tree_size(),
     );

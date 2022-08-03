@@ -61,22 +61,25 @@ use lapin::{
     BasicProperties, ExchangeKind,
 };
 
-use std::ops::Deref;
+use std::{ops::Deref, time::SystemTime};
 
 use futures::StreamExt;
-use launch::loki::{
-    chrono::Utc,
-    chrono_tz,
-    models::{
-        base_model::BaseModel,
-        real_time_disruption::{
-            chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
-            kirin_disruption::store_and_apply_kirin_disruption,
+use launch::{
+    loki::{
+        chrono::Utc,
+        chrono_tz,
+        models::{
+            base_model::BaseModel,
+            real_time_disruption::{
+                chaos_disruption::{cancel_chaos_disruption, store_and_apply_chaos_disruption},
+                kirin_disruption::store_and_apply_kirin_disruption,
+            },
+            RealTimeModel,
         },
-        RealTimeModel,
+        tracing::{debug, error, info, log::trace, warn},
+        DataTrait, NaiveDateTime,
     },
-    tracing::{debug, error, info, log::trace, warn},
-    DataTrait, NaiveDateTime,
+    timer::duration_since,
 };
 
 use std::{
@@ -350,7 +353,8 @@ impl DataWorker {
     }
 
     async fn reload_chaos(&mut self) -> Result<(), Error> {
-        info!("Start reloading chaos disruptions.");
+        info!("Start loading chaos disruptions from database");
+        let chaos_reload_start_time = SystemTime::now();
         let chaos_params = match &self.config.chaos {
             Some(chaos_params) => chaos_params,
             None => {
@@ -374,9 +378,14 @@ impl DataWorker {
             (start_date, end_date),
             &self.config.rabbitmq.real_time_topics,
         );
+        info!(
+            "Loading chaos disruptions from database completed in {} ms",
+            duration_since(chaos_reload_start_time)
+        );
         match chaos_disruptions_result {
             Err(err) => error!("Loading chaos database failed : {:?}.", err),
             Ok(disruptions) => {
+                info!("Loading chaos disruptions from database succeeded. I'll now apply these disruptions.");
                 let updater = |data_and_models: &mut DataAndModels| {
                     let data = &mut data_and_models.0;
                     let base_model = &data_and_models.1;
@@ -407,7 +416,7 @@ impl DataWorker {
                 self.send_status_update(StatusUpdate::ChaosReload(now))?;
             }
         }
-        info!("Finished reloading chaos disruptions.");
+        info!("Finished loading and applying chaos disruptions from database.");
         Ok(())
     }
 
@@ -433,6 +442,8 @@ impl DataWorker {
     where
         Updater: FnOnce(&mut DataAndModels) -> Result<T, Error>,
     {
+        let timer = SystemTime::now();
+
         trace!("DataWorker ask LoadBalancer to Stop.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Stop)
             .await?;
@@ -458,6 +469,8 @@ impl DataWorker {
         trace!("DataWorker ask LoadBalancer to Start.");
         self.send_order_to_load_balancer(LoadBalancerOrder::Start)
             .await?;
+
+        info!("Updated data in {} ms", duration_since(timer));
 
         update_result
     }
