@@ -228,6 +228,7 @@ where
 {
     debug!("Start computing journeys");
     let start_compute_time = SystemTime::now();
+    engine.compute(request);
     info!(
         "Computed {} journeys in {} ms with {} rounds. Tree size : {}",
         engine.nb_of_journeys(),
