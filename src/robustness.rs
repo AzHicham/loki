@@ -79,6 +79,10 @@ impl Uncertainty {
         }
     }
 
+    pub fn level(&self) -> u8 {
+        self.level
+    }
+
     pub fn extend(&self, next_vehicle_regularity: Regularity) -> Self {
         use Regularity::{Frequent, Intermittent, Rare};
         let delta = match (self.last_vehicle_regularity, next_vehicle_regularity) {
