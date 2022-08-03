@@ -41,9 +41,10 @@ pub enum Regularity {
 impl Regularity {
     pub fn new(physical_mode_name: &str) -> Self {
         match physical_mode_name {
-            "Bus" | "Funicular" | "Coach" | "Train" | "LongDistanceTrain" => Regularity::Rare,
-
-            "LocalTrain" | "RapidTransit" | "Tramway" | "RailShuttle" => Regularity::Intermittent,
+            "Bus" | "Funicular" | "Coach" | "Train" | "LongDistanceTrain" | "Air" | "Boat"
+            | "Ferry" | "SuspendedCableCar" => Regularity::Rare,
+            "LocalTrain" | "RapidTransit" | "Tramway" | "RailShuttle" | "BusRapidTransit"
+            | "Shuttle" => Regularity::Intermittent,
             "Metro" => Regularity::Frequent,
             // unknown physical mode, let's default to Rare
             _ => {
