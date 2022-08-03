@@ -47,7 +47,7 @@ use crate::{
     models::RealTimeModel, time::SecondsSinceTimezonedDayStart, timetables::FlowDirection,
 };
 use chrono::{NaiveDate, NaiveDateTime};
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 
 use std::fmt::Debug;
 
@@ -107,6 +107,8 @@ pub fn store_and_apply_kirin_disruption(
     base_model: &BaseModel,
     data: &mut TransitData,
 ) {
+    debug!("Applying kirin disruption {}", disruption.id);
+    trace!("Disruption {:#?}", disruption);
     let kirin_disruption_idx = KirinDisruptionIdx {
         idx: real_time_model.kirin_disruptions.len(),
     };
