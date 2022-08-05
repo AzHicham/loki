@@ -65,6 +65,10 @@ impl Display for Regularity {
     }
 }
 
+// We will improve the "robustness" of a journey
+// by minimizing its "uncertainty" level : and indicator that increase each time a vehicle is boarded.
+// The uncertainty increment depends on the regularity of both the previous vehicle (if any) and the vehicle to be boarded.
+// That's why it is convenient to store the last_vehicle_regularity inside the Uncertainty struct
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Uncertainty {
     level: u8,
@@ -83,6 +87,20 @@ impl Uncertainty {
         self.level
     }
 
+    // The uncertainty increment depends on the regularity of both the previous vehicle (if any) and the vehicle to be boarded.
+    // In a nutshell, the idea is :
+    // - if there is no previous vehicle, or the previous vehicle is Frequent, the uncertainty increases a little, depending on the regularity of the vehicle to be boarded
+    // - if the previous vehicle is Rare of Intermittent, the uncertainty increases a lot if the next vehicle is also Rare of Intermittent, and just a little for a Frequent one
+    //
+    // Uncertainty increments by previous vehicle regularity (vertical) and next vehicle regularity (horizontal) :
+    //
+    // |                   |   Rare    |  Intermittent  |  Frequent  |
+    // | ----------------- | --------- | -------------- | ---------- |
+    // | Rare              |   +10     |      +5        |    +1      |
+    // | Intermittent      |   +10     |      +5        |    +1      |
+    // | Frequent          |   +3      |      +2        |    +1      |
+    // | None              |   +3      |      +2        |    +1      |
+    //
     pub fn extend(&self, next_vehicle_regularity: Regularity) -> Self {
         use Regularity::{Frequent, Intermittent, Rare};
         let delta = match (self.last_vehicle_regularity, next_vehicle_regularity) {
