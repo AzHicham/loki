@@ -136,7 +136,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
         }
     };
 
-    let datetime_represent = &config.datetime_represent;
+    let datetime_represent = config.datetime_represent;
 
     let start_compute_time = SystemTime::now();
 
@@ -156,7 +156,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
         &request_input,
         None,
         config.comparator_type,
-        *datetime_represent,
+        datetime_represent,
     );
 
     let duration = timer::duration_since(start_compute_time);
