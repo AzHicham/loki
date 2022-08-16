@@ -17,7 +17,7 @@ jobs:
       with:
         submodules: 'recursive'
     - name: Install dependencies
-      run: sudo apt install libzmq3-dev lld
+      run: sudo apt install libzmq3-dev lld protobuf-compiler
     - name: Check compilation
       run: cargo check --workspace --verbose
 

@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y libzmq3-dev lld
+        sudo apt install -y libzmq3-dev lld protobuf-compiler
 
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1
