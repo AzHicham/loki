@@ -36,7 +36,7 @@
 
 use chrono::{FixedOffset, NaiveDate};
 use std::{
-    fmt::{Display, Formatter},
+    fmt::{Debug, Display, Formatter},
     num::TryFromIntError,
 };
 
