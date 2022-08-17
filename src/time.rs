@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use chrono::{FixedOffset, NaiveDate};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 pub mod calendar;
 pub mod days_map;
@@ -47,12 +47,12 @@ pub use timezones_patterns::TimezonesPatterns;
 /// This corresponds to the "Time" notion found in gtfs/ntfs stop_times.txt
 /// It should be built from a TransitModelTime.
 /// This types accept only times are comprised between -48:00:00 and 48:00:00 (maximum plus/minus 2 days)
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceTimezonedDayStart {
     seconds: i32,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SecondsSinceUTCDayStart {
     seconds: i32,
 }
@@ -89,7 +89,7 @@ pub struct Calendar {
                            // we allow at most MAX_DAYS_IN_CALENDAR days
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct PositiveDuration {
     pub(super) seconds: u32,
 }
@@ -202,6 +202,12 @@ impl Display for PositiveDuration {
     }
 }
 
+impl Debug for PositiveDuration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        <Self as Display>::fmt(self, f)
+    }
+}
+
 impl SecondsSinceTimezonedDayStart {
     pub fn zero() -> Self {
         Self { seconds: 0 }
@@ -295,15 +301,27 @@ impl SecondsSinceUTCDayStart {
     }
 }
 
-impl std::fmt::Display for SecondsSinceTimezonedDayStart {
+impl Display for SecondsSinceTimezonedDayStart {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let (sign, abs) = if self.seconds < 0 {
+            ("-", -self.seconds)
+        } else {
+            ("", self.seconds)
+        };
         write!(
             f,
-            "{:02}:{:02}:{:02}",
-            self.seconds / 60 / 60,
-            self.seconds / 60 % 60,
-            self.seconds % 60
+            "{}{:02}:{:02}:{:02}_tz",
+            sign,
+            abs / 60 / 60,
+            abs / 60 % 60,
+            abs % 60
         )
+    }
+}
+
+impl Debug for SecondsSinceTimezonedDayStart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        <Self as Display>::fmt(self, f)
     }
 }
 
@@ -315,6 +333,30 @@ impl SecondsSinceDatasetUTCStart {
         self.seconds
             .checked_sub(start_datetime.seconds)
             .map(|seconds| PositiveDuration { seconds })
+    }
+}
+
+impl Display for SecondsSinceUTCDayStart {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let (sign, abs) = if self.seconds < 0 {
+            ("-", -self.seconds)
+        } else {
+            ("", self.seconds)
+        };
+        write!(
+            f,
+            "{}{:02}:{:02}:{:02}_utc",
+            sign,
+            abs / 60 / 60,
+            abs / 60 % 60,
+            abs % 60
+        )
+    }
+}
+
+impl Debug for SecondsSinceUTCDayStart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        <Self as Display>::fmt(self, f)
     }
 }
 
