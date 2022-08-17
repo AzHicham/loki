@@ -8,7 +8,7 @@ COPY ./stop_areas/ ./stop_areas/
 COPY ./random/ ./random/
 
 
-RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev cmake
+RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev cmake protobuf-compiler
 RUN cargo install --path server
 
 FROM debian:buster-slim

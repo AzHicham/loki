@@ -18,7 +18,7 @@ jobs:
           submodules: 'recursive'
       - name: Install dependencies
         run: |
-            sudo apt install libzmq3-dev lld
+            sudo apt install libzmq3-dev lld protobuf-compiler
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
