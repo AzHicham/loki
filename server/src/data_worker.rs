@@ -553,7 +553,6 @@ impl DataWorker {
                     Ok(proto_message) => {
                         let action = proto_message.action();
                         if let navitia_proto::Action::Reload = action {
-                            debug!("Received a Reload order.");
                             let reload_result = self.load_data().await?;
                             match reload_result {
                                 DataReloadStatus::Ok => {
