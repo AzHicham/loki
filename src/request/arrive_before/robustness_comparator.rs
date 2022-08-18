@@ -70,18 +70,15 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         let lower_nb_of_legs = u32::from(lower.nb_of_legs);
         let upper_nb_of_legs = u32::from(upper.nb_of_legs);
 
-        let lower_uncertainty_level = u32::from(lower.uncertainty.level());
-        let upper_uncertainty_level = u32::from(upper.uncertainty.level());
-
         lower.time - arrival_penalty * lower_nb_of_legs
             >= upper.time - arrival_penalty * upper_nb_of_legs
-//            && lower.uncertainty <= upper.uncertainty
+            && lower.uncertainty <= upper.uncertainty
             && lower.fallback_duration
                 + lower.transfers_duration
-                + walking_penalty * lower_uncertainty_level
+                + walking_penalty * lower_nb_of_legs
                 <= upper.fallback_duration
                     + upper.transfers_duration
-                    + walking_penalty * upper_uncertainty_level
+                    + walking_penalty * upper_nb_of_legs
     }
 
     fn can_be_discarded(
