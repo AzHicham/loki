@@ -75,5 +75,7 @@ pub mod response;
 
 pub type Response = response::Response;
 
+pub mod robustness;
+
 #[macro_use]
 extern crate lazy_static;

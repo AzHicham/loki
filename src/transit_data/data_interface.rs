@@ -1,6 +1,7 @@
 use crate::{
     loads_data::Load,
     models::{StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     time::SecondsSinceDatasetUTCStart,
 };
 use chrono::{NaiveDate, NaiveDateTime};
@@ -148,6 +149,8 @@ pub trait Data: TransitTypes {
     ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
+
+    fn regularity(&self, trip: &Self::Trip) -> Regularity;
 
     fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> NaiveDateTime;
 

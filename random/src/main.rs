@@ -116,7 +116,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
         }
     };
 
-    let datetime_represent = &config.datetime_represent;
+    let datetime_represent = config.datetime_represent;
 
     let start_all = SystemTime::now();
 
@@ -144,7 +144,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
             &model_refs,
             &request_input,
             None,
-            &config.comparator_type,
+            config.comparator_type,
             datetime_represent,
         );
         let solve_duration = before_solve.elapsed().unwrap().as_millis();

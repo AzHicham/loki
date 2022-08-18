@@ -76,7 +76,7 @@ use launch::{
             },
             RealTimeModel,
         },
-        tracing::{debug, error, info, log::trace, warn},
+        tracing::{error, info, log::trace, warn},
         DataTrait, NaiveDateTime,
     },
     timer::duration_since,
@@ -284,6 +284,8 @@ impl DataWorker {
     }
 
     async fn load_data(&mut self) -> Result<DataReloadStatus, Error> {
+        let start_load_data_time = SystemTime::now();
+
         let config = &self.config;
 
         let new_base_model = match &mut self.data_source {
@@ -339,6 +341,11 @@ impl DataWorker {
         };
 
         let load_result = self.update_data_and_models(updater).await;
+
+        info!(
+            "Load data completed in {} ms",
+            duration_since(start_load_data_time)
+        );
 
         match load_result {
             Ok(base_data_info) => {
@@ -546,7 +553,6 @@ impl DataWorker {
                     Ok(proto_message) => {
                         let action = proto_message.action();
                         if let navitia_proto::Action::Reload = action {
-                            debug!("Received a Reload order.");
                             let reload_result = self.load_data().await?;
                             match reload_result {
                                 DataReloadStatus::Ok => {
@@ -559,7 +565,7 @@ impl DataWorker {
                                         error!("Error during reload of Chaos database : {:?}", err);
                                     }
                                     self.reload_kirin(channel).await?;
-                                    debug!("Reload completed successfully.");
+                                    info!("Reload completed successfully.");
                                 }
                                 DataReloadStatus::Skipped => {
                                     info!("Reload skipped");

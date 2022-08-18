@@ -43,6 +43,7 @@ use chrono::NaiveDate;
 use crate::{
     loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
         day_to_timetable::VehicleJourneyToTimetable,
@@ -362,6 +363,10 @@ impl data_interface::Data for TransitData {
             &self.calendar,
             &self.days_patterns,
         )
+    }
+
+    fn regularity(&self, trip: &Self::Trip) -> Regularity {
+        self.timetables.regularity(trip)
     }
 
     fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {

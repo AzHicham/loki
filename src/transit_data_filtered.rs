@@ -38,6 +38,7 @@ use crate::{
     filters::Filters,
     loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    robustness::Regularity,
     time::{Calendar, SecondsSinceDatasetUTCStart},
     timetables::utc_timetables,
     transit_data::{self, data_interface, data_iters, TransferDurations},
@@ -330,6 +331,10 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         } else {
             None
         }
+    }
+
+    fn regularity(&self, trip: &Self::Trip) -> Regularity {
+        self.transit_data.regularity(trip)
     }
 
     fn to_naive_datetime(&self, seconds: SecondsSinceDatasetUTCStart) -> chrono::NaiveDateTime {

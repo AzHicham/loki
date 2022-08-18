@@ -36,10 +36,12 @@
 
 pub mod basic_comparator;
 pub mod loads_comparator;
+pub mod robustness_comparator;
 
 use crate::{
     loads_data::LoadsCount,
     models::ModelRefs,
+    robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
     RealTimeLevel,
@@ -184,6 +186,7 @@ where
             connections,
             *arrival_fallback_duration,
             pt_journey.criteria_at_arrival.loads_count.clone(),
+            pt_journey.criteria_at_arrival.uncertainty,
             self.transit_data,
             self.real_time_level,
         )
@@ -250,12 +253,14 @@ where
             .transit_data
             .departure_time_of(trip, &previous_position);
         let load = self.transit_data.load_after(trip, &previous_position);
+        let regularity = self.transit_data.regularity(trip);
         let new_criteria = Criteria {
             time: departure_time_at_previous_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
             loads_count: waiting_criteria.loads_count.add(load),
+            uncertainty: waiting_criteria.uncertainty.extend(regularity),
         };
         Some(new_criteria)
     }
@@ -269,12 +274,14 @@ where
         let departure_time_at_last_stop = self
             .transit_data
             .departure_time_of(&previous_trip, &last_position);
+        let regularity = self.transit_data.regularity(&previous_trip);
         let new_criteria = Criteria {
             time: departure_time_at_last_stop,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
+            uncertainty: criteria.uncertainty.extend(regularity),
         };
         Some((previous_trip, new_criteria))
     }
@@ -295,12 +302,14 @@ where
                 |_| true,
             )
             .map(|(trip, debark_time, load)| {
+                let regularity = self.transit_data.regularity(&trip);
                 let new_criteria = Criteria {
                     time: debark_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
                     loads_count: waiting_criteria.loads_count.add(load),
+                    uncertainty: waiting_criteria.uncertainty.extend(regularity),
                 };
                 (trip, new_criteria)
             })
@@ -324,6 +333,7 @@ where
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
                 loads_count: onboard_criteria.loads_count.clone(),
+                uncertainty: onboard_criteria.uncertainty,
             })
     }
 
@@ -343,6 +353,7 @@ where
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.add(load),
+            uncertainty: criteria.uncertainty,
         }
     }
 
@@ -355,6 +366,7 @@ where
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
             loads_count: LoadsCount::zero(),
+            uncertainty: Uncertainty::zero(),
         };
         (stop.clone(), criteria)
     }
@@ -373,6 +385,7 @@ where
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
             loads_count: criteria.loads_count.clone(),
+            uncertainty: criteria.uncertainty,
         }
     }
 
@@ -544,6 +557,7 @@ where
                 fallback_duration: self.criteria.fallback_duration,
                 transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
                 loads_count: self.criteria.loads_count.clone(),
+                uncertainty: self.criteria.uncertainty,
             };
             (stop.clone(), new_criteria, transfer.clone())
         })

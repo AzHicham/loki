@@ -533,6 +533,9 @@ where
             let new_debark_front = &self.new_debark_fronts[stop_id];
             for (debark, criteria) in new_debark_front.iter() {
                 let arrive_criteria = pt.arrive(&arrival, criteria);
+                if self.can_be_discarded(&arrive_criteria, pt) {
+                    continue;
+                }
                 if self.arrive_front.dominates(&arrive_criteria, pt) {
                     continue;
                 }

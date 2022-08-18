@@ -37,6 +37,7 @@
 use crate::{
     loads_data::LoadsCount,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
 };
@@ -56,6 +57,7 @@ pub struct Response {
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
     pub arrival: ArrivalSection,
     pub loads_count: LoadsCount,
+    pub uncertainty: Uncertainty,
     pub real_time_level: RealTimeLevel,
 }
 
@@ -127,6 +129,7 @@ pub struct Journey<Data: DataTrait> {
     pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     pub(crate) arrival_fallback_duration: PositiveDuration,
     pub(crate) loads_count: LoadsCount,
+    pub(crate) uncertainty: Uncertainty,
     pub(crate) real_time_level: RealTimeLevel,
 }
 #[derive(Debug, Clone)]
@@ -204,6 +207,7 @@ where
         connections: impl Iterator<Item = (Data::Transfer, VehicleLeg<Data>)>,
         arrival_fallback_duration: PositiveDuration,
         loads_count: LoadsCount,
+        uncertainty: Uncertainty,
         data: &Data,
         real_time_level: RealTimeLevel,
     ) -> Result<Self, BadJourney<Data>> {
@@ -214,6 +218,7 @@ where
             arrival_fallback_duration,
             connections: connections.collect(),
             loads_count,
+            uncertainty,
             real_time_level,
         };
 
@@ -428,6 +433,7 @@ where
             self.arrival_fallback_duration
         )?;
         writeln!(writer, "Loads : {}", self.loads_count)?;
+        writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         let departure_datetime = data.to_naive_datetime(self.departure_datetime);
         writeln!(
@@ -493,6 +499,7 @@ impl<Data: DataTrait> Journey<Data> {
             connections: self.connections(data).collect(),
             arrival: self.arrival_section(data),
             loads_count: self.loads_count.clone(),
+            uncertainty: self.uncertainty,
             real_time_level: self.real_time_level,
         }
     }
@@ -824,6 +831,7 @@ impl Response {
             write_duration(self.arrival.duration_in_seconds())
         )?;
         writeln!(writer, "Loads : {}", self.loads_count)?;
+        writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         writeln!(
             writer,

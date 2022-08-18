@@ -39,6 +39,7 @@ use tracing::{debug, trace};
 use crate::{
     chrono::NaiveDate,
     models::{self, real_time_model::TripVersion, RealTimeModel, VehicleJourneyIdx},
+    robustness::Regularity,
     transit_data::{
         data_interface::Data as DataTrait, handle_insertion_error, handle_modify_error,
         handle_removal_error,
@@ -99,22 +100,24 @@ pub(super) fn add_trip(
     date: NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
-    {
-        let model_ref = ModelRefs {
-            base: base_model,
-            real_time: real_time_model,
-        };
-        debug!(
-            "Adding vehicle journey {} on {}",
-            model_ref.vehicle_journey_name(&vehicle_journey_idx),
-            date
-        );
-    }
+    let model_ref = ModelRefs {
+        base: base_model,
+        real_time: real_time_model,
+    };
+    debug!(
+        "Adding vehicle journey {} on {}",
+        model_ref.vehicle_journey_name(&vehicle_journey_idx),
+        date
+    );
+    let physical_mode = model_ref.physical_mode_name(&vehicle_journey_idx);
+    let regularity = Regularity::new(physical_mode);
+
     let dates = std::iter::once(date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
     let board_times = stop_times.iter().map(|stop_time| stop_time.board_time);
     let debark_times = stop_times.iter().map(|stop_time| stop_time.debark_time);
+
     let insert_result = data.insert_real_time_vehicle(
         stops,
         flows,
@@ -124,6 +127,7 @@ pub(super) fn add_trip(
         dates,
         chrono_tz::UTC,
         vehicle_journey_idx,
+        regularity,
     );
     let model_ref = ModelRefs {
         base: base_model,
@@ -147,17 +151,17 @@ pub fn modify_trip(
     date: &NaiveDate,
     stop_times: Vec<models::StopTime>,
 ) {
-    {
-        let model_ref = ModelRefs {
-            base: base_model,
-            real_time: real_time_model,
-        };
-        debug!(
-            "Modifying vehicle journey {} on {}",
-            model_ref.vehicle_journey_name(vehicle_journey_idx),
-            date
-        );
-    }
+    let model_ref = ModelRefs {
+        base: base_model,
+        real_time: real_time_model,
+    };
+    debug!(
+        "Modifying vehicle journey {} on {}",
+        model_ref.vehicle_journey_name(vehicle_journey_idx),
+        date
+    );
+    let physical_mode = model_ref.physical_mode_name(vehicle_journey_idx);
+    let regularity = Regularity::new(physical_mode);
     let dates = std::iter::once(*date);
     let stops = stop_times.iter().map(|stop_time| stop_time.stop.clone());
     let flows = stop_times.iter().map(|stop_time| stop_time.flow_direction);
@@ -173,6 +177,7 @@ pub fn modify_trip(
         dates,
         chrono_tz::UTC,
         vehicle_journey_idx,
+        regularity,
     );
     if let Err(err) = modify_result {
         let model_ref = ModelRefs {

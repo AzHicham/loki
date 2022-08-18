@@ -35,7 +35,10 @@
 // www.navitia.io
 
 use chrono::{FixedOffset, NaiveDate};
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    num::TryFromIntError,
+};
 
 pub mod calendar;
 pub mod days_map;
@@ -137,6 +140,18 @@ impl std::str::FromStr for PositiveDuration {
             return Err(PositiveDurationError::IncorrectFormat(s.to_owned()));
         }
         Ok(PositiveDuration::from_hms(hours, minutes, seconds))
+    }
+}
+
+impl TryFrom<i32> for PositiveDuration {
+    type Error = TryFromIntError;
+
+    fn try_from(seconds: i32) -> Result<Self, Self::Error> {
+        let seconds_u32 = u32::try_from(seconds)?;
+        let result = PositiveDuration {
+            seconds: seconds_u32,
+        };
+        Ok(result)
     }
 }
 
