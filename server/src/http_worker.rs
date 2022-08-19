@@ -106,7 +106,10 @@ impl HttpWorker {
 
         let server = hyper::Server::bind(&self.http_address).serve(make_service);
 
-        info!("Http worker is listening on http://{}", self.http_address);
+        info!(
+            "Http worker is listening on http://{}/status and http://{}/health ",
+            self.http_address, self.http_address
+        );
 
         if let Err(e) = server.await {
             error!("Http worker error: {}", e);
@@ -120,13 +123,29 @@ async fn handle_http_request(
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
 ) -> Result<Response<Body>, hyper::http::Error> {
     match (http_request.method(), http_request.uri().path()) {
-        // Serve some instructions at GET /status
+        // GET /status returns a json containing status info
         (&Method::GET, "/status") => match handle_status_request(status_request_sender).await {
             Ok(bytes) => Response::builder()
                 .status(StatusCode::OK)
                 .body(Body::from(bytes)),
             Err(err) => {
-                error!("{:#}", err);
+                error!("Http /status request failed : {:#}", err);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::empty())
+            }
+        },
+        // GET /health returns 200 when some data has been successfully loaded
+        //  and 400 otherwise
+        (&Method::GET, "/health") => match handle_health_request(status_request_sender).await {
+            Ok(true) => Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::empty()),
+            Ok(false) => Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::empty()),
+            Err(err) => {
+                error!("Http /health request failed : {:#}", err);
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::empty())
@@ -164,4 +183,23 @@ async fn handle_status_request(
         .context("Could not receive response from status worker")?;
 
     serde_json::to_vec_pretty(&status).context("Could not serialize status to json")
+}
+
+async fn handle_health_request(
+    status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
+) -> Result<bool, Error> {
+    let (status_response_sender, status_response_receiver) = oneshot::channel();
+    let timeout = tokio::time::Duration::from_secs(3);
+
+    // send a request to the status worker
+    status_request_sender
+        .send_timeout(status_response_sender, timeout)
+        .await
+        .map_err(|_| format_err!("Could not send request to status worker"))?;
+
+    let status = status_response_receiver
+        .await
+        .context("Could not receive response from status worker")?;
+
+    Ok(status.base_data_info.is_some())
 }

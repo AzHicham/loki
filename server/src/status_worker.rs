@@ -77,15 +77,15 @@ pub struct StatusWorker {
 
 #[derive(Serialize, Clone)]
 pub struct Status {
-    base_data_info: Option<BaseDataInfo>,
-    config_info: ConfigInfo,
-    last_load_succeeded: bool, // last reload was successful
-    is_realtime_loaded: bool,  // is_realtime_loaded for the last reload
-    is_connected_to_rabbitmq: bool,
-    last_kirin_reload: Option<NaiveDateTime>,
-    last_chaos_reload: Option<NaiveDateTime>,
-    last_real_time_update: Option<NaiveDateTime>,
-    loki_version: String,
+    pub base_data_info: Option<BaseDataInfo>,
+    pub config_info: ConfigInfo,
+    pub last_load_succeeded: bool, // last reload was successful
+    pub is_realtime_loaded: bool,  // is_realtime_loaded for the last reload
+    pub is_connected_to_rabbitmq: bool,
+    pub last_kirin_reload: Option<NaiveDateTime>,
+    pub last_chaos_reload: Option<NaiveDateTime>,
+    pub last_real_time_update: Option<NaiveDateTime>,
+    pub loki_version: String,
 }
 
 #[derive(Serialize, Clone)]
