@@ -51,6 +51,10 @@ pub struct ServerConfig {
     /// zmq socket to listen for protobuf requests
     pub requests_socket: String,
 
+    /// http endpoint for healthcheck
+    #[serde(default = "default_http_address")]
+    pub http_address: std::net::SocketAddr,
+
     /// type of input data given (ntfs/gtfs)
     #[serde(default)]
     pub input_data_type: InputDataType,
@@ -97,6 +101,7 @@ impl ServerConfig {
             }),
             input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
+            http_address: default_http_address(),
             instance_name: instance_name.to_string(),
             default_request_params: config::RequestParams::default(),
             rabbitmq: RabbitMqParams::default(),
@@ -136,6 +141,10 @@ pub struct RabbitMqParams {
 
 pub fn default_nb_workers() -> u16 {
     1
+}
+
+pub fn default_http_address() -> std::net::SocketAddr {
+    ([127, 0, 0, 1], 3000).into()
 }
 
 pub fn default_rabbitmq_endpoint() -> String {
@@ -266,7 +275,7 @@ mod tests {
         let read_result = read_config(&path);
         assert!(
             read_config(&path).is_ok(),
-            "Error while reading config file {:?} : {:?}",
+            "Error while reading config file {:?} : {:#?}",
             &path,
             read_result
         );

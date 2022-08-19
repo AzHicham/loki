@@ -31,7 +31,7 @@ pub use loki_server;
 use loki_server::{navitia_proto, server_config::ServerConfig};
 
 use launch::loki::{chrono::Utc, NaiveDateTime};
-use loki_server::status_worker::{DATETIME_FORMAT, PKG_VERSION};
+use loki_server::status_worker::{DATETIME_FORMAT, LOKI_VERSION};
 
 pub async fn status_test(config: &ServerConfig) {
     let status_request = make_status_request();
@@ -43,7 +43,7 @@ pub async fn status_test(config: &ServerConfig) {
     let status = response.status.unwrap();
     assert_eq!(status.start_production_date, "20210101");
     assert_eq!(status.end_production_date, "20210103");
-    assert_eq!(status.navitia_version, Some(PKG_VERSION.to_string()));
+    assert_eq!(status.navitia_version, Some(LOKI_VERSION.to_string()));
     assert_eq!(status.loaded, Some(true));
     assert_eq!(status.nb_threads, Some(1));
     assert_eq!(status.is_connected_to_rabbitmq, Some(true));

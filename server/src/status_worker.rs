@@ -34,7 +34,11 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use crate::zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels};
+use crate::{
+    http_worker::HttpToStatusChannel,
+    zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels},
+};
+use serde::Serialize;
 
 use super::navitia_proto;
 
@@ -57,9 +61,22 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 pub const DATE_FORMAT: &str = "%Y%m%d";
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
-pub const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const LOKI_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct StatusWorker {
+    status: Status,
+
+    zmq_channels: StatusWorkerToZmqChannels,
+
+    http_channel: HttpToStatusChannel,
+
+    status_update_receiver: mpsc::UnboundedReceiver<StatusUpdate>,
+
+    shutdown_sender: mpsc::Sender<()>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct Status {
     base_data_info: Option<BaseDataInfo>,
     config_info: ConfigInfo,
     last_load_succeeded: bool, // last reload was successful
@@ -68,14 +85,10 @@ pub struct StatusWorker {
     last_kirin_reload: Option<NaiveDateTime>,
     last_chaos_reload: Option<NaiveDateTime>,
     last_real_time_update: Option<NaiveDateTime>,
-
-    zmq_channels: StatusWorkerToZmqChannels,
-
-    status_update_receiver: mpsc::UnboundedReceiver<StatusUpdate>,
-
-    shutdown_sender: mpsc::Sender<()>,
+    loki_version: String,
 }
 
+#[derive(Serialize, Clone)]
 pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -86,8 +99,9 @@ pub struct BaseDataInfo {
     pub publisher_name: Option<String>,
 }
 
+#[derive(Serialize, Clone)]
 pub struct ConfigInfo {
-    pub pkg_version: String,
+    pub instance_name: String,
     pub real_time_contributors: Vec<String>,
     pub nb_workers: u16,
 }
@@ -105,24 +119,29 @@ pub enum StatusUpdate {
 impl StatusWorker {
     pub fn new(
         zmq_channels: StatusWorkerToZmqChannels,
+        http_channel: HttpToStatusChannel,
         shutdown_sender: mpsc::Sender<()>,
         server_config: &ServerConfig,
     ) -> (Self, mpsc::UnboundedSender<StatusUpdate>) {
         let (status_update_sender, status_update_receiver) = mpsc::unbounded_channel();
         let worker = Self {
-            base_data_info: None,
-            config_info: ConfigInfo {
-                pkg_version: PKG_VERSION.to_string(),
-                real_time_contributors: server_config.rabbitmq.real_time_topics.clone(),
-                nb_workers: server_config.nb_workers,
+            status: Status {
+                base_data_info: None,
+                config_info: ConfigInfo {
+                    instance_name: server_config.instance_name.clone(),
+                    real_time_contributors: server_config.rabbitmq.real_time_topics.clone(),
+                    nb_workers: server_config.nb_workers,
+                },
+                last_load_succeeded: false,
+                is_realtime_loaded: false,
+                is_connected_to_rabbitmq: false,
+                last_chaos_reload: None,
+                last_kirin_reload: None,
+                last_real_time_update: None,
+                loki_version: LOKI_VERSION.to_string(),
             },
-            last_load_succeeded: false,
-            is_realtime_loaded: false,
-            is_connected_to_rabbitmq: false,
-            last_chaos_reload: None,
-            last_kirin_reload: None,
-            last_real_time_update: None,
             zmq_channels,
+            http_channel,
             status_update_receiver,
             shutdown_sender,
         };
@@ -164,18 +183,27 @@ impl StatusWorker {
                     )?;
                     self.handle_status_update(status_update);
                 }
-                has_request = self.zmq_channels.status_requests_receiver.recv() => {
-                    let request_message = has_request.ok_or_else(||
-                        format_err!("StatusWorker : channel to receive status requests is closed.")
+                has_zmq_request = self.zmq_channels.status_requests_receiver.recv() => {
+                    let request_message = has_zmq_request.ok_or_else(||
+                        format_err!("StatusWorker : channel to receive zmq status requests is closed.")
                     )?;
-                    self.handle_request(request_message)?;
+                    self.handle_zmq_request(request_message)?;
+                }
+                has_http_request = self.http_channel.status_request_receiver.recv() => {
+                    let response_chan = has_http_request.ok_or_else(||
+                        format_err!("StatusWorker : channel to receive http status requests is closed.")
+                    )?;
+                    let send_result = response_chan.send(self.status.clone());
+                    if let Err(_) = send_result {
+                        error!("Error while sending status response to http worker : the receiver is closed.");
+                    }
                 }
 
             }
         }
     }
 
-    fn handle_request(&self, request_message: RequestMessage) -> Result<(), Error> {
+    fn handle_zmq_request(&self, request_message: RequestMessage) -> Result<(), Error> {
         let handle_request_start_time = SystemTime::now();
         let requested_api = request_message.payload.requested_api();
         let request_id = request_message.payload.request_id.unwrap_or_default();
@@ -185,12 +213,12 @@ impl StatusWorker {
         );
         let response_payload = match requested_api {
             navitia_proto::Api::Status => navitia_proto::Response {
-                status: Some(self.status_response()),
-                metadatas: Some(self.metadatas_response()),
+                status: Some(self.status_proto_response()),
+                metadatas: Some(self.metadatas_proto_response()),
                 ..Default::default()
             },
             navitia_proto::Api::Metadatas => navitia_proto::Response {
-                metadatas: Some(self.metadatas_response()),
+                metadatas: Some(self.metadatas_proto_response()),
                 ..Default::default()
             },
             _ => {
@@ -223,46 +251,46 @@ impl StatusWorker {
         Ok(())
     }
 
-    fn status_response(&self) -> navitia_proto::Status {
-        let mut status = navitia_proto::Status::default();
+    fn status_proto_response(&self) -> navitia_proto::Status {
+        let mut proto_status = navitia_proto::Status::default();
         let date_format = DATE_FORMAT;
         let datetime_format = DATETIME_FORMAT;
-        if let Some(info) = &self.base_data_info {
-            status.start_production_date = info.start_date.format(date_format).to_string();
-            status.end_production_date = info.end_date.format(date_format).to_string();
-            status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
-            status.dataset_created_at = info
+        if let Some(info) = &self.status.base_data_info {
+            proto_status.start_production_date = info.start_date.format(date_format).to_string();
+            proto_status.end_production_date = info.end_date.format(date_format).to_string();
+            proto_status.last_load_at = Some(info.last_load_at.format(datetime_format).to_string());
+            proto_status.dataset_created_at = info
                 .dataset_created_at
                 .map(|dt| dt.format(datetime_format).to_string());
-            status.is_realtime_loaded = Some(self.is_realtime_loaded);
-            status.loaded = Some(true);
-            status.status = Some("running".to_string());
+            proto_status.is_realtime_loaded = Some(self.status.is_realtime_loaded);
+            proto_status.loaded = Some(true);
+            proto_status.status = Some("running".to_string());
         } else {
-            status.loaded = Some(false);
-            status.status = Some("no_data".to_string());
+            proto_status.loaded = Some(false);
+            proto_status.status = Some("no_data".to_string());
         }
-        status.last_load_status = Some(self.last_load_succeeded);
+        proto_status.last_load_status = Some(self.status.last_load_succeeded);
 
-        status.is_connected_to_rabbitmq = Some(self.is_connected_to_rabbitmq);
+        proto_status.is_connected_to_rabbitmq = Some(self.status.is_connected_to_rabbitmq);
 
-        status.navitia_version = Some(self.config_info.pkg_version.clone());
-        status.nb_threads = Some(i32::from(self.config_info.nb_workers));
-        for rt_contributors in &self.config_info.real_time_contributors {
-            status.rt_contributors.push(rt_contributors.clone());
-        }
-
-        if let Some(date) = &self.last_real_time_update {
-            status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
+        proto_status.navitia_version = Some(self.status.loki_version.clone());
+        proto_status.nb_threads = Some(i32::from(self.status.config_info.nb_workers));
+        for rt_contributors in &self.status.config_info.real_time_contributors {
+            proto_status.rt_contributors.push(rt_contributors.clone());
         }
 
-        status
+        if let Some(date) = &self.status.last_real_time_update {
+            proto_status.last_rt_data_loaded = Some(date.format(datetime_format).to_string());
+        }
+
+        proto_status
     }
 
-    fn metadatas_response(&self) -> navitia_proto::Metadatas {
+    fn metadatas_proto_response(&self) -> navitia_proto::Metadatas {
         let date_format = DATE_FORMAT;
         let datetime_format = DATETIME_FORMAT;
 
-        match &self.base_data_info {
+        match &self.status.base_data_info {
             None => navitia_proto::Metadatas {
                 status: "no_data".to_string(),
                 ..Default::default()
@@ -286,35 +314,35 @@ impl StatusWorker {
     fn handle_status_update(&mut self, status_update: StatusUpdate) {
         match status_update {
             StatusUpdate::BaseDataLoadFailed => {
-                self.last_load_succeeded = false;
+                self.status.last_load_succeeded = false;
             }
             StatusUpdate::BaseDataLoad(base_data_info) => {
-                self.base_data_info = Some(base_data_info);
-                self.last_load_succeeded = true;
+                self.status.base_data_info = Some(base_data_info);
+                self.status.last_load_succeeded = true;
             }
             StatusUpdate::RabbitMqConnected => {
-                if self.is_connected_to_rabbitmq {
+                if self.status.is_connected_to_rabbitmq {
                     warn!("StatusWorker : received RabbitMqConnected update while I should already be connected to rabbitmq");
                 }
-                self.is_connected_to_rabbitmq = true;
+                self.status.is_connected_to_rabbitmq = true;
             }
             StatusUpdate::RabbitMqDisconnected => {
-                if !self.is_connected_to_rabbitmq {
+                if !self.status.is_connected_to_rabbitmq {
                     warn!("StatusWorker : received RabbitMqDisconnected update while I should already be disconnected to rabbitmq");
                 }
-                self.is_connected_to_rabbitmq = false;
+                self.status.is_connected_to_rabbitmq = false;
             }
             StatusUpdate::ChaosReload(datetime) => {
-                self.last_chaos_reload = Some(datetime);
-                self.last_real_time_update = Some(datetime);
+                self.status.last_chaos_reload = Some(datetime);
+                self.status.last_real_time_update = Some(datetime);
             }
             StatusUpdate::KirinReload(datetime) => {
-                self.last_kirin_reload = Some(datetime);
-                self.last_real_time_update = Some(datetime);
-                self.is_realtime_loaded = true;
+                self.status.last_kirin_reload = Some(datetime);
+                self.status.last_real_time_update = Some(datetime);
+                self.status.is_realtime_loaded = true;
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
-                self.last_real_time_update = Some(datetime);
+                self.status.last_real_time_update = Some(datetime);
             }
         }
     }

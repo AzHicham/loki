@@ -1471,6 +1471,7 @@ dependencies = [
  "diesel-derive-enum",
  "futures",
  "hostname",
+ "hyper",
  "lapin",
  "launch",
  "num-traits",

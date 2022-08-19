@@ -44,8 +44,8 @@ use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};
 
 use crate::{
-    data_worker::DataWorker, load_balancer::LoadBalancer, status_worker::StatusWorker,
-    zmq_worker::ZmqWorker, ServerConfig,
+    data_worker::DataWorker, http_worker::HttpWorker, load_balancer::LoadBalancer,
+    status_worker::StatusWorker, zmq_worker::ZmqWorker, ServerConfig,
 };
 
 pub type DataAndModels = (TransitData, BaseModel, RealTimeModel);
@@ -72,6 +72,11 @@ impl MasterWorker {
 
         let _zmq_handle = zmq_worker.run_in_a_thread()?;
 
+        // http worker
+        let (http_worker, http_to_status_channel) =
+            HttpWorker::new(config.http_address, shutdown_sender.clone());
+        let _http_worker_handle = http_worker.run_in_a_thread()?;
+
         // LoadBalancer
         let (load_balancer, load_balancer_channels) = LoadBalancer::new(
             data_and_models.clone(),
@@ -85,6 +90,7 @@ impl MasterWorker {
         // Status worker
         let (status_worker, status_update_sender) = StatusWorker::new(
             status_worker_to_zmq_channels,
+            http_to_status_channel,
             shutdown_sender.clone(),
             &config,
         );

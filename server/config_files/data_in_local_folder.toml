@@ -11,6 +11,10 @@ instance_name = 'my_coverage'
 # REQUIRED
 requests_socket = 'tcp://*:30001'
 
+# http endpoint for health checks
+# defaults to "127.0.0.1:3000"
+http_address = "127.0.0.1:8080"
+
 # the format of the input files
 # can be : 'ntfs' or 'gtfs'
 # defaults to 'ntfs'
