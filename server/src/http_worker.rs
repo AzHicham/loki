@@ -140,9 +140,9 @@ async fn handle_http_request(
                 http_request.method(),
                 http_request.uri().path()
             );
-            return Response::builder()
+            Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body(Body::empty());
+                .body(Body::empty())
         }
     }
 }
@@ -154,7 +154,7 @@ async fn handle_status_request(
     let timeout = tokio::time::Duration::from_secs(3);
 
     // send a request to the status worker
-    let _ = status_request_sender
+    status_request_sender
         .send_timeout(status_response_sender, timeout)
         .await
         .map_err(|_| format_err!("Could not send request to status worker"))?;

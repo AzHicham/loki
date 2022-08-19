@@ -194,7 +194,7 @@ impl StatusWorker {
                         format_err!("StatusWorker : channel to receive http status requests is closed.")
                     )?;
                     let send_result = response_chan.send(self.status.clone());
-                    if let Err(_) = send_result {
+                    if send_result.is_err() {
                         error!("Error while sending status response to http worker : the receiver is closed.");
                     }
                 }
