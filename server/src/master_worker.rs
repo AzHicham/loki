@@ -74,7 +74,7 @@ impl MasterWorker {
 
         // http worker
         let (http_worker, http_to_status_channel) =
-            HttpWorker::new(config.http_address, shutdown_sender.clone());
+            HttpWorker::new(config.http.clone(), shutdown_sender.clone());
         let _http_worker_handle = http_worker.run_in_a_thread()?;
 
         // LoadBalancer

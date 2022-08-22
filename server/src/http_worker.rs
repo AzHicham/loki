@@ -33,6 +33,7 @@ use hyper::{Body, Method, Request, Response, StatusCode};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 
+use crate::server_config::HttpParams;
 use crate::status_worker::Status;
 
 pub struct HttpToStatusChannel {
@@ -43,8 +44,7 @@ pub struct HttpToStatusChannel {
 }
 
 pub struct HttpWorker {
-    // http address to listen to
-    http_address: std::net::SocketAddr,
+    http_params: HttpParams,
 
     // http worker will send a oneshot::Sender through `status_request_sender`
     // to status worker, and will wait for the response
@@ -55,14 +55,14 @@ pub struct HttpWorker {
 
 impl HttpWorker {
     pub fn new(
-        http_address: std::net::SocketAddr,
+        http_params: HttpParams,
         shutdown_sender: mpsc::Sender<()>,
     ) -> (Self, HttpToStatusChannel) {
         let (status_request_sender, status_request_receiver) =
             mpsc::channel::<oneshot::Sender<Status>>(1);
 
         let worker = Self {
-            http_address,
+            http_params,
             status_request_sender,
             shutdown_sender,
         };
@@ -88,6 +88,8 @@ impl HttpWorker {
     }
 
     async fn run(self) {
+        let timeout_duration =
+            tokio::time::Duration::from_secs(self.http_params.http_request_timeout.total_seconds());
         // The closure inside `make_service_fn` is run for each connection,
         // creating a 'service' to handle requests for that specific connection.
         let make_service = make_service_fn(move |_| {
@@ -104,16 +106,22 @@ impl HttpWorker {
                 // `service_fn` is a helper to convert a function that
                 // returns a Response into a `Service`.
                 Ok::<_, hyper::Error>(service_fn(move |http_request| {
-                    handle_http_request(http_request, status_request_sender.clone())
+                    handle_http_request(
+                        http_request,
+                        timeout_duration,
+                        status_request_sender.clone(),
+                    )
                 }))
             }
         });
 
-        let server = hyper::Server::bind(&self.http_address).serve(make_service);
+        let http_address = &self.http_params.http_address;
+
+        let server = hyper::Server::bind(http_address).serve(make_service);
 
         info!(
             "Http worker is listening on http://{}/status and http://{}/health ",
-            self.http_address, self.http_address
+            http_address, http_address
         );
 
         if let Err(e) = server.await {
@@ -125,37 +133,42 @@ impl HttpWorker {
 
 async fn handle_http_request(
     http_request: Request<Body>,
+    timeout: tokio::time::Duration,
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
 ) -> Result<Response<Body>, hyper::http::Error> {
     match (http_request.method(), http_request.uri().path()) {
         // GET /status returns a json containing status info
-        (&Method::GET, "/status") => match handle_status_request(status_request_sender).await {
-            Ok(bytes) => Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(bytes)),
-            Err(err) => {
-                error!("Http /status request failed : {:#}", err);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
+        (&Method::GET, "/status") => {
+            match handle_status_request(timeout, status_request_sender).await {
+                Ok(bytes) => Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::from(bytes)),
+                Err(err) => {
+                    error!("Http /status request failed : {:#}", err);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::empty())
+                }
             }
-        },
+        }
         // GET /health returns 200 when some data has been successfully loaded
         //  and 404 otherwise
-        (&Method::GET, "/health") => match handle_health_request(status_request_sender).await {
-            Ok(true) => Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::empty()),
-            Ok(false) => Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::empty()),
-            Err(err) => {
-                error!("Http /health request failed : {:#}", err);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
+        (&Method::GET, "/health") => {
+            match handle_health_request(timeout, status_request_sender).await {
+                Ok(true) => Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::empty()),
+                Ok(false) => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::empty()),
+                Err(err) => {
+                    error!("Http /health request failed : {:#}", err);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::empty())
+                }
             }
-        },
+        }
 
         // Return the 404 Not Found for other routes.
         _ => {
@@ -172,10 +185,10 @@ async fn handle_http_request(
 }
 
 async fn handle_status_request(
+    timeout: tokio::time::Duration,
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
 ) -> Result<Vec<u8>, Error> {
     let (status_response_sender, status_response_receiver) = oneshot::channel();
-    let timeout = tokio::time::Duration::from_secs(3);
 
     // send a request to the status worker
     status_request_sender
@@ -191,10 +204,10 @@ async fn handle_status_request(
 }
 
 async fn handle_health_request(
+    timeout: tokio::time::Duration,
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
 ) -> Result<bool, Error> {
     let (status_response_sender, status_response_receiver) = oneshot::channel();
-    let timeout = tokio::time::Duration::from_secs(3);
 
     // send a request to the status worker
     status_request_sender
