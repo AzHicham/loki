@@ -36,14 +36,19 @@ use tracing::{error, info};
 use crate::status_worker::Status;
 
 pub struct HttpToStatusChannel {
-    // http worker will send a oneshot::Sender thought `chan`
+    // http worker will send a oneshot::Sender through `status_request_receiver`
     // to status worker, and will wait for the response
     // on the oneshot::Receiver
     pub status_request_receiver: mpsc::Receiver<oneshot::Sender<Status>>,
 }
 
 pub struct HttpWorker {
+    // http address to listen to
     http_address: std::net::SocketAddr,
+
+    // http worker will send a oneshot::Sender through `status_request_sender`
+    // to status worker, and will wait for the response
+    // on the oneshot::Receiver
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
     shutdown_sender: mpsc::Sender<()>,
 }
@@ -136,7 +141,7 @@ async fn handle_http_request(
             }
         },
         // GET /health returns 200 when some data has been successfully loaded
-        //  and 400 otherwise
+        //  and 404 otherwise
         (&Method::GET, "/health") => match handle_health_request(status_request_sender).await {
             Ok(true) => Response::builder()
                 .status(StatusCode::OK)
