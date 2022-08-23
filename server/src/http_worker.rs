@@ -28,13 +28,14 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 use anyhow::{format_err, Context, Error};
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, StatusCode};
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Method, Request, Response, StatusCode,
+};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 
-use crate::server_config::HttpParams;
-use crate::status_worker::Status;
+use crate::{server_config::HttpParams, status_worker::Status};
 
 pub struct HttpToStatusChannel {
     // http worker will send a oneshot::Sender through `status_request_receiver`
