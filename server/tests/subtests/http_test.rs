@@ -27,10 +27,30 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-pub mod chaos_test;
-pub mod http_test;
-pub mod places_nearby_test;
-pub mod realtime_test;
-pub mod reload_test;
-pub mod schedule_test;
-pub mod status_metadata_test;
+use std::str::FromStr;
+
+use hyper::{StatusCode, Uri};
+pub use loki_server;
+use loki_server::server_config::HttpParams;
+
+pub async fn status_test(http_params: &HttpParams) {
+    let client = hyper::client::Client::new();
+    let address = http_params.http_address.to_string();
+    let uri_string = format!("http://{}/status", address);
+    let uri = Uri::from_str(&uri_string).unwrap();
+
+    let response = client.get(uri).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+pub async fn health_test(http_params: &HttpParams) {
+    let client = hyper::client::Client::new();
+    let address = http_params.http_address.to_string();
+    let uri_string = format!("http://{}/health", address);
+    let uri = Uri::from_str(&uri_string).unwrap();
+
+    let response = client.get(uri).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}

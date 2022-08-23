@@ -44,6 +44,9 @@ num-traits = "0.2.14"
 
 tracing = { version = "0.1", features = ["release_max_level_info"]}
 
+hyper = {version = "0.14", features = ["server", "stream"] }
+
+
 [dev-dependencies]
 shiplift = "0.7" # docker API
 tempfile = "3"

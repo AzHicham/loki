@@ -11,6 +11,8 @@ instance_name = 'my_coverage'
 # REQUIRED
 requests_socket = 'tcp://*:30001'
 
+
+
 # the format of the input files
 # can be : 'ntfs' or 'gtfs'
 # defaults to 'ntfs'
@@ -78,3 +80,15 @@ database = 'postgres://login:password@chaos_hostname:5432/chaos'
 # Optional.
 # Defaults to 1_000_000
 batch_size = 1_000_000
+
+
+# Configures an http endpoint for status and health checks
+[http]
+# http endpoint for health checks
+# defaults to "127.0.0.1:3000"
+# This will provide two routes
+#  - http://127.0.0.1:3000/status
+#  - http://127.0.0.1:3000/health
+http_address = "127.0.0.1:3000"
+
+http_request_timeout = "00:00:10"

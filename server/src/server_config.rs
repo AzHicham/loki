@@ -78,6 +78,14 @@ pub struct ServerConfig {
     /// Defaults to None.
     #[serde(default)]
     pub chaos: Option<ChaosParams>,
+
+    /// Configures the http endpoint for status and health checks
+    #[serde(default)]
+    pub http: HttpParams,
+}
+
+pub fn default_nb_workers() -> u16 {
+    1
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -97,6 +105,7 @@ impl ServerConfig {
             }),
             input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
+            http: HttpParams::default(),
             instance_name: instance_name.to_string(),
             default_request_params: config::RequestParams::default(),
             rabbitmq: RabbitMqParams::default(),
@@ -132,10 +141,6 @@ pub struct RabbitMqParams {
 
     #[serde(default = "default_reload_kirin_timeout")]
     pub reload_kirin_timeout: PositiveDuration,
-}
-
-pub fn default_nb_workers() -> u16 {
-    1
 }
 
 pub fn default_rabbitmq_endpoint() -> String {
@@ -225,6 +230,18 @@ pub struct BucketParams {
     pub bucket_timeout_in_ms: u32,
 }
 
+pub fn default_bucket_name() -> String {
+    "loki".to_string()
+}
+
+pub fn default_bucket_region() -> String {
+    "eu-west-1".to_string()
+}
+
+pub fn default_bucket_timeout_in_ms() -> u32 {
+    30_000
+}
+
 impl Default for BucketParams {
     fn default() -> Self {
         BucketParams {
@@ -238,16 +255,37 @@ impl Default for BucketParams {
     }
 }
 
-pub fn default_bucket_name() -> String {
-    "loki".to_string()
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct HttpParams {
+    /// http endpoint for health and status checks
+    /// Something like 127.0.0.1:30000
+    /// will provide two routes
+    /// - http://127.0.0.1:3000/status
+    /// - http://127.0.0.1:3000/health
+    #[serde(default = "default_http_address")]
+    pub http_address: std::net::SocketAddr,
+
+    /// How long to wait before deciding that the request failed
+    #[serde(default = "default_http_request_timeout")]
+    pub http_request_timeout: PositiveDuration,
 }
 
-pub fn default_bucket_region() -> String {
-    "eu-west-1".to_string()
+pub fn default_http_address() -> std::net::SocketAddr {
+    ([127, 0, 0, 1], 3000).into()
 }
 
-pub fn default_bucket_timeout_in_ms() -> u32 {
-    30_000
+pub fn default_http_request_timeout() -> PositiveDuration {
+    PositiveDuration::from_hms(0, 0, 10)
+}
+
+impl Default for HttpParams {
+    fn default() -> Self {
+        Self {
+            http_address: default_http_address(),
+            http_request_timeout: default_http_request_timeout(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -266,7 +304,7 @@ mod tests {
         let read_result = read_config(&path);
         assert!(
             read_config(&path).is_ok(),
-            "Error while reading config file {:?} : {:?}",
+            "Error while reading config file {:?} : {:#?}",
             &path,
             read_result
         );
