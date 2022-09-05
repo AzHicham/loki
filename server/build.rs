@@ -74,7 +74,7 @@ fn main() {
     protobuf_codegen::Codegen::new()
         .pure()
         .out_dir(out_dir.as_str())
-        .inputs(&[
+        .inputs([
             "chaos-proto/gtfs-realtime.proto",
             "chaos-proto/chaos.proto",
             "chaos-proto/kirin.proto",
