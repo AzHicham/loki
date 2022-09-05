@@ -97,7 +97,7 @@ pub fn launch_server() -> Result<(), Error> {
 
 pub fn read_config(config_file_path: &Path) -> Result<ServerConfig, Error> {
     info!("Reading config from file {:?}", &config_file_path);
-    let content = fs::read_to_string(&config_file_path)
+    let content = fs::read_to_string(config_file_path)
         .with_context(|| format!("Error opening config file {:?}", &config_file_path))?;
     let config: ServerConfig = toml::from_str(&content)?;
     debug!("Launching with config : {:#?}", config);
