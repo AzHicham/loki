@@ -168,6 +168,23 @@ where
     use crate::datetime::DateTimeRepresent::{Arrival, Departure};
     use config::ComparatorType::{Basic, Loads, Robustness};
 
+    trace!(
+        "departures {:#?}",
+        request_input.departures_stop_point_and_fallback_duration
+    );
+    trace!(
+        "arrivals {:#?}",
+        request_input.arrivals_stop_point_and_fallback_duration
+    );
+    debug!("leg_arrival_penalty {}", request_input.leg_arrival_penalty);
+    debug!("leg_walking_penalty {}", request_input.leg_walking_penalty);
+    debug!("max_nb_of_legs {}", request_input.max_nb_of_legs);
+    debug!(
+        "max_journey_duration {}",
+        request_input.max_journey_duration
+    );
+    debug!("too_late_threshold {}", request_input.too_late_threshold);
+
     let responses = match (datetime_represent, comparator_type) {
         (Arrival, Loads) => {
             let request =
