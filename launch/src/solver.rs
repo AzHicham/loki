@@ -176,14 +176,22 @@ where
         "arrivals {:#?}",
         request_input.arrivals_stop_point_and_fallback_duration
     );
-    debug!("leg_arrival_penalty {}", request_input.leg_arrival_penalty);
-    debug!("leg_walking_penalty {}", request_input.leg_walking_penalty);
-    debug!("max_nb_of_legs {}", request_input.max_nb_of_legs);
+    debug!("datetime_represents : {}", datetime_represent);
+    debug!("comparator type : {}", comparator_type);
     debug!(
-        "max_journey_duration {}",
+        "leg_arrival_penalty : {}",
+        request_input.leg_arrival_penalty
+    );
+    debug!(
+        "leg_walking_penalty : {}",
+        request_input.leg_walking_penalty
+    );
+    debug!("max_nb_of_legs : {}", request_input.max_nb_of_legs);
+    debug!(
+        "max_journey_duration : {}",
         request_input.max_journey_duration
     );
-    debug!("too_late_threshold {}", request_input.too_late_threshold);
+    debug!("too_late_threshold : {}", request_input.too_late_threshold);
 
     let responses = match (datetime_represent, comparator_type) {
         (Arrival, Loads) => {
