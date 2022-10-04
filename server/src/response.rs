@@ -1596,7 +1596,7 @@ pub fn make_schedule_proto_response(
     model: &ModelRefs<'_>,
     start_page: usize,
     count: usize,
-) -> Result<navitia_proto::Response, Error> {
+) -> navitia_proto::Response {
     let start_index = start_page * count;
     let end_index = (start_page + 1) * count;
     let size = responses.len();
@@ -1641,7 +1641,7 @@ pub fn make_schedule_proto_response(
         ..Default::default()
     };
 
-    Ok(proto)
+    proto
 }
 
 pub fn make_places_nearby_proto_response(

@@ -37,9 +37,10 @@
 use super::{navitia_proto, response};
 use crate::{
     load_balancer::WorkerId,
+    master_worker::DataAndModels,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
-use anyhow::{anyhow, format_err, Context, Error};
+use anyhow::{format_err, Context, Error};
 use launch::{
     config::{self, ComparatorType},
     datetime::DateTimeRepresent,
@@ -69,7 +70,7 @@ use tokio::sync::mpsc;
 
 type Data = TransitData;
 pub struct ComputeWorker {
-    data_and_models: Arc<RwLock<(Data, BaseModel, RealTimeModel)>>,
+    data_and_models: Arc<RwLock<DataAndModels>>,
     solver: Solver,
     worker_id: WorkerId,
     default_request_params: config::RequestParams,
@@ -80,7 +81,7 @@ pub struct ComputeWorker {
 impl ComputeWorker {
     pub fn new(
         worker_id: WorkerId,
-        data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
+        data_and_models: Arc<RwLock<DataAndModels>>,
         default_request_params: config::RequestParams,
         responses_channel: mpsc::Sender<(WorkerId, ResponseMessage)>,
     ) -> (Self, mpsc::Sender<RequestMessage>) {
@@ -189,7 +190,7 @@ impl ComputeWorker {
             }
             _ => {
                 error!("I can't handle the requested api : {:?}", requested_api);
-                Err(anyhow!(
+                Err(format_err!(
                     "I can't handle the requested api : {:?}",
                     requested_api
                 ))
@@ -222,19 +223,21 @@ impl ComputeWorker {
                     )
                 })?;
 
-                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
-                let model_refs = ModelRefs::new(base_model, real_time_model);
-
-                let solve_result = solve(
-                    &journey_request,
-                    data,
-                    &model_refs,
-                    &mut self.solver,
-                    &self.default_request_params,
-                );
-
-                let response = make_proto_response(solve_result, &model_refs);
-                Ok(response)
+                let data_and_models = rw_lock_read_guard.deref();
+                match data_and_models {
+                    Some((data, base_model, real_time_model)) => {
+                        let model_refs = ModelRefs::new(base_model, real_time_model);
+                        let solve_result = solve(
+                            &journey_request,
+                            data,
+                            &model_refs,
+                            &mut self.solver,
+                            &self.default_request_params,
+                        );
+                        Ok(make_proto_response(solve_result, &model_refs))
+                    }
+                    None => Ok(make_error_response(&format_err!("No data loaded."))),
+                }
                 // RwLock is released
             }
         }
@@ -259,25 +262,33 @@ impl ComputeWorker {
                     )
                 })?;
 
-                let (_, base_model, real_time_model) = rw_lock_read_guard.deref();
-                let model_refs = ModelRefs::new(base_model, real_time_model);
+                let data_and_models = rw_lock_read_guard.deref();
+                match data_and_models {
+                    Some((data, base_model, real_time_model)) => {
+                        let model_refs = ModelRefs::new(base_model, real_time_model);
+                        let radius = places_nearby_request.distance;
+                        let uri = places_nearby_request.uri;
+                        let start_page =
+                            usize::try_from(places_nearby_request.start_page).unwrap_or(0);
+                        let count = usize::try_from(places_nearby_request.count).unwrap_or(0);
+                        let depth = usize::try_from(places_nearby_request.depth).unwrap_or(2);
 
-                let radius = places_nearby_request.distance;
-                let uri = places_nearby_request.uri;
-                let start_page = usize::try_from(places_nearby_request.start_page).unwrap_or(0);
-                let count = usize::try_from(places_nearby_request.count).unwrap_or(0);
-                let depth = usize::try_from(places_nearby_request.depth).unwrap_or(2);
-
-                match self.solver.solve_places_nearby(&model_refs, &uri, radius) {
-                    Ok(mut places_nearby_iter) => Ok(response::make_places_nearby_proto_response(
-                        &model_refs,
-                        &mut places_nearby_iter,
-                        start_page,
-                        count,
-                        depth,
-                    )),
-                    Err(err) => Ok(make_error_response(&format_err!("{}", err))),
+                        match self.solver.solve_places_nearby(&model_refs, &uri, radius) {
+                            Ok(mut places_nearby_iter) => {
+                                Ok(response::make_places_nearby_proto_response(
+                                    &model_refs,
+                                    &mut places_nearby_iter,
+                                    start_page,
+                                    count,
+                                    depth,
+                                ))
+                            }
+                            Err(err) => Ok(make_error_response(&format_err!("{}", err))),
+                        }
+                    }
+                    None => Ok(make_error_response(&format_err!("No data loaded."))),
                 }
+                // RwLock is released
             }
         }
     }
@@ -302,65 +313,59 @@ impl ComputeWorker {
                     )
                 })?;
 
-                let (data, base_model, real_time_model) = rw_lock_read_guard.deref();
-                let model_refs = ModelRefs::new(base_model, real_time_model);
+                let data_and_models = rw_lock_read_guard.deref();
+                match data_and_models {
+                    None => Ok(make_error_response(&format_err!("No data loaded."))),
+                    Some((data, base_model, real_time_model)) => {
+                        let model_refs = ModelRefs::new(base_model, real_time_model);
 
-                let response_proto = match make_schedule_request(
-                    &request,
-                    schedule_on,
-                    &model_refs,
-                    data,
-                ) {
-                    Ok(request_input) => {
-                        let has_filters = schedule::generate_vehicle_filters_for_schedule_request(
-                            &request.forbidden_uri,
-                            &model_refs,
-                        );
-                        let response = self.solver.solve_schedule(
-                            data,
-                            &model_refs,
-                            &request_input,
-                            has_filters,
-                        );
-                        match response {
-                            Result::Err(err) => {
-                                error!("Error while solving schedule request : {:?}", err);
-                                make_error_response(&format_err!("{}", err))
-                            }
-                            Ok(response) => {
-                                let start_page = usize::try_from(request.start_page).unwrap_or(0);
-                                let count = usize::try_from(request.count).unwrap_or(0);
+                        let schedule_request =
+                            make_schedule_request(&request, schedule_on, &model_refs, data);
 
-                                let response_result = response::make_schedule_proto_response(
-                                    &request_input,
-                                    response,
-                                    &model_refs,
-                                    start_page,
-                                    count,
+                        match schedule_request {
+                            Err(err) => {
+                                error!(
+                                    "Error while creating request input for next_departure : {:?}",
+                                    err
                                 );
-                                match response_result {
+                                Ok(make_error_response(&format_err!("{}", err)))
+                            }
+                            Ok(request_input) => {
+                                let has_filters =
+                                    schedule::generate_vehicle_filters_for_schedule_request(
+                                        &request.forbidden_uri,
+                                        &model_refs,
+                                    );
+                                let response = self.solver.solve_schedule(
+                                    data,
+                                    &model_refs,
+                                    &request_input,
+                                    has_filters,
+                                );
+                                match response {
                                     Result::Err(err) => {
-                                        error!(
-                                            "Error while encoding protobuf response for request : {:?}",
-                                            err
-                                        );
-                                        make_error_response(&err)
+                                        error!("Error while solving schedule request : {:?}", err);
+                                        Ok(make_error_response(&format_err!("{}", err)))
                                     }
-                                    Ok(resp) => resp,
+                                    Ok(response) => {
+                                        let start_page =
+                                            usize::try_from(request.start_page).unwrap_or(0);
+                                        let count = usize::try_from(request.count).unwrap_or(0);
+
+                                        let proto_response = response::make_schedule_proto_response(
+                                            &request_input,
+                                            response,
+                                            &model_refs,
+                                            start_page,
+                                            count,
+                                        );
+                                        Ok(proto_response)
+                                    }
                                 }
                             }
                         }
                     }
-                    Err(err) => {
-                        error!(
-                            "Error while creating request input for next_departure : {:?}",
-                            err
-                        );
-                        make_error_response(&format_err!("{}", err))
-                    }
-                };
-
-                Ok(response_proto)
+                }
             }
         }
     }

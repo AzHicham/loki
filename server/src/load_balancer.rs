@@ -51,6 +51,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::{
     compute_worker::ComputeWorker,
+    master_worker::DataAndModels,
     zmq_worker::{LoadBalancerToZmqChannels, RequestMessage, ResponseMessage},
 };
 
@@ -100,7 +101,7 @@ pub enum LoadBalancerOrder {
 
 impl LoadBalancer {
     pub fn new(
-        data_and_models: Arc<RwLock<(TransitData, BaseModel, RealTimeModel)>>,
+        data_and_models: Arc<RwLock<DataAndModels>>,
         nb_workers: u16,
         default_request_params: &config::RequestParams,
         zmq_channels: LoadBalancerToZmqChannels,

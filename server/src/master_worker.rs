@@ -48,7 +48,7 @@ use crate::{
     status_worker::StatusWorker, zmq_worker::ZmqWorker, ServerConfig,
 };
 
-pub type DataAndModels = (TransitData, BaseModel, RealTimeModel);
+pub type DataAndModels = Option<(TransitData, BaseModel, RealTimeModel)>;
 
 pub struct MasterWorker {
     shutdown_receiver: mpsc::Receiver<()>,
@@ -62,7 +62,7 @@ impl MasterWorker {
         let base_model = BaseModel::empty();
         let data = TransitData::new(&base_model);
         let real_time_model = RealTimeModel::new();
-        let data_and_models = Arc::new(RwLock::new((data, base_model, real_time_model)));
+        let data_and_models = Arc::new(RwLock::new(None));
 
         let (shutdown_sender, shutdown_receiver) = mpsc::channel(1);
 
