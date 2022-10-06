@@ -33,6 +33,7 @@ rust-s3 = "0.32"
 launch = { path = "../launch"}
 structopt = "0.3"
 anyhow = "1"
+thiserror = "1"
 serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
