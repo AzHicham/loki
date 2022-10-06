@@ -878,7 +878,7 @@ impl BaseModel {
         }
     }
 
-    pub fn pubisher_name(&self) -> Option<&str> {
+    pub fn publisher_name(&self) -> Option<&str> {
         self.model
             .feed_infos
             .get("feed_publisher_name")
