@@ -37,11 +37,7 @@
 use anyhow::{format_err, Context, Error};
 use launch::{
     config,
-    loki::{
-        models::{base_model::BaseModel, real_time_model::RealTimeModel},
-        tracing::{error, info, log::trace},
-        TransitData,
-    },
+    loki::tracing::{error, info, log::trace},
 };
 use std::{
     sync::{Arc, RwLock},

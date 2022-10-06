@@ -48,11 +48,7 @@ use launch::{
         self,
         chrono::{Duration, Utc},
         filters::{parse_filter, Filters},
-        models::{
-            base_model::{BaseModel, PREFIX_ID_STOP_POINT},
-            real_time_model::RealTimeModel,
-            ModelRefs,
-        },
+        models::{base_model::PREFIX_ID_STOP_POINT, ModelRefs},
         schedule::{self, ScheduleOn, ScheduleRequestInput},
         tracing::{debug, error, info, trace, warn},
         DataTrait, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
@@ -68,7 +64,6 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-type Data = TransitData;
 pub struct ComputeWorker {
     data_and_models: Arc<RwLock<DataAndModels>>,
     solver: Solver,
@@ -264,7 +259,7 @@ impl ComputeWorker {
 
                 let data_and_models = rw_lock_read_guard.deref();
                 match data_and_models {
-                    Some((data, base_model, real_time_model)) => {
+                    Some((_, base_model, real_time_model)) => {
                         let model_refs = ModelRefs::new(base_model, real_time_model);
                         let radius = places_nearby_request.distance;
                         let uri = places_nearby_request.uri;
