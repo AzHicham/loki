@@ -98,7 +98,7 @@ impl ComputeWorker {
 
     pub fn run(mut self) {
         let run_result = self.run_loop();
-        error!("Worker {} stopped : {:#?}", &self.worker_id.id, run_result);
+        error!("Worker {} stopped : {:?}", &self.worker_id.id, run_result);
     }
 
     pub fn run_loop(&mut self) -> Result<(), Error> {

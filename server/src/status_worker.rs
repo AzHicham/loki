@@ -88,7 +88,7 @@ pub struct Status {
     pub loki_version: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -106,6 +106,7 @@ pub struct ConfigInfo {
     pub nb_workers: u16,
 }
 
+#[derive(Debug)]
 pub enum StatusUpdate {
     BaseDataLoadFailed,
     BaseDataLoad(BaseDataInfo),

@@ -61,7 +61,7 @@ use lapin::{
     BasicProperties, ExchangeKind,
 };
 
-use std::{io::Cursor, ops::Deref, time::SystemTime};
+use std::{io::Cursor, ops::Deref, sync::RwLockReadGuard, time::SystemTime};
 
 use futures::StreamExt;
 use launch::{
@@ -175,14 +175,17 @@ impl DataWorker {
         })
     }
 
-    fn is_data_loaded(&self) -> Result<bool, Error> {
-        let lock = self.data_and_models.read().map_err(|err| {
-            format_err!(
-                "DataWorker failed to acquire read lock on data_and_models : {}",
-                err
-            )
-        })?;
+    fn read_data_and_models(&self) -> Result<RwLockReadGuard<DataAndModels>, DataWorkerError> {
+        self.data_and_models.read().map_err(|err| {
+            error!("Failed to acquire read lock on data_and_models : {:?}", err);
+            let source =
+                format_err!("DataWorker worker failed to acquire read lock on data_and_models.");
+            DataWorkerError::Fatal { source }
+        })
+    }
 
+    fn is_data_loaded(&self) -> Result<bool, DataWorkerError> {
+        let lock = self.read_data_and_models()?;
         Ok(lock.deref().is_some())
     }
 
@@ -194,18 +197,19 @@ impl DataWorker {
     }
 
     async fn run_loop(&mut self) -> Result<(), Error> {
-        info!("DataWorker starts initial load data.");
+        info!("DataWorker starts initial data load.");
         self.load_data()
             .await
             .context("Error during initial data load.")?;
 
         // After loading data from disk, load all disruption in chaos database
         // Then apply all extracted disruptions
-        if let Err(err) = self.reload_chaos().await {
-            error!("Error while reloading chaos. {:?}", err);
-        }
 
-        info!("DataWorker completed initial load data.");
+        self.reload_chaos()
+            .await
+            .context("Error during initial chaos reload.")?;
+
+        info!("DataWorker completed initial data load.");
 
         let rabbitmq_connect_retry_interval =
             Duration::from_secs(self.config.rabbitmq.connect_retry_interval.total_seconds());
@@ -237,11 +241,21 @@ impl DataWorker {
 
                     let result = self.main_loop(&channel).await;
 
-                    error!(
-                        "DataWorker was disconnected from rabbitmq. I'll try to reconnect. {:?} ",
-                        result
-                    );
-                    self.send_status_update(StatusUpdate::RabbitMqDisconnected)?;
+                    match result {
+                        Err(DataWorkerError::RabbitMq { source }) => {
+                            error!(
+                                "DataWorker was disconnected from rabbitmq. I'll try to reconnect. {:?} ",
+                                source
+                            );
+                            self.send_status_update(StatusUpdate::RabbitMqDisconnected)?;
+                        }
+                        Err(DataWorkerError::Fatal { source }) => {
+                            return Err(source);
+                        }
+                        Ok(()) => {
+                            return Ok(());
+                        }
+                    }
                 }
                 Err(err) => {
                     error!(
@@ -253,7 +267,7 @@ impl DataWorker {
         }
     }
 
-    async fn load_data_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+    async fn load_data_loop(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         if self.is_data_loaded()? {
             return Ok(());
         }
@@ -277,7 +291,7 @@ impl DataWorker {
         }
     }
 
-    async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+    async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         self.load_data_loop(channel).await?;
 
         let mut real_time_messages_consumer = self.connect_real_time_queue(channel).await?;
@@ -317,7 +331,7 @@ impl DataWorker {
         }
     }
 
-    async fn load_data(&mut self) -> Result<(), Error> {
+    async fn load_data(&mut self) -> Result<(), DataWorkerError> {
         let config = &self.config;
 
         let base_model_result = match &mut self.data_source {
@@ -345,7 +359,7 @@ impl DataWorker {
             Ok(base_model) => base_model,
             Err(err) => {
                 self.send_status_update(StatusUpdate::BaseDataLoadFailed)?;
-                error!("Failed to load base model {:#?}", err);
+                error!("Failed to load base model {:?}", err);
                 return Ok(());
             }
         };
@@ -379,7 +393,7 @@ impl DataWorker {
         Ok(())
     }
 
-    async fn reload_chaos(&mut self) -> Result<(), Error> {
+    async fn reload_chaos(&mut self) -> Result<(), DataWorkerError> {
         if !self.is_data_loaded()? {
             error!("Tried to load chaos disruption with no data available.");
             return Ok(());
@@ -394,12 +408,7 @@ impl DataWorker {
             }
         };
         let (start_date, end_date) = {
-            let rw_lock_read_guard = self.data_and_models.read().map_err(|err| {
-                format_err!(
-                    "DataWorker failed to acquire read lock on data_and_models : {}",
-                    err
-                )
-            })?;
+            let rw_lock_read_guard = self.read_data_and_models()?;
             let data = match rw_lock_read_guard.deref() {
                 Some((data, _, _)) => data,
                 None => {
@@ -462,7 +471,7 @@ impl DataWorker {
         Ok(())
     }
 
-    async fn apply_realtime_messages(&mut self) -> Result<(), Error> {
+    async fn apply_realtime_messages(&mut self) -> Result<(), DataWorkerError> {
         let messages = std::mem::take(&mut self.realtime_messages);
         let updater = |data_and_models: &mut DataAndModels| {
             let (data, base_model, real_time_model) = match data_and_models {
@@ -486,7 +495,10 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::RealTimeUpdate(now))
     }
 
-    async fn update_data_and_models<Updater, T>(&mut self, updater: Updater) -> Result<T, Error>
+    async fn update_data_and_models<Updater, T>(
+        &mut self,
+        updater: Updater,
+    ) -> Result<T, DataWorkerError>
     where
         Updater: FnOnce(&mut DataAndModels) -> T,
     {
@@ -500,15 +512,22 @@ impl DataWorker {
             .stopped_receiver
             .recv()
             .await
-            .ok_or_else(|| format_err!("Channel load_balancer_stopped has closed."))?;
+            .ok_or_else(|| {
+                let source = format_err!("Channel load_balancer_stopped has closed.");
+                DataWorkerError::Fatal { source }
+            })?;
         trace!("DataWorker received Stopped signal from LoadBalancer.");
 
         let return_value = {
             let mut lock_guard = self.data_and_models.write().map_err(|err| {
-                format_err!(
-                    "DataWorker worker failed to acquire write lock on data_and_models. {}.",
+                error!(
+                    "Failed to acquire write lock on data_and_models : {:?}",
                     err
-                )
+                );
+                let source = format_err!(
+                    "DataWorker worker failed to acquire write lock on data_and_models."
+                );
+                DataWorkerError::Fatal { source }
             })?;
 
             updater(&mut lock_guard)
@@ -523,18 +542,27 @@ impl DataWorker {
         Ok(return_value)
     }
 
-    async fn send_order_to_load_balancer(&mut self, order: LoadBalancerOrder) -> Result<(), Error> {
+    async fn send_order_to_load_balancer(
+        &mut self,
+        order: LoadBalancerOrder,
+    ) -> Result<(), DataWorkerError> {
         self.load_balancer_channels
             .order_sender
             .send(order.clone())
             .await
-            .with_context(|| format!("Could not send order {:?} to load balancer.", order))
+            .map_err(|err| {
+                let source = anyhow::Error::new(err).context(format!(
+                    "Could not send order {:?} to load balancer.",
+                    order
+                ));
+                DataWorkerError::Fatal { source }
+            })
     }
 
     async fn handle_incoming_realtime_message(
         &mut self,
         has_real_time_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DataWorkerError> {
         match has_real_time_message {
             Some(Ok(delivery)) => {
                 // acknowledge reception of the message
@@ -566,7 +594,8 @@ impl DataWorker {
                 Ok(())
             }
             None => {
-                bail!("Consumer for realtime messages has closed.");
+                let source = format_err!("Consumer for realtime messages has closed.");
+                Err(DataWorkerError::RabbitMq { source })
             }
         }
     }
@@ -575,7 +604,7 @@ impl DataWorker {
         &mut self,
         has_reload_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
         channel: &lapin::Channel,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DataWorkerError> {
         match has_reload_message {
             Some(Ok(delivery)) => {
                 // acknowledge reception of the message
@@ -625,9 +654,9 @@ impl DataWorker {
                 error!("Error while receiving a reload message. {:?}", err);
                 Ok(())
             }
-            None => {
-                bail!("Consumer for reload messages has closed.");
-            }
+            None => Err(DataWorkerError::Fatal {
+                source: format_err!("Consumer for reload messages has closed."),
+            }),
         }
     }
 
@@ -665,67 +694,17 @@ impl DataWorker {
     async fn connect_real_time_queue(
         &mut self,
         channel: &lapin::Channel,
-    ) -> Result<lapin::Consumer, Error> {
+    ) -> Result<lapin::Consumer, DataWorkerError> {
         if !self.real_time_queue_created {
             // let's first delete the queue, in case it existed and was not properly deleted
-            channel
-                .queue_delete(
-                    &self.real_time_queue_name,
-                    lapin::options::QueueDeleteOptions::default(),
-                )
-                .await
-                .with_context(|| {
-                    format!(
-                        "Could not delete queue named {}",
-                        &self.real_time_queue_name
-                    )
-                })?;
+            delete_queue(channel, &self.real_time_queue_name).await?;
 
-            // declare real time queue
-            channel
-                .queue_declare(
-                    &self.real_time_queue_name,
-                    QueueDeclareOptions {
-                        exclusive: true,
-                        auto_delete: true,
-                        ..QueueDeclareOptions::default()
-                    },
-                    FieldTable::default(),
-                )
-                .await
-                .with_context(|| {
-                    format!("Could not declare queue {}", &self.real_time_queue_name)
-                })?;
-
-            info!(
-                "Queue declared for kirin real time : {}",
-                &self.real_time_queue_name
-            );
+            declare_queue(channel, &self.real_time_queue_name).await?;
 
             let exchange = &self.config.rabbitmq.exchange;
-            // bind topics to the real time queue
-            for topic in &self.config.rabbitmq.real_time_topics {
-                channel
-                    .queue_bind(
-                        &self.real_time_queue_name,
-                        exchange,
-                        topic,
-                        QueueBindOptions::default(),
-                        FieldTable::default(),
-                    )
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Could not bind queue {} to topic {}",
-                            &self.real_time_queue_name, topic
-                        )
-                    })?;
+            let topics = &self.config.rabbitmq.real_time_topics;
+            bind_queue(channel, &self.real_time_queue_name, exchange, topics).await?;
 
-                info!(
-                    "Kirin real time queue {} binded successfully to topic {} on exchange {}",
-                    &self.real_time_queue_name, topic, exchange,
-                );
-            }
             self.real_time_queue_created = true;
         }
         let consumer = create_consumer(channel, &self.real_time_queue_name).await?;
@@ -736,46 +715,21 @@ impl DataWorker {
     async fn connect_reload_queue(
         &mut self,
         channel: &lapin::Channel,
-    ) -> Result<lapin::Consumer, Error> {
+    ) -> Result<lapin::Consumer, DataWorkerError> {
         if !self.reload_queue_created {
             // let's first delete the queue, in case it existed and was not properly deleted
             delete_queue(channel, &self.reload_queue_name).await?;
 
-            // declare reload_data queue
-            channel
-                .queue_declare(
-                    &self.reload_queue_name,
-                    QueueDeclareOptions {
-                        exclusive: true,
-                        auto_delete: true,
-                        ..QueueDeclareOptions::default()
-                    },
-                    FieldTable::default(),
-                )
-                .await
-                .with_context(|| format!("Could not declare queue {}", &self.reload_queue_name))?;
+            let topics = [format!("{}.task.*", self.config.instance_name)];
 
-            info!("Queue declared for reload : {}", &self.reload_queue_name);
-
-            // bind the reload queue to the topic instance_name.task.*
-            let topic = format!("{}.task.*", self.config.instance_name);
-            channel
-                .queue_bind(
-                    &self.reload_queue_name,
-                    &self.config.rabbitmq.exchange,
-                    &topic,
-                    QueueBindOptions::default(),
-                    FieldTable::default(),
-                )
-                .await
-                .with_context(|| {
-                    format!("Could not bind queue named {}", &self.reload_queue_name)
-                })?;
-
-            info!(
-                "Reload queue {}  binded to topic: {}",
-                &self.reload_queue_name, topic
-            );
+            declare_queue(channel, &self.real_time_queue_name).await?;
+            bind_queue(
+                channel,
+                &self.real_time_queue_name,
+                &self.config.rabbitmq.exchange,
+                &topics,
+            )
+            .await?;
 
             self.reload_queue_created = true;
         }
@@ -784,7 +738,7 @@ impl DataWorker {
         Ok(consumer)
     }
 
-    async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), Error> {
+    async fn reload_kirin(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         info!("Asking Kirin for a full realtime reload.");
 
         // declare a queue to send a message to Kirin to request a full realtime reload
@@ -796,20 +750,7 @@ impl DataWorker {
         // let's first delete the queue, just in case
         delete_queue(channel, &queue_name).await?;
 
-        channel
-            .queue_declare(
-                &queue_name,
-                QueueDeclareOptions {
-                    passive: false,
-                    durable: false,
-                    exclusive: true,
-                    auto_delete: true,
-                    nowait: false,
-                },
-                FieldTable::default(),
-            )
-            .await
-            .with_context(|| format!("Could not declare queue {}", &self.reload_queue_name))?;
+        declare_queue(channel, &queue_name).await?;
 
         // let's create the reload task to be sent into the queue
         let task = {
@@ -817,12 +758,7 @@ impl DataWorker {
             task.set_action(navitia_proto::Action::LoadRealtime);
 
             let (start_date, end_date) = {
-                let lock = self.data_and_models.read().map_err(|err| {
-                    format_err!(
-                        "DataWorker failed to acquire read lock on data_and_models : {}",
-                        err
-                    )
-                })?;
+                let lock = self.read_data_and_models()?;
 
                 let data = match lock.deref() {
                     Some((data, _, _)) => data,
@@ -869,8 +805,18 @@ impl DataWorker {
                 &payload,
                 BasicProperties::default().with_expiration(time_to_live_in_milliseconds),
             )
-            .await?
-            .await?;
+            .await
+            .map_err(|err| {
+                let source =
+                    anyhow::Error::new(err).context("Failed to published kirin reload task.");
+                DataWorkerError::RabbitMq { source }
+            })?
+            .await
+            .map_err(|err| {
+                let source =
+                    anyhow::Error::new(err).context("Failed to published kirin reload task.");
+                DataWorkerError::RabbitMq { source }
+            })?;
 
         info!(
             "Realtime reload task sent in queue {} with routing_key {}",
@@ -907,14 +853,13 @@ impl DataWorker {
         Ok(())
     }
 
-    fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), Error> {
+    fn send_status_update(&self, status_update: StatusUpdate) -> Result<(), DataWorkerError> {
         self.status_update_sender
             .send(status_update)
             .map_err(|err| {
-                format_err!(
-                    "StatusWorker channel to send status updates has closed. {}",
-                    err
-                )
+                let source =
+                    anyhow::Error::new(err).context("Channel to send status updates has closed.");
+                DataWorkerError::Fatal { source }
             })
     }
 
@@ -935,7 +880,7 @@ impl DataWorker {
 async fn create_consumer(
     channel: &lapin::Channel,
     queue_name: &str,
-) -> Result<lapin::Consumer, Error> {
+) -> Result<lapin::Consumer, DataWorkerError> {
     channel
         .basic_consume(
             queue_name,
@@ -950,13 +895,69 @@ async fn create_consumer(
         )
         .await
         .with_context(|| format!("Could not create consumer to queue {}.", queue_name))
+        .map_err(|source| DataWorkerError::RabbitMq { source })
 }
 
-async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, Error> {
+async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, DataWorkerError> {
     channel
         .queue_delete(queue_name, lapin::options::QueueDeleteOptions::default())
         .await
-        .with_context(|| format!("Could not delete queue {}.", queue_name))
+        .map_err(|err| {
+            let source =
+                anyhow::Error::new(err).context(format!("Could not delete queue {}.", queue_name));
+            DataWorkerError::RabbitMq { source }
+        })
+}
+
+async fn declare_queue(channel: &lapin::Channel, queue_name: &str) -> Result<(), DataWorkerError> {
+    // declare real time queue
+    channel
+        .queue_declare(
+            queue_name,
+            QueueDeclareOptions {
+                exclusive: true,
+                auto_delete: true,
+                ..QueueDeclareOptions::default()
+            },
+            FieldTable::default(),
+        )
+        .await
+        .context(format!("Could not declare queue named {}", queue_name))
+        .map_err(|source| DataWorkerError::RabbitMq { source })?;
+
+    info!("Queue declared : {}", queue_name);
+    Ok(())
+}
+
+async fn bind_queue(
+    channel: &lapin::Channel,
+    queue_name: &str,
+    exchange_name: &str,
+    topics: &[String],
+) -> Result<(), DataWorkerError> {
+    // bind topics
+    for topic in topics {
+        channel
+            .queue_bind(
+                queue_name,
+                exchange_name,
+                topic,
+                QueueBindOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .context(format!(
+                "Could not bind queue {} to topic {}",
+                queue_name, topic
+            ))
+            .map_err(|source| DataWorkerError::RabbitMq { source })?;
+
+        info!(
+            "Queue {} binded successfully to topic {} on exchange {}",
+            queue_name, topic, exchange_name,
+        );
+    }
+    Ok(())
 }
 
 fn handle_realtime_message(
@@ -1035,4 +1036,12 @@ fn parse_header_datetime(
 pub enum DataSource {
     Local(LocalFileParams),
     S3(DataDownloader),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum DataWorkerError {
+    #[error("RabbitMq error {source:?}")]
+    RabbitMq { source: anyhow::Error },
+    #[error("Fatal error {source:?}")]
+    Fatal { source: anyhow::Error },
 }
