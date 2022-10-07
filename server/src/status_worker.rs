@@ -44,11 +44,11 @@ use super::navitia_proto;
 
 use anyhow::{format_err, Context, Error};
 
-use launch::{
+use loki_launch::{
     loki::{
         chrono::NaiveDate,
         chrono_tz,
-        tracing::{debug, error, info, log::warn},
+        tracing::{error, info, trace, warn},
         NaiveDateTime,
     },
     timer,
@@ -214,9 +214,10 @@ impl StatusWorker {
         let handle_request_start_time = SystemTime::now();
         let requested_api = request_message.payload.requested_api();
         let request_id = request_message.payload.request_id.unwrap_or_default();
-        debug!(
+        trace!(
             "Status worker received request on api {:?} with id '{}'",
-            requested_api, request_id
+            requested_api,
+            request_id
         );
         let response_payload = match requested_api {
             navitia_proto::Api::Status => navitia_proto::Response {

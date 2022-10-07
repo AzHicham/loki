@@ -32,7 +32,7 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::gtfs_realtime as kirin_proto;
 use kirin_proto::FeedHeader;
-use launch::loki::{chrono::NaiveDate, NaiveDateTime};
+use loki_launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::{Enum, Message, MessageField};
 
 use crate::{arrival_time, first_section_vj_name};

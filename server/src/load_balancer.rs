@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use anyhow::{format_err, Context, Error};
-use launch::{
+use loki_launch::{
     config,
     loki::tracing::{error, info, log::trace},
 };

@@ -30,7 +30,7 @@
 pub use loki_server;
 use loki_server::{navitia_proto, server_config::ServerConfig};
 
-use launch::loki::{chrono::Utc, NaiveDateTime};
+use loki_launch::loki::{chrono::Utc, NaiveDateTime};
 use loki_server::status_worker::{DATETIME_FORMAT, LOKI_VERSION};
 
 pub async fn status_test(config: &ServerConfig) {

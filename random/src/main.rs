@@ -1,4 +1,5 @@
-use launch::{
+use loki::{tracing::debug, DataTrait};
+use loki_launch::{
     config,
     loki::{
         self,
@@ -7,7 +8,6 @@ use launch::{
     solver::Solver,
     timer,
 };
-use loki::{tracing::debug, DataTrait};
 
 use std::{
     convert::TryFrom,
@@ -21,12 +21,12 @@ use rand::prelude::{IteratorRandom, SeedableRng};
 
 use anyhow::{Context, Error};
 
-use launch::datetime::DateTimeRepresent;
+use loki_launch::datetime::DateTimeRepresent;
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 fn main() {
-    launch::logger::init_logger();
+    loki_launch::logger::init_logger();
     if let Err(err) = run() {
         eprintln!("{:?}", err);
         std::process::exit(1);
@@ -101,7 +101,7 @@ pub fn read_config(config_file_path: &Path) -> Result<Config, Error> {
 }
 
 pub fn launch(config: &Config) -> Result<(), Error> {
-    let (data, base_model) = launch::read(&config.launch_params)?;
+    let (data, base_model) = loki_launch::read(&config.launch_params)?;
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -109,7 +109,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
     let departure_datetime = match &config.departure_datetime {
-        Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
+        Some(string_datetime) => loki_launch::datetime::parse_datetime(string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
             naive_date.and_hms(8, 0, 0)
@@ -131,7 +131,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
         let start_stop_area_uri = base_model.stop_area_id(start_stop_idx);
         let end_stop_area_uri = base_model.stop_area_id(end_stop_idx);
 
-        let request_input = launch::stop_areas::make_query_stop_areas(
+        let request_input = loki_launch::stop_areas::make_query_stop_areas(
             &base_model,
             &departure_datetime,
             start_stop_area_uri,

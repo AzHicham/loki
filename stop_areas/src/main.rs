@@ -35,7 +35,7 @@
 // www.navitia.io
 
 fn main() {
-    launch::logger::init_logger();
+    loki_launch::logger::init_logger();
     if let Err(err) = loki_stop_areas::run() {
         eprintln!("{:?}", err);
         std::process::exit(1);

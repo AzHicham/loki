@@ -36,12 +36,12 @@
 
 mod utils;
 use anyhow::Error;
-use launch::{
+use loki::{models::base_model::BaseModel, PositiveDuration, RealTimeLevel};
+use loki_launch::{
     config::ComparatorType,
     datetime::DateTimeRepresent,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
-use loki::{models::base_model::BaseModel, PositiveDuration, RealTimeLevel};
 use rstest::rstest;
 use utils::{
     build_and_solve, from_to_stop_point_names,
@@ -53,7 +53,7 @@ use utils::{
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -109,7 +109,7 @@ fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Er
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -207,7 +207,7 @@ fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Resul
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -310,7 +310,7 @@ fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), 
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -384,7 +384,7 @@ fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_second_pass_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
             vj_builder

@@ -38,7 +38,7 @@ use std::thread;
 
 use anyhow::{format_err, Context, Error};
 
-use launch::loki::{
+use loki_launch::loki::{
     chrono::Utc,
     tracing::{error, info, log::trace, warn},
     NaiveDateTime,

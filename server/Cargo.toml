@@ -30,7 +30,7 @@ lapin = "2.0"
 # Object Storage library (S3, Minio, ..)
 rust-s3 = "0.32"
 
-launch = { path = "../launch"}
+loki_launch = { path = "../launch"}
 structopt = "0.3"
 anyhow = "1"
 thiserror = "1"

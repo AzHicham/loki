@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use anyhow::{bail, Context, Error};
-use launch::loki::{
+use loki_launch::loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel},
     tracing::{error, info},
     TransitData,

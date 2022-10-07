@@ -176,6 +176,7 @@ where
         "arrivals {:#?}",
         request_input.arrivals_stop_point_and_fallback_duration
     );
+    debug!("datetime : {}", request_input.datetime);
     debug!("datetime_represents : {}", datetime_represent);
     debug!("comparator type : {}", comparator_type);
     debug!(

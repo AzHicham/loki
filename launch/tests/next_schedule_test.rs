@@ -38,7 +38,6 @@ mod utils;
 use anyhow::{format_err, Error};
 
 use crate::utils::model_builder::AsDateTime;
-use launch::solver::Solver;
 use loki::{
     chrono::Duration,
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
@@ -46,6 +45,7 @@ use loki::{
     schedule::{ScheduleOn, ScheduleRequestInput, ScheduleResponse},
     NaiveDateTime, PositiveDuration, RealTimeLevel, TransitData,
 };
+use loki_launch::solver::Solver;
 use rstest::{fixture, rstest};
 use utils::model_builder::ModelBuilder;
 
@@ -112,7 +112,7 @@ pub fn fixture_model() -> BaseModel {
 
 #[rstest]
 fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // This part checks that the pickup / drop_off fields of a StopTime are taken into account by
     // next_schedule functions
@@ -150,7 +150,7 @@ fn test_no_pickup_dropoff(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_at_first_and_last_stops(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // This test ensure that no departure is possible on terminus stop_point
     // and no arrival is possible on departure stop_point
@@ -186,7 +186,7 @@ fn test_at_first_and_last_stops(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // This part test if until_datetime (ie from_datetime + duration)
     // is working properly
@@ -238,7 +238,7 @@ fn test_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // This code test multiple from/until_datetime combination
     // some datetime could be outside calendar range
@@ -319,7 +319,7 @@ fn test_invalid_range_datetime(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_past_midnight_vehicle(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // This code checks that vehicle valid on day : from_date - 2 & from_date -1
     // and with a next_schedule (departure/arrival) after from_datetime are returned as expected
@@ -369,7 +369,7 @@ fn test_past_midnight_vehicle(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_on_route(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // In this test we expect to receive all departure of all stop_points of route R1
     // after a certain datetime (we test multiple datetime)
@@ -421,7 +421,7 @@ fn test_on_route(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // In this test we expect to receive all departure of all stop_points of network N1
     // after a certain datetime
@@ -472,7 +472,7 @@ fn test_on_network(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn test_forbidden_filter(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // In this test we call next_departures/next_arrivals with a forbidden filter
 
@@ -569,7 +569,7 @@ fn build_and_solve_schedule(
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(base_model, &real_time_model);
-    let data: TransitData = launch::read::build_transit_data(model_refs.base);
+    let data: TransitData = loki_launch::read::build_transit_data(model_refs.base);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

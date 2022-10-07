@@ -1371,19 +1371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "launch"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "loki",
- "rstest",
- "serde",
- "serde_json",
- "thousands",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1446,13 +1433,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "loki_launch"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "loki",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thousands",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "loki_random"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "hdrhistogram",
- "launch",
  "log",
+ "loki_launch",
  "rand",
  "rand_chacha",
  "serde",
@@ -1471,7 +1471,7 @@ dependencies = [
  "hostname",
  "hyper",
  "lapin",
- "launch",
+ "loki_launch",
  "num-traits",
  "prost",
  "prost-build",
@@ -1496,7 +1496,7 @@ name = "loki_stop_areas"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "launch",
+ "loki_launch",
  "serde",
  "structopt",
  "toml 0.5.9",

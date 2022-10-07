@@ -37,7 +37,7 @@
 mod utils;
 
 use anyhow::Error;
-use launch::solver::Solver;
+use loki_launch::solver::Solver;
 
 use loki::{
     chrono::NaiveDate,
@@ -58,7 +58,7 @@ use utils::{
 
 #[test]
 fn remove_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -88,7 +88,7 @@ fn remove_vj() -> Result<(), Error> {
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -169,7 +169,7 @@ fn remove_vj() -> Result<(), Error> {
 
 #[test]
 fn remove_successive_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -204,7 +204,7 @@ fn remove_successive_vj() -> Result<(), Error> {
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -308,7 +308,7 @@ fn remove_successive_vj() -> Result<(), Error> {
 
 #[test]
 fn remove_middle_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -342,7 +342,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -422,7 +422,7 @@ fn remove_middle_vj() -> Result<(), Error> {
 
 #[test]
 fn modify_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -446,7 +446,7 @@ fn modify_vj() -> Result<(), Error> {
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
     let request_input = utils::make_request_from_config(&config);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -551,7 +551,7 @@ fn modify_vj() -> Result<(), Error> {
 
 #[test]
 fn modify_vj_with_local_zone() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -578,7 +578,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
 
     let request_input = utils::make_request_from_config(&config);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -741,7 +741,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
 
 #[test]
 fn remove_vj_with_local_zone() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-03")
         .vj("first", |vj_builder| {
@@ -773,7 +773,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
 
     let request_input = utils::make_request_from_config(&config);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -897,7 +897,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
 
 #[test]
 fn insert_invalid_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("first", |vj_builder| {
@@ -920,7 +920,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
     let mut real_time_model = RealTimeModel::new();
     let _model_refs = ModelRefs::new(&base_model, &real_time_model);
 
-    let mut data = launch::read::build_transit_data(&base_model);
+    let mut data = loki_launch::read::build_transit_data(&base_model);
 
     // insert a vehicle with a date outside of the calendar of the data
     {

@@ -34,9 +34,9 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::{config, loki::PositiveDuration};
+use loki_launch::{config, loki::PositiveDuration};
 
-use launch::config::{
+use loki_launch::config::{
     launch_params::{default_transfer_duration, LocalFileParams},
     InputDataType,
 };

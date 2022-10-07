@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-launch = { path = "../launch"}
+loki_launch = { path = "../launch"}
 structopt = "0.3"
 serde = "1.0"
 toml = "0.5"
@@ -16,4 +16,4 @@ anyhow = "1"
 
 [features]
 # enable the vehicle_loads feature on the loki lib
-vehicle_loads = ["launch/vehicle_loads"]
+vehicle_loads = ["loki_launch/vehicle_loads"]

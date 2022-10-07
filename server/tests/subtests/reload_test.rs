@@ -32,7 +32,7 @@ use std::path::Path;
 pub use loki_server;
 use loki_server::server_config::{DataSourceParams, ServerConfig};
 
-use launch::loki::NaiveDateTime;
+use loki_launch::loki::NaiveDateTime;
 
 use crate::reload_base_data;
 

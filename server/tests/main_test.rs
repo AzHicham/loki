@@ -47,7 +47,7 @@ use loki_server::{
 use prost::Message;
 use protobuf::Message as ProtobufMessage;
 
-use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
+use loki_launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::{BuildOptions, PullOptionsBuilder, RmContainerOptionsBuilder};
 use tracing::debug;
 
@@ -55,7 +55,7 @@ mod subtests;
 
 #[test]
 fn main() {
-    launch::logger::init_global_test_logger();
+    loki_launch::logger::init_global_test_logger();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

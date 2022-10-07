@@ -64,7 +64,7 @@ use lapin::{
 use std::{io::Cursor, ops::Deref, sync::RwLockReadGuard, time::SystemTime};
 
 use futures::StreamExt;
-use launch::{
+use loki_launch::{
     loki::{
         chrono::Utc,
         chrono_tz,
@@ -91,7 +91,7 @@ use crate::{
     data_downloader::DataDownloader, handle_chaos_message::handle_chaos_protobuf,
     server_config::DataSourceParams,
 };
-use launch::config::launch_params::LocalFileParams;
+use loki_launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
 
 pub struct DataWorker {
@@ -334,7 +334,7 @@ impl DataWorker {
             DataSource::S3(data_downloader) => {
                 let bytes_result = data_downloader.download_data().await;
                 match bytes_result {
-                    Ok(bytes) => launch::read::read_model_from_zip_reader(
+                    Ok(bytes) => loki_launch::read::read_model_from_zip_reader(
                         Cursor::new(bytes),
                         None,
                         "S3",
@@ -344,7 +344,7 @@ impl DataWorker {
                     Err(err) => Err(err),
                 }
             }
-            DataSource::Local(local_files) => launch::read::read_model(
+            DataSource::Local(local_files) => loki_launch::read::read_model(
                 local_files,
                 config.input_data_type.clone(),
                 config.default_transfer_duration,
@@ -363,7 +363,7 @@ impl DataWorker {
         let updater = move |data_and_models: &mut DataAndModels| {
             info!("Model loaded");
             info!("Starting to build data");
-            let new_data = launch::read::build_transit_data(&new_base_model);
+            let new_data = loki_launch::read::build_transit_data(&new_base_model);
             info!("Data loaded");
             let new_real_time_model = RealTimeModel::new();
 

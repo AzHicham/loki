@@ -49,7 +49,7 @@ use utils::{
 
 #[test]
 fn test_daylight_saving_time_switch() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // There is a daylight saving time switch in Europe/paris on 2020-10-25 :
     // - on 2020-10-24, "10:00:00" in Paris means "08:00:00" UTC
@@ -105,7 +105,7 @@ fn test_daylight_saving_time_switch() -> Result<(), Error> {
 
 #[test]
 fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // There is a daylight saving time switch in Europe/paris on 2020-10-25 at 02:00:00
     let model = ModelBuilder::new("2020-10-23", "2020-10-30")
@@ -212,7 +212,7 @@ fn test_trip_over_daylight_saving_time_switch() -> Result<(), Error> {
 
 #[test]
 fn test_paris_london() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // There is a daylight saving time switch in Europe/Paris AND Europe/London on 2020-10-25 at 02:00:00
     let model = ModelBuilder::new("2020-10-01", "2020-10-30")
@@ -304,7 +304,7 @@ fn test_paris_london() -> Result<(), Error> {
 
 #[test]
 fn test_paris_new_york() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // There is a daylight saving time switch in Europe/Paris  on 2020-10-25 at 02:00:00
     // But there is no switch in America/NewYork

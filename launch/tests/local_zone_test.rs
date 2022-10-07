@@ -36,14 +36,14 @@
 
 mod utils;
 use anyhow::Error;
-use launch::loki::models::{real_time_model::RealTimeModel, ModelRefs};
 use loki::{models::base_model::BaseModel, DataTrait, PositiveDuration};
+use loki_launch::loki::models::{real_time_model::RealTimeModel, ModelRefs};
 
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
 #[test]
 fn test_local_zone_routing() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
         .vj("LocalZone", |vj_builder| {
@@ -91,7 +91,7 @@ fn test_local_zone_routing() -> Result<(), Error> {
 
 #[test]
 fn test_local_zone_timetable() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
         .vj("LocalZone", |vj_builder| {
@@ -113,7 +113,7 @@ fn test_local_zone_timetable() -> Result<(), Error> {
 
     // Since there are 3 different local zone, 3 missions must be created
     let expected_mission_nb = 3;
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
     assert_eq!(data.nb_of_missions(), expected_mission_nb);
 
     Ok(())
@@ -121,7 +121,7 @@ fn test_local_zone_timetable() -> Result<(), Error> {
 
 #[test]
 fn test_local_zone_routing_multiple_vj() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
         .vj("LocalZone", |vj_builder| {
@@ -183,7 +183,7 @@ fn test_local_zone_routing_multiple_vj() -> Result<(), Error> {
 
 #[test]
 fn test_local_zone_routing_one_local_zone() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2022-01-01", "2022-01-02")
         .vj("LocalZone", |vj_builder| {
