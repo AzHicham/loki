@@ -694,20 +694,23 @@ impl DataWorker {
     async fn connect_real_time_queue(
         &mut self,
         channel: &lapin::Channel,
-    ) -> Result<lapin::Consumer, RabbitMqError> {
+    ) -> Result<lapin::Consumer, DataWorkerError> {
+        let queue_name = &self.real_time_queue_name;
         if !self.real_time_queue_created {
             // let's first delete the queue, in case it existed and was not properly deleted
-            delete_queue(channel, &self.real_time_queue_name).await?;
+            delete_queue(channel, queue_name).await?;
 
-            declare_queue(channel, &self.real_time_queue_name).await?;
+            declare_queue(channel, queue_name).await?;
 
             let exchange = &self.config.rabbitmq.exchange;
             let topics = &self.config.rabbitmq.real_time_topics;
-            bind_queue(channel, &self.real_time_queue_name, exchange, topics).await?;
+            bind_queue(channel, queue_name, exchange, topics).await?;
+
+            self.send_status_update(StatusUpdate::RealTimeQueueCreated)?;
 
             self.real_time_queue_created = true;
         }
-        let consumer = create_consumer(channel, &self.real_time_queue_name).await?;
+        let consumer = create_consumer(channel, queue_name).await?;
 
         Ok(consumer)
     }
@@ -715,25 +718,21 @@ impl DataWorker {
     async fn connect_reload_queue(
         &mut self,
         channel: &lapin::Channel,
-    ) -> Result<lapin::Consumer, RabbitMqError> {
+    ) -> Result<lapin::Consumer, DataWorkerError> {
+        let queue_name = &self.reload_queue_name;
         if !self.reload_queue_created {
             // let's first delete the queue, in case it existed and was not properly deleted
-            delete_queue(channel, &self.reload_queue_name).await?;
+            delete_queue(channel, queue_name).await?;
 
             let topics = [format!("{}.task.*", self.config.instance_name)];
 
-            declare_queue(channel, &self.real_time_queue_name).await?;
-            bind_queue(
-                channel,
-                &self.real_time_queue_name,
-                &self.config.rabbitmq.exchange,
-                &topics,
-            )
-            .await?;
+            declare_queue(channel, queue_name).await?;
+            bind_queue(channel, queue_name, &self.config.rabbitmq.exchange, &topics).await?;
 
+            self.send_status_update(StatusUpdate::ReloadQueueCreated)?;
             self.reload_queue_created = true;
         }
-        let consumer = create_consumer(channel, &self.reload_queue_name).await?;
+        let consumer = create_consumer(channel, queue_name).await?;
 
         Ok(consumer)
     }
