@@ -271,16 +271,14 @@ impl DataWorker {
         let mut reload_consumer = self.connect_reload_queue(channel).await?;
 
         loop {
-            tokio::select! {
-                // listen for Reload order
-                has_reload_message = reload_consumer.next() => {
-                    info!("Received a message on the reload queue.");
-                    self.handle_reload_message(has_reload_message, channel).await?;
-                    if self.is_data_loaded()? {
-                        info!("Load data loop completed.");
-                        return Ok(())
-                    }
-                }
+            // listen for Reload order
+            let has_reload_message = reload_consumer.next().await;
+            info!("Received a message on the reload queue.");
+            self.handle_reload_message(has_reload_message, channel)
+                .await?;
+            if self.is_data_loaded()? {
+                info!("Load data loop completed.");
+                return Ok(());
             }
         }
     }
