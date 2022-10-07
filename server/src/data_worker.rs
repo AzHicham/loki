@@ -233,12 +233,6 @@ impl DataWorker {
                     info!("Connected to RabbitMq.");
                     self.send_status_update(StatusUpdate::RabbitMqConnected)?;
 
-                    if !self.kirin_reload_done {
-                        if let Err(err) = self.reload_kirin(&channel).await {
-                            error!("Error while reloading kirin : {:?}", err);
-                        }
-                    }
-
                     let result = self.main_loop(&channel).await;
 
                     match result {
@@ -293,6 +287,10 @@ impl DataWorker {
 
     async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         self.load_data_loop(channel).await?;
+
+        if !self.kirin_reload_done {
+            self.reload_kirin(&channel).await?;
+        }
 
         let mut real_time_messages_consumer = self.connect_real_time_queue(channel).await?;
         let mut reload_consumer = self.connect_reload_queue(channel).await?;
