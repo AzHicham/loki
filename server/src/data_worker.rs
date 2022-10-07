@@ -57,7 +57,7 @@ use lapin::{
         BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions,
         QueueBindOptions, QueueDeclareOptions,
     },
-    types::FieldTable,
+    types::{AMQPValue, FieldTable, ShortString},
     BasicProperties, ExchangeKind,
 };
 
@@ -77,7 +77,7 @@ use launch::{
             RealTimeModel,
         },
         tracing::{error, info, log::trace, warn},
-        DataTrait, NaiveDateTime, TransitData,
+        DataTrait, NaiveDateTime, PositiveDuration, TransitData,
     },
     timer::duration_since,
 };
@@ -700,7 +700,10 @@ impl DataWorker {
             // let's first delete the queue, in case it existed and was not properly deleted
             delete_queue(channel, queue_name).await?;
 
-            declare_queue(channel, queue_name).await?;
+            let durable = true; // we want the realtime queue to survive a broker restart
+            let exclusive = false; // we want to allow network failure and later reconnection to the realtime queue
+            let expires = Some(self.config.rabbitmq.realtime_queue_expires.clone());
+            declare_queue(channel, queue_name, durable, exclusive, expires).await?;
 
             let exchange = &self.config.rabbitmq.exchange;
             let topics = &self.config.rabbitmq.real_time_topics;
@@ -724,9 +727,12 @@ impl DataWorker {
             // let's first delete the queue, in case it existed and was not properly deleted
             delete_queue(channel, queue_name).await?;
 
-            let topics = [format!("{}.task.*", self.config.instance_name)];
+            let durable = true; // we want the reload queue to survive a broker restart
+            let exclusive = false; // we want to allow network failure and later reconnection to the realtime queue
+            let expires = Some(self.config.rabbitmq.reload_queue_expires.clone());
+            declare_queue(channel, queue_name, durable, exclusive, expires).await?;
 
-            declare_queue(channel, queue_name).await?;
+            let topics = [format!("{}.task.*", self.config.instance_name)];
             bind_queue(channel, queue_name, &self.config.rabbitmq.exchange, &topics).await?;
 
             self.send_status_update(StatusUpdate::ReloadQueueCreated)?;
@@ -749,7 +755,15 @@ impl DataWorker {
         // let's first delete the queue, just in case
         delete_queue(channel, &queue_name).await?;
 
-        declare_queue(channel, &queue_name).await?;
+        // we won't be able to reconnect to this queue if the broker restart, so there is no need to have a durable queue
+        let durable = false;
+        // we won't be able to reconnect to this queue if the connection to the broker closes,
+        // so we tell the broker to delete the queue if we disconnect
+        let exclusive = true;
+        // there is no need to add an expires duration, since the queue is exclusive and thus
+        // will be deleted as soon as we disconnect
+        let expires = None;
+        declare_queue(channel, &queue_name, durable, exclusive, expires).await?;
 
         // let's create the reload task to be sent into the queue
         let task = {
@@ -908,17 +922,30 @@ async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32,
         })
 }
 
-async fn declare_queue(channel: &lapin::Channel, queue_name: &str) -> Result<(), RabbitMqError> {
-    // declare real time queue
+async fn declare_queue(
+    channel: &lapin::Channel,
+    queue_name: &str,
+    durable: bool,   // if true, the queue will survive a broker restart
+    exclusive: bool, // if true, the queue will be deleted when the current connection to rabbitmq is closed
+    expires: Option<PositiveDuration>, // if set, broker will delete the queue if no consumer
+) -> Result<(), RabbitMqError> {
+    let mut args = FieldTable::default();
+    if let Some(duration) = expires {
+        let key = ShortString::from("x-expires");
+        let duration_in_ms = duration.total_seconds_u32() * 1000;
+        let value = AMQPValue::LongUInt(duration_in_ms);
+        args.insert(key, value);
+    }
+
     channel
         .queue_declare(
             queue_name,
             QueueDeclareOptions {
-                exclusive: true,
-                auto_delete: true,
+                durable,
+                exclusive,
                 ..QueueDeclareOptions::default()
             },
-            FieldTable::default(),
+            args,
         )
         .await
         .context(format!("Could not declare queue named {}", queue_name))

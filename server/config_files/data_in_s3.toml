@@ -26,11 +26,12 @@ real_time_topics = [
     'shortterm.my_coverage',
     'another_topic',
 ]
-queue_auto_delete = false
 real_time_update_interval = '00:00:30'
 connect_retry_interval = '00:00:10'
 reload_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
+reload_queue_expires = '02:00:00'
+realtime_queue_expires = '02:00:00'
 
 # Configures the connection to a chaos database that will be used
 # to retreive the history of chaos disruptions when the public transport data is (re)loaded
