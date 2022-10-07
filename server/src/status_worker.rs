@@ -38,7 +38,7 @@ use crate::{
     http_worker::HttpToStatusChannel,
     zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::navitia_proto;
 
@@ -75,7 +75,7 @@ pub struct StatusWorker {
     shutdown_sender: mpsc::Sender<()>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Status {
     pub base_data_info: Option<BaseDataInfo>,
     pub config_info: ConfigInfo,
@@ -90,7 +90,7 @@ pub struct Status {
     pub loki_version: String,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -101,7 +101,7 @@ pub struct BaseDataInfo {
     pub publisher_name: Option<String>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConfigInfo {
     pub instance_name: String,
     pub real_time_contributors: Vec<String>,
@@ -343,7 +343,7 @@ impl StatusWorker {
                 if self.status.reload_queue_created {
                     warn!("StatusWorker : received ReloadQueueCreated update while it should already be created");
                 }
-                self.status.realtime_queue_created = true;
+                self.status.reload_queue_created = true;
             }
             StatusUpdate::RabbitMqDisconnected => {
                 if !self.status.is_connected_to_rabbitmq {
