@@ -1,4 +1,3 @@
-use crate::loki::tracing::level_filters::LevelFilter;
 use loki::tracing::dispatcher::DefaultGuard;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
@@ -7,7 +6,7 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 // Warning : this function will panic if called twice in the same program
 // https://docs.rs/tracing/latest/tracing/dispatcher/index.html
 pub fn init_logger() {
-    let default_level = LevelFilter::INFO;
+    let default_level = "loki=info";
     let rust_log =
         std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| default_level.to_string());
     let env_filter_subscriber = EnvFilter::try_new(rust_log).unwrap_or_else(|err| {
