@@ -2,6 +2,10 @@ ARG NAVITIA_TAG
 
 FROM navitia/eitri:${NAVITIA_TAG}
 
+# install dependencies
+RUN apt-get update
+RUN  apt-get install -y jq
+
 COPY ./docker/bina.sh /bina.sh
 
 RUN chmod +x /bina.sh
