@@ -1627,7 +1627,7 @@ pub fn make_schedule_proto_response(
         ScheduleOn::DebarkTimes => (Vec::new(), proto_responses),
     };
 
-    let proto = navitia_proto::Response {
+    navitia_proto::Response {
         feed_publishers: make_feed_publishers(model),
         next_departures,
         next_arrivals,
@@ -1639,9 +1639,7 @@ pub fn make_schedule_proto_response(
             ..Default::default()
         }),
         ..Default::default()
-    };
-
-    proto
+    }
 }
 
 pub fn make_places_nearby_proto_response(

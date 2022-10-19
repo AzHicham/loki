@@ -287,7 +287,7 @@ impl DataWorker {
         self.load_data_loop(channel).await?;
 
         if !self.kirin_reload_done {
-            self.reload_kirin(&channel).await?;
+            self.reload_kirin(channel).await?;
         }
 
         let mut real_time_messages_consumer = self.connect_real_time_queue(channel).await?;
@@ -698,7 +698,7 @@ impl DataWorker {
 
             let durable = true; // we want the realtime queue to survive a broker restart
             let exclusive = false; // we want to allow network failure and later reconnection to the realtime queue
-            let expires = Some(self.config.rabbitmq.realtime_queue_expires.clone());
+            let expires = Some(self.config.rabbitmq.realtime_queue_expires);
             declare_queue(channel, queue_name, durable, exclusive, expires).await?;
 
             let exchange = &self.config.rabbitmq.exchange;
@@ -725,7 +725,7 @@ impl DataWorker {
 
             let durable = true; // we want the reload queue to survive a broker restart
             let exclusive = false; // we want to allow network failure and later reconnection to the realtime queue
-            let expires = Some(self.config.rabbitmq.reload_queue_expires.clone());
+            let expires = Some(self.config.rabbitmq.reload_queue_expires);
             declare_queue(channel, queue_name, durable, exclusive, expires).await?;
 
             let topics = [format!("{}.task.*", self.config.instance_name)];
@@ -904,7 +904,7 @@ async fn create_consumer(
         )
         .await
         .with_context(|| format!("Could not create consumer to queue {}.", queue_name))
-        .map_err(|err| RabbitMqError(err))
+        .map_err(RabbitMqError)
 }
 
 async fn delete_queue(channel: &lapin::Channel, queue_name: &str) -> Result<u32, RabbitMqError> {
@@ -945,7 +945,7 @@ async fn declare_queue(
         )
         .await
         .context(format!("Could not declare queue named {}", queue_name))
-        .map_err(|source| RabbitMqError(source))?;
+        .map_err(RabbitMqError)?;
 
     info!("Queue declared : {}", queue_name);
     Ok(())
@@ -972,7 +972,7 @@ async fn bind_queue(
                 "Could not bind queue {} to topic {}",
                 queue_name, topic
             ))
-            .map_err(|source| RabbitMqError(source))?;
+            .map_err(RabbitMqError)?;
 
         info!(
             "Queue {} binded successfully to topic {} on exchange {}",
@@ -1035,7 +1035,7 @@ fn handle_feed_entity(
             .with_context(|| format!("Could not handle chaos disruption in FeedEntity {}", id))?;
         store_and_apply_chaos_disruption(real_time_model, chaos_disruption, base_model, data);
     } else if feed_entity.trip_update.is_some() {
-        let kirin_disruption = handle_kirin_protobuf(feed_entity, header_datetime, &base_model)
+        let kirin_disruption = handle_kirin_protobuf(feed_entity, header_datetime, base_model)
             .with_context(|| format!("Could not handle kirin disruption in FeedEntity {}", id))?;
         store_and_apply_kirin_disruption(real_time_model, kirin_disruption, base_model, data);
     } else {
