@@ -168,7 +168,7 @@ for folder in $(ls -d */); do
     # binarize
     echo "Launch binarisation"
     rm -f ${output}/${coverage}/data.nav.lz4
-    run python3 /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
+    run python /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
 
     # copy stoptime_loads if present
     if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
