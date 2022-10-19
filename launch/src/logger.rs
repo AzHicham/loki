@@ -6,6 +6,9 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 // Warning : this function will panic if called twice in the same program
 // https://docs.rs/tracing/latest/tracing/dispatcher/index.html
 pub fn init_logger() {
+    // This will enable all logs from loki* crates at INFO level, and deactivate all logs from other dependecies.
+    // See https://docs.rs/tracing-subscriber/0.3.16/tracing_subscriber/filter/struct.EnvFilter.html#directives
+    // for more details on how to configure log filtering
     let default_level = "loki=info";
     let rust_log =
         std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| default_level.to_string());
@@ -32,7 +35,9 @@ pub fn init_logger() {
 }
 
 pub fn subsciber_for_tests() -> impl SubscriberExt {
-    // will print logs at debug level from all loki* crates
+    // This will enable all logs from loki* crates at DEBUG level, and deactivate all logs from other dependecies.
+    // See https://docs.rs/tracing-subscriber/0.3.16/tracing_subscriber/filter/struct.EnvFilter.html#directives
+    // for more details on how to configure log filtering
     let default_level = "loki=debug";
     let rust_log =
         std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| default_level.to_string());
