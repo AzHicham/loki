@@ -4,7 +4,7 @@ FROM navitia/eitri:${NAVITIA_TAG}
 
 # install dependencies
 RUN apt-get update
-RUN  apt-get install -y jq
+RUN  apt-get install -y jq zip
 
 COPY ./docker/bina.sh /bina.sh
 
