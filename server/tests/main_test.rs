@@ -34,19 +34,22 @@ use std::{
     time::Duration,
 };
 
+use anyhow::bail;
 use lapin::{options::BasicPublishOptions, BasicProperties};
 pub use loki_server;
 use loki_server::{
     chaos_proto,
     master_worker::MasterWorker,
     navitia_proto,
-    server_config::{self, ChaosParams, ServerConfig},
+    server_config::{self, ChaosParams, HttpParams, ServerConfig},
+    status_worker,
 };
 use prost::Message;
 use protobuf::Message as ProtobufMessage;
 
 use launch::loki::{chrono::Utc, tracing::info, NaiveDateTime, PositiveDuration};
 use shiplift::builder::{BuildOptions, PullOptionsBuilder, RmContainerOptionsBuilder};
+use tracing::debug;
 
 mod subtests;
 
@@ -399,6 +402,8 @@ async fn send_realtime_message_and_wait_until_reception(
     config: &ServerConfig,
     realtime_message: chaos_proto::gtfs_realtime::FeedMessage,
 ) {
+    wait_until_realtime_queue_created(config).await;
+
     let before_message_datetime = Utc::now().naive_utc();
 
     // connect to rabbitmq
@@ -551,8 +556,83 @@ async fn send_reload_order(config: &ServerConfig) {
 }
 
 async fn reload_base_data(config: &ServerConfig) {
+    wait_until_reload_queue_created(config).await;
+
     let before_reload_datetime = Utc::now().naive_utc();
     send_reload_order(config).await;
 
-    crate::wait_until_data_loaded_after(&config.requests_socket, &before_reload_datetime).await;
+    wait_until_data_loaded_after(&config.requests_socket, &before_reload_datetime).await;
+}
+
+async fn wait_until_reload_queue_created(config: &ServerConfig) {
+    wait_until_status_has(
+        config,
+        |status| status.reload_queue_created,
+        "reload queue created",
+    )
+    .await;
+}
+
+async fn wait_until_realtime_queue_created(config: &ServerConfig) {
+    wait_until_status_has(
+        config,
+        |status| status.realtime_queue_created,
+        "realtime queue created",
+    )
+    .await;
+}
+
+async fn wait_until_status_has<F>(config: &ServerConfig, f: F, error_message: &str)
+where
+    F: Fn(&status_worker::Status) -> bool,
+{
+    let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
+    tokio::pin!(timeout);
+    let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(1));
+
+    loop {
+        retry_interval.tick().await;
+        tokio::select! {
+
+            status_response = http_status(&config.http) => {
+                match status_response {
+                    Err(err) => {
+                        info!("Http status error : {:?}", err)
+                    },
+                    Ok(status) => {
+                        if f(&status) {
+                            return;
+                        } else {
+                            debug!("Http status does not yet has {}. {:#?}", error_message, status);
+                        }
+                    }
+                }
+            }
+            _ = & mut timeout => {
+                panic!("Timeout while waiting until status has {}", error_message);
+            }
+        }
+    }
+}
+
+async fn http_status(http_params: &HttpParams) -> Result<status_worker::Status, anyhow::Error> {
+    use hyper::body::Buf;
+    let client = hyper::client::Client::new();
+    let address = http_params.http_address.to_string();
+    let uri_string = format!("http://{}/status", address);
+    let uri = hyper::Uri::from_str(&uri_string).expect("Bad status uri");
+
+    let response = client.get(uri).await?;
+
+    if response.status() != hyper::StatusCode::OK {
+        bail!(
+            "Http status responded with code {:?} while a StatusCode::Ok was expected",
+            response.status()
+        );
+    }
+
+    // Taken from example https://github.com/hyperium/hyper/blob/8ae73cac6a8f6a61944505c121158dc312e7b68f/examples/client_json.rs
+    let body = hyper::body::aggregate(response).await?;
+    let status = serde_json::from_reader(body.reader())?;
+    Ok(status)
 }

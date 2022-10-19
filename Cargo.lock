@@ -1483,6 +1483,7 @@ dependencies = [
  "shiplift",
  "structopt",
  "tempfile",
+ "thiserror",
  "tmq",
  "tokio",
  "toml 0.5.9",

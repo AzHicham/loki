@@ -127,9 +127,6 @@ pub struct RabbitMqParams {
     #[serde(default = "default_rabbitmq_real_time_topics")]
     pub real_time_topics: Vec<String>,
 
-    #[serde(default = "default_rabbitmq_queue_auto_delete")]
-    pub queue_auto_delete: bool,
-
     #[serde(default = "default_real_time_update_interval")]
     pub real_time_update_interval: PositiveDuration,
 
@@ -141,6 +138,12 @@ pub struct RabbitMqParams {
 
     #[serde(default = "default_reload_kirin_timeout")]
     pub reload_kirin_timeout: PositiveDuration,
+
+    #[serde(default = "default_reload_queue_expires")]
+    pub reload_queue_expires: PositiveDuration,
+
+    #[serde(default = "default_realtime_queue_expires")]
+    pub realtime_queue_expires: PositiveDuration,
 }
 
 pub fn default_rabbitmq_endpoint() -> String {
@@ -153,10 +156,6 @@ pub fn default_rabbitmq_exchange() -> String {
 
 pub fn default_rabbitmq_real_time_topics() -> Vec<String> {
     Vec::new()
-}
-
-pub fn default_rabbitmq_queue_auto_delete() -> bool {
-    false
 }
 
 pub fn default_real_time_update_interval() -> PositiveDuration {
@@ -175,17 +174,26 @@ pub fn default_reload_kirin_timeout() -> PositiveDuration {
     PositiveDuration::from_str("00:00:10").unwrap()
 }
 
+pub fn default_reload_queue_expires() -> PositiveDuration {
+    PositiveDuration::from_str("02:00:00").unwrap()
+}
+
+pub fn default_realtime_queue_expires() -> PositiveDuration {
+    PositiveDuration::from_str("02:00:00").unwrap()
+}
+
 impl Default for RabbitMqParams {
     fn default() -> Self {
         Self {
             endpoint: default_rabbitmq_endpoint(),
             exchange: default_rabbitmq_exchange(),
             real_time_topics: default_rabbitmq_real_time_topics(),
-            queue_auto_delete: default_rabbitmq_queue_auto_delete(),
             real_time_update_interval: default_real_time_update_interval(),
             connect_retry_interval: default_rabbitmq_connect_retry_interval(),
             reload_request_time_to_live: default_reload_request_time_to_live(),
             reload_kirin_timeout: default_reload_kirin_timeout(),
+            reload_queue_expires: default_reload_queue_expires(),
+            realtime_queue_expires: default_realtime_queue_expires(),
         }
     }
 }

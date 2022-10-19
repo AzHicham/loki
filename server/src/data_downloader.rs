@@ -45,9 +45,6 @@ pub struct DataDownloader {
 
     // S3 key of ntfs/gtfs file
     data_key: String,
-
-    // latest version_id of ntfs/gtfs file
-    data_version_id: String,
 }
 
 pub enum DownloadStatus {
@@ -92,11 +89,10 @@ impl DataDownloader {
         Ok(Self {
             bucket,
             data_key: config.data_path_key.clone(),
-            data_version_id: "".to_string(),
         })
     }
 
-    async fn get_file_version_id(&self, file_key: &str) -> Result<String, Error> {
+    async fn _get_file_version_id(&self, file_key: &str) -> Result<String, Error> {
         let (meta, status_code) = self.bucket.head_object(&file_key).await?;
         let version_id = if status_code == 200 {
             if let Some(version_id) = meta.last_modified {
@@ -121,35 +117,25 @@ impl DataDownloader {
         Ok(version_id)
     }
 
-    async fn download_file(&self, file_key: &str) -> Result<Vec<u8>, Error> {
-        let response = self.bucket.get_object(file_key).await.context(format!(
-            "Cannot download file {} from bucket {}",
-            file_key, self.bucket.name
-        ))?;
+    pub async fn download_data(&self) -> Result<Vec<u8>, Error> {
+        let response = self
+            .bucket
+            .get_object(&self.data_key)
+            .await
+            .context(format!(
+                "Cannot download file {} from bucket {}",
+                self.data_key, self.bucket.name
+            ))?;
         let status_code = response.status_code();
         if status_code == 200 {
             Ok(response.bytes().to_owned())
         } else {
             bail!(
                 "Error while downloading file {} from bucket {}, status code : {}",
-                file_key,
+                self.data_key,
                 self.bucket.name,
                 status_code
             )
-        }
-    }
-
-    pub async fn download_data(&mut self) -> Result<DownloadStatus, Error> {
-        // get meta info about file we are going to download
-        // if file has already been download skip the download
-        let version_id = self.get_file_version_id(&self.data_key).await?;
-        if self.data_version_id != version_id {
-            let data = self.download_file(&self.data_key).await?;
-            let cursor = std::io::Cursor::new(data);
-            self.data_version_id = version_id;
-            Ok(DownloadStatus::Ok(cursor))
-        } else {
-            Ok(DownloadStatus::AlreadyPresent)
         }
     }
 }

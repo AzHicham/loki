@@ -38,7 +38,7 @@ use crate::{
     http_worker::HttpToStatusChannel,
     zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::navitia_proto;
 
@@ -75,20 +75,22 @@ pub struct StatusWorker {
     shutdown_sender: mpsc::Sender<()>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Status {
     pub base_data_info: Option<BaseDataInfo>,
     pub config_info: ConfigInfo,
     pub last_load_succeeded: bool, // last reload was successful
     pub is_realtime_loaded: bool,  // is_realtime_loaded for the last reload
     pub is_connected_to_rabbitmq: bool,
+    pub realtime_queue_created: bool,
+    pub reload_queue_created: bool,
     pub last_kirin_reload: Option<NaiveDateTime>,
     pub last_chaos_reload: Option<NaiveDateTime>,
     pub last_real_time_update: Option<NaiveDateTime>,
     pub loki_version: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -99,17 +101,20 @@ pub struct BaseDataInfo {
     pub publisher_name: Option<String>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConfigInfo {
     pub instance_name: String,
     pub real_time_contributors: Vec<String>,
     pub nb_workers: u16,
 }
 
+#[derive(Debug)]
 pub enum StatusUpdate {
     BaseDataLoadFailed,
     BaseDataLoad(BaseDataInfo),
     RabbitMqConnected,
+    RealTimeQueueCreated,
+    ReloadQueueCreated,
     RabbitMqDisconnected,
     ChaosReload(NaiveDateTime),
     KirinReload(NaiveDateTime),
@@ -135,6 +140,8 @@ impl StatusWorker {
                 last_load_succeeded: false,
                 is_realtime_loaded: false,
                 is_connected_to_rabbitmq: false,
+                realtime_queue_created: false,
+                reload_queue_created: false,
                 last_chaos_reload: None,
                 last_kirin_reload: None,
                 last_real_time_update: None,
@@ -325,6 +332,18 @@ impl StatusWorker {
                     warn!("StatusWorker : received RabbitMqConnected update while I should already be connected to rabbitmq");
                 }
                 self.status.is_connected_to_rabbitmq = true;
+            }
+            StatusUpdate::RealTimeQueueCreated => {
+                if self.status.realtime_queue_created {
+                    warn!("StatusWorker : received RealTimeQueueCreated update while it should already be created");
+                }
+                self.status.realtime_queue_created = true;
+            }
+            StatusUpdate::ReloadQueueCreated => {
+                if self.status.reload_queue_created {
+                    warn!("StatusWorker : received ReloadQueueCreated update while it should already be created");
+                }
+                self.status.reload_queue_created = true;
             }
             StatusUpdate::RabbitMqDisconnected => {
                 if !self.status.is_connected_to_rabbitmq {

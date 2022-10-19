@@ -192,6 +192,10 @@ impl PositiveDuration {
         u64::from(self.seconds)
     }
 
+    pub fn total_seconds_u32(&self) -> u32 {
+        self.seconds
+    }
+
     pub fn to_hms_string(&self) -> String {
         let hours = self.seconds / (60 * 60);
         let minutes_in_secs = self.seconds % (60 * 60);
