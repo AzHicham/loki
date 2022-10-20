@@ -86,7 +86,7 @@ pub fn launch_server() -> Result<(), Error> {
             ))?
         }
         _ => {
-            anyhow::bail!("Unexpected number of arguments {}", args.len());
+            anyhow::bail!("Unexpected number of arguments {}.", args.len());
         }
     };
     debug!("Launching with config : {:#?}", config);
