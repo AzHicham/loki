@@ -36,7 +36,7 @@
 
 mod utils;
 use anyhow::Error;
-use launch::config::ComparatorType;
+use loki_launch::config::ComparatorType;
 
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
@@ -139,7 +139,7 @@ fn test_no_filter(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
     let config = Config {
@@ -174,7 +174,7 @@ fn test_filter_forbidden_stop_point(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -212,7 +212,7 @@ fn test_filter_allowed_stop_point(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -257,7 +257,7 @@ fn test_filter_forbidden_route(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -294,7 +294,7 @@ fn test_filter_allowed_route(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : stop_point:C is forbidden
     let config = Config::new("2020-01-01T09:59:00", "A", "J");
@@ -331,7 +331,7 @@ fn test_filter_wheelchair_no_solution(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : wheelchair_accessible = true,
     let config = Config::new("2020-01-01T09:59:00", "E", "G");
@@ -369,7 +369,7 @@ fn test_filter_bike(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : wheelchair_accessible = true,
     let config = Config::new("2020-01-01T09:59:00", "A", "C");
@@ -412,7 +412,7 @@ fn test_filter_accessibility_with_transfer(
     #[case] comparator_type: ComparatorType,
     fixture_model: BaseModel,
 ) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // With Filter : wheelchair_accessible = true,
     let config = Config::new("2020-01-01T09:59:00", "A", "G");

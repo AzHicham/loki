@@ -65,7 +65,7 @@ pub mod zmq_worker;
 pub mod data_worker;
 pub mod server_config;
 
-use launch::loki::tracing::{debug, info};
+use loki_launch::loki::tracing::{debug, info};
 use server_config::ServerConfig;
 
 use structopt::StructOpt;

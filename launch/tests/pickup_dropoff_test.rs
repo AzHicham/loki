@@ -36,11 +36,11 @@
 
 mod utils;
 use anyhow::Error;
-use launch::{
+use loki::{models::base_model::BaseModel, PositiveDuration};
+use loki_launch::{
     config::ComparatorType,
     loki::models::{real_time_model::RealTimeModel, ModelRefs},
 };
-use loki::{models::base_model::BaseModel, PositiveDuration};
 use rstest::rstest;
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
@@ -48,7 +48,7 @@ use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -85,7 +85,7 @@ fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), 
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {
@@ -122,7 +122,7 @@ fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(),
 #[case(ComparatorType::Loads)]
 #[case(ComparatorType::Basic)]
 fn test_skipped_stop(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .vj("toto", |vj_builder| {

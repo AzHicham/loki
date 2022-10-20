@@ -32,7 +32,7 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 
 use chaos_proto::gtfs_realtime as gtfs_proto;
 use gtfs_proto::FeedHeader;
-use launch::loki::{
+use loki_launch::loki::{
     chrono,
     chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
     models::real_time_disruption::time_periods::TimePeriod,

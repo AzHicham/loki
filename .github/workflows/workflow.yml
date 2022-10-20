@@ -28,7 +28,7 @@ jobs:
         fail-fast: false
         matrix:
                 build_type: [{name: "Release", flag: "--release"}, {name: "Debug", flag: ""}]
-                features: ["launch/vehicle_loads", ""]
+                features: ["loki_launch/vehicle_loads", ""]
 
     steps:
     - name: Set Swap Space

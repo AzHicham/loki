@@ -45,7 +45,7 @@ use diesel::{
     prelude::*,
     sql_types::{Bit, Date, Int4, Int8, Nullable, Text, Time, Timestamp, Uuid},
 };
-use launch::loki::{
+use loki_launch::loki::{
     chrono::{NaiveDate, NaiveTime, Timelike},
     models::real_time_disruption::chaos_disruption::BlockedStopArea,
     tracing::error,

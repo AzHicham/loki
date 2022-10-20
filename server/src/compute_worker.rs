@@ -41,7 +41,7 @@ use crate::{
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{format_err, Context, Error};
-use launch::{
+use loki_launch::{
     config::{self, ComparatorType},
     datetime::DateTimeRepresent,
     loki::{
@@ -138,7 +138,7 @@ impl ComputeWorker {
                     )
                 })?;
 
-            debug!("Worker {} sent his response.", self.worker_id.id);
+            trace!("Worker {} sent his response.", self.worker_id.id);
         }
     }
 
@@ -151,9 +151,11 @@ impl ComputeWorker {
         let requested_api = proto_request.requested_api();
 
         let start_request_time = SystemTime::now();
-        debug!(
+        trace!(
             "Worker {} received request on api {:?} with id '{}'",
-            self.worker_id.id, requested_api, request_id
+            self.worker_id.id,
+            requested_api,
+            request_id
         );
 
         let result = match requested_api {
@@ -477,11 +479,6 @@ fn solve(
     })?;
     let departure_datetime = loki::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
 
-    debug!(
-        "Requested timestamp {}, datetime {}",
-        departure_timestamp_u64, departure_datetime
-    );
-
     let max_journey_duration = u32::try_from(journey_request.max_duration)
         .map(|duration| PositiveDuration::from_hms(0, 0, duration))
         .unwrap_or_else(|_| {
@@ -568,7 +565,6 @@ fn solve(
         true => DateTimeRepresent::Departure,
         false => DateTimeRepresent::Arrival,
     };
-    trace!("{:#?}", request_input);
 
     let responses = solver.solve_journey_request(
         data,

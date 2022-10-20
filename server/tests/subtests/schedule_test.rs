@@ -27,7 +27,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::loki::{chrono::NaiveDate, schedule::ScheduleOn, NaiveDateTime, RealTimeLevel};
+use loki_launch::loki::{chrono::NaiveDate, schedule::ScheduleOn, NaiveDateTime, RealTimeLevel};
 use loki_server::{navitia_proto, server_config::ServerConfig};
 
 pub async fn simple_next_departure_test(config: &ServerConfig) {

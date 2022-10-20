@@ -38,18 +38,18 @@ pub mod disruption_builder;
 pub mod model_builder;
 
 use anyhow::{format_err, Error};
-use launch::{
-    config,
-    config::launch_params::default_transfer_duration,
-    datetime::DateTimeRepresent,
-    loki::{response, response::VehicleSection, RequestInput},
-    solver::Solver,
-};
 use loki::{
     chrono::TimeZone,
     filters::{parse_filter, Filters},
     models::ModelRefs,
     RealTimeLevel,
+};
+use loki_launch::{
+    config,
+    config::launch_params::default_transfer_duration,
+    datetime::DateTimeRepresent,
+    loki::{response, response::VehicleSection, RequestInput},
+    solver::Solver,
 };
 
 use loki::{chrono_tz, tracing::debug};
@@ -142,7 +142,7 @@ pub fn build_and_solve(
     config: &Config,
 ) -> Result<Vec<response::Response>, Error> {
     use loki::DataTrait;
-    let data: TransitData = launch::read::build_transit_data(model.base);
+    let data: TransitData = loki_launch::read::build_transit_data(model.base);
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 

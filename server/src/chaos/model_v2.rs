@@ -48,7 +48,7 @@ use crate::{
 };
 use anyhow::Error;
 use diesel::prelude::*;
-use launch::loki::{
+use loki_launch::loki::{
     chrono::{NaiveDate, NaiveTime},
     NaiveDateTime,
 };

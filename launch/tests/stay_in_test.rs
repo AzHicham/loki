@@ -37,7 +37,7 @@
 mod utils;
 
 use anyhow::Error;
-use launch::config::launch_params::default_transfer_duration;
+use loki_launch::config::launch_params::default_transfer_duration;
 
 use loki::{
     chrono::NaiveDate,
@@ -123,7 +123,7 @@ fn is_backward_stay_in(
 
 #[test]
 fn simple_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -147,7 +147,7 @@ fn simple_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     {
         // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
@@ -184,7 +184,7 @@ fn simple_stay_in() -> Result<(), Error> {
 
 #[test]
 fn multiple_stay() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -215,7 +215,7 @@ fn multiple_stay() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     {
         // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
@@ -255,7 +255,7 @@ fn multiple_stay() -> Result<(), Error> {
 
 #[test]
 fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -279,7 +279,7 @@ fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no nxt_trip stay_in
@@ -296,7 +296,7 @@ fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
 
 #[test]
 fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -327,7 +327,7 @@ fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no next_trip stay_in
@@ -355,7 +355,7 @@ fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
 
 #[test]
 fn chain_multiple_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -386,7 +386,7 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     {
         // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
@@ -435,7 +435,7 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
 
 #[test]
 fn stay_in_with_local_zone() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
@@ -466,7 +466,7 @@ fn stay_in_with_local_zone() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     {
         assert!(is_forward_stay_in("first", None, &data, &base_model));
@@ -489,7 +489,7 @@ fn stay_in_with_local_zone() -> Result<(), Error> {
 
 #[test]
 fn different_validity_day_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
@@ -521,7 +521,7 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     // this assert test if we have a trip to stay_in after trip { vj 'first' on date 2020-01-01 }
     // we should find no Trip because vj 'second' is valid on a different day ie '2020-01-02"
@@ -534,7 +534,7 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
 
 #[test]
 fn multiple_day_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     // We set 10 days of validity in the calendar
     let model = ModelBuilder::new("2020-01-01", "2020-01-10")
@@ -558,7 +558,7 @@ fn multiple_day_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     let vehicle_journey_idx = base_model.vehicle_journey_idx("first").unwrap();
     let vehicle_journey_first = base_model.vehicle_journey(vehicle_journey_idx);
@@ -594,7 +594,7 @@ fn multiple_day_stay_in() -> Result<(), Error> {
 
 #[test]
 fn past_midnight_on_same_valid_day_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-01")
         .vj("first", |vj_builder| {
@@ -617,7 +617,7 @@ fn past_midnight_on_same_valid_day_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     assert!(is_forward_stay_in(
         "first",
@@ -638,7 +638,7 @@ fn past_midnight_on_same_valid_day_stay_in() -> Result<(), Error> {
 
 #[test]
 fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-2")
         .calendar_mut("c1", |c| {
@@ -669,7 +669,7 @@ fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
         BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
             .unwrap();
 
-    let data = launch::read::build_transit_data(&base_model);
+    let data = loki_launch::read::build_transit_data(&base_model);
 
     // a stay-in may happens only between trips with the same reference date
     // so even if the stop_times would allow to stay-in from (vj 'first' on 2020-01-01) to (vj 'second' on 2020-01-02)

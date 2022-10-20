@@ -35,7 +35,7 @@
 // www.navitia.io
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::{
+use loki_launch::loki::{
     chrono::{Duration, NaiveDate},
     models::{
         base_model::{strip_id_prefix, BaseModel, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY},

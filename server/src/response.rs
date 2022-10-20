@@ -37,7 +37,7 @@
 use crate::navitia_proto::{self};
 use std::collections::HashSet;
 
-use launch::loki::{
+use loki_launch::loki::{
     self,
     models::{
         real_time_disruption::{
@@ -67,10 +67,6 @@ use loki::{
 };
 
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::{
-    models::base_model::StopLocationIdx,
-    transit_model::objects::{Pathway, PathwayMode, StopType},
-};
 use loki::{
     chrono::Timelike,
     models::base_model::{
@@ -84,6 +80,10 @@ use loki::{
     places_nearby::PlacesNearbyIter,
     transit_data_filtered::TransitModelTime,
     transit_model::objects::{Availability, Line, Network, Route, StopArea},
+};
+use loki_launch::loki::{
+    models::base_model::StopLocationIdx,
+    transit_model::objects::{Pathway, PathwayMode, StopType},
 };
 use num_traits::cast::ToPrimitive;
 use std::convert::TryFrom;

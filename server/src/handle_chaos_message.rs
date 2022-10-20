@@ -36,7 +36,7 @@
 
 use crate::chaos_proto;
 use anyhow::{bail, format_err, Context, Error};
-use launch::loki::{
+use loki_launch::loki::{
     chrono::NaiveTime,
     models::{
         base_model::{

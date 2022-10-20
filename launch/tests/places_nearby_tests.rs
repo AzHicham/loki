@@ -117,7 +117,7 @@ pub fn fixture_model() -> BaseModel {
 
 #[rstest]
 fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&fixture_model, &real_time_model);
@@ -184,7 +184,7 @@ fn places_nearby_error_handling(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn places_nearby_coord(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     places_nearby_impl_test(
         &fixture_model,
@@ -212,7 +212,7 @@ fn places_nearby_coord(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn places_nearby_stop_point(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     places_nearby_impl_test(
         &fixture_model,
@@ -233,7 +233,7 @@ fn places_nearby_stop_point(fixture_model: BaseModel) -> Result<(), Error> {
 
 #[rstest]
 fn places_nearby_stop_area(fixture_model: BaseModel) -> Result<(), Error> {
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     places_nearby_impl_test(
         &fixture_model,

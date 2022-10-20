@@ -1,5 +1,5 @@
 [package]
-name = "launch"
+name = "loki_launch"
 version = "0.1.0"
 authors = ["Pascal Benchimol <pascal.benchimol@kisio.com>"]
 edition = "2021"

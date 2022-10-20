@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use launch::{
+use loki_launch::{
     config,
     datetime::DateTimeRepresent,
     loki::{
@@ -121,7 +121,7 @@ pub fn read_config(config_file_path: &Path) -> Result<Config, Error> {
 pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error> {
     use loki::DataTrait;
 
-    let (data, base_model) = launch::read(&config.launch_params)?;
+    let (data, base_model) = loki_launch::read(&config.launch_params)?;
 
     let mut solver = Solver::new(data.nb_of_stops(), data.nb_of_missions());
 
@@ -129,7 +129,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
 
     let datetime = match &config.datetime {
-        Some(string_datetime) => launch::datetime::parse_datetime(string_datetime)?,
+        Some(string_datetime) => loki_launch::datetime::parse_datetime(string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
             naive_date.and_hms(8, 0, 0)
@@ -143,7 +143,7 @@ pub fn launch(config: Config) -> Result<(BaseModel, Vec<loki::Response>), Error>
     let start_stop_area_uri = &config.start_stop_area;
     let end_stop_area_uri = &config.end_stop_area;
 
-    let request_input = launch::stop_areas::make_query_stop_areas(
+    let request_input = loki_launch::stop_areas::make_query_stop_areas(
         &base_model,
         &datetime,
         start_stop_area_uri,

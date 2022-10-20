@@ -36,11 +36,11 @@
 
 use crate::utils::{build_and_solve, Config};
 use anyhow::Error;
-use launch::{config::ComparatorType, read::read_loads_data};
 use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     PositiveDuration,
 };
+use loki_launch::{config::ComparatorType, read::read_loads_data};
 use utils::model_builder::ModelBuilder;
 mod utils;
 
@@ -81,7 +81,7 @@ fn test_loads_matin() -> Result<(), Error> {
     // The `soir` trip arrives later and has a high load, and thus should
     //  not be present.
 
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let base_model = create_model();
 
@@ -114,7 +114,7 @@ fn test_loads_midi() -> Result<(), Error> {
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
     // later than `midi` with a higher load
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let base_model = create_model();
 
@@ -141,7 +141,7 @@ fn test_without_loads_matin() -> Result<(), Error> {
     // We do NOT use the loads as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
-    let _log_guard = launch::logger::init_test_logger();
+    let _log_guard = loki_launch::logger::init_test_logger();
 
     let base_model = create_model();
 
