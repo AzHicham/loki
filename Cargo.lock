@@ -1481,7 +1481,6 @@ dependencies = [
  "serde",
  "serde_json",
  "shiplift",
- "structopt",
  "tempfile",
  "thiserror",
  "tmq",

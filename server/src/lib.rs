@@ -68,30 +68,28 @@ pub mod server_config;
 use loki_launch::loki::tracing::{debug, info};
 use server_config::ServerConfig;
 
-use structopt::StructOpt;
-
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 use anyhow::{Context, Error};
 
-#[derive(StructOpt)]
-#[structopt(
-    name = "loki_server",
-    about = "Run loki server.",
-    rename_all = "snake_case"
-)]
-pub struct Options {
-    /// path to the config file
-    #[structopt(parse(from_os_str))]
-    config_file: PathBuf,
-}
-
 pub fn launch_server() -> Result<(), Error> {
-    let options = Options::from_args();
-    let config = read_config(&options.config_file)?;
+    let mut args = std::env::args();
+    let config = match args.len() {
+        1 => ServerConfig::new_from_env_vars().context("Could not read config from env vars")?,
+        2 => {
+            let _ = args.next();
+            // unwrap is safe, we checked that args has at least 2 elements
+            let config_file_path = args.next().unwrap();
+            read_config(&Path::new(&config_file_path)).context(format!(
+                "Could not read config from file path {}",
+                config_file_path
+            ))?
+        }
+        _ => {
+            anyhow::bail!("Unexpected number of arguments {}", args.len());
+        }
+    };
+    debug!("Launching with config : {:#?}", config);
     launch_master_worker(config)
 }
 
@@ -100,7 +98,7 @@ pub fn read_config(config_file_path: &Path) -> Result<ServerConfig, Error> {
     let content = fs::read_to_string(config_file_path)
         .with_context(|| format!("Error opening config file {:?}", &config_file_path))?;
     let config: ServerConfig = toml::from_str(&content)?;
-    debug!("Launching with config : {:#?}", config);
+
     Ok(config)
 }
 
