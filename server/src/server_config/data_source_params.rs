@@ -50,7 +50,7 @@ pub enum DataSourceParams {
 impl DataSourceParams {
     pub fn new_from_env_vars() -> Result<Self, Error> {
         let data_source_type = std::env::var("LOKI_DATA_SOURCE_TYPE")
-            .context("Could not read mandatory env var LOKI_INSTANCE_NAME")?;
+            .context("Could not read mandatory env var LOKI_DATA_SOURCE_TYPE")?;
         match data_source_type.trim() {
             "s3" => {
                 let bucket_params = BucketParams::new_from_env_vars();
