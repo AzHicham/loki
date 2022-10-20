@@ -19,7 +19,7 @@ pub fn init_logger() {
             default_level,
             err,
         );
-        EnvFilter::new(default_level.to_string())
+        EnvFilter::new(default_level)
     });
     let format = tracing_subscriber::fmt::format()
         .with_thread_ids(false) // set to true to display id of the thread emitting the log
@@ -34,7 +34,8 @@ pub fn init_logger() {
         .expect("Failed to set global tracing subscriber.");
 }
 
-pub fn subsciber_for_tests() -> impl SubscriberExt {
+#[must_use]
+pub fn subscriber_for_tests() -> impl SubscriberExt {
     // This will enable all logs from loki* crates at DEBUG level, and deactivate all logs from other dependecies.
     // See https://docs.rs/tracing-subscriber/0.3.16/tracing_subscriber/filter/struct.EnvFilter.html#directives
     // for more details on how to configure log filtering
@@ -48,7 +49,7 @@ pub fn subsciber_for_tests() -> impl SubscriberExt {
             default_level,
             err,
         );
-        EnvFilter::new(default_level.to_string())
+        EnvFilter::new(default_level)
     });
     let format = tracing_subscriber::fmt::format()
         .with_thread_ids(false) // set to true to display id of the thread emitting the log
@@ -73,7 +74,7 @@ pub fn subsciber_for_tests() -> impl SubscriberExt {
 // This logger support libtest's output capturing
 // https://docs.rs/tracing-subscriber/0.3.3/tracing_subscriber/fmt/struct.Layer.html#method.with_test_writer
 pub fn init_test_logger() -> DefaultGuard {
-    let subscriber = subsciber_for_tests();
+    let subscriber = subscriber_for_tests();
     loki::tracing::subscriber::set_default(subscriber)
 }
 
@@ -85,7 +86,7 @@ pub fn init_test_logger() -> DefaultGuard {
 // This logger support libtest's output capturing
 // https://docs.rs/tracing-subscriber/0.3.3/tracing_subscriber/fmt/struct.Layer.html#method.with_test_writer
 pub fn init_global_test_logger() {
-    let subscriber = subsciber_for_tests();
+    let subscriber = subscriber_for_tests();
     loki::tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set global tracing subscriber.");
 }
