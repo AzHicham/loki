@@ -41,7 +41,7 @@ use loki_server::{
     chaos_proto,
     master_worker::MasterWorker,
     navitia_proto,
-    server_config::{self, ChaosParams, HttpParams, ServerConfig},
+    server_config::{self, chaos_params::ChaosParams, http_params::HttpParams, ServerConfig},
     status_worker,
 };
 use prost::Message;
@@ -90,7 +90,7 @@ async fn run() {
     let mut config = ServerConfig::new(input_data_path, zmq_endpoint, instance_name);
     let chaos_params = ChaosParams {
         database: chaos_endpoint.to_string(),
-        batch_size: server_config::default_batch_size(),
+        batch_size: server_config::chaos_params::default_batch_size(),
     };
     config.chaos = Some(chaos_params.clone());
     config.rabbitmq.endpoint = rabbitmq_endpoint.to_string();

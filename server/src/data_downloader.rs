@@ -39,7 +39,7 @@ use core::time::Duration;
 use s3::{creds::Credentials, Bucket, Region};
 use std::io::Cursor;
 
-use crate::server_config::BucketParams;
+use crate::server_config::data_source_params::BucketParams;
 pub struct DataDownloader {
     bucket: Bucket,
 

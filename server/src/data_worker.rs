@@ -89,7 +89,7 @@ use std::{
 
 use crate::{
     data_downloader::DataDownloader, handle_chaos_message::handle_chaos_protobuf,
-    server_config::DataSourceParams,
+    server_config::data_source_params::DataSourceParams,
 };
 use loki_launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
@@ -798,7 +798,7 @@ impl DataWorker {
             "{}",
             self.config
                 .rabbitmq
-                .reload_request_time_to_live
+                .reload_kirin_request_time_to_live
                 .total_seconds()
                 * 1000
         );

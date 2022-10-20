@@ -35,7 +35,7 @@ use hyper::{
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 
-use crate::{server_config::HttpParams, status_worker::Status};
+use crate::{server_config::http_params::HttpParams, status_worker::Status};
 
 pub struct HttpToStatusChannel {
     // http worker will send a oneshot::Sender through `status_request_receiver`
