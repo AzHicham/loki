@@ -62,7 +62,7 @@ real_time_topics = [
 
 real_time_update_interval = '00:00:30'
 connect_retry_interval = '00:00:10'
-reload_request_time_to_live = '00:00:02'
+reload_kirin_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 reload_queue_expires = '02:00:00'
 realtime_queue_expires = '02:00:00'

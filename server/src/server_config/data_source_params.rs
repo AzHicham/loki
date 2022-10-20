@@ -63,7 +63,7 @@ impl DataSourceParams {
             }
             _ => {
                 anyhow::bail!(
-                    "Bad LOKI_DATA_SOURCE_TYPE : {}. Allowed values are 's3' or 'local'",
+                    "Bad LOKI_DATA_SOURCE_TYPE : '{}'. Allowed values are 's3' or 'local'",
                     data_source_type
                 );
             }
