@@ -36,6 +36,7 @@
 
 use anyhow::Context;
 
+use loki_launch::config::parse_env_var;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
@@ -61,10 +62,9 @@ impl ChaosParams {
     pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
         let database = std::env::var("LOKI_CHAOS_DATABASE")
             .context("Could not read mandatory env var LOKI_CHAOS_DATABASE")?;
-        let batch_size = {
-            let string = std::env::var("CHAOS_BATCH_SIZE").unwrap_or_default();
-            u32::from_str(&string).unwrap_or_else(|_| default_batch_size())
-        };
+        let batch_size =
+            parse_env_var("LOKI_CHAOS_BATCH_SIZE", default_batch_size(), u32::from_str);
+
         Ok(Self {
             database,
             batch_size,

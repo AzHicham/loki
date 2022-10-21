@@ -38,6 +38,8 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 use loki::{PositiveDuration, RealTimeLevel};
+
+use super::parse_env_var;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RequestParams {
@@ -115,30 +117,42 @@ impl Default for RequestParams {
 
 impl RequestParams {
     pub fn new_from_env_vars() -> Self {
-        let leg_arrival_penalty = {
-            let s = std::env::var("LOKI_LEG_ARRIVAL_PENALTY").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_leg_arrival_penalty())
-        };
-        let leg_walking_penalty = {
-            let s = std::env::var("LOKI_LEG_WALKING_PENALTY").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_leg_walking_penalty())
-        };
-        let max_nb_of_legs = {
-            let s = std::env::var("LOKI_MAX_NB_OF_LEGS").unwrap_or_default();
-            u8::from_str(&s).unwrap_or_else(|_| default_max_nb_of_legs())
-        };
-        let max_journey_duration = {
-            let s = std::env::var("LOKI_MAX_JOURNEY_DURATION").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_max_journey_duration())
-        };
-        let too_late_threshold = {
-            let s = std::env::var("LOKI_TOO_LATE_THRESHOLD").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_too_late_threshold())
-        };
-        let real_time_level = {
-            let s = std::env::var("LOKI_REAL_TIME_LEVEL").unwrap_or_default();
-            RealTimeLevel::from_str(&s).unwrap_or_else(|_| default_real_time_level())
-        };
+        let leg_arrival_penalty = parse_env_var(
+            "LOKI_LEG_ARRIVAL_PENALTY",
+            default_leg_arrival_penalty(),
+            PositiveDuration::from_str,
+        );
+
+        let leg_walking_penalty = parse_env_var(
+            "LOKI_LEG_WALKING_PENALTY",
+            default_leg_walking_penalty(),
+            PositiveDuration::from_str,
+        );
+
+        let max_nb_of_legs = parse_env_var(
+            "LOKI_MAX_NB_OF_LEGS",
+            default_max_nb_of_legs(),
+            u8::from_str,
+        );
+
+        let max_journey_duration = parse_env_var(
+            "LOKI_MAX_JOURNEY_DURATION",
+            default_max_journey_duration(),
+            PositiveDuration::from_str,
+        );
+
+        let too_late_threshold = parse_env_var(
+            "LOKI_TOO_LATE_THRESHOLD",
+            default_too_late_threshold(),
+            PositiveDuration::from_str,
+        );
+
+        let real_time_level = parse_env_var(
+            "LOKI_REAL_TIME_LEVEL",
+            default_real_time_level(),
+            RealTimeLevel::from_str,
+        );
+
         Self {
             leg_arrival_penalty,
             leg_walking_penalty,

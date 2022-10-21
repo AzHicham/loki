@@ -8,7 +8,7 @@ bucket_region = 'http://s3_hostname/'
 bucket_access_key = 'loki_rw'
 bucket_secret_key = 'my_secret_key'
 data_path_key = 'my_coverage/ntfs.zip'
-bucket_timeout_in_ms = 30_000
+bucket_timeout = '00:01:00'
 
 
 [default_request_params]

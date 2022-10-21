@@ -82,6 +82,8 @@ pub struct InputDataTypeConfigError {
 
 impl std::fmt::Display for InputDataTypeConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad input data type give : `{}`", self.input_type_name)
+        write!(f, "Bad input data type given : `{}`", self.input_type_name)
     }
 }
+
+impl std::error::Error for InputDataTypeConfigError {}

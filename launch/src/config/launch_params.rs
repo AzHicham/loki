@@ -36,7 +36,7 @@
 
 use std::path::PathBuf;
 
-use super::InputDataType;
+use super::{parse_env_var, read_env_var, InputDataType};
 use anyhow::Context;
 use loki::PositiveDuration;
 
@@ -90,9 +90,10 @@ impl LocalFileParams {
         let input_data_path = std::env::var("LOKI_INPUT_DATA_PATH")
             .map(PathBuf::from)
             .context("Could not read mandatory env var LOKI_INPUT_DATA_PATH")?;
-        let loads_data_path = std::env::var("LOKI_LOADS_DATA_PATH")
-            .map(|s| Some(PathBuf::from(s)))
-            .unwrap_or(None);
+
+        let loads_data_path =
+            read_env_var("LOKI_LOADS_DATA_PATH", None, |s| Some(PathBuf::from(s)));
+
         Ok(Self {
             input_data_path,
             loads_data_path,

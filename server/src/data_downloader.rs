@@ -83,7 +83,7 @@ impl DataDownloader {
             }
         };
 
-        let timeout = Duration::from_millis(u64::from(config.bucket_timeout_in_ms));
+        let timeout = Duration::from_secs(config.bucket_timeout.total_seconds());
         bucket.set_request_timeout(Some(timeout));
 
         Ok(Self {

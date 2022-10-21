@@ -36,7 +36,10 @@
 
 use anyhow::{Context, Error};
 
-use loki_launch::config::launch_params::LocalFileParams;
+use loki_launch::{
+    config::{launch_params::LocalFileParams, parse_env_var, read_env_var},
+    loki::PositiveDuration,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
@@ -89,8 +92,8 @@ pub struct BucketParams {
     #[serde(default = "default_data_path")]
     pub data_path_key: String,
 
-    #[serde(default = "default_bucket_timeout_in_ms")]
-    pub bucket_timeout_in_ms: u32,
+    #[serde(default = "default_bucket_timeout")]
+    pub bucket_timeout: PositiveDuration,
 }
 
 pub fn default_bucket_name() -> String {
@@ -113,8 +116,8 @@ pub fn default_data_path() -> String {
     "".to_string()
 }
 
-pub fn default_bucket_timeout_in_ms() -> u32 {
-    30_000
+pub fn default_bucket_timeout() -> PositiveDuration {
+    PositiveDuration::from_hms(0, 0, 30)
 }
 
 impl BucketParams {
@@ -125,25 +128,34 @@ impl BucketParams {
             bucket_access_key: default_bucket_access_key(),
             bucket_secret_key: default_bucket_secret_key(),
             data_path_key: default_data_path(),
-            bucket_timeout_in_ms: default_bucket_timeout_in_ms(),
+            bucket_timeout: default_bucket_timeout(),
         }
     }
 
     pub fn new_from_env_vars() -> Self {
         let bucket_name =
-            std::env::var("LOKI_BUCKET_NAME").unwrap_or_else(|_| default_bucket_name());
-        let bucket_region =
-            std::env::var("LOKI_BUCKET_REGION").unwrap_or_else(|_| default_bucket_region());
+            read_env_var("LOKI_BUCKET_NAME", default_bucket_name(), |s| s.to_string());
+        let bucket_region = read_env_var("LOKI_BUCKET_REGION", default_bucket_region(), |s| {
+            s.to_string()
+        });
         let bucket_access_key =
-            std::env::var("LOKI_BUCKET_ACCESS_KEY").unwrap_or_else(|_| default_bucket_access_key());
+            read_env_var("LOKI_BUCKET_ACCESS_KEY", default_bucket_access_key(), |s| {
+                s.to_string()
+            });
         let bucket_secret_key =
-            std::env::var("LOKI_BUCKET_SECRET_KEY").unwrap_or_else(|_| default_bucket_secret_key());
-        let data_path_key =
-            std::env::var("LOKI_BUCKET_DATA_PATH").unwrap_or_else(|_| default_data_path());
-        let bucket_timeout_in_ms = {
-            let string = std::env::var("LOKI_BUCKET_TIMEOUT_IN_MS").unwrap_or_default();
-            u32::from_str(&string).unwrap_or_else(|_| default_bucket_timeout_in_ms())
-        };
+            read_env_var("LOKI_BUCKET_SECRET_KEY", default_bucket_secret_key(), |s| {
+                s.to_string()
+            });
+
+        let data_path_key = read_env_var("LOKI_BUCKET_DATA_PATH", default_data_path(), |s| {
+            s.to_string()
+        });
+
+        let bucket_timeout = parse_env_var(
+            "LOKI_BUCKET_TIMEOUT_IN_MS",
+            default_bucket_timeout(),
+            PositiveDuration::from_str,
+        );
 
         Self {
             bucket_name,
@@ -151,7 +163,7 @@ impl BucketParams {
             bucket_access_key,
             bucket_secret_key,
             data_path_key,
-            bucket_timeout_in_ms,
+            bucket_timeout,
         }
     }
 }

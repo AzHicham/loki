@@ -34,7 +34,10 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki_launch::loki::PositiveDuration;
+use loki_launch::{
+    config::{parse_env_var, read_env_var},
+    loki::PositiveDuration,
+};
 
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
@@ -124,41 +127,58 @@ impl Default for RabbitMqParams {
 
 impl RabbitMqParams {
     pub fn new_from_env_vars() -> Self {
-        let endpoint =
-            std::env::var("LOKI_RABBITMQ_ENDPOINT").unwrap_or_else(|_| default_endpoint());
-        let exchange =
-            std::env::var("LOKI_RABBITMQ_EXCHANGE").unwrap_or_else(|_| default_exchange());
-        let realtime_topics: Vec<String> = {
-            let string = std::env::var("LOKI_REALTIME_TOPICS").unwrap_or_default();
-            // split at ";" characters
-            let iter = string.split_terminator(';');
-            iter.map(|substring| substring.trim().to_string()).collect()
-        };
-        let realtime_update_interval = {
-            let s = std::env::var("LOKI_REALTIME_UPDATE_INTERVAL").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_real_time_update_interval())
-        };
-        let connect_retry_interval = {
-            let s = std::env::var("LOKI_RABBITMQ_CONNECT_RETRY_INTERVAL").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_connect_retry_interval())
-        };
-        let reload_kirin_request_time_to_live = {
-            let s = std::env::var("LOKI_RELOAD_KIRIN_REQUEST_TIME_TO_LIVE").unwrap_or_default();
-            PositiveDuration::from_str(&s)
-                .unwrap_or_else(|_| default_reload_kirin_request_time_to_live())
-        };
-        let reload_kirin_timeout = {
-            let s = std::env::var("LOKI_RELOAD_KIRIN_TIMEOUT").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_reload_kirin_timeout())
-        };
-        let reload_queue_expires = {
-            let s = std::env::var("LOKI_RELOAD_QUEUE_EXPIRES").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_reload_queue_expires())
-        };
-        let realtime_queue_expires = {
-            let s = std::env::var("LOKI_REALTIME_QUEUE_EXPIRES").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_realtime_queue_expires())
-        };
+        let endpoint = read_env_var("LOKI_RABBITMQ_ENDPOINT", default_endpoint(), |s| {
+            s.to_string()
+        });
+        let exchange = read_env_var("LOKI_RABBITMQ_EXCHANGE", default_exchange(), |s| {
+            s.to_string()
+        });
+
+        let realtime_topics =
+            read_env_var("LOKI_REALTIME_TOPICS", default_real_time_topics(), |s| {
+                // split at ";" characters
+                let iter = s.split_terminator(';');
+                iter.map(|substring| substring.trim().to_string())
+                    .filter(|s| !s.is_empty()) // remove empty strings
+                    .collect::<Vec<String>>()
+            });
+
+        let realtime_update_interval = parse_env_var(
+            "LOKI_REALTIME_UPDATE_INTERVAL",
+            default_real_time_update_interval(),
+            PositiveDuration::from_str,
+        );
+
+        let connect_retry_interval = parse_env_var(
+            "LOKI_RABBITMQ_CONNECT_RETRY_INTERVAL",
+            default_connect_retry_interval(),
+            PositiveDuration::from_str,
+        );
+
+        let reload_kirin_request_time_to_live = parse_env_var(
+            "LOKI_RELOAD_KIRIN_REQUEST_TIME_TO_LIVE",
+            default_reload_kirin_request_time_to_live(),
+            PositiveDuration::from_str,
+        );
+
+        let reload_kirin_timeout = parse_env_var(
+            "LOKI_RELOAD_KIRIN_TIMEOUT",
+            default_reload_kirin_timeout(),
+            PositiveDuration::from_str,
+        );
+
+        let reload_queue_expires = parse_env_var(
+            "LOKI_RELOAD_QUEUE_EXPIRES",
+            default_reload_queue_expires(),
+            PositiveDuration::from_str,
+        );
+
+        let realtime_queue_expires = parse_env_var(
+            "LOKI_REALTIME_QUEUE_EXPIRES",
+            default_realtime_queue_expires(),
+            PositiveDuration::from_str,
+        );
+
         Self {
             endpoint,
             exchange,
@@ -170,5 +190,46 @@ impl RabbitMqParams {
             reload_queue_expires,
             realtime_queue_expires,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::server_config::rabbitmq_params::RabbitMqParams;
+
+    #[test]
+    fn test_single_topic() {
+        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic");
+        let params = RabbitMqParams::new_from_env_vars();
+
+        assert_eq!(params.realtime_topics, vec!["my-topic"]);
+        std::env::remove_var("LOKI_REALTIME_TOPICS");
+    }
+
+    #[test]
+    fn test_two_topics() {
+        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic; my.other.topic");
+        let params = RabbitMqParams::new_from_env_vars();
+
+        assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
+        std::env::remove_var("LOKI_REALTIME_TOPICS");
+    }
+
+    #[test]
+    fn test_middle_topic_empty() {
+        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic; ; my.other.topic");
+        let params = RabbitMqParams::new_from_env_vars();
+
+        assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
+        std::env::remove_var("LOKI_REALTIME_TOPICS");
+    }
+
+    #[test]
+    fn test_empty_topics() {
+        std::env::set_var("LOKI_REALTIME_TOPICS", " ; ;");
+        let params = RabbitMqParams::new_from_env_vars();
+
+        assert!(params.realtime_topics.is_empty());
+        std::env::remove_var("LOKI_REALTIME_TOPICS");
     }
 }

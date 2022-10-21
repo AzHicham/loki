@@ -40,13 +40,14 @@ pub mod http_params;
 pub mod rabbitmq_params;
 
 use anyhow::{Context, Error};
-use loki_launch::config::RequestParams;
+use loki_launch::config::{parse_env_var, RequestParams};
 use loki_launch::{config, loki::PositiveDuration};
 
 use loki_launch::config::{
     launch_params::{default_transfer_duration, LocalFileParams},
     InputDataType,
 };
+
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
@@ -122,20 +123,19 @@ impl ServerConfig {
         let requests_socket = std::env::var("LOKI_REQUESTS_SOCKET")
             .context("Could not read read mandatory env var LOKI_REQUESTS_SOCKET")?;
 
-        let input_data_type = {
-            let s = std::env::var("LOKI_INPUT_DATA_TYPE").unwrap_or_default();
-            InputDataType::from_str(&s).unwrap_or_default()
-        };
+        let input_data_type = parse_env_var(
+            "LOKI_INPUT_DATA_TYPE",
+            InputDataType::default(),
+            InputDataType::from_str,
+        );
 
-        let default_transfer_duration = {
-            let s = std::env::var("LOKI_DEFAULT_TRANSFER_DURATION").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_transfer_duration())
-        };
+        let default_transfer_duration = parse_env_var(
+            "LOKI_DEFAULT_TRANSFER_DURATION",
+            default_transfer_duration(),
+            PositiveDuration::from_str,
+        );
 
-        let nb_workers = {
-            let s = std::env::var("LOKI_NB_WORKERS").unwrap_or_default();
-            u16::from_str(&s).unwrap_or_else(|_| default_nb_workers())
-        };
+        let nb_workers = parse_env_var("LOKI_NB_WORKERS", default_nb_workers(), u16::from_str);
 
         let data_source = DataSourceParams::new_from_env_vars()
             .context("Could not read DataSourceParams from env vars")?;
@@ -169,6 +169,8 @@ pub fn default_nb_workers() -> u16 {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::server_config::ServerConfig;
 
     use super::super::read_config;
     use std::{path::PathBuf, str::FromStr};
@@ -213,5 +215,33 @@ mod tests {
             .join("typo_in_config.toml");
 
         assert!(read_config(&path).is_err());
+    }
+
+    #[test]
+    fn test_vars_empty() {
+        let params = ServerConfig::new_from_env_vars();
+        assert!(params.is_err());
+    }
+
+    #[test]
+    fn test_instance_name_only() {
+        std::env::set_var("LOKI_INSTANCE_NAME", "my-instance");
+        let params = ServerConfig::new_from_env_vars();
+
+        assert!(params.is_err());
+
+        std::env::remove_var("LOKI_INSTANCE_NAME");
+    }
+
+    #[test]
+    fn test_no_data_source_type() {
+        std::env::set_var("LOKI_INSTANCE_NAME", "my-instance");
+        std::env::set_var("LOKI_REQUESTS_SOCKET", "tcp://127.0.0.1:30001");
+        let params = ServerConfig::new_from_env_vars();
+
+        assert!(params.is_err());
+
+        std::env::remove_var("LOKI_INSTANCE_NAME");
+        std::env::remove_var("LOKI_REQUESTS_SOCKET");
     }
 }

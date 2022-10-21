@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki_launch::loki::PositiveDuration;
+use loki_launch::{config::parse_env_var, loki::PositiveDuration};
 
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
@@ -74,14 +74,18 @@ impl Default for HttpParams {
 
 impl HttpParams {
     pub fn new_from_env_vars() -> Self {
-        let http_address = {
-            let s = std::env::var("LOKI_HTTP_ADDRESS").unwrap_or_default();
-            std::net::SocketAddr::from_str(&s).unwrap_or_else(|_| default_http_address())
-        };
-        let http_request_timeout = {
-            let s = std::env::var("LOKI_HTTP_REQUEST_TIMEOUT").unwrap_or_default();
-            PositiveDuration::from_str(&s).unwrap_or_else(|_| default_http_request_timeout())
-        };
+        let http_address = parse_env_var(
+            "LOKI_HTTP_ADDRESS",
+            default_http_address(),
+            std::net::SocketAddr::from_str,
+        );
+
+        let http_request_timeout = parse_env_var(
+            "LOKI_HTTP_REQUEST_TIMEOUT",
+            default_http_request_timeout(),
+            PositiveDuration::from_str,
+        );
+
         Self {
             http_address,
             http_request_timeout,
