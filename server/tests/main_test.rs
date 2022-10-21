@@ -96,10 +96,10 @@ async fn run() {
     config.rabbitmq.endpoint = rabbitmq_endpoint.to_string();
     config.rabbitmq.reload_kirin_timeout = PositiveDuration::from_hms(0, 0, 1);
     config.rabbitmq.connect_retry_interval = PositiveDuration::from_hms(0, 0, 2);
-    config.rabbitmq.real_time_update_interval = PositiveDuration::from_hms(0, 0, 1);
+    config.rabbitmq.realtime_update_interval = PositiveDuration::from_hms(0, 0, 1);
     config
         .rabbitmq
-        .real_time_topics
+        .realtime_topics
         .push("test_realtime_topic".to_string());
 
     wait_until_connected_to_postgresql(&chaos_params.database).await;
@@ -418,7 +418,7 @@ async fn send_realtime_message_and_wait_until_reception(
     let mut payload = Vec::new();
     realtime_message.write_to_vec(&mut payload).unwrap();
 
-    let routing_key = &config.rabbitmq.real_time_topics[0];
+    let routing_key = &config.rabbitmq.realtime_topics[0];
     channel
         .basic_publish(
             &config.rabbitmq.exchange,

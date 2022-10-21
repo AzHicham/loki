@@ -49,10 +49,10 @@ pub struct RabbitMqParams {
     pub exchange: String,
 
     #[serde(default = "default_real_time_topics")]
-    pub real_time_topics: Vec<String>,
+    pub realtime_topics: Vec<String>,
 
     #[serde(default = "default_real_time_update_interval")]
-    pub real_time_update_interval: PositiveDuration,
+    pub realtime_update_interval: PositiveDuration,
 
     #[serde(default = "default_connect_retry_interval")]
     pub connect_retry_interval: PositiveDuration,
@@ -111,8 +111,8 @@ impl Default for RabbitMqParams {
         Self {
             endpoint: default_endpoint(),
             exchange: default_exchange(),
-            real_time_topics: default_real_time_topics(),
-            real_time_update_interval: default_real_time_update_interval(),
+            realtime_topics: default_real_time_topics(),
+            realtime_update_interval: default_real_time_update_interval(),
             connect_retry_interval: default_connect_retry_interval(),
             reload_kirin_request_time_to_live: default_reload_kirin_request_time_to_live(),
             reload_kirin_timeout: default_reload_kirin_timeout(),
@@ -128,15 +128,14 @@ impl RabbitMqParams {
             std::env::var("LOKI_RABBITMQ_ENDPOINT").unwrap_or_else(|_| default_endpoint());
         let exchange =
             std::env::var("LOKI_RABBITMQ_EXCHANGE").unwrap_or_else(|_| default_exchange());
-        let real_time_topics: Vec<String> = {
-            let string = std::env::var("LOKI_REAL_TIME_TOPICS").unwrap_or_default();
-            let trimmed = string.trim();
+        let realtime_topics: Vec<String> = {
+            let string = std::env::var("LOKI_REALTIME_TOPICS").unwrap_or_default();
             // split at ";" characters
-            let iter = trimmed.split_terminator(";");
+            let iter = string.split_terminator(';');
             iter.map(|substring| substring.trim().to_string()).collect()
         };
-        let real_time_update_interval = {
-            let s = std::env::var("LOKI_REAL_TIME_UPDATE_INTERVAL").unwrap_or_default();
+        let realtime_update_interval = {
+            let s = std::env::var("LOKI_REALTIME_UPDATE_INTERVAL").unwrap_or_default();
             PositiveDuration::from_str(&s).unwrap_or_else(|_| default_real_time_update_interval())
         };
         let connect_retry_interval = {
@@ -163,8 +162,8 @@ impl RabbitMqParams {
         Self {
             endpoint,
             exchange,
-            real_time_topics,
-            real_time_update_interval,
+            realtime_topics,
+            realtime_update_interval,
             connect_retry_interval,
             reload_kirin_request_time_to_live,
             reload_kirin_timeout,
