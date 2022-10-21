@@ -88,7 +88,7 @@ pub struct LocalFileParams {
 impl LocalFileParams {
     pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
         let input_data_path = std::env::var("LOKI_INPUT_DATA_PATH")
-            .map(|s| PathBuf::from(s))
+            .map(PathBuf::from)
             .context("Could not read mandatory env var LOKI_INPUT_DATA_PATH")?;
         let loads_data_path = std::env::var("LOKI_LOADS_DATA_PATH")
             .map(|s| Some(PathBuf::from(s)))

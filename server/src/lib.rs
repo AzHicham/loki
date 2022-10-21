@@ -77,10 +77,11 @@ pub fn launch_server() -> Result<(), Error> {
     let config = match args.len() {
         1 => ServerConfig::new_from_env_vars().context("Could not read config from env vars")?,
         2 => {
-            let _ = args.next();
+            // skip the first arg which is the name of the binary launched
+            args.next();
             // unwrap is safe, we checked that args has at least 2 elements
             let config_file_path = args.next().unwrap();
-            read_config(&Path::new(&config_file_path)).context(format!(
+            read_config(Path::new(&config_file_path)).context(format!(
                 "Could not read config from file path {}",
                 config_file_path
             ))?
