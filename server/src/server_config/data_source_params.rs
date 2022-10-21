@@ -135,6 +135,7 @@ impl BucketParams {
     pub fn new_from_env_vars() -> Self {
         let bucket_name =
             read_env_var("LOKI_BUCKET_NAME", default_bucket_name(), |s| s.to_string());
+
         let bucket_region = read_env_var("LOKI_BUCKET_REGION", default_bucket_region(), |s| {
             s.to_string()
         });
@@ -152,7 +153,7 @@ impl BucketParams {
         });
 
         let bucket_timeout = parse_env_var(
-            "LOKI_BUCKET_TIMEOUT_IN_MS",
+            "LOKI_BUCKET_TIMEOUT",
             default_bucket_timeout(),
             PositiveDuration::from_str,
         );

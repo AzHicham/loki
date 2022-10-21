@@ -62,6 +62,7 @@ impl ChaosParams {
     pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
         let database = std::env::var("LOKI_CHAOS_DATABASE")
             .context("Could not read mandatory env var LOKI_CHAOS_DATABASE")?;
+
         let batch_size =
             parse_env_var("LOKI_CHAOS_BATCH_SIZE", default_batch_size(), u32::from_str);
 

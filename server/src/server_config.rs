@@ -170,7 +170,7 @@ pub fn default_nb_workers() -> u16 {
 #[cfg(test)]
 mod tests {
 
-    use crate::server_config::ServerConfig;
+    use crate::server_config::{data_source_params::DataSourceParams, ServerConfig};
 
     use super::super::read_config;
     use std::{path::PathBuf, str::FromStr};
@@ -225,23 +225,88 @@ mod tests {
 
     #[test]
     fn test_instance_name_only() {
-        std::env::set_var("LOKI_INSTANCE_NAME", "my-instance");
-        let params = ServerConfig::new_from_env_vars();
+        temp_env::with_var("LOKI_INSTANCE_NAME", Some("my-instance"), || {
+            let params = ServerConfig::new_from_env_vars();
 
-        assert!(params.is_err());
-
-        std::env::remove_var("LOKI_INSTANCE_NAME");
+            assert!(
+                params.is_err(),
+                "Error reading config from env vars {:?}",
+                params
+            );
+        })
     }
 
     #[test]
     fn test_no_data_source_type() {
-        std::env::set_var("LOKI_INSTANCE_NAME", "my-instance");
-        std::env::set_var("LOKI_REQUESTS_SOCKET", "tcp://127.0.0.1:30001");
-        let params = ServerConfig::new_from_env_vars();
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
 
-        assert!(params.is_err());
+                assert!(
+                    params.is_err(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+            },
+        )
+    }
 
-        std::env::remove_var("LOKI_INSTANCE_NAME");
-        std::env::remove_var("LOKI_REQUESTS_SOCKET");
+    #[test]
+    fn test_no_data_path_type() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+                ("LOKI_DATA_SOURCE_TYPE", Some("local")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
+
+                assert!(
+                    params.is_err(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+            },
+        )
+    }
+
+    #[test]
+    fn test_env_vars_minimal() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+                ("LOKI_DATA_SOURCE_TYPE", Some("local")),
+                ("LOKI_INPUT_DATA_PATH", Some("/path/to/my/ntfs")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
+
+                assert!(
+                    params.is_ok(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+                let params = params.unwrap();
+                assert_eq!(&params.instance_name, "my-instance");
+                assert_eq!(&params.requests_socket, "tcp://127.0.0.1:30001");
+                match params.data_source {
+                    DataSourceParams::Local(local_file_params) => {
+                        assert_eq!(
+                            local_file_params.input_data_path,
+                            PathBuf::from("/path/to/my/ntfs")
+                        )
+                    }
+                    _ => {
+                        panic!("Error reading config from env vars");
+                    }
+                }
+            },
+        )
     }
 }

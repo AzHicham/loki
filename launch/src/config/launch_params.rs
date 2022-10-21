@@ -36,7 +36,7 @@
 
 use std::path::PathBuf;
 
-use super::{parse_env_var, read_env_var, InputDataType};
+use super::{read_env_var, InputDataType};
 use anyhow::Context;
 use loki::PositiveDuration;
 

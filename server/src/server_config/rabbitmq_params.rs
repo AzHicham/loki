@@ -130,6 +130,7 @@ impl RabbitMqParams {
         let endpoint = read_env_var("LOKI_RABBITMQ_ENDPOINT", default_endpoint(), |s| {
             s.to_string()
         });
+
         let exchange = read_env_var("LOKI_RABBITMQ_EXCHANGE", default_exchange(), |s| {
             s.to_string()
         });
@@ -199,37 +200,45 @@ mod tests {
 
     #[test]
     fn test_single_topic() {
-        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic");
-        let params = RabbitMqParams::new_from_env_vars();
+        temp_env::with_var("LOKI_REALTIME_TOPICS", Some("my-topic"), || {
+            let params = RabbitMqParams::new_from_env_vars();
 
-        assert_eq!(params.realtime_topics, vec!["my-topic"]);
-        std::env::remove_var("LOKI_REALTIME_TOPICS");
+            assert_eq!(params.realtime_topics, vec!["my-topic"]);
+        })
     }
 
     #[test]
     fn test_two_topics() {
-        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic; my.other.topic");
-        let params = RabbitMqParams::new_from_env_vars();
+        temp_env::with_var(
+            "LOKI_REALTIME_TOPICS",
+            Some("my-topic; my.other.topic"),
+            || {
+                let params = RabbitMqParams::new_from_env_vars();
 
-        assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
-        std::env::remove_var("LOKI_REALTIME_TOPICS");
+                assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
+            },
+        )
     }
 
     #[test]
     fn test_middle_topic_empty() {
-        std::env::set_var("LOKI_REALTIME_TOPICS", "my-topic; ; my.other.topic");
-        let params = RabbitMqParams::new_from_env_vars();
+        temp_env::with_var(
+            "LOKI_REALTIME_TOPICS",
+            Some("my-topic; ; my.other.topic"),
+            || {
+                let params = RabbitMqParams::new_from_env_vars();
 
-        assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
-        std::env::remove_var("LOKI_REALTIME_TOPICS");
+                assert_eq!(params.realtime_topics, vec!["my-topic", "my.other.topic"]);
+            },
+        )
     }
 
     #[test]
     fn test_empty_topics() {
-        std::env::set_var("LOKI_REALTIME_TOPICS", " ; ;");
-        let params = RabbitMqParams::new_from_env_vars();
+        temp_env::with_var("LOKI_REALTIME_TOPICS", Some(" ; ;"), || {
+            let params = RabbitMqParams::new_from_env_vars();
 
-        assert!(params.realtime_topics.is_empty());
-        std::env::remove_var("LOKI_REALTIME_TOPICS");
+            assert!(params.realtime_topics.is_empty());
+        })
     }
 }

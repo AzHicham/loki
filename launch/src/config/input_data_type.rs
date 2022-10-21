@@ -36,7 +36,7 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum InputDataType {
     Gtfs,
@@ -71,6 +71,15 @@ impl std::fmt::Display for InputDataType {
         match self {
             InputDataType::Gtfs => write!(f, "gtfs"),
             InputDataType::Ntfs => write!(f, "ntfs"),
+        }
+    }
+}
+
+impl std::fmt::Debug for InputDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gtfs => write!(f, "gtfs"),
+            Self::Ntfs => write!(f, "ntfs"),
         }
     }
 }

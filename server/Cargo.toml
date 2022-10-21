@@ -49,6 +49,7 @@ hyper = {version = "0.14", features = ["server", "stream"] }
 [dev-dependencies]
 shiplift = "0.7" # docker API
 tempfile = "3"
+temp-env = "0.3"
 
 [build-dependencies]
 prost-build = "0.11"
