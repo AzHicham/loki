@@ -34,7 +34,7 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use anyhow::Context;
+use anyhow::bail;
 
 use loki_launch::config::parse_env_var;
 use serde::{Deserialize, Serialize};
@@ -59,16 +59,24 @@ pub fn default_batch_size() -> u32 {
 }
 
 impl ChaosParams {
-    pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
-        let database = std::env::var("LOKI_CHAOS_DATABASE")
-            .context("Could not read mandatory env var LOKI_CHAOS_DATABASE")?;
+    pub fn new_from_env_vars() -> Result<Option<Self>, anyhow::Error> {
+        let database = match std::env::var("LOKI_CHAOS_DATABASE") {
+            Ok(s) => s,
+            Err(std::env::VarError::NotPresent) => {
+                // the variable is not set, so it means that chaos should not be used
+                return Ok(None);
+            }
+            Err(std::env::VarError::NotUnicode(err)) => {
+                bail!("Badly formed LOKI_CHAOS_DATABASE  : {:?}", err);
+            }
+        };
 
         let batch_size =
             parse_env_var("LOKI_CHAOS_BATCH_SIZE", default_batch_size(), u32::from_str);
 
-        Ok(Self {
+        Ok(Some(Self {
             database,
             batch_size,
-        })
+        }))
     }
 }

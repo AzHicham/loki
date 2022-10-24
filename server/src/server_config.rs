@@ -53,6 +53,7 @@ use loki_launch::config::{
 
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
+use tracing::warn;
 
 use self::{
     chaos_params::ChaosParams, data_source_params::DataSourceParams, http_params::HttpParams,
@@ -147,7 +148,10 @@ impl ServerConfig {
 
         let rabbitmq = RabbitMqParams::new_from_env_vars();
 
-        let chaos = ChaosParams::new_from_env_vars().ok();
+        let chaos = ChaosParams::new_from_env_vars().unwrap_or_else(|err| {
+            warn!("Error reading chaos configuration from env vars. I'll keep running without chaos. {:?}. ", err);
+            None
+        });
 
         let http = HttpParams::new_from_env_vars();
 
