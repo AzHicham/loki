@@ -40,8 +40,11 @@ pub mod http_params;
 pub mod rabbitmq_params;
 
 use anyhow::{Context, Error};
-use loki_launch::config::{parse_env_var, RequestParams};
-use loki_launch::{config, loki::PositiveDuration};
+use loki_launch::{
+    config,
+    config::{parse_env_var, RequestParams},
+    loki::PositiveDuration,
+};
 
 use loki_launch::config::{
     launch_params::{default_transfer_duration, LocalFileParams},
@@ -51,10 +54,10 @@ use loki_launch::config::{
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
 
-use self::chaos_params::ChaosParams;
-use self::data_source_params::DataSourceParams;
-use self::http_params::HttpParams;
-use self::rabbitmq_params::RabbitMqParams;
+use self::{
+    chaos_params::ChaosParams, data_source_params::DataSourceParams, http_params::HttpParams,
+    rabbitmq_params::RabbitMqParams,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
