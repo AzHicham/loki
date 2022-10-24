@@ -1,0 +1,9 @@
+# Before building this docker,
+# you should have built navitia/mc_loki from ./loki_dockerfile
+FROM navitia/mc_loki
+
+# Loki will be configured from env variables
+CMD ["/usr/local/bin/loki_server"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=2m \
+  CMD curl -f http://${LOKI_HTTP_ADDRESS}/health || exit 1
