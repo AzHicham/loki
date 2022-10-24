@@ -37,7 +37,7 @@
 use crate::{
     chaos::sql_types::{ChannelType as ChannelTypeSQL, PtObjectType, SeverityEffect},
     chaos_proto, info,
-    server_config::ChaosParams,
+    server_config::chaos_params::ChaosParams,
 };
 use anyhow::{bail, Context, Error};
 use diesel::{

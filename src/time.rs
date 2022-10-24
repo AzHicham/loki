@@ -123,6 +123,8 @@ impl std::fmt::Display for PositiveDurationError {
     }
 }
 
+impl std::error::Error for PositiveDurationError {}
+
 impl std::str::FromStr for PositiveDuration {
     type Err = PositiveDurationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

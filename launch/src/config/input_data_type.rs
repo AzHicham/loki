@@ -36,7 +36,7 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum InputDataType {
     Gtfs,
@@ -75,6 +75,15 @@ impl std::fmt::Display for InputDataType {
     }
 }
 
+impl std::fmt::Debug for InputDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gtfs => write!(f, "gtfs"),
+            Self::Ntfs => write!(f, "ntfs"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InputDataTypeConfigError {
     input_type_name: String,
@@ -82,6 +91,8 @@ pub struct InputDataTypeConfigError {
 
 impl std::fmt::Display for InputDataTypeConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bad input data type give : `{}`", self.input_type_name)
+        write!(f, "Bad input data type given : `{}`", self.input_type_name)
     }
 }
+
+impl std::error::Error for InputDataTypeConfigError {}

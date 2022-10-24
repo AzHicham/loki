@@ -104,7 +104,7 @@ pub struct BaseDataInfo {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConfigInfo {
     pub instance_name: String,
-    pub real_time_contributors: Vec<String>,
+    pub realtime_contributors: Vec<String>,
     pub nb_workers: u16,
 }
 
@@ -134,7 +134,7 @@ impl StatusWorker {
                 base_data_info: None,
                 config_info: ConfigInfo {
                     instance_name: server_config.instance_name.clone(),
-                    real_time_contributors: server_config.rabbitmq.real_time_topics.clone(),
+                    realtime_contributors: server_config.rabbitmq.realtime_topics.clone(),
                     nb_workers: server_config.nb_workers,
                 },
                 last_load_succeeded: false,
@@ -283,7 +283,7 @@ impl StatusWorker {
 
         proto_status.navitia_version = Some(self.status.loki_version.clone());
         proto_status.nb_threads = Some(i32::from(self.status.config_info.nb_workers));
-        for rt_contributors in &self.status.config_info.real_time_contributors {
+        for rt_contributors in &self.status.config_info.realtime_contributors {
             proto_status.rt_contributors.push(rt_contributors.clone());
         }
 

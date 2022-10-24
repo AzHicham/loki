@@ -70,6 +70,7 @@ jobs:
         docker push navitia/mc_loki
         docker push navitia/mc_jormun
         docker push navitia/mc_kraken
+        docker push navitia/loki
         docker logout
 
     - name: cleanup

@@ -31,7 +31,7 @@ use std::str::FromStr;
 
 use hyper::{StatusCode, Uri};
 pub use loki_server;
-use loki_server::server_config::HttpParams;
+use loki_server::server_config::http_params::HttpParams;
 
 pub async fn status_test(http_params: &HttpParams) {
     let client = hyper::client::Client::new();

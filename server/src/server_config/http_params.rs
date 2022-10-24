@@ -34,69 +34,61 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::path::PathBuf;
-
-use super::{read_env_var, InputDataType};
-use anyhow::Context;
-use loki::PositiveDuration;
+use loki_launch::{config::parse_env_var, loki::PositiveDuration};
 
 use serde::{Deserialize, Serialize};
+use std::{fmt::Debug, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct LaunchParams {
-    /// directory containing ntfs/gtfs files to load
-    pub input_data_path: std::path::PathBuf,
+pub struct HttpParams {
+    /// http endpoint for health and status checks
+    /// Something like 127.0.0.1:30000
+    /// will provide two routes
+    /// - http://127.0.0.1:3000/status
+    /// - http://127.0.0.1:3000/health
+    #[serde(default = "default_http_address")]
+    pub http_address: std::net::SocketAddr,
 
-    /// type of input data given (ntfs/gtfs)
-    #[serde(default)]
-    pub input_data_type: InputDataType,
-
-    /// path to the passengers loads file
-    pub loads_data_path: Option<std::path::PathBuf>,
-
-    /// the transfer duration between a stop point and itself
-    #[serde(default = "default_transfer_duration")]
-    pub default_transfer_duration: PositiveDuration,
+    /// How long to wait before deciding that the request failed
+    #[serde(default = "default_http_request_timeout")]
+    pub http_request_timeout: PositiveDuration,
 }
 
-pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
-
-pub fn default_transfer_duration() -> PositiveDuration {
-    use std::str::FromStr;
-    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+pub fn default_http_address() -> std::net::SocketAddr {
+    ([127, 0, 0, 1], 3000).into()
 }
 
-impl LaunchParams {
-    pub fn new(input_data_path: std::path::PathBuf) -> Self {
+pub fn default_http_request_timeout() -> PositiveDuration {
+    PositiveDuration::from_hms(0, 0, 10)
+}
+
+impl Default for HttpParams {
+    fn default() -> Self {
         Self {
-            input_data_path,
-            input_data_type: InputDataType::Ntfs,
-            default_transfer_duration: default_transfer_duration(),
-            loads_data_path: None,
+            http_address: default_http_address(),
+            http_request_timeout: default_http_request_timeout(),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct LocalFileParams {
-    pub input_data_path: std::path::PathBuf,
-    pub loads_data_path: Option<std::path::PathBuf>,
-}
+impl HttpParams {
+    pub fn new_from_env_vars() -> Self {
+        let http_address = parse_env_var(
+            "LOKI_HTTP_ADDRESS",
+            default_http_address(),
+            std::net::SocketAddr::from_str,
+        );
 
-impl LocalFileParams {
-    pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
-        let input_data_path = std::env::var("LOKI_INPUT_DATA_PATH")
-            .map(PathBuf::from)
-            .context("Could not read mandatory env var LOKI_INPUT_DATA_PATH")?;
+        let http_request_timeout = parse_env_var(
+            "LOKI_HTTP_REQUEST_TIMEOUT",
+            default_http_request_timeout(),
+            PositiveDuration::from_str,
+        );
 
-        let loads_data_path =
-            read_env_var("LOKI_LOADS_DATA_PATH", None, |s| Some(PathBuf::from(s)));
-
-        Ok(Self {
-            input_data_path,
-            loads_data_path,
-        })
+        Self {
+            http_address,
+            http_request_timeout,
+        }
     }
 }

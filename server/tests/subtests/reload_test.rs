@@ -30,7 +30,7 @@
 use std::path::Path;
 
 pub use loki_server;
-use loki_server::server_config::{DataSourceParams, ServerConfig};
+use loki_server::server_config::{data_source_params::DataSourceParams, ServerConfig};
 
 use loki_launch::loki::NaiveDateTime;
 

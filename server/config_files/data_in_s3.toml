@@ -8,7 +8,7 @@ bucket_region = 'http://s3_hostname/'
 bucket_access_key = 'loki_rw'
 bucket_secret_key = 'my_secret_key'
 data_path_key = 'my_coverage/ntfs.zip'
-bucket_timeout_in_ms = 30_000
+bucket_timeout = '00:01:00'
 
 
 [default_request_params]
@@ -22,13 +22,13 @@ real_time_level = 'base'
 [rabbitmq]
 endpoint = 'amqp://login:password@rabbitmq_hostname:5672/navitia'
 exchange = 'navitia'
-real_time_topics = [
+realtime_topics = [
     'shortterm.my_coverage',
     'another_topic',
 ]
-real_time_update_interval = '00:00:30'
+realtime_update_interval = '00:00:30'
 connect_retry_interval = '00:00:10'
-reload_request_time_to_live = '00:00:02'
+reload_kirin_request_time_to_live = '00:00:02'
 reload_kirin_timeout = '00:00:10'
 reload_queue_expires = '02:00:00'
 realtime_queue_expires = '02:00:00'

@@ -246,6 +246,8 @@ impl std::fmt::Display for RealTimeLevelError {
     }
 }
 
+impl std::error::Error for RealTimeLevelError {}
+
 impl std::str::FromStr for RealTimeLevel {
     type Err = RealTimeLevelError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

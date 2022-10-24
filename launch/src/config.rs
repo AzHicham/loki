@@ -39,7 +39,52 @@ pub mod input_data_type;
 pub mod launch_params;
 pub mod request_params;
 
+use std::fmt::{Debug, Display};
+
 pub use comparator_type::ComparatorType;
 pub use input_data_type::InputDataType;
 pub use launch_params::LaunchParams;
+use loki::tracing::warn;
 pub use request_params::RequestParams;
+
+// - var not set -> use default value
+// - var set but non-unicode -> warn and use default value
+// - var set but not parsable -> warn and use default value
+pub fn parse_env_var<T, Parser, ParseErr>(var_name: &str, default_value: T, parser: Parser) -> T
+where
+    Parser: Fn(&str) -> Result<T, ParseErr>,
+    ParseErr: Display,
+    T: Debug,
+{
+    match std::env::var(var_name) {
+        Ok(s) => match parser(&s) {
+            Ok(val) => val,
+            Err(err) => {
+                warn!(
+                    "Could not parse env var {} : {}. I'll use the default value '{:?}' instead",
+                    var_name, err, default_value
+                );
+                default_value
+            }
+        },
+        Err(std::env::VarError::NotPresent) => default_value,
+        Err(std::env::VarError::NotUnicode(err)) => {
+            warn!(
+                "Badly formed env var {} : {:?}. I'll use the default value {:?} instead",
+                var_name, err, default_value
+            );
+            default_value
+        }
+    }
+}
+
+// for infaillible parser
+pub fn read_env_var<T, Parser>(var_name: &str, default_value: T, parser: Parser) -> T
+where
+    Parser: Fn(&str) -> T,
+    T: Debug,
+{
+    parse_env_var(var_name, default_value, |s| -> Result<T, &'static str> {
+        Ok(parser(s))
+    })
+}

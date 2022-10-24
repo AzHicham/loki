@@ -89,7 +89,7 @@ use std::{
 
 use crate::{
     data_downloader::DataDownloader, handle_chaos_message::handle_chaos_protobuf,
-    server_config::DataSourceParams,
+    server_config::data_source_params::DataSourceParams,
 };
 use loki_launch::config::launch_params::LocalFileParams;
 use tokio::{runtime::Builder, sync::mpsc, time::Duration};
@@ -296,7 +296,7 @@ impl DataWorker {
         let interval = tokio::time::interval(Duration::from_secs(
             self.config
                 .rabbitmq
-                .real_time_update_interval
+                .realtime_update_interval
                 .total_seconds(),
         ));
         tokio::pin!(interval);
@@ -418,7 +418,7 @@ impl DataWorker {
         let chaos_disruptions_result = chaos::models::read_chaos_disruption_from_database(
             chaos_params,
             (start_date, end_date),
-            &self.config.rabbitmq.real_time_topics,
+            &self.config.rabbitmq.realtime_topics,
         );
         info!(
             "Loading chaos disruptions from database completed in {} ms",
@@ -702,7 +702,7 @@ impl DataWorker {
             declare_queue(channel, queue_name, durable, exclusive, expires).await?;
 
             let exchange = &self.config.rabbitmq.exchange;
-            let topics = &self.config.rabbitmq.real_time_topics;
+            let topics = &self.config.rabbitmq.realtime_topics;
             bind_queue(channel, queue_name, exchange, topics).await?;
 
             self.send_status_update(StatusUpdate::RealTimeQueueCreated)?;
@@ -783,7 +783,7 @@ impl DataWorker {
 
             let load_realtime = navitia_proto::LoadRealtime {
                 queue_name: queue_name.clone(),
-                contributors: self.config.rabbitmq.real_time_topics.clone(),
+                contributors: self.config.rabbitmq.realtime_topics.clone(),
                 begin_date: Some(start_date),
                 end_date: Some(end_date),
             };
@@ -798,7 +798,7 @@ impl DataWorker {
             "{}",
             self.config
                 .rabbitmq
-                .reload_request_time_to_live
+                .reload_kirin_request_time_to_live
                 .total_seconds()
                 * 1000
         );

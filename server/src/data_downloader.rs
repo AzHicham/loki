@@ -39,7 +39,7 @@ use core::time::Duration;
 use s3::{creds::Credentials, Bucket, Region};
 use std::io::Cursor;
 
-use crate::server_config::BucketParams;
+use crate::server_config::data_source_params::BucketParams;
 pub struct DataDownloader {
     bucket: Bucket,
 
@@ -83,7 +83,7 @@ impl DataDownloader {
             }
         };
 
-        let timeout = Duration::from_millis(u64::from(config.bucket_timeout_in_ms));
+        let timeout = Duration::from_secs(config.bucket_timeout.total_seconds());
         bucket.set_request_timeout(Some(timeout));
 
         Ok(Self {

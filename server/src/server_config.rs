@@ -34,14 +34,27 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
+pub mod chaos_params;
+pub mod data_source_params;
+pub mod http_params;
+pub mod rabbitmq_params;
+
+use anyhow::{Context, Error};
+use loki_launch::config::{parse_env_var, RequestParams};
 use loki_launch::{config, loki::PositiveDuration};
 
 use loki_launch::config::{
     launch_params::{default_transfer_duration, LocalFileParams},
     InputDataType,
 };
+
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, str::FromStr};
+
+use self::chaos_params::ChaosParams;
+use self::data_source_params::DataSourceParams;
+use self::http_params::HttpParams;
+use self::rabbitmq_params::RabbitMqParams;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
@@ -84,17 +97,6 @@ pub struct ServerConfig {
     pub http: HttpParams,
 }
 
-pub fn default_nb_workers() -> u16 {
-    1
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum DataSourceParams {
-    Local(LocalFileParams),
-    S3(BucketParams),
-}
-
 impl ServerConfig {
     pub fn new(input_data_path: std::path::PathBuf, zmq_socket: &str, instance_name: &str) -> Self {
         Self {
@@ -113,191 +115,62 @@ impl ServerConfig {
             nb_workers: default_nb_workers(),
         }
     }
-}
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct RabbitMqParams {
-    #[serde(default = "default_rabbitmq_endpoint")]
-    pub endpoint: String,
+    pub fn new_from_env_vars() -> Result<Self, Error> {
+        let instance_name = std::env::var("LOKI_INSTANCE_NAME")
+            .context("Could not read mandatory env var LOKI_INSTANCE_NAME")?;
 
-    #[serde(default = "default_rabbitmq_exchange")]
-    pub exchange: String,
+        let requests_socket = std::env::var("LOKI_REQUESTS_SOCKET")
+            .context("Could not read read mandatory env var LOKI_REQUESTS_SOCKET")?;
 
-    #[serde(default = "default_rabbitmq_real_time_topics")]
-    pub real_time_topics: Vec<String>,
+        let input_data_type = parse_env_var(
+            "LOKI_INPUT_DATA_TYPE",
+            InputDataType::default(),
+            InputDataType::from_str,
+        );
 
-    #[serde(default = "default_real_time_update_interval")]
-    pub real_time_update_interval: PositiveDuration,
+        let default_transfer_duration = parse_env_var(
+            "LOKI_DEFAULT_TRANSFER_DURATION",
+            default_transfer_duration(),
+            PositiveDuration::from_str,
+        );
 
-    #[serde(default = "default_rabbitmq_connect_retry_interval")]
-    pub connect_retry_interval: PositiveDuration,
+        let nb_workers = parse_env_var("LOKI_NB_WORKERS", default_nb_workers(), u16::from_str);
 
-    #[serde(default = "default_reload_request_time_to_live")]
-    pub reload_request_time_to_live: PositiveDuration,
+        let data_source = DataSourceParams::new_from_env_vars()
+            .context("Could not read DataSourceParams from env vars")?;
 
-    #[serde(default = "default_reload_kirin_timeout")]
-    pub reload_kirin_timeout: PositiveDuration,
+        let default_request_params = RequestParams::new_from_env_vars();
 
-    #[serde(default = "default_reload_queue_expires")]
-    pub reload_queue_expires: PositiveDuration,
+        let rabbitmq = RabbitMqParams::new_from_env_vars();
 
-    #[serde(default = "default_realtime_queue_expires")]
-    pub realtime_queue_expires: PositiveDuration,
-}
+        let chaos = ChaosParams::new_from_env_vars().ok();
 
-pub fn default_rabbitmq_endpoint() -> String {
-    "amqp://guest:guest@rabbitmq:5672".to_string()
-}
+        let http = HttpParams::new_from_env_vars();
 
-pub fn default_rabbitmq_exchange() -> String {
-    "navitia".to_string()
-}
-
-pub fn default_rabbitmq_real_time_topics() -> Vec<String> {
-    Vec::new()
-}
-
-pub fn default_real_time_update_interval() -> PositiveDuration {
-    PositiveDuration::from_str("00:00:30").unwrap()
-}
-
-pub fn default_rabbitmq_connect_retry_interval() -> PositiveDuration {
-    PositiveDuration::from_str("00:00:10").unwrap()
-}
-
-pub fn default_reload_request_time_to_live() -> PositiveDuration {
-    PositiveDuration::from_str("00:00:02").unwrap()
-}
-
-pub fn default_reload_kirin_timeout() -> PositiveDuration {
-    PositiveDuration::from_str("00:00:10").unwrap()
-}
-
-pub fn default_reload_queue_expires() -> PositiveDuration {
-    PositiveDuration::from_str("02:00:00").unwrap()
-}
-
-pub fn default_realtime_queue_expires() -> PositiveDuration {
-    PositiveDuration::from_str("02:00:00").unwrap()
-}
-
-impl Default for RabbitMqParams {
-    fn default() -> Self {
-        Self {
-            endpoint: default_rabbitmq_endpoint(),
-            exchange: default_rabbitmq_exchange(),
-            real_time_topics: default_rabbitmq_real_time_topics(),
-            real_time_update_interval: default_real_time_update_interval(),
-            connect_retry_interval: default_rabbitmq_connect_retry_interval(),
-            reload_request_time_to_live: default_reload_request_time_to_live(),
-            reload_kirin_timeout: default_reload_kirin_timeout(),
-            reload_queue_expires: default_reload_queue_expires(),
-            realtime_queue_expires: default_realtime_queue_expires(),
-        }
+        Ok(Self {
+            instance_name,
+            requests_socket,
+            input_data_type,
+            default_transfer_duration,
+            nb_workers,
+            data_source,
+            default_request_params,
+            rabbitmq,
+            chaos,
+            http,
+        })
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ChaosParams {
-    /// connection string to the chaos database
-    /// for example : "postgres://guest:guest@localhost:5432/chaos"
-    pub database: String,
-
-    /// During reload of chaos disruption
-    /// we will ask the database to send
-    /// blocks of rows of size `batch_size`
-    #[serde(default = "default_batch_size")]
-    pub batch_size: u32,
-}
-
-pub fn default_batch_size() -> u32 {
-    1_000_000
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct BucketParams {
-    #[serde(default = "default_bucket_name")]
-    pub bucket_name: String,
-
-    #[serde(default = "default_bucket_region")]
-    pub bucket_region: String,
-
-    #[serde(default)]
-    pub bucket_access_key: String,
-
-    #[serde(default)]
-    pub bucket_secret_key: String,
-
-    #[serde(default)]
-    pub data_path_key: String,
-
-    #[serde(default = "default_bucket_timeout_in_ms")]
-    pub bucket_timeout_in_ms: u32,
-}
-
-pub fn default_bucket_name() -> String {
-    "loki".to_string()
-}
-
-pub fn default_bucket_region() -> String {
-    "eu-west-1".to_string()
-}
-
-pub fn default_bucket_timeout_in_ms() -> u32 {
-    30_000
-}
-
-impl Default for BucketParams {
-    fn default() -> Self {
-        BucketParams {
-            bucket_name: default_bucket_name(),
-            bucket_region: default_bucket_region(),
-            bucket_access_key: "".to_string(),
-            bucket_secret_key: "".to_string(),
-            data_path_key: "".to_string(),
-            bucket_timeout_in_ms: default_bucket_timeout_in_ms(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct HttpParams {
-    /// http endpoint for health and status checks
-    /// Something like 127.0.0.1:30000
-    /// will provide two routes
-    /// - http://127.0.0.1:3000/status
-    /// - http://127.0.0.1:3000/health
-    #[serde(default = "default_http_address")]
-    pub http_address: std::net::SocketAddr,
-
-    /// How long to wait before deciding that the request failed
-    #[serde(default = "default_http_request_timeout")]
-    pub http_request_timeout: PositiveDuration,
-}
-
-pub fn default_http_address() -> std::net::SocketAddr {
-    ([127, 0, 0, 1], 3000).into()
-}
-
-pub fn default_http_request_timeout() -> PositiveDuration {
-    PositiveDuration::from_hms(0, 0, 10)
-}
-
-impl Default for HttpParams {
-    fn default() -> Self {
-        Self {
-            http_address: default_http_address(),
-            http_request_timeout: default_http_request_timeout(),
-        }
-    }
+pub fn default_nb_workers() -> u16 {
+    1
 }
 
 #[cfg(test)]
 mod tests {
+
+    use crate::server_config::{data_source_params::DataSourceParams, ServerConfig};
 
     use super::super::read_config;
     use std::{path::PathBuf, str::FromStr};
@@ -342,5 +215,98 @@ mod tests {
             .join("typo_in_config.toml");
 
         assert!(read_config(&path).is_err());
+    }
+
+    #[test]
+    fn test_vars_empty() {
+        let params = ServerConfig::new_from_env_vars();
+        assert!(params.is_err());
+    }
+
+    #[test]
+    fn test_instance_name_only() {
+        temp_env::with_var("LOKI_INSTANCE_NAME", Some("my-instance"), || {
+            let params = ServerConfig::new_from_env_vars();
+
+            assert!(
+                params.is_err(),
+                "Error reading config from env vars {:?}",
+                params
+            );
+        })
+    }
+
+    #[test]
+    fn test_no_data_source_type() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
+
+                assert!(
+                    params.is_err(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+            },
+        )
+    }
+
+    #[test]
+    fn test_no_data_path_type() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+                ("LOKI_DATA_SOURCE_TYPE", Some("local")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
+
+                assert!(
+                    params.is_err(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+            },
+        )
+    }
+
+    #[test]
+    fn test_env_vars_minimal() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_INSTANCE_NAME", Some("my-instance")),
+                ("LOKI_REQUESTS_SOCKET", Some("tcp://127.0.0.1:30001")),
+                ("LOKI_DATA_SOURCE_TYPE", Some("local")),
+                ("LOKI_INPUT_DATA_PATH", Some("/path/to/my/ntfs")),
+            ],
+            || {
+                let params = ServerConfig::new_from_env_vars();
+
+                assert!(
+                    params.is_ok(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+                let params = params.unwrap();
+                assert_eq!(&params.instance_name, "my-instance");
+                assert_eq!(&params.requests_socket, "tcp://127.0.0.1:30001");
+                match params.data_source {
+                    DataSourceParams::Local(local_file_params) => {
+                        assert_eq!(
+                            local_file_params.input_data_path,
+                            PathBuf::from("/path/to/my/ntfs")
+                        )
+                    }
+                    _ => {
+                        panic!("Error reading config from env vars");
+                    }
+                }
+            },
+        )
     }
 }

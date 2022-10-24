@@ -31,7 +31,7 @@ lapin = "2.0"
 rust-s3 = "0.32"
 
 loki_launch = { path = "../launch"}
-structopt = "0.3"
+
 anyhow = "1"
 thiserror = "1"
 serde = "1.0"
@@ -49,6 +49,7 @@ hyper = {version = "0.14", features = ["server", "stream"] }
 [dev-dependencies]
 shiplift = "0.7" # docker API
 tempfile = "3"
+temp-env = "0.3"
 
 [build-dependencies]
 prost-build = "0.11"

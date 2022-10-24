@@ -34,69 +34,41 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use std::path::PathBuf;
-
-use super::{read_env_var, InputDataType};
 use anyhow::Context;
-use loki::PositiveDuration;
 
+use loki_launch::config::parse_env_var;
 use serde::{Deserialize, Serialize};
+use std::{fmt::Debug, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct LaunchParams {
-    /// directory containing ntfs/gtfs files to load
-    pub input_data_path: std::path::PathBuf,
+pub struct ChaosParams {
+    /// connection string to the chaos database
+    /// for example : "postgres://guest:guest@localhost:5432/chaos"
+    pub database: String,
 
-    /// type of input data given (ntfs/gtfs)
-    #[serde(default)]
-    pub input_data_type: InputDataType,
-
-    /// path to the passengers loads file
-    pub loads_data_path: Option<std::path::PathBuf>,
-
-    /// the transfer duration between a stop point and itself
-    #[serde(default = "default_transfer_duration")]
-    pub default_transfer_duration: PositiveDuration,
+    /// During reload of chaos disruption
+    /// we will ask the database to send
+    /// blocks of rows of size `batch_size`
+    #[serde(default = "default_batch_size")]
+    pub batch_size: u32,
 }
 
-pub const DEFAULT_TRANSFER_DURATION: &str = "00:01:00";
-
-pub fn default_transfer_duration() -> PositiveDuration {
-    use std::str::FromStr;
-    PositiveDuration::from_str(DEFAULT_TRANSFER_DURATION).unwrap()
+pub fn default_batch_size() -> u32 {
+    1_000_000
 }
 
-impl LaunchParams {
-    pub fn new(input_data_path: std::path::PathBuf) -> Self {
-        Self {
-            input_data_path,
-            input_data_type: InputDataType::Ntfs,
-            default_transfer_duration: default_transfer_duration(),
-            loads_data_path: None,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct LocalFileParams {
-    pub input_data_path: std::path::PathBuf,
-    pub loads_data_path: Option<std::path::PathBuf>,
-}
-
-impl LocalFileParams {
+impl ChaosParams {
     pub fn new_from_env_vars() -> Result<Self, anyhow::Error> {
-        let input_data_path = std::env::var("LOKI_INPUT_DATA_PATH")
-            .map(PathBuf::from)
-            .context("Could not read mandatory env var LOKI_INPUT_DATA_PATH")?;
+        let database = std::env::var("LOKI_CHAOS_DATABASE")
+            .context("Could not read mandatory env var LOKI_CHAOS_DATABASE")?;
 
-        let loads_data_path =
-            read_env_var("LOKI_LOADS_DATA_PATH", None, |s| Some(PathBuf::from(s)));
+        let batch_size =
+            parse_env_var("LOKI_CHAOS_BATCH_SIZE", default_batch_size(), u32::from_str);
 
         Ok(Self {
-            input_data_path,
-            loads_data_path,
+            database,
+            batch_size,
         })
     }
 }
