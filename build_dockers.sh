@@ -53,6 +53,3 @@ run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun --build-arg NA
 
 # build the docker for server
 run docker build -f docker/loki_dockerfile -t navitia/mc_loki .
-
-# build the docker for server
-run docker build -f docker/loki_aws_dockerfile -t navitia/loki .
