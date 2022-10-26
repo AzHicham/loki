@@ -67,10 +67,9 @@ jobs:
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         docker push navitia/mc_bina
-        docker push navitia/mc_loki
+        docker push navitia/loki
         docker push navitia/mc_jormun
         docker push navitia/mc_kraken
-        docker push navitia/loki
         docker logout
 
     - name: cleanup
@@ -120,7 +119,7 @@ jobs:
         docker pull navitia/mc_bina
         docker pull navitia/mc_kraken
         docker pull navitia/mc_jormun
-        docker pull navitia/mc_loki
+        docker pull navitia/loki
         cd ../artemis
         docker build -t artemis .
 
