@@ -180,7 +180,7 @@ for folder in $(ls -d */); do
     # add kraken and loki services to docker for this coverage
     echo """
   loki-${coverage}:
-    image: navitia/mc_loki
+    image: navitia/loki
     environment:
       - RUST_LOG=debug
     volumes:
@@ -295,7 +295,7 @@ spec:
         app : app-loki-${coverage}
     spec:
       containers:
-        - image: navitia/mc_loki
+        - image: navitia/loki
           name: loki-${coverage}
           volumeMounts:
             - name: volume-navitia

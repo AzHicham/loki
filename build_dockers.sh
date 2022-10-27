@@ -52,7 +52,4 @@ run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken --build-arg NA
 run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun --build-arg NAVITIA_TAG=${tag} .
 
 # build the docker for server
-run docker build -f docker/loki_dockerfile -t navitia/mc_loki .
-
-# build the docker for server
-run docker build -f docker/loki_aws_dockerfile -t navitia/loki .
+run docker build -f docker/loki_dockerfile -t navitia/loki .

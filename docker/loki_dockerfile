@@ -15,6 +15,11 @@ FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libzmq5 libpq5 && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 
+RUN apt-get update
+RUN apt-get install -y ca-certificates
+COPY ./docker/pca_hove.crt /usr/local/share/ca-certificates
+RUN update-ca-certificates
+
 VOLUME /data
 CMD ["/usr/local/bin/loki_server", "/data/loki_config.toml"]
 
