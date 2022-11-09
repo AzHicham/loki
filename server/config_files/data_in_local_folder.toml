@@ -87,10 +87,10 @@ batch_size = 1_000_000
 # Configures an http endpoint for status and health checks
 [http]
 # http endpoint for health checks
-# defaults to "127.0.0.1:3000"
+# defaults to "0.0.0.0:3000"
 # This will provide two routes
-#  - http://127.0.0.1:3000/status
-#  - http://127.0.0.1:3000/health
-http_address = "127.0.0.1:3000"
+#  - http://0.0.0.0:3000/status
+#  - http://0.0.0.0:3000/health
+http_address = "0.0.0.0:3000"
 
 http_request_timeout = "00:00:10"

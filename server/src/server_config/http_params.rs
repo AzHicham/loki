@@ -43,10 +43,10 @@ use std::{fmt::Debug, str::FromStr};
 #[serde(deny_unknown_fields)]
 pub struct HttpParams {
     /// http endpoint for health and status checks
-    /// Something like 127.0.0.1:30000
+    /// Something like 0.0.0.0:3000
     /// will provide two routes
-    /// - http://127.0.0.1:3000/status
-    /// - http://127.0.0.1:3000/health
+    /// - http://0.0.0.0:3000/status
+    /// - http://0.0.0.0:3000/health
     #[serde(default = "default_http_address")]
     pub http_address: std::net::SocketAddr,
 
@@ -56,7 +56,10 @@ pub struct HttpParams {
 }
 
 pub fn default_http_address() -> std::net::SocketAddr {
-    ([127, 0, 0, 1], 3000).into()
+    // default to 0.0.0.0 to be reachable from within a docker container
+    // see
+    // https://stackoverflow.com/questions/59179831/docker-app-server-ip-address-127-0-0-1-difference-of-0-0-0-0-ip
+    ([0, 0, 0, 0], 3000).into()
 }
 
 pub fn default_http_request_timeout() -> PositiveDuration {
