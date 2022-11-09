@@ -1537,6 +1537,7 @@ name = "loki_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aws-creds",
  "diesel",
  "diesel-derive-enum",
  "futures",

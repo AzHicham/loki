@@ -36,7 +36,6 @@
 
 use anyhow::{Context, Error};
 
-use lapin::protocol::access;
 use loki_launch::{
     config::{launch_params::LocalFileParams, parse_env_var, read_env_var},
     loki::PositiveDuration,

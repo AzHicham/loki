@@ -35,11 +35,12 @@
 // www.navitia.io
 
 use anyhow::{bail, Context, Error};
+use awscreds::Credentials;
 use core::time::Duration;
-use s3::{creds::Credentials, Bucket, Region};
-use std::io::Cursor;
+use s3::{Bucket, Region};
+use std::{io::Cursor, str::FromStr};
 
-use crate::server_config::data_source_params::BucketParams;
+use crate::server_config::data_source_params::{BucketCredentials, BucketParams};
 pub struct DataDownloader {
     bucket: Bucket,
 
@@ -54,15 +55,19 @@ pub enum DownloadStatus {
 
 impl DataDownloader {
     pub fn new(config: &BucketParams) -> Result<DataDownloader, Error> {
-        let credentials = Credentials::new(
-            Some(&config.bucket_access_key),
-            Some(&config.bucket_secret_key),
-            None,
-            None,
-            None,
-        )?;
+        let credentials = match &config.bucket_credentials {
+            BucketCredentials::Explicit(explicit) => Credentials {
+                access_key: Some(explicit.access_key.clone()),
+                secret_key: Some(explicit.secret_key.clone()),
+                security_token: None,
+                session_token: None,
+                expiration: None,
+            },
+            BucketCredentials::AwsHttpCredentials => Credentials::from_instance_metadata()
+                .context("Could not obtain AWS credentials.")?,
+        };
 
-        let mut bucket = match config.bucket_region.parse() {
+        let mut bucket = match Region::from_str(&config.bucket_region) {
             // Custom Region / Minio
             Ok(Region::Custom { .. }) => {
                 let region = Region::Custom {
@@ -78,7 +83,7 @@ impl DataDownloader {
                     "Error while creating Bucket {} with region {} and name {}",
                     err,
                     config.bucket_region,
-                    config.bucket_region
+                    config.bucket_name
                 )
             }
         };
