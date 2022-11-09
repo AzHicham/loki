@@ -24,10 +24,3 @@ RUN update-ca-certificates
 
 VOLUME /data
 CMD ["/usr/local/bin/loki_server", "/data/loki_config.toml"]
-
-# https://docs.docker.com/engine/reference/builder/#healthcheck
-# /!\ "127.0.0.1:3000" is the default http address of loki_server
-# but it may be overriden in config file.
-# You should change the healthcheck command accordingly if that happens.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=2m \
-  CMD curl -f http://127.0.0.1:3000/health || exit 1
