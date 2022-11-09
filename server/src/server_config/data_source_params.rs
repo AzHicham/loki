@@ -36,6 +36,7 @@
 
 use anyhow::{Context, Error};
 
+use lapin::protocol::access;
 use loki_launch::{
     config::{launch_params::LocalFileParams, parse_env_var, read_env_var},
     loki::PositiveDuration,
@@ -54,9 +55,11 @@ impl DataSourceParams {
     pub fn new_from_env_vars() -> Result<Self, Error> {
         let data_source_type = std::env::var("LOKI_DATA_SOURCE_TYPE")
             .context("Could not read mandatory env var LOKI_DATA_SOURCE_TYPE")?;
+
         match data_source_type.trim() {
             "s3" => {
-                let bucket_params = BucketParams::new_from_env_vars();
+                let bucket_params = BucketParams::new_from_env_vars()
+                    .context("LOKI_DATA_SOURCE_TYPE is set to 's3' but I could not read bucket params from env vars")?;
                 Ok(DataSourceParams::S3(bucket_params))
             }
             "local" => {
@@ -77,43 +80,25 @@ impl DataSourceParams {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct BucketParams {
-    #[serde(default = "default_bucket_name")]
     pub bucket_name: String,
+    pub data_path_key: String,
 
     #[serde(default = "default_bucket_region")]
     pub bucket_region: String,
 
-    #[serde(default = "default_bucket_access_key")]
-    pub bucket_access_key: String,
-
-    #[serde(default = "default_bucket_secret_key")]
-    pub bucket_secret_key: String,
-
-    #[serde(default = "default_data_path")]
-    pub data_path_key: String,
+    #[serde(default = "default_bucket_credentials")]
+    pub bucket_credentials: BucketCredentials,
 
     #[serde(default = "default_bucket_timeout")]
     pub bucket_timeout: PositiveDuration,
-}
-
-pub fn default_bucket_name() -> String {
-    "loki".to_string()
 }
 
 pub fn default_bucket_region() -> String {
     "eu-west-1".to_string()
 }
 
-pub fn default_bucket_access_key() -> String {
-    "".to_string()
-}
-
-pub fn default_bucket_secret_key() -> String {
-    "".to_string()
-}
-
-pub fn default_data_path() -> String {
-    "".to_string()
+pub fn default_bucket_credentials() -> BucketCredentials {
+    BucketCredentials::AwsHttpCredentials
 }
 
 pub fn default_bucket_timeout() -> PositiveDuration {
@@ -121,36 +106,19 @@ pub fn default_bucket_timeout() -> PositiveDuration {
 }
 
 impl BucketParams {
-    pub fn default() -> Self {
-        BucketParams {
-            bucket_name: default_bucket_name(),
-            bucket_region: default_bucket_region(),
-            bucket_access_key: default_bucket_access_key(),
-            bucket_secret_key: default_bucket_secret_key(),
-            data_path_key: default_data_path(),
-            bucket_timeout: default_bucket_timeout(),
-        }
-    }
-
-    pub fn new_from_env_vars() -> Self {
-        let bucket_name =
-            read_env_var("LOKI_BUCKET_NAME", default_bucket_name(), |s| s.to_string());
+    pub fn new_from_env_vars() -> Result<Self, Error> {
+        let bucket_name = std::env::var("LOKI_BUCKET_NAME")
+            .context("Could not read mandatory env var LOKI_BUCKET_NAME")?;
 
         let bucket_region = read_env_var("LOKI_BUCKET_REGION", default_bucket_region(), |s| {
             s.to_string()
         });
-        let bucket_access_key =
-            read_env_var("LOKI_BUCKET_ACCESS_KEY", default_bucket_access_key(), |s| {
-                s.to_string()
-            });
-        let bucket_secret_key =
-            read_env_var("LOKI_BUCKET_SECRET_KEY", default_bucket_secret_key(), |s| {
-                s.to_string()
-            });
 
-        let data_path_key = read_env_var("LOKI_BUCKET_DATA_PATH", default_data_path(), |s| {
-            s.to_string()
-        });
+        let bucket_credentials = BucketCredentials::new_from_env_vars()
+            .context("Could not read bucket credentials from env vars")?;
+
+        let data_path_key = std::env::var("LOKI_BUCKET_DATA_PATH")
+            .context("Could not read mandatory env var LOKI_BUCKET_DATA_PATH")?;
 
         let bucket_timeout = parse_env_var(
             "LOKI_BUCKET_TIMEOUT",
@@ -158,13 +126,65 @@ impl BucketParams {
             PositiveDuration::from_str,
         );
 
-        Self {
+        Ok(Self {
             bucket_name,
             bucket_region,
-            bucket_access_key,
-            bucket_secret_key,
+            bucket_credentials,
             data_path_key,
             bucket_timeout,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "credentials_type", rename_all = "snake_case")]
+pub enum BucketCredentials {
+    Explicit(ExplicitCredentials),
+    AwsHttpCredentials,
+}
+
+impl BucketCredentials {
+    pub fn new_from_env_vars() -> Result<Self, Error> {
+        let credentials_type = read_env_var(
+            "LOKI_BUCKET_CREDENTIALS_TYPE",
+            "aws_http_credentials".to_string(),
+            |s| s.to_string(),
+        );
+
+        match credentials_type.trim() {
+            "explicit" => {
+                let explicit_credentials = ExplicitCredentials::new_from_env_vars()
+                .context("LOKI_BUCKET_CREDENTIALS_TYPE is set to 'explicit' but I could not read explicit bucket credentials from env vars")?;
+                Ok(BucketCredentials::Explicit(explicit_credentials))
+            }
+            "aws_http_credentials" => Ok(BucketCredentials::AwsHttpCredentials),
+            _ => {
+                anyhow::bail!(
+                    "Bad LOKI_BUCKET_CREDENTIALS_TYPE : '{}'. Allowed values are 'explicit' or 'aws_http_credentials'",
+                    credentials_type
+                );
+            }
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct ExplicitCredentials {
+    pub access_key: String,
+    pub secret_key: String,
+}
+
+impl ExplicitCredentials {
+    pub fn new_from_env_vars() -> Result<Self, Error> {
+        let access_key = std::env::var("LOKI_BUCKET_ACCESS_KEY")
+            .context("Could not read mandatory env var LOKI_BUCKET_ACCESS_KEY")?;
+        let secret_key = std::env::var("LOKI_BUCKET_SECRET_KEY")
+            .context("Could not read mandatory env var LOKI_BUCKET_SECRET_KEY")?;
+
+        Ok(Self {
+            access_key,
+            secret_key,
+        })
     }
 }
