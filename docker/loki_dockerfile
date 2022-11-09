@@ -1,3 +1,4 @@
+## Docker to build loki
 FROM rust:buster as builder
 WORKDIR /usr/src/myapp
 COPY ./Cargo.toml ./Cargo.toml
@@ -7,16 +8,17 @@ COPY ./server/ ./server/
 COPY ./stop_areas/ ./stop_areas/
 COPY ./random/ ./random/
 
+RUN apt-get update
+RUN apt-get install -y libzmq3-dev libpq-dev cmake protobuf-compiler
 
-RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev cmake protobuf-compiler
 RUN cargo install --path server
 
+## final docker
 FROM debian:buster-slim
-RUN apt-get update && apt-get install -y libzmq5 libpq5 && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
-
 RUN apt-get update
-RUN apt-get install -y ca-certificates
+RUN apt-get install -y libzmq5 libpq5 ca-certificates
+RUN rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 COPY ./docker/pca_hove.crt /usr/local/share/ca-certificates
 RUN update-ca-certificates
 
