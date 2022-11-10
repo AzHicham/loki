@@ -79,8 +79,9 @@ impl DataSourceParams {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct BucketParams {
-    /// for example s3-eu-west-1.amazonaws.com
+    /// for example 's3-eu-west-1.amazonaws.com'
     pub bucket_url: String,
+    pub bucket_region: String,
     /// name of the bucket which should exists at bucket_url
     pub bucket_name: String,
 
@@ -128,6 +129,9 @@ impl BucketParams {
         let bucket_url = std::env::var("LOKI_BUCKET_URL")
             .context("Could not read mandatory env var LOKI_BUCKET_URL")?;
 
+        let bucket_region = std::env::var("LOKI_BUCKET_REGION")
+            .context("Could not read mandatory env var LOKI_BUCKET_REGION")?;
+
         let bucket_credentials = BucketCredentials::new_from_env_vars()
             .context("Could not read bucket credentials from env vars")?;
 
@@ -149,6 +153,7 @@ impl BucketParams {
         Ok(Self {
             bucket_name,
             bucket_url,
+            bucket_region,
             path_style,
             bucket_credentials,
             data_path_key,

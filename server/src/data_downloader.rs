@@ -68,7 +68,7 @@ impl DataDownloader {
         };
 
         let region = Region::Custom {
-            region: "".to_string(),
+            region: config.bucket_region.clone(),
             endpoint: config.bucket_url.clone(),
         };
 
