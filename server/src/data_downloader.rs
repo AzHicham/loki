@@ -38,7 +38,7 @@ use anyhow::{bail, Context, Error};
 use awscreds::Credentials;
 use core::time::Duration;
 use s3::{Bucket, Region};
-use std::{io::Cursor, str::FromStr};
+use std::io::Cursor;
 
 use crate::server_config::data_source_params::{BucketCredentials, BucketParams};
 pub struct DataDownloader {
@@ -67,29 +67,20 @@ impl DataDownloader {
                 .context("Could not obtain AWS credentials.")?,
         };
 
-        let mut bucket = match Region::from_str(&config.bucket_region) {
-            // Custom Region / Minio
-            Ok(Region::Custom { .. }) => {
-                let region = Region::Custom {
-                    region: "".to_string(),
-                    endpoint: config.bucket_region.clone(),
-                };
-                Bucket::new(&config.bucket_name, region, credentials)?.with_path_style()
-            }
-            // AWS Region
-            Ok(region) => Bucket::new(&config.bucket_name, region, credentials)?,
-            Err(err) => {
-                bail!(
-                    "Error while creating Bucket {} with region {} and name {}",
-                    err,
-                    config.bucket_region,
-                    config.bucket_name
-                )
-            }
+        let region = Region::Custom {
+            region: "".to_string(),
+            endpoint: config.bucket_url.clone(),
         };
 
         let timeout = Duration::from_secs(config.bucket_timeout.total_seconds());
-        bucket.set_request_timeout(Some(timeout));
+        let bucket = Bucket::new(&config.bucket_name, region, credentials)
+            .context("Failed to create bucket")?
+            .with_request_timeout(timeout);
+        let bucket = if config.path_style {
+            bucket.with_path_style()
+        } else {
+            bucket
+        };
 
         Ok(Self {
             bucket,

@@ -79,21 +79,33 @@ impl DataSourceParams {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct BucketParams {
+    /// for example s3-eu-west-1.amazonaws.com
+    pub bucket_url: String,
+    /// name of the bucket which should exists at bucket_url
     pub bucket_name: String,
-    pub data_path_key: String,
 
-    #[serde(default = "default_bucket_region")]
-    pub bucket_region: String,
+    /// Change the host used to make requests to the bucket.
+    /// When `true`, use : http://bucket_url/bucket_name/
+    ///
+    /// When `false`, use Virtual-hosted–style : http://bucket.name.bucket_url/
+    ///
+    /// Defaults to `false`
+    ///
+    /// see https://docs.aws.amazon.com/AmazonS3/latest/userguide/RESTAPI.html
+    ///
+    /// Path-style are being deprecated on aws https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+    /// But are still useful for other storage providers like Minio
+    #[serde(default = "default_path_style")]
+    pub path_style: bool,
+
+    /// where to get the file in the bucket
+    pub data_path_key: String,
 
     #[serde(default = "default_bucket_credentials")]
     pub bucket_credentials: BucketCredentials,
 
     #[serde(default = "default_bucket_timeout")]
     pub bucket_timeout: PositiveDuration,
-}
-
-pub fn default_bucket_region() -> String {
-    "eu-west-1".to_string()
 }
 
 pub fn default_bucket_credentials() -> BucketCredentials {
@@ -104,17 +116,26 @@ pub fn default_bucket_timeout() -> PositiveDuration {
     PositiveDuration::from_hms(0, 0, 30)
 }
 
+pub fn default_path_style() -> bool {
+    false
+}
+
 impl BucketParams {
     pub fn new_from_env_vars() -> Result<Self, Error> {
         let bucket_name = std::env::var("LOKI_BUCKET_NAME")
             .context("Could not read mandatory env var LOKI_BUCKET_NAME")?;
 
-        let bucket_region = read_env_var("LOKI_BUCKET_REGION", default_bucket_region(), |s| {
-            s.to_string()
-        });
+        let bucket_url = std::env::var("LOKI_BUCKET_URL")
+            .context("Could not read mandatory env var LOKI_BUCKET_URL")?;
 
         let bucket_credentials = BucketCredentials::new_from_env_vars()
             .context("Could not read bucket credentials from env vars")?;
+
+        let path_style = parse_env_var(
+            "LOKI_BUCKET_PATH_STYLE",
+            default_path_style(),
+            bool::from_str,
+        );
 
         let data_path_key = std::env::var("LOKI_BUCKET_DATA_PATH")
             .context("Could not read mandatory env var LOKI_BUCKET_DATA_PATH")?;
@@ -127,7 +148,8 @@ impl BucketParams {
 
         Ok(Self {
             bucket_name,
-            bucket_region,
+            bucket_url,
+            path_style,
             bucket_credentials,
             data_path_key,
             bucket_timeout,
