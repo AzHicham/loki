@@ -15,7 +15,7 @@ RUN cargo install --path server
 
 ## final docker
 FROM debian:buster-slim
-RUN apt-get update && apt-get install -y libzmq5 libpq5 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libzmq5 libpq5 ca-certificates curl && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/loki_server /usr/local/bin/loki_server
 COPY ./docker/pca_hove.crt /usr/local/share/ca-certificates
 RUN update-ca-certificates
