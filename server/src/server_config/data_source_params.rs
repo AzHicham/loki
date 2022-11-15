@@ -162,7 +162,7 @@ impl BucketParams {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "credentials_type", rename_all = "snake_case")]
 pub enum BucketCredentials {
     Explicit(ExplicitCredentials),
@@ -194,7 +194,7 @@ impl BucketCredentials {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ExplicitCredentials {
     pub access_key: String,
@@ -212,5 +212,105 @@ impl ExplicitCredentials {
             access_key,
             secret_key,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::server_config::data_source_params::{BucketCredentials, BucketParams};
+
+    #[test]
+    fn test_toml_default_credentials() {
+        let str = "
+        bucket_url = 's3.eu-west-1.amazonaws.com'
+        bucket_region = 'eu-west-1'
+        bucket_name = 'loki'
+        path_style = false
+        data_path_key = 'my_coverage/ntfs.zip'
+        bucket_timeout = '00:01:00'
+        ";
+        let result: Result<BucketParams, _> = toml::from_str(&str);
+        assert!(
+            result.is_ok(),
+            "Error while reading config file {:?} : {:#?}",
+            &str,
+            result
+        );
+        let params = result.unwrap();
+        assert_eq!(
+            params.bucket_credentials,
+            BucketCredentials::AwsHttpCredentials
+        );
+    }
+
+    #[test]
+    fn test_vars_empty() {
+        let params = BucketParams::new_from_env_vars();
+        assert!(params.is_err());
+    }
+
+    #[test]
+    fn test_env_vars_bucket_name_only() {
+        temp_env::with_var("LOKI_BUCKET_NAME", Some("my_bucket_name"), || {
+            let params = BucketParams::new_from_env_vars();
+
+            assert!(
+                params.is_err(),
+                "Error reading config from env vars {:?}",
+                params
+            );
+        })
+    }
+
+    #[test]
+    fn test_env_vars_no_credentials_type() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_BUCKET_NAME", Some("my_bucket_name")),
+                ("LOKI_BUCKET_URL", Some("my.bucket.url")),
+                ("LOKI_BUCKET_REGION", Some("my_region")),
+            ],
+            || {
+                let params = BucketParams::new_from_env_vars();
+
+                assert!(
+                    params.is_err(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+            },
+        )
+    }
+
+    #[test]
+    fn test_env_vars_minimal() {
+        temp_env::with_vars(
+            vec![
+                ("LOKI_BUCKET_NAME", Some("my_bucket_name")),
+                ("LOKI_BUCKET_URL", Some("my.bucket.url")),
+                ("LOKI_BUCKET_REGION", Some("my_region")),
+                ("LOKI_BUCKET_DATA_PATH", Some("path/to/my/file")),
+                ("LOKI_BUCKET_CREDENTIALS_TYPE", Some("aws_http_credentials")),
+            ],
+            || {
+                let params = BucketParams::new_from_env_vars();
+
+                assert!(
+                    params.is_ok(),
+                    "Error reading config from env vars {:?}",
+                    params
+                );
+                let params = params.unwrap();
+                assert_eq!(&params.bucket_name, "my_bucket_name");
+                assert_eq!(&params.bucket_url, "my.bucket.url");
+                assert_eq!(&params.bucket_region, "my_region");
+                assert_eq!(&params.data_path_key, "path/to/my/file");
+                assert_eq!(
+                    params.bucket_credentials,
+                    BucketCredentials::AwsHttpCredentials
+                );
+            },
+        )
     }
 }
