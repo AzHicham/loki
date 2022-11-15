@@ -109,6 +109,7 @@ pub struct BucketParams {
     pub bucket_timeout: PositiveDuration,
 }
 
+#[must_use]
 pub fn default_bucket_credentials() -> BucketCredentials {
     BucketCredentials::AwsHttpCredentials
 }
@@ -117,6 +118,7 @@ pub fn default_bucket_timeout() -> PositiveDuration {
     PositiveDuration::from_hms(0, 0, 30)
 }
 
+#[must_use]
 pub fn default_path_style() -> bool {
     false
 }
@@ -151,12 +153,12 @@ impl BucketParams {
         );
 
         Ok(Self {
-            bucket_name,
             bucket_url,
             bucket_region,
+            bucket_name,
             path_style,
-            bucket_credentials,
             data_path_key,
+            bucket_credentials,
             bucket_timeout,
         })
     }
@@ -174,7 +176,7 @@ impl BucketCredentials {
         let credentials_type = read_env_var(
             "LOKI_BUCKET_CREDENTIALS_TYPE",
             "aws_http_credentials".to_string(),
-            |s| s.to_string(),
+            str::to_string,
         );
 
         match credentials_type.trim() {
