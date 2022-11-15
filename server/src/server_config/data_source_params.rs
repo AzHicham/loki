@@ -164,7 +164,7 @@ impl BucketParams {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "credentials_type", rename_all = "snake_case")]
 pub enum BucketCredentials {
     Explicit(ExplicitCredentials),
@@ -196,7 +196,7 @@ impl BucketCredentials {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ExplicitCredentials {
     pub access_key: String,
