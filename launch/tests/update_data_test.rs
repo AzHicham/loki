@@ -820,7 +820,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDateTime::from_str("2020-01-01T10:30:00")?
+            NaiveDateTime::from_str("2020-01-02T10:30:00")?
         );
     }
 
