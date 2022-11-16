@@ -43,9 +43,8 @@ mod test {
                 .collect()
         );
         let default_calendar = model.calendars.get("default_service").unwrap();
-        let dates = [loki::transit_model::objects::Date::from_ymd(2020, 1, 1)]
-            .iter()
-            .copied()
+        let dates = [loki::transit_model::objects::Date::from_ymd_opt(2020, 1, 1).unwrap()]
+            .into_iter()
             .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(default_calendar.dates, dates);
     }

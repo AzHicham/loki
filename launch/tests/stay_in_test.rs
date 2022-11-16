@@ -494,10 +494,10 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
     // We set only one valid date in calendar for simplicity
     let model = ModelBuilder::new("2020-01-01", "2020-01-02")
         .calendar_mut("c1", |c| {
-            c.dates.insert(Date::from_ymd(2020, 1, 1));
+            c.dates.insert(Date::from_ymd_opt(2020, 1, 1).unwrap());
         })
         .calendar_mut("c2", |c| {
-            c.dates.insert(Date::from_ymd(2020, 1, 2));
+            c.dates.insert(Date::from_ymd_opt(2020, 1, 2).unwrap());
         })
         .vj("first", |vj_builder| {
             vj_builder
@@ -575,7 +575,7 @@ fn multiple_day_stay_in() -> Result<(), Error> {
     let stop_point_idx = StopPointIdx::Base(*stop_point_idx);
     let stop = data.stop_point_idx_to_stop(&stop_point_idx).unwrap();
 
-    let mut current_date = NaiveDate::from_ymd(2020, 1, 1);
+    let mut current_date = NaiveDate::from_ymd_opt(2020, 1, 1).unwrap();
     // we test that next_trip works of each day of validity
     let (mission, _) = data.missions_of(stop).next().unwrap();
 
@@ -585,9 +585,9 @@ fn multiple_day_stay_in() -> Result<(), Error> {
 
         assert_eq!(current_date, data.day_of(&next_trip_stay_in));
         assert_eq!(next_vj_idx, vj_second_idx);
-        current_date = current_date.succ();
+        current_date = current_date.succ_opt().unwrap();
     }
-    assert_eq!(current_date, NaiveDate::from_ymd(2020, 1, 11));
+    assert_eq!(current_date, NaiveDate::from_ymd_opt(2020, 1, 11).unwrap());
 
     Ok(())
 }
@@ -642,10 +642,10 @@ fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
 
     let model = ModelBuilder::new("2020-01-01", "2020-01-2")
         .calendar_mut("c1", |c| {
-            c.dates.insert(Date::from_ymd(2020, 1, 1));
+            c.dates.insert(Date::from_ymd_opt(2020, 1, 1).unwrap());
         })
         .calendar_mut("c2", |c| {
-            c.dates.insert(Date::from_ymd(2020, 1, 2));
+            c.dates.insert(Date::from_ymd_opt(2020, 1, 2).unwrap());
         })
         .vj("first", |vj_builder| {
             vj_builder

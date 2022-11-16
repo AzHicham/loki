@@ -36,11 +36,12 @@
 
 mod utils;
 
+use std::str::FromStr;
+
 use anyhow::Error;
 use loki_launch::solver::Solver;
 
 use loki::{
-    chrono::NaiveDate,
     chrono_tz::UTC,
     models::{
         self, base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs, StopTime,
@@ -48,7 +49,7 @@ use loki::{
     },
     robustness::Regularity,
     timetables::InsertionError,
-    DataTrait, RealTimeLevel,
+    DataTrait, NaiveDateTime, RealTimeLevel,
 };
 use utils::{
     disruption_builder::StopTimesBuilder,
@@ -664,7 +665,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time now is 10:45:00 instead of 10:30:00
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 45, 0)
+            NaiveDateTime::from_str("2020-01-01T10:45:00")?
         );
     }
 
@@ -692,7 +693,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDate::from_ymd(2020, 1, 1).and_hms(10, 30, 0)
+            NaiveDateTime::from_str("2020-01-01T10:30:00")?
         );
     }
 
@@ -819,7 +820,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
+            NaiveDateTime::from_str("2020-01-01T10:30:00")?
         );
     }
 
@@ -857,7 +858,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 35, 0)
+            NaiveDateTime::from_str("2020-01-02T10:35:00")?
         );
     }
 
@@ -889,7 +890,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
         // the arrival time is still 10:30:00 on Base level
         assert_eq!(
             journey.arrival.to_datetime,
-            NaiveDate::from_ymd(2020, 1, 2).and_hms(10, 30, 0)
+            NaiveDateTime::from_str("2020-01-02T10:30:00")?
         );
     }
     Ok(())
