@@ -30,6 +30,10 @@ lapin = "2.0"
 # Object Storage library (S3, Minio, ..)
 rust-s3 = "0.32"
 
+# Allow to make http requests from within an AWS ECS Task to obtain credentials
+# in order to access AWS S3 bucket
+aws-creds = { version = "0.30", features = ["http-credentials"] }
+
 loki_launch = { path = "../launch"}
 
 anyhow = "1"

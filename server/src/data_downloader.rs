@@ -35,11 +35,12 @@
 // www.navitia.io
 
 use anyhow::{bail, Context, Error};
+use awscreds::Credentials;
 use core::time::Duration;
-use s3::{creds::Credentials, Bucket, Region};
+use s3::{Bucket, Region};
 use std::io::Cursor;
 
-use crate::server_config::data_source_params::BucketParams;
+use crate::server_config::data_source_params::{BucketCredentials, BucketParams};
 pub struct DataDownloader {
     bucket: Bucket,
 
@@ -54,37 +55,32 @@ pub enum DownloadStatus {
 
 impl DataDownloader {
     pub fn new(config: &BucketParams) -> Result<DataDownloader, Error> {
-        let credentials = Credentials::new(
-            Some(&config.bucket_access_key),
-            Some(&config.bucket_secret_key),
-            None,
-            None,
-            None,
-        )?;
+        let credentials = match &config.bucket_credentials {
+            BucketCredentials::Explicit(explicit) => Credentials {
+                access_key: Some(explicit.access_key.clone()),
+                secret_key: Some(explicit.secret_key.clone()),
+                security_token: None,
+                session_token: None,
+                expiration: None,
+            },
+            BucketCredentials::AwsHttpCredentials => Credentials::from_instance_metadata()
+                .context("Could not obtain AWS credentials.")?,
+        };
 
-        let mut bucket = match config.bucket_region.parse() {
-            // Custom Region / Minio
-            Ok(Region::Custom { .. }) => {
-                let region = Region::Custom {
-                    region: "".to_string(),
-                    endpoint: config.bucket_region.clone(),
-                };
-                Bucket::new(&config.bucket_name, region, credentials)?.with_path_style()
-            }
-            // AWS Region
-            Ok(region) => Bucket::new(&config.bucket_name, region, credentials)?,
-            Err(err) => {
-                bail!(
-                    "Error while creating Bucket {} with region {} and name {}",
-                    err,
-                    config.bucket_region,
-                    config.bucket_region
-                )
-            }
+        let region = Region::Custom {
+            region: config.bucket_region.clone(),
+            endpoint: config.bucket_url.clone(),
         };
 
         let timeout = Duration::from_secs(config.bucket_timeout.total_seconds());
-        bucket.set_request_timeout(Some(timeout));
+        let bucket = Bucket::new(&config.bucket_name, region, credentials)
+            .context("Failed to create bucket")?
+            .with_request_timeout(timeout);
+        let bucket = if config.path_style {
+            bucket.with_path_style()
+        } else {
+            bucket
+        };
 
         Ok(Self {
             bucket,

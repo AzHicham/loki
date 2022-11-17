@@ -3,12 +3,17 @@ requests_socket = 'tcp://*:30001'
 
 [data_source]
 type = 's3'
+bucket_url = 's3.eu-west-1.amazonaws.com'
+bucket_region = 'eu-west-1'
 bucket_name = 'loki'
-bucket_region = 'http://s3_hostname/'
-bucket_access_key = 'loki_rw'
-bucket_secret_key = 'my_secret_key'
+path_style = false
 data_path_key = 'my_coverage/ntfs.zip'
 bucket_timeout = '00:01:00'
+[data_source.bucket_credentials]
+credentials_type = 'explicit'
+access_key = 'loki_rw'
+secret_key = 'my_secret_key'
+
 
 
 [default_request_params]
