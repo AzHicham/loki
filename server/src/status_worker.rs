@@ -38,7 +38,7 @@ use crate::{
     http_worker::HttpToStatusChannel,
     zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::navitia_proto;
 
@@ -69,6 +69,7 @@ pub const BUILD_TIMESTAMP: &str = env!("VERGEN_BUILD_TIMESTAMP");
 pub const RUSTC_VERSION: &str = env!("VERGEN_RUSTC_SEMVER");
 pub const CARGO_FEATURES: &str = env!("VERGEN_CARGO_FEATURES");
 pub const CARGO_PROFILE: &str = env!("VERGEN_CARGO_PROFILE");
+pub const BUILD_INFO: BuildInfo = BuildInfo::new();
 
 pub struct StatusWorker {
     status: Status,
@@ -82,7 +83,7 @@ pub struct StatusWorker {
     shutdown_sender: mpsc::Sender<()>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Status {
     pub base_data_info: Option<BaseDataInfo>,
     pub config_info: ConfigInfo,
@@ -94,11 +95,11 @@ pub struct Status {
     pub last_kirin_reload: Option<NaiveDateTime>,
     pub last_chaos_reload: Option<NaiveDateTime>,
     pub last_real_time_update: Option<NaiveDateTime>,
-    pub loki_version: String,
+    pub loki_version: &'static str,
     pub build_info: BuildInfo,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct BaseDataInfo {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -109,32 +110,32 @@ pub struct BaseDataInfo {
     pub publisher_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ConfigInfo {
     pub instance_name: String,
     pub realtime_contributors: Vec<String>,
     pub nb_workers: u16,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct BuildInfo {
-    pub git_branch: String,
-    pub git_commit_sha: String,
-    pub build_timestamp: String,
-    pub rustc_version: String,
-    pub cargo_features: String,
-    pub cargo_profile: String,
+    pub git_branch: &'static str,
+    pub git_commit_sha: &'static str,
+    pub build_timestamp: &'static str,
+    pub rustc_version: &'static str,
+    pub cargo_features: &'static str,
+    pub cargo_profile: &'static str,
 }
 
 impl BuildInfo {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            git_branch: GIT_BRANCH.to_string(),
-            git_commit_sha: GIT_COMMIT_SHA.to_string(),
-            build_timestamp: BUILD_TIMESTAMP.to_string(),
-            rustc_version: RUSTC_VERSION.to_string(),
-            cargo_features: CARGO_FEATURES.to_string(),
-            cargo_profile: CARGO_PROFILE.to_string(),
+            git_branch: GIT_BRANCH,
+            git_commit_sha: GIT_COMMIT_SHA,
+            build_timestamp: BUILD_TIMESTAMP,
+            rustc_version: RUSTC_VERSION,
+            cargo_features: CARGO_FEATURES,
+            cargo_profile: CARGO_PROFILE,
         }
     }
 }
@@ -176,8 +177,8 @@ impl StatusWorker {
                 last_chaos_reload: None,
                 last_kirin_reload: None,
                 last_real_time_update: None,
-                loki_version: LOKI_VERSION.to_string(),
-                build_info: BuildInfo::new(),
+                loki_version: LOKI_VERSION,
+                build_info: BUILD_INFO,
             },
             zmq_channels,
             http_channel,
@@ -313,7 +314,7 @@ impl StatusWorker {
 
         proto_status.is_connected_to_rabbitmq = Some(self.status.is_connected_to_rabbitmq);
 
-        proto_status.navitia_version = Some(self.status.loki_version.clone());
+        proto_status.navitia_version = Some(LOKI_VERSION.to_string());
         proto_status.nb_threads = Some(i32::from(self.status.config_info.nb_workers));
         for rt_contributors in &self.status.config_info.realtime_contributors {
             proto_status.rt_contributors.push(rt_contributors.clone());
