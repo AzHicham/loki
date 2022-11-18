@@ -59,3 +59,7 @@ temp-env = "0.3"
 prost-build = "0.11"
 protobuf-codegen = "3"
 vergen = { version = "7", default-features = false, features = ["build", "rustc", "git", "cargo"] }
+
+[features]
+# enable the vehicle_loads feature on the loki lib
+vehicle_loads = ["loki_launch/vehicle_loads"]
