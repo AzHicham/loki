@@ -33,7 +33,7 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{fs::File, io::Write};
 use vergen;
 
 static MOD_RS: &[u8] = b"

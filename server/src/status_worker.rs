@@ -61,7 +61,14 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 pub const DATE_FORMAT: &str = "%Y%m%d";
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
+
 pub const LOKI_VERSION: &str = env!("VERGEN_GIT_SEMVER_LIGHTWEIGHT");
+pub const GIT_BRANCH: &str = env!("VERGEN_GIT_BRANCH");
+pub const GIT_COMMIT_SHA: &str = env!("VERGEN_GIT_SHA");
+pub const BUILD_TIMESTAMP: &str = env!("VERGEN_BUILD_TIMESTAMP");
+pub const RUSTC_VERSION: &str = env!("VERGEN_RUSTC_SEMVER");
+pub const CARGO_FEATURES: &str = env!("VERGEN_CARGO_FEATURES");
+pub const CARGO_PROFILE: &str = env!("VERGEN_CARGO_PROFILE");
 
 pub struct StatusWorker {
     status: Status,
@@ -88,6 +95,7 @@ pub struct Status {
     pub last_chaos_reload: Option<NaiveDateTime>,
     pub last_real_time_update: Option<NaiveDateTime>,
     pub loki_version: String,
+    pub build_info: BuildInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -106,6 +114,29 @@ pub struct ConfigInfo {
     pub instance_name: String,
     pub realtime_contributors: Vec<String>,
     pub nb_workers: u16,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BuildInfo {
+    pub git_branch: String,
+    pub git_commit_sha: String,
+    pub build_timestamp: String,
+    pub rustc_version: String,
+    pub cargo_features: String,
+    pub cargo_profile: String,
+}
+
+impl BuildInfo {
+    pub fn new() -> Self {
+        Self {
+            git_branch: GIT_BRANCH.to_string(),
+            git_commit_sha: GIT_COMMIT_SHA.to_string(),
+            build_timestamp: BUILD_TIMESTAMP.to_string(),
+            rustc_version: RUSTC_VERSION.to_string(),
+            cargo_features: CARGO_FEATURES.to_string(),
+            cargo_profile: CARGO_PROFILE.to_string(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -146,6 +177,7 @@ impl StatusWorker {
                 last_kirin_reload: None,
                 last_real_time_update: None,
                 loki_version: LOKI_VERSION.to_string(),
+                build_info: BuildInfo::new(),
             },
             zmq_channels,
             http_channel,
