@@ -58,3 +58,4 @@ temp-env = "0.3"
 [build-dependencies]
 prost-build = "0.11"
 protobuf-codegen = "3"
+vergen = "7"

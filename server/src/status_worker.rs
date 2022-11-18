@@ -61,7 +61,7 @@ use tokio::{runtime::Builder, sync::mpsc};
 
 pub const DATE_FORMAT: &str = "%Y%m%d";
 pub const DATETIME_FORMAT: &str = "%Y%m%dT%H%M%S.%f";
-pub const LOKI_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const LOKI_VERSION: &str = env!("VERGEN_GIT_SEMVER_LIGHTWEIGHT");
 
 pub struct StatusWorker {
     status: Status,
