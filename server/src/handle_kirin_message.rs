@@ -36,7 +36,7 @@
 
 use anyhow::{bail, format_err, Context, Error};
 use loki_launch::loki::{
-    chrono::{Duration, NaiveDate},
+    chrono::{Duration, NaiveDate, NaiveTime},
     models::{
         base_model::{strip_id_prefix, BaseModel, PREFIX_ID_STOP_POINT, PREFIX_ID_VEHICLE_JOURNEY},
         real_time_disruption::{
@@ -110,7 +110,9 @@ pub fn handle_kirin_protobuf(
         };
     let model_validity_period = {
         let (start_date, end_date) = base_model.validity_period();
-        TimePeriod::new(start_date.and_hms(0, 0, 0), end_date.and_hms(23, 59, 59))
+        let start_time = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
+        let end_time = NaiveTime::from_hms_opt(23, 59, 59).unwrap(); // 23:59:59 is a valid time
+        TimePeriod::new(start_date.and_time(start_time), end_date.and_time(end_time))
             .with_context(|| "BaseModel has a bad validity period".to_string())?
     };
 
@@ -195,10 +197,12 @@ fn make_time_period(
         .map(|stop_time| std::cmp::max(stop_time.arrival_time, stop_time.departure_time))
         .max()?;
 
+    let midnight = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
+
     let start_datetime =
-        reference_date.and_hms(0, 0, 0) + Duration::seconds(i64::from(min.total_seconds()));
+        reference_date.and_time(midnight) + Duration::seconds(i64::from(min.total_seconds()));
     let end_datetime =
-        reference_date.and_hms(0, 0, 0) + Duration::seconds(i64::from(max.total_seconds()));
+        reference_date.and_time(midnight) + Duration::seconds(i64::from(max.total_seconds()));
 
     // we add one second to the end_datetime since a TimePeriod is an open interval at the end
     let end_datetime = end_datetime + Duration::seconds(1);
@@ -299,7 +303,9 @@ fn read_time(
         )
     })?;
 
-    let reference_date_at_midnight = reference_date.and_hms(0, 0, 0);
+    let midnight = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
+
+    let reference_date_at_midnight = reference_date.and_time(midnight);
     let duration_from_ref = naive_datetime.signed_duration_since(reference_date_at_midnight);
     let duration_i64 = duration_from_ref.num_seconds();
     SecondsSinceTimezonedDayStart::from_seconds_i64(duration_i64).ok_or_else(|| {
