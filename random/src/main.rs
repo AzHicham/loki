@@ -112,7 +112,7 @@ pub fn launch(config: &Config) -> Result<(), Error> {
         Some(string_datetime) => loki_launch::datetime::parse_datetime(string_datetime)?,
         None => {
             let naive_date = data.calendar().first_date();
-            naive_date.and_hms(8, 0, 0)
+            naive_date.and_hms_opt(8, 0, 0).unwrap() // 08:00:00 is a valid time
         }
     };
 
