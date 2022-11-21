@@ -91,10 +91,7 @@ impl TimePeriod {
         let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
         let first_date = (self.start - offset).date();
         let last_date = (self.end + offset).date();
-        DateIter {
-            current_date: first_date,
-            last_date,
-        }
+        DateIter::new(first_date, last_date)
     }
 }
 
@@ -152,10 +149,7 @@ impl<'a> TimePeriods<'a> {
         let offset = Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY));
         let first_date = (earliest_datetime - offset).date();
         let last_date = (latest_datetime + offset).date();
-        DateIter {
-            current_date: first_date,
-            last_date,
-        }
+        DateIter::new(first_date, last_date)
     }
 }
 
@@ -192,19 +186,38 @@ impl Debug for TimePeriodError {
 // Yields all dates between current_date (included)
 // and last_date (also included)
 pub struct DateIter {
-    current_date: NaiveDate,
+    has_current_date: Option<NaiveDate>,
     last_date: NaiveDate,
+}
+
+impl DateIter {
+    pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
+        if first_date <= last_date {
+            Self {
+                has_current_date: Some(first_date),
+                last_date,
+            }
+        } else {
+            Self {
+                has_current_date: None,
+                last_date,
+            }
+        }
+    }
 }
 
 impl Iterator for DateIter {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_date <= self.last_date {
-            let result = self.current_date;
-            self.current_date = self.current_date.succ();
-            Some(result)
+        let Some(current_date) = self.has_current_date else {
+            return None;
+        };
+        if current_date <= self.last_date {
+            self.has_current_date = current_date.succ_opt();
+            Some(current_date)
         } else {
+            self.has_current_date = None;
             None
         }
     }
