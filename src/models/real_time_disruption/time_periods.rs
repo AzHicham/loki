@@ -210,14 +210,15 @@ impl Iterator for DateIter {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(current_date) = self.has_current_date else {
-            return None;
-        };
-        if current_date <= self.last_date {
-            self.has_current_date = current_date.succ_opt();
-            Some(current_date)
+        if let Some(current_date) = self.has_current_date {
+            if current_date <= self.last_date {
+                self.has_current_date = current_date.succ_opt();
+                Some(current_date)
+            } else {
+                self.has_current_date = None;
+                None
+            }
         } else {
-            self.has_current_date = None;
             None
         }
     }
