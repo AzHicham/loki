@@ -34,7 +34,6 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 use std::{fs::File, io::Write};
-use vergen;
 
 static MOD_RS: &[u8] = b"
 /// Generated from protobuf.
@@ -60,9 +59,7 @@ fn main() {
 
     // create rust usable structs from protobuf files
     // see https://docs.rs/prost-build/0.6.1/prost_build/
-
-    use std::env;
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
 
     prost_build::compile_protos(
         &[

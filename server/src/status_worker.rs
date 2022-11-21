@@ -128,6 +128,7 @@ pub struct BuildInfo {
 }
 
 impl BuildInfo {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             git_branch: GIT_BRANCH,
