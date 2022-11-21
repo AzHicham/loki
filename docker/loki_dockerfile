@@ -3,6 +3,7 @@ FROM rust:buster as builder
 WORKDIR /usr/src/myapp
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
+COPY ./.git/ ./.git/
 COPY ./src/ ./src/
 COPY ./launch/ ./launch/
 COPY ./server/ ./server/

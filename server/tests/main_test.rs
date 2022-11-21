@@ -42,7 +42,6 @@ use loki_server::{
     master_worker::MasterWorker,
     navitia_proto,
     server_config::{self, chaos_params::ChaosParams, http_params::HttpParams, ServerConfig},
-    status_worker,
 };
 use prost::Message;
 use protobuf::Message as ProtobufMessage;
@@ -567,7 +566,7 @@ async fn reload_base_data(config: &ServerConfig) {
 async fn wait_until_reload_queue_created(config: &ServerConfig) {
     wait_until_status_has(
         config,
-        |status| status.reload_queue_created,
+        |status: &serde_json::Value| status["reload_queue_created"].as_bool() == Some(true),
         "reload queue created",
     )
     .await;
@@ -576,7 +575,7 @@ async fn wait_until_reload_queue_created(config: &ServerConfig) {
 async fn wait_until_realtime_queue_created(config: &ServerConfig) {
     wait_until_status_has(
         config,
-        |status| status.realtime_queue_created,
+        |status: &serde_json::Value| status["realtime_queue_created"].as_bool() == Some(true),
         "realtime queue created",
     )
     .await;
@@ -584,7 +583,7 @@ async fn wait_until_realtime_queue_created(config: &ServerConfig) {
 
 async fn wait_until_status_has<F>(config: &ServerConfig, f: F, error_message: &str)
 where
-    F: Fn(&status_worker::Status) -> bool,
+    F: Fn(&serde_json::Value) -> bool,
 {
     let timeout = tokio::time::sleep(std::time::Duration::from_secs(60));
     tokio::pin!(timeout);
@@ -615,7 +614,7 @@ where
     }
 }
 
-async fn http_status(http_params: &HttpParams) -> Result<status_worker::Status, anyhow::Error> {
+async fn http_status(http_params: &HttpParams) -> Result<serde_json::Value, anyhow::Error> {
     use hyper::body::Buf;
     let client = hyper::client::Client::new();
     let address = http_params.http_address.to_string();

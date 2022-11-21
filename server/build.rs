@@ -33,7 +33,6 @@
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-
 use std::{fs::File, io::Write};
 
 static MOD_RS: &[u8] = b"
@@ -53,11 +52,14 @@ pub mod chaos;
 ";
 
 fn main() {
+    // generate version info from git repo
+    let mut vergen_config = vergen::Config::default();
+    *vergen_config.git_mut().semver_kind_mut() = vergen::SemverKind::Lightweight;
+    vergen::vergen(vergen_config).expect("Failed to build vergen config");
+
     // create rust usable structs from protobuf files
     // see https://docs.rs/prost-build/0.6.1/prost_build/
-
-    use std::env;
-    let out_dir = env::var("OUT_DIR").unwrap();
+    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
 
     prost_build::compile_protos(
         &[
