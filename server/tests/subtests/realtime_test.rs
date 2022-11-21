@@ -35,7 +35,7 @@ use kirin_proto::FeedHeader;
 use loki_launch::loki::{chrono::NaiveDate, NaiveDateTime};
 use protobuf::{Enum, Message, MessageField};
 
-use crate::{arrival_time, first_section_vj_name};
+use crate::{arrival_time, datetime, first_section_vj_name};
 
 // try to remove/add/modify a vehicle in the base schedule
 pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
@@ -43,8 +43,8 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
+    let date = request_datetime.date();
 
     // initial request, on base schedule
     let base_request =
@@ -94,9 +94,9 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(9, 0, 0)),
-                ("paris", date.and_hms(10, 0, 0)),
-                ("cdg", date.and_hms(10, 30, 0)),
+                ("massy", datetime("2021-01-01 09:00:00")),
+                ("paris", datetime("2021-01-01 10:00:00")),
+                ("cdg", datetime("2021-01-01 10:30:00")),
             ],
             kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
@@ -110,7 +110,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(9, 0, 0)
+            datetime("2021-01-01 09:00:00")
         );
         // on base schedule, we expect a linked impact
         // because the journey in response is impacted by a disruption
@@ -135,7 +135,7 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(10, 0, 0)
+            datetime("2021-01-01 10:00:00")
         );
         // on the realtime level, an impact should be returned
         // because the vehicle in journey response was created by a disruption
@@ -175,9 +175,9 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-01 12:00:00")),
+                ("paris", datetime("2021-01-01 13:00:00")),
+                ("cdg", datetime("2021-01-01 13:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -202,9 +202,9 @@ pub async fn remove_add_modify_base_vj_test(config: &ServerConfig) {
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(8, 0, 0)),
-                ("paris", date.and_hms(9, 0, 0)),
-                ("cdg", date.and_hms(10, 30, 0)),
+                ("massy", datetime("2021-01-01 08:00:00")),
+                ("paris", datetime("2021-01-01 09:00:00")),
+                ("cdg", datetime("2021-01-01 10:30:00")),
             ],
             kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
@@ -230,8 +230,8 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
+    let date = request_datetime.date();
 
     // initial request, on base schedule
     let base_request =
@@ -316,9 +316,9 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             "midi",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-01 12:00:00")),
+                ("paris", datetime("2021-01-01 13:00:00")),
+                ("cdg", datetime("2021-01-01 13:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -356,9 +356,9 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             "midi",
             date,
             vec![
-                ("massy", date.and_hms(13, 0, 0)),
-                ("paris", date.and_hms(14, 0, 0)),
-                ("cdg", date.and_hms(14, 30, 0)),
+                ("massy", datetime("2021-01-01 13:00:00")),
+                ("paris", datetime("2021-01-01 14:00:00")),
+                ("cdg", datetime("2021-01-01 14:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -371,7 +371,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(14, 0, 0)
+            datetime("2021-01-01 14:00:00")
         );
     }
 
@@ -382,9 +382,9 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             "midi",
             date,
             vec![
-                ("massy", date.and_hms(13, 0, 0)),
-                ("paris", date.and_hms(15, 0, 0)),
-                ("cdg", date.and_hms(15, 30, 0)),
+                ("massy", datetime("2021-01-01 13:00:00")),
+                ("paris", datetime("2021-01-01 15:00:00")),
+                ("cdg", datetime("2021-01-01 15:30:00")),
             ],
             kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
@@ -397,7 +397,7 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(14, 0, 0) //same arrival time as before the realtime message
+            datetime("2021-01-01 14:00:00") //same arrival time as before the realtime message
         );
     }
 
@@ -434,9 +434,9 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             "midi",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-01 12:00:00")),
+                ("paris", datetime("2021-01-01 13:00:00")),
+                ("cdg", datetime("2021-01-01 13:30:00")),
             ],
             kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
@@ -459,9 +459,9 @@ pub async fn remove_add_modify_new_vj_test(config: &ServerConfig) {
             "midi",
             date,
             vec![
-                ("massy", date.and_hms(9, 0, 0)),
-                ("paris", date.and_hms(10, 0, 0)),
-                ("cdg", date.and_hms(11, 30, 0)),
+                ("massy", datetime("2021-01-01 09:00:00")),
+                ("paris", datetime("2021-01-01 10:00:00")),
+                ("cdg", datetime("2021-01-01 11:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -489,8 +489,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
     // on day 2021-01-01
     // the ntfs also contains the date 2021-01-02
     // on which the vehicle_journey "matin" is NOT valid
-    let date = NaiveDate::from_ymd(2021, 1, 2);
-    let request_datetime = date.and_hms(8, 0, 0);
+
+    let request_datetime = datetime("2021-01-02 08:00:00");
+    let date = request_datetime.date();
 
     // initial request, on base schedule
     let base_request =
@@ -535,9 +536,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-02 12:00:00")),
+                ("paris", datetime("2021-01-02 13:00:00")),
+                ("cdg", datetime("2021-01-02 13:30:00")),
             ],
             kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
@@ -560,9 +561,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-02 12:00:00")),
+                ("paris", datetime("2021-01-02 13:00:00")),
+                ("cdg", datetime("2021-01-02 13:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -597,9 +598,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(13, 0, 0)),
-                ("paris", date.and_hms(14, 0, 0)),
-                ("cdg", date.and_hms(14, 30, 0)),
+                ("massy", datetime("2021-01-02 13:00:00")),
+                ("paris", datetime("2021-01-02 14:00:00")),
+                ("cdg", datetime("2021-01-02 14:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -612,7 +613,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(14, 0, 0)
+            datetime("2021-01-02 14:00:00")
         );
     }
 
@@ -623,9 +624,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(13, 0, 0)),
-                ("paris", date.and_hms(15, 0, 0)),
-                ("cdg", date.and_hms(15, 30, 0)),
+                ("massy", datetime("2021-01-02 13:00:00")),
+                ("paris", datetime("2021-01-02 15:00:00")),
+                ("cdg", datetime("2021-01-02 15:30:00")),
             ],
             kirin_proto::alert::Effect::MODIFIED_SERVICE,
         );
@@ -638,7 +639,7 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
         .await;
         assert_eq!(
             arrival_time(&journeys_response.journeys[0]),
-            date.and_hms(14, 0, 0) //same arrival time as before the realtime message
+            datetime("2021-01-02 14:00:00") //same arrival time as before the realtime message
         );
     }
 
@@ -672,9 +673,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(12, 0, 0)),
-                ("paris", date.and_hms(13, 0, 0)),
-                ("cdg", date.and_hms(13, 30, 0)),
+                ("massy", datetime("2021-01-02 12:00:00")),
+                ("paris", datetime("2021-01-02 13:00:00")),
+                ("cdg", datetime("2021-01-02 13:30:00")),
             ],
             kirin_proto::alert::Effect::SIGNIFICANT_DELAYS,
         );
@@ -697,9 +698,9 @@ pub async fn remove_add_modify_base_vj_on_invalid_day_test(config: &ServerConfig
             "matin",
             date,
             vec![
-                ("massy", date.and_hms(9, 0, 0)),
-                ("paris", date.and_hms(10, 0, 0)),
-                ("cdg", date.and_hms(10, 30, 0)),
+                ("massy", datetime("2021-01-02 09:00:00")),
+                ("paris", datetime("2021-01-02 10:00:00")),
+                ("cdg", datetime("2021-01-02 10:30:00")),
             ],
             kirin_proto::alert::Effect::ADDITIONAL_SERVICE,
         );
@@ -799,9 +800,7 @@ fn create_disruption_inner(
 
     let mut feed_header = kirin_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
-    let timestamp = NaiveDate::from_ymd(2022, 1, 1)
-        .and_hms(12, 0, 0)
-        .timestamp();
+    let timestamp = datetime("2022-01-01 12:00:00").timestamp();
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = kirin_proto::FeedMessage::new();
