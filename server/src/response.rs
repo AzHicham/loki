@@ -39,6 +39,7 @@ use std::collections::HashSet;
 
 use loki_launch::loki::{
     self,
+    chrono::NaiveTime,
     models::{
         real_time_disruption::{
             chaos_disruption::{
@@ -815,7 +816,8 @@ fn to_utc_timestamp(
     time_in_day: i64, //nb of seconds since local day start
 ) -> Result<u64, Error> {
     use chrono::TimeZone;
-    let local_datetime = day.and_hms(0, 0, 0) + chrono::Duration::seconds(time_in_day);
+    let midnight = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
+    let local_datetime = day.and_time(midnight) + chrono::Duration::seconds(time_in_day);
     let timezoned_datetime = timezone
         .from_local_datetime(&local_datetime)
         .earliest()
@@ -1210,9 +1212,10 @@ fn make_channel_type(channel_type: &ChannelType) -> navitia_proto::channel::Chan
 fn make_application_pattern(
     pattern: &ApplicationPattern,
 ) -> Result<navitia_proto::ApplicationPattern, Error> {
+    let midnight = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
     let app_period = TimePeriod::new(
-        pattern.begin_date.and_hms(0, 0, 0),
-        pattern.end_date.and_hms(0, 0, 0),
+        pattern.begin_date.and_time(midnight),
+        pattern.end_date.and_time(midnight),
     )?;
     let week_pattern = navitia_proto::WeekPattern {
         monday: Some(pattern.week_pattern[0]),
