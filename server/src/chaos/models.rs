@@ -385,12 +385,14 @@ impl ImpactMaker {
     ) -> Result<(), Error> {
         if let Some(pattern_id) = row.pattern_id {
             if application_pattern_set.insert(pattern_id) {
+                let midnight = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // 00:00:00 is a valid time
                 let mut pattern = chaos_proto::chaos::Pattern::new();
                 if let Some(start_date) = row.pattern_start_date {
-                    pattern.set_start_date(u32::try_from(start_date.and_hms(0, 0, 0).timestamp())?);
+                    pattern
+                        .set_start_date(u32::try_from(start_date.and_time(midnight).timestamp())?);
                 }
                 if let Some(end_date) = row.pattern_end_date {
-                    pattern.set_end_date(u32::try_from(end_date.and_hms(0, 0, 0).timestamp())?);
+                    pattern.set_end_date(u32::try_from(end_date.and_time(midnight).timestamp())?);
                 }
                 // time_slot_begin && time_slot_end have always the same size
                 // even after filter_map
