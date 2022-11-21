@@ -521,7 +521,7 @@ fn first_section_vj_name(journey: &navitia_proto::Journey) -> &str {
 
 fn arrival_time(journey: &navitia_proto::Journey) -> NaiveDateTime {
     let timestamp = journey.arrival_date_time();
-    NaiveDateTime::from_timestamp(timestamp as i64, 0)
+    NaiveDateTime::from_timestamp_opt(timestamp as i64, 0).unwrap()
 }
 
 async fn send_reload_order(config: &ServerConfig) {
@@ -635,4 +635,9 @@ async fn http_status(http_params: &HttpParams) -> Result<status_worker::Status, 
     let body = hyper::body::aggregate(response).await?;
     let status = serde_json::from_reader(body.reader())?;
     Ok(status)
+}
+
+// parse str of the form "2020-01-01 10:45:00"
+pub fn datetime(s: &str) -> NaiveDateTime {
+    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").unwrap()
 }
