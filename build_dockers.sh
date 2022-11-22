@@ -43,13 +43,13 @@ fi
 run git submodule update --init --recursive
 
 # build the docker for binarisation
-run docker build -f docker/bina_dockerfile -t navitia/mc_bina --build-arg NAVITIA_TAG=${tag} .
+run docker build -f docker/bina_dockerfile -t navitia/mc_bina:latest --build-arg NAVITIA_TAG=${tag} .
 
 # build the docker for kraken
-run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken --build-arg NAVITIA_TAG=${tag} .
+run docker build -f docker/kraken_dockerfile -t navitia/mc_kraken:latest --build-arg NAVITIA_TAG=${tag} .
 
 # build the docker for jormun
-run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun --build-arg NAVITIA_TAG=${tag} .
+run docker build -f docker/jormun_dockerfile -t navitia/mc_jormun:latest --build-arg NAVITIA_TAG=${tag} .
 
 # build the docker for server
 run docker build -f docker/loki_dockerfile -t navitia/loki:dev .
