@@ -75,7 +75,6 @@ jobs:
         docker push navitia/mc_bina
         docker push navitia/mc_jormun
         docker push navitia/mc_kraken
-        docker tag navitia/loki navitia/loki:dev
         docker push navitia/loki:dev
         docker logout
 
@@ -84,9 +83,9 @@ jobs:
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         TAG=${GITHUB_REF_NAME}
-        docker tag navitia/loki navitia/loki:${TAG}
+        docker tag navitia/loki:dev navitia/loki:${TAG}
         docker push navitia/loki:${TAG}
-        docker tag navitia/loki navitia/loki:latest
+        docker tag navitia/loki:dev navitia/loki:latest
         docker push navitia/loki:latest
         docker logout
 
@@ -137,7 +136,7 @@ jobs:
         docker pull navitia/mc_bina
         docker pull navitia/mc_kraken
         docker pull navitia/mc_jormun
-        docker pull navitia/loki
+        docker pull navitia/loki:dev
         cd ../artemis
         docker build -t artemis .
 
