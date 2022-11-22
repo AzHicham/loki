@@ -27,7 +27,7 @@ jobs:
       run: |
         ./build_dockers.sh -t latest
     - name: Binarize
-      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina
+      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina:latest
     - name: Launch dockers
       working-directory: ./mc_navitia
       run: |
@@ -72,9 +72,9 @@ jobs:
       if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker push navitia/mc_bina
-        docker push navitia/mc_jormun
-        docker push navitia/mc_kraken
+        docker push navitia/mc_bina:latest
+        docker push navitia/mc_jormun:latest
+        docker push navitia/mc_kraken:latest
         docker push navitia/loki:dev
         docker logout
 
@@ -133,9 +133,9 @@ jobs:
     - name: Build bina, Kraken, Jormun & Loki images
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker pull navitia/mc_bina
-        docker pull navitia/mc_kraken
-        docker pull navitia/mc_jormun
+        docker pull navitia/mc_bina:latest
+        docker pull navitia/mc_kraken:latest
+        docker pull navitia/mc_jormun:latest
         docker pull navitia/loki:dev
         cd ../artemis
         docker build -t artemis .
@@ -154,13 +154,13 @@ jobs:
     # Run binarisation
     - name: Run Artemis binarisation
       run: |
-        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina:latest
 
     # we don't need the mc_bina container and image anymore
     - name: Clean unused docker images
       run: |
-        docker rmi --force navitia/mc_bina
-        docker rm --force navitia/mc_bina
+        docker rmi --force navitia/mc_bina:latest
+        docker rm --force navitia/mc_bina:latest
 
     # the binarisation step put everything we need in ./mc_navitia,
     # so we can remove ./data and ../artemis/artemis_data/

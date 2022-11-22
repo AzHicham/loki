@@ -26,7 +26,7 @@ echo """
 version: \"3\"
 services:
   jormungandr:
-    image: navitia/mc_jormun
+    image: navitia/mc_jormun:latest
     volumes:
       - .:/data
     ports:
@@ -65,7 +65,7 @@ spec:
         app : app-jormun
     spec:
       containers:
-        - image: navitia/mc_jormun
+        - image: navitia/mc_jormun:latest
           name: jormungandr
           ports:
             - containerPort: 80
@@ -187,7 +187,7 @@ for folder in $(ls -d */); do
       - ./${coverage}/:/data
 
   kraken-${coverage}:
-    image: navitia/mc_kraken
+    image: navitia/mc_kraken:latest
     volumes:
       - ./${coverage}:/data
 """ >> ${output}/docker-compose.yml
@@ -254,7 +254,7 @@ spec:
         app : app-kraken-${coverage}
     spec:
       containers:
-        - image: navitia/mc_kraken
+        - image: navitia/mc_kraken:latest
           name: kraken-${coverage}
           volumeMounts:
             - name: volume-navitia
@@ -295,7 +295,7 @@ spec:
         app : app-loki-${coverage}
     spec:
       containers:
-        - image: navitia/loki
+        - image: navitia/loki:dev
           name: loki-${coverage}
           volumeMounts:
             - name: volume-navitia
