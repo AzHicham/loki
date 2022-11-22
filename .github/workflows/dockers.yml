@@ -5,6 +5,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  tags:
+    - '*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -62,14 +64,26 @@ jobs:
       run: |
         docker-compose logs
 
-    - name: push docker images to dockerhub
+    - name: push dev docker images to dockerhub
       if: ${{ success() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         docker push navitia/mc_bina
-        docker push navitia/loki
         docker push navitia/mc_jormun
         docker push navitia/mc_kraken
+        docker tag navitia/loki navitia/loki:dev
+        docker push navitia/loki:dev
+        docker logout
+
+    - name: push release docker images to dockerhub
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        TAG=${GITHUB_REF_NAME}
+        docker tag navitia/loki navitia/loki:${TAG}
+        docker push navitia/loki:${TAG}
+        docker tag navitia/loki navitia/loki:latest
+        docker push navitia/loki:latest
         docker logout
 
     - name: cleanup
@@ -250,3 +264,27 @@ jobs:
         name: logs-and-ref
         path: |
             ./artemis/output/**/*
+
+  aws:
+    runs-on: [self-hosted, corefront, sandbox]
+    if: github.event_name == 'push'
+    needs: build
+    steps:
+      - name: Push dev images to aws sandbox registry
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        run: |
+          docker pull navitia/loki:dev
+          docker tag navitia/loki:dev $SBX_ECR_REGISTRY/navitia-loki-loki:dev
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $SBX_ECR_REGISTRY
+          docker push $SBX_ECR_REGISTRY/navitia-loki-loki:dev
+          docker logout $SBX_ECR_REGISTRY
+
+      - name: Push release image to aws prod registry
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF_NAME}
+          docker pull navitia/loki:$TAG
+          docker tag navitia/loki:$TAG $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $PRD_ECR_REGISTRY
+          docker push $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
+          docker logout $PRD_ECR_REGISTRY
