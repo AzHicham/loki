@@ -3,10 +3,11 @@ name: Dockers & Artemis
 on:
   push:
     branches: [ master ]
+    tags:
+      - '*'
   pull_request:
     branches: [ master ]
-  tags:
-    - '*'
+
 
 env:
   CARGO_TERM_COLOR: always
