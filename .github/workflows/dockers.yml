@@ -10,6 +10,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SBX_ECR_REGISTRY: "658717835865.dkr.ecr.eu-west-1.amazonaws.com"
+  PRD_ECR_REGISTRY: "162230498103.dkr.ecr.eu-west-1.amazonaws.com"
+  REGION: eu-west-1
 
 jobs:
   build:
