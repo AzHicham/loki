@@ -266,7 +266,7 @@ jobs:
             ./artemis/output/**/*
 
   aws:
-    runs-on: [self-hosted, corefront, sandbox]
+    runs-on: [self-hosted, loki, sandbox]
     if: github.event_name == 'push'
     needs: build
     steps:
