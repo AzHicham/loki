@@ -3,15 +3,21 @@ name: Dockers & Artemis
 on:
   push:
     branches: [ master ]
+    tags:
+      - '*'
   pull_request:
     branches: [ master ]
 
+
 env:
   CARGO_TERM_COLOR: always
+  SBX_ECR_REGISTRY: "658717835865.dkr.ecr.eu-west-1.amazonaws.com"
+  PRD_ECR_REGISTRY: "162230498103.dkr.ecr.eu-west-1.amazonaws.com"
+  REGION: eu-west-1
 
 jobs:
   build:
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -21,7 +27,7 @@ jobs:
       run: |
         ./build_dockers.sh -t latest
     - name: Binarize
-      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina
+      run: docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina:latest
     - name: Launch dockers
       working-directory: ./mc_navitia
       run: |
@@ -62,14 +68,25 @@ jobs:
       run: |
         docker-compose logs
 
-    - name: push docker images to dockerhub
-      if: ${{ success() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    - name: push dev docker images to dockerhub
+      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker push navitia/mc_bina
-        docker push navitia/loki
-        docker push navitia/mc_jormun
-        docker push navitia/mc_kraken
+        docker push navitia/mc_bina:latest
+        docker push navitia/mc_jormun:latest
+        docker push navitia/mc_kraken:latest
+        docker push navitia/loki:dev
+        docker logout
+
+    - name: push release docker images to dockerhub
+      if: success() && startsWith(github.ref, 'refs/tags/')
+      run: |
+        echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        TAG=${GITHUB_REF_NAME}
+        docker tag navitia/loki:dev navitia/loki:${TAG}
+        docker push navitia/loki:${TAG}
+        docker tag navitia/loki:dev navitia/loki:latest
+        docker push navitia/loki:latest
         docker logout
 
     - name: cleanup
@@ -79,7 +96,7 @@ jobs:
         docker-compose down --rmi all -v
 
   artemis:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    if:  github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -116,10 +133,10 @@ jobs:
     - name: Build bina, Kraken, Jormun & Loki images
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker pull navitia/mc_bina
-        docker pull navitia/mc_kraken
-        docker pull navitia/mc_jormun
-        docker pull navitia/loki
+        docker pull navitia/mc_bina:latest
+        docker pull navitia/mc_kraken:latest
+        docker pull navitia/mc_jormun:latest
+        docker pull navitia/loki:dev
         cd ../artemis
         docker build -t artemis .
 
@@ -137,13 +154,13 @@ jobs:
     # Run binarisation
     - name: Run Artemis binarisation
       run: |
-        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina:latest
 
     # we don't need the mc_bina container and image anymore
     - name: Clean unused docker images
       run: |
-        docker rmi --force navitia/mc_bina
-        docker rm --force navitia/mc_bina
+        docker rmi --force navitia/mc_bina:latest
+        docker rm --force navitia/mc_bina:latest
 
     # the binarisation step put everything we need in ./mc_navitia,
     # so we can remove ./data and ../artemis/artemis_data/
@@ -244,9 +261,33 @@ jobs:
           cp -r -a ../artemis/output/ ./artemis/output
 
     - name: Archive Artemis artifacts (logs + ref)
-      if: ${{ always() }}
+      if: always()
       uses: actions/upload-artifact@v3
       with:
         name: logs-and-ref
         path: |
             ./artemis/output/**/*
+
+  aws:
+    runs-on: [self-hosted, loki, sandbox]
+    if: github.event_name == 'push'
+    needs: build
+    steps:
+      - name: Push dev images to aws sandbox registry
+        if:  github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          docker pull navitia/loki:dev
+          docker tag navitia/loki:dev $SBX_ECR_REGISTRY/navitia-loki-loki:dev
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $SBX_ECR_REGISTRY
+          docker push $SBX_ECR_REGISTRY/navitia-loki-loki:dev
+          docker logout $SBX_ECR_REGISTRY
+
+      - name: Push release image to aws prod registry
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF_NAME}
+          docker pull navitia/loki:$TAG
+          docker tag navitia/loki:$TAG $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $PRD_ECR_REGISTRY
+          docker push $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
+          docker logout $PRD_ECR_REGISTRY
