@@ -594,12 +594,12 @@ fn make_application_patterns(
     Ok(result)
 }
 
-fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> Result<TimeSlot, Error> {
-    let begin = proto.begin.context("'TimeSlot' has no 'begin'")?;
+fn make_timeslot(time_slot_proto: &chaos_proto::chaos::TimeSlot) -> Result<TimeSlot, Error> {
+    let begin = time_slot_proto.begin.context("'TimeSlot' has no 'begin'")?;
     let begin = NaiveTime::from_num_seconds_from_midnight_opt(begin, 0)
         .with_context(|| format!("Invalid begin time {}", begin))?;
 
-    let end = proto.end.context("'TimeSlot' has no 'end'")?;
+    let end = time_slot_proto.end.context("'TimeSlot' has no 'end'")?;
     let end = NaiveTime::from_num_seconds_from_midnight_opt(end, 0)
         .with_context(|| format!("Invalid end time {}", begin))?;
     let time_slot = TimeSlot { begin, end };

@@ -186,7 +186,7 @@ impl Debug for TimePeriodError {
 // Yields all dates between current_date (included)
 // and last_date (also included)
 pub struct DateIter {
-    has_current_date: Option<NaiveDate>,
+    current_date: Option<NaiveDate>,
     last_date: NaiveDate,
 }
 
@@ -194,12 +194,12 @@ impl DateIter {
     pub fn new(first_date: NaiveDate, last_date: NaiveDate) -> Self {
         if first_date <= last_date {
             Self {
-                has_current_date: Some(first_date),
+                current_date: Some(first_date),
                 last_date,
             }
         } else {
             Self {
-                has_current_date: None,
+                current_date: None,
                 last_date,
             }
         }
@@ -210,12 +210,11 @@ impl Iterator for DateIter {
     type Item = NaiveDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(current_date) = self.has_current_date {
+        if let Some(current_date) = self.current_date {
             if current_date <= self.last_date {
-                self.has_current_date = current_date.succ_opt();
+                self.current_date = current_date.succ_opt();
                 Some(current_date)
             } else {
-                self.has_current_date = None;
                 None
             }
         } else {

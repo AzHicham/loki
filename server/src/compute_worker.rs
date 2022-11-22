@@ -637,12 +637,16 @@ fn make_schedule_request<'a>(
 
         let timestamp = i64::try_from(proto_datetime).with_context(|| {
             format!(
-                "From datetime {} cannot be converted to a valid i64 timestamp.",
+                "Datetime {} cannot be converted to a valid i64 timestamp.",
                 proto_datetime
             )
         })?;
-        loki::NaiveDateTime::from_timestamp_opt(timestamp, 0)
-            .with_context(|| format!("Invalid from_datetime timestamp {}", timestamp))?
+        loki::NaiveDateTime::from_timestamp_opt(timestamp, 0).with_context(|| {
+            format!(
+                "Invalid timestamp {}, cannot be converted to a datetime.",
+                timestamp
+            )
+        })?
     };
 
     let until_datetime = from_datetime + Duration::seconds(i64::from(proto.duration));
