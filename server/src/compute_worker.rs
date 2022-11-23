@@ -477,7 +477,8 @@ fn solve(
             departure_timestamp_u64
         )
     })?;
-    let departure_datetime = loki::NaiveDateTime::from_timestamp(departure_timestamp_i64, 0);
+    let departure_datetime = loki::NaiveDateTime::from_timestamp_opt(departure_timestamp_i64, 0)
+        .with_context(|| format!("Invalid departure timestamp {}", departure_timestamp_i64))?;
 
     let max_journey_duration = u32::try_from(journey_request.max_duration)
         .map(|duration| PositiveDuration::from_hms(0, 0, duration))
@@ -640,7 +641,12 @@ fn make_schedule_request<'a>(
                 proto_datetime
             )
         })?;
-        loki::NaiveDateTime::from_timestamp(timestamp, 0)
+        loki::NaiveDateTime::from_timestamp_opt(timestamp, 0).with_context(|| {
+            format!(
+                "Invalid timestamp {}, cannot be converted to a datetime.",
+                timestamp
+            )
+        })?
     };
 
     let until_datetime = from_datetime + Duration::seconds(i64::from(proto.duration));

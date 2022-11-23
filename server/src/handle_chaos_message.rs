@@ -594,17 +594,15 @@ fn make_application_patterns(
     Ok(result)
 }
 
-fn make_timeslot(proto: &chaos_proto::chaos::TimeSlot) -> Result<TimeSlot, Error> {
-    let begin = proto
-        .begin
-        .ok_or_else(|| format_err!("'TimeSlot' has no 'begin'"))?;
-    let end = proto
-        .end
-        .ok_or_else(|| format_err!("'TimeSlot' has no 'end'"))?;
-    let time_slot = TimeSlot {
-        begin: NaiveTime::from_num_seconds_from_midnight(begin, 0),
-        end: NaiveTime::from_num_seconds_from_midnight(end, 0),
-    };
+fn make_timeslot(time_slot_proto: &chaos_proto::chaos::TimeSlot) -> Result<TimeSlot, Error> {
+    let begin = time_slot_proto.begin.context("'TimeSlot' has no 'begin'")?;
+    let begin = NaiveTime::from_num_seconds_from_midnight_opt(begin, 0)
+        .with_context(|| format!("Invalid begin time {}", begin))?;
+
+    let end = time_slot_proto.end.context("'TimeSlot' has no 'end'")?;
+    let end = NaiveTime::from_num_seconds_from_midnight_opt(end, 0)
+        .with_context(|| format!("Invalid end time {}", begin))?;
+    let time_slot = TimeSlot { begin, end };
     Ok(time_slot)
 }
 
@@ -643,5 +641,6 @@ fn make_property(
 
 pub fn make_datetime(timestamp: u64) -> Result<NaiveDateTime, Error> {
     let timestamp = i64::try_from(timestamp)?;
-    Ok(NaiveDateTime::from_timestamp(timestamp, 0))
+    NaiveDateTime::from_timestamp_opt(timestamp, 0)
+        .with_context(|| format!("Invalid timestamp {}", timestamp))
 }

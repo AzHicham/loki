@@ -70,7 +70,8 @@ impl TimezonesPatterns {
                 // since "noon minus 12h" on each day.
                 // Hence the offset between local time and UTC should be computed
                 // at noon on each day.
-                let datetime_timezoned = timezone.from_utc_date(&naive_date).and_hms(12, 0, 0);
+                let naive_datetime = naive_date.and_hms_opt(12, 0, 0).unwrap(); // unwrap is safe since 12:00:00 is a valid NaiveTime
+                let datetime_timezoned = timezone.from_utc_datetime(&naive_datetime);
                 let offset = datetime_timezoned.offset().fix();
                 let dates_for_offset = self.buffer.entry(offset).or_insert_with(Vec::new);
                 dates_for_offset.push(naive_date);

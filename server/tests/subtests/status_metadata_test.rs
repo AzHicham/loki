@@ -77,7 +77,8 @@ pub async fn status_test(config: &ServerConfig) {
         Some("20210101T120000.000000000".to_string())
     );
     assert_eq!(metadatas.contributors, vec!["my_contributor".to_string()]);
-    let last_load_at = NaiveDateTime::from_timestamp(metadatas.last_load_at.unwrap() as i64, 0);
+    let last_load_at =
+        NaiveDateTime::from_timestamp_opt(metadatas.last_load_at.unwrap() as i64, 0).unwrap();
     assert!(now_datetime > last_load_at);
 }
 
@@ -95,7 +96,8 @@ pub async fn metadata_test(config: &ServerConfig) {
     assert_eq!(metadatas.timezone, Some("UTC".to_string()));
     assert_eq!(metadatas.name, Some("France - Ile-de-France".to_string()));
     assert_eq!(metadatas.contributors, vec!["my_contributor".to_string()]);
-    let last_load_at = NaiveDateTime::from_timestamp(metadatas.last_load_at.unwrap() as i64, 0);
+    let last_load_at =
+        NaiveDateTime::from_timestamp_opt(metadatas.last_load_at.unwrap() as i64, 0).unwrap();
     assert!(now_datetime > last_load_at);
 }
 

@@ -134,21 +134,6 @@ impl BaseModel {
         Self::new(model, loads_data, default_transfer_duration)
     }
 
-    pub fn empty() -> Self {
-        let model = Model::new(Collections::default()).unwrap();
-        // let dataset = transit_model::objects::Dataset::default();
-        // collections.datasets.push(dataset).unwrap();
-        let loads_data = LoadsData::empty();
-        let day = NaiveDate::from_ymd(1970, 1, 1);
-        Self {
-            model,
-            loads_data,
-            validity_period: (day, day),
-            default_transfer_duration: PositiveDuration::zero(),
-            stop_point_to_pathways: StopPointToPathWays::new(),
-        }
-    }
-
     fn insert_pathway_into_association(
         model: &transit_model::model::Model,
         stop_point_id: &str,
@@ -252,8 +237,9 @@ impl BaseModel {
     }
 
     pub fn time_period(&self) -> TimePeriod {
-        let start_datetime = self.validity_period.0.and_hms(0, 0, 0);
-        let end_datetime = self.validity_period.1.and_hms(0, 0, 0) + Duration::days(1);
+        let start_datetime = self.validity_period.0.and_hms_opt(0, 0, 0).unwrap(); // unwrap is safe since 00:00:00 is a valid NaiveTime
+        let end_datetime = self.validity_period.1.and_hms_opt(0, 0, 0).unwrap() // unwrap is safe since 00:00:00 is a valid NaiveTime
+            + Duration::days(1);
         TimePeriod::new(start_datetime, end_datetime).unwrap() // unwrap is safe here, because we check in new()
                                                                // that validity_period.0 <= validity_period.1
     }

@@ -33,13 +33,12 @@ use loki_server::{chaos_proto, navitia_proto, server_config::ServerConfig};
 use chaos_proto::gtfs_realtime as gtfs_proto;
 use gtfs_proto::FeedHeader;
 use loki_launch::loki::{
-    chrono,
-    chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc},
+    chrono::{NaiveTime, Timelike, Utc},
     models::real_time_disruption::time_periods::TimePeriod,
 };
 use protobuf::{Message, MessageField};
 
-use crate::{first_section_vj_name, reload_base_data, wait_until_realtime_updated_after};
+use crate::{datetime, first_section_vj_name, reload_base_data, wait_until_realtime_updated_after};
 
 #[derive(Debug)]
 enum PtObject<'a> {
@@ -54,12 +53,11 @@ enum PtObject<'a> {
 // Reload choas database and check if all required information's are correctly loaded
 // and transformed into loki::Disruption
 pub async fn load_database_test(config: &ServerConfig) {
-    let datetime =
-        NaiveDateTime::parse_from_str("2021-01-01 18:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let date_time = datetime("2021-01-01 18:00:00");
 
     // initial request
     let journey_request =
-        crate::make_journeys_request("stop_point:pontoise", "stop_point:dourdan", datetime);
+        crate::make_journeys_request("stop_point:pontoise", "stop_point:dourdan", date_time);
 
     // let's first check that we do get a response
     {
@@ -96,16 +94,13 @@ pub async fn load_database_test(config: &ServerConfig) {
             "dddddddd-dddd-dddd-dddd-dddddddddddd"
         );
         assert_eq!(impact.contributor.as_ref().unwrap(), "test_realtime_topic");
-        let updated_at =
-            NaiveDateTime::parse_from_str("2018-08-28 15:50:08", "%Y-%m-%d %H:%M:%S").unwrap();
+        let updated_at = datetime("2018-08-28 15:50:08");
         assert_eq!(impact.updated_at.unwrap(), updated_at.timestamp() as u64);
 
         assert_eq!(impact.application_periods.len(), 1);
         let application_periods = &impact.application_periods[0];
-        let begin =
-            NaiveDateTime::parse_from_str("2021-01-01 14:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-        let end =
-            NaiveDateTime::parse_from_str("2021-01-02 22:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let begin = datetime("2021-01-01 14:00:00");
+        let end = datetime("2021-01-02 22:00:00");
         assert_eq!(application_periods.begin.unwrap(), begin.timestamp() as u64);
         assert_eq!(application_periods.end.unwrap(), end.timestamp() as u64);
 
@@ -140,10 +135,8 @@ pub async fn load_database_test(config: &ServerConfig) {
 
         assert_eq!(impact.application_patterns.len(), 1);
         let pattern = &impact.application_patterns[0];
-        let begin =
-            NaiveDateTime::parse_from_str("2021-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-        let end =
-            NaiveDateTime::parse_from_str("2021-01-02 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let begin = datetime("2021-01-01 00:00:00");
+        let end = datetime("2021-01-02 00:00:00");
         assert_eq!(
             pattern.application_period.begin.unwrap(),
             begin.timestamp() as u64
@@ -155,8 +148,8 @@ pub async fn load_database_test(config: &ServerConfig) {
 
         assert_eq!(pattern.time_slots.len(), 1);
         let time_slot = &pattern.time_slots[0];
-        let begin = NaiveTime::from_hms(14, 00, 00);
-        let end = NaiveTime::from_hms(22, 00, 00);
+        let begin = NaiveTime::from_hms_opt(14, 00, 00).unwrap();
+        let end = NaiveTime::from_hms_opt(22, 00, 00).unwrap();
         assert_eq!(time_slot.begin, begin.num_seconds_from_midnight());
         assert_eq!(time_slot.end, end.num_seconds_from_midnight());
 
@@ -193,8 +186,7 @@ pub async fn load_database_test(config: &ServerConfig) {
 // try to remove all vehicle of a network
 // but on a period that don't intersect with calendar validity_period
 pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -227,10 +219,9 @@ pub async fn delete_network_on_invalid_period_test(config: &ServerConfig) {
 
     // let's delete all Trip of "my_network" Network
     // between 2021-02-01 and 2021-02-01
-    let date_disruption = date + chrono::Duration::days(30);
     let dt_period = TimePeriod::new(
-        date_disruption.and_hms(0, 0, 0),
-        date_disruption.and_hms(23, 0, 0),
+        datetime("2021-02-01 00:00:00"),
+        datetime("2021-02-01 23:59:59"),
     )
     .unwrap();
     let send_realtime_message_datetime = Utc::now().naive_utc();
@@ -267,8 +258,7 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -300,7 +290,11 @@ pub async fn delete_vj_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::Trip("matin"),
@@ -347,9 +341,7 @@ pub async fn delete_line_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
-
+    let request_datetime = datetime("2021-01-01 08:00:00");
     // initial request, on base schedule
     let base_request =
         crate::make_journeys_request("stop_point:massy", "stop_point:paris", request_datetime);
@@ -380,7 +372,11 @@ pub async fn delete_line_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::Line("rer_b"),
@@ -427,8 +423,7 @@ pub async fn delete_route_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -460,7 +455,11 @@ pub async fn delete_route_test(config: &ServerConfig) {
     }
 
     // let's delete the only route
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::Route("rer_b_nord"),
@@ -507,8 +506,7 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -526,7 +524,11 @@ pub async fn cancel_disruption_on_route_test(config: &ServerConfig) {
     };
 
     // let's delete the only route
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
     let disruption_id = "no_service_on_route_rer_b_nord";
     let realtime_message =
         create_no_service_disruption(&PtObject::Route("rer_b_nord"), &dt_period, disruption_id);
@@ -587,8 +589,7 @@ pub async fn delete_stop_point_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -620,7 +621,11 @@ pub async fn delete_stop_point_test(config: &ServerConfig) {
     }
 
     // let's mark the StopPoint 'massy' as not in service
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::StopPoint("stop_point:massy"),
@@ -676,8 +681,7 @@ pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -711,7 +715,11 @@ pub async fn delete_stop_point_on_invalid_period_test(config: &ServerConfig) {
     // the vehicle circulate at 8:00 at massy
     // so if the application_period of the disruption
     // starts at 8:30, it should not remove the vehicle
-    let dt_period = TimePeriod::new(date.and_hms(8, 30, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 08:30:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::StopPoint("stop_point:massy"),
@@ -747,8 +755,7 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     //  - "paris" at 9h
     //  - "cdg" at  9h30
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -780,7 +787,11 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     }
 
     // let's mark the StopPoint 'paris' as not in service
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
     let delete_massy_disruption_id = "no_service_on_stop_point_massy";
     let realtime_message = create_no_service_disruption(
         &PtObject::StopPoint("stop_point:paris"),
@@ -837,7 +848,11 @@ pub async fn delete_several_stop_point_and_then_cancel_disruption_test(config: &
     }
 
     // let's mark now the StopPoint 'cdg' as not in service
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
     let delete_cdg_disruption_id = "no_service_on_stop_point_cdg";
 
     let realtime_message = create_no_service_disruption(
@@ -938,8 +953,7 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
     // with a vehicle_journey named "matin"
     // departing from "massy" at 8h and arriving to "paris" at 9h
     // on day 2021-01-01
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let request_datetime = date.and_hms(8, 0, 0);
+    let request_datetime = datetime("2021-01-01 08:00:00");
 
     // initial request, on base schedule
     let base_request =
@@ -971,7 +985,11 @@ pub async fn delete_stop_area_test(config: &ServerConfig) {
     }
 
     // let's delete the only trip
-    let dt_period = TimePeriod::new(date.and_hms(0, 0, 0), date.and_hms(23, 0, 0)).unwrap();
+    let dt_period = TimePeriod::new(
+        datetime("2021-01-01 00:00:00"),
+        datetime("2021-01-01 23:00:00"),
+    )
+    .unwrap();
 
     let realtime_message = create_no_service_disruption(
         &PtObject::StopArea("stop_area:massy_area"),
@@ -1114,9 +1132,7 @@ fn create_no_service_disruption(
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
-    let timestamp = NaiveDate::from_ymd(2022, 1, 1)
-        .and_hms(12, 0, 0)
-        .timestamp();
+    let timestamp = datetime("2022-01-01 12:00:00").timestamp();
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = gtfs_proto::FeedMessage::new();
@@ -1134,9 +1150,7 @@ fn create_cancel_disruption(id_of_disruption_to_cancel: &str) -> gtfs_proto::Fee
 
     let mut feed_header = gtfs_proto::FeedHeader::new();
     feed_header.set_gtfs_realtime_version("1.0".to_string());
-    let timestamp = NaiveDate::from_ymd(2022, 1, 1)
-        .and_hms(12, 0, 0)
-        .timestamp();
+    let timestamp = datetime("2022-01-01 12:00:00").timestamp();
     feed_header.set_timestamp(u64::try_from(timestamp).unwrap());
 
     let mut feed_message = gtfs_proto::FeedMessage::new();

@@ -27,12 +27,13 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-use loki_launch::loki::{chrono::NaiveDate, schedule::ScheduleOn, NaiveDateTime, RealTimeLevel};
+use loki_launch::loki::{schedule::ScheduleOn, NaiveDateTime, RealTimeLevel};
 use loki_server::{navitia_proto, server_config::ServerConfig};
 
+use crate::datetime;
+
 pub async fn simple_next_departure_test(config: &ServerConfig) {
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let from_datetime = date.and_hms(8, 0, 0);
+    let from_datetime = datetime("2021-01-01 08:00:00");
 
     let schedule_request = make_schedule_request(
         ScheduleOn::BoardTimes,
@@ -55,7 +56,7 @@ pub async fn simple_next_departure_test(config: &ServerConfig) {
 
     assert_eq!(
         passage.stop_date_time.departure_date_time.unwrap(),
-        date.and_hms(8, 0, 0).timestamp() as u64
+        datetime("2021-01-01 08:00:00").timestamp() as u64
     );
     assert_eq!(
         passage.stop_date_time.stop_point.as_ref().unwrap().name,
@@ -68,8 +69,7 @@ pub async fn simple_next_departure_test(config: &ServerConfig) {
 }
 
 pub async fn simple_next_arrival_test(config: &ServerConfig) {
-    let date = NaiveDate::from_ymd(2021, 1, 1);
-    let from_datetime = date.and_hms(8, 0, 0);
+    let from_datetime = datetime("2021-01-01 08:00:00");
 
     let schedule_request = make_schedule_request(
         ScheduleOn::DebarkTimes,
@@ -92,7 +92,7 @@ pub async fn simple_next_arrival_test(config: &ServerConfig) {
 
     assert_eq!(
         passage.stop_date_time.arrival_date_time.unwrap(),
-        date.and_hms(9, 30, 0).timestamp() as u64
+        datetime("2021-01-01 09:30:00").timestamp() as u64
     );
     assert_eq!(
         passage.stop_date_time.stop_point.as_ref().unwrap().name,

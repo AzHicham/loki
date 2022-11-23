@@ -91,12 +91,14 @@ impl Calendar {
 
     /// The first datetime that can be obtained
     pub fn first_datetime(&self) -> NaiveDateTime {
-        self.first_date.and_hms(0, 0, 0)
+        self.first_date
+            .and_hms_opt(0, 0, 0).unwrap() // unwrap is safe because 00:00:00 is a valid NaiveTime
             - chrono::Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY))
     }
 
     pub fn last_datetime(&self) -> NaiveDateTime {
-        self.last_date.and_hms(0, 0, 0)
+        self.last_date
+            .and_hms_opt(0, 0, 0).unwrap() // unwrap is safe because 00:00:00 is a valid NaiveTime
             + chrono::Duration::seconds(i64::from(MAX_SECONDS_IN_UTC_DAY))
     }
 
@@ -311,7 +313,8 @@ pub fn compose(
     // From : https://developers.google.com/transit/gtfs/reference#field_types
     // The local times of a vehicle journey are interpreted as a duration
     // since "noon minus 12h" on each day.
-    let datetime_timezoned = timezone.from_utc_date(&date).and_hms(12, 0, 0)
+    let naive_datetime = date.and_hms_opt(12, 0, 0).unwrap(); // unwrap is safe since 12:00:00 is a valid NaiveTime
+    let datetime_timezoned = timezone.from_utc_datetime(&naive_datetime)
         - chrono::Duration::hours(12)
         + chrono::Duration::seconds(i64::from(time_in_day.seconds));
 
@@ -482,13 +485,16 @@ mod tests {
     #[test]
     fn test_decompositions_utc() {
         let calendar = Calendar::new(
-            NaiveDate::from_ymd(2020, 1, 1),
-            NaiveDate::from_ymd(2020, 1, 30),
+            NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2020, 1, 30).unwrap(),
         );
 
         {
             // Jan 1st at 12:00
-            let datetime = NaiveDate::from_ymd(2020, 1, 1).and_hms(12, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2020, 1, 1)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
@@ -516,7 +522,10 @@ mod tests {
 
         {
             // Jan 10st at 12:00
-            let datetime = NaiveDate::from_ymd(2020, 1, 10).and_hms(12, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2020, 1, 10)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
@@ -552,7 +561,10 @@ mod tests {
 
         {
             // Jan 30st at 12:00
-            let datetime = NaiveDate::from_ymd(2020, 1, 30).and_hms(12, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2020, 1, 30)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
@@ -576,7 +588,10 @@ mod tests {
 
         {
             // Jan 31st at 12:00
-            let datetime = NaiveDate::from_ymd(2020, 1, 31).and_hms(12, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2020, 1, 31)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
@@ -596,7 +611,10 @@ mod tests {
 
         {
             // Dec 31st at 12:00
-            let datetime = NaiveDate::from_ymd(2019, 12, 31).and_hms(12, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2019, 12, 31)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
             let seconds_since_dataset_start = calendar.from_naive_datetime(&datetime).unwrap();
 
             let decompositions: Vec<_> = calendar
