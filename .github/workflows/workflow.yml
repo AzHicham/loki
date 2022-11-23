@@ -60,7 +60,7 @@ jobs:
     - name: Test Release
       run: |
         cargo test --release --workspace
-        cargo test --release --workspace--features "loki_launch/vehicle_loads"
+        cargo test --release --workspace --features "loki_launch/vehicle_loads"
 
   docker:
     needs: checks
