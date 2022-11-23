@@ -1,0 +1,179 @@
+name: Dockers & Artemis
+
+on:
+  workflow_run:
+    workflows: [Build and test]
+    types: [completed]
+    branches: [master]
+
+jobs:
+  artemis:
+    runs-on: ubuntu-latest
+    steps:
+    # inspired by https://github.com/actions/virtual-environments/issues/709
+    - name: Free up space
+      run: |
+        sudo apt clean
+        rm --recursive --force /usr/share/dotnet/*
+        rm --recursive --force "$AGENT_TOOLSDIRECTORY"
+
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.7'
+
+    # Checkout Artemis & submodules
+    # Use custom Artemis for the moment
+    # We discard test_idfm_11 (crash)
+    - name: Checkout Artemis
+      env:
+        ARTEMIS_GITHUB_TOKEN: ${{secrets.oauth_token}}
+      run: |
+        mkdir -p ../artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/hove-io/artemis.git --branch master ../artemis
+        git clone https://$ARTEMIS_GITHUB_TOKEN@github.com/hove-io/artemis_data.git --branch zip --depth 1 ../artemis/artemis_data
+        cd ../artemis/artemis_data
+        git lfs pull
+        unzip idfm.zip
+
+
+    # Pull docker images
+    - name: Build bina, Kraken, Jormun & Loki images
+      run: |
+        echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        docker pull navitia/mc_bina:latest
+        docker pull navitia/mc_kraken:latest
+        docker pull navitia/mc_jormun:latest
+        docker pull navitia/loki:dev
+        cd ../artemis
+        docker build -t artemis .
+
+    # Copy artemis/data/{coverage}/fusio to ./loki/data/{coverage}/ntfs
+    # Create dir for idfm references
+    - name: Copy coverage data
+      run: |
+        rm -rf ./data/*
+        mkdir -p ./data/idfm/ntfs
+        cp -r -a ../artemis/artemis_data/idfm/fusio/. ./data/idfm/ntfs
+        mkdir -p ./data/idfm/geopal
+        cp -r -a ../artemis/artemis_data/idfm/geopal/. ./data/idfm/geopal
+        mkdir -p ../artemis/artemis_references/TestIdfM
+
+    # Run binarisation
+    - name: Run Artemis binarisation
+      run: |
+        docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock  navitia/mc_bina:latest
+
+    # we don't need the mc_bina container and image anymore
+    - name: Clean unused docker images
+      run: |
+        docker rmi --force navitia/mc_bina:latest
+        docker rm --force navitia/mc_bina:latest
+
+    # the binarisation step put everything we need in ./mc_navitia,
+    # so we can remove ./data and ../artemis/artemis_data/
+    # so let's remove artemis_data
+    - name: Clean unused data
+      run: |
+        rm -rf  ./data/
+        rm -rf ../artemis/artemis_data/
+
+
+    # Start dockers
+    - name: Start dockers
+      run: |
+        docker-compose -f ./mc_navitia/docker-compose.yml up --detach
+
+    # Run Tests with Kraken & create refs
+    - name: Run Tests Kraken
+      run: |
+        cd ../artemis
+        docker run  \
+        --network host \
+        -v $PWD:/usr/src/app  \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -e ARTEMIS_LOG_LEVEL=INFO \
+        -e ARTEMIS_USE_LOKI=False   \
+        -e ARTEMIS_USE_ARTEMIS_NG=True   \
+        -e ARTEMIS_URL_JORMUN=http://localhost:9191 \
+        -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
+        artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina --create_ref --benchmark-json benchmark-kraken.json
+
+    # Run Tests with Loki & compare with refs
+    - name: Run Tests Loki
+      continue-on-error: true
+      run: |
+        cd ../artemis
+        docker run  \
+        --network host \
+        -v $PWD:/usr/src/app  \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -e ARTEMIS_LOG_LEVEL=INFO \
+        -e ARTEMIS_USE_LOKI=True   \
+        -e ARTEMIS_USE_ARTEMIS_NG=True   \
+        -e ARTEMIS_URL_JORMUN=http://localhost:9191 \
+        -e ARTEMIS_REFERENCE_FILE_PATH='artemis_references' \
+        artemis py.test ./artemis/tests/idfm_test.py --skip_cities --skip_bina --benchmark-json benchmark-loki.json
+
+    # Stash modification to upload benchmark to gh-pages
+    - name: Stash
+      run: git stash
+
+    - name: Compute Global benchmark for Artemis-Kraken
+      run: |
+          TOTAL_RUN=$(cat ../artemis/benchmark-kraken.json | jq '[.. | objects | .mean] | add' )
+          OPS=$(echo "scale=10; 1.0 /  $TOTAL_RUN " | bc)
+          STD_DEV=$(echo "scale=10; 0.1 /  $TOTAL_RUN " | bc)
+          cat ../artemis/benchmark-kraken.json | jq '.benchmarks |= [{"group": "IdfM", "name": "artemis/global_test_", "fullname": "artemis/global_test_", "params": null, "param": null, "extra_info": {}, "stats": { "ops" : "'"$OPS"'", "mean" : "'"$TOTAL_RUN"'", "rounds" : 1, "stddev" : "'"$STD_DEV"'" }  }] + .' >> ../artemis/benchmark-kraken_edit.json
+
+    - name: Compute Global benchmark for Artemis-Loki
+      run: |
+          TOTAL_RUN=$(cat ../artemis/benchmark-loki.json | jq '[.. | objects | .mean] | add' )
+          OPS=$(echo "scale=10; 1.0 /  $TOTAL_RUN " | bc)
+          STD_DEV=$(echo "scale=10; 0.1 /  $TOTAL_RUN " | bc)
+          cat ../artemis/benchmark-loki.json | jq '.benchmarks |= [{"group": "IdfM", "name": "artemis/global_test_", "fullname": "artemis/global_test_", "params": null, "param": null, "extra_info": {}, "stats": { "ops" : "'"$OPS"'", "mean" : "'"$TOTAL_RUN"'", "rounds" : 1, "stddev" : "'"$STD_DEV"'" }  }] + .' >> ../artemis/benchmark-loki_edit.json
+
+    - name: Store Kraken benchmark result
+      uses: rhysd/github-action-benchmark@v1
+      with:
+        name: Kraken Benchmark
+        tool: 'pytest'
+        output-file-path: ../artemis/benchmark-kraken_edit.json
+        benchmark-data-dir-path: './artemis-kraken'
+        max-items-in-chart: 30
+        github-token: ${{ secrets.oauth_token }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: false
+        alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
+
+    - name: Store Loki benchmark result
+      uses: rhysd/github-action-benchmark@v1
+      with:
+        name: Loki Benchmark
+        tool: 'pytest'
+        output-file-path: ../artemis/benchmark-loki_edit.json
+        benchmark-data-dir-path: './artemis-loki'
+        max-items-in-chart: 30
+        github-token: ${{ secrets.oauth_token }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: false
+        alert-comment-cc-users: '@pbench,@AzHicham,@xlqian'
+
+    - name: Copy artifacts & logs for archive
+      run: |
+          mkdir -p artemis
+          cp -r -a ../artemis/output/ ./artemis/output
+
+    - name: Archive Artemis artifacts (logs + ref)
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: logs-and-ref
+        path: |
+            ./artemis/output/**/*
