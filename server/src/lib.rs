@@ -73,6 +73,7 @@ use std::{fs, path::Path};
 use anyhow::{Context, Error};
 
 pub fn launch_server() -> Result<(), Error> {
+    info!("Loki version {}", status_worker::LOKI_VERSION);
     let mut args = std::env::args();
     let config = match args.len() {
         1 => ServerConfig::new_from_env_vars().context("Could not read config from env vars")?,
