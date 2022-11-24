@@ -608,37 +608,42 @@ impl DataWorker {
                     });
 
                 let task_message_result = navitia_proto::Task::decode(delivery.data.as_slice());
-                match task_message_result {
-                    Ok(proto_message) => {
-                        let action = proto_message.action();
-                        if let navitia_proto::Action::Reload = action {
-                            self.load_data().await?;
-
-                            // if we have unhandled kirin messages, we clear them,
-                            // since we are going to request a full reload from kirin
-                            self.realtime_messages.clear();
-                            // After loading data from disk, load all disruption in chaos database
-                            // Then apply all extracted disruptions
-                            self.reload_chaos().await.map_err(|FatalError(err)| {
-                                let source = err.context(
-                                    "Chaos reload failed during handling of reload message",
-                                );
-                                FatalError(source)
-                            })?;
-
-                            self.reload_kirin(channel).await?;
-                            info!("Reload completed.");
-                            Ok(())
-                        } else {
-                            error!(
-                                "Receive a reload message with unhandled action value : {:?}",
-                                action
-                            );
-                            Ok(())
-                        }
-                    }
+                let proto_message = match task_message_result {
+                    Ok(proto_message) => proto_message,
                     Err(err) => {
                         error!("Could not decode reload message into protobuf. {:?}", err);
+                        return Ok(());
+                    }
+                };
+                let action = proto_message.action();
+                match action {
+                    navitia_proto::Action::Reload => {
+                        self.load_data().await?;
+
+                        // if we have unhandled kirin messages, we clear them,
+                        // since we are going to request a full reload from kirin
+                        self.realtime_messages.clear();
+                        // After loading data from disk, load all disruption in chaos database
+                        // Then apply all extracted disruptions
+                        self.reload_chaos().await.map_err(|FatalError(err)| {
+                            let source = err
+                                .context("Chaos reload failed during handling of reload message");
+                            FatalError(source)
+                        })?;
+
+                        self.reload_kirin(channel).await?;
+                        info!("Reload completed.");
+                        Ok(())
+                    }
+                    navitia_proto::Action::Heartbeat => {
+                        trace!("Received Heartbeat on the reload queue");
+                        Ok(())
+                    }
+                    _ => {
+                        error!(
+                            "Receive a reload message with unhandled action value : {:?}",
+                            action
+                        );
                         Ok(())
                     }
                 }
