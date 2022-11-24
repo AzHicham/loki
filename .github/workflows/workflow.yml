@@ -58,6 +58,7 @@ jobs:
         cargo test --workspace --features "loki_launch/vehicle_loads"
 
     - name: Test Release
+      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         cargo test --release --workspace
         cargo test --release --workspace --features "loki_launch/vehicle_loads"
