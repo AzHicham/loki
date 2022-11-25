@@ -1457,7 +1457,10 @@ pub fn make_physical_mode(
         .map(|p| navitia_proto::PhysicalMode {
             uri: Some(format!("{}{}", PREFIX_ID_PHYSICAL_MODE, p.id)),
             name: Some(p.name.clone()),
-            co2_emission_rate: None,
+            co2_emission_rate: Some(navitia_proto::Co2EmissionRate {
+                value: p.co2_emission.map(|v| v as f64),
+                unit: Some(String::from("gEC/Km")),
+            }),
         })
 }
 
