@@ -1457,6 +1457,7 @@ pub fn make_physical_mode(
         .map(|p| navitia_proto::PhysicalMode {
             uri: Some(format!("{}{}", PREFIX_ID_PHYSICAL_MODE, p.id)),
             name: Some(p.name.clone()),
+            co2_emission_rate: None,
         })
 }
 
