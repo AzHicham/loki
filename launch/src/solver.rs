@@ -259,6 +259,23 @@ where
     Request::Criteria: Debug,
 {
     debug!("Start computing journeys");
+    trace!(
+        "Departures: {:#?}",
+        request
+            .departures()
+            .map(|departure| request.depart(&departure))
+            .map(|(stop, _)| request.stop_name(&stop))
+            .collect::<Vec<_>>()
+    );
+    trace!(
+        "Arrivals: {:#?}",
+        request
+            .arrivals()
+            .map(|arrival| request.arrival_stop(&arrival))
+            .map(|stop| request.stop_name(&stop))
+            .collect::<Vec<_>>()
+    );
+
     let start_compute_time = SystemTime::now();
     engine.compute(request);
     info!(
