@@ -109,7 +109,7 @@ pub struct DataWorker {
     real_time_queue_created: bool,
 
     realtime_messages: Vec<gtfs_realtime::FeedMessage>,
-    kirin_reload_done: bool,
+    initial_realtime_reload_done: bool,
 
     status_update_sender: mpsc::UnboundedSender<StatusUpdate>,
 
@@ -168,7 +168,7 @@ impl DataWorker {
             reload_queue_created: false,
             real_time_queue_created: false,
             realtime_messages: Vec::new(),
-            kirin_reload_done: false,
+            initial_realtime_reload_done: false,
             status_update_sender,
             shutdown_sender,
             data_source,
@@ -201,13 +201,6 @@ impl DataWorker {
         self.load_data()
             .await
             .context("Error during initial data load.")?;
-
-        // After loading data from disk, load all disruption in chaos database
-        // Then apply all extracted disruptions
-
-        self.reload_chaos()
-            .await
-            .context("Error during initial chaos reload.")?;
 
         info!("DataWorker completed initial data load.");
 
@@ -260,7 +253,6 @@ impl DataWorker {
             }
         }
     }
-
     async fn load_data_loop(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         if self.is_data_loaded()? {
             return Ok(());
@@ -274,7 +266,9 @@ impl DataWorker {
             // listen for Reload order
             let has_reload_message = reload_consumer.next().await;
             info!("Received a message on the reload queue.");
-            self.handle_reload_message(has_reload_message, channel)
+            // do not reload realtime here, because the realtime queue is not created yet, so we may
+            // loose some realtime messages
+            self.handle_reload_message(has_reload_message, false, channel)
                 .await?;
             if self.is_data_loaded()? {
                 info!("Load data loop completed.");
@@ -286,12 +280,18 @@ impl DataWorker {
     async fn main_loop(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
         self.load_data_loop(channel).await?;
 
-        if !self.kirin_reload_done {
-            self.reload_kirin(channel).await?;
-        }
-
         let mut real_time_messages_consumer = self.connect_real_time_queue(channel).await?;
         let mut reload_consumer = self.connect_reload_queue(channel).await?;
+
+        // We perform the realtime reload *after* the real_time queue is created, otherwise we may loose some
+        // realtime messages.
+        //
+        // We may be disconnected from rabbitmq after the initial realtime reload was done.
+        // In this case, we don't want to perform a the realtime reload again.
+        if !self.initial_realtime_reload_done {
+            self.reload_realtime(channel).await?;
+            self.initial_realtime_reload_done = true;
+        }
 
         let interval = tokio::time::interval(Duration::from_secs(
             self.config
@@ -321,7 +321,7 @@ impl DataWorker {
                 // listen for Reload order
                 has_reload_message = reload_consumer.next() => {
                     info!("Received a message on the reload queue.");
-                    self.handle_reload_message(has_reload_message, channel).await?;
+                    self.handle_reload_message(has_reload_message, true, channel).await?;
                 }
             }
         }
@@ -387,6 +387,15 @@ impl DataWorker {
         self.send_status_update(StatusUpdate::BaseDataLoad(base_data_info))?;
 
         Ok(())
+    }
+
+    async fn reload_realtime(&mut self, channel: &lapin::Channel) -> Result<(), DataWorkerError> {
+        self.reload_chaos().await.map_err(|FatalError(err)| {
+            let source = err.context("Chaos reload failed.");
+            FatalError(source)
+        })?;
+
+        self.reload_kirin(channel).await
     }
 
     async fn reload_chaos(&mut self) -> Result<(), FatalError> {
@@ -592,6 +601,7 @@ impl DataWorker {
     async fn handle_reload_message(
         &mut self,
         has_reload_message: Option<Result<lapin::message::Delivery, lapin::Error>>,
+        reload_realtime: bool,
         channel: &lapin::Channel,
     ) -> Result<(), DataWorkerError> {
         match has_reload_message {
@@ -620,18 +630,13 @@ impl DataWorker {
                     navitia_proto::Action::Reload => {
                         self.load_data().await?;
 
-                        // if we have unhandled kirin messages, we clear them,
-                        // since we are going to request a full reload from kirin
-                        self.realtime_messages.clear();
-                        // After loading data from disk, load all disruption in chaos database
-                        // Then apply all extracted disruptions
-                        self.reload_chaos().await.map_err(|FatalError(err)| {
-                            let source = err
-                                .context("Chaos reload failed during handling of reload message");
-                            FatalError(source)
-                        })?;
+                        if reload_realtime {
+                            // if we have unhandled realtime messages, we clear them,
+                            // since we are going to request a full reload from chaos and kirin
+                            self.realtime_messages.clear();
+                            self.reload_realtime(channel).await?;
+                        }
 
-                        self.reload_kirin(channel).await?;
                         info!("Reload completed.");
                         Ok(())
                     }
@@ -862,8 +867,6 @@ impl DataWorker {
         }
 
         delete_queue(channel, &queue_name).await?;
-
-        self.kirin_reload_done = true;
         Ok(())
     }
 
