@@ -60,6 +60,7 @@ use lapin::{
     types::{AMQPValue, FieldTable, ShortString},
     BasicProperties, ExchangeKind,
 };
+use tracing::debug;
 
 use std::{io::Cursor, ops::Deref, sync::RwLockReadGuard, time::SystemTime};
 
@@ -315,7 +316,7 @@ impl DataWorker {
                 }
                 // when a real time message arrives, put it in the buffer
                 has_real_time_message = real_time_messages_consumer.next() => {
-                    info!("Received a real time message.");
+                    debug!("Received a real time message.");
                     self.handle_incoming_realtime_message(has_real_time_message).await?;
                 }
                 // listen for Reload order
