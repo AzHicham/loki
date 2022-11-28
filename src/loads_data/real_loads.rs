@@ -279,21 +279,19 @@ impl LoadsData {
             let line_idx = model.lines.get_idx(&line_id).unwrap();
             for vehicle_journey_idx in model.get_corresponding_from_idx(line_idx) {
                 let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
-                let stop_sequence_iter = || {
-                    vehicle_journey
-                        .stop_times
-                        .iter()
-                        .map(|stop_time| stop_time.sequence)
-                };
+                let stop_sequence_iter = vehicle_journey
+                    .stop_times
+                    .iter()
+                    .map(|stop_time| stop_time.sequence);
                 let nb_of_stop = vehicle_journey.stop_times.len();
                 let vehicle_journey_loads = loads_data
                     .per_vehicle_journey
                     .entry(vehicle_journey_idx)
-                    .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter()));
+                    .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter.clone()));
                 let service_id = &vehicle_journey.service_id;
                 let calendar = model.calendars.get(service_id).unwrap();
                 for date in &calendar.dates {
-                    for stop_sequence in stop_sequence_iter() {
+                    for stop_sequence in stop_sequence_iter.clone() {
                         let idx = vehicle_journey_loads
                             .stop_sequence_to_idx
                             .get(&stop_sequence)
