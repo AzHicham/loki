@@ -246,6 +246,65 @@ impl LoadsData {
         }
     }
 
+    #[cfg(feature = "demo_occupancy")]
+    pub fn fake_occupancy_metro1_rera(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
+        use transit_model::objects::{Line, Network};
+        tracing::info!("loading fake vehicle occupancy for Metro 1 (RATP) and RER A (RER)");
+        let mut loads_data = LoadsData {
+            per_vehicle_journey: BTreeMap::new(),
+        };
+        let get_line_id = |network_name: &'static str, line_code: &'static str| -> String {
+            let network_idx = model
+                .networks
+                .iter()
+                .find(|(_, network)| network.name == network_name)
+                .map(|(idx, _)| idx)
+                .unwrap();
+            let lines_idx = model.get_corresponding_from_idx::<Network, Line>(network_idx);
+            let line_idx = lines_idx
+                .iter()
+                .find(|line_idx| model.lines[**line_idx].code == Some(line_code.to_string()))
+                .unwrap();
+            let line = &model.lines[*line_idx];
+            return line.id.clone();
+        };
+        let rera_id = get_line_id("RER", "A");
+        let metro1_id = get_line_id("RATP", "1");
+        for (line_id, load) in &[(rera_id, Load::High), (metro1_id, Load::Medium)] {
+            let line_idx = model.lines.get_idx(&line_id).unwrap();
+            for vehicle_journey_idx in model.get_corresponding_from_idx(line_idx) {
+                let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
+                let stop_sequence_iter = || {
+                    vehicle_journey
+                        .stop_times
+                        .iter()
+                        .map(|stop_time| stop_time.sequence)
+                };
+                let nb_of_stop = vehicle_journey.stop_times.len();
+                let vehicle_journey_loads = loads_data
+                    .per_vehicle_journey
+                    .entry(vehicle_journey_idx)
+                    .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter()));
+                let service_id = &vehicle_journey.service_id;
+                let calendar = model.calendars.get(service_id).unwrap();
+                for date in &calendar.dates {
+                    for stop_sequence in stop_sequence_iter() {
+                        let idx = vehicle_journey_loads
+                            .stop_sequence_to_idx
+                            .get(&stop_sequence)
+                            .unwrap();
+                        let trip_load = vehicle_journey_loads
+                            .per_date
+                            .entry(*date)
+                            .or_insert_with(|| TripLoads::new(nb_of_stop));
+                        trip_load.per_stop[*idx] = *load;
+                    }
+                }
+            }
+        }
+        Ok(loads_data)
+    }
+
     pub fn new<R: io::Read>(
         csv_occupancys_reader: R,
         model: &base_model::Model,

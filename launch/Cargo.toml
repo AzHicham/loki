@@ -20,3 +20,4 @@ rstest = "0.16"
 [features]
 # enable the vehicle_loads feature on the loki lib
 vehicle_loads = ["loki/vehicle_loads"]
+demo_occupancy = ["loki/demo_occupancy", "vehicle_loads"]
