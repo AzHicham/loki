@@ -15,7 +15,7 @@ anyhow = "1"
 thousands = "0.2"
 
 [dev-dependencies]
-rstest = "0.15"
+rstest = "0.16"
 
 [features]
 # enable the vehicle_loads feature on the loki lib
