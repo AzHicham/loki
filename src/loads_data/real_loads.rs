@@ -36,7 +36,7 @@
 
 use chrono::NaiveDate;
 use std::{collections::BTreeMap, error::Error, fmt::Display, io};
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 type StopSequence = u32;
 type Occupancy = u8;
@@ -250,6 +250,7 @@ impl LoadsData {
         csv_occupancys_reader: R,
         model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
+        info!("loading vehicle loads data");
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),
         };
@@ -265,13 +266,12 @@ impl LoadsData {
                 Ok((vehicle_journey_idx, stop_sequence, occupancy, date)) => {
                     (vehicle_journey_idx, stop_sequence, occupancy, date)
                 }
-                Err(_parse_error) => {
-                    // trace!(
-                    //     "Error reading {:?} at line {} : {} \n. I'll skip this line. ",
-                    //     filepath,
-                    //     reader.position().line(),
-                    //     parse_error
-                    // );
+                Err(parse_error) => {
+                    trace!(
+                        "Error reading at line {}: {} \n. I'll skip this line. ",
+                        reader.position().line(),
+                        parse_error
+                    );
                     continue;
                 }
             };
@@ -311,10 +311,17 @@ impl LoadsData {
                 .entry(date)
                 .or_insert_with(|| TripLoads::new(nb_of_stop));
             trip_load.per_stop[*idx] = load;
+            trace!(
+                "load inserted for vehicle journey '{}' on stop sequence '{}': load={}",
+                vehicle_journey.id,
+                stop_sequence,
+                load
+            );
         }
 
         // loads_data._check(model);
 
+        info!("vehicle loads data loaded");
         Ok(loads_data)
     }
 
