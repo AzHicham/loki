@@ -535,6 +535,7 @@ fn solve(
         match journey_request.criteria() {
             navitia_proto::Criteria::Classic => ComparatorType::Basic,
             navitia_proto::Criteria::Robustness => ComparatorType::Robustness,
+            navitia_proto::Criteria::Occupancy => ComparatorType::Loads,
         }
     } else {
         ComparatorType::Basic
