@@ -296,6 +296,7 @@ impl DataWorker {
         if !self.initial_realtime_reload_done {
             self.reload_realtime(channel).await?;
             self.initial_realtime_reload_done = true;
+            self.send_status_update(StatusUpdate::InitialRealtimeReloadDone)?;
         }
 
         let interval = tokio::time::interval(Duration::from_secs(
