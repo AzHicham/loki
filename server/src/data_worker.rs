@@ -268,7 +268,7 @@ impl DataWorker {
             let has_reload_message = reload_consumer.next().await;
             info!("Received a message on the reload queue.");
             // do not reload realtime here, because the realtime queue is not created yet, so we may
-            // loose some realtime messages
+            // lose some realtime messages
             self.handle_reload_message(has_reload_message, false, channel)
                 .await?;
             if self.is_data_loaded()? {
@@ -284,11 +284,15 @@ impl DataWorker {
         let mut real_time_messages_consumer = self.connect_real_time_queue(channel).await?;
         let mut reload_consumer = self.connect_reload_queue(channel).await?;
 
-        // We perform the realtime reload *after* the real_time queue is created, otherwise we may loose some
-        // realtime messages.
+        // We perform the initial realtime reload *after* the real_time queue is created,
+        // otherwise we may lose some realtime messages.
         //
         // We may be disconnected from rabbitmq after the initial realtime reload was done.
-        // In this case, we don't want to perform a the realtime reload again.
+        // In this case, we don't want to perform a the initial realtime reload again,
+        // since we already have fetched all disruptions.
+        // However, we may also be disconnected from rabbitmq in the middle of the
+        // initial realtime reload, which means we did not fetched all disruptions,
+        // and we should perform the initial realtime reload again.
         if !self.initial_realtime_reload_done {
             self.reload_realtime(channel).await?;
             self.initial_realtime_reload_done = true;
