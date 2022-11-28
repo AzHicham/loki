@@ -295,6 +295,7 @@ impl LoadsData {
                         let idx = vehicle_journey_loads
                             .stop_sequence_to_idx
                             .get(&stop_sequence)
+                            // unwrap is safe since we created the `vehicle_journey_loads` with the same stop_sequence_iter
                             .unwrap();
                         let trip_load = vehicle_journey_loads
                             .per_date
