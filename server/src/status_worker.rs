@@ -403,7 +403,7 @@ impl StatusWorker {
             }
             StatusUpdate::InitialRealtimeReloadDone => {
                 if self.status.initial_realtime_reload_done {
-                    warn!("Received InitialRealtimeReloadDone while it should already be done.")
+                    warn!("Received InitialRealtimeReloadDone while it should already be done.");
                 }
                 self.status.initial_realtime_reload_done = true;
             }
