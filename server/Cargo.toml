@@ -63,3 +63,4 @@ vergen = { version = "7", default-features = false, features = ["build", "rustc"
 [features]
 # enable the vehicle_loads feature on the loki lib
 vehicle_loads = ["loki_launch/vehicle_loads"]
+demo_occupancy = ["loki_launch/demo_occupancy", "vehicle_loads"]
