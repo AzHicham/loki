@@ -253,24 +253,29 @@ impl LoadsData {
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),
         };
-        let get_line_id = |network_name: &'static str, line_code: &'static str| -> String {
+        let get_line_id = |network_name: &'static str, line_code: &'static str| {
             let network_idx = model
                 .networks
                 .iter()
                 .find(|(_, network)| network.name == network_name)
-                .map(|(idx, _)| idx)
-                .unwrap();
-            let lines_idx = model.get_corresponding_from_idx::<Network, Line>(network_idx);
-            let line_idx = lines_idx
-                .iter()
-                .find(|line_idx| model.lines[**line_idx].code == Some(line_code.to_string()))
-                .unwrap();
-            let line = &model.lines[*line_idx];
-            return line.id.clone();
+                .map(|(idx, _)| idx)?;
+            model
+                .get_corresponding_from_idx::<Network, Line>(network_idx)
+                .into_iter()
+                .find(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
-        let rera_id = get_line_id("RER", "A");
-        let metro1_id = get_line_id("RATP", "1");
-        for (line_id, load) in &[(rera_id, Load::High), (metro1_id, Load::Medium)] {
+        let mut line_loads = Vec::new();
+        let rera_idx = get_line_id("RER", "A");
+        if let Some(rera_idx) = rera_idx {
+            trace!("loading vehicle occupancy data for RER A");
+            line_loads.push((model.lines[rera_idx].id.clone(), Load::High));
+        }
+        let metro1_idx = get_line_id("RATP", "1");
+        if let Some(metro1_idx) = metro1_idx {
+            trace!("loading vehicle occupancy data for Metro 1");
+            line_loads.push((model.lines[metro1_idx].id.clone(), Load::Medium));
+        }
+        for (line_id, load) in line_loads {
             let line_idx = model.lines.get_idx(&line_id).unwrap();
             for vehicle_journey_idx in model.get_corresponding_from_idx(line_idx) {
                 let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
@@ -297,7 +302,7 @@ impl LoadsData {
                             .per_date
                             .entry(*date)
                             .or_insert_with(|| TripLoads::new(nb_of_stop));
-                        trip_load.per_stop[*idx] = *load;
+                        trip_load.per_stop[*idx] = load;
                     }
                 }
             }
