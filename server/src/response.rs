@@ -757,7 +757,8 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    for (sequence, stop_time) in stop_times.enumerate() {
+    let loads_data = &model.base.loads_data();
+    for stop_time in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
         let departure_seconds = i64::from(stop_time.board_time.total_seconds());
@@ -771,11 +772,9 @@ fn make_stop_datetimes(
             stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
-        let departure_occupancy = model
-            .base
-            .loads_data()
-            .loads(vehicle_journey_idx, &date)
-            .and_then(|loads| loads.get(sequence))
+        let departure_occupancy = stop_time
+            .stop_sequence
+            .and_then(|stop_sequence| loads_data.load(vehicle_journey_idx, stop_sequence, &date))
             .and_then(|load| match load {
                 #[cfg(not(feature = "vehicle_loads"))]
                 loki::loads_data::Load::Unknown => None,

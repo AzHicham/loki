@@ -55,7 +55,7 @@ impl Default for Load {
 
 use std::cmp::Ordering;
 
-use crate::models::{base_model, VehicleJourneyIdx};
+use crate::models::{base_model, StopSequence, VehicleJourneyIdx};
 
 impl Ord for Load {
     fn cmp(&self, _other: &Self) -> Ordering {
@@ -110,6 +110,15 @@ impl LoadsData {
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _date: &NaiveDate,
     ) -> Option<&[Load]> {
+        None
+    }
+
+    pub fn load(
+        &self,
+        _vehicle_journey_idx: &VehicleJourneyIdx,
+        _stop_sequence: StopSequence,
+        _date: &NaiveDate,
+    ) -> Option<Load> {
         None
     }
 

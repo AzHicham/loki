@@ -49,6 +49,7 @@ use self::{
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes},
 };
 
+pub type StopSequence = u32;
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum VehicleJourneyIdx {
     Base(BaseVehicleJourneyIdx),
@@ -79,6 +80,7 @@ pub struct StopTime {
     pub debark_time: SecondsSinceTimezonedDayStart,
     pub flow_direction: FlowDirection,
     pub local_zone_id: Option<u16>,
+    pub stop_sequence: Option<StopSequence>,
 }
 
 #[derive(Clone)]

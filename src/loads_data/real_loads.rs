@@ -38,12 +38,11 @@ use chrono::NaiveDate;
 use std::{collections::BTreeMap, error::Error, fmt::Display, io};
 use tracing::{debug, info, trace};
 
-type StopSequence = u32;
 type Occupancy = u8;
 
 use crate::models::{
     base_model::{self, BaseModel, BaseVehicleJourneyIdx},
-    VehicleJourneyIdx,
+    StopSequence, VehicleJourneyIdx,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -235,6 +234,25 @@ impl LoadsData {
                 let trip_load = vehicle_journey_load.per_date.get(date)?;
                 let nb_of_stops = trip_load.per_stop.len();
                 Some(&trip_load.per_stop[..(nb_of_stops - 1)])
+            }
+            VehicleJourneyIdx::New(_) => None,
+        }
+    }
+
+    pub fn load(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        stop_sequence: StopSequence,
+        date: &NaiveDate,
+    ) -> Option<Load> {
+        match vehicle_journey_idx {
+            VehicleJourneyIdx::Base(idx) => {
+                let vehicle_journey_load = self.per_vehicle_journey.get(idx)?;
+                let trip_load = vehicle_journey_load.per_date.get(date)?;
+                let stop_time_idx = vehicle_journey_load
+                    .stop_sequence_to_idx
+                    .get(&stop_sequence)?;
+                Some(trip_load.per_stop[*stop_time_idx])
             }
             VehicleJourneyIdx::New(_) => None,
         }
