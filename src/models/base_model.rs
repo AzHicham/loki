@@ -936,17 +936,17 @@ fn equipment_property(equipments: &Equipment, property_key: &EquipmentPropertyKe
 
 #[derive(Debug, Clone)]
 pub struct BaseStopTimes<'a> {
-    inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
+    inner: std::iter::Enumerate<std::slice::Iter<'a, transit_model::objects::StopTime>>,
 }
 
 impl<'a> BaseStopTimes<'a> {
     pub fn new(
         inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
     ) -> Result<Self, (BadStopTime, usize)> {
-        let copy = inner.clone();
+        let inner = inner.enumerate();
         // we check that every transit_model::objects::StopTime
         // can be transformed into a loki::models::StopTime
-        for (stop_time_idx, stop_time) in copy.enumerate() {
+        for (stop_time_idx, stop_time) in inner.clone() {
             flow(stop_time).map_err(|err| (err, stop_time_idx))?;
             board_time(stop_time).ok_or((BadStopTime::BoardTime, stop_time_idx))?;
             debark_time(stop_time).ok_or((BadStopTime::DebarkTime, stop_time_idx))?;
@@ -959,15 +959,15 @@ impl<'a> Iterator for BaseStopTimes<'a> {
     type Item = StopTime;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|stop_time| {
+        self.inner.next().map(|(idx, stop_time)| {
             StopTime {
                 stop: StopPointIdx::Base(stop_time.stop_point_idx),
-                // unwraps are safe, beecause of checks in new()
+                // unwraps are safe, because of checks in new()
                 board_time: board_time(stop_time).unwrap(),
                 debark_time: debark_time(stop_time).unwrap(),
                 flow_direction: flow(stop_time).unwrap(),
                 local_zone_id: stop_time.local_zone_id,
-                stop_sequence: Some(stop_time.sequence),
+                stop_time_idx: Some(StopTimeIdx { idx }),
             }
         })
     }

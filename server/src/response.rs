@@ -776,12 +776,12 @@ fn make_stop_datetimes(
         let departure_occupancy = None;
         #[cfg(feature = "vehicle_loads")]
         let departure_occupancy = stop_time
-            .stop_sequence
-            .and_then(|stop_sequence| {
+            .stop_time_idx
+            .and_then(|stop_time_idx| {
                 model
                     .base
                     .loads_data()
-                    .load(vehicle_journey_idx, stop_sequence, &date)
+                    .load(vehicle_journey_idx, stop_time_idx, &date)
             })
             .and_then(|load| {
                 use loki::loads_data::Load;

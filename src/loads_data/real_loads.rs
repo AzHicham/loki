@@ -42,7 +42,7 @@ type Occupancy = u8;
 
 use crate::models::{
     base_model::{self, BaseModel, BaseVehicleJourneyIdx},
-    StopSequence, VehicleJourneyIdx,
+    StopSequence, StopTimeIdx, VehicleJourneyIdx,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -242,20 +242,11 @@ impl LoadsData {
     pub fn load(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
-        stop_sequence: StopSequence,
+        stop_time_idx: StopTimeIdx,
         date: &NaiveDate,
     ) -> Option<Load> {
-        match vehicle_journey_idx {
-            VehicleJourneyIdx::Base(idx) => {
-                let vehicle_journey_load = self.per_vehicle_journey.get(idx)?;
-                let trip_load = vehicle_journey_load.per_date.get(date)?;
-                let stop_time_idx = vehicle_journey_load
-                    .stop_sequence_to_idx
-                    .get(&stop_sequence)?;
-                Some(trip_load.per_stop[*stop_time_idx])
-            }
-            VehicleJourneyIdx::New(_) => None,
-        }
+        self.loads(vehicle_journey_idx, date)
+            .map(|loads| loads[stop_time_idx.idx])
     }
 
     pub fn empty() -> Self {
