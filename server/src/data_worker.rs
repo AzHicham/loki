@@ -266,7 +266,7 @@ impl DataWorker {
         loop {
             // listen for Reload order
             let has_reload_message = reload_consumer.next().await;
-            info!("Received a message on the reload queue.");
+            debug!("Received a message on the reload queue.");
             // do not reload realtime here, because the realtime queue is not created yet, so we may
             // lose some realtime messages
             self.handle_reload_message(has_reload_message, false, channel)
@@ -326,7 +326,7 @@ impl DataWorker {
                 }
                 // listen for Reload order
                 has_reload_message = reload_consumer.next() => {
-                    info!("Received a message on the reload queue.");
+                    debug!("Received a message on the reload queue.");
                     self.handle_reload_message(has_reload_message, true, channel).await?;
                 }
             }
@@ -634,6 +634,7 @@ impl DataWorker {
                 let action = proto_message.action();
                 match action {
                     navitia_proto::Action::Reload => {
+                        info!("Reload triggered by message");
                         self.load_data().await?;
 
                         if reload_realtime {
