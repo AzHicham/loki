@@ -276,7 +276,11 @@ impl LoadsData {
             line_loads.push((model.lines[metro1_idx].id.clone(), Load::Medium));
         }
         for (line_id, load) in line_loads {
-            let line_idx = model.lines.get_idx(&line_id).unwrap();
+            let line_idx = if let Some(line_idx) = model.lines.get_idx(&line_id) {
+                line_idx
+            } else {
+                continue;
+            };
             for vehicle_journey_idx in model.get_corresponding_from_idx(line_idx) {
                 let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
                 let stop_sequence_iter = vehicle_journey
@@ -289,7 +293,11 @@ impl LoadsData {
                     .entry(vehicle_journey_idx)
                     .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter.clone()));
                 let service_id = &vehicle_journey.service_id;
-                let calendar = model.calendars.get(service_id).unwrap();
+                let calendar = if let Some(calendar) = model.calendars.get(service_id) {
+                    calendar
+                } else {
+                    continue;
+                };
                 for date in &calendar.dates {
                     for stop_sequence in stop_sequence_iter.clone() {
                         let idx = vehicle_journey_loads
