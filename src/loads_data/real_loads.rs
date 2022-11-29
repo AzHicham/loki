@@ -246,6 +246,77 @@ impl LoadsData {
         }
     }
 
+    #[cfg(feature = "demo_occupancy")]
+    pub fn fake_occupancy_metro1_rera(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
+        use transit_model::objects::{Line, Network};
+        tracing::info!("loading fake vehicle occupancy for Metro 1 (RATP) and RER A (RER)");
+        let mut loads_data = LoadsData {
+            per_vehicle_journey: BTreeMap::new(),
+        };
+        let get_line_id = |network_name: &'static str, line_code: &'static str| {
+            let network_idx = model
+                .networks
+                .iter()
+                .find(|(_, network)| network.name == network_name)
+                .map(|(idx, _)| idx)?;
+            model
+                .get_corresponding_from_idx::<Network, Line>(network_idx)
+                .into_iter()
+                .find(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
+        };
+        let mut line_loads = Vec::new();
+        let rera_idx = get_line_id("RER", "A");
+        if let Some(rera_idx) = rera_idx {
+            trace!("loading vehicle occupancy data for RER A");
+            line_loads.push((model.lines[rera_idx].id.clone(), Load::High));
+        }
+        let metro1_idx = get_line_id("RATP", "1");
+        if let Some(metro1_idx) = metro1_idx {
+            trace!("loading vehicle occupancy data for Metro 1");
+            line_loads.push((model.lines[metro1_idx].id.clone(), Load::Medium));
+        }
+        for (line_id, load) in line_loads {
+            let line_idx = if let Some(line_idx) = model.lines.get_idx(&line_id) {
+                line_idx
+            } else {
+                continue;
+            };
+            for vehicle_journey_idx in model.get_corresponding_from_idx(line_idx) {
+                let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
+                let stop_sequence_iter = vehicle_journey
+                    .stop_times
+                    .iter()
+                    .map(|stop_time| stop_time.sequence);
+                let nb_of_stop = vehicle_journey.stop_times.len();
+                let vehicle_journey_loads = loads_data
+                    .per_vehicle_journey
+                    .entry(vehicle_journey_idx)
+                    .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter.clone()));
+                let service_id = &vehicle_journey.service_id;
+                let calendar = if let Some(calendar) = model.calendars.get(service_id) {
+                    calendar
+                } else {
+                    continue;
+                };
+                for date in &calendar.dates {
+                    for stop_sequence in stop_sequence_iter.clone() {
+                        let idx = vehicle_journey_loads
+                            .stop_sequence_to_idx
+                            .get(&stop_sequence)
+                            // unwrap is safe since we created the `vehicle_journey_loads` with the same stop_sequence_iter
+                            .unwrap();
+                        let trip_load = vehicle_journey_loads
+                            .per_date
+                            .entry(*date)
+                            .or_insert_with(|| TripLoads::new(nb_of_stop));
+                        trip_load.per_stop[*idx] = load;
+                    }
+                }
+            }
+        }
+        Ok(loads_data)
+    }
+
     pub fn new<R: io::Read>(
         csv_occupancys_reader: R,
         model: &base_model::Model,

@@ -142,7 +142,11 @@ fn read_loads_data_from_zip_reader<R: std::io::Read>(
 ) -> LoadsData {
     reader
         .map(|reader| {
-            LoadsData::new(reader, model).unwrap_or_else(|err| {
+            #[cfg(not(feature = "demo_occupancy"))]
+            let loads_data = LoadsData::new(reader, model);
+            #[cfg(feature = "demo_occupancy")]
+            let loads_data = LoadsData::fake_occupancy_metro1_rera(model);
+            loads_data.unwrap_or_else(|err| {
                 warn!("Error while reading passenger loads file, {err}");
                 warn!("I'll use default loads.");
                 LoadsData::empty()
