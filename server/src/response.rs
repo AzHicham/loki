@@ -748,7 +748,8 @@ fn make_pt_display_info(
 fn make_stop_datetimes(
     stop_times: StopTimes,
     timezone: Timezone,
-    vehicle_journey_idx: &VehicleJourneyIdx,
+    // Only used for occupancy reporting (feature "vehicle_loads")
+    #[allow(unused_variables)] vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
@@ -757,7 +758,6 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    let loads_data = &model.base.loads_data();
     for stop_time in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
@@ -772,20 +772,25 @@ fn make_stop_datetimes(
             stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
+        #[cfg(not(feature = "vehicle_loads"))]
+        let departure_occupancy = None;
+        #[cfg(feature = "vehicle_loads")]
         let departure_occupancy = stop_time
             .stop_sequence
-            .and_then(|stop_sequence| loads_data.load(vehicle_journey_idx, stop_sequence, &date))
-            .and_then(|load| match load {
-                #[cfg(not(feature = "vehicle_loads"))]
-                loki::loads_data::Load::Unknown => None,
-                #[cfg(feature = "vehicle_loads")]
-                loki::loads_data::Load::Low => Some(navitia_proto::OccupancyStatus::Empty),
-                #[cfg(feature = "vehicle_loads")]
-                loki::loads_data::Load::Medium => {
-                    Some(navitia_proto::OccupancyStatus::StandingRoomOnly)
+            .and_then(|stop_sequence| {
+                model
+                    .base
+                    .loads_data()
+                    .load(vehicle_journey_idx, stop_sequence, &date)
+            })
+            .and_then(|load| {
+                use loki::loads_data::Load;
+                use navitia_proto::OccupancyStatus;
+                match load {
+                    Load::Low => Some(OccupancyStatus::Empty),
+                    Load::Medium => Some(OccupancyStatus::StandingRoomOnly),
+                    Load::High => Some(OccupancyStatus::Full),
                 }
-                #[cfg(feature = "vehicle_loads")]
-                loki::loads_data::Load::High => Some(navitia_proto::OccupancyStatus::Full),
             });
         if let Some(departure_occupancy) = departure_occupancy {
             proto.set_departure_occupancy(departure_occupancy);
