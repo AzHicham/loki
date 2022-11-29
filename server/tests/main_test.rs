@@ -106,7 +106,7 @@ async fn run() {
     let _master_worker = MasterWorker::new(config.clone()).unwrap();
 
     wait_until_data_loaded_after(zmq_endpoint, &start_test_datetime).await;
-    wait_until_connected_to_rabbitmq(zmq_endpoint).await;
+    wait_until_initial_realtime_reload_done(&config).await;
 
     subtests::http_test::health_test(&config.http).await;
     subtests::http_test::status_test(&config.http).await;
@@ -401,7 +401,7 @@ async fn send_realtime_message_and_wait_until_reception(
     config: &ServerConfig,
     realtime_message: chaos_proto::gtfs_realtime::FeedMessage,
 ) {
-    wait_until_realtime_queue_created(config).await;
+    wait_until_initial_realtime_reload_done(config).await;
 
     let before_message_datetime = Utc::now().naive_utc();
 
@@ -572,11 +572,11 @@ async fn wait_until_reload_queue_created(config: &ServerConfig) {
     .await;
 }
 
-async fn wait_until_realtime_queue_created(config: &ServerConfig) {
+async fn wait_until_initial_realtime_reload_done(config: &ServerConfig) {
     wait_until_status_has(
         config,
-        |status: &serde_json::Value| status["realtime_queue_created"].as_bool() == Some(true),
-        "realtime queue created",
+        |status: &serde_json::Value| status["initial_realtime_reload_done"].as_bool() == Some(true),
+        "initial_realtime_reload_done",
     )
     .await;
 }

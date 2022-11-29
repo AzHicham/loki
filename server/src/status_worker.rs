@@ -92,6 +92,7 @@ pub struct Status {
     pub is_connected_to_rabbitmq: bool,
     pub realtime_queue_created: bool,
     pub reload_queue_created: bool,
+    pub initial_realtime_reload_done: bool,
     pub last_kirin_reload: Option<NaiveDateTime>,
     pub last_chaos_reload: Option<NaiveDateTime>,
     pub last_real_time_update: Option<NaiveDateTime>,
@@ -152,6 +153,7 @@ pub enum StatusUpdate {
     ChaosReload(NaiveDateTime),
     KirinReload(NaiveDateTime),
     RealTimeUpdate(NaiveDateTime),
+    InitialRealtimeReloadDone,
 }
 
 impl StatusWorker {
@@ -175,6 +177,7 @@ impl StatusWorker {
                 is_connected_to_rabbitmq: false,
                 realtime_queue_created: false,
                 reload_queue_created: false,
+                initial_realtime_reload_done: false,
                 last_chaos_reload: None,
                 last_kirin_reload: None,
                 last_real_time_update: None,
@@ -397,6 +400,12 @@ impl StatusWorker {
             }
             StatusUpdate::RealTimeUpdate(datetime) => {
                 self.status.last_real_time_update = Some(datetime);
+            }
+            StatusUpdate::InitialRealtimeReloadDone => {
+                if self.status.initial_realtime_reload_done {
+                    warn!("Received InitialRealtimeReloadDone while it should already be done.");
+                }
+                self.status.initial_realtime_reload_done = true;
             }
         }
     }

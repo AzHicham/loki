@@ -179,6 +179,7 @@ where
     debug!("datetime : {}", request_input.datetime);
     debug!("datetime_represents : {}", datetime_represent);
     debug!("comparator type : {}", comparator_type);
+    debug!("realtime level : {:?}", request_input.real_time_level);
     debug!(
         "leg_arrival_penalty : {}",
         request_input.leg_arrival_penalty
