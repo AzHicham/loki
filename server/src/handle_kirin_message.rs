@@ -134,11 +134,12 @@ pub fn handle_kirin_protobuf(
     };
 
     let company_id = chaos_proto::kirin::exts::company_id.get(trip_descriptor);
-    let vehicle = trip_update
+
+    let physical_mode_id = trip_update
         .vehicle
         .as_ref()
-        .ok_or_else(|| format_err!("'TripUpdate' has no 'VehicleDescriptor'"))?;
-    let physical_mode_id = chaos_proto::kirin::exts::physical_mode_id.get(vehicle);
+        .and_then(|vehicle| chaos_proto::kirin::exts::physical_mode_id.get(vehicle));
+
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
 
     let trip_id = VehicleJourneyId {
