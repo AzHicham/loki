@@ -138,8 +138,7 @@ pub fn handle_kirin_protobuf(
     let physical_mode_id = trip_update
         .vehicle
         .as_ref()
-        .map(|vehicle| chaos_proto::kirin::exts::physical_mode_id.get(vehicle))
-        .flatten();
+        .and_then(|vehicle| chaos_proto::kirin::exts::physical_mode_id.get(vehicle));
 
     let headsign = chaos_proto::kirin::exts::headsign.get(trip_update);
 
