@@ -775,14 +775,10 @@ fn make_stop_datetimes(
         #[cfg(not(feature = "vehicle_loads"))]
         let departure_occupancy = None;
         #[cfg(feature = "vehicle_loads")]
-        let departure_occupancy = stop_time
-            .stop_time_idx
-            .and_then(|stop_time_idx| {
-                model
-                    .base
-                    .loads_data()
-                    .load(vehicle_journey_idx, stop_time_idx, &date)
-            })
+        let departure_occupancy = model
+            .base
+            .loads_data()
+            .load(vehicle_journey_idx, stop_time.stop_time_idx, &date)
             .and_then(|load| {
                 use loki::loads_data::Load;
                 use navitia_proto::OccupancyStatus;

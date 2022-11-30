@@ -325,7 +325,7 @@ impl RealTimeModel {
         base_model: &BaseModel,
     ) -> Vec<StopTime> {
         let mut result = Vec::new();
-        for stop_time in stop_times {
+        for (stop_time_idx, stop_time) in stop_times.into_iter().enumerate() {
             let stop_id = stop_time.stop_id.as_str();
             let stop_idx = self.get_or_insert_stop(stop_id, base_model);
             result.push(StopTime {
@@ -334,7 +334,7 @@ impl RealTimeModel {
                 debark_time: stop_time.arrival_time,
                 flow_direction: stop_time.flow_direction,
                 local_zone_id: None,
-                stop_time_idx: None,
+                stop_time_idx: StopTimeIdx { idx: stop_time_idx },
             });
         }
         result

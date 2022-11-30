@@ -79,7 +79,7 @@ pub struct StopTime {
     pub debark_time: SecondsSinceTimezonedDayStart,
     pub flow_direction: FlowDirection,
     pub local_zone_id: Option<u16>,
-    pub stop_time_idx: Option<StopTimeIdx>,
+    pub stop_time_idx: StopTimeIdx,
 }
 
 #[derive(Clone)]
