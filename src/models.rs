@@ -49,7 +49,6 @@ use self::{
     real_time_model::{NewStopPointIdx, NewVehicleJourneyIdx, RealTimeStopTimes},
 };
 
-pub type StopSequence = u32;
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum VehicleJourneyIdx {
     Base(BaseVehicleJourneyIdx),

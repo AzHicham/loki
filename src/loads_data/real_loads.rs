@@ -38,11 +38,12 @@ use chrono::NaiveDate;
 use std::{collections::BTreeMap, error::Error, fmt::Display, io};
 use tracing::{debug, info, trace};
 
+type StopSequence = u32;
 type Occupancy = u8;
 
 use crate::models::{
     base_model::{self, BaseModel, BaseVehicleJourneyIdx},
-    StopSequence, StopTimeIdx, VehicleJourneyIdx,
+    StopTimeIdx, VehicleJourneyIdx,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
