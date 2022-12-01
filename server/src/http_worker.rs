@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 // Copyright  (C) 2022, Hove and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
@@ -35,7 +37,7 @@ use hyper::{
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 
-use crate::{server_config::http_params::HttpParams, status_worker::Status};
+use crate::{metrics, server_config::http_params::HttpParams, status_worker::Status};
 
 pub struct HttpToStatusChannel {
     // http worker will send a oneshot::Sender through `status_request_receiver`
@@ -137,10 +139,11 @@ async fn handle_http_request(
     timeout: tokio::time::Duration,
     status_request_sender: mpsc::Sender<oneshot::Sender<Status>>,
 ) -> Result<Response<Body>, hyper::http::Error> {
+    let start_time = SystemTime::now();
     match (http_request.method(), http_request.uri().path()) {
         // GET /status returns a json containing status info
         (&Method::GET, "/status") => {
-            match handle_status_request(timeout, status_request_sender).await {
+            let result = match handle_status_request(timeout, status_request_sender).await {
                 Ok(bytes) => Response::builder()
                     .status(StatusCode::OK)
                     .body(Body::from(bytes)),
@@ -150,12 +153,14 @@ async fn handle_http_request(
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::empty())
                 }
-            }
+            };
+            metrics::observe(metrics::Metric::HttpStatus, start_time);
+            result
         }
         // GET /health returns 200 when some data has been successfully loaded
         //  and 404 otherwise
         (&Method::GET, "/health") => {
-            match handle_health_request(timeout, status_request_sender).await {
+            let result = match handle_health_request(timeout, status_request_sender).await {
                 Ok(true) => Response::builder()
                     .status(StatusCode::OK)
                     .body(Body::empty()),
@@ -168,8 +173,22 @@ async fn handle_http_request(
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::empty())
                 }
-            }
+            };
+            metrics::observe(metrics::Metric::HttpStatus, start_time);
+            result
         }
+
+        (&Method::GET, "/metrics") => match metrics::export_metrics() {
+            Ok(payload) => Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(payload)),
+            Err(err) => {
+                error!("Http /metrics request failed : {:#}", err);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::empty())
+            }
+        },
 
         // Return the 404 Not Found for other routes.
         _ => {

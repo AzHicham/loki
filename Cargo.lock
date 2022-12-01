@@ -1625,11 +1625,13 @@ dependencies = [
  "hostname",
  "hyper",
  "lapin",
+ "lazy_static",
  "loki_launch",
  "num-traits",
+ "prometheus",
  "prost",
  "prost-build",
- "protobuf",
+ "protobuf 3.2.0",
  "protobuf-codegen",
  "rust-s3",
  "serde",
@@ -2222,6 +2224,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "449811d15fbdf5ceb5c1144416066429cf82316e2ec8ce0c1f6f8a02e7bbcf8c"
+dependencies = [
+ "cfg-if 1.0.0",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot",
+ "protobuf 2.28.0",
+ "thiserror",
+]
+
+[[package]]
 name = "prost"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2278,6 +2295,12 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
+version = "2.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+
+[[package]]
+name = "protobuf"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b55bad9126f378a853655831eb7363b7b01b81d19f8cb1218861086ca4a1a61e"
@@ -2295,7 +2318,7 @@ checksum = "0dd418ac3c91caa4032d37cb80ff0d44e2ebe637b2fb243b6234bf89cdac4901"
 dependencies = [
  "anyhow",
  "once_cell",
- "protobuf",
+ "protobuf 3.2.0",
  "protobuf-parse",
  "regex",
  "tempfile",
@@ -2311,7 +2334,7 @@ dependencies = [
  "anyhow",
  "indexmap",
  "log",
- "protobuf",
+ "protobuf 3.2.0",
  "protobuf-support",
  "tempfile",
  "thiserror",

@@ -40,6 +40,7 @@ use crate::{
     handle_kirin_message::handle_kirin_protobuf,
     load_balancer::{LoadBalancerChannels, LoadBalancerOrder},
     master_worker::DataAndModels,
+    metrics,
     server_config::ServerConfig,
     status_worker::{BaseDataInfo, StatusUpdate},
 };
@@ -483,6 +484,7 @@ impl DataWorker {
     }
 
     async fn apply_realtime_messages(&mut self) -> Result<(), FatalError> {
+        let start_apply = SystemTime::now();
         let messages = std::mem::take(&mut self.realtime_messages);
         let updater = |data_and_models: &mut DataAndModels| {
             let (data, base_model, real_time_model) = match data_and_models {
@@ -498,7 +500,7 @@ impl DataWorker {
         };
 
         self.update_data_and_models(updater).await?;
-
+        metrics::observe(metrics::Metric::RealtimeIngestion, start_apply);
         let now = Utc::now().naive_utc();
         self.send_status_update(StatusUpdate::RealTimeUpdate(now))
     }
@@ -634,6 +636,7 @@ impl DataWorker {
                 let action = proto_message.action();
                 match action {
                     navitia_proto::Action::Reload => {
+                        let start_reload = SystemTime::now();
                         info!("Reload triggered by message");
                         self.load_data().await?;
 
@@ -643,7 +646,7 @@ impl DataWorker {
                             self.realtime_messages.clear();
                             self.reload_realtime(channel).await?;
                         }
-
+                        metrics::observe(metrics::Metric::Reload, start_reload);
                         info!("Reload completed.");
                         Ok(())
                     }
