@@ -54,3 +54,14 @@ pub async fn health_test(http_params: &HttpParams) {
 
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+pub async fn metrics_test(http_params: &HttpParams) {
+    let client = hyper::client::Client::new();
+    let address = http_params.http_address.to_string();
+    let uri_string = format!("http://{}/metrics", address);
+    let uri = Uri::from_str(&uri_string).unwrap();
+
+    let response = client.get(uri).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}

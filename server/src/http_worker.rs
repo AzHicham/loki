@@ -123,8 +123,8 @@ impl HttpWorker {
         let server = hyper::Server::bind(http_address).serve(make_service);
 
         info!(
-            "Http worker is listening on http://{}/status and http://{}/health ",
-            http_address, http_address
+            "Http worker is listening on http://{}/status , http://{}/health and http://{}/metrics ",
+            http_address, http_address, http_address
         );
 
         if let Err(e) = server.await {

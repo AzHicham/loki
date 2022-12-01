@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 // Copyright  (C) 2022, Hove and/or its affiliates. All rights reserved.
 //
 // This file is part of Navitia,
@@ -29,8 +27,8 @@ use std::time::SystemTime;
 // channel `#navitia` on riot https://riot.im/app/#/room/#navitia:matrix.org
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
-
 use anyhow::{bail, Context};
+use std::time::SystemTime;
 use tracing::{error, info};
 
 use prometheus::{self, process_collector::ProcessCollector, Histogram, HistogramOpts, Registry};
