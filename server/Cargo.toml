@@ -49,7 +49,7 @@ tracing = { version = "0.1", features = ["release_max_level_info"]}
 
 hyper = {version = "0.14", features = ["server", "stream"] }
 
-prometheus = "0.13"
+prometheus = {version = "0.13", features = ["process"] }
 lazy_static = "1.4"
 
 

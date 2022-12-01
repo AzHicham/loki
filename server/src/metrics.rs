@@ -33,7 +33,7 @@ use std::time::SystemTime;
 use anyhow::{bail, Context};
 use tracing::{error, info};
 
-use prometheus::{self, Histogram, HistogramOpts, Registry};
+use prometheus::{self, process_collector::ProcessCollector, Histogram, HistogramOpts, Registry};
 
 use lazy_static::lazy_static;
 
@@ -78,6 +78,12 @@ fn create_metrics() -> Option<Metrics> {
     let http_status_durations = create_http_status_histogram(&registry)?;
     let reload_durations = create_reload_histogram(&registry)?;
     let realtime_ingestion_durations = create_realtime_ingestion_histogram(&registry)?;
+
+    let process_metrics = ProcessCollector::for_self();
+    registry
+        .register(Box::new(process_metrics))
+        .map_err(|err| error!("Failed to register process metrics {:?}", err))
+        .ok()?;
 
     info!("Metrics created");
     Some(Metrics {
