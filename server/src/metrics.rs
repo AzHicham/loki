@@ -142,7 +142,7 @@ fn create_zmq_status_histogram(registry: &Registry) -> Option<Histogram> {
 }
 
 fn create_http_status_histogram(registry: &Registry) -> Option<Histogram> {
-    let name = "status_durations";
+    let name = "http_status_durations";
     let help = "durations (in seconds) for handling http status requests";
     let buckets = vec![0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0];
     register_histogram(registry, name, help, buckets)
