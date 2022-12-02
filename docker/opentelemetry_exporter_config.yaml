@@ -33,5 +33,8 @@ service:
   pipelines:
     metrics:
       receivers: [prometheus]
+      # NewRelic does not accept cumulative histogram (yet?) and that is what is produced by prometheus receiver
+      # so we need to transform the cumulative histogram to a delta one
+      # see https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/best-practices/opentelemetry-best-practices-metrics#otel-histogram
       processors: [batch, cumulativetodelta]
       exporters: [otlp]
