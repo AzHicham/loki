@@ -23,7 +23,7 @@ processors:
 
 exporters:
   otlp:
-    # endpoint should include gRPC port number, e.g: /https://otlp.nr-data.net:4317
+    # endpoint should include gRPC port number, e.g: https://otlp.nr-data.net:4317
     # see https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/opentelemetry-setup#review-settings
     endpoint: ${NEWRELIC_ENDPOINT}
     headers:
