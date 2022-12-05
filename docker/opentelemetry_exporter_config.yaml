@@ -4,13 +4,40 @@
 # - prometheus receiver for opentelemetry https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/prometheusreceiver
 
 receivers:
+  # collect prometheus metrics exposed in loki
   prometheus:
     config:
       scrape_configs:
         - job_name: "otel-collector"
-          scrape_interval: 5s
+          scrape_interval: 20s
           static_configs:
             - targets: ["LOKI_HTTP_ADDRESS"]
+  # collect metrics about the host we are running on
+  # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver
+  hostmetrics:
+    collection_interval: 20s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      load:
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      # disk:
+      # filesystem:
+      #   metrics:
+      #     system.filesystem.utilization:
+      #       enabled: true
+      network:
+      paging:
+        metrics:
+          system.paging.utilization:
+            enabled: true
+      processes:
+      process:
 
 processors:
   memory_limiter:
@@ -18,7 +45,34 @@ processors:
     limit_mib: 1000
     spike_limit_mib: 200
   batch:
+  # transform metrics to the "delta-encoding" which is supported by newrelic
+  # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/cumulativetodeltaprocessor
+  # https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/best-practices/opentelemetry-best-practices-metrics#otel-histogram
   cumulativetodelta:
+  # collect informations about the host we are running on
+  # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor#amazon-ecs
+  resourcedetection/ecs:
+    detectors: [env, ecs]
+  # add extra attributes to the metrics collected
+  # https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/attributesprocessor/README.md#attributes-processor
+  # NewRelic expects the keys to be prefixed with 'tag.'
+  # https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/best-practices/opentelemetry-best-practices-resources
+  attributes:
+    actions:
+      - key: tags.availability_zone
+        from_attribute: cloud.availability_zone
+        action: insert
+      - key: tags.task
+        from_attribute: aws.ecs.task.arn
+        action: insert
+      - key: tags.task_revision
+        from_attribute: aws.ecs.task.revision
+        action: insert
+      - key: tags.cluster
+        from_attribute: aws.ecs.cluster.arn
+        action: insert
+      - key: tags.coverage
+        value: ${LOKI_INSTANCE_NAME}
 
 
 exporters:
@@ -32,9 +86,9 @@ exporters:
 service:
   pipelines:
     metrics:
-      receivers: [prometheus]
+      receivers: [prometheus, hostmetrics]
       # NewRelic does not accept cumulative histogram (yet?) and that is what is produced by prometheus receiver
       # so we need to transform the cumulative histogram to a delta one
       # see https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/best-practices/opentelemetry-best-practices-metrics#otel-histogram
-      processors: [batch, cumulativetodelta]
+      processors: [batch, resourcedetection/ecs, attributes, cumulativetodelta]
       exporters: [otlp]
