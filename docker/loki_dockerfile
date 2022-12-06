@@ -13,7 +13,8 @@ COPY ./random/ ./random/
 RUN apt-get update && apt-get install -y libzmq3-dev libpq-dev cmake protobuf-compiler
 
 
-RUN cargo install --locked --path server
+# The feature 'demo_occupancy' is temporary, `loki` is not yet in production
+RUN cargo install --locked --path server --features demo_occupancy
 
 ## final docker
 FROM debian:buster-slim
