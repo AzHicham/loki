@@ -53,7 +53,7 @@ struct Metrics {
 pub enum Metric {
     Journeys,
     PlacesNearby,
-    NetxtDeparturesArrivals,
+    NextDeparturesArrivals,
     ZmqStatus,
     HttpStatus,
     Reload,
@@ -177,7 +177,7 @@ pub fn observe(metric: Metric, time: SystemTime) {
     let histogram = match metric {
         Metric::Journeys => &metrics.journeys_durations,
         Metric::PlacesNearby => &metrics.places_nearby_durations,
-        Metric::NetxtDeparturesArrivals => &metrics.next_departures_arrivals_durations,
+        Metric::NextDeparturesArrivals => &metrics.next_departures_arrivals_durations,
         Metric::ZmqStatus => &metrics.zmq_status_durations,
         Metric::HttpStatus => &metrics.http_status_durations,
         Metric::Reload => &metrics.reload_durations,

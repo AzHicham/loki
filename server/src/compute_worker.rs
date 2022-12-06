@@ -183,7 +183,7 @@ impl ComputeWorker {
                     )
                 });
                 let result = self.handle_schedule(request, ScheduleOn::BoardTimes);
-                metrics::observe(metrics::Metric::NetxtDeparturesArrivals, start_request_time);
+                metrics::observe(metrics::Metric::NextDeparturesArrivals, start_request_time);
                 result
             }
             navitia_proto::Api::NextArrivals => {
@@ -191,7 +191,7 @@ impl ComputeWorker {
                     format_err!("request.next_stop_times should not be empty for api NextArrivals.")
                 });
                 let result = self.handle_schedule(request, ScheduleOn::DebarkTimes);
-                metrics::observe(metrics::Metric::NetxtDeparturesArrivals, start_request_time);
+                metrics::observe(metrics::Metric::NextDeparturesArrivals, start_request_time);
                 result
             }
             _ => {
