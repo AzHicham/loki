@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Adapted from https://docs.docker.com/config/containers/multi-service_container/
+
 # Start opentelemetry exporter
 /usr/bin/otelcol-contrib --config=/etc/otelcol/config.yaml &
 
