@@ -758,7 +758,9 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    for stop_time in stop_times {
+    // `stop_time_idx` is only used for occupancy reporting (feature "vehicle_loads")
+    #[allow(unused_variables)]
+    for (stop_time_idx, stop_time) in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
         let departure_seconds = i64::from(stop_time.board_time.total_seconds());
@@ -778,7 +780,7 @@ fn make_stop_datetimes(
         let departure_occupancy = model
             .base
             .loads_data()
-            .load(vehicle_journey_idx, stop_time.stop_time_idx, &date)
+            .load(vehicle_journey_idx, stop_time_idx, &date)
             .and_then(|load| {
                 use loki::loads_data::Load;
                 use navitia_proto::OccupancyStatus;
@@ -950,7 +952,7 @@ fn make_shape_from_stop_points(
 ) -> Vec<navitia_proto::GeographicalCoord> {
     match stoptimes {
         StopTimes::Base(stop_times) => stop_times
-            .filter_map(|stop_time| {
+            .filter_map(|(_, stop_time)| {
                 let stop_point_idx = &stop_time.stop;
                 let coord = &model.coord(stop_point_idx)?;
                 Some(navitia_proto::GeographicalCoord {
@@ -960,7 +962,7 @@ fn make_shape_from_stop_points(
             })
             .collect(),
         StopTimes::New(stop_times) => stop_times
-            .filter_map(|stop_time| {
+            .filter_map(|(_, stop_time)| {
                 let stop_point_idx = &stop_time.stop;
                 let coord = &model.coord(stop_point_idx)?;
                 Some(navitia_proto::GeographicalCoord {

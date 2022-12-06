@@ -87,7 +87,7 @@ impl VJGroupedByStayIn {
                     // with multiple local zone
                     // !todo find a better way to check for multiple local zone
                     let mut local_zones: Vec<_> =
-                        stop_times.clone().map(|s| s.local_zone_id).collect();
+                        stop_times.clone().map(|(_, s)| s.local_zone_id).collect();
                     local_zones.sort_unstable();
                     local_zones.dedup();
 
@@ -108,6 +108,7 @@ impl VJGroupedByStayIn {
                     .stop_times(*vehicle_journey_idx)
                     .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with valid stop_times
                     .next()
+                    .map(|(_, stop_time)| stop_time)
                     .unwrap() // unwrap is safe because above we inserted only vehicle_journeys with stop_times.len() > 0
                     .board_time
             });
@@ -348,10 +349,10 @@ impl TransitData {
             );
         })?;
 
-        let stops = stop_times.clone().map(|s| s.stop);
-        let flows = stop_times.clone().map(|s| s.flow_direction);
-        let board_times = stop_times.clone().map(|s| s.board_time);
-        let debark_times = stop_times.clone().map(|s| s.debark_time);
+        let stops = stop_times.clone().map(|(_, s)| s.stop);
+        let flows = stop_times.clone().map(|(_, s)| s.flow_direction);
+        let board_times = stop_times.clone().map(|(_, s)| s.board_time);
+        let debark_times = stop_times.clone().map(|(_, s)| s.debark_time);
 
         /*
          * Flow correction with stay-in
@@ -416,7 +417,7 @@ impl TransitData {
         let regularity = Regularity::new(physical_mode_name);
         let vehicle_journey_idx = VehicleJourneyIdx::Base(vehicle_journey_idx);
 
-        let mut local_zones: Vec<_> = stop_times.clone().map(|s| s.local_zone_id).collect();
+        let mut local_zones: Vec<_> = stop_times.clone().map(|(_, s)| s.local_zone_id).collect();
         local_zones.sort_unstable();
         local_zones.dedup();
         let nb_of_local_zones = local_zones.len();
@@ -454,7 +455,7 @@ impl TransitData {
                 // we change the flows regarding the `local_zone` so that:
                 // - we can only board on stops that belong to `local_zone`
                 // - we can only debark on stops that don't belong to `local_zone`
-                let local_flows = stop_times.clone().map(|stop_time| {
+                let local_flows = stop_times.clone().map(|(_, stop_time)| {
                     if stop_time.local_zone_id == local_zone {
                         match stop_time.flow_direction {
                             BoardOnly | BoardAndDebark => BoardOnly,

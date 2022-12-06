@@ -664,12 +664,12 @@ impl BaseModel {
 
         let earliest_local_time = stop_times
             .clone()
-            .map(|stop_time| std::cmp::min(stop_time.board_time, stop_time.debark_time))
+            .map(|(_, stop_time)| std::cmp::min(stop_time.board_time, stop_time.debark_time))
             .min()?;
 
         let latest_local_time = stop_times
             .clone()
-            .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
+            .map(|(_, stop_time)| std::cmp::max(stop_time.board_time, stop_time.debark_time))
             .max()?;
 
         let first_time_utc = calendar::compose(date, earliest_local_time, timezone);
@@ -962,21 +962,21 @@ impl<'a> BaseStopTimes<'a> {
 }
 
 impl<'a> Iterator for BaseStopTimes<'a> {
-    type Item = StopTime;
+    type Item = (StopTimeIdx, StopTime);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|stop_time| {
             let stop_time_idx = self.stop_time_idx;
             self.stop_time_idx.idx += 1;
-            StopTime {
+            let stop_time = StopTime {
                 stop: StopPointIdx::Base(stop_time.stop_point_idx),
                 // unwraps are safe, because of checks in new()
                 board_time: board_time(stop_time).unwrap(),
                 debark_time: debark_time(stop_time).unwrap(),
                 flow_direction: flow(stop_time).unwrap(),
                 local_zone_id: stop_time.local_zone_id,
-                stop_time_idx,
-            }
+            };
+            (stop_time_idx, stop_time)
         })
     }
 

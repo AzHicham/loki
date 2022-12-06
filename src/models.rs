@@ -79,7 +79,6 @@ pub struct StopTime {
     pub debark_time: SecondsSinceTimezonedDayStart,
     pub flow_direction: FlowDirection,
     pub local_zone_id: Option<u16>,
-    pub stop_time_idx: StopTimeIdx,
 }
 
 #[derive(Clone)]
@@ -106,7 +105,7 @@ pub struct Contributor {
 }
 
 impl<'a> Iterator for StopTimes<'a> {
-    type Item = StopTime;
+    type Item = (StopTimeIdx, StopTime);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
