@@ -592,7 +592,10 @@ impl<'model> ModelRefs<'model> {
             Some(TripVersion::Present(stop_times)) => {
                 let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
                 let inner = stop_times[range].iter();
-                let iter = StopTimes::New(RealTimeStopTimes { inner });
+                let iter = StopTimes::New(RealTimeStopTimes {
+                    inner,
+                    stop_time_idx: from_stoptime_idx,
+                });
                 Some(iter)
             }
             Some(TripVersion::Deleted()) => None,

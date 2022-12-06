@@ -55,13 +55,13 @@ jobs:
     - name: Test debug
       run: |
         cargo test --workspace
-        cargo test --workspace --features "loki_launch/vehicle_loads"
+        cargo test --workspace --features "loki_server/vehicle_loads"
 
     - name: Test Release
       if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         cargo test --release --workspace
-        cargo test --release --workspace --features "loki_launch/vehicle_loads"
+        cargo test --release --workspace --features "loki_server/vehicle_loads"
 
   docker:
     needs: checks

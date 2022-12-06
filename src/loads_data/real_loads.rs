@@ -43,7 +43,7 @@ type Occupancy = u8;
 
 use crate::models::{
     base_model::{self, BaseModel, BaseVehicleJourneyIdx},
-    VehicleJourneyIdx,
+    StopTimeIdx, VehicleJourneyIdx,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -240,6 +240,16 @@ impl LoadsData {
         }
     }
 
+    pub fn load(
+        &self,
+        vehicle_journey_idx: &VehicleJourneyIdx,
+        stop_time_idx: StopTimeIdx,
+        date: &NaiveDate,
+    ) -> Option<Load> {
+        self.loads(vehicle_journey_idx, date)
+            .map(|loads| loads[stop_time_idx.idx])
+    }
+
     pub fn empty() -> Self {
         LoadsData {
             per_vehicle_journey: BTreeMap::new(),
@@ -253,27 +263,32 @@ impl LoadsData {
         let mut loads_data = LoadsData {
             per_vehicle_journey: BTreeMap::new(),
         };
-        let get_line_id = |network_name: &'static str, line_code: &'static str| {
+        let iter_line_idxs = |network_name: &'static str, line_code: &'static str| {
             let network_idx = model
                 .networks
                 .iter()
-                .find(|(_, network)| network.name == network_name)
-                .map(|(idx, _)| idx)?;
+                .filter(|(_, network)| network.name == network_name)
+                .map(|(idx, _)| idx)
+                .collect();
             model
-                .get_corresponding_from_idx::<Network, Line>(network_idx)
+                .get_corresponding::<Network, Line>(&network_idx)
                 .into_iter()
-                .find(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
+                .filter(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
         let mut line_loads = Vec::new();
-        let rera_idx = get_line_id("RER", "A");
-        if let Some(rera_idx) = rera_idx {
-            trace!("loading vehicle occupancy data for RER A");
-            line_loads.push((model.lines[rera_idx].id.clone(), Load::High));
+        for line_idx in iter_line_idxs("RER", "A") {
+            trace!(
+                line_id = model.lines[line_idx].id,
+                "loading vehicle occupancy data for RER A",
+            );
+            line_loads.push((model.lines[line_idx].id.clone(), Load::High));
         }
-        let metro1_idx = get_line_id("RATP", "1");
-        if let Some(metro1_idx) = metro1_idx {
-            trace!("loading vehicle occupancy data for Metro 1");
-            line_loads.push((model.lines[metro1_idx].id.clone(), Load::Medium));
+        for line_idx in iter_line_idxs("RATP", "1") {
+            trace!(
+                line_id = model.lines[line_idx].id,
+                "loading vehicle occupancy data for Metro 1",
+            );
+            line_loads.push((model.lines[line_idx].id.clone(), Load::Medium));
         }
         for (line_id, load) in line_loads {
             let line_idx = if let Some(line_idx) = model.lines.get_idx(&line_id) {

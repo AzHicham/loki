@@ -105,7 +105,7 @@ pub struct Contributor {
 }
 
 impl<'a> Iterator for StopTimes<'a> {
-    type Item = StopTime;
+    type Item = (StopTimeIdx, StopTime);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {

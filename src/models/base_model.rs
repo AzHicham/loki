@@ -664,12 +664,12 @@ impl BaseModel {
 
         let earliest_local_time = stop_times
             .clone()
-            .map(|stop_time| std::cmp::min(stop_time.board_time, stop_time.debark_time))
+            .map(|(_, stop_time)| std::cmp::min(stop_time.board_time, stop_time.debark_time))
             .min()?;
 
         let latest_local_time = stop_times
             .clone()
-            .map(|stop_time| std::cmp::max(stop_time.board_time, stop_time.debark_time))
+            .map(|(_, stop_time)| std::cmp::max(stop_time.board_time, stop_time.debark_time))
             .max()?;
 
         let first_time_utc = calendar::compose(date, earliest_local_time, timezone);
@@ -751,7 +751,9 @@ impl BaseModel {
         let vj = &self.model.vehicle_journeys[vehicle_journey_idx];
         let stop_times = &vj.stop_times;
         let inner = stop_times.iter();
-        BaseStopTimes::new(inner).map_err(|(err, idx)| (err, StopTimeIdx { idx }))
+        let from_stop_time_idx = StopTimeIdx { idx: 0 };
+        BaseStopTimes::new(inner, from_stop_time_idx)
+            .map_err(|(err, idx)| (err, StopTimeIdx { idx }))
     }
 
     pub fn stop_times_partial(
@@ -761,7 +763,7 @@ impl BaseModel {
         to_stoptime_idx: StopTimeIdx,
     ) -> Result<BaseStopTimes<'_>, (BadStopTime, StopTimeIdx)> {
         let inner = self.stop_times_inner(vehicle_journey_idx, from_stoptime_idx, to_stoptime_idx);
-        BaseStopTimes::new(inner.iter()).map_err(|(err, idx)| {
+        BaseStopTimes::new(inner.iter(), from_stoptime_idx).map_err(|(err, idx)| {
             (
                 err,
                 StopTimeIdx {
@@ -937,37 +939,44 @@ fn equipment_property(equipments: &Equipment, property_key: &EquipmentPropertyKe
 #[derive(Debug, Clone)]
 pub struct BaseStopTimes<'a> {
     inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
+    stop_time_idx: StopTimeIdx,
 }
 
 impl<'a> BaseStopTimes<'a> {
     pub fn new(
         inner: std::slice::Iter<'a, transit_model::objects::StopTime>,
+        from_stop_time_idx: StopTimeIdx,
     ) -> Result<Self, (BadStopTime, usize)> {
-        let copy = inner.clone();
         // we check that every transit_model::objects::StopTime
         // can be transformed into a loki::models::StopTime
-        for (stop_time_idx, stop_time) in copy.enumerate() {
-            flow(stop_time).map_err(|err| (err, stop_time_idx))?;
-            board_time(stop_time).ok_or((BadStopTime::BoardTime, stop_time_idx))?;
-            debark_time(stop_time).ok_or((BadStopTime::DebarkTime, stop_time_idx))?;
+        for (idx, stop_time) in inner.clone().enumerate() {
+            flow(stop_time).map_err(|err| (err, idx))?;
+            board_time(stop_time).ok_or((BadStopTime::BoardTime, idx))?;
+            debark_time(stop_time).ok_or((BadStopTime::DebarkTime, idx))?;
         }
-        Ok(Self { inner })
+        Ok(Self {
+            inner,
+            stop_time_idx: from_stop_time_idx,
+        })
     }
 }
 
 impl<'a> Iterator for BaseStopTimes<'a> {
-    type Item = StopTime;
+    type Item = (StopTimeIdx, StopTime);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|stop_time| {
-            StopTime {
+            let stop_time_idx = self.stop_time_idx;
+            self.stop_time_idx.idx += 1;
+            let stop_time = StopTime {
                 stop: StopPointIdx::Base(stop_time.stop_point_idx),
-                // unwraps are safe, beecause of checks in new()
+                // unwraps are safe, because of checks in new()
                 board_time: board_time(stop_time).unwrap(),
                 debark_time: debark_time(stop_time).unwrap(),
                 flow_direction: flow(stop_time).unwrap(),
                 local_zone_id: stop_time.local_zone_id,
-            }
+            };
+            (stop_time_idx, stop_time)
         })
     }
 

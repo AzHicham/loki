@@ -465,7 +465,13 @@ fn make_public_transport_section(
             real_time_level,
             model,
         )),
-        stop_date_times: make_stop_datetimes(stop_times, timezone, date, model)?,
+        stop_date_times: make_stop_datetimes(
+            stop_times,
+            timezone,
+            vehicle_journey_idx,
+            date,
+            model,
+        )?,
         shape,
         length: Some(length_f64 as i32),
         co2_emission,
@@ -742,6 +748,8 @@ fn make_pt_display_info(
 fn make_stop_datetimes(
     stop_times: StopTimes,
     timezone: Timezone,
+    // Only used for occupancy reporting (feature "vehicle_loads")
+    #[allow(unused_variables)] vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
     model: &ModelRefs,
 ) -> Result<Vec<navitia_proto::StopDateTime>, Error> {
@@ -750,7 +758,9 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    for stop_time in stop_times {
+    // `stop_time_idx` is only used for occupancy reporting (feature "vehicle_loads")
+    #[allow(unused_variables)]
+    for (stop_time_idx, stop_time) in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
         let arrival = to_utc_timestamp(timezone, date, arrival_seconds)?;
         let departure_seconds = i64::from(stop_time.board_time.total_seconds());
@@ -764,6 +774,25 @@ fn make_stop_datetimes(
             stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
+        #[cfg(not(feature = "vehicle_loads"))]
+        let departure_occupancy = None;
+        #[cfg(feature = "vehicle_loads")]
+        let departure_occupancy = model
+            .base
+            .loads_data()
+            .load(vehicle_journey_idx, stop_time_idx, &date)
+            .and_then(|load| {
+                use loki::loads_data::Load;
+                use navitia_proto::OccupancyStatus;
+                match load {
+                    Load::Low => Some(OccupancyStatus::Empty),
+                    Load::Medium => Some(OccupancyStatus::StandingRoomOnly),
+                    Load::High => Some(OccupancyStatus::Full),
+                }
+            });
+        if let Some(departure_occupancy) = departure_occupancy {
+            proto.set_departure_occupancy(departure_occupancy);
+        }
         proto.set_data_freshness(realtime_level);
         result.push(proto);
     }
@@ -923,7 +952,7 @@ fn make_shape_from_stop_points(
 ) -> Vec<navitia_proto::GeographicalCoord> {
     match stoptimes {
         StopTimes::Base(stop_times) => stop_times
-            .filter_map(|stop_time| {
+            .filter_map(|(_, stop_time)| {
                 let stop_point_idx = &stop_time.stop;
                 let coord = &model.coord(stop_point_idx)?;
                 Some(navitia_proto::GeographicalCoord {
@@ -933,7 +962,7 @@ fn make_shape_from_stop_points(
             })
             .collect(),
         StopTimes::New(stop_times) => stop_times
-            .filter_map(|stop_time| {
+            .filter_map(|(_, stop_time)| {
                 let stop_point_idx = &stop_time.stop;
                 let coord = &model.coord(stop_point_idx)?;
                 Some(navitia_proto::GeographicalCoord {
@@ -1573,8 +1602,13 @@ fn make_passage(
             model.vehicle_journey_name(vehicle_journey_idx), response.vehicle_date, response.stop_time_idx
         ));
     };
-    let mut stop_date_times =
-        make_stop_datetimes(stop_times, timezone, response.vehicle_date, model)?;
+    let mut stop_date_times = make_stop_datetimes(
+        stop_times,
+        timezone,
+        vehicle_journey_idx,
+        response.vehicle_date,
+        model,
+    )?;
     let stop_date_time = if stop_date_times.len() == 1 {
         stop_date_times.pop().unwrap()
     } else {

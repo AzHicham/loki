@@ -886,7 +886,7 @@ fn apply_on_stop_point_by_closure<F: Fn(&StopPointIdx) -> bool>(
         if let Ok(base_stop_times) = base_model.stop_times(base_vehicle_journey_idx) {
             let contains_concerned_stop_point = base_stop_times
                 .clone()
-                .any(|stop_time| is_stop_point_concerned(&stop_time.stop));
+                .any(|(_, stop_time)| is_stop_point_concerned(&stop_time.stop));
             if !contains_concerned_stop_point {
                 continue;
             }
@@ -913,7 +913,7 @@ fn apply_on_stop_point_by_closure<F: Fn(&StopPointIdx) -> bool>(
 
                         let has_a_stop_time_concerned = base_stop_times
                             .clone()
-                            .any(|stop_time| is_stop_time_concerned(&stop_time));
+                            .any(|(_, stop_time)| is_stop_time_concerned(&stop_time));
 
                         if !has_a_stop_time_concerned {
                             continue;
@@ -1062,13 +1062,14 @@ fn remove_stop_points_from_trip<F: Fn(&StopPointIdx) -> bool>(
             }
             let has_a_stop_time_concerned = stop_times
                 .clone()
-                .any(|stop_time| is_stop_time_concerned(&stop_time));
+                .any(|(_, stop_time)| is_stop_time_concerned(&stop_time));
 
             if !has_a_stop_time_concerned {
                 return;
             }
 
             stop_times
+                .map(|(_, stop_time)| stop_time)
                 .filter(|stop_time| !is_stop_time_concerned(stop_time))
                 .collect()
         }
@@ -1152,11 +1153,12 @@ fn cancel_impact(
 
     let vehicle_journey_idx = VehicleJourneyIdx::Base(base_vehicle_journey_idx);
 
-    let base_stop_times: Vec<_> = match base_model.stop_times(base_vehicle_journey_idx) {
-        Ok(stop_times) => stop_times.collect(),
-        Err(_) => {
-            return;
-        }
+    let base_stop_times = if let Ok(stop_times) = base_model.stop_times(base_vehicle_journey_idx) {
+        stop_times
+            .map(|(_, stop_time)| stop_time)
+            .collect::<Vec<_>>()
+    } else {
+        return;
     };
 
     // restore the vehicle to its base schedule

@@ -116,6 +116,7 @@ pub struct StopData {
 #[derive(Clone)]
 pub struct RealTimeStopTimes<'a> {
     pub(super) inner: std::slice::Iter<'a, StopTime>,
+    pub(super) stop_time_idx: StopTimeIdx,
 }
 
 #[derive(Debug, Clone)]
@@ -392,7 +393,10 @@ impl RealTimeModel {
         if let TripVersion::Present(stop_times) = trip_data {
             let range = from_stoptime_idx.idx..=to_stoptime_idx.idx;
             let inner = stop_times[range].iter();
-            Some(RealTimeStopTimes { inner })
+            Some(RealTimeStopTimes {
+                inner,
+                stop_time_idx: from_stoptime_idx,
+            })
         } else {
             None
         }
@@ -511,10 +515,15 @@ impl VehicleJourneyHistory {
 }
 
 impl<'a> Iterator for RealTimeStopTimes<'a> {
-    type Item = StopTime;
+    type Item = (StopTimeIdx, StopTime);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().cloned()
+        let stop_time_idx = self.stop_time_idx;
+        self.stop_time_idx.idx += 1;
+        self.inner
+            .next()
+            .cloned()
+            .map(|stop_time| (stop_time_idx, stop_time))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
