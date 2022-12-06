@@ -11,7 +11,7 @@ receivers:
         - job_name: "otel-collector"
           scrape_interval: 20s
           static_configs:
-            - targets: ["LOKI_HTTP_ADDRESS"]
+            - targets: ["${LOKI_HTTP_ADDRESS}"]
   # collect metrics about the host we are running on
   # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver
   hostmetrics:
@@ -32,17 +32,17 @@ receivers:
       #     system.filesystem.utilization:
       #       enabled: true
       network:
-      paging:
-        metrics:
-          system.paging.utilization:
-            enabled: true
-      processes:
-      process:
+      # paging:
+      #   metrics:
+      #     system.paging.utilization:
+      #       enabled: true
+      # processes:
+      # process:
 
 processors:
   memory_limiter:
     check_interval: 1s
-    limit_mib: 1000
+    limit_mib: 200
     spike_limit_mib: 200
   batch:
   # transform metrics to the "delta-encoding" which is supported by newrelic
@@ -55,10 +55,13 @@ processors:
     detectors: [env, ecs]
   # add extra attributes to the metrics collected
   # https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/attributesprocessor/README.md#attributes-processor
-  # NewRelic expects the keys to be prefixed with 'tag.'
+  # NewRelic expects the keys to be prefixed with 'tags.'
   # https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/best-practices/opentelemetry-best-practices-resources
   attributes:
     actions:
+      - key: tags.component
+        value: loki
+        action: insert
       - key: tags.availability_zone
         from_attribute: cloud.availability_zone
         action: insert
@@ -71,8 +74,13 @@ processors:
       - key: tags.cluster
         from_attribute: aws.ecs.cluster.arn
         action: insert
-      - key: tags.coverage
+      - key: coverage
         value: ${LOKI_INSTANCE_NAME}
+        action: insert
+      # https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/collector/opentelemetry-collector-infra-hosts#host-receiver
+      - key: host.id
+        from_attribute: host.name
+        action: upsert
 
 
 exporters:
