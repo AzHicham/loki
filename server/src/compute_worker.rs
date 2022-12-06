@@ -38,6 +38,7 @@ use super::{navitia_proto, response};
 use crate::{
     load_balancer::WorkerId,
     master_worker::DataAndModels,
+    metrics,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{format_err, Context, Error};
@@ -163,13 +164,17 @@ impl ComputeWorker {
                 let journey_request = proto_request.journeys.ok_or_else(|| {
                     format_err!("request.journey should not be empty for api PtPlanner.")
                 });
-                self.handle_journey_request(journey_request)
+                let result = self.handle_journey_request(journey_request);
+                metrics::observe(metrics::Metric::Journeys, start_request_time);
+                result
             }
             navitia_proto::Api::PlacesNearby => {
                 let places_nearby_request = proto_request.places_nearby.ok_or_else(|| {
                     format_err!("request.places_nearby should not be empty for api PlacesNearby.")
                 });
-                self.handle_places_nearby(places_nearby_request)
+                let result = self.handle_places_nearby(places_nearby_request);
+                metrics::observe(metrics::Metric::PlacesNearby, start_request_time);
+                result
             }
             navitia_proto::Api::NextDepartures => {
                 let request = proto_request.next_stop_times.ok_or_else(|| {
@@ -177,13 +182,17 @@ impl ComputeWorker {
                         "request.next_stop_times should not be empty for api NextDepartures."
                     )
                 });
-                self.handle_schedule(request, ScheduleOn::BoardTimes)
+                let result = self.handle_schedule(request, ScheduleOn::BoardTimes);
+                metrics::observe(metrics::Metric::NextDeparturesArrivals, start_request_time);
+                result
             }
             navitia_proto::Api::NextArrivals => {
                 let request = proto_request.next_stop_times.ok_or_else(|| {
                     format_err!("request.next_stop_times should not be empty for api NextArrivals.")
                 });
-                self.handle_schedule(request, ScheduleOn::DebarkTimes)
+                let result = self.handle_schedule(request, ScheduleOn::DebarkTimes);
+                metrics::observe(metrics::Metric::NextDeparturesArrivals, start_request_time);
+                result
             }
             _ => {
                 error!("I can't handle the requested api : {:?}", requested_api);
@@ -193,6 +202,7 @@ impl ComputeWorker {
                 ))
             }
         };
+
         let duration = timer::duration_since(start_request_time);
         info!(
             "Worker {} took {} ms on api {:?} for request with id '{}'",

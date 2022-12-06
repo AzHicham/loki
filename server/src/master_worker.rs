@@ -44,7 +44,7 @@ use std::sync::{Arc, RwLock};
 use tokio::{runtime::Builder, signal, sync::mpsc};
 
 use crate::{
-    data_worker::DataWorker, http_worker::HttpWorker, load_balancer::LoadBalancer,
+    data_worker::DataWorker, http_worker::HttpWorker, load_balancer::LoadBalancer, metrics,
     status_worker::StatusWorker, zmq_worker::ZmqWorker, ServerConfig,
 };
 
@@ -102,6 +102,8 @@ impl MasterWorker {
             shutdown_sender,
         )?;
         let _data_worker_handle = data_worker.run_in_a_thread()?;
+
+        metrics::initialize_metrics();
 
         // Master worker
         let result = Self { shutdown_receiver };

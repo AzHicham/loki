@@ -36,6 +36,7 @@
 
 use crate::{
     http_worker::HttpToStatusChannel,
+    metrics,
     zmq_worker::{RequestMessage, ResponseMessage, StatusWorkerToZmqChannels},
 };
 use serde::Serialize;
@@ -287,6 +288,7 @@ impl StatusWorker {
                 )
             })?;
 
+        metrics::observe(metrics::Metric::ZmqStatus, handle_request_start_time);
         let duration = timer::duration_since(handle_request_start_time);
         info!(
             "Status worker responded in {} ms to request on api {:?} with id '{}'",

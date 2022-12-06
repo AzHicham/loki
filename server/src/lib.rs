@@ -63,6 +63,7 @@ pub mod status_worker;
 pub mod zmq_worker;
 
 pub mod data_worker;
+pub mod metrics;
 pub mod server_config;
 
 use loki_launch::loki::tracing::{debug, info};
