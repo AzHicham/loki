@@ -158,8 +158,7 @@ jobs:
         if:  github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker pull navitia/loki:dev
-          docker build -t navitia/loki:aws-dev -f docker/loki_opentelemetry_dockerfile --build-arg LOKI_TAG=dev .
-          docker tag navitia/loki:aws-dev $SBX_ECR_REGISTRY/navitia-loki-loki:dev
+          docker build -t $SBX_ECR_REGISTRY/navitia-loki-loki:dev -f docker/loki_opentelemetry_dockerfile --build-arg LOKI_TAG=dev .
           aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $SBX_ECR_REGISTRY
           docker push $SBX_ECR_REGISTRY/navitia-loki-loki:dev
           docker logout $SBX_ECR_REGISTRY
@@ -169,8 +168,7 @@ jobs:
         run: |
           TAG=${GITHUB_REF_NAME}
           docker pull navitia/loki:$TAG
-          docker build -t navitia/loki:aws-$TAG -f docker/loki_opentelemetry_dockerfile --build-arg LOKI_TAG=$TAG .
-          docker tag navitia/loki:aws-$TAG $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
+          docker build -t $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG -f docker/loki_opentelemetry_dockerfile --build-arg LOKI_TAG=$TAG .
           aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin  $PRD_ECR_REGISTRY
           docker push $PRD_ECR_REGISTRY/navitia-loki-loki:$TAG
           docker logout $PRD_ECR_REGISTRY
