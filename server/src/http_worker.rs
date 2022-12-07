@@ -155,14 +155,14 @@ async fn handle_http_request(
             result
         }
         // GET /health returns 200 when some data has been successfully loaded
-        //  and 404 otherwise
+        //  and 503 otherwise
         (&Method::GET, "/health") => {
             let result = match handle_health_request(timeout, status_request_sender).await {
                 Ok(true) => Response::builder()
                     .status(StatusCode::OK)
                     .body(Body::empty()),
                 Ok(false) => Response::builder()
-                    .status(StatusCode::NOT_FOUND)
+                    .status(StatusCode::SERVICE_UNAVAILABLE)
                     .body(Body::empty()),
                 Err(err) => {
                     error!("Http /health request failed : {:#}", err);
