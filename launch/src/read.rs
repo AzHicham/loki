@@ -159,7 +159,7 @@ fn read_loads_data_from_reader<R: std::io::Read>(
     {
         _reader
             .map(|csv_occupancy_reader| {
-                LoadsData::try_from_reader(csv_occupancy_reader, &_model).unwrap_or_else(|e| {
+                LoadsData::try_from_reader(csv_occupancy_reader, _model).unwrap_or_else(|e| {
                     warn!("failed to load passenger occupancy data: {e}");
                     warn!("initialized with empty passenger occupancy.");
                     LoadsData::empty()
@@ -172,7 +172,7 @@ fn read_loads_data_from_reader<R: std::io::Read>(
     }
     #[cfg(feature = "demo_occupancy")]
     {
-        LoadsData::fake_occupancy_metro1_rera(&_model).unwrap_or_else(|err| {
+        LoadsData::fake_occupancy_metro1_rera(_model).unwrap_or_else(|err| {
             warn!("Failed to create fake occupancy data {err}. I'll use empty loads.");
             LoadsData::empty()
         })
