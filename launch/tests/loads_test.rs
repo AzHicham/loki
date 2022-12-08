@@ -66,7 +66,8 @@ fn create_model() -> BaseModel {
         .build();
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = loki::LoadsData::try_from_path(filepath, &model).unwrap();
+    let reader = std::fs::File::open(&filepath).unwrap();
+    let loads_data = loki::LoadsData::try_from_reader(reader, &model).unwrap();
 
     BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
 }
