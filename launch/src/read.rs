@@ -42,7 +42,7 @@ use loki::{
     tracing::{info, warn},
     transit_model, DataTrait, LoadsData, PositiveDuration,
 };
-use std::{path::PathBuf, str::FromStr, time::SystemTime};
+use std::{str::FromStr, time::SystemTime};
 
 pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseModel), Error> {
     let base_model = read_model(
@@ -96,7 +96,9 @@ where
         "Transit model loaded in {} ms",
         timer::duration_since(read_model_start_time)
     );
-    let loads_data = read_loads_data_from_zip_reader(loads_data_reader, &model);
+
+    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+
     BaseModel::new(model, loads_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
@@ -131,38 +133,51 @@ pub fn read_model(
         "Transit model loaded in {} ms",
         timer::duration_since(read_model_start_time)
     );
-    let loads_data = read_loads_data(&data_files.loads_data_path, &model);
+
+    let loads_data_reader =
+        data_files.loads_data_path.as_ref().and_then(
+            |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
+                Ok(reader) => Some(reader),
+                Err(err) => {
+                    warn!("Could not open load_data_path {csv_occupancy_path:?} : {err:?}");
+                    None
+                }
+            },
+        );
+
+    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+
     BaseModel::new(model, loads_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
-fn read_loads_data_from_zip_reader<R: std::io::Read>(
+#[cfg(not(feature = "demo_occupancy"))]
+fn read_loads_data_from_reader<R: std::io::Read>(
     reader: Option<R>,
     model: &base_model::Model,
 ) -> LoadsData {
     reader
-        .map(|reader| {
-            #[cfg(not(feature = "demo_occupancy"))]
-            let loads_data = LoadsData::new(reader, model);
-            #[cfg(feature = "demo_occupancy")]
-            let loads_data = LoadsData::fake_occupancy_metro1_rera(model);
-            loads_data.unwrap_or_else(|err| {
-                warn!("Error while reading passenger loads file, {err}");
-                warn!("I'll use default loads.");
+        .map(|csv_occupancy_reader| {
+            LoadsData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
+                warn!("failed to load passenger occupancy data, initialized with empty passenger occupancy data: {e}");
                 LoadsData::empty()
             })
         })
-        .unwrap_or_else(LoadsData::empty)
+        .unwrap_or_else(|| {
+            info!("no passenger occupancy data given, initialized with empty passenger occupancy data.");
+            LoadsData::empty()
+        })
 }
 
-pub fn read_loads_data(loads_data_path: &Option<PathBuf>, model: &base_model::Model) -> LoadsData {
-    loads_data_path
-        .as_ref()
-        .map(|path| {
-            let reader = std::fs::File::open(path).ok();
-            read_loads_data_from_zip_reader(reader, model)
-        })
-        .unwrap_or_else(LoadsData::empty)
+#[cfg(feature = "demo_occupancy")]
+fn read_loads_data_from_reader<R: std::io::Read>(
+    _reader: Option<R>,
+    model: &base_model::Model,
+) -> LoadsData {
+    LoadsData::fake_occupancy_metro1_rera(model).unwrap_or_else(|e| {
+        warn!("failed to create fake occupancy data, initialized with empty passenger occupancy data: {e}.");
+        LoadsData::empty()
+    })
 }
 
 pub fn build_transit_data(base_model: &BaseModel) -> TransitData {

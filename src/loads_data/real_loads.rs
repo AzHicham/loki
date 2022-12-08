@@ -332,8 +332,8 @@ impl LoadsData {
         Ok(loads_data)
     }
 
-    pub fn new<R: io::Read>(
-        csv_occupancys_reader: R,
+    pub fn try_from_reader<R: io::Read>(
+        csv_occupancy_reader: R,
         model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
         info!("loading vehicle loads data");
@@ -342,7 +342,7 @@ impl LoadsData {
         };
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b',')
-            .from_reader(csv_occupancys_reader);
+            .from_reader(csv_occupancy_reader);
 
         let mut record = csv::StringRecord::new();
 

@@ -126,9 +126,9 @@ impl LoadsData {
         LoadsData {}
     }
 
-    pub fn new<R: io::Read>(
-        _reader: R,
-        _collections: &base_model::Collections,
+    pub fn try_from_reader<R: io::Read>(
+        _csv_occupancy_reader: R,
+        _model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
         Ok(LoadsData::empty())
     }
