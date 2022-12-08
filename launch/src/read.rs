@@ -151,32 +151,33 @@ pub fn read_model(
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
+#[cfg(not(feature = "demo_occupancy"))]
 fn read_loads_data_from_reader<R: std::io::Read>(
-    _reader: Option<R>,
-    _model: &base_model::Model,
+    reader: Option<R>,
+    model: &base_model::Model,
 ) -> LoadsData {
-    #[cfg(not(feature = "demo_occupancy"))]
-    {
-        _reader
-            .map(|csv_occupancy_reader| {
-                LoadsData::try_from_reader(csv_occupancy_reader, _model).unwrap_or_else(|e| {
-                    warn!("failed to load passenger occupancy data: {e}");
-                    warn!("initialized with empty passenger occupancy.");
-                    LoadsData::empty()
-                })
-            })
-            .unwrap_or_else(|| {
-                info!("No load data given. I'll use empty loads.");
+    reader
+        .map(|csv_occupancy_reader| {
+            LoadsData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
+                warn!("failed to load passenger occupancy data, initialized with empty passenger occupancy data: {e}");
                 LoadsData::empty()
             })
-    }
-    #[cfg(feature = "demo_occupancy")]
-    {
-        LoadsData::fake_occupancy_metro1_rera(_model).unwrap_or_else(|err| {
-            warn!("Failed to create fake occupancy data {err}. I'll use empty loads.");
+        })
+        .unwrap_or_else(|| {
+            info!("no passenger occupancy data given, initialized with empty passenger occupancy data.");
             LoadsData::empty()
         })
-    }
+}
+
+#[cfg(feature = "demo_occupancy")]
+fn read_loads_data_from_reader<R: std::io::Read>(
+    _reader: Option<R>,
+    model: &base_model::Model,
+) -> LoadsData {
+    LoadsData::fake_occupancy_metro1_rera(model).unwrap_or_else(|e| {
+        warn!("failed to create fake occupancy data, initialized with empty passenger occupancy data: {e}.");
+        LoadsData::empty()
+    })
 }
 
 pub fn build_transit_data(base_model: &BaseModel) -> TransitData {
