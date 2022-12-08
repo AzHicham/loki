@@ -40,7 +40,7 @@ use loki::{
     models::{base_model::BaseModel, real_time_model::RealTimeModel, ModelRefs},
     PositiveDuration,
 };
-use loki_launch::{config::ComparatorType, read::read_loads_data};
+use loki_launch::config::ComparatorType;
 use utils::model_builder::ModelBuilder;
 mod utils;
 
@@ -66,7 +66,7 @@ fn create_model() -> BaseModel {
         .build();
 
     let filepath = "tests/fixtures/loads_test/loads.csv";
-    let loads_data = read_loads_data(&Some(filepath.into()), &model);
+    let loads_data = loki::LoadsData::try_from_path(filepath, &model).unwrap();
 
     BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
 }
