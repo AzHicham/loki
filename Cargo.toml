@@ -20,7 +20,7 @@ vehicle_loads = []
 demo_occupancy = ["vehicle_loads"]
 
 [dependencies]
-transit_model = "0.52"
+transit_model = "0.53"
 typed_index_collection = { version = "2", features = ["expose-inner"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 chrono-tz = "0.7"
