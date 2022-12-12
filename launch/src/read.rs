@@ -174,7 +174,7 @@ fn read_loads_data_from_reader<R: std::io::Read>(
     _reader: Option<R>,
     model: &base_model::Model,
 ) -> LoadsData {
-    LoadsData::fake_occupancy_metro1_rera(model).unwrap_or_else(|e| {
+    LoadsData::fake_occupancy(model).unwrap_or_else(|e| {
         warn!("failed to create fake occupancy data, initialized with empty passenger occupancy data: {e}.");
         LoadsData::empty()
     })

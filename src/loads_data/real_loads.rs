@@ -257,7 +257,7 @@ impl LoadsData {
     }
 
     #[cfg(feature = "demo_occupancy")]
-    pub fn fake_occupancy_metro1_rera(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
+    pub fn fake_occupancy(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
         use transit_model::objects::{Line, Network};
         tracing::info!("loading fake vehicle occupancy for Metro 1 (RATP) and RER A (RER)");
         let mut loads_data = LoadsData {
@@ -276,19 +276,19 @@ impl LoadsData {
                 .filter(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
         let mut line_loads = Vec::new();
-        for line_idx in iter_line_idxs("RER", "A") {
-            trace!(
-                line_id = model.lines[line_idx].id,
-                "loading vehicle occupancy data for RER A",
-            );
-            line_loads.push((model.lines[line_idx].id.clone(), Load::High));
-        }
-        for line_idx in iter_line_idxs("RATP", "1") {
-            trace!(
-                line_id = model.lines[line_idx].id,
-                "loading vehicle occupancy data for Metro 1",
-            );
-            line_loads.push((model.lines[line_idx].id.clone(), Load::Medium));
+        for (network_name, line_code, line_occupancy) in
+            &[("RER", "A", Load::High), ("RATP", "1", Load::Medium)]
+        {
+            for line_idx in iter_line_idxs(network_name, line_code) {
+                trace!(
+                    line_id = model.lines[line_idx].id,
+                    "loading '{}' vehicle occupancy data for network '{}' on line '{}'",
+                    line_occupancy,
+                    network_name,
+                    line_code,
+                );
+                line_loads.push((model.lines[line_idx].id.clone(), Load::High));
+            }
         }
         for (line_id, load) in line_loads {
             let line_idx = if let Some(line_idx) = model.lines.get_idx(&line_id) {
