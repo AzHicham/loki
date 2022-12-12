@@ -276,9 +276,14 @@ impl LoadsData {
                 .filter(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
         let mut line_loads = Vec::new();
-        for (network_name, line_code, line_occupancy) in
-            &[("RER", "A", Load::High), ("RATP", "1", Load::Medium)]
-        {
+        for (network_name, line_code, line_occupancy) in &[
+            ("RER", "A", Load::High),    // for coverage 'fr-idf'
+            ("RATP", "1", Load::Medium), // for coverage 'fr-idf'
+            ("TCL", "A", Load::High),    // for coverage 'fr-se-lyon'
+            ("TCL", "B", Load::Medium),  // for coverage 'fr-se-lyon'
+            ("TCL", "D", Load::Medium),  // for coverage 'fr-se-lyon'
+            ("TCL", "T1", Load::Low),    // for coverage 'fr-se-lyon'
+        ] {
             for line_idx in iter_line_idxs(network_name, line_code) {
                 trace!(
                     line_id = model.lines[line_idx].id,
