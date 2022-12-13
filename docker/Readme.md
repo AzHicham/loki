@@ -16,7 +16,7 @@ You can found all available tag here https://hub.docker.com/r/navitia/eitri/tags
 
 Put gtfs or ntfs datasets in `./data/` with one folder per instance.
 You can also add osm data.
-In the following example, we have two datasets (corsese and idfm), with osm data provided only for corse.
+In the following example, we have two datasets (corse and idfm), with osm data provided only for corse.
 
 ```
 .
@@ -61,7 +61,7 @@ In the following example, we have two datasets (corsese and idfm), with osm data
 Then, from the root directory of this repository, run :
 
 ```bash
-docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock   navitia/mc_bina:latest
+docker run --rm -v "$PWD":/storage -v /var/run/docker.sock:/var/run/docker.sock navitia/mc_bina:latest
 ```
 
 This will create a folder `./mc_navitia` containing everything needed to launch navitia.
@@ -88,7 +88,7 @@ minikube start
 minikube mount ./mc_navitia/:/data
 # create a persistent volume with `storageClassName: storage-class-navitia`
 kubectl apply -f ./docker/kubernetes-volume.yml
-# create all navitia services, they will mount the data present in the persitent volume we just created
+# create all navitia services, they will mount the data present in the persistent volume we just created
 kubectl apply -f ./mc_navitia/kubernetes.yml
 # forward port from localhost into the cluster to the navitia service
 kubectl port-forward service/navitia 9192:80
