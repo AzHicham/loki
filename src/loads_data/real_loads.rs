@@ -282,7 +282,7 @@ impl LoadsData {
             ("RER", "A", Load::High),    // for coverage 'fr-idf'
             ("RATP", "1", Load::Medium), // for coverage 'fr-idf'
             ("TCL", "A", Load::High),    // for coverage 'fr-se-lyon'
-            ("TCL", "B", Load::Medium),  // for coverage 'fr-se-lyon'
+            ("TCL", "B", Load::Low),     // for coverage 'fr-se-lyon'
             ("TCL", "D", Load::Medium),  // for coverage 'fr-se-lyon'
             ("TCL", "T1", Load::Low),    // for coverage 'fr-se-lyon'
         ] {
