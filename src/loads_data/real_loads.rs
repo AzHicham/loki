@@ -247,6 +247,8 @@ impl LoadsData {
         date: &NaiveDate,
     ) -> Option<Load> {
         self.loads(vehicle_journey_idx, date)
+            // No occupancy data on the last stop of a vehicle journey
+            .filter(|loads| stop_time_idx.idx < loads.len())
             .map(|loads| loads[stop_time_idx.idx])
     }
 
