@@ -276,7 +276,7 @@ impl LoadsData {
                 .filter(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
         let mut line_loads = Vec::new();
-        for (network_name, line_code, line_occupancy) in &[
+        for (network_name, line_code, line_occupancy) in [
             ("RER", "A", Load::High),    // for coverage 'fr-idf'
             ("RATP", "1", Load::Medium), // for coverage 'fr-idf'
             ("TCL", "A", Load::High),    // for coverage 'fr-se-lyon'
@@ -292,7 +292,7 @@ impl LoadsData {
                     network_name,
                     line_code,
                 );
-                line_loads.push((model.lines[line_idx].id.clone(), Load::High));
+                line_loads.push((model.lines[line_idx].id.clone(), line_occupancy));
             }
         }
         for (line_id, load) in line_loads {
