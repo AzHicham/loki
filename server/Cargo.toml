@@ -64,6 +64,6 @@ protobuf-codegen = "3"
 vergen = { version = "7", default-features = false, features = ["build", "rustc", "git", "cargo"] }
 
 [features]
-# enable the vehicle_loads feature on the loki lib
-vehicle_loads = ["loki_launch/vehicle_loads"]
-demo_occupancy = ["loki_launch/demo_occupancy", "vehicle_loads"]
+# enable the vehicle_occupancy feature on the loki lib
+vehicle_occupancy = ["loki_launch/vehicle_occupancy"]
+demo_occupancy = ["loki_launch/demo_occupancy", "vehicle_occupancy"]

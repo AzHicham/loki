@@ -95,7 +95,7 @@ fn test_loads_matin() -> Result<(), Error> {
 
     let mut responses = build_and_solve(&model_refs, &config).unwrap();
 
-    if cfg!(feature = "vehicle_loads") {
+    if cfg!(feature = "vehicle_occupancy") {
         assert!(responses.len() == 2);
         responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
         assert!(responses[0].first_vj_uri(&model_refs) == "matin");

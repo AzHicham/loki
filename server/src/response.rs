@@ -748,7 +748,7 @@ fn make_pt_display_info(
 fn make_stop_datetimes(
     stop_times: StopTimes,
     timezone: Timezone,
-    // Only used for occupancy reporting (feature "vehicle_loads")
+    // Only used for occupancy reporting (feature "vehicle_occupancy")
     #[allow(unused_variables)] vehicle_journey_idx: &VehicleJourneyIdx,
     date: NaiveDate,
     model: &ModelRefs,
@@ -758,7 +758,7 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    // `stop_time_idx` is only used for occupancy reporting (feature "vehicle_loads")
+    // `stop_time_idx` is only used for occupancy reporting (feature "vehicl_occupancy")
     #[allow(unused_variables)]
     for (stop_time_idx, stop_time) in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
@@ -774,9 +774,9 @@ fn make_stop_datetimes(
             stop_point: Some(make_stop_point(&stop_point_idx, model, false)),
             ..Default::default()
         };
-        #[cfg(not(feature = "vehicle_loads"))]
+        #[cfg(not(feature = "vehicle_occupancy"))]
         let departure_occupancy = None;
-        #[cfg(feature = "vehicle_loads")]
+        #[cfg(feature = "vehicle_occupancy")]
         let departure_occupancy = model
             .base
             .loads_data()

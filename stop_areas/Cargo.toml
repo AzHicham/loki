@@ -15,5 +15,5 @@ anyhow = "1"
 # log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 
 [features]
-# enable the vehicle_loads feature on the loki lib
-vehicle_loads = ["loki_launch/vehicle_loads"]
+# enable the vehicle_occupancy feature on the loki lib
+vehicle_occupancy = ["loki_launch/vehicle_occupancy"]
