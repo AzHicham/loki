@@ -133,7 +133,7 @@ pub fn fixture_model() -> BaseModel {
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_no_filter(
     #[case] comparator_type: ComparatorType,
@@ -168,7 +168,7 @@ fn test_no_filter(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_forbidden_stop_point(
     #[case] comparator_type: ComparatorType,
@@ -206,7 +206,7 @@ fn test_filter_forbidden_stop_point(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_allowed_stop_point(
     #[case] comparator_type: ComparatorType,
@@ -251,7 +251,7 @@ fn test_filter_allowed_stop_point(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_forbidden_route(
     #[case] comparator_type: ComparatorType,
@@ -288,7 +288,7 @@ fn test_filter_forbidden_route(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_allowed_route(
     #[case] comparator_type: ComparatorType,
@@ -325,7 +325,7 @@ fn test_filter_allowed_route(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_wheelchair_no_solution(
     #[case] comparator_type: ComparatorType,
@@ -363,7 +363,7 @@ fn test_filter_wheelchair_no_solution(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_bike(
     #[case] comparator_type: ComparatorType,
@@ -406,7 +406,7 @@ fn test_filter_bike(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_filter_accessibility_with_transfer(
     #[case] comparator_type: ComparatorType,

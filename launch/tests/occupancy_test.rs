@@ -87,7 +87,7 @@ fn test_occupancy_matin() -> Result<(), Error> {
     let base_model = create_model();
 
     let mut config = Config::new("2021-01-01T08:00:00", "massy", "paris");
-    config.comparator_type = ComparatorType::Loads;
+    config.comparator_type = ComparatorType::Occupancy;
     config.request_params.too_late_threshold = PositiveDuration::from_hms(24, 0, 0);
 
     let real_time_model = RealTimeModel::new();
@@ -121,7 +121,7 @@ fn test_occupancy_midi() -> Result<(), Error> {
 
     let config = Config::new("2021-01-01T10:00:00", "massy", "paris");
     let config = Config {
-        comparator_type: ComparatorType::Loads,
+        comparator_type: ComparatorType::Occupancy,
         ..config
     };
     let real_time_model = RealTimeModel::new();

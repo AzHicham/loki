@@ -16,7 +16,7 @@ datetime = '20190628T163215'
 datetime_represent = 'departure'
 
 # Which comparator to use for the request
-# can be "basic" or "loads"
+# can be "basic", "robustness" or "occupancy"
 # defaults to "basic"
 
 comparator_type = 'basic'

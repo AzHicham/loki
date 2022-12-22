@@ -52,7 +52,7 @@ pub struct Config {
     pub datetime_represent: DateTimeRepresent,
 
     /// Which comparator to use for the request
-    /// "basic" or "loads"
+    /// "basic", "robustness" or "occupancy"
     #[serde(default)]
     pub comparator_type: config::ComparatorType,
 

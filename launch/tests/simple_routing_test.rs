@@ -50,7 +50,7 @@ use utils::{
 };
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -109,7 +109,7 @@ fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Er
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -210,7 +210,7 @@ fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Resul
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -313,7 +313,7 @@ fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), 
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -387,7 +387,7 @@ fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_second_pass_backward(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();

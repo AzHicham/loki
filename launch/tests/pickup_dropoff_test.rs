@@ -45,7 +45,7 @@ use rstest::rstest;
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -85,7 +85,7 @@ fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), 
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -125,7 +125,7 @@ fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(),
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_skipped_stop(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
