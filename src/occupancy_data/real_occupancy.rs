@@ -46,11 +46,11 @@ use crate::models::{
     StopTimeIdx, VehicleJourneyIdx,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Occupancy {
-    Low,
-    Medium,
-    High,
+    Low = 0,
+    Medium = 1,
+    High = 2,
 }
 
 impl Display for Occupancy {
@@ -66,28 +66,6 @@ impl Display for Occupancy {
 impl Default for Occupancy {
     fn default() -> Self {
         Occupancy::Medium
-    }
-}
-
-use std::cmp::Ordering;
-
-fn load_to_int(load: &Occupancy) -> u8 {
-    match load {
-        Occupancy::Low => 0,
-        Occupancy::Medium => 1,
-        Occupancy::High => 2,
-    }
-}
-
-impl Ord for Occupancy {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Ord::cmp(&load_to_int(self), &load_to_int(other))
-    }
-}
-
-impl PartialOrd for Occupancy {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -140,7 +118,7 @@ impl LoadsCount {
     }
 
     pub fn is_lower(&self, other: &Self) -> bool {
-        use Ordering::{Equal, Greater, Less};
+        use std::cmp::Ordering::{Equal, Greater, Less};
         match self.high.cmp(&other.high) {
             Less => true,
             Greater => false,
