@@ -39,7 +39,7 @@ use std::{collections::BTreeMap, error::Error, fmt::Display, io};
 use tracing::{debug, info, trace};
 
 type StopSequence = u32;
-type Occupancy = u8;
+type OccupancyRatio = u8;
 
 use crate::models::{
     base_model::{self, BaseModel, BaseVehicleJourneyIdx},
@@ -175,7 +175,7 @@ impl Display for LoadsCount {
     }
 }
 
-fn occupancy_to_load(occupancy: Occupancy) -> Load {
+fn occupancy_to_load(occupancy: OccupancyRatio) -> Load {
     debug_assert!(occupancy <= 100);
     if occupancy <= 30 {
         Load::Low
@@ -456,7 +456,15 @@ impl OccupancyData {
 fn parse_record(
     record: &csv::StringRecord,
     model: &base_model::Model,
-) -> Result<(BaseVehicleJourneyIdx, StopSequence, Occupancy, NaiveDate), Box<dyn Error>> {
+) -> Result<
+    (
+        BaseVehicleJourneyIdx,
+        StopSequence,
+        OccupancyRatio,
+        NaiveDate,
+    ),
+    Box<dyn Error>,
+> {
     if record.len() != 4 {
         let msg = format!("Expected 4 fields, but got {}", record.len());
         return Err(From::from(msg));
