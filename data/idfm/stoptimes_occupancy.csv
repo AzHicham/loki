@@ -1,4 +1,4 @@
-trip_id,stop_sequence,Load,date
+trip_id,stop_sequence,occupancy,date
 113562287-1_22562,9,1.0,2020-05-05
 113562287-1_22562,10,1.0,2020-05-05
 113562287-1_22562,11,1.0,2020-05-05
