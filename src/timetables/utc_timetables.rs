@@ -160,8 +160,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_before(&self, trip: &Trip, position: &Position) -> Occupancy {
-        *self.timetables.load_before(&trip.vehicle, position)
+    pub fn occupancy_before(&self, trip: &Trip, position: &Position) -> Occupancy {
+        *self.timetables.occupancy_before(&trip.vehicle, position)
     }
 
     pub fn departure_time_of(
@@ -174,8 +174,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_after(&self, trip: &Trip, position: &Position) -> Occupancy {
-        *self.timetables.load_after(&trip.vehicle, position)
+    pub fn occupancy_after(&self, trip: &Trip, position: &Position) -> Occupancy {
+        *self.timetables.occupancy_after(&trip.vehicle, position)
     }
 
     pub fn debark_time_of(
@@ -251,7 +251,7 @@ impl UTCTimetables {
             if let Some(vehicle) = has_vehicle {
                 let arrival_time_in_day_at_next_stop =
                     self.timetables.arrival_time(&vehicle, &next_position);
-                let load = self.timetables.load_before(&vehicle, &next_position);
+                let load = self.timetables.occupancy_before(&vehicle, &next_position);
                 let arrival_time_at_next_stop =
                     calendar.compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
                 if let Some((_, _, best_arrival_time, best_load)) =
@@ -321,7 +321,7 @@ impl UTCTimetables {
                 let departure_time_at_previous_stop =
                     calendar.compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
 
-                let load = self.timetables.load_before(&vehicle, position);
+                let load = self.timetables.occupancy_before(&vehicle, position);
                 if let Some((_, _, best_departure_time, best_load)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {

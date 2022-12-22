@@ -248,10 +248,10 @@ where
             .arrival_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn load_before(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
+    pub(super) fn occupancy_before(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
-            .load_before(vehicle.idx, position.idx)
+            .occupancy_before(vehicle.idx, position.idx)
     }
 
     pub(super) fn departure_time(&self, vehicle: &Vehicle, position: &Position) -> &Time {
@@ -260,10 +260,10 @@ where
             .departure_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn load_after(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
+    pub(super) fn occupancy_after(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
-            .load_after(vehicle.idx, position.idx)
+            .occupancy_after(vehicle.idx, position.idx)
     }
 
     pub(super) fn earliest_vehicle_to_board<Filter>(

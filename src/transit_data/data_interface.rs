@@ -103,7 +103,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
+    fn occupancy_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
 
     // Panics if `trip` does not go through `position`
     fn departure_time_of(
@@ -113,7 +113,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
+    fn occupancy_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_durations(&self, transfer: &Self::Transfer) -> &TransferDurations;

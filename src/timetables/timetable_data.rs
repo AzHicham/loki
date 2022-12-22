@@ -88,12 +88,16 @@ where
         }
     }
 
-    pub(super) fn load_after(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Occupancy {
+    pub(super) fn occupancy_after(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Occupancy {
         assert!(position.idx + 1 < self.nb_of_positions());
         &self.vehicle_occupancy[vehicle.idx][position.idx]
     }
 
-    pub(super) fn load_before(&self, vehicle: VehicleIdx, position: PositionIdx) -> &Occupancy {
+    pub(super) fn occupancy_before(
+        &self,
+        vehicle: VehicleIdx,
+        position: PositionIdx,
+    ) -> &Occupancy {
         assert!(position.idx > 0);
         &self.vehicle_occupancy[vehicle.idx][position.idx - 1]
     }
