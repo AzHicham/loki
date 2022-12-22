@@ -165,19 +165,19 @@ fn ratio_to_occupancy(occupancy: OccupancyRatio) -> Occupancy {
 }
 
 pub struct OccupancyData {
-    per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyLoads>,
+    per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyOccupancy>,
 }
 
-struct VehicleJourneyLoads {
+struct VehicleJourneyOccupancy {
     stop_sequence_to_idx: BTreeMap<StopSequence, usize>,
-    per_date: BTreeMap<NaiveDate, TripLoads>,
+    per_date: BTreeMap<NaiveDate, TripOccupancy>,
 }
 
-struct TripLoads {
+struct TripOccupancy {
     per_stop: Vec<Occupancy>,
 }
 
-impl VehicleJourneyLoads {
+impl VehicleJourneyOccupancy {
     fn new<StopSequenceIter>(stop_sequence_iter: StopSequenceIter) -> Self
     where
         StopSequenceIter: Iterator<Item = StopSequence>,
@@ -193,7 +193,7 @@ impl VehicleJourneyLoads {
     }
 }
 
-impl TripLoads {
+impl TripOccupancy {
     fn new(nb_of_stop: usize) -> Self {
         Self {
             per_stop: vec![Occupancy::Medium; nb_of_stop],
@@ -209,10 +209,10 @@ impl OccupancyData {
     ) -> Option<&[Occupancy]> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
-                let vehicle_journey_load = self.per_vehicle_journey.get(idx)?;
-                let trip_load = vehicle_journey_load.per_date.get(date)?;
-                let nb_of_stops = trip_load.per_stop.len();
-                Some(&trip_load.per_stop[..(nb_of_stops - 1)])
+                let vehicle_journey_occupancy = self.per_vehicle_journey.get(idx)?;
+                let trip_occupancy = vehicle_journey_occupancy.per_date.get(date)?;
+                let nb_of_stops = trip_occupancy.per_stop.len();
+                Some(&trip_occupancy.per_stop[..(nb_of_stops - 1)])
             }
             VehicleJourneyIdx::New(_) => None,
         }
@@ -288,10 +288,10 @@ impl OccupancyData {
                     .iter()
                     .map(|stop_time| stop_time.sequence);
                 let nb_of_stop = vehicle_journey.stop_times.len();
-                let vehicle_journey_loads = occupancy_data
+                let vehicle_journey_occupancy = occupancy_data
                     .per_vehicle_journey
                     .entry(vehicle_journey_idx)
-                    .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter.clone()));
+                    .or_insert_with(|| VehicleJourneyOccupancy::new(stop_sequence_iter.clone()));
                 let service_id = &vehicle_journey.service_id;
                 let calendar = if let Some(calendar) = model.calendars.get(service_id) {
                     calendar
@@ -300,16 +300,16 @@ impl OccupancyData {
                 };
                 for date in &calendar.dates {
                     for stop_sequence in stop_sequence_iter.clone() {
-                        let idx = vehicle_journey_loads
+                        let idx = vehicle_journey_occupancy
                             .stop_sequence_to_idx
                             .get(&stop_sequence)
-                            // unwrap is safe since we created the `vehicle_journey_loads` with the same stop_sequence_iter
+                            // unwrap is safe since we created the `vehicle_journey_occupancy` with the same stop_sequence_iter
                             .unwrap();
-                        let trip_load = vehicle_journey_loads
+                        let trip_occupancy = vehicle_journey_occupancy
                             .per_date
                             .entry(*date)
-                            .or_insert_with(|| TripLoads::new(nb_of_stop));
-                        trip_load.per_stop[*idx] = occupancy;
+                            .or_insert_with(|| TripOccupancy::new(nb_of_stop));
+                        trip_occupancy.per_stop[*idx] = occupancy;
                     }
                 }
             }
@@ -355,12 +355,12 @@ impl OccupancyData {
                 .map(|stop_time| stop_time.sequence);
             let nb_of_stop = vehicle_journey.stop_times.len();
 
-            let vehicle_journey_loads = occupancy_data
+            let vehicle_journey_occupancy = occupancy_data
                 .per_vehicle_journey
                 .entry(vehicle_journey_idx)
-                .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter));
+                .or_insert_with(|| VehicleJourneyOccupancy::new(stop_sequence_iter));
             let idx = {
-                let has_idx = vehicle_journey_loads
+                let has_idx = vehicle_journey_occupancy
                     .stop_sequence_to_idx
                     .get(&stop_sequence);
                 if has_idx.is_none() {
@@ -377,11 +377,11 @@ impl OccupancyData {
                 has_idx.unwrap()
             };
 
-            let trip_load = vehicle_journey_loads
+            let trip_occupancy = vehicle_journey_occupancy
                 .per_date
                 .entry(date)
-                .or_insert_with(|| TripLoads::new(nb_of_stop));
-            trip_load.per_stop[*idx] = occupancy;
+                .or_insert_with(|| TripOccupancy::new(nb_of_stop));
+            trip_occupancy.per_stop[*idx] = occupancy;
             trace!(
                 "occupancy inserted for vehicle journey '{}' on stop sequence '{}': occupancy={}",
                 vehicle_journey.id,
@@ -400,8 +400,8 @@ impl OccupancyData {
         // for each vehicle_journey, check that :
         //  - for each valid date, we have occupancy data for every stop_time
         for vehicle_journey_idx in model.vehicle_journeys() {
-            let has_vehicle_journey_load = self.per_vehicle_journey.get(&vehicle_journey_idx);
-            if has_vehicle_journey_load.is_none() {
+            let has_vehicle_journey_occupancy = self.per_vehicle_journey.get(&vehicle_journey_idx);
+            if has_vehicle_journey_occupancy.is_none() {
                 debug!(
                     "No occupancy data provided for vehicle_journey {}",
                     model.vehicle_journey_name(vehicle_journey_idx)
@@ -415,10 +415,10 @@ impl OccupancyData {
                     continue;
                 }
             };
-            let vehicle_journey_load = has_vehicle_journey_load.unwrap();
+            let vehicle_journey_occupancy = has_vehicle_journey_occupancy.unwrap();
             for date in dates {
-                let has_trip_load = vehicle_journey_load.per_date.get(&date);
-                if has_trip_load.is_none() {
+                let has_trip_occupancy = vehicle_journey_occupancy.per_date.get(&date);
+                if has_trip_occupancy.is_none() {
                     trace!(
                         "No occupancy data provided for vehicle_journey {} on date {}",
                         model.vehicle_journey_name(vehicle_journey_idx),
