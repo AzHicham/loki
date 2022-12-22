@@ -1,6 +1,6 @@
 use crate::{
     models::{StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    occupancy_data::Load,
+    occupancy_data::Occupancy,
     robustness::Regularity,
     time::SecondsSinceDatasetUTCStart,
 };
@@ -103,7 +103,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
 
     // Panics if `trip` does not go through `position`
     fn departure_time_of(
@@ -113,7 +113,7 @@ pub trait Data: TransitTypes {
     ) -> SecondsSinceDatasetUTCStart;
 
     // Panics if `trip` does not go through `position`
-    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load;
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy;
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop);
     fn transfer_durations(&self, transfer: &Self::Transfer) -> &TransferDurations;
@@ -135,7 +135,7 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 
@@ -146,7 +146,7 @@ pub trait Data: TransitTypes {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool;
 

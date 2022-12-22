@@ -36,7 +36,7 @@
 
 use crate::{
     models::{StopTimeIdx, VehicleJourneyIdx},
-    occupancy_data::{Load, OccupancyData},
+    occupancy_data::{Occupancy, OccupancyData},
     robustness::Regularity,
     time::{
         calendar::DecomposeUTCResult,
@@ -65,7 +65,7 @@ use crate::timetables::FlowDirection;
 pub use super::generic_timetables::{Position, Timetable as Mission, Trip};
 
 pub struct UTCTimetables {
-    timetables: GenericTimetables<SecondsSinceUTCDayStart, Load, VehicleData>,
+    timetables: GenericTimetables<SecondsSinceUTCDayStart, Occupancy, VehicleData>,
     timezones_patterns: TimezonesPatterns,
 }
 
@@ -160,7 +160,7 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_before(&self, trip: &Trip, position: &Position) -> Load {
+    pub fn load_before(&self, trip: &Trip, position: &Position) -> Occupancy {
         *self.timetables.load_before(&trip.vehicle, position)
     }
 
@@ -174,7 +174,7 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_after(&self, trip: &Trip, position: &Position) -> Load {
+    pub fn load_after(&self, trip: &Trip, position: &Position) -> Occupancy {
         *self.timetables.load_after(&trip.vehicle, position)
     }
 
@@ -217,7 +217,7 @@ impl UTCTimetables {
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -231,7 +231,7 @@ impl UTCTimetables {
             Vehicle,
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
-            Load,
+            Occupancy,
         )> = None;
 
         for (waiting_day, waiting_time_in_day) in decompositions {
@@ -287,7 +287,7 @@ impl UTCTimetables {
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -299,7 +299,7 @@ impl UTCTimetables {
             Vehicle,
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
-            Load,
+            Occupancy,
         )> = None;
         for (waiting_day, waiting_time_in_day) in decompositions {
             let has_vehicle = self.timetables.latest_vehicle_that_debark(
@@ -369,13 +369,13 @@ impl UTCTimetables {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
+        let mut load_patterns_dates: BTreeMap<&[Occupancy], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
         let default_loads = if nb_of_positions > 0 {
-            vec![Load::default(); nb_of_positions - 1]
+            vec![Occupancy::default(); nb_of_positions - 1]
         } else {
-            vec![Load::default(); 0]
+            vec![Occupancy::default(); 0]
         };
         for date in days_patterns.make_dates(days, calendar) {
             let loads = loads_data

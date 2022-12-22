@@ -47,45 +47,45 @@ use crate::models::{
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {
+pub enum Occupancy {
     Low,
     Medium,
     High,
 }
 
-impl Display for Load {
+impl Display for Occupancy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Load::Low => write!(f, "Low"),
-            Load::Medium => write!(f, "Medium"),
-            Load::High => write!(f, "High"),
+            Occupancy::Low => write!(f, "Low"),
+            Occupancy::Medium => write!(f, "Medium"),
+            Occupancy::High => write!(f, "High"),
         }
     }
 }
 
-impl Default for Load {
+impl Default for Occupancy {
     fn default() -> Self {
-        Load::Medium
+        Occupancy::Medium
     }
 }
 
 use std::cmp::Ordering;
 
-fn load_to_int(load: &Load) -> u8 {
+fn load_to_int(load: &Occupancy) -> u8 {
     match load {
-        Load::Low => 0,
-        Load::Medium => 1,
-        Load::High => 2,
+        Occupancy::Low => 0,
+        Occupancy::Medium => 1,
+        Occupancy::High => 2,
     }
 }
 
-impl Ord for Load {
+impl Ord for Occupancy {
     fn cmp(&self, other: &Self) -> Ordering {
         Ord::cmp(&load_to_int(self), &load_to_int(other))
     }
 }
 
-impl PartialOrd for Load {
+impl PartialOrd for Occupancy {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -107,18 +107,18 @@ impl LoadsCount {
         }
     }
 
-    pub fn add(&self, load: Load) -> Self {
+    pub fn add(&self, load: Occupancy) -> Self {
         let mut high = self.high;
         let mut medium = self.medium;
         let mut low = self.low;
         match load {
-            Load::High => {
+            Occupancy::High => {
                 high += 1;
             }
-            Load::Medium => {
+            Occupancy::Medium => {
                 medium += 1;
             }
-            Load::Low => {
+            Occupancy::Low => {
                 low += 1;
             }
         }
@@ -129,14 +129,14 @@ impl LoadsCount {
         self.high + self.medium + self.low
     }
 
-    pub fn max(&self) -> Load {
+    pub fn max(&self) -> Occupancy {
         if self.high > 0 {
-            return Load::High;
+            return Occupancy::High;
         }
         if self.medium > 0 {
-            return Load::Medium;
+            return Occupancy::Medium;
         }
-        Load::Low
+        Occupancy::Low
     }
 
     pub fn is_lower(&self, other: &Self) -> bool {
@@ -175,14 +175,14 @@ impl Display for LoadsCount {
     }
 }
 
-fn occupancy_to_load(occupancy: OccupancyRatio) -> Load {
+fn occupancy_to_load(occupancy: OccupancyRatio) -> Occupancy {
     debug_assert!(occupancy <= 100);
     if occupancy <= 30 {
-        Load::Low
+        Occupancy::Low
     } else if occupancy <= 70 {
-        Load::Medium
+        Occupancy::Medium
     } else {
-        Load::High
+        Occupancy::High
     }
 }
 
@@ -196,7 +196,7 @@ struct VehicleJourneyLoads {
 }
 
 struct TripLoads {
-    per_stop: Vec<Load>,
+    per_stop: Vec<Occupancy>,
 }
 
 impl VehicleJourneyLoads {
@@ -218,7 +218,7 @@ impl VehicleJourneyLoads {
 impl TripLoads {
     fn new(nb_of_stop: usize) -> Self {
         Self {
-            per_stop: vec![Load::Medium; nb_of_stop],
+            per_stop: vec![Occupancy::Medium; nb_of_stop],
         }
     }
 }
@@ -228,7 +228,7 @@ impl OccupancyData {
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
-    ) -> Option<&[Load]> {
+    ) -> Option<&[Occupancy]> {
         match vehicle_journey_idx {
             VehicleJourneyIdx::Base(idx) => {
                 let vehicle_journey_load = self.per_vehicle_journey.get(idx)?;
@@ -245,7 +245,7 @@ impl OccupancyData {
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: StopTimeIdx,
         date: &NaiveDate,
-    ) -> Option<Load> {
+    ) -> Option<Occupancy> {
         self.loads(vehicle_journey_idx, date)
             // No occupancy data on the last stop of a vehicle journey
             .filter(|loads| stop_time_idx.idx < loads.len())
@@ -279,12 +279,12 @@ impl OccupancyData {
         };
         let mut line_loads = Vec::new();
         for (network_name, line_code, line_occupancy) in [
-            ("RER", "A", Load::High),    // for coverage 'fr-idf'
-            ("RATP", "1", Load::Medium), // for coverage 'fr-idf'
-            ("TCL", "A", Load::High),    // for coverage 'fr-se-lyon'
-            ("TCL", "B", Load::Low),     // for coverage 'fr-se-lyon'
-            ("TCL", "D", Load::Medium),  // for coverage 'fr-se-lyon'
-            ("TCL", "T1", Load::Low),    // for coverage 'fr-se-lyon'
+            ("RER", "A", Occupancy::High),    // for coverage 'fr-idf'
+            ("RATP", "1", Occupancy::Medium), // for coverage 'fr-idf'
+            ("TCL", "A", Occupancy::High),    // for coverage 'fr-se-lyon'
+            ("TCL", "B", Occupancy::Low),     // for coverage 'fr-se-lyon'
+            ("TCL", "D", Occupancy::Medium),  // for coverage 'fr-se-lyon'
+            ("TCL", "T1", Occupancy::Low),    // for coverage 'fr-se-lyon'
         ] {
             for line_idx in iter_line_idxs(network_name, line_code) {
                 trace!(

@@ -42,7 +42,7 @@ use chrono::NaiveDate;
 
 use crate::{
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    occupancy_data::Load,
+    occupancy_data::Occupancy,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
@@ -201,7 +201,7 @@ impl data_interface::Data for TransitData {
             .arrival_time_of(trip, position, &self.calendar)
     }
 
-    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
         self.timetables.load_before(trip, position)
     }
 
@@ -214,7 +214,7 @@ impl data_interface::Data for TransitData {
             .departure_time_of(trip, position, &self.calendar)
     }
 
-    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
         self.timetables.load_after(trip, position)
     }
 
@@ -328,7 +328,7 @@ impl data_interface::Data for TransitData {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -350,7 +350,7 @@ impl data_interface::Data for TransitData {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {

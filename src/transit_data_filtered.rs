@@ -37,7 +37,7 @@
 use crate::{
     filters::Filters,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    occupancy_data::Load,
+    occupancy_data::Occupancy,
     robustness::Regularity,
     time::{Calendar, SecondsSinceDatasetUTCStart},
     timetables::utc_timetables,
@@ -232,7 +232,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.arrival_time_of(trip, position)
     }
 
-    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
         self.transit_data.load_before(trip, position)
     }
 
@@ -244,7 +244,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         self.transit_data.departure_time_of(trip, position)
     }
 
-    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
+    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
         self.transit_data.load_after(trip, position)
     }
 
@@ -283,7 +283,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -311,7 +311,7 @@ impl data_interface::Data for TransitDataFiltered<'_, '_> {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {

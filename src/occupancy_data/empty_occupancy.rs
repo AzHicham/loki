@@ -37,19 +37,19 @@
 use chrono::NaiveDate;
 use std::{error::Error, fmt::Display, io};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {
+pub enum Occupancy {
     Unknown,
 }
 
-impl Display for Load {
+impl Display for Occupancy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Load ()")
+        write!(f, "Occupancy ()")
     }
 }
 
-impl Default for Load {
+impl Default for Occupancy {
     fn default() -> Self {
-        Load::Unknown
+        Occupancy::Unknown
     }
 }
 
@@ -57,13 +57,13 @@ use std::cmp::Ordering;
 
 use crate::models::{base_model, StopTimeIdx, VehicleJourneyIdx};
 
-impl Ord for Load {
+impl Ord for Occupancy {
     fn cmp(&self, _other: &Self) -> Ordering {
         Ordering::Equal
     }
 }
 
-impl PartialOrd for Load {
+impl PartialOrd for Occupancy {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -83,12 +83,12 @@ impl LoadsCount {
         Self {}
     }
 
-    pub fn add(&self, _load: Load) -> Self {
+    pub fn add(&self, _load: Occupancy) -> Self {
         Self {}
     }
 
-    pub fn max(&self) -> Load {
-        Load::default()
+    pub fn max(&self) -> Occupancy {
+        Occupancy::default()
     }
 
     pub fn is_lower(&self, _other: &Self) -> bool {
@@ -109,7 +109,7 @@ impl OccupancyData {
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _date: &NaiveDate,
-    ) -> Option<&[Load]> {
+    ) -> Option<&[Occupancy]> {
         None
     }
 
@@ -118,7 +118,7 @@ impl OccupancyData {
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _stop_time_idx: StopTimeIdx,
         _date: &NaiveDate,
-    ) -> Option<Load> {
+    ) -> Option<Occupancy> {
         None
     }
 
