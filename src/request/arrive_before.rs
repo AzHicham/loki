@@ -252,14 +252,14 @@ where
         let departure_time_at_previous_stop = self
             .transit_data
             .departure_time_of(trip, &previous_position);
-        let load = self.transit_data.occupancy_after(trip, &previous_position);
+        let occupancy = self.transit_data.occupancy_after(trip, &previous_position);
         let regularity = self.transit_data.regularity(trip);
         let new_criteria = Criteria {
             time: departure_time_at_previous_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
-            occupancies_count: waiting_criteria.occupancies_count.add(load),
+            occupancies_count: waiting_criteria.occupancies_count.add(occupancy),
             uncertainty: waiting_criteria.uncertainty.extend(regularity),
         };
         Some(new_criteria)
@@ -301,14 +301,14 @@ where
                 self.real_time_level,
                 |_| true,
             )
-            .map(|(trip, debark_time, load)| {
+            .map(|(trip, debark_time, occupancy)| {
                 let regularity = self.transit_data.regularity(&trip);
                 let new_criteria = Criteria {
                     time: debark_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
-                    occupancies_count: waiting_criteria.occupancies_count.add(load),
+                    occupancies_count: waiting_criteria.occupancies_count.add(occupancy),
                     uncertainty: waiting_criteria.uncertainty.extend(regularity),
                 };
                 (trip, new_criteria)
@@ -346,13 +346,13 @@ where
         let departure_time_at_previous_position = self
             .transit_data
             .departure_time_of(trip, &previous_position);
-        let load = self.transit_data.occupancy_after(trip, &previous_position);
+        let occupancy = self.transit_data.occupancy_after(trip, &previous_position);
         Criteria {
             time: departure_time_at_previous_position,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
-            occupancies_count: criteria.occupancies_count.add(load),
+            occupancies_count: criteria.occupancies_count.add(occupancy),
             uncertainty: criteria.uncertainty,
         }
     }

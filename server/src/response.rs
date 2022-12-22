@@ -781,10 +781,10 @@ fn make_stop_datetimes(
             .base
             .occupancy_data()
             .occupancy(vehicle_journey_idx, stop_time_idx, &date)
-            .and_then(|load| {
+            .and_then(|occupancy| {
                 use loki::occupancy_data::Occupancy;
                 use navitia_proto::OccupancyStatus;
-                match load {
+                match occupancy {
                     Occupancy::Low => Some(OccupancyStatus::Empty),
                     Occupancy::Medium => Some(OccupancyStatus::StandingRoomOnly),
                     Occupancy::High => Some(OccupancyStatus::Full),
