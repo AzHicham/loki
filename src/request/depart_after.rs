@@ -40,7 +40,7 @@ pub mod robustness_comparator;
 
 use crate::{
     models::ModelRefs,
-    occupancy_data::LoadsCount,
+    occupancy_data::OccupancyCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
@@ -342,7 +342,7 @@ where
             nb_of_legs: 0,
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
-            loads_count: LoadsCount::zero(),
+            loads_count: OccupancyCount::zero(),
             uncertainty: Uncertainty::zero(),
         };
         (stop.clone(), criteria)

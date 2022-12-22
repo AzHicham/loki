@@ -37,9 +37,9 @@
 #[cfg(feature = "vehicle_occupancy")]
 pub mod real_occupancy;
 #[cfg(feature = "vehicle_occupancy")]
-pub use real_occupancy::{LoadsCount, Occupancy, OccupancyData};
+pub use real_occupancy::{Occupancy, OccupancyCount, OccupancyData};
 
 #[cfg(not(feature = "vehicle_occupancy"))]
 pub mod empty_occupancy;
 #[cfg(not(feature = "vehicle_occupancy"))]
-pub use empty_occupancy::{LoadsCount, Occupancy, OccupancyData};
+pub use empty_occupancy::{Occupancy, OccupancyCount, OccupancyData};

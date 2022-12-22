@@ -36,7 +36,7 @@
 
 use crate::{
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
-    occupancy_data::LoadsCount,
+    occupancy_data::OccupancyCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
@@ -56,7 +56,7 @@ pub struct Response {
     pub first_vehicle: VehicleSection,
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
     pub arrival: ArrivalSection,
-    pub loads_count: LoadsCount,
+    pub loads_count: OccupancyCount,
     pub uncertainty: Uncertainty,
     pub real_time_level: RealTimeLevel,
 }
@@ -128,7 +128,7 @@ pub struct Journey<Data: DataTrait> {
     pub(crate) first_vehicle: VehicleLeg<Data>,
     pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     pub(crate) arrival_fallback_duration: PositiveDuration,
-    pub(crate) loads_count: LoadsCount,
+    pub(crate) loads_count: OccupancyCount,
     pub(crate) uncertainty: Uncertainty,
     pub(crate) real_time_level: RealTimeLevel,
 }
@@ -206,7 +206,7 @@ where
         first_vehicle: VehicleLeg<Data>,
         connections: impl Iterator<Item = (Data::Transfer, VehicleLeg<Data>)>,
         arrival_fallback_duration: PositiveDuration,
-        loads_count: LoadsCount,
+        loads_count: OccupancyCount,
         uncertainty: Uncertainty,
         data: &Data,
         real_time_level: RealTimeLevel,

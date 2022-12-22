@@ -36,7 +36,7 @@
 
 use crate::{
     models::ModelRefs,
-    occupancy_data::LoadsCount,
+    occupancy_data::OccupancyCount,
     robustness::Uncertainty,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::generic_timetables,
@@ -103,7 +103,7 @@ pub struct Criteria {
     pub(super) nb_of_legs: u8,
     pub(super) fallback_duration: PositiveDuration,
     pub(super) transfers_duration: PositiveDuration,
-    pub(super) loads_count: LoadsCount,
+    pub(super) loads_count: OccupancyCount,
     pub(super) uncertainty: Uncertainty,
 }
 

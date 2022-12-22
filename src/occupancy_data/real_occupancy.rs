@@ -70,13 +70,13 @@ impl Default for Occupancy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LoadsCount {
+pub struct OccupancyCount {
     pub high: u16,
     pub medium: u16,
     pub low: u16,
 }
 
-impl LoadsCount {
+impl OccupancyCount {
     pub fn zero() -> Self {
         Self {
             high: 0,
@@ -134,13 +134,13 @@ impl LoadsCount {
     }
 }
 
-impl Default for LoadsCount {
+impl Default for OccupancyCount {
     fn default() -> Self {
         Self::zero()
     }
 }
 
-impl Display for LoadsCount {
+impl Display for OccupancyCount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
