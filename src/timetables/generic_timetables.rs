@@ -46,13 +46,13 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct GenericTimetables<Time, Load, VehicleData> {
+pub(super) struct GenericTimetables<Time, Occupancy, VehicleData> {
     pub(super) stop_flows_to_timetables: BTreeMap<StopFlows, Vec<Timetable>>,
-    pub(super) timetable_datas: Vec<TimetableData<Time, Load, VehicleData>>,
+    pub(super) timetable_datas: Vec<TimetableData<Time, Occupancy, VehicleData>>,
 }
 
 #[derive(Debug)]
-pub(super) struct TimetableData<Time, Load, VehicleData> {
+pub(super) struct TimetableData<Time, Occupancy, VehicleData> {
     pub(super) stop_flows: StopFlows,
 
     /// vehicle data, ordered by increasing times
@@ -61,9 +61,9 @@ pub(super) struct TimetableData<Time, Load, VehicleData> {
     ///    debark_times_by_position[position][vehicle_1] <= debark_times_by_position[position][vehicle_2]
     pub(super) vehicle_datas: Vec<VehicleData>,
 
-    /// `vehicle_loads[vehicle][position]` is the load in vehicle
+    /// `vehicle_occupancy[vehicle][position]` is the occupancy in vehicle
     /// between `position` and `position +1`
-    pub(super) vehicle_loads: Vec<Vec<Load>>,
+    pub(super) vehicle_occupancy: Vec<Vec<Occupancy>>,
 
     /// `board_times_by_position[position][vehicle]`
     ///   is the time at which a traveler waiting
@@ -115,10 +115,10 @@ pub struct Trip {
     pub(super) day: DaysSinceDatasetStart,
 }
 
-impl<Time, Load, VehicleData> GenericTimetables<Time, Load, VehicleData>
+impl<Time, Occupancy, VehicleData> GenericTimetables<Time, Occupancy, VehicleData>
 where
     Time: Ord + Clone + Debug,
-    Load: Ord + Clone + Debug,
+    Occupancy: Ord + Clone + Debug,
 {
     pub(super) fn new() -> Self {
         Self {
@@ -134,14 +134,14 @@ where
     pub(super) fn timetable_data(
         &self,
         timetable: &Timetable,
-    ) -> &TimetableData<Time, Load, VehicleData> {
+    ) -> &TimetableData<Time, Occupancy, VehicleData> {
         &self.timetable_datas[timetable.idx]
     }
 
     pub(super) fn timetable_data_mut(
         &mut self,
         timetable: &Timetable,
-    ) -> &mut TimetableData<Time, Load, VehicleData> {
+    ) -> &mut TimetableData<Time, Occupancy, VehicleData> {
         &mut self.timetable_datas[timetable.idx]
     }
 
@@ -248,7 +248,7 @@ where
             .arrival_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn load_before(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+    pub(super) fn load_before(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
             .load_before(vehicle.idx, position.idx)
@@ -260,7 +260,7 @@ where
             .departure_time(vehicle.idx, position.idx)
     }
 
-    pub(super) fn load_after(&self, vehicle: &Vehicle, position: &Position) -> &Load {
+    pub(super) fn load_after(&self, vehicle: &Vehicle, position: &Position) -> &Occupancy {
         assert!(vehicle.timetable == position.timetable);
         self.timetable_data(&vehicle.timetable)
             .load_after(vehicle.idx, position.idx)
@@ -312,21 +312,21 @@ where
     }
 
     // Insert in the trip in a timetable if
-    // the given debark_times, board_times and loads are coherent.
+    // the given debark_times, board_times and occupancy are coherent.
     // Returns a VehicleTimesError otherwise.
-    pub fn insert<BoardTimes, DebarkTimes, Loads, Stops, Flows>(
+    pub fn insert<BoardTimes, DebarkTimes, Occupancies, Stops, Flows>(
         &mut self,
         stops: Stops,
         flows: Flows,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
-        loads: Loads,
+        occupancies: Occupancies,
         vehicle_data: VehicleData,
     ) -> Result<Timetable, VehicleTimesError>
     where
         BoardTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = Time> + ExactSizeIterator + Clone,
-        Loads: Iterator<Item = Load> + ExactSizeIterator + Clone,
+        Occupancies: Iterator<Item = Occupancy> + ExactSizeIterator + Clone,
         Stops: Iterator<Item = Stop> + ExactSizeIterator + Clone,
         Flows: Iterator<Item = FlowDirection> + ExactSizeIterator + Clone,
         Time: Clone,
@@ -336,7 +336,7 @@ where
         assert!(nb_of_positions == flows.len());
         assert!(nb_of_positions == board_times.len());
         assert!(nb_of_positions == debark_times.len());
-        assert!(nb_of_positions == loads.len() + 1);
+        assert!(nb_of_positions == occupancies.len() + 1);
         inspect(flows.clone(), board_times.clone(), debark_times.clone())?;
 
         let corrected_board_debark_times = board_times.zip(debark_times).zip(flows.clone()).map(
@@ -359,7 +359,7 @@ where
             let is_inserted = timetable_data.try_insert(
                 corrected_board_times.clone(),
                 corrected_debark_times.clone(),
-                loads.clone(),
+                occupancies.clone(),
                 vehicle_data.clone(),
             );
             if is_inserted {
@@ -370,7 +370,7 @@ where
             stop_flows,
             corrected_board_times,
             corrected_debark_times,
-            loads,
+            occupancies,
             vehicle_data,
         );
         let timetable = Timetable {
