@@ -34,10 +34,10 @@ input_data_path = '/path/to/my/ntfs/folder'
 
 input_data_type = 'ntfs'
 
-# path to the passengers loads file
+# path to the passengers' occupancy file
 # defaults to None
 
-loads_data_path = '/path/to/passagenrs/loads/file'
+occupancy_data_path = '/path/to/passengers/occupancy/file'
 
 # the input data may contains a transfer with no
 # duration. In this case, we will use this value as the duration.

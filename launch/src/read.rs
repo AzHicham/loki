@@ -48,7 +48,7 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
     let base_model = read_model(
         &LocalFileParams {
             input_data_path: launch_params.input_data_path.clone(),
-            loads_data_path: launch_params.loads_data_path.clone(),
+            occupancy_data_path: launch_params.occupancy_data_path.clone(),
         },
         launch_params.input_data_type.clone(),
         launch_params.default_transfer_duration,
@@ -135,15 +135,18 @@ pub fn read_model(
     );
 
     let loads_data_reader =
-        data_files.loads_data_path.as_ref().and_then(
-            |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
-                Ok(reader) => Some(reader),
-                Err(err) => {
-                    warn!("Could not open load_data_path {csv_occupancy_path:?} : {err:?}");
-                    None
-                }
-            },
-        );
+        data_files
+            .occupancy_data_path
+            .as_ref()
+            .and_then(
+                |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
+                    Ok(reader) => Some(reader),
+                    Err(err) => {
+                        warn!("Could not open load_data_path {csv_occupancy_path:?} : {err:?}");
+                        None
+                    }
+                },
+            );
 
     let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
 

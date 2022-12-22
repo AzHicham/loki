@@ -231,7 +231,7 @@ zmq_socket = tcp://*:${krakenPort}
     [data_source]
     type = 'local'
     input_data_path = '/data/${inputType}/'
-    loads_data_path = '/data/stoptimes_loads.csv'
+    occupancy_data_path = '/data/stoptimes_loads.csv'
 """ > ${output}/${coverage}/loki_config.toml
 
 

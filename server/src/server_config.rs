@@ -107,7 +107,7 @@ impl ServerConfig {
             default_transfer_duration: default_transfer_duration(),
             data_source: DataSourceParams::Local(LocalFileParams {
                 input_data_path,
-                loads_data_path: None,
+                occupancy_data_path: None,
             }),
             input_data_type: Default::default(),
             requests_socket: zmq_socket.to_string(),
