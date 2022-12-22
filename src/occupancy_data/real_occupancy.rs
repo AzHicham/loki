@@ -239,7 +239,7 @@ impl OccupancyData {
     #[cfg(feature = "demo_occupancy")]
     pub fn fake_occupancy(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
         use transit_model::objects::{Line, Network};
-        tracing::info!("loading fake vehicle occupancy for Metro 1 (RATP) and RER A (RER)");
+        tracing::info!("loading fake vehicle occupancy");
         let mut loads_data = OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         };
