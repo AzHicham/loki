@@ -70,15 +70,15 @@ impl PartialOrd for Occupancy {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct OccupancyCount();
+pub struct OccupanciesCount();
 
-impl Display for OccupancyCount {
+impl Display for OccupanciesCount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "OccupancyCount ()")
+        write!(f, "OccupanciesCount ()")
     }
 }
 
-impl OccupancyCount {
+impl OccupanciesCount {
     pub fn zero() -> Self {
         Self {}
     }
@@ -96,7 +96,7 @@ impl OccupancyCount {
     }
 }
 
-impl Default for OccupancyCount {
+impl Default for OccupanciesCount {
     fn default() -> Self {
         Self::zero()
     }

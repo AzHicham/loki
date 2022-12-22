@@ -76,7 +76,7 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * lower_nb_of_legs
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * upper_nb_of_legs
-        && lower.loads_count.max() <= upper.loads_count.max()
+        && lower.occupancies_count.max() <= upper.occupancies_count.max()
     }
 
     fn can_be_discarded(
