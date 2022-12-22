@@ -35,8 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::LoadsCount,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::LoadsCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,

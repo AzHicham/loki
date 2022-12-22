@@ -37,8 +37,8 @@
 use tracing::error;
 
 use crate::{
-    loads_data::LoadsData,
     models::{StopPointIdx, VehicleJourneyIdx},
+    occupancy_data::LoadsData,
     robustness::Regularity,
     timetables::{day_to_timetable::LocalZone, InsertionError, ModifyError, RemovalError},
     transit_data::TransitData,

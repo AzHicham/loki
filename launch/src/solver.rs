@@ -197,13 +197,19 @@ where
 
     let responses = match (datetime_represent, comparator_type) {
         (Arrival, Loads) => {
-            let request =
-                request::arrive_before::loads_comparator::Request::new(model, data, request_input)?;
+            let request = request::arrive_before::occupancy_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
             solve_journeys_request_inner(engine, &request, data)
         }
         (Departure, Loads) => {
-            let request =
-                request::depart_after::loads_comparator::Request::new(model, data, request_input)?;
+            let request = request::depart_after::occupancy_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
             solve_journeys_request_inner(engine, &request, data)
         }
         (Arrival, Basic) => {

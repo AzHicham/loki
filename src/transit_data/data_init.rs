@@ -35,12 +35,12 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::LoadsData,
     models::{
         base_model::{BaseModel, BaseTransferIdx},
         real_time_model::RealTimeModel,
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
+    occupancy_data::LoadsData,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},

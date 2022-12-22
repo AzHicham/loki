@@ -1,6 +1,6 @@
 use crate::{
-    loads_data::Load,
     models::{StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::Load,
     robustness::Regularity,
     time::SecondsSinceDatasetUTCStart,
 };

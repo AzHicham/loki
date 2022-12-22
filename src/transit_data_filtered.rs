@@ -36,8 +36,8 @@
 
 use crate::{
     filters::Filters,
-    loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::Load,
     robustness::Regularity,
     time::{Calendar, SecondsSinceDatasetUTCStart},
     timetables::utc_timetables,

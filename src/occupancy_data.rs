@@ -35,11 +35,11 @@
 // www.navitia.io
 
 #[cfg(feature = "vehicle_occupancy")]
-pub mod real_loads;
+pub mod real_occupancy;
 #[cfg(feature = "vehicle_occupancy")]
-pub use real_loads::{Load, LoadsCount, LoadsData};
+pub use real_occupancy::{Load, LoadsCount, LoadsData};
 
 #[cfg(not(feature = "vehicle_occupancy"))]
-pub mod empty_loads;
+pub mod empty_occupancy;
 #[cfg(not(feature = "vehicle_occupancy"))]
-pub use empty_loads::{Load, LoadsCount, LoadsData};
+pub use empty_occupancy::{Load, LoadsCount, LoadsData};

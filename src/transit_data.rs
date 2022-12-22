@@ -41,8 +41,8 @@ pub mod data_update;
 use chrono::NaiveDate;
 
 use crate::{
-    loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::Load,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{

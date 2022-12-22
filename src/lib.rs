@@ -39,8 +39,8 @@ extern crate static_assertions;
 mod engine;
 pub mod filters;
 pub mod geometry;
-pub mod loads_data;
 pub mod models;
+pub mod occupancy_data;
 pub mod places_nearby;
 pub mod request;
 pub mod schedule;
@@ -60,7 +60,7 @@ pub use transit_data::data_interface::{
     Data as DataTrait, DataWithIters, RealTimeLevel, TransitTypes,
 };
 
-pub use loads_data::LoadsData;
+pub use occupancy_data::LoadsData;
 
 pub use transit_data::TransitData;
 

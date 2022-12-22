@@ -35,12 +35,12 @@
 // www.navitia.io
 
 pub mod basic_comparator;
-pub mod loads_comparator;
+pub mod occupancy_comparator;
 pub mod robustness_comparator;
 
 use crate::{
-    loads_data::LoadsCount,
     models::ModelRefs,
+    occupancy_data::LoadsCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,

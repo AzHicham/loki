@@ -35,8 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::{Load, LoadsData},
     models::{StopTimeIdx, VehicleJourneyIdx},
+    occupancy_data::{Load, LoadsData},
     robustness::Regularity,
     time::{
         calendar::DecomposeUTCResult,

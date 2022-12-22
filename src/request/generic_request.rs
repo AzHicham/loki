@@ -35,8 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::LoadsCount,
     models::ModelRefs,
+    occupancy_data::LoadsCount,
     robustness::Uncertainty,
     time::{Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::generic_timetables,
