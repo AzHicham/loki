@@ -36,7 +36,7 @@
 
 use crate::{
     models::{StopTimeIdx, VehicleJourneyIdx},
-    occupancy_data::{Load, LoadsData},
+    occupancy_data::{Load, OccupancyData},
     robustness::Regularity,
     time::{
         calendar::DecomposeUTCResult,
@@ -353,7 +353,7 @@ impl UTCTimetables {
         flows: Flows,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
-        loads_data: &LoadsData,
+        loads_data: &OccupancyData,
         days: &DaysPattern,
         calendar: &Calendar,
         days_patterns: &mut DaysPatterns,

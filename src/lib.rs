@@ -60,7 +60,7 @@ pub use transit_data::data_interface::{
     Data as DataTrait, DataWithIters, RealTimeLevel, TransitTypes,
 };
 
-pub use occupancy_data::LoadsData;
+pub use occupancy_data::OccupancyData;
 
 pub use transit_data::TransitData;
 

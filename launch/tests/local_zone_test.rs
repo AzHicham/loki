@@ -57,9 +57,12 @@ fn test_local_zone_routing() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -105,9 +108,12 @@ fn test_local_zone_timetable() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     assert_eq!(base_model.nb_of_vehicle_journeys(), 1);
 
@@ -142,9 +148,12 @@ fn test_local_zone_routing_multiple_vj() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -197,9 +206,12 @@ fn test_local_zone_routing_one_local_zone() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);

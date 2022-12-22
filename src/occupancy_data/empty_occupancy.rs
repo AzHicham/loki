@@ -102,9 +102,9 @@ impl Default for LoadsCount {
     }
 }
 
-pub struct LoadsData();
+pub struct OccupancyData();
 
-impl LoadsData {
+impl OccupancyData {
     pub fn loads(
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
@@ -123,13 +123,13 @@ impl LoadsData {
     }
 
     pub fn empty() -> Self {
-        LoadsData {}
+        OccupancyData {}
     }
 
     pub fn try_from_reader<R: io::Read>(
         _csv_occupancy_reader: R,
         _model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
-        Ok(LoadsData::empty())
+        Ok(OccupancyData::empty())
     }
 }

@@ -143,9 +143,12 @@ fn simple_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -211,9 +214,12 @@ fn multiple_stay() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -275,9 +281,12 @@ fn stay_in_with_wrong_stoptimes() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -323,9 +332,12 @@ fn multiple_stay_in_with_wrong_stoptimes() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -382,9 +394,12 @@ fn chain_multiple_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -462,9 +477,12 @@ fn stay_in_with_local_zone() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -517,9 +535,12 @@ fn different_validity_day_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -554,9 +575,12 @@ fn multiple_day_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -613,9 +637,12 @@ fn past_midnight_on_same_valid_day_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 
@@ -665,9 +692,12 @@ fn past_midnight_on_different_valid_day_stay_in() -> Result<(), Error> {
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), default_transfer_duration())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        default_transfer_duration(),
+    )
+    .unwrap();
 
     let data = loki_launch::read::build_transit_data(&base_model);
 

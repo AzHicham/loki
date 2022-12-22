@@ -67,7 +67,7 @@ fn create_model() -> BaseModel {
 
     let filepath = "tests/fixtures/occupancy_test/occupancy.csv";
     let reader = std::fs::File::open(&filepath).unwrap();
-    let loads_data = loki::LoadsData::try_from_reader(reader, &model).unwrap();
+    let loads_data = loki::OccupancyData::try_from_reader(reader, &model).unwrap();
 
     BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
 }

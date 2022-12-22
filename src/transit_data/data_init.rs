@@ -40,7 +40,7 @@ use crate::{
         real_time_model::RealTimeModel,
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
-    occupancy_data::LoadsData,
+    occupancy_data::OccupancyData,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
@@ -311,7 +311,7 @@ impl TransitData {
         vehicle_journey_to_prev_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
         vehicle_journey_to_next_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
         base_model: &BaseModel,
-        loads_data: &LoadsData,
+        loads_data: &OccupancyData,
     ) -> Result<(), ()> {
         let stop_times =
             base_model

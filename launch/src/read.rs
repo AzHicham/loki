@@ -40,7 +40,7 @@ use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     tracing::{info, warn},
-    transit_model, DataTrait, LoadsData, PositiveDuration,
+    transit_model, DataTrait, OccupancyData, PositiveDuration,
 };
 use std::{str::FromStr, time::SystemTime};
 
@@ -158,17 +158,17 @@ pub fn read_model(
 fn read_loads_data_from_reader<R: std::io::Read>(
     reader: Option<R>,
     model: &base_model::Model,
-) -> LoadsData {
+) -> OccupancyData {
     reader
         .map(|csv_occupancy_reader| {
-            LoadsData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
+            OccupancyData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
                 warn!("failed to load passenger occupancy data, initialized with empty passenger occupancy data: {e}");
-                LoadsData::empty()
+                OccupancyData::empty()
             })
         })
         .unwrap_or_else(|| {
             info!("no passenger occupancy data given, initialized with empty passenger occupancy data.");
-            LoadsData::empty()
+            OccupancyData::empty()
         })
 }
 
@@ -176,10 +176,10 @@ fn read_loads_data_from_reader<R: std::io::Read>(
 fn read_loads_data_from_reader<R: std::io::Read>(
     _reader: Option<R>,
     model: &base_model::Model,
-) -> LoadsData {
-    LoadsData::fake_occupancy(model).unwrap_or_else(|e| {
+) -> OccupancyData {
+    OccupancyData::fake_occupancy(model).unwrap_or_else(|e| {
         warn!("failed to create fake occupancy data, initialized with empty passenger occupancy data: {e}.");
-        LoadsData::empty()
+        OccupancyData::empty()
     })
 }
 

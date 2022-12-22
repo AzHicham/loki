@@ -128,7 +128,7 @@ pub fn fixture_model() -> BaseModel {
         .add_transfer("C", "C", "00:02:00")
         .build();
 
-    let loads_data = loki::LoadsData::empty();
+    let loads_data = loki::OccupancyData::empty();
     BaseModel::from_transit_model(model, loads_data, PositiveDuration::zero()).unwrap()
 }
 

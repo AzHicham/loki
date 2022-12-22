@@ -106,7 +106,7 @@ pub fn fixture_model() -> BaseModel {
         })
         .build();
 
-    let loads_data = loki::LoadsData::empty();
+    let loads_data = loki::OccupancyData::empty();
     BaseModel::from_transit_model(model, loads_data, PositiveDuration::zero()).unwrap()
 }
 

@@ -186,7 +186,7 @@ fn occupancy_to_load(occupancy: Occupancy) -> Load {
     }
 }
 
-pub struct LoadsData {
+pub struct OccupancyData {
     per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyLoads>,
 }
 
@@ -223,7 +223,7 @@ impl TripLoads {
     }
 }
 
-impl LoadsData {
+impl OccupancyData {
     pub fn loads(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
@@ -253,7 +253,7 @@ impl LoadsData {
     }
 
     pub fn empty() -> Self {
-        LoadsData {
+        OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         }
     }
@@ -262,7 +262,7 @@ impl LoadsData {
     pub fn fake_occupancy(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
         use transit_model::objects::{Line, Network};
         tracing::info!("loading fake vehicle occupancy for Metro 1 (RATP) and RER A (RER)");
-        let mut loads_data = LoadsData {
+        let mut loads_data = OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         };
         let iter_line_idxs = |network_name: &'static str, line_code: &'static str| {
@@ -344,7 +344,7 @@ impl LoadsData {
         model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
         info!("loading vehicle loads data");
-        let mut loads_data = LoadsData {
+        let mut loads_data = OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         };
         let mut reader = csv::ReaderBuilder::new()

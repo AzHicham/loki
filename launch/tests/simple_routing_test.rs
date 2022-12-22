@@ -65,9 +65,12 @@ fn test_simple_routing(#[case] comparator_type: ComparatorType) -> Result<(), Er
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -133,9 +136,12 @@ fn test_routing_with_transfers(#[case] comparator_type: ComparatorType) -> Resul
         ..config
     };
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -234,7 +240,7 @@ fn test_routing_backward(#[case] comparator_type: ComparatorType) -> Result<(), 
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -349,7 +355,7 @@ fn test_second_pass_forward(#[case] comparator_type: ComparatorType) -> Result<(
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -416,7 +422,7 @@ fn test_second_pass_backward(#[case] comparator_type: ComparatorType) -> Result<
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
