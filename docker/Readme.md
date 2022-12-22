@@ -33,7 +33,7 @@ In the following example, we have two datasets (corse and idfm), with osm data p
 │   │   └── trips.txt
 │   ├── osm
 │   │   └── corse-latest.osm.pbf
-│   └── stoptimes_loads.csv
+│   └── stoptimes_occupancy.csv
 ├── idfm
 │   ├── ntfs
 │   │   ├── calendar.txt
@@ -55,7 +55,7 @@ In the following example, we have two datasets (corse and idfm), with osm data p
 │   │   ├── transfers.txt
 │   │   ├── trip_properties.txt
 │   │   └── trips.txt
-│   └── stoptimes_loads.csv
+│   └── stoptimes_occupancy.csv
 ```
 
 Then, from the root directory of this repository, run :
