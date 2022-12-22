@@ -353,7 +353,7 @@ impl UTCTimetables {
         flows: Flows,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
-        loads_data: &OccupancyData,
+        occupancy_data: &OccupancyData,
         days: &DaysPattern,
         calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
@@ -378,7 +378,7 @@ impl UTCTimetables {
             vec![Occupancy::default(); 0]
         };
         for date in days_patterns.make_dates(days, calendar) {
-            let loads = loads_data
+            let loads = occupancy_data
                 .occupancies(&vehicle_journey_idx.clone(), &date)
                 .unwrap_or(default_loads.as_slice());
             load_patterns_dates

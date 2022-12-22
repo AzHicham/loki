@@ -128,10 +128,10 @@ pub enum EquipmentPropertyKey {
 impl BaseModel {
     pub fn from_transit_model(
         model: transit_model::Model,
-        loads_data: OccupancyData,
+        occupancy_data: OccupancyData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-        Self::new(model, loads_data, default_transfer_duration)
+        Self::new(model, occupancy_data, default_transfer_duration)
     }
 
     fn insert_pathway_into_association(
@@ -206,7 +206,7 @@ impl BaseModel {
 
     pub fn new(
         model: transit_model::model::Model,
-        loads_data: OccupancyData,
+        occupancy_data: OccupancyData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
         let validity_period = model
@@ -221,14 +221,14 @@ impl BaseModel {
 
         Ok(Self {
             model,
-            occupancy_data: loads_data,
+            occupancy_data,
             validity_period,
             default_transfer_duration,
             stop_point_to_pathways,
         })
     }
 
-    pub fn loads_data(&self) -> &OccupancyData {
+    pub fn occupancy_data(&self) -> &OccupancyData {
         &self.occupancy_data
     }
 

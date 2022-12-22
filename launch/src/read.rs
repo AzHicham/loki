@@ -61,7 +61,7 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
 
 pub fn read_model_from_zip_reader<R>(
     input_data_reader: R,
-    loads_data_reader: Option<R>,
+    occupancy_data_reader: Option<R>,
     source: &str,
     input_data_type: config::InputDataType,
     default_transfer_duration: PositiveDuration,
@@ -97,9 +97,9 @@ where
         timer::duration_since(read_model_start_time)
     );
 
-    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+    let occupancy_data = read_occupancy_data_from_reader(occupancy_data_reader, &model);
 
-    BaseModel::new(model, loads_data, default_transfer_duration)
+    BaseModel::new(model, occupancy_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
@@ -134,7 +134,7 @@ pub fn read_model(
         timer::duration_since(read_model_start_time)
     );
 
-    let loads_data_reader =
+    let occupancy_data_reader =
         data_files
             .occupancy_data_path
             .as_ref()
@@ -142,20 +142,22 @@ pub fn read_model(
                 |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
                     Ok(reader) => Some(reader),
                     Err(err) => {
-                        warn!("Could not open load_data_path {csv_occupancy_path:?} : {err:?}");
+                        warn!(
+                            "Could not open occupancy_data_path {csv_occupancy_path:?} : {err:?}"
+                        );
                         None
                     }
                 },
             );
 
-    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+    let occupancy_data = read_occupancy_data_from_reader(occupancy_data_reader, &model);
 
-    BaseModel::new(model, loads_data, default_transfer_duration)
+    BaseModel::new(model, occupancy_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
 #[cfg(not(feature = "demo_occupancy"))]
-fn read_loads_data_from_reader<R: std::io::Read>(
+fn read_occupancy_data_from_reader<R: std::io::Read>(
     reader: Option<R>,
     model: &base_model::Model,
 ) -> OccupancyData {
@@ -173,7 +175,7 @@ fn read_loads_data_from_reader<R: std::io::Read>(
 }
 
 #[cfg(feature = "demo_occupancy")]
-fn read_loads_data_from_reader<R: std::io::Read>(
+fn read_occupancy_data_from_reader<R: std::io::Read>(
     _reader: Option<R>,
     model: &base_model::Model,
 ) -> OccupancyData {
