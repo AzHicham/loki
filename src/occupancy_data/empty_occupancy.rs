@@ -83,7 +83,7 @@ impl OccupancyCount {
         Self {}
     }
 
-    pub fn add(&self, _load: Occupancy) -> Self {
+    pub fn add(&self, _occupancy: Occupancy) -> Self {
         Self {}
     }
 

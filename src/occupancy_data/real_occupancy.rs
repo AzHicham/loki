@@ -85,11 +85,11 @@ impl OccupancyCount {
         }
     }
 
-    pub fn add(&self, load: Occupancy) -> Self {
+    pub fn add(&self, occupancy: Occupancy) -> Self {
         let mut high = self.high;
         let mut medium = self.medium;
         let mut low = self.low;
-        match load {
+        match occupancy {
             Occupancy::High => {
                 high += 1;
             }
@@ -153,7 +153,7 @@ impl Display for OccupancyCount {
     }
 }
 
-fn occupancy_to_load(occupancy: OccupancyRatio) -> Occupancy {
+fn ratio_to_occupancy(occupancy: OccupancyRatio) -> Occupancy {
     debug_assert!(occupancy <= 100);
     if occupancy <= 30 {
         Occupancy::Low
@@ -226,8 +226,8 @@ impl OccupancyData {
     ) -> Option<Occupancy> {
         self.occupancies(vehicle_journey_idx, date)
             // No occupancy data on the last stop of a vehicle journey
-            .filter(|loads| stop_time_idx.idx < loads.len())
-            .map(|loads| loads[stop_time_idx.idx])
+            .filter(|occupancies| stop_time_idx.idx < occupancies.len())
+            .map(|occupancies| occupancies[stop_time_idx.idx])
     }
 
     pub fn empty() -> Self {
@@ -240,7 +240,7 @@ impl OccupancyData {
     pub fn fake_occupancy(model: &base_model::Model) -> Result<Self, Box<dyn Error>> {
         use transit_model::objects::{Line, Network};
         tracing::info!("loading fake vehicle occupancy");
-        let mut loads_data = OccupancyData {
+        let mut occupancy_data = OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         };
         let iter_line_idxs = |network_name: &'static str, line_code: &'static str| {
@@ -255,7 +255,7 @@ impl OccupancyData {
                 .into_iter()
                 .filter(|line_idx| model.lines[*line_idx].code == Some(line_code.to_string()))
         };
-        let mut line_loads = Vec::new();
+        let mut line_occupancies = Vec::new();
         for (network_name, line_code, line_occupancy) in [
             ("RER", "A", Occupancy::High),    // for coverage 'fr-idf'
             ("RATP", "1", Occupancy::Medium), // for coverage 'fr-idf'
@@ -272,10 +272,10 @@ impl OccupancyData {
                     network_name,
                     line_code,
                 );
-                line_loads.push((model.lines[line_idx].id.clone(), line_occupancy));
+                line_occupancies.push((model.lines[line_idx].id.clone(), line_occupancy));
             }
         }
-        for (line_id, load) in line_loads {
+        for (line_id, occupancy) in line_occupancies {
             let line_idx = if let Some(line_idx) = model.lines.get_idx(&line_id) {
                 line_idx
             } else {
@@ -288,7 +288,7 @@ impl OccupancyData {
                     .iter()
                     .map(|stop_time| stop_time.sequence);
                 let nb_of_stop = vehicle_journey.stop_times.len();
-                let vehicle_journey_loads = loads_data
+                let vehicle_journey_loads = occupancy_data
                     .per_vehicle_journey
                     .entry(vehicle_journey_idx)
                     .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter.clone()));
@@ -309,20 +309,20 @@ impl OccupancyData {
                             .per_date
                             .entry(*date)
                             .or_insert_with(|| TripLoads::new(nb_of_stop));
-                        trip_load.per_stop[*idx] = load;
+                        trip_load.per_stop[*idx] = occupancy;
                     }
                 }
             }
         }
-        Ok(loads_data)
+        Ok(occupancy_data)
     }
 
     pub fn try_from_reader<R: io::Read>(
         csv_occupancy_reader: R,
         model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
-        info!("loading vehicle loads data");
-        let mut loads_data = OccupancyData {
+        info!("loading vehicle occupancy data");
+        let mut occupancy_data = OccupancyData {
             per_vehicle_journey: BTreeMap::new(),
         };
         let mut reader = csv::ReaderBuilder::new()
@@ -346,7 +346,7 @@ impl OccupancyData {
                     continue;
                 }
             };
-            let load = occupancy_to_load(occupancy);
+            let occupancy = ratio_to_occupancy(occupancy);
 
             let vehicle_journey = &model.vehicle_journeys[vehicle_journey_idx];
             let stop_sequence_iter = vehicle_journey
@@ -355,7 +355,7 @@ impl OccupancyData {
                 .map(|stop_time| stop_time.sequence);
             let nb_of_stop = vehicle_journey.stop_times.len();
 
-            let vehicle_journey_loads = loads_data
+            let vehicle_journey_loads = occupancy_data
                 .per_vehicle_journey
                 .entry(vehicle_journey_idx)
                 .or_insert_with(|| VehicleJourneyLoads::new(stop_sequence_iter));
@@ -381,19 +381,19 @@ impl OccupancyData {
                 .per_date
                 .entry(date)
                 .or_insert_with(|| TripLoads::new(nb_of_stop));
-            trip_load.per_stop[*idx] = load;
+            trip_load.per_stop[*idx] = occupancy;
             trace!(
-                "load inserted for vehicle journey '{}' on stop sequence '{}': load={}",
+                "occupancy inserted for vehicle journey '{}' on stop sequence '{}': occupancy={}",
                 vehicle_journey.id,
                 stop_sequence,
-                load
+                occupancy
             );
         }
 
-        // loads_data._check(model);
+        // occupancy_data._check(model);
 
-        info!("vehicle loads data loaded");
-        Ok(loads_data)
+        info!("vehicle occupancy data loaded");
+        Ok(occupancy_data)
     }
 
     fn _check(&self, model: &BaseModel) {
