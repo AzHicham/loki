@@ -379,7 +379,7 @@ impl UTCTimetables {
         };
         for date in days_patterns.make_dates(days, calendar) {
             let loads = loads_data
-                .loads(&vehicle_journey_idx.clone(), &date)
+                .occupancies(&vehicle_journey_idx.clone(), &date)
                 .unwrap_or(default_loads.as_slice());
             load_patterns_dates
                 .entry(loads)

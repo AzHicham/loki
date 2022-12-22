@@ -105,7 +105,7 @@ impl Default for OccupancyCount {
 pub struct OccupancyData();
 
 impl OccupancyData {
-    pub fn loads(
+    pub fn occupancies(
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _date: &NaiveDate,
@@ -113,7 +113,7 @@ impl OccupancyData {
         None
     }
 
-    pub fn load(
+    pub fn occupancy(
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _stop_time_idx: StopTimeIdx,

@@ -202,7 +202,7 @@ impl TripLoads {
 }
 
 impl OccupancyData {
-    pub fn loads(
+    pub fn occupancies(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         date: &NaiveDate,
@@ -218,13 +218,13 @@ impl OccupancyData {
         }
     }
 
-    pub fn load(
+    pub fn occupancy(
         &self,
         vehicle_journey_idx: &VehicleJourneyIdx,
         stop_time_idx: StopTimeIdx,
         date: &NaiveDate,
     ) -> Option<Occupancy> {
-        self.loads(vehicle_journey_idx, date)
+        self.occupancies(vehicle_journey_idx, date)
             // No occupancy data on the last stop of a vehicle journey
             .filter(|loads| stop_time_idx.idx < loads.len())
             .map(|loads| loads[stop_time_idx.idx])
