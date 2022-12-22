@@ -579,8 +579,8 @@ where
         let debark_cmp = partial_cmp(debark_times, self.vehicle_debark_times(vehicle_idx))?;
 
         let board_debark_cmp = combine(board_cmp, debark_cmp)?;
-        let loads_cmp = partial_cmp(occupancies, self.vehicle_loads(vehicle_idx))?;
-        combine(board_debark_cmp, loads_cmp)
+        let occupancy_cmp = partial_cmp(occupancies, self.vehicle_occupancies(vehicle_idx))?;
+        combine(board_debark_cmp, occupancy_cmp)
     }
 
     // Returns the number of removed entries

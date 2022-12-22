@@ -85,7 +85,10 @@ where
         }
     }
 
-    pub(super) fn vehicle_loads(&self, vehicle_idx: usize) -> std::slice::Iter<'_, Occupancy> {
+    pub(super) fn vehicle_occupancies(
+        &self,
+        vehicle_idx: usize,
+    ) -> std::slice::Iter<'_, Occupancy> {
         debug_assert!(vehicle_idx < self.vehicle_datas.len());
         self.vehicle_occupancy[vehicle_idx].iter()
     }
