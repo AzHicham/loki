@@ -758,7 +758,7 @@ fn make_stop_datetimes(
         StopTimes::Base(_) => navitia_proto::RtLevel::BaseSchedule,
         StopTimes::New(_) => navitia_proto::RtLevel::Realtime,
     };
-    // `stop_time_idx` is only used for occupancy reporting (feature "vehicl_occupancy")
+    // `stop_time_idx` is only used for occupancy reporting (feature "vehicle_occupancy")
     #[allow(unused_variables)]
     for (stop_time_idx, stop_time) in stop_times {
         let arrival_seconds = i64::from(stop_time.debark_time.total_seconds());
