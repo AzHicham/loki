@@ -165,19 +165,19 @@ fn ratio_to_occupancy(occupancy: OccupancyRatio) -> Occupancy {
 }
 
 pub struct OccupancyData {
-    per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyOccupancy>,
+    per_vehicle_journey: BTreeMap<BaseVehicleJourneyIdx, VehicleJourneyOccupancies>,
 }
 
-struct VehicleJourneyOccupancy {
+struct VehicleJourneyOccupancies {
     stop_sequence_to_idx: BTreeMap<StopSequence, usize>,
-    per_date: BTreeMap<NaiveDate, TripOccupancy>,
+    per_date: BTreeMap<NaiveDate, TripOccupancies>,
 }
 
-struct TripOccupancy {
+struct TripOccupancies {
     per_stop: Vec<Occupancy>,
 }
 
-impl VehicleJourneyOccupancy {
+impl VehicleJourneyOccupancies {
     fn new<StopSequenceIter>(stop_sequence_iter: StopSequenceIter) -> Self
     where
         StopSequenceIter: Iterator<Item = StopSequence>,
@@ -193,7 +193,7 @@ impl VehicleJourneyOccupancy {
     }
 }
 
-impl TripOccupancy {
+impl TripOccupancies {
     fn new(nb_of_stop: usize) -> Self {
         Self {
             per_stop: vec![Occupancy::Medium; nb_of_stop],
@@ -291,7 +291,7 @@ impl OccupancyData {
                 let vehicle_journey_occupancy = occupancy_data
                     .per_vehicle_journey
                     .entry(vehicle_journey_idx)
-                    .or_insert_with(|| VehicleJourneyOccupancy::new(stop_sequence_iter.clone()));
+                    .or_insert_with(|| VehicleJourneyOccupancies::new(stop_sequence_iter.clone()));
                 let service_id = &vehicle_journey.service_id;
                 let calendar = if let Some(calendar) = model.calendars.get(service_id) {
                     calendar
@@ -308,7 +308,7 @@ impl OccupancyData {
                         let trip_occupancy = vehicle_journey_occupancy
                             .per_date
                             .entry(*date)
-                            .or_insert_with(|| TripOccupancy::new(nb_of_stop));
+                            .or_insert_with(|| TripOccupancies::new(nb_of_stop));
                         trip_occupancy.per_stop[*idx] = occupancy;
                     }
                 }
@@ -358,7 +358,7 @@ impl OccupancyData {
             let vehicle_journey_occupancy = occupancy_data
                 .per_vehicle_journey
                 .entry(vehicle_journey_idx)
-                .or_insert_with(|| VehicleJourneyOccupancy::new(stop_sequence_iter));
+                .or_insert_with(|| VehicleJourneyOccupancies::new(stop_sequence_iter));
             let idx = {
                 let has_idx = vehicle_journey_occupancy
                     .stop_sequence_to_idx
@@ -380,7 +380,7 @@ impl OccupancyData {
             let trip_occupancy = vehicle_journey_occupancy
                 .per_date
                 .entry(date)
-                .or_insert_with(|| TripOccupancy::new(nb_of_stop));
+                .or_insert_with(|| TripOccupancies::new(nb_of_stop));
             trip_occupancy.per_stop[*idx] = occupancy;
             trace!(
                 "occupancy inserted for vehicle journey '{}' on stop sequence '{}': occupancy={}",
