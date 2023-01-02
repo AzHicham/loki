@@ -41,8 +41,8 @@ pub mod data_update;
 use chrono::NaiveDate;
 
 use crate::{
-    loads_data::Load,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::Occupancy,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar, PositiveDuration, SecondsSinceDatasetUTCStart},
     timetables::{
@@ -201,8 +201,8 @@ impl data_interface::Data for TransitData {
             .arrival_time_of(trip, position, &self.calendar)
     }
 
-    fn load_before(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
-        self.timetables.load_before(trip, position)
+    fn occupancy_before(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
+        self.timetables.occupancy_before(trip, position)
     }
 
     fn departure_time_of(
@@ -214,8 +214,8 @@ impl data_interface::Data for TransitData {
             .departure_time_of(trip, position, &self.calendar)
     }
 
-    fn load_after(&self, trip: &Self::Trip, position: &Self::Position) -> Load {
-        self.timetables.load_after(trip, position)
+    fn occupancy_after(&self, trip: &Self::Trip, position: &Self::Position) -> Occupancy {
+        self.timetables.occupancy_after(trip, position)
     }
 
     fn transfer_from_to_stop(&self, transfer: &Self::Transfer) -> (Self::Stop, Self::Stop) {
@@ -328,7 +328,7 @@ impl data_interface::Data for TransitData {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -350,7 +350,7 @@ impl data_interface::Data for TransitData {
         position: &Self::Position,
         real_time_level: RealTimeLevel,
         filter: Filter,
-    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Self::Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {

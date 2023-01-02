@@ -35,8 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::LoadsCount,
     models::{ModelRefs, StopPointIdx, StopTimeIdx, TransferIdx, VehicleJourneyIdx},
+    occupancy_data::OccupanciesCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     RealTimeLevel,
@@ -56,7 +56,7 @@ pub struct Response {
     pub first_vehicle: VehicleSection,
     pub connections: Vec<(TransferSection, WaitingSection, VehicleSection)>,
     pub arrival: ArrivalSection,
-    pub loads_count: LoadsCount,
+    pub occupancies_count: OccupanciesCount,
     pub uncertainty: Uncertainty,
     pub real_time_level: RealTimeLevel,
 }
@@ -128,7 +128,7 @@ pub struct Journey<Data: DataTrait> {
     pub(crate) first_vehicle: VehicleLeg<Data>,
     pub(crate) connections: Vec<(Data::Transfer, VehicleLeg<Data>)>,
     pub(crate) arrival_fallback_duration: PositiveDuration,
-    pub(crate) loads_count: LoadsCount,
+    pub(crate) occupancies_count: OccupanciesCount,
     pub(crate) uncertainty: Uncertainty,
     pub(crate) real_time_level: RealTimeLevel,
 }
@@ -206,7 +206,7 @@ where
         first_vehicle: VehicleLeg<Data>,
         connections: impl Iterator<Item = (Data::Transfer, VehicleLeg<Data>)>,
         arrival_fallback_duration: PositiveDuration,
-        loads_count: LoadsCount,
+        occupancies_count: OccupanciesCount,
         uncertainty: Uncertainty,
         data: &Data,
         real_time_level: RealTimeLevel,
@@ -217,7 +217,7 @@ where
             first_vehicle,
             arrival_fallback_duration,
             connections: connections.collect(),
-            loads_count,
+            occupancies_count,
             uncertainty,
             real_time_level,
         };
@@ -432,7 +432,7 @@ where
             self.departure_fallback_duration,
             self.arrival_fallback_duration
         )?;
-        writeln!(writer, "Loads : {}", self.loads_count)?;
+        writeln!(writer, "Loads : {}", self.occupancies_count)?;
         writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         let departure_datetime = data.to_naive_datetime(self.departure_datetime);
@@ -498,7 +498,7 @@ impl<Data: DataTrait> Journey<Data> {
             first_vehicle: self.first_vehicle_section(data),
             connections: self.connections(data).collect(),
             arrival: self.arrival_section(data),
-            loads_count: self.loads_count.clone(),
+            occupancies_count: self.occupancies_count.clone(),
             uncertainty: self.uncertainty,
             real_time_level: self.real_time_level,
         }
@@ -830,7 +830,7 @@ impl Response {
             write_duration(self.departure.duration_in_seconds()),
             write_duration(self.arrival.duration_in_seconds())
         )?;
-        writeln!(writer, "Loads : {}", self.loads_count)?;
+        writeln!(writer, "Loads : {}", self.occupancies_count)?;
         writeln!(writer, "Uncertainty : {}", self.uncertainty)?;
 
         writeln!(

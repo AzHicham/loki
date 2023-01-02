@@ -45,13 +45,13 @@ use utils::model_builder::ModelBuilder;
 mod utils;
 
 // The data consists of  a single line from `massy` to `paris`
-// with three trips. The first and last trip area heavily loaded
-//  while the second trip has a light load.
+// with three trips. The first and last trip have heavy occupancy
+//  while the second trip has a light occupancy.
 //
 // trips                 | `matin`   | `midi`   |  `soir`
 // leave `massy` at      | 08:00:00  | 12:00:00 | 18:00:00
 // arrives at `paris` at | 09:00:00  | 13:00:00 | 19:00:00
-// load                  |  80%      |  20%     | 80%
+// occupancy             |  80%      |  20%     | 80%
 fn create_model() -> BaseModel {
     let model = ModelBuilder::new("2021-01-01", "2021-01-02")
         .vj("matin", |vj_builder| {
@@ -65,21 +65,21 @@ fn create_model() -> BaseModel {
         })
         .build();
 
-    let filepath = "tests/fixtures/loads_test/loads.csv";
+    let filepath = "tests/fixtures/occupancy_test/occupancy.csv";
     let reader = std::fs::File::open(&filepath).unwrap();
-    let loads_data = loki::LoadsData::try_from_reader(reader, &model).unwrap();
+    let occupancy_data = loki::OccupancyData::try_from_reader(reader, &model).unwrap();
 
-    BaseModel::new(model, loads_data, PositiveDuration::zero()).unwrap()
+    BaseModel::new(model, occupancy_data, PositiveDuration::zero()).unwrap()
 }
 
 #[test]
-fn test_loads_matin() -> Result<(), Error> {
+fn test_occupancy_matin() -> Result<(), Error> {
     // Here we make a request from `massy` to `paris` with 08:00:00
     //   as departure datetime.
-    // When loads are used as a criteria, we should obtain two journeys :
+    // When occupancy is used as a criteria, we should obtain two journeys :
     //  - one with `matin` as it arrives the earliest in `paris`
-    //  - one with `midi` as it has a lighter load than `matin`
-    // The `soir` trip arrives later and has a high load, and thus should
+    //  - one with `midi` as it has a lighter occupancy than `matin`
+    // The `soir` trip arrives later and has a high occupancy, and thus should
     //  not be present.
 
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -87,7 +87,7 @@ fn test_loads_matin() -> Result<(), Error> {
     let base_model = create_model();
 
     let mut config = Config::new("2021-01-01T08:00:00", "massy", "paris");
-    config.comparator_type = ComparatorType::Loads;
+    config.comparator_type = ComparatorType::Occupancy;
     config.request_params.too_late_threshold = PositiveDuration::from_hms(24, 0, 0);
 
     let real_time_model = RealTimeModel::new();
@@ -95,7 +95,7 @@ fn test_loads_matin() -> Result<(), Error> {
 
     let mut responses = build_and_solve(&model_refs, &config).unwrap();
 
-    if cfg!(feature = "vehicle_loads") {
+    if cfg!(feature = "vehicle_occupancy") {
         assert!(responses.len() == 2);
         responses.sort_by_key(|resp| resp.first_vehicle.from_datetime);
         assert!(responses[0].first_vj_uri(&model_refs) == "matin");
@@ -109,19 +109,19 @@ fn test_loads_matin() -> Result<(), Error> {
 }
 
 #[test]
-fn test_loads_midi() -> Result<(), Error> {
+fn test_occupancy_midi() -> Result<(), Error> {
     // Here we make a request from `massy` to `paris` at 10:00:00
-    // We use the loads as criteria.
+    // We use the occupancy as criteria.
     // We should obtain only one journey with the `midi` trip.
     // Indeed, `matin` cannot be boarded, and `soir` arrives
-    // later than `midi` with a higher load
+    // later than `midi` with a higher occupancy
     let _log_guard = loki_launch::logger::init_test_logger();
 
     let base_model = create_model();
 
     let config = Config::new("2021-01-01T10:00:00", "massy", "paris");
     let config = Config {
-        comparator_type: ComparatorType::Loads,
+        comparator_type: ComparatorType::Occupancy,
         ..config
     };
     let real_time_model = RealTimeModel::new();
@@ -137,9 +137,9 @@ fn test_loads_midi() -> Result<(), Error> {
 }
 
 #[test]
-fn test_without_loads_matin() -> Result<(), Error> {
+fn test_without_occupancy_matin() -> Result<(), Error> {
     // Here we make a request from `massy` to `paris` at 08:00:00
-    // We do NOT use the loads as criteria.
+    // We do NOT use the occupancy as criteria.
     // We should obtain only one journey with the `matin` trip.
     // Indeed, `midi` and `soir` arrives later than `matin`.
     let _log_guard = loki_launch::logger::init_test_logger();

@@ -40,7 +40,7 @@ use anyhow::{format_err, Error};
 use loki::{
     models::base_model::{self, BaseModel},
     tracing::{info, warn},
-    transit_model, DataTrait, LoadsData, PositiveDuration,
+    transit_model, DataTrait, OccupancyData, PositiveDuration,
 };
 use std::{str::FromStr, time::SystemTime};
 
@@ -48,7 +48,7 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
     let base_model = read_model(
         &LocalFileParams {
             input_data_path: launch_params.input_data_path.clone(),
-            loads_data_path: launch_params.loads_data_path.clone(),
+            occupancy_data_path: launch_params.occupancy_data_path.clone(),
         },
         launch_params.input_data_type.clone(),
         launch_params.default_transfer_duration,
@@ -61,7 +61,7 @@ pub fn read(launch_params: &config::LaunchParams) -> Result<(TransitData, BaseMo
 
 pub fn read_model_from_zip_reader<R>(
     input_data_reader: R,
-    loads_data_reader: Option<R>,
+    occupancy_data_reader: Option<R>,
     source: &str,
     input_data_type: config::InputDataType,
     default_transfer_duration: PositiveDuration,
@@ -97,9 +97,9 @@ where
         timer::duration_since(read_model_start_time)
     );
 
-    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+    let occupancy_data = read_occupancy_data_from_reader(occupancy_data_reader, &model);
 
-    BaseModel::new(model, loads_data, default_transfer_duration)
+    BaseModel::new(model, occupancy_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
@@ -134,49 +134,54 @@ pub fn read_model(
         timer::duration_since(read_model_start_time)
     );
 
-    let loads_data_reader =
-        data_files.loads_data_path.as_ref().and_then(
-            |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
-                Ok(reader) => Some(reader),
-                Err(err) => {
-                    warn!("Could not open load_data_path {csv_occupancy_path:?} : {err:?}");
-                    None
-                }
-            },
-        );
+    let occupancy_data_reader =
+        data_files
+            .occupancy_data_path
+            .as_ref()
+            .and_then(
+                |csv_occupancy_path| match std::fs::File::open(csv_occupancy_path) {
+                    Ok(reader) => Some(reader),
+                    Err(err) => {
+                        warn!(
+                            "Could not open occupancy_data_path {csv_occupancy_path:?} : {err:?}"
+                        );
+                        None
+                    }
+                },
+            );
 
-    let loads_data = read_loads_data_from_reader(loads_data_reader, &model);
+    let occupancy_data = read_occupancy_data_from_reader(occupancy_data_reader, &model);
 
-    BaseModel::new(model, loads_data, default_transfer_duration)
+    BaseModel::new(model, occupancy_data, default_transfer_duration)
         .map_err(|err| format_err!("Could not create base model {:?}", err))
 }
 
 #[cfg(not(feature = "demo_occupancy"))]
-fn read_loads_data_from_reader<R: std::io::Read>(
+fn read_occupancy_data_from_reader<R: std::io::Read>(
     reader: Option<R>,
     model: &base_model::Model,
-) -> LoadsData {
+) -> OccupancyData {
     reader
         .map(|csv_occupancy_reader| {
-            LoadsData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
+            OccupancyData::try_from_reader(csv_occupancy_reader, model).unwrap_or_else(|e| {
                 warn!("failed to load passenger occupancy data, initialized with empty passenger occupancy data: {e}");
-                LoadsData::empty()
+                OccupancyData::empty()
             })
         })
         .unwrap_or_else(|| {
             info!("no passenger occupancy data given, initialized with empty passenger occupancy data.");
-            LoadsData::empty()
+            OccupancyData::empty()
         })
 }
 
 #[cfg(feature = "demo_occupancy")]
-fn read_loads_data_from_reader<R: std::io::Read>(
+fn read_occupancy_data_from_reader<R: std::io::Read>(
     _reader: Option<R>,
     model: &base_model::Model,
-) -> LoadsData {
-    LoadsData::fake_occupancy(model).unwrap_or_else(|e| {
+) -> OccupancyData {
+    OccupancyData::fake_occupancy(model).unwrap_or_else(|e| {
         warn!("failed to create fake occupancy data, initialized with empty passenger occupancy data: {e}.");
-        LoadsData::empty()
+        OccupancyData::empty()
     })
 }
 

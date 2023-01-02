@@ -41,10 +41,10 @@ use std::{fmt::Debug, iter::Map, ops::Range};
 
 pub type TimetableIter = Map<Range<usize>, fn(usize) -> Timetable>;
 
-impl<Time, Load, TripData> GenericTimetables<Time, Load, TripData>
+impl<Time, Occupancy, TripData> GenericTimetables<Time, Occupancy, TripData>
 where
     Time: Ord + Clone + Debug,
-    Load: Ord + Clone + Debug,
+    Occupancy: Ord + Clone + Debug,
 {
     pub fn timetables(&self) -> TimetableIter {
         (0..self.nb_of_timetables()).map(|idx| Timetable { idx })
@@ -62,10 +62,10 @@ where
     }
 }
 
-impl<Time, Load, VehicleData> TimetableData<Time, Load, VehicleData>
+impl<Time, Occupancy, VehicleData> TimetableData<Time, Occupancy, VehicleData>
 where
     Time: Ord + Clone + Debug,
-    Load: Ord + Debug,
+    Occupancy: Ord + Debug,
 {
     pub(super) fn vehicle_debark_times(&self, vehicle_idx: usize) -> VehicleTimes<Time> {
         debug_assert!(vehicle_idx < self.vehicle_datas.len());
@@ -85,9 +85,12 @@ where
         }
     }
 
-    pub(super) fn vehicle_loads(&self, vehicle_idx: usize) -> std::slice::Iter<'_, Load> {
+    pub(super) fn vehicle_occupancies(
+        &self,
+        vehicle_idx: usize,
+    ) -> std::slice::Iter<'_, Occupancy> {
         debug_assert!(vehicle_idx < self.vehicle_datas.len());
-        self.vehicle_loads[vehicle_idx].iter()
+        self.vehicle_occupancy[vehicle_idx].iter()
     }
 }
 

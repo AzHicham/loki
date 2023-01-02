@@ -166,7 +166,7 @@ where
     >,
 {
     use crate::datetime::DateTimeRepresent::{Arrival, Departure};
-    use config::ComparatorType::{Basic, Loads, Robustness};
+    use config::ComparatorType::{Basic, Occupancy, Robustness};
 
     trace!(
         "departures {:#?}",
@@ -196,14 +196,20 @@ where
     debug!("too_late_threshold : {}", request_input.too_late_threshold);
 
     let responses = match (datetime_represent, comparator_type) {
-        (Arrival, Loads) => {
-            let request =
-                request::arrive_before::loads_comparator::Request::new(model, data, request_input)?;
+        (Arrival, Occupancy) => {
+            let request = request::arrive_before::occupancy_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
             solve_journeys_request_inner(engine, &request, data)
         }
-        (Departure, Loads) => {
-            let request =
-                request::depart_after::loads_comparator::Request::new(model, data, request_input)?;
+        (Departure, Occupancy) => {
+            let request = request::depart_after::occupancy_comparator::Request::new(
+                model,
+                data,
+                request_input,
+            )?;
             solve_journeys_request_inner(engine, &request, data)
         }
         (Arrival, Basic) => {

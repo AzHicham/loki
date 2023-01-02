@@ -170,9 +170,9 @@ for folder in $(ls -d */); do
     rm -f ${output}/${coverage}/data.nav.lz4
     run python /navitia/source/eitri/eitri.py -d ${output}/${coverage}/ -e /usr/bin -o ${output}/${coverage}/data.nav.lz4
 
-    # copy stoptime_loads if present
-    if [[ -e ${input}/${coverage}/stoptimes_loads.csv ]]; then
-      cp ${input}/${coverage}/stoptimes_loads.csv ${output}/${coverage}/stoptimes_loads.csv
+    # copy stoptimes_occupancy if present
+    if [[ -e ${input}/${coverage}/stoptimes_occupancy.csv ]]; then
+      cp ${input}/${coverage}/stoptimes_occupancy.csv ${output}/${coverage}/stoptimes_occupancy.csv
     fi
 
 
@@ -231,7 +231,7 @@ zmq_socket = tcp://*:${krakenPort}
     [data_source]
     type = 'local'
     input_data_path = '/data/${inputType}/'
-    loads_data_path = '/data/stoptimes_loads.csv'
+    occupancy_data_path = '/data/stoptimes_occupancy.csv'
 """ > ${output}/${coverage}/loki_config.toml
 
 

@@ -35,12 +35,12 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::LoadsData,
     models::{
         base_model::{BaseModel, BaseTransferIdx},
         real_time_model::RealTimeModel,
         ModelRefs, StopPointIdx, TransferIdx, VehicleJourneyIdx,
     },
+    occupancy_data::OccupancyData,
     robustness::Regularity,
     time::{days_patterns::DaysPatterns, Calendar},
     timetables::{day_to_timetable::VehicleJourneyToTimetable, FlowDirection::*},
@@ -195,7 +195,7 @@ impl TransitData {
     }
 
     fn init(&mut self, base_model: &BaseModel) {
-        let loads_data = base_model.loads_data();
+        let occupancy_data = base_model.occupancy_data();
         info!("Inserting vehicle journeys");
 
         let vehicle_stay_in = VJGroupedByStayIn::new(base_model);
@@ -206,7 +206,7 @@ impl TransitData {
                 &vehicle_stay_in.vehicle_journey_to_prev_stay_in,
                 &vehicle_stay_in.vehicle_journey_to_next_stay_in,
                 base_model,
-                loads_data,
+                occupancy_data,
             );
         }
         self.vehicle_journey_to_prev_stay_in = vehicle_stay_in
@@ -311,7 +311,7 @@ impl TransitData {
         vehicle_journey_to_prev_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
         vehicle_journey_to_next_stay_in: &HashMap<BaseVehicleJourneyIdx, StayInType>,
         base_model: &BaseModel,
-        loads_data: &LoadsData,
+        occupancy_data: &OccupancyData,
     ) -> Result<(), ()> {
         let stop_times =
             base_model
@@ -428,7 +428,7 @@ impl TransitData {
                 corrected_flows,
                 board_times,
                 debark_times,
-                loads_data,
+                occupancy_data,
                 dates,
                 timezone,
                 vehicle_journey_idx,
@@ -473,7 +473,7 @@ impl TransitData {
                     local_flows,
                     board_times.clone(),
                     debark_times.clone(),
-                    loads_data,
+                    occupancy_data,
                     dates.clone(),
                     timezone,
                     vehicle_journey_idx.clone(),

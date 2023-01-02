@@ -35,18 +35,17 @@
 // www.navitia.io
 
 use crate::{
+    engine::engine_interface::{
+        BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
+        RequestTypes, RequestWithIters,
+    },
     models::ModelRefs,
     transit_data::data_interface::{Data as DataTrait, DataIters, DataWithIters, TransitTypes},
 };
 
-use crate::engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestIters,
-    RequestTypes, RequestWithIters,
-};
-
-use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericDepartAfterRequest};
+use super::{Arrival, Arrivals, Criteria, Departure, Departures, GenericArriveBeforeRequest};
 pub struct Request<'data, 'model, Data: DataTrait> {
-    generic: GenericDepartAfterRequest<'data, 'model, Data>,
+    generic: GenericArriveBeforeRequest<'data, 'model, Data>,
 }
 
 impl<'data, 'model, Data: DataTrait> TransitTypes for Request<'data, 'model, Data> {
@@ -71,13 +70,13 @@ impl<'data, 'model, Data: DataTrait> RequestTrait for Request<'data, 'model, Dat
         let lower_nb_of_legs = u32::from(lower.nb_of_legs);
         let upper_nb_of_legs = u32::from(upper.nb_of_legs);
 
-        lower.time + arrival_penalty * lower_nb_of_legs
-            <= upper.time + arrival_penalty * upper_nb_of_legs
+        lower.time - arrival_penalty * lower_nb_of_legs
+            >= upper.time - arrival_penalty * upper_nb_of_legs
         // && lower.nb_of_transfers <= upper.nb_of_transfers
         &&
         lower.fallback_duration + lower.transfers_duration  + walking_penalty * lower_nb_of_legs
             <=  upper.fallback_duration + upper.transfers_duration + walking_penalty * upper_nb_of_legs
-        && lower.loads_count.max() <= upper.loads_count.max()
+        && lower.occupancies_count.max() <= upper.occupancies_count.max()
     }
 
     fn can_be_discarded(
@@ -246,7 +245,7 @@ where
     where
         Self: Sized,
     {
-        let generic_result = GenericDepartAfterRequest::new(model, transit_data, request_input);
+        let generic_result = GenericArriveBeforeRequest::new(model, transit_data, request_input);
         generic_result.map(|generic| Self { generic })
     }
 
@@ -271,7 +270,7 @@ where
             Criteria = Self::Criteria,
         >,
     {
-        self.generic.create_response(pt_journey)
+        self.generic.create_arrive_before_response(pt_journey)
     }
 }
 

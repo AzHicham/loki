@@ -141,7 +141,7 @@ impl RealTimeModel {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             &chrono_tz::UTC,
             VehicleJourneyIdx::Base(vj_idx),

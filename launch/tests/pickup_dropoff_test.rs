@@ -45,7 +45,7 @@ use rstest::rstest;
 use utils::{build_and_solve, model_builder::ModelBuilder, Config};
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -60,9 +60,12 @@ fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), 
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -82,7 +85,7 @@ fn test_forbidden_pickup(#[case] comparator_type: ComparatorType) -> Result<(), 
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -97,9 +100,12 @@ fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(),
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);
@@ -119,7 +125,7 @@ fn test_forbidden_dropoff(#[case] comparator_type: ComparatorType) -> Result<(),
 }
 
 #[rstest]
-#[case(ComparatorType::Loads)]
+#[case(ComparatorType::Occupancy)]
 #[case(ComparatorType::Basic)]
 fn test_skipped_stop(#[case] comparator_type: ComparatorType) -> Result<(), Error> {
     let _log_guard = loki_launch::logger::init_test_logger();
@@ -134,9 +140,12 @@ fn test_skipped_stop(#[case] comparator_type: ComparatorType) -> Result<(), Erro
         })
         .build();
 
-    let base_model =
-        BaseModel::from_transit_model(model, loki::LoadsData::empty(), PositiveDuration::zero())
-            .unwrap();
+    let base_model = BaseModel::from_transit_model(
+        model,
+        loki::OccupancyData::empty(),
+        PositiveDuration::zero(),
+    )
+    .unwrap();
 
     let real_time_model = RealTimeModel::new();
     let model_refs = ModelRefs::new(&base_model, &real_time_model);

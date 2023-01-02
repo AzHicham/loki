@@ -37,19 +37,19 @@
 use chrono::NaiveDate;
 use std::{error::Error, fmt::Display, io};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Load {
+pub enum Occupancy {
     Unknown,
 }
 
-impl Display for Load {
+impl Display for Occupancy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Load ()")
+        write!(f, "Occupancy ()")
     }
 }
 
-impl Default for Load {
+impl Default for Occupancy {
     fn default() -> Self {
-        Load::Unknown
+        Occupancy::Unknown
     }
 }
 
@@ -57,38 +57,38 @@ use std::cmp::Ordering;
 
 use crate::models::{base_model, StopTimeIdx, VehicleJourneyIdx};
 
-impl Ord for Load {
+impl Ord for Occupancy {
     fn cmp(&self, _other: &Self) -> Ordering {
         Ordering::Equal
     }
 }
 
-impl PartialOrd for Load {
+impl PartialOrd for Occupancy {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LoadsCount();
+pub struct OccupanciesCount();
 
-impl Display for LoadsCount {
+impl Display for OccupanciesCount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LoadsCount ()")
+        write!(f, "OccupanciesCount ()")
     }
 }
 
-impl LoadsCount {
+impl OccupanciesCount {
     pub fn zero() -> Self {
         Self {}
     }
 
-    pub fn add(&self, _load: Load) -> Self {
+    pub fn add(&self, _occupancy: Occupancy) -> Self {
         Self {}
     }
 
-    pub fn max(&self) -> Load {
-        Load::default()
+    pub fn max(&self) -> Occupancy {
+        Occupancy::default()
     }
 
     pub fn is_lower(&self, _other: &Self) -> bool {
@@ -96,40 +96,40 @@ impl LoadsCount {
     }
 }
 
-impl Default for LoadsCount {
+impl Default for OccupanciesCount {
     fn default() -> Self {
         Self::zero()
     }
 }
 
-pub struct LoadsData();
+pub struct OccupancyData();
 
-impl LoadsData {
-    pub fn loads(
+impl OccupancyData {
+    pub fn occupancies(
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _date: &NaiveDate,
-    ) -> Option<&[Load]> {
+    ) -> Option<&[Occupancy]> {
         None
     }
 
-    pub fn load(
+    pub fn occupancy(
         &self,
         _vehicle_journey_idx: &VehicleJourneyIdx,
         _stop_time_idx: StopTimeIdx,
         _date: &NaiveDate,
-    ) -> Option<Load> {
+    ) -> Option<Occupancy> {
         None
     }
 
     pub fn empty() -> Self {
-        LoadsData {}
+        OccupancyData {}
     }
 
     pub fn try_from_reader<R: io::Read>(
         _csv_occupancy_reader: R,
         _model: &base_model::Model,
     ) -> Result<Self, Box<dyn Error>> {
-        Ok(LoadsData::empty())
+        Ok(OccupancyData::empty())
     }
 }

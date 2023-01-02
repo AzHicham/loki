@@ -34,17 +34,12 @@
 // https://groups.google.com/d/forum/navitia
 // www.navitia.io
 
-#[cfg(feature = "vehicle_loads")]
-pub mod real_loads;
-#[cfg(feature = "vehicle_loads")]
-pub use real_loads::{Load, LoadsCount, LoadsData};
+#[cfg(feature = "vehicle_occupancy")]
+pub mod real_occupancy;
+#[cfg(feature = "vehicle_occupancy")]
+pub use real_occupancy::{OccupanciesCount, Occupancy, OccupancyData};
 
-#[cfg(not(feature = "vehicle_loads"))]
-pub mod empty_loads;
-#[cfg(not(feature = "vehicle_loads"))]
-pub use empty_loads::{Load, LoadsCount, LoadsData};
-
-// #[cfg(not(feature = "vehicle_loads"))]
-// pub mod real_loads;
-// #[cfg(not(feature = "vehicle_loads"))]
-// pub use real_loads::{Load, LoadsCount, LoadsData};
+#[cfg(not(feature = "vehicle_occupancy"))]
+pub mod empty_occupancy;
+#[cfg(not(feature = "vehicle_occupancy"))]
+pub use empty_occupancy::{OccupanciesCount, Occupancy, OccupancyData};

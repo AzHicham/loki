@@ -35,12 +35,12 @@
 // www.navitia.io
 
 pub mod basic_comparator;
-pub mod loads_comparator;
+pub mod occupancy_comparator;
 pub mod robustness_comparator;
 
 use crate::{
-    loads_data::LoadsCount,
     models::ModelRefs,
+    occupancy_data::OccupanciesCount,
     robustness::Uncertainty,
     time::{PositiveDuration, SecondsSinceDatasetUTCStart},
     transit_data::data_interface::DataIters,
@@ -167,7 +167,7 @@ where
             first_vehicle,
             connections,
             *arrival_fallback_duration,
-            pt_journey.criteria_at_arrival.loads_count.clone(),
+            pt_journey.criteria_at_arrival.occupancies_count.clone(),
             pt_journey.criteria_at_arrival.uncertainty,
             self.transit_data,
             self.real_time_level,
@@ -232,14 +232,14 @@ where
         let mission = self.transit_data.mission_of(trip);
         let next_position = self.transit_data.next_on_mission(position, &mission)?;
         let arrival_time_at_next_stop = self.transit_data.arrival_time_of(trip, &next_position);
-        let load = self.transit_data.load_before(trip, &next_position);
+        let occupancy = self.transit_data.occupancy_before(trip, &next_position);
         let regularity = self.transit_data.regularity(trip);
         let new_criteria = Criteria {
             time: arrival_time_at_next_stop,
             nb_of_legs: waiting_criteria.nb_of_legs + 1,
             fallback_duration: waiting_criteria.fallback_duration,
             transfers_duration: waiting_criteria.transfers_duration,
-            loads_count: waiting_criteria.loads_count.add(load),
+            occupancies_count: waiting_criteria.occupancies_count.add(occupancy),
             uncertainty: waiting_criteria.uncertainty.extend(regularity),
         };
         Some(new_criteria)
@@ -258,7 +258,7 @@ where
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
-            loads_count: criteria.loads_count.clone(),
+            occupancies_count: criteria.occupancies_count.clone(),
             uncertainty: criteria.uncertainty.extend(regularity),
         };
         Some((next_trip, new_criteria))
@@ -279,14 +279,14 @@ where
                 self.real_time_level,
                 |_| true,
             )
-            .map(|(trip, arrival_time, load)| {
+            .map(|(trip, arrival_time, occupancy)| {
                 let regularity = self.transit_data.regularity(&trip);
                 let new_criteria = Criteria {
                     time: arrival_time,
                     nb_of_legs: waiting_criteria.nb_of_legs + 1,
                     fallback_duration: waiting_criteria.fallback_duration,
                     transfers_duration: waiting_criteria.transfers_duration,
-                    loads_count: waiting_criteria.loads_count.add(load),
+                    occupancies_count: waiting_criteria.occupancies_count.add(occupancy),
                     uncertainty: waiting_criteria.uncertainty.extend(regularity),
                 };
                 (trip, new_criteria)
@@ -310,7 +310,7 @@ where
                 nb_of_legs: onboard_criteria.nb_of_legs,
                 fallback_duration: onboard_criteria.fallback_duration,
                 transfers_duration: onboard_criteria.transfers_duration,
-                loads_count: onboard_criteria.loads_count.clone(),
+                occupancies_count: onboard_criteria.occupancies_count.clone(),
                 uncertainty: onboard_criteria.uncertainty,
             })
     }
@@ -322,13 +322,13 @@ where
             .next_on_mission(position, &mission)
             .unwrap();
         let arrival_time_at_next_position = self.transit_data.arrival_time_of(trip, &next_position);
-        let load = self.transit_data.load_before(trip, &next_position);
+        let occupancy = self.transit_data.occupancy_before(trip, &next_position);
         Criteria {
             time: arrival_time_at_next_position,
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration,
             transfers_duration: criteria.transfers_duration,
-            loads_count: criteria.loads_count.add(load),
+            occupancies_count: criteria.occupancies_count.add(occupancy),
             uncertainty: criteria.uncertainty,
         }
     }
@@ -342,7 +342,7 @@ where
             nb_of_legs: 0,
             fallback_duration: *fallback_duration,
             transfers_duration: PositiveDuration::zero(),
-            loads_count: LoadsCount::zero(),
+            occupancies_count: OccupanciesCount::zero(),
             uncertainty: Uncertainty::zero(),
         };
         (stop.clone(), criteria)
@@ -361,7 +361,7 @@ where
             nb_of_legs: criteria.nb_of_legs,
             fallback_duration: criteria.fallback_duration + *arrival_duration,
             transfers_duration: criteria.transfers_duration,
-            loads_count: criteria.loads_count.clone(),
+            occupancies_count: criteria.occupancies_count.clone(),
             uncertainty: criteria.uncertainty,
         }
     }
@@ -539,7 +539,7 @@ where
                 nb_of_legs: self.criteria.nb_of_legs,
                 fallback_duration: self.criteria.fallback_duration,
                 transfers_duration: self.criteria.transfers_duration + durations.walking_duration,
-                loads_count: self.criteria.loads_count.clone(),
+                occupancies_count: self.criteria.occupancies_count.clone(),
                 uncertainty: self.criteria.uncertainty,
             };
             (stop.clone(), new_criteria, transfer.clone())

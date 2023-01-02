@@ -55,13 +55,13 @@ jobs:
     - name: Test debug
       run: |
         cargo test --workspace
-        cargo test --workspace --features "loki_server/vehicle_loads"
+        cargo test --workspace --features "loki_server/vehicle_occupancy"
 
     - name: Test Release
       if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         cargo test --release --workspace
-        cargo test --release --workspace --features "loki_server/vehicle_loads"
+        cargo test --release --workspace --features "loki_server/vehicle_occupancy"
 
   docker:
     needs: checks
@@ -201,7 +201,7 @@ jobs:
           cargo install cargo-llvm-cov
           cargo llvm-cov clean --workspace # remove artifacts that may affect the coverage results
           cargo llvm-cov --no-report --workspace
-          cargo llvm-cov --no-report --workspace --features vehicle_loads
+          cargo llvm-cov --no-report --workspace --features vehicle_occupancy
           cargo llvm-cov --no-run --workspace --lcov --output-path lcov.info
       - uses: codecov/codecov-action@v3
         with:

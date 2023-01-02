@@ -18,6 +18,6 @@ thousands = "0.2"
 rstest = "0.16"
 
 [features]
-# enable the vehicle_loads feature on the loki lib
-vehicle_loads = ["loki/vehicle_loads"]
-demo_occupancy = ["loki/demo_occupancy", "vehicle_loads"]
+# enable the vehicle_occupancy feature on the loki lib
+vehicle_occupancy = ["loki/vehicle_occupancy"]
+demo_occupancy = ["loki/demo_occupancy", "vehicle_occupancy"]

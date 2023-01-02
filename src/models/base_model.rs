@@ -50,7 +50,7 @@ use typed_index_collection::Idx;
 use crate::{
     time::{calendar, SecondsSinceTimezonedDayStart},
     timetables::FlowDirection,
-    LoadsData, PositiveDuration,
+    OccupancyData, PositiveDuration,
 };
 
 use super::{
@@ -81,7 +81,7 @@ pub type StopPointToPathWays =
 
 pub struct BaseModel {
     model: Model,
-    loads_data: LoadsData,
+    occupancy_data: OccupancyData,
     validity_period: (NaiveDate, NaiveDate),
     default_transfer_duration: PositiveDuration,
     stop_point_to_pathways: StopPointToPathWays,
@@ -128,10 +128,10 @@ pub enum EquipmentPropertyKey {
 impl BaseModel {
     pub fn from_transit_model(
         model: transit_model::Model,
-        loads_data: LoadsData,
+        occupancy_data: OccupancyData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
-        Self::new(model, loads_data, default_transfer_duration)
+        Self::new(model, occupancy_data, default_transfer_duration)
     }
 
     fn insert_pathway_into_association(
@@ -206,7 +206,7 @@ impl BaseModel {
 
     pub fn new(
         model: transit_model::model::Model,
-        loads_data: LoadsData,
+        occupancy_data: OccupancyData,
         default_transfer_duration: PositiveDuration,
     ) -> Result<Self, BadModel> {
         let validity_period = model
@@ -221,15 +221,15 @@ impl BaseModel {
 
         Ok(Self {
             model,
-            loads_data,
+            occupancy_data,
             validity_period,
             default_transfer_duration,
             stop_point_to_pathways,
         })
     }
 
-    pub fn loads_data(&self) -> &LoadsData {
-        &self.loads_data
+    pub fn occupancy_data(&self) -> &OccupancyData {
+        &self.occupancy_data
     }
 
     pub fn validity_period(&self) -> (NaiveDate, NaiveDate) {

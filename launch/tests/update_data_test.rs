@@ -81,7 +81,7 @@ fn remove_vj() -> Result<(), Error> {
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -197,7 +197,7 @@ fn remove_successive_vj() -> Result<(), Error> {
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -335,7 +335,7 @@ fn remove_middle_vj() -> Result<(), Error> {
     let config = Config::new("2020-01-01T10:50:00", "A", "C");
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -437,7 +437,7 @@ fn modify_vj() -> Result<(), Error> {
     let config = Config::new("2020-01-01T09:50:00", "A", "C");
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -493,7 +493,7 @@ fn modify_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             &vj_idx,
@@ -570,7 +570,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
     let config = Config::new("2020-01-01T09:50:00", "A", "G");
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -631,7 +631,7 @@ fn modify_vj_with_local_zone() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             &vj_idx,
@@ -765,7 +765,7 @@ fn remove_vj_with_local_zone() -> Result<(), Error> {
     let config = Config::new("2020-01-02T09:50:00", "A", "G");
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -913,7 +913,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
 
     let base_model = BaseModel::from_transit_model(
         model,
-        loki::LoadsData::empty(),
+        loki::OccupancyData::empty(),
         config.default_transfer_duration,
     )
     .unwrap();
@@ -940,7 +940,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx,
@@ -977,7 +977,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx,
@@ -1020,7 +1020,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx,
@@ -1050,7 +1050,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx,
@@ -1093,7 +1093,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx.clone(),
@@ -1112,7 +1112,7 @@ fn insert_invalid_vj() -> Result<(), Error> {
             flows,
             board_times,
             debark_times,
-            base_model.loads_data(),
+            base_model.occupancy_data(),
             dates,
             UTC,
             vj_idx,

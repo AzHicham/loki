@@ -1,7 +1,6 @@
-trip_id,stop_sequence,Load,date
+trip_id,stop_sequence,occupancy,date
 matin,0,0.8,2021-01-01
 matin,1,0.8,2021-01-01
-matin,2,0.8,2021-01-01
 midi,0,0.2,2021-01-01
 midi,1,0.2,2021-01-01
 soir,0,0.8,2021-01-01

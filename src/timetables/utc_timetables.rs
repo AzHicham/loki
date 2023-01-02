@@ -35,8 +35,8 @@
 // www.navitia.io
 
 use crate::{
-    loads_data::{Load, LoadsData},
     models::{StopTimeIdx, VehicleJourneyIdx},
+    occupancy_data::{Occupancy, OccupancyData},
     robustness::Regularity,
     time::{
         calendar::DecomposeUTCResult,
@@ -65,7 +65,7 @@ use crate::timetables::FlowDirection;
 pub use super::generic_timetables::{Position, Timetable as Mission, Trip};
 
 pub struct UTCTimetables {
-    timetables: GenericTimetables<SecondsSinceUTCDayStart, Load, VehicleData>,
+    timetables: GenericTimetables<SecondsSinceUTCDayStart, Occupancy, VehicleData>,
     timezones_patterns: TimezonesPatterns,
 }
 
@@ -160,8 +160,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_before(&self, trip: &Trip, position: &Position) -> Load {
-        *self.timetables.load_before(&trip.vehicle, position)
+    pub fn occupancy_before(&self, trip: &Trip, position: &Position) -> Occupancy {
+        *self.timetables.occupancy_before(&trip.vehicle, position)
     }
 
     pub fn departure_time_of(
@@ -174,8 +174,8 @@ impl UTCTimetables {
         calendar.compose_utc(&trip.day, time_in_day)
     }
 
-    pub fn load_after(&self, trip: &Trip, position: &Position) -> Load {
-        *self.timetables.load_after(&trip.vehicle, position)
+    pub fn occupancy_after(&self, trip: &Trip, position: &Position) -> Occupancy {
+        *self.timetables.occupancy_after(&trip.vehicle, position)
     }
 
     pub fn debark_time_of(
@@ -217,7 +217,7 @@ impl UTCTimetables {
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -231,7 +231,7 @@ impl UTCTimetables {
             Vehicle,
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
-            Load,
+            Occupancy,
         )> = None;
 
         for (waiting_day, waiting_time_in_day) in decompositions {
@@ -251,29 +251,30 @@ impl UTCTimetables {
             if let Some(vehicle) = has_vehicle {
                 let arrival_time_in_day_at_next_stop =
                     self.timetables.arrival_time(&vehicle, &next_position);
-                let load = self.timetables.load_before(&vehicle, &next_position);
+                let occupancy = self.timetables.occupancy_before(&vehicle, &next_position);
                 let arrival_time_at_next_stop =
                     calendar.compose_utc(&waiting_day, arrival_time_in_day_at_next_stop);
-                if let Some((_, _, best_arrival_time, best_load)) =
+                if let Some((_, _, best_arrival_time, best_occupancy)) =
                     &best_vehicle_day_and_its_arrival_time_at_next_position
                 {
                     if arrival_time_at_next_stop < *best_arrival_time
-                        || (arrival_time_at_next_stop == *best_arrival_time && load < best_load)
+                        || (arrival_time_at_next_stop == *best_arrival_time
+                            && occupancy < best_occupancy)
                     {
                         best_vehicle_day_and_its_arrival_time_at_next_position =
-                            Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
+                            Some((vehicle, waiting_day, arrival_time_at_next_stop, *occupancy));
                     }
                 } else {
                     best_vehicle_day_and_its_arrival_time_at_next_position =
-                        Some((vehicle, waiting_day, arrival_time_at_next_stop, *load));
+                        Some((vehicle, waiting_day, arrival_time_at_next_stop, *occupancy));
                 }
             }
         }
 
         best_vehicle_day_and_its_arrival_time_at_next_position.map(
-            |(vehicle, day, arrival_time_at_next_stop, load)| {
+            |(vehicle, day, arrival_time_at_next_stop, occupancy)| {
                 let trip = Trip { vehicle, day };
-                (trip, arrival_time_at_next_stop, load)
+                (trip, arrival_time_at_next_stop, occupancy)
             },
         )
     }
@@ -287,7 +288,7 @@ impl UTCTimetables {
         filter: Filter,
         calendar: &Calendar,
         days_patterns: &DaysPatterns,
-    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Load)>
+    ) -> Option<(Trip, SecondsSinceDatasetUTCStart, Occupancy)>
     where
         Filter: Fn(&VehicleJourneyIdx) -> bool,
     {
@@ -299,7 +300,7 @@ impl UTCTimetables {
             Vehicle,
             DaysSinceDatasetStart,
             SecondsSinceDatasetUTCStart,
-            Load,
+            Occupancy,
         )> = None;
         for (waiting_day, waiting_time_in_day) in decompositions {
             let has_vehicle = self.timetables.latest_vehicle_that_debark(
@@ -321,28 +322,36 @@ impl UTCTimetables {
                 let departure_time_at_previous_stop =
                     calendar.compose_utc(&waiting_day, departure_time_in_day_at_previous_stop);
 
-                let load = self.timetables.load_before(&vehicle, position);
-                if let Some((_, _, best_departure_time, best_load)) =
+                let occupancy = self.timetables.occupancy_before(&vehicle, position);
+                if let Some((_, _, best_departure_time, best_occupancy)) =
                     &best_vehicle_day_and_its_departure_time_at_previous_position
                 {
                     if departure_time_at_previous_stop >= *best_departure_time
                         || (departure_time_at_previous_stop == *best_departure_time
-                            && load < best_load)
+                            && occupancy < best_occupancy)
                     {
-                        best_vehicle_day_and_its_departure_time_at_previous_position =
-                            Some((vehicle, waiting_day, departure_time_at_previous_stop, *load));
+                        best_vehicle_day_and_its_departure_time_at_previous_position = Some((
+                            vehicle,
+                            waiting_day,
+                            departure_time_at_previous_stop,
+                            *occupancy,
+                        ));
                     }
                 } else {
-                    best_vehicle_day_and_its_departure_time_at_previous_position =
-                        Some((vehicle, waiting_day, departure_time_at_previous_stop, *load));
+                    best_vehicle_day_and_its_departure_time_at_previous_position = Some((
+                        vehicle,
+                        waiting_day,
+                        departure_time_at_previous_stop,
+                        *occupancy,
+                    ));
                 }
             }
         }
 
         best_vehicle_day_and_its_departure_time_at_previous_position.map(
-            |(vehicle, day, departure_time_at_previous_stop, load)| {
+            |(vehicle, day, departure_time_at_previous_stop, occupancy)| {
                 let trip = Trip { vehicle, day };
-                (trip, departure_time_at_previous_stop, load)
+                (trip, departure_time_at_previous_stop, occupancy)
             },
         )
     }
@@ -353,7 +362,7 @@ impl UTCTimetables {
         flows: Flows,
         board_times: BoardTimes,
         debark_times: DebarkTimes,
-        loads_data: &LoadsData,
+        occupancy_data: &OccupancyData,
         days: &DaysPattern,
         calendar: &Calendar,
         days_patterns: &mut DaysPatterns,
@@ -369,25 +378,25 @@ impl UTCTimetables {
         BoardTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
         DebarkTimes: Iterator<Item = SecondsSinceTimezonedDayStart> + ExactSizeIterator + Clone,
     {
-        let mut load_patterns_dates: BTreeMap<&[Load], Vec<NaiveDate>> = BTreeMap::new();
+        let mut occupancy_patterns_dates: BTreeMap<&[Occupancy], Vec<NaiveDate>> = BTreeMap::new();
 
         let nb_of_positions = stops.len();
-        let default_loads = if nb_of_positions > 0 {
-            vec![Load::default(); nb_of_positions - 1]
+        let default_occupancies = if nb_of_positions > 0 {
+            vec![Occupancy::default(); nb_of_positions - 1]
         } else {
-            vec![Load::default(); 0]
+            vec![Occupancy::default(); 0]
         };
         for date in days_patterns.make_dates(days, calendar) {
-            let loads = loads_data
-                .loads(&vehicle_journey_idx.clone(), &date)
-                .unwrap_or(default_loads.as_slice());
-            load_patterns_dates
-                .entry(loads)
+            let occupancies = occupancy_data
+                .occupancies(&vehicle_journey_idx.clone(), &date)
+                .unwrap_or(default_occupancies.as_slice());
+            occupancy_patterns_dates
+                .entry(occupancies)
                 .or_insert_with(Vec::new)
                 .push(date);
         }
 
-        for (_loads, dates) in load_patterns_dates.iter() {
+        for (_occupancies, dates) in occupancy_patterns_dates.iter() {
             let all_days_pattern = days_patterns.get_from_dates(dates.iter(), calendar);
 
             for (offset, timezone_days_pattern) in
@@ -419,7 +428,7 @@ impl UTCTimetables {
 
         let mut result = HashMap::new();
 
-        for (loads, dates) in load_patterns_dates.into_iter() {
+        for (occupancies, dates) in occupancy_patterns_dates.into_iter() {
             let all_days_pattern = days_patterns.get_from_dates(dates.iter(), calendar);
 
             for (offset, timezone_days_pattern) in
@@ -455,7 +464,7 @@ impl UTCTimetables {
                     flows.clone(),
                     board_times.clone().map(apply_offset),
                     debark_times.clone().map(apply_offset),
-                    loads.iter().copied(),
+                    occupancies.iter().copied(),
                     vehicle_data,
                 );
                 match insert_result {

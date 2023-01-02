@@ -52,8 +52,8 @@ pub struct LaunchParams {
     #[serde(default)]
     pub input_data_type: InputDataType,
 
-    /// path to the passengers loads file
-    pub loads_data_path: Option<std::path::PathBuf>,
+    /// path to the passengers' occupancy file
+    pub occupancy_data_path: Option<std::path::PathBuf>,
 
     /// the transfer duration between a stop point and itself
     #[serde(default = "default_transfer_duration")]
@@ -73,7 +73,7 @@ impl LaunchParams {
             input_data_path,
             input_data_type: InputDataType::Ntfs,
             default_transfer_duration: default_transfer_duration(),
-            loads_data_path: None,
+            occupancy_data_path: None,
         }
     }
 }
@@ -82,7 +82,7 @@ impl LaunchParams {
 #[serde(deny_unknown_fields)]
 pub struct LocalFileParams {
     pub input_data_path: std::path::PathBuf,
-    pub loads_data_path: Option<std::path::PathBuf>,
+    pub occupancy_data_path: Option<std::path::PathBuf>,
 }
 
 impl LocalFileParams {
@@ -91,12 +91,12 @@ impl LocalFileParams {
             .map(PathBuf::from)
             .context("Could not read mandatory env var LOKI_INPUT_DATA_PATH")?;
 
-        let loads_data_path =
-            read_env_var("LOKI_LOADS_DATA_PATH", None, |s| Some(PathBuf::from(s)));
+        let occupancy_data_path =
+            read_env_var("LOKI_OCCUPANCY_DATA_PATH", None, |s| Some(PathBuf::from(s)));
 
         Ok(Self {
             input_data_path,
-            loads_data_path,
+            occupancy_data_path,
         })
     }
 }
