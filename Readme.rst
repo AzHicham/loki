@@ -7,7 +7,7 @@ Tips and tricks to fluidify your (public) transit !
     :target: https://github.com/hove-io/loki/actions?query=workflow%3A%22Build+and+test%22
     :alt: Last build
 
-.. |Code Coverage| image:: https://codecov.io/gh/hove-io/loki/branch/master/graph/badge.svg?token=IYF7W6U2NI
+.. |Code Coverage| image:: https://codecov.io/gh/hove-io/loki/branch/main/graph/badge.svg?token=IYF7W6U2NI
     :target: https://codecov.io/gh/hove-io/loki
     :alt: Coverage
 
