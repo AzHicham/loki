@@ -12,4 +12,4 @@ RUN chmod +x /bina.sh
 
 VOLUME /storage
 
-CMD ["/bina.sh"]
+ENTRYPOINT ["/bina.sh"]
