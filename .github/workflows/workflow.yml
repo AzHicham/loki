@@ -2,11 +2,11 @@ name: Build and test
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     tags:
       - '*'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -58,7 +58,7 @@ jobs:
         cargo test --workspace --features "loki_server/vehicle_occupancy"
 
     - name: Test Release
-      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         cargo test --release --workspace
         cargo test --release --workspace --features "loki_server/vehicle_occupancy"
@@ -121,7 +121,7 @@ jobs:
         docker-compose logs
 
     - name: push dev docker images to dockerhub
-      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      if:  success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         docker push navitia/mc_bina:latest
@@ -155,7 +155,7 @@ jobs:
       - name: Checkout loki repo
         uses: actions/checkout@v3
       - name: Push dev images to aws sandbox registry
-        if:  github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if:  github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           docker pull navitia/loki:dev
           docker build -t $SBX_ECR_REGISTRY/navitia-loki-loki:dev -f docker/loki_opentelemetry_dockerfile --build-arg LOKI_TAG=dev .
