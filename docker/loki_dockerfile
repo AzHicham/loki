@@ -24,4 +24,4 @@ COPY ./docker/pca_hove.crt /usr/local/share/ca-certificates
 RUN update-ca-certificates
 
 VOLUME /data
-CMD ["/usr/local/bin/loki_server", "/data/loki_config.toml"]
+ENTRYPOINT ["/usr/local/bin/loki_server", "/data/loki_config.toml"]

@@ -8,4 +8,4 @@ COPY ./docker/opentelemetry_exporter_config.yaml /etc/otelcol/config.yaml
 COPY ./docker/loki_opentelemetry_startup.sh /usr/local/loki_statup.sh
 RUN chmod +x /usr/local/loki_statup.sh
 
-CMD ["/usr/local/loki_statup.sh"]
+ENTRYPOINT ["/usr/local/loki_statup.sh"]

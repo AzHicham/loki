@@ -4,4 +4,4 @@ FROM navitia/kraken:${NAVITIA_TAG}
 
 VOLUME /data
 
-CMD ["/usr/bin/kraken", "/data/kraken.ini"]
+ENTRYPOINT ["/usr/bin/kraken", "/data/kraken.ini"]
