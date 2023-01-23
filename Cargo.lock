@@ -1645,7 +1645,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "structopt",
- "toml 0.5.9",
+ "toml 0.5.11",
 ]
 
 [[package]]
@@ -1677,7 +1677,7 @@ dependencies = [
  "thiserror",
  "tmq",
  "tokio",
- "toml 0.5.9",
+ "toml 0.5.11",
  "tracing",
  "uuid 0.8.2",
  "vergen",
@@ -1691,7 +1691,7 @@ dependencies = [
  "loki_launch",
  "serde",
  "structopt",
- "toml 0.5.9",
+ "toml 0.5.11",
 ]
 
 [[package]]
@@ -3400,9 +3400,9 @@ checksum = "736b60249cb25337bc196faa43ee12c705e426f3d55c214d73a4e7be06f92cb4"
 
 [[package]]
 name = "toml"
-version = "0.5.9"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d82e1a7758622a465f8cee077614c73484dac5b836c02ff6a40d5d1010324d7"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
 ]
