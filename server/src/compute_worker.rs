@@ -423,10 +423,7 @@ fn solve_journeys(
         .first()
         .ok_or_else(|| format_err!("No departure datetime provided."))?;
     let departure_timestamp_i64 = i64::try_from(*departure_timestamp_u64).with_context(|| {
-        format!(
-            "The departure datetime {} cannot be converted to a valid i64 timestamp.",
-            departure_timestamp_u64
-        )
+        format!("The departure datetime {departure_timestamp_u64} cannot be converted to a valid i64 timestamp.")
     })?;
     let departure_datetime = loki::NaiveDateTime::from_timestamp_opt(departure_timestamp_i64, 0)
         .with_context(|| format!("Invalid departure timestamp {}", departure_timestamp_i64))?;

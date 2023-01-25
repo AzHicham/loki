@@ -215,7 +215,7 @@ where
                     );
                     continue;
                 };
-                result.push((stop, fallback_duration.clone()));
+                result.push((stop, *fallback_duration));
             }
             InputStop::StopArea(stop_area_uri) => {
                 if !model.contains_stop_area_id(stop_area_uri) {
@@ -235,7 +235,7 @@ where
                         );
                         continue;
                     };
-                    result.push((stop, fallback_duration.clone()));
+                    result.push((stop, *fallback_duration));
                 }
             }
         }
