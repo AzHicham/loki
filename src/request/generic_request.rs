@@ -213,7 +213,7 @@ where
                         "The {idx}th {input_stop_type} : stop point stop_point_uri with idx {stop_idx:?} is not found in transit_data. \
                         I ignore it."
                     );
-                    continue
+                    continue;
                 };
                 result.push((stop, fallback_duration.clone()));
             }
@@ -226,14 +226,14 @@ where
                     continue;
                 }
                 let stop_points_of_stop_area = model.stop_points_of_stop_area(stop_area_uri);
-                for stop_point_idx in stop_points_of_stop_area.iter() {
+                for stop_point_idx in stop_points_of_stop_area {
                     let Some(stop) = transit_data.stop_point_idx_to_stop(&stop_point_idx) else {
                         warn!(
                             "The {idx}th {input_stop_type} : stop area {stop_area_uri}. \
                             Its stop_point with idx {stop_point_idx:?} is not found in transit_data. \
                             I ignore it"
                         );
-                        continue
+                        continue;
                     };
                     result.push((stop, fallback_duration.clone()));
                 }
