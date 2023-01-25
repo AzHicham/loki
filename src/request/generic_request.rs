@@ -35,6 +35,7 @@
 // www.navitia.io
 
 use crate::{
+    engine::engine_interface::InputStop,
     models::ModelRefs,
     occupancy_data::OccupanciesCount,
     robustness::Uncertainty,
@@ -148,37 +149,19 @@ pub(super) fn parse_datetime(
 }
 
 pub(super) fn parse_departures<Data>(
-    departures_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    departures_stop_and_fallback_duration: &[(InputStop, PositiveDuration)],
     model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
     Data: DataTrait,
 {
-    let result: Vec<_> = departures_stop_point_and_fallback_duration
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
-                warn!(
-                    "The {}th departure stop point {} is not found in model. \
-                            I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
-
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
-                    "The {}th departure stop point {} with idx {:?} is not found in transit_data. \
-                    I ignore it",
-                    idx, stop_point_uri, stop_idx
-                );
-                None
-            })?;
-            Some((stop, *fallback_duration))
-        })
-        .collect();
+    let result = parse_input_stops(
+        departures_stop_and_fallback_duration,
+        model,
+        transit_data,
+        "departure",
+    );
     if result.is_empty() {
         return Err(BadRequest::NoValidDepartureStop);
     }
@@ -186,41 +169,78 @@ where
 }
 
 pub(super) fn parse_arrivals<Data>(
-    arrivals_stop_point_and_fallback_duration: &[(String, PositiveDuration)],
+    arrivals_stop_point_and_fallback_duration: &[(InputStop, PositiveDuration)],
     model: &ModelRefs<'_>,
     transit_data: &Data,
 ) -> Result<Vec<(Data::Stop, PositiveDuration)>, BadRequest>
 where
     Data: DataTrait,
 {
-    let result: Vec<_> = arrivals_stop_point_and_fallback_duration
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, (stop_point_uri, fallback_duration))| {
-            let stop_idx = model.stop_point_idx(stop_point_uri).or_else(|| {
-                warn!(
-                    "The {}th arrival stop point {} is not found in model. \
-                            I ignore it.",
-                    idx, stop_point_uri
-                );
-                None
-            })?;
-
-            let stop = transit_data.stop_point_idx_to_stop(&stop_idx).or_else(|| {
-                warn!(
-                    "The {}th arrival stop point {} with idx {:?} is not found in transit_data. \
-                        I ignore it",
-                    idx, stop_point_uri, stop_idx
-                );
-                None
-            })?;
-            Some((stop, *fallback_duration))
-        })
-        .collect();
+    let result = parse_input_stops(
+        arrivals_stop_point_and_fallback_duration,
+        model,
+        transit_data,
+        "arrival",
+    );
     if result.is_empty() {
         return Err(BadRequest::NoValidArrivalStop);
     }
     Ok(result)
+}
+
+fn parse_input_stops<Data>(
+    stops_and_fallback_duration: &[(InputStop, PositiveDuration)],
+    model: &ModelRefs<'_>,
+    transit_data: &Data,
+    input_stop_type: &str,
+) -> Vec<(Data::Stop, PositiveDuration)>
+where
+    Data: DataTrait,
+{
+    let mut result = Vec::with_capacity(stops_and_fallback_duration.len());
+    for (idx, (stop, fallback_duration)) in stops_and_fallback_duration.iter().enumerate() {
+        match stop {
+            InputStop::StopPoint(stop_point_uri) => {
+                let Some(stop_idx) =  model.stop_point_idx(stop_point_uri) else {
+                    warn!(
+                        "The {idx}th {input_stop_type} : stop point {stop_point_uri} is not found in model. \
+                                I ignore it."
+                    );
+                    continue;
+                };
+                let Some(stop) = transit_data.stop_point_idx_to_stop(&stop_idx) else {
+                    warn!(
+                        "The {idx}th {input_stop_type} : stop point stop_point_uri with idx {stop_idx:?} is not found in transit_data. \
+                        I ignore it."
+                    );
+                    continue
+                };
+                result.push((stop, fallback_duration.clone()));
+            }
+            InputStop::StopArea(stop_area_uri) => {
+                if !model.contains_stop_area_id(stop_area_uri) {
+                    warn!(
+                        "The {idx}th {input_stop_type} : stop area {stop_area_uri} is not found in model. \
+                                I ignore it."
+                    );
+                    continue;
+                }
+                let stop_points_of_stop_area = model.stop_points_of_stop_area(stop_area_uri);
+                for stop_point_idx in stop_points_of_stop_area.iter() {
+                    let Some(stop) = transit_data.stop_point_idx_to_stop(&stop_point_idx) else {
+                        warn!(
+                            "The {idx}th {input_stop_type} : stop area {stop_area_uri}. \
+                            Its stop_point with idx {stop_point_idx:?} is not found in transit_data. \
+                            I ignore it"
+                        );
+                        continue
+                    };
+                    result.push((stop, fallback_duration.clone()));
+                }
+            }
+        }
+    }
+    result
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

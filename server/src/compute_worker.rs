@@ -39,6 +39,7 @@ use crate::{
     load_balancer::WorkerId,
     master_worker::DataAndModels,
     metrics,
+    navitia_proto::LocationContext,
     zmq_worker::{RequestMessage, ResponseMessage},
 };
 use anyhow::{format_err, Context, Error};
@@ -49,10 +50,14 @@ use loki_launch::{
         self,
         chrono::{Duration, Utc},
         filters::{parse_filter, Filters},
-        models::{base_model::PREFIX_ID_STOP_POINT, ModelRefs},
+        models::{
+            base_model::{PREFIX_ID_STOP_AREA, PREFIX_ID_STOP_POINT},
+            ModelRefs,
+        },
         schedule::{self, ScheduleOn, ScheduleRequestInput},
         tracing::{debug, error, info, trace, warn},
-        DataTrait, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput, TransitData,
+        DataTrait, InputStop, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput,
+        TransitData,
     },
     solver::Solver,
     timer,
@@ -234,7 +239,7 @@ impl ComputeWorker {
                 match data_and_models {
                     Some((data, base_model, real_time_model)) => {
                         let model_refs = ModelRefs::new(base_model, real_time_model);
-                        let solve_result = solve(
+                        let solve_result = solve_journeys(
                             &journey_request,
                             data,
                             &model_refs,
@@ -399,7 +404,7 @@ fn check_deadline(proto_request: &navitia_proto::Request) -> Result<(), Error> {
     Ok(())
 }
 
-fn solve(
+fn solve_journeys(
     journey_request: &navitia_proto::JourneysRequest,
     data: &TransitData,
     model: &ModelRefs<'_>,
@@ -407,75 +412,11 @@ fn solve(
     default_request_params: &config::RequestParams,
 ) -> Result<(RequestInput, Vec<loki::response::Response>), Error> {
     // println!("{:#?}", journey_request);
-    let departures_stop_point_and_fallback_duration = journey_request
-        .origin
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, location_context)| {
-            let duration = u32::try_from(location_context.access_duration)
-                .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
-                .ok()
-                .or_else(|| {
-                    warn!(
-                        "The {}th departure stop point {} has a fallback duration {} \
-                        that cannot be converted to u32. I ignore it",
-                        idx, location_context.place, location_context.access_duration
-                    );
-                    None
-                })?;
-            let stop_point_uri = location_context
-                .place
-                .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(ToString::to_string)
-                .or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point has an uri {} \
-                        that doesn't start with `stop_point:`. I ignore it",
-                        idx, location_context.place,
-                    );
-                    None
-                })?;
-            // let trimmed = location_context.place.trim_start_matches("stop_point:");
-            // let stop_point_uri = format!("StopPoint:{}", trimmed);
-            // let stop_point_uri = location_context.place.clone();
-            Some((stop_point_uri, duration))
-        })
-        .collect();
+    let departures_stop_and_fallback_duration =
+        parse_input_stop(journey_request.origin.as_slice(), "departure");
 
-    let arrivals_stop_point_and_fallback_duration = journey_request
-        .destination
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, location_context)| {
-            let duration = u32::try_from(location_context.access_duration)
-                .map(|duration_u32| PositiveDuration::from_hms(0, 0, duration_u32))
-                .ok()
-                .or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point {} has a fallback duration {}\
-                        that cannot be converted to u32. I ignore it",
-                        idx, location_context.place, location_context.access_duration
-                    );
-                    None
-                })?;
-            let stop_point_uri = location_context
-                .place
-                .strip_prefix(PREFIX_ID_STOP_POINT)
-                .map(ToString::to_string)
-                .or_else(|| {
-                    warn!(
-                        "The {}th arrival stop point has an uri {} \
-                        that doesn't start with `stop_point:`. I ignore it",
-                        idx, location_context.place,
-                    );
-                    None
-                })?;
-            // let trimmed = location_context.place.trim_start_matches("stop_point:");
-            // let stop_point_uri = format!("StopPoint:{}", trimmed);
-            // let stop_point_uri = location_context.place.clone();
-            Some((stop_point_uri, duration))
-        })
-        .collect();
+    let arrivals_stop_and_fallback_duration =
+        parse_input_stop(journey_request.destination.as_slice(), "departure");
 
     let departure_timestamp_u64 = journey_request
         .datetimes
@@ -563,8 +504,8 @@ fn solve(
 
     let request_input = RequestInput {
         datetime: departure_datetime,
-        departures_stop_point_and_fallback_duration,
-        arrivals_stop_point_and_fallback_duration,
+        departures_stop_and_fallback_duration,
+        arrivals_stop_and_fallback_duration,
         leg_arrival_penalty,
         leg_walking_penalty,
         max_nb_of_legs,
@@ -590,6 +531,40 @@ fn solve(
         debug!("{}", response.print(model)?);
     }
     Ok((request_input, responses))
+}
+
+fn parse_input_stop(
+    input_stops: &[LocationContext],
+    input_stop_type: &str,
+) -> Vec<(InputStop, PositiveDuration)> {
+    let mut result = Vec::with_capacity(input_stops.len());
+    for (idx, location_context) in input_stops.iter().enumerate() {
+        let stop_uri = &location_context.place;
+        let input_duration = &location_context.access_duration;
+        let duration = match u32::try_from(location_context.access_duration) {
+            Ok(duration_u32) => PositiveDuration::from_hms(0, 0, duration_u32),
+            Err(err) => {
+                warn!(
+                    "The {idx}th {input_stop_type} stop {stop_uri} has a fallback duration {input_duration} \
+                    that cannot be converted to u32 : {err:?}. I ignore it"
+                );
+                continue;
+            }
+        };
+        if let Some(stop_point_uri) = stop_uri.strip_prefix(PREFIX_ID_STOP_POINT) {
+            result.push((InputStop::StopPoint(stop_point_uri.to_string()), duration));
+            continue;
+        }
+        if let Some(stop_area_uri) = stop_uri.strip_prefix(PREFIX_ID_STOP_AREA) {
+            result.push((InputStop::StopArea(stop_area_uri.to_string()), duration));
+            continue;
+        }
+        warn!(
+            "The {idx}th {input_stop_type} stop has an uri{stop_uri} that does not start \
+            with {PREFIX_ID_STOP_POINT} nor {PREFIX_ID_STOP_AREA}. I ignore it"
+        );
+    }
+    result
 }
 
 fn make_proto_response(

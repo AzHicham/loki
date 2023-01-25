@@ -35,7 +35,8 @@
 // www.navitia.io
 
 use loki::{
-    models::base_model::BaseModel, NaiveDateTime, PositiveDuration, RealTimeLevel, RequestInput,
+    models::base_model::BaseModel, InputStop, NaiveDateTime, PositiveDuration, RealTimeLevel,
+    RequestInput,
 };
 
 use crate::config::RequestParams;
@@ -47,15 +48,15 @@ pub fn make_query_stop_areas(
     to_stop_area: &str,
     request_params: &RequestParams,
 ) -> Result<RequestInput, UnknownStopArea> {
-    let departures_stop_point_and_fallback_duration =
+    let departures_stop_and_fallback_duration =
         stops_of_stop_area(base_model, from_stop_area, PositiveDuration::zero())?;
-    let arrivals_stop_point_and_fallback_duration =
+    let arrivals_stop_and_fallback_duration =
         stops_of_stop_area(base_model, to_stop_area, PositiveDuration::zero())?;
 
     let request_input = RequestInput {
         datetime: *datetime,
-        departures_stop_point_and_fallback_duration,
-        arrivals_stop_point_and_fallback_duration,
+        departures_stop_and_fallback_duration,
+        arrivals_stop_and_fallback_duration,
         leg_arrival_penalty: request_params.leg_arrival_penalty,
         leg_walking_penalty: request_params.leg_walking_penalty,
         max_nb_of_legs: request_params.max_nb_of_legs,
@@ -71,13 +72,16 @@ pub fn stops_of_stop_area(
     base_model: &BaseModel,
     stop_area_uri: &str,
     duration_to_stops: PositiveDuration,
-) -> Result<Vec<(String, PositiveDuration)>, UnknownStopArea> {
+) -> Result<Vec<(InputStop, PositiveDuration)>, UnknownStopArea> {
     let mut result = Vec::new();
     for stop_idx in base_model.stop_points() {
         let stop_area_name = base_model.stop_area_id(stop_idx);
         let stop_name = base_model.stop_point_name(stop_idx);
         if stop_area_name == stop_area_uri {
-            result.push((stop_name.to_string(), duration_to_stops));
+            result.push((
+                InputStop::StopArea(stop_name.to_string()),
+                duration_to_stops,
+            ));
         }
     }
 
