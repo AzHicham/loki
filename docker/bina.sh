@@ -232,6 +232,8 @@ zmq_socket = tcp://*:${krakenPort}
     type = 'local'
     input_data_path = '/data/${inputType}/'
     occupancy_data_path = '/data/stoptimes_occupancy.csv'
+    [rabbitmq]
+    connect_retry_interval = '01:00:00'
 """ > ${output}/${coverage}/loki_config.toml
 
 
