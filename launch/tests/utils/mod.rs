@@ -42,7 +42,7 @@ use loki::{
     chrono::TimeZone,
     filters::{parse_filter, Filters},
     models::ModelRefs,
-    RealTimeLevel,
+    InputStop, RealTimeLevel,
 };
 use loki_launch::{
     config,
@@ -120,12 +120,12 @@ pub fn make_request_from_config(config: &Config) -> RequestInput {
 
     RequestInput {
         datetime,
-        departures_stop_point_and_fallback_duration: vec![(
-            start_stop_point_uri.clone(),
+        departures_stop_and_fallback_duration: vec![(
+            InputStop::StopPoint(start_stop_point_uri.clone()),
             PositiveDuration::zero(),
         )],
-        arrivals_stop_point_and_fallback_duration: vec![(
-            end_stop_point_uri.clone(),
+        arrivals_stop_and_fallback_duration: vec![(
+            InputStop::StopPoint(end_stop_point_uri.clone()),
             PositiveDuration::zero(),
         )],
         leg_arrival_penalty: config.request_params.leg_arrival_penalty,

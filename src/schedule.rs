@@ -105,7 +105,7 @@ where
             Filter::Stop(StopFilter::StopPoint(id)) => model
                 .stop_point_idx(id)
                 .map_or_else(Vec::new, |idx| vec![idx]),
-            Filter::Stop(StopFilter::StopArea(id)) => model.stop_points_of_stop_area(id),
+            Filter::Stop(StopFilter::StopArea(id)) => model.stop_points_of_stop_area(id).collect(),
             Filter::Vehicle(VehicleFilter::Line(id)) => model.stop_points_of_line(id),
             Filter::Vehicle(VehicleFilter::Route(id)) => model.stop_points_of_route(id),
             Filter::Vehicle(VehicleFilter::Network(id)) => model.stop_points_of_network(id),

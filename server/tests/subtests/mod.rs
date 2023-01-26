@@ -29,6 +29,7 @@
 
 pub mod chaos_test;
 pub mod http_test;
+pub mod journeys_test;
 pub mod places_nearby_test;
 pub mod realtime_test;
 pub mod reload_test;

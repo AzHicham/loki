@@ -65,8 +65,8 @@ pub use occupancy_data::OccupancyData;
 pub use transit_data::TransitData;
 
 pub use engine::engine_interface::{
-    BadRequest, Request as RequestTrait, RequestDebug, RequestIO, RequestInput, RequestTypes,
-    RequestWithIters,
+    BadRequest, InputStop, Request as RequestTrait, RequestDebug, RequestIO, RequestInput,
+    RequestTypes, RequestWithIters,
 };
 
 pub use engine::multicriteria_raptor::MultiCriteriaRaptor;

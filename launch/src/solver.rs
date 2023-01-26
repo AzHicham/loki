@@ -170,11 +170,11 @@ where
 
     trace!(
         "departures {:#?}",
-        request_input.departures_stop_point_and_fallback_duration
+        request_input.departures_stop_and_fallback_duration
     );
     trace!(
         "arrivals {:#?}",
-        request_input.arrivals_stop_point_and_fallback_duration
+        request_input.arrivals_stop_and_fallback_duration
     );
     debug!("datetime : {}", request_input.datetime);
     debug!("datetime_represents : {}", datetime_represent);

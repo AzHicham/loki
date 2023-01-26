@@ -112,6 +112,9 @@ async fn run() {
     subtests::http_test::status_test(&config.http).await;
     subtests::http_test::metrics_test(&config.http).await;
 
+    subtests::journeys_test::massy_to_paris(&config).await;
+    subtests::journeys_test::massy_to_paris_stop_area(&config).await;
+
     subtests::realtime_test::remove_add_modify_base_vj_test(&config).await;
     subtests::realtime_test::remove_add_modify_new_vj_test(&config).await;
 

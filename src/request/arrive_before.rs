@@ -84,13 +84,13 @@ where
         )?;
 
         let departures = super::generic_request::parse_departures(
-            &request_input.departures_stop_point_and_fallback_duration,
+            &request_input.departures_stop_and_fallback_duration,
             model,
             transit_data,
         )?;
 
         let arrivals: Vec<_> = super::generic_request::parse_arrivals(
-            &request_input.arrivals_stop_point_and_fallback_duration,
+            &request_input.arrivals_stop_and_fallback_duration,
             model,
             transit_data,
         )?;

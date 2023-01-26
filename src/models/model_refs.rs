@@ -376,12 +376,14 @@ impl<'model> ModelRefs<'model> {
             .collect()
     }
 
-    pub fn stop_points_of_stop_area(&self, stop_area_id: &str) -> Vec<StopPointIdx> {
+    pub fn stop_points_of_stop_area(
+        &self,
+        stop_area_id: &str,
+    ) -> impl Iterator<Item = StopPointIdx> {
         self.base
             .stop_points_of_stop_area(stop_area_id)
             .into_iter()
             .map(StopPointIdx::Base)
-            .collect()
     }
 
     pub fn stop_points_of_route(&self, route_id: &str) -> Vec<StopPointIdx> {

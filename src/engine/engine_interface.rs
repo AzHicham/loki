@@ -243,10 +243,16 @@ pub trait RequestIters<'a>: RequestTypes {
 }
 
 #[derive(Debug, Clone)]
+pub enum InputStop {
+    StopPoint(String),
+    StopArea(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct RequestInput {
     pub datetime: NaiveDateTime,
-    pub departures_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
-    pub arrivals_stop_point_and_fallback_duration: Vec<(String, PositiveDuration)>,
+    pub departures_stop_and_fallback_duration: Vec<(InputStop, PositiveDuration)>,
+    pub arrivals_stop_and_fallback_duration: Vec<(InputStop, PositiveDuration)>,
     pub leg_arrival_penalty: PositiveDuration,
     pub leg_walking_penalty: PositiveDuration,
     pub max_nb_of_legs: u8,
