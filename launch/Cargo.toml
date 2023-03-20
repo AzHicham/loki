@@ -14,7 +14,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 
 [dev-dependencies]
-rstest = "0.12"
+rstest = "0.17"
 
 [features]
 # enable the vehicle_loads feature on the loki lib
